@@ -537,7 +537,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 
-    objects_with_relations = [object()]
+    objects_with_relations = [SimpleNamespace(name="object")]
     background_collision = object()
     calls = {}
 
@@ -548,18 +548,24 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
             return objects_with_relations
 
     def fake_solve_and_apply_relation_placement(
-        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+        objects,
+        num_envs,
+        placer_params,
+        collision_objects=None,
+        scene_assets=None,
+        scene_entity_names=None,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
         calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
+        calls["scene_entity_names"] = scene_entity_names
         return "placement_event"
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params, embodiment=None)
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=placer_params)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
     builder._solve_relations()
@@ -569,6 +575,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     assert calls["placer_params"] is placer_params
     assert calls["scene_assets"] == [background_collision]
     assert calls["collision_objects"] is None
+    assert calls["scene_entity_names"]["object"] == "object"
     assert builder._placement_event_cfg == "placement_event"
 
 
@@ -589,14 +596,20 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
             return []
 
     def fake_solve_and_apply_relation_placement(
-        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+        objects,
+        num_envs,
+        placer_params,
+        collision_objects=None,
+        scene_assets=None,
+        scene_entity_names=None,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
+        calls["scene_entity_names"] = scene_entity_names
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=None, embodiment=None)
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=None)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
     builder._solve_relations()
@@ -604,6 +617,45 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     assert calls["objects"] == []
     assert calls["scene_assets"] == []
     assert calls["collision_objects"] is None
+    assert calls["scene_entity_names"] == {}
+
+
+def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    calls = {}
+
+    class Scene:
+        assets = {}
+
+        def get_objects_with_relations(self):
+            return []
+
+    class Embodiment:
+        name = "droid"
+
+        def get_relations(self):
+            return [object()]
+
+        def get_embodiment_name_in_scene(self):
+            return "robot"
+
+    def fake_solve_and_apply_relation_placement(*args, **kwargs):
+        calls.update(kwargs)
+        calls["objects"] = args[0]
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    embodiment = Embodiment()
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None)
+
+    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
+
+    assert calls["objects"] == [embodiment]
+    assert calls["scene_entity_names"] == {"droid": "robot"}
 
 
 def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):
