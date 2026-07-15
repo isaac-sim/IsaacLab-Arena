@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import sys
 import yaml
 from pathlib import Path
@@ -108,7 +109,7 @@ class TestMermaidHtml:
     def test_render_mermaid_html_includes_syntax_and_initialize(self, valid_spec: ArenaEnvGraphSpec):
         html = render_mermaid_html(valid_spec)
         assert "mermaid.initialize" in html
-        assert render_mermaid_graph(valid_spec) in html
+        assert html_lib.escape(render_mermaid_graph(valid_spec)) in html
 
     def test_estimate_mermaid_height_px_scales_with_nodes(self, valid_spec: ArenaEnvGraphSpec):
         height = estimate_mermaid_height_px(valid_spec)
