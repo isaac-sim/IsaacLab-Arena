@@ -84,8 +84,9 @@ uv sync
 # 3. Accept the Isaac Sim EULA
 export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
 
-# 4. Verify the installation
-uv run pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+# 4. Verify the installation with a short zero-action rollout
+uv run python isaaclab_arena/evaluation/policy_runner.py \
+  --headless --policy_type zero_action --num_steps 20 cube_goal_pose
 ```
 
 **Source install inside Docker:**
@@ -103,8 +104,9 @@ git submodule update --init --recursive
 #    Or with GR00T dependencies (for policy training/evaluation):
 ./docker/run_docker.sh -g
 
-# 3. Verify the installation
-/isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+# 3. Verify the installation with a short zero-action rollout
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+  --headless --policy_type zero_action --num_steps 20 cube_goal_pose
 ```
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.

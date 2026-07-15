@@ -35,17 +35,10 @@ dev = [
     "streamlit-ace>=0.1.1",
 ]
 
-# PEP 735 dependency group. `uv sync` installs the default groups automatically
-# (so the new-user UX stays `git clone && uv sync && uv run pytest ...` with no
-# flags), but pip's `pip install -e .[dev]` path -- which the Docker build uses --
-# does NOT read PEP 735 groups. This is the load-bearing reason these pins live
-# here and NOT in [project.dependencies]: the Docker image installs IsaacLab from
-# the beta-2 submodule (reporting its internal extension version, editable,
-# --no-deps) and Isaac Sim from
-# the base image; resolving `isaaclab==3.0.0b2` against that editable install
-# would force pip to download the public wheel + Isaac Sim (~20 GB) and corrupt
-# the staged, ABI-sensitive Newton/MuJoCo setup. Keeping the public wheels in a
-# dependency group provides the native uv install without touching docker/.
+# PEP 735 dependency group for the native uv install: the sim wheels the Docker
+# build does not want. `uv sync` installs these by default, but pip (used by the
+# Docker build) ignores PEP 735 groups -- so Docker keeps getting Isaac Lab and
+# Isaac Sim from its base image and submodule, undisturbed by these pins.
 [dependency-groups]
 isaacsim = [
     "isaaclab[isaacsim,all]==3.0.0b2",
@@ -57,7 +50,9 @@ isaacsim = [
     # Pin the torch stack as direct deps so [tool.uv.sources] routes them to the
     # right CUDA index (cu128 on x86_64 / cu130 on aarch64). As transitive-only
     # deps the source mapping does not apply and torch resolves to PyPI's default
-    # build. Versions match isaacsim-core's exact requirements.
+    # build. Versions are forced by isaacsim-core==6.0.0.1 (via the beta-2 wheel),
+    # which hard-pins torchvision==0.26.0 -- uv's resolver enforces this, so a
+    # mismatch fails `uv lock` outright.
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
@@ -80,16 +75,10 @@ index-strategy = "first-index"
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
 override-dependencies = ["numpy==2.3.1"]
-# Known upstream limitation (deliberately NOT worked around): isaacsim-kernel
-# 6.0.0.1 also hard-pins coverage==7.4.4, but every numba that supports numpy
-# 2.3.1 (>=0.62) subclasses coverage.types.Tracer, which needs coverage>=7.6 --
-# so `import numba` fails here. We do not override coverage to 7.6.x: that would
-# re-introduce the metadata inconsistency uv pip check catches and could break
-# untested Isaac Sim code. Arena never imports numba (it is only a transitive dep
-# of the isaaclab wheel); native in-process smoke tests, whole-suite collection,
-# and sensitivity analysis all work without it. numba-backed *upstream* Isaac
-# Lab functionality is outside the validated native-uv scope -- use Docker for
-# that.
+# Not worked around: isaacsim-kernel 6.0.0.1 hard-pins coverage==7.4.4, but numba
+# >=0.62 (required for numpy 2.3.1) needs coverage>=7.6, so `import numba` fails.
+# Arena never imports numba (only a transitive isaaclab dep); numba-backed upstream
+# Isaac Lab functionality is outside the native-uv scope -- use Docker for that.
 # Constrain transitive deps that isaaclab / isaacsim declare too broadly:
 #   * pin-pink: isaaclab's pink IK controller calls
 #     `DampingTask.set_target_from_configuration`, which pink dropped in 3.4.0.
@@ -153,7 +142,7 @@ namespaces = false
 
 [tool.isort]
 
-py_version = 310
+py_version = 312
 line_length = 120
 group_by_package = true
 
