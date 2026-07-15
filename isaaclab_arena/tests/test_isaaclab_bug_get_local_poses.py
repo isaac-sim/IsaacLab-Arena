@@ -38,7 +38,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
 
     arena_env = IsaacLabArenaEnvironment(
         name="test_isaac_lab_bug_local_poses",
-        embodiment=FrankaIKEmbodiment(enable_cameras=True, camera_offset=TEST_CAMERA_OFFSET),
+        embodiment=FrankaIKEmbodiment(enable_cameras=True),
         scene=Scene(),
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])

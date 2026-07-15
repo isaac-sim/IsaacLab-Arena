@@ -7,18 +7,63 @@ import inspect
 import numpy as np
 from contextlib import suppress
 from dataclasses import fields, is_dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from isaaclab.envs import mdp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import PoseRange
+
+
+class ArenaCameraCfg:
+    """Parent class for camera configs in Arena.
+
+    CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
+    then returns the rig un-tiled, or a tiled copy dependent on the value of ``use_tiled_camera``.
+    """
+
+    # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
+    _use_tiled_camera: ClassVar[bool] = True
+
+    @property
+    def use_tiled_camera(self) -> bool:
+        """Whether :meth:`get_cfg` returns tiled cameras."""
+        return self._use_tiled_camera
+
+    @use_tiled_camera.setter
+    def use_tiled_camera(self, use_tiled_camera: bool) -> None:
+        self._use_tiled_camera = use_tiled_camera
+
+    def get_cfg(self) -> Any:
+        """Return the tiled or un-tiled version of the CameraCfg.
+
+        A copy is returned so callers may freely combine or mutate it without affecting this instance.
+        """
+        if self._use_tiled_camera:
+            return self._tiled_rig()
+        return self.copy()
+
+    def _tiled_rig(self) -> Any:
+        """Return a copy of this rig with every untiled CameraCfg field converted to tiled."""
+        tiled = self.copy()
+        for f in fields(tiled):
+            value = getattr(tiled, f.name)
+            if isinstance(value, CameraCfg) and not isinstance(value, TiledCameraCfg):
+                setattr(tiled, f.name, self._as_tiled_camera_cfg(value))
+        return tiled
+
+    def _as_tiled_camera_cfg(self, camera_cfg: CameraCfg) -> TiledCameraCfg:
+        """Return a TiledCameraCfg mirroring the settings of an untiled CameraCfg."""
+        init_fields = {
+            f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
+        }
+        return TiledCameraCfg(**init_fields)
 
 
 def make_camera_observation_cfg(
