@@ -8,7 +8,6 @@ from __future__ import annotations
 import streamlit as st
 
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import AssetCard
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.visualization_widgets import (
     render_visualization_widgets,
 )
