@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,17 +15,16 @@ import omni.usd
 from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
-from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_assets_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
-    ObjectReferenceUsdTarget,
     absolute_prim_path,
     object_reference_cache_key,
     resolve_aabb_dimensions_m,
-    resolve_object_reference_usd_targets,
+    resolve_node_usd_paths,
+    usd_cache_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
@@ -44,119 +42,77 @@ class _UsdSnapshotJob:
     usd_path: str
     viewer_cfg: object | None = None
     asset_captures: list[tuple[str, Path]] = field(default_factory=list)
-    ref_captures: list[tuple[str, ObjectReferenceUsdTarget, Path]] = field(default_factory=list)
+    ref_captures: list[tuple[str, str, Path]] = field(default_factory=list)
 
 
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     assets_by_node_id = _instantiate_assets_from_spec(spec, AssetRegistry())
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
-    asset_paths = _resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
-    reference_targets = resolve_object_reference_usd_targets(spec.object_references, asset_paths)
-    background_viewer = _background_viewer_cfg(assets_by_node_id[spec.background.id])
-    if not asset_paths and not reference_targets:
-        print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
-        return {}, {}
+    asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
+    background_viewer_cfg = getattr(assets_by_node_id[spec.background.id], "get_viewer_cfg", None)
 
     cache_dir = thumbnail_cache_dir()
 
-    resolved: dict[str, Path] = {}
-    to_render: dict[str, tuple[str, Path, object | None]] = {}
+    thumbnail_paths: dict[str, Path] = {}
+    jobs_by_usd: dict[str, _UsdSnapshotJob] = {}
+    asset_render_count = 0
+    ref_render_count = 0
     for node_id, usd_path in asset_paths.items():
-        cache_path = cache_dir / f"{_usd_cache_key(usd_path)}.png"
+        cache_path = cache_dir / f"{usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
-            resolved[node_id] = cache_path
+            thumbnail_paths[node_id] = cache_path
         else:
-            viewer_cfg = background_viewer if node_id == spec.background.id else None
-            to_render[node_id] = (usd_path, cache_path, viewer_cfg)
+            job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
+            if node_id == spec.background.id and background_viewer_cfg:
+                job.viewer_cfg = background_viewer_cfg()
+            job.asset_captures.append((node_id, cache_path))
+            asset_render_count += 1
 
-    reference_to_render: dict[str, tuple[ObjectReferenceUsdTarget, Path]] = {}
-    for node_id, target in reference_targets.items():
-        cache_path = cache_dir / f"{object_reference_cache_key(target.usd_path, target.relative_prim_path)}.png"
+    for ref in spec.object_references or []:
+        if ref.prim_path is None:
+            continue
+        usd_path = asset_paths.get(ref.parent_id)
+        if not usd_path:
+            continue
+        relative_prim_path = ref.prim_path.lstrip("/")
+        cache_path = cache_dir / f"{object_reference_cache_key(usd_path, relative_prim_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
-            resolved[node_id] = cache_path
+            thumbnail_paths[ref.id] = cache_path
         else:
-            reference_to_render[node_id] = (target, cache_path)
+            job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
+            if ref.parent_id == spec.background.id and background_viewer_cfg:
+                job.viewer_cfg = background_viewer_cfg()
+            job.ref_captures.append((ref.id, relative_prim_path, cache_path))
+            ref_render_count += 1
 
-    if to_render or reference_to_render:
+    jobs = list(jobs_by_usd.values())
+    if not asset_paths and not jobs and not thumbnail_paths:
+        print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
+        return {}, {}
+
+    if jobs:
         print(
-            f"[thumbnail_capture] rendering {len(to_render)} asset and "
-            f"{len(reference_to_render)} object_reference thumbnail(s) "
-            f"(reusing {len(resolved)} from cache)...",
+            f"[thumbnail_capture] rendering {asset_render_count} asset and "
+            f"{ref_render_count} object_reference thumbnail(s) "
+            f"(reusing {len(thumbnail_paths)} from cache)...",
             file=sys.stderr,
         )
-        jobs = _build_usd_snapshot_jobs(assets_by_node_id, to_render, reference_to_render)
         captured = _capture_usd_snapshot_jobs(app, jobs)
         for node_id, cache_path in [
-            *((nid, cp) for nid, (_usd, cp, _cfg) in to_render.items()),
-            *((nid, cp) for nid, (_tgt, cp) in reference_to_render.items()),
+            *((nid, cp) for job in jobs for nid, cp in job.asset_captures),
+            *((nid, cp) for job in jobs for nid, _rel, cp in job.ref_captures),
         ]:
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
-                resolved[node_id] = cache_path
+                thumbnail_paths[node_id] = cache_path
     else:
-        print(f"[thumbnail_capture] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
+        print(f"[thumbnail_capture] all {len(thumbnail_paths)} thumbnail(s) served from cache.", file=sys.stderr)
 
     aabb_dimensions_m = resolve_aabb_dimensions_m(assets_by_node_id)
-    return resolved, aabb_dimensions_m
+    return thumbnail_paths, aabb_dimensions_m
 
 
-# Spec resolution — materialize graph assets and look up USD paths / viewer cfg.
-
-
-def _resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[str]) -> dict[str, str]:
-    """Map each requested ``node_id`` to its ``usd_path``, skipping assets without one."""
-    paths: dict[str, str] = {}
-    for node_id in node_ids:
-        usd_path = getattr(assets_by_node_id[node_id], "usd_path", None)
-        if usd_path:
-            paths[node_id] = usd_path
-    return paths
-
-
-def _background_viewer_cfg(asset: object) -> object | None:
-    """Return a custom :class:`ViewerCfg` for snapshot rendering, or ``None`` to auto-frame."""
-    from isaaclab.envs.common import ViewerCfg
-
-    get_viewer_cfg = getattr(asset, "get_viewer_cfg", None)
-    if get_viewer_cfg is None:
-        return None
-    viewer_cfg = get_viewer_cfg()
-    default = ViewerCfg()
-    if viewer_cfg.eye == default.eye and viewer_cfg.lookat == default.lookat:
-        return None
-    return viewer_cfg
-
-
-def _usd_cache_key(usd_path: str) -> str:
-    """Return a stable short hash for caching thumbnails keyed by USD path."""
-    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
-
-
-# Capture orchestration — group work by parent USD, open each stage once, write PNGs.
-
-
-def _build_usd_snapshot_jobs(
-    assets_by_node_id: dict[str, object],
-    to_render: dict[str, tuple[str, Path, object | None]],
-    reference_to_render: dict[str, tuple[ObjectReferenceUsdTarget, Path]],
-) -> list[_UsdSnapshotJob]:
-    """Group asset and object_reference captures by parent USD path."""
-    jobs_by_usd: dict[str, _UsdSnapshotJob] = {}
-
-    for node_id, (usd_path, cache_path, viewer_cfg) in to_render.items():
-        job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
-        if viewer_cfg is not None:
-            job.viewer_cfg = viewer_cfg
-        job.asset_captures.append((node_id, cache_path))
-
-    for node_id, (target, cache_path) in reference_to_render.items():
-        job = jobs_by_usd.setdefault(target.usd_path, _UsdSnapshotJob(usd_path=target.usd_path))
-        job.ref_captures.append((node_id, target, cache_path))
-        ref = assets_by_node_id.get(node_id)
-        if isinstance(ref, ObjectReference) and job.viewer_cfg is None:
-            job.viewer_cfg = _background_viewer_cfg(ref.parent_asset)
-
-    return list(jobs_by_usd.values())
+# Capture orchestration — open each queued USD stage once and write PNGs.
 
 
 def _capture_usd_snapshot_jobs(app, jobs: list[_UsdSnapshotJob]) -> dict[str, bytes]:
@@ -200,8 +156,8 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
             _apply_viewer_cfg(app, job.viewer_cfg)
         _set_collision_mesh_visualization(enabled=True)
         try:
-            for node_id, target, cache_path in job.ref_captures:
-                root_path = absolute_prim_path(stage, target.relative_prim_path)
+            for node_id, relative_prim_path, cache_path in job.ref_captures:
+                root_path = absolute_prim_path(stage, relative_prim_path)
                 # Selecting the subtree root is enough; Kit shows colliders for all prims below it.
                 omni.usd.get_context().get_selection().set_selected_prim_paths([root_path], True)
                 pump_app(app, count=PRE_CAPTURE_UPDATES)
@@ -217,7 +173,7 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
                     out[node_id] = png_bytes
                 else:
                     print(
-                        f"[thumbnail_capture]   capture produced no file for {target.relative_prim_path}: {cache_path}",
+                        f"[thumbnail_capture]   capture produced no file for {relative_prim_path}: {cache_path}",
                         file=sys.stderr,
                     )
         finally:

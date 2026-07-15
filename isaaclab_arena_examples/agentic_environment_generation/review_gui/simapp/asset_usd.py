@@ -9,27 +9,12 @@ from __future__ import annotations
 
 import hashlib
 import sys
-from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 
 AabbDimensionsM = tuple[float, float, float]
-
-
-@dataclass(frozen=True)
-class ObjectReferenceUsdTarget:
-    """Parent USD plus a default-prim-relative suffix for an object_reference snapshot."""
-
-    usd_path: str
-    relative_prim_path: str
-
-
-def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
-    """Return a stable cache key for an object_reference subtree snapshot."""
-    return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
 
 
 def aabb_dimensions_from_asset(asset: Any) -> AabbDimensionsM | None:
@@ -56,23 +41,24 @@ def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, Aa
     return dimensions
 
 
-def resolve_object_reference_usd_targets(
-    object_references: list[ObjectReferenceSpec] | None,
-    parent_usd_paths: dict[str, str],
-) -> dict[str, ObjectReferenceUsdTarget]:
-    """Map each resolved object_reference id to its parent USD and default-prim-relative prim suffix."""
-    targets: dict[str, ObjectReferenceUsdTarget] = {}
-    for ref in object_references or []:
-        if ref.prim_path is None:
-            continue
-        usd_path = parent_usd_paths.get(ref.parent_id)
-        if not usd_path:
-            continue
-        targets[ref.id] = ObjectReferenceUsdTarget(
-            usd_path=usd_path,
-            relative_prim_path=ref.prim_path.lstrip("/"),
-        )
-    return targets
+def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[str]) -> dict[str, str]:
+    """Map each requested ``node_id`` to its ``usd_path``, skipping assets without one."""
+    paths: dict[str, str] = {}
+    for node_id in node_ids:
+        usd_path = getattr(assets_by_node_id[node_id], "usd_path", None)
+        if usd_path:
+            paths[node_id] = usd_path
+    return paths
+
+
+def usd_cache_key(usd_path: str) -> str:
+    """Return a stable short hash for caching thumbnails keyed by USD path."""
+    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+
+
+def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
+    """Return a stable cache key for an object_reference subtree snapshot."""
+    return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
 
 
 def absolute_prim_path(stage, relative_suffix: str) -> str:
