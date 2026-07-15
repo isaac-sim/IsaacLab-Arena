@@ -21,6 +21,9 @@ RANDOMIZATION_HALF_RANGE_X_M = 0.03
 RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
 
+# The GR1 embodiments that are compatible with this environment.
+GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
+
 
 @dataclass
 class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
@@ -117,6 +120,9 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
                     setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
+        assert (
+            cfg.embodiment in GR1_EMBODIMENTS
+        ), f"{self.name} only supports GR1 embodiments {GR1_EMBODIMENTS}, got '{cfg.embodiment}'."
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
             pos=camera_offset.position_xyz,

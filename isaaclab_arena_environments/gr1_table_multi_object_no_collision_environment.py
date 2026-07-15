@@ -84,6 +84,9 @@ HETERO_FIXED_OBJECTS = [
     ("lime01_fruits_veggies_robolab", 0.5, 0.15),
 ]
 
+# The GR1 embodiments that are compatible with this environment.
+GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
+
 
 @dataclass
 class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
@@ -130,6 +133,9 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
             position_xyz=(0.12515, 0.0, 0.06776),
             rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
+        assert (
+            cfg.embodiment in GR1_EMBODIMENTS
+        ), f"{self.name} only supports GR1 embodiments {GR1_EMBODIMENTS}, got '{cfg.embodiment}'."
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
             pos=camera_offset.position_xyz,

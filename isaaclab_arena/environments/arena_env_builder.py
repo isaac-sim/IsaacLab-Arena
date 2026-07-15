@@ -147,11 +147,8 @@ class ArenaEnvBuilder:
     def _apply_build_time_variations(self) -> None:
         """Apply every enabled variation's build-time effects before ``scene_cfg`` is materialised.
 
-        Calls ``apply_build_time_effects`` on each enabled variation regardless of type: a
-        :class:`BuildTimeVariationBase` realises its whole effect there (e.g. a dome light's
-        spawner texture), while a run-time variation uses it for build-time preconditions (e.g.
-        forcing its camera untiled). These mutate asset configs in place, so this must run before
-        the scene is materialised.
+        These mutate asset configs in place (e.g. a dome light's spawner
+        texture), so this must run before ``scene_cfg`` is materialised.
         """
         for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
