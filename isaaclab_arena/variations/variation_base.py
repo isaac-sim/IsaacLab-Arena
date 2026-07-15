@@ -94,10 +94,9 @@ class VariationBase(ABC):
     def apply_build_time_effects(self) -> None:
         """Sample and mutate the bound asset config(s) in place before the scene is materialised.
 
-        Called once per env build for every enabled variation, regardless of type. Default:
-        no-op. A :class:`BuildTimeVariationBase` realises its whole effect here; a run-time
-        variation overrides this only when it needs a build-time precondition (e.g. forcing a
-        camera untiled so per-env run-time edits take effect).
+        Called once per env build for every enabled variation. Default:
+        no-op. A ``BuildTimeVariationBase`` realises its whole effect here; a run-time
+        variation overrides this only when it needs a build-time precondition.
         """
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
@@ -138,7 +137,7 @@ class BuildTimeVariationBase(VariationBase):
 
     Use for properties that can't change in-flight: HDR maps, USD swaps,
     spawner params baked into a config. Subclasses hold references to the
-    asset(s) they mutate and realise the effect in :meth:`apply_build_time_effects`.
+    asset(s) they mutate and realise the effect in ``apply_build_time_effects``.
     """
 
     @abstractmethod
