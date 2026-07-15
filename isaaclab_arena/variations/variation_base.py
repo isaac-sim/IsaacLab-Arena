@@ -92,7 +92,7 @@ class VariationBase(ABC):
             self._sampler.add_listener(listener)
 
     def apply_build_time_effects(self) -> None:
-        """Sample and mutate the bound asset config(s) in place before the scene is materialised.
+        """Sample and mutate the bound assets in place in the ArenaEnvBuilder before the environment cfg is composed.
 
         Called once per env build for every enabled variation. Default:
         no-op. A ``BuildTimeVariationBase`` realises its whole effect here; a run-time
