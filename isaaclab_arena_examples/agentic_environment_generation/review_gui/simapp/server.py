@@ -18,7 +18,7 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import launch_simulation_app
 
 
@@ -85,7 +85,7 @@ def _serve_socket(socket_path: str) -> int:
         print("[simapp] SimulationApp launch returned None", file=sys.stderr)
         return 1
 
-    # Kit/Omniverse and pxr (via asset_usd) must load only after SimulationApp starts.
+    # Kit/Omniverse and pxr must load only after SimulationApp starts.
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
         render_thumbnails_with_app,
     )

@@ -20,7 +20,7 @@ from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
-# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this adapter when eval_runner loads typed YAML
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this adapter when experiment_runner loads typed YAML
 # experiment files directly. The current JSON format identifies environments and policies
 # by name and mixes environment-specific and builder values in ``arena_env_args``.
 # This module resolves those names, separates the values into their concrete typed
@@ -62,6 +62,7 @@ def _run_cfg_from_legacy_job(
 ) -> ArenaRunCfg:
     """Create one typed run config from a legacy job mapping."""
     assert isinstance(job_config, dict), "each legacy job must be a mapping"
+    assert "status" not in job_config, "legacy job status is runtime state and cannot configure a typed run"
     for required_field in ("name", "arena_env_args", "policy_type"):
         assert required_field in job_config, f"{required_field} is required"
 

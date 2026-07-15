@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
+# TODO(cvolk, 2026-07-08): Move variation composition under isaaclab_arena.hydra without changing behavior.
+
+
 def overrides_from_dict(values: dict[str, Any]) -> list[str]:
     """Serialize nested variation values as dotted Hydra override strings."""
     overrides: list[str] = []

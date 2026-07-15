@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec`."""
+"""Unit tests for :class:`~isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec`."""
 
 from pathlib import Path
 
@@ -12,8 +12,8 @@ from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -29,7 +29,8 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert len(spec.objects) == 3
     assert len(spec.object_references) == 1
     assert len(spec.relations) == 6
-    assert len(spec.tasks) == 2
+    assert len(spec.task.subtasks) == 2
+    assert spec.task.composition is TaskCompositionType.SEQUENTIAL
 
     table = spec.object_references[0]
     assert table.id == "maple_table_robolab_table"
@@ -40,13 +41,13 @@ def test_graph_spec_loads_pick_and_place_yaml():
     mug = next(obj for obj in spec.objects if obj.id == "mug_ycb_robolab")
     assert mug.registry_name == "mug_ycb_robolab"
 
-    task = spec.tasks[0]
+    task = spec.task.subtasks[0]
     assert task.kind == "PickAndPlaceTask"
     assert TaskRegistry().is_registered(task.kind)
     assert task.params["pick_up_object"] == "rubiks_cube_hot3d_robolab"
     assert task.params["destination_location"] == "bowl_ycb_robolab"
 
-    second_task = spec.tasks[1]
+    second_task = spec.task.subtasks[1]
     assert second_task.kind == "PickAndPlaceTask"
     assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
@@ -187,7 +188,7 @@ def test_graph_spec_rejects_invalid_data():
         ),
         (
             "unknown task kind",
-            lambda data: data["tasks"][0].update({"kind": "UnknownTask"}),
+            lambda data: data["task"]["subtasks"][0].update({"kind": "UnknownTask"}),
             "Unknown task kind 'UnknownTask'",
         ),
         (
@@ -199,6 +200,26 @@ def test_graph_spec_rejects_invalid_data():
             "unknown registry name",
             lambda data: data["objects"][0].update({"registry_name": "not_a_real_asset"}),
             "Unknown asset registry_name",
+        ),
+        (
+            "atomic composition with two subtasks",
+            lambda data: (
+                data["task"].update({"composition": "atomic"}),
+                data["task"]["subtasks"].append({
+                    "kind": "PickAndPlaceTask",
+                    "params": {
+                        "pick_up_object": "cube",
+                        "destination_location": "background",
+                        "background_scene": "background",
+                    },
+                }),
+            ),
+            "composition 'atomic' requires exactly one atomic task",
+        ),
+        (
+            "parallel composition with one subtask",
+            lambda data: data["task"].update({"composition": "parallel"}),
+            "composition 'parallel' requires at least two atomic tasks",
         ),
     ]
 
@@ -237,15 +258,18 @@ def _minimal_env_graph_data():
             "object_type": "rigid",
         }],
         "relations": [{"kind": "is_anchor", "subject": "table"}],
-        "tasks": [{
-            "kind": "PickAndPlaceTask",
-            "params": {
-                "pick_up_object": "cube",
-                "destination_location": "cube",
-                "background_scene": "background",
-            },
+        "task": {
+            "composition": "atomic",
             "description": "pick up the cube",
-        }],
+            "subtasks": [{
+                "kind": "PickAndPlaceTask",
+                "params": {
+                    "pick_up_object": "cube",
+                    "destination_location": "cube",
+                    "background_scene": "background",
+                },
+            }],
+        },
     }
 
 
@@ -253,7 +277,7 @@ def test_graph_spec_accepts_missing_optional_fields():
     data = _minimal_env_graph_data()
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
-    data["tasks"][0]["params"]["destination_location"] = "background"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references is None
     assert spec.cli_override_specs is None
@@ -263,7 +287,7 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     data = _minimal_env_graph_data()
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
-    data["tasks"][0]["params"]["destination_location"] = "background"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     dumped = spec.to_dict()
     assert "object_references" not in dumped

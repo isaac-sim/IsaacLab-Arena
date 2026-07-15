@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Smoke-test every registered environment via eval_runner.
+"""Smoke-test every registered environment via experiment_runner.
 
 Auto-discovers environments from the EnvironmentRegistry and runs each one for
-a few steps with the zero_action policy in a single eval_runner subprocess.
+a few steps with the zero_action policy in a single experiment_runner subprocess.
 The test passes if no environment errors out during startup or stepping.
 """
 
@@ -15,7 +15,7 @@ import argparse
 import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
+from isaaclab_arena.tests.test_experiment_runner import run_experiment_runner, write_jobs_config_to_file
 from isaaclab_arena_environments.cli import add_environment_cli_args, ensure_environments_registered
 
 NUM_STEPS = 2
@@ -56,14 +56,14 @@ def _build_jobs_for_all_envs() -> list[dict]:
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_all_environments(tmp_path):
+def test_experiment_runner_all_environments(tmp_path):
     """Boot every registered environment for a few steps with the zero_action policy."""
     jobs = _build_jobs_for_all_envs()
     assert len(jobs) > 0, "Expected at least one environment to be registered"
 
-    config_path = str(tmp_path / "test_eval_runner_all_environments.json")
+    config_path = str(tmp_path / "test_experiment_runner_all_environments.json")
     write_jobs_config_to_file(jobs, config_path)
-    run_eval_runner(config_path, headless=HEADLESS)
+    run_experiment_runner(config_path, headless=HEADLESS)
 
 
 def test_all_environments_have_default_args():

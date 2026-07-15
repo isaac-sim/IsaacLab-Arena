@@ -46,3 +46,6 @@ class ObjectPlacerParams:
     """Number of unique pre-solved layouts per environment in the placement pool.
     The pool stores ``min_unique_layouts_per_env * num_envs`` valid layouts so each
     environment has many distinct configurations to draw from."""
+
+    allow_best_loss_fallbacks: bool = True
+    """Whether pooled placement may use best-loss layouts when no valid layout is found."""

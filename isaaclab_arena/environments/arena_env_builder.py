@@ -99,6 +99,7 @@ class ArenaEnvBuilder:
             objects_with_relations,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
+            scene_assets=self.arena_env.scene.assets.values(),
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -338,8 +339,8 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
-            if episode_length_s is not None:
-                env_cfg.episode_length_s = episode_length_s
+            # Tasks always resolve to a concrete episode length.
+            env_cfg.episode_length_s = episode_length_s
         else:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"

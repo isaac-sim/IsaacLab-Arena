@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import trimesh
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
@@ -30,6 +31,9 @@ class DummyObject:
         assert self.bounding_box is not None
         self.relations = list(relations)
         self._collision_mesh = collision_mesh
+        self.collision_mode: CollisionMode | None = None
+        # If True, mesh collision replaces non-watertight meshes with their convex hull.
+        self.repair_collision_mesh_non_watertight = True
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)

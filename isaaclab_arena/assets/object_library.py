@@ -490,6 +490,7 @@ class DirectionalLight(LightBase):
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
             instance_name=instance_name,
@@ -500,6 +501,7 @@ class DirectionalLight(LightBase):
         self.add_variation(LightDirectionVariation(self))
         self.add_variation(LightColorVariation(self))
         self.add_variation(LightColorTemperatureVariation(self))
+        self.add_variation(LightIntensityVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
         """Set the light's orientation."""
@@ -750,7 +752,7 @@ class PurpleCrate(LibraryObject):
 
     name = "purple_crate"
     tags = ["object", "container"]
-    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT.usd"
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/KLT_Bin/small_KLT.usd"
 
 
 @register_asset

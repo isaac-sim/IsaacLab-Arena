@@ -8,19 +8,39 @@
 This is the programmatic equivalent of the former ``arena_base.yaml`` template.
 """
 
-import argparse
 from abc import abstractmethod
+from dataclasses import dataclass, field
 from typing import Any
 
-from tasks.base_task import BaseTask
-from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
+from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
 
 
-def _normalize_args(args: str) -> str:
-    return " ".join(args.replace("\\\n", " ").split())
+@dataclass
+class PolicyRunnerTaskCfg(TaskCfg):
+    """Config for a policy-runner evaluation task."""
+
+    arena_env: str
+    """Graph-spec YAML path or registered example-environment name."""
+
+    policy_runner_args: list[str] = field(default_factory=list)
+    """Additional policy-runner arguments before the Arena environment args."""
+
+    arena_env_args: list[str] = field(default_factory=list)
+    """Env-related arguments for the chosen Arena environment."""
+
+    variation_args: list[str] = field(default_factory=list)
+    """Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'."""
+
+    image: str = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+    """Container image the policy-runner task runs in."""
+
+
+def _arg_list_to_cli_string(args: list[str]) -> str:
+    """Flatten argument tokens into a single whitespace-normalized command-line string."""
+    return " ".join(" ".join(args).replace("\\\n", " ").split())
 
 
 class PolicyRunnerTask(BaseTask):
@@ -31,49 +51,17 @@ class PolicyRunnerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_args: Any,
-        task_args: Any,
-        image: str = DEFAULT_IMAGE,
+        task_cfg: PolicyRunnerTaskCfg,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
-
-        self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
-        self.arena_env = self.task_args.arena_env
-        self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
-        self.variations = _normalize_args(self.task_args.variations)
-        self.image = image
-
-    @staticmethod
-    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
-        group = parser.add_argument_group("policy-runner task")
-        group.add_argument(
-            "--policy_runner_args",
-            default="",
-            help="Additional policy-runner arguments before the Arena environment args",
-        )
-        group.add_argument(
-            "--arena_env",
-            required=True,
-            help="Graph-spec YAML path or registered example-environment name",
-        )
-        group.add_argument(
-            "--arena_env_args",
-            default="",
-            help="Env-related arguments for the chosen Arena environment",
-        )
-        group.add_argument(
-            "--variations",
-            default="",
-            help="Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'",
-        )
+        super().__init__(task_cfg=task_cfg, lead=lead)
 
     @staticmethod
     def get_task_name() -> str:
         return "policy_runner"
 
     def _get_image(self) -> str:
-        return self.image
+        return self.task_cfg.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
         return []
@@ -99,10 +87,10 @@ class PolicyRunnerTask(BaseTask):
             *self._get_policy_args(),
             "--output_base_dir",
             OSMO_TASK_OUTPUT_DIR,
-            self.policy_runner_args,
+            _arg_list_to_cli_string(self.task_cfg.policy_runner_args),
             self.get_arena_env_token(),
-            self.arena_env_args,
-            self.variations,
+            _arg_list_to_cli_string(self.task_cfg.arena_env_args),
+            _arg_list_to_cli_string(self.task_cfg.variation_args),
         ]
         return " ".join(part for part in parts if part)
 
@@ -114,6 +102,6 @@ class PolicyRunnerTask(BaseTask):
         - Registered example-environment pass by name: kitchen_pick_and_place
         - A graph-spec YAML path is preceded by the flag: --env_graph_spec_yaml robolab/mustard_raisin_box.yaml``.
         """
-        if self.arena_env.endswith((".yaml", ".yml")):
-            return f"--env_graph_spec_yaml {self.arena_env}"
-        return self.arena_env
+        if self.task_cfg.arena_env.endswith((".yaml", ".yml")):
+            return f"--env_graph_spec_yaml {self.task_cfg.arena_env}"
+        return self.task_cfg.arena_env

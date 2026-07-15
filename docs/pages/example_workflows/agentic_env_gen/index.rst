@@ -4,7 +4,7 @@ Agentic Environment Generation and Policy Evaluation
 Agentic environment generation creates Arena environments from natural-language
 prompts, then reuses the generated environment graph specs for downstream policy
 evaluation. This workflow shows how agentically composed environments can be
-used by the policy runner, the sequential batch evaluation runner with the
+used by the policy runner, the Experiment Runner and its
 variation system, and policy-specific evaluation flows such as GR00T and PI.
 
 Behind the scenes, this workflow uses the ``ArenaEnvGraphSpec`` schema for scene
@@ -125,7 +125,7 @@ with variations through the policy runner:
    variation sweeps, such as changing the background HDR image to probe policy
    sensitivity.
 
-Sequential Batch Evaluation Runner with Variations
+Experiment Runner with Variations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Evaluation jobs can also point their environment source at an environment graph

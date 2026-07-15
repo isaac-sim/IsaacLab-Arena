@@ -8,8 +8,10 @@ import pathlib
 import torch
 import tqdm
 import traceback
+from types import SimpleNamespace
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 NUM_STEPS = 50
@@ -36,6 +38,223 @@ def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Po
             )
 
     return ObjectReferenceTestKitchenBackground()
+
+
+def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: Pose, bbox: AxisAlignedBoundingBox):
+    """Construct an ObjectReference around cached geometry without opening a USD."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(initial_pose=parent_pose)
+    obj_ref.initial_pose_relative_to_parent = relative_pose
+    obj_ref._bounding_box = bbox
+    return obj_ref
+
+
+def test_object_reference_world_bbox_applies_parent_yaw():
+    """Parent yaw, not the prim's relative yaw, rotates the already-local referenced bbox."""
+    yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    obj_ref = _object_reference_with_cached_bbox(
+        parent_pose=Pose(position_xyz=(10.0, 0.0, 0.0), rotation_xyzw=yaw_90),
+        relative_pose=Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=yaw_90),
+        bbox=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.1, 0.05)),
+    )
+
+    world_bbox = obj_ref.get_world_bounding_box()
+
+    assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
+    assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatch):
+    """ObjectReference collision meshes are extracted from the referenced sub-prim."""
+    import trimesh
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    expected_mesh = trimesh.creation.box(extents=(0.2, 0.1, 0.05))
+    calls = {}
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (2.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            calls["opened"] = path
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fake_extract(stage, prim_path, scale):
+        calls["extract"] = (prim_path, scale)
+        return expected_mesh
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fake_extract)
+
+    assert obj_ref.get_collision_mesh() is expected_mesh
+    assert obj_ref.get_collision_mesh() is expected_mesh
+    assert calls == {
+        "opened": "/tmp/kitchen.usd",
+        "extract": ("/World/counter", (2.0, 1.0, 1.0)),
+    }
+
+
+def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(monkeypatch):
+    """Meshless references fall back to AABB collision instead of aborting aggregation."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
+
+    calls = {"extract_count": 0}
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fail_extract(stage, prim_path, scale):
+        calls["extract_count"] += 1
+        raise NoCollisionMeshError("No mesh geometry found under /World/counter")
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fail_extract)
+
+    assert obj_ref.get_collision_mesh() is None
+    assert obj_ref.get_collision_mesh() is None
+    assert calls["extract_count"] == 1
+
+
+def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometry(monkeypatch):
+    """Unsupported reference geometry falls back to AABB collision."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fail_extract(stage, prim_path, scale):
+        raise UnsupportedCollisionGeometryError("Unsupported non-mesh geometry under /World/counter: /World/cube")
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fail_extract)
+
+    assert obj_ref.get_collision_mesh() is None
+
+
+def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch):
+    """Bad reference paths are configuration errors, not meshless fallback cases."""
+    import pytest
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/missing"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return None
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/missing"),
+    )
+
+    with pytest.raises(ValueError, match="No prim found"):
+        obj_ref.get_collision_mesh()
+
+
+def test_object_reference_world_bbox_without_parent_pose_uses_reference_pose():
+    """A reference without a parent pose is placed directly from its relative prim pose."""
+    obj_ref = _object_reference_with_cached_bbox(
+        parent_pose=None,
+        relative_pose=Pose(position_xyz=(1.0, 2.0, 3.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        bbox=AxisAlignedBoundingBox(min_point=(-0.1, -0.2, 0.0), max_point=(0.1, 0.2, 0.3)),
+    )
+
+    world_bbox = obj_ref.get_world_bounding_box()
+
+    assert torch.allclose(world_bbox.min_point, torch.tensor([[0.9, 1.8, 3.0]]), atol=1e-6)
+    assert torch.allclose(world_bbox.max_point, torch.tensor([[1.1, 2.2, 3.3]]), atol=1e-6)
 
 
 def get_test_scene():

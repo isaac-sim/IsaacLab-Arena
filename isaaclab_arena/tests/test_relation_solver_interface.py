@@ -55,7 +55,7 @@ def _fallback_layout(positions):
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
-    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1)
+    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
 
@@ -112,6 +112,23 @@ def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
     )
 
     assert box.get_initial_pose() is None
+
+
+def test_dynamic_spawn_pose_event_params_use_runtime_objects():
+    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+
+    desk = _make_desk()
+    box = _make_box()
+    placement_pool = _FakePlacementPool([_fallback_layout(positions={})])
+
+    event_cfg = _apply_dynamic_spawn_pose(
+        objects=[desk, box],
+        placement_pool=placement_pool,
+        anchor_objects_set={desk},
+    )
+
+    assert [obj.name for obj in event_cfg.params["objects"]] == ["desk", "box"]
+    assert "placement_pool" in event_cfg.params
 
 
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):

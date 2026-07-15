@@ -69,6 +69,13 @@ class AxisAlignedBoundingBox:
         """Number of environments (leading dimension N)."""
         return self._min_point.shape[0]
 
+    def is_batch_invariant(self) -> bool:
+        """Return True when every env shares the same bbox extents."""
+        return bool(
+            torch.allclose(self._min_point, self._min_point[:1].expand_as(self._min_point))
+            and torch.allclose(self._max_point, self._max_point[:1].expand_as(self._max_point))
+        )
+
     @property
     def size(self) -> torch.Tensor:
         """Returns the size (width, depth, height) of the bounding box. Shape (N, 3)."""
