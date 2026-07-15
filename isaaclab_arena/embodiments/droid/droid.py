@@ -68,8 +68,6 @@ def _stand_unit_height_m(usd_path: str) -> float:
 
         stage = Usd.Stage.Open(usd_path)
         assert stage is not None, f"could not open stand USD: {usd_path}"
-        # Bound the asset's default prim (its geometry root), not the pseudo-root, so stray stage
-        # prims (lights, cameras, guides) can't inflate the measured height.
         root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
         bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
         height = bound.ComputeAlignedRange().GetSize()[2]
