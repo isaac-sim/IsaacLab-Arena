@@ -48,7 +48,7 @@ def load_arena_experiment_from_config_file(
         overrides: Hydra overrides applied to typed YAML Experiments.
 
     Returns:
-        The composed Experiment configuration with named typed Runs.
+        The loaded, typed Experiment configuration with the process device applied.
     """
     path = validate_experiment_config_path(experiment_config_path)
 
