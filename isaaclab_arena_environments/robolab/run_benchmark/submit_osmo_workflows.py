@@ -74,10 +74,10 @@ def _run_id() -> str:
 
 
 def _build_command(args: argparse.Namespace, policy: str, env_path: Path, run_id: str) -> list[str]:
-    submit_script = _repo_root() / "osmo" / "submit_evaluation_workflow.py"
     command = [
         sys.executable,
-        submit_script.as_posix(),
+        "-m",
+        "osmo.submit_evaluation_workflow",
         "--policy",
         policy,
         "--workflow_name",
@@ -92,11 +92,11 @@ def _build_command(args: argparse.Namespace, policy: str, env_path: Path, run_id
         _policy_runner_args(policy, args.num_episodes),
         "--arena_env",
         _repo_relative(env_path),
-        "--variations",
+        "--variation_args",
         VARIATIONS,
     ]
     if args.dry_run:
-        command.append("--dry-run")
+        command.append("--dry_run")
     return command
 
 

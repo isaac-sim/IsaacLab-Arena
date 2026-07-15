@@ -5,15 +5,47 @@
 
 import json
 import os
+import subprocess
 
 import pytest
 
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
+
+
+def test_experiment_runner_parses_native_hydra_overrides():
+    args_cli, experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "runs.baseline.rollout_limit.num_steps=2",
+        "runs.baseline.environment.enable_cameras=true",
+    ])
+
+    assert args_cli.experiment_config == "experiment.yaml"
+    assert experiment_overrides == [
+        "runs.baseline.rollout_limit.num_steps=2",
+        "runs.baseline.environment.enable_cameras=true",
+    ]
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_rejects_unknown_non_hydra_arguments():
+    """Reject misspelled CLI flags in a fresh process."""
+    result = subprocess.run(
+        [TestConstants.python_path, f"{TestConstants.evaluation_dir}/experiment_runner.py", "--headles"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode != 0
+    assert "Unrecognized arguments: --headles" in result.stderr
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
@@ -23,32 +55,79 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
         json.dump(jobs_config, f, indent=4)
 
 
-def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
-    """Run the eval_runner as a subprocess with timeout.
+def run_experiment_runner(
+    experiment_config_path: str,
+    headless: bool = HEADLESS,
+    config_option: str = "--eval_jobs_config",
+    extra_args: list[str] | None = None,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str] | None:
+    """Run the Experiment Runner as a subprocess with timeout.
 
-    --continue_on_error is NOT passed, so the eval_runner re-raises on the
+    --continue_on_error is NOT passed, so the Experiment Runner re-raises on the
     first job failure, exiting non-zero.  run_subprocess() detects that and
     raises CalledProcessError, which surfaces as a test failure.
 
     Args:
-        jobs_config_path: Path to the jobs config JSON file.
+        experiment_config_path: Path to the Experiment configuration file.
         headless: Whether to run in headless mode.
+        config_option: CLI option used to pass the Experiment path.
+        extra_args: Additional Experiment Runner arguments.
+        capture_output: Whether to capture and return the subprocess output.
+
+    Returns:
+        The completed subprocess when output is captured, otherwise None.
     """
-    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py"]
-    args.append("--eval_jobs_config")
-    args.append(jobs_config_path)
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/experiment_runner.py"]
+    args.append(config_option)
+    args.append(experiment_config_path)
+    args.extend(extra_args or [])
     if headless:
         args.append("--headless")
     else:
         args.append("--viz")
         args.append(DEFAULT_VISUALIZER)
 
-    run_subprocess(args)
+    return run_subprocess(args, capture_output=capture_output)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_two_jobs_zero_action(tmp_path):
-    """Test eval_runner with 2 jobs using zero_action policy on different objects."""
+def test_experiment_runner_from_typed_yaml(tmp_path):
+    """Execute a typed YAML Experiment through the Experiment Runner CLI."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        """
+runs:
+- name: yaml_baseline
+  environment:
+    type: pick_and_place_maple_table
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 10
+""",
+        encoding="utf-8",
+    )
+
+    result = run_experiment_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=[
+            "--output_base_dir",
+            str(tmp_path / "output"),
+            "runs.yaml_baseline.rollout_limit.num_steps=2",
+        ],
+        capture_output=True,
+    )
+    assert result is not None
+    run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
+    run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
+    assert run_cells[4] == "2"
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_two_jobs_zero_action(tmp_path):
+    """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
     jobs = [
         {
             "name": "gr1_open_microwave_cracker_box",
@@ -74,14 +153,14 @@ def test_eval_runner_two_jobs_zero_action(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_two_jobs_zero_action.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_multiple_environments(tmp_path):
-    """Test eval_runner with jobs across different environments."""
+def test_experiment_runner_multiple_environments(tmp_path):
+    """Test experiment_runner with jobs across different environments."""
     jobs = [
         {
             "name": "kitchen_pick_cracker_box",
@@ -107,14 +186,14 @@ def test_eval_runner_multiple_environments(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_multiple_environments.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_multiple_environments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_different_embodiments(tmp_path):
-    """Test eval_runner with jobs using different embodiments."""
+def test_experiment_runner_different_embodiments(tmp_path):
+    """Test experiment_runner with jobs using different embodiments."""
     jobs = [
         {
             "name": "kitchen_pick_gr1_pink",
@@ -140,22 +219,22 @@ def test_eval_runner_different_embodiments(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_different_embodiments.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_different_embodiments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_from_existing_config():
-    """Test eval_runner using the zero_action_jobs_config.json and verify no jobs failed."""
+def test_experiment_runner_from_existing_config():
+    """Test experiment_runner using the zero_action_jobs_config.json and verify no jobs failed."""
     config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
     assert os.path.exists(config_path), f"Config file not found: {config_path}"
-    run_eval_runner(config_path)
+    run_experiment_runner(config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_with_variations(tmp_path):
-    """Test eval_runner applies a per-job variations block via Hydra overrides."""
+def test_experiment_runner_with_variations(tmp_path):
+    """Test experiment_runner applies a per-job variations block via Hydra overrides."""
     jobs = [
         {
             "name": "maple_table_hdr_variation",
@@ -170,14 +249,14 @@ def test_eval_runner_with_variations(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_with_variations.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_with_variations.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_enable_cameras(tmp_path):
-    """Test eval_runner with enable_cameras set to true."""
+def test_experiment_runner_enable_cameras(tmp_path):
+    """Test experiment_runner with enable_cameras set to true."""
     jobs = [
         {
             "name": "kitchen_pick_and_place_no_cameras",
@@ -204,17 +283,17 @@ def test_eval_runner_enable_cameras(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_enable_cameras.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_enable_cameras.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
-def test_eval_runner_graph_spec_with_variation(tmp_path):
+def test_experiment_runner_graph_spec_with_variation(tmp_path):
     """Eval a graph-spec env (built from YAML) with --enable_cameras and a camera variation.
 
     Mirrors the example-environment camera-variation job but sources the env from a graph spec
-    YAML, exercising that the eval runner builds graph-spec envs and that --enable_cameras reaches
+    YAML, exercising that the Experiment Runner builds graph-spec envs and that --enable_cameras reaches
     the embodiment so the wrist camera (and its variation) resolve.
     """
     graph_spec_yaml = f"{TestConstants.test_data_dir}/pick_and_place_maple_table_env_graph.yaml"
@@ -236,9 +315,9 @@ def test_eval_runner_graph_spec_with_variation(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_graph_spec_with_variation.json")
+    temp_config_path = str(tmp_path / "test_experiment_runner_graph_spec_with_variation.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_experiment_runner(temp_config_path)
 
 
 def _test_eval_config_variation_lands_in_events_cfg(simulation_app):

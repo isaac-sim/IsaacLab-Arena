@@ -7,11 +7,13 @@
 
 from __future__ import annotations
 
-from tasks.zero_action_policy_runner_task import ZeroActionPolicyRunnerTask
-from workflows.workflow import Workflow
+from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
+from osmo.tasks.zero_action_policy_runner_task import ZeroActionPolicyRunnerTask
+from osmo.workflows.workflow import Workflow
 
 
 class ZeroActionPolicyRunnerWorkflow(Workflow):
     """Workflow containing one zero-action policy-runner task."""
 
     task_cls_list = [ZeroActionPolicyRunnerTask]
+    task_cfg_type = PolicyRunnerTaskCfg

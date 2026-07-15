@@ -5,14 +5,15 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
+
+from isaaclab_arena.policy.policy_base import PolicyCfg
 
 MAX_RECONNECT_ATTEMPTS = 3
 
 
 @dataclass
-class DreamZeroRemotePolicyConfig:
+class DreamZeroRemotePolicyConfig(PolicyCfg):
     """Transport and runtime configuration for DreamZeroRemotePolicy.
 
     Embodiment-specific observation/action wire-format settings (camera keys, joint
@@ -33,15 +34,13 @@ class DreamZeroRemotePolicyConfig:
     policy_device: str = "cuda"
     """Torch device for the returned action tensor."""
 
+    dreamzero_embodiment_adapter: str = "droid"
+    """Embodiment adapter key for the obs/action wire format (see _EMBODIMENT_ADAPTER_LOADERS)."""
+
+    initial_connect_wait_s: int = 120
+    """Deadline for the first server connection; retries every 15s until it. Raise it (the
+    OSMO runner task uses 30 min) when the server may still be loading its checkpoint or is
+    reached through a tunnel that accepts TCP before the server is up."""
+
     def __post_init__(self) -> None:
         assert self.open_loop_horizon > 0, "open_loop_horizon must be positive"
-
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> DreamZeroRemotePolicyConfig:
-        """Build config from parsed CLI arguments."""
-        return cls(
-            remote_host=args.dreamzero_host,
-            remote_port=args.dreamzero_port,
-            open_loop_horizon=args.dreamzero_open_loop_horizon,
-            policy_device=args.policy_device,
-        )

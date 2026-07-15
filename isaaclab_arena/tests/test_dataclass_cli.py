@@ -7,15 +7,22 @@
 
 import argparse
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
 from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 
 
+class _Mode(str, Enum):
+    FAST = "fast"
+    SAFE = "safe"
+
+
 @dataclass
 class _ExampleCfg:
     required_value: str
-    mode: Literal["fast", "safe"] = "fast"
+    mode: _Mode = _Mode.FAST
+    strategy: Literal["direct", "careful"] = "direct"
     enabled: bool = False
     visible: bool = True
     labels: list[str] = field(default_factory=list)
@@ -34,6 +41,8 @@ def test_generated_arguments_reconstruct_typed_dataclass():
         "example",
         "--mode",
         "safe",
+        "--strategy",
+        "careful",
         "--enabled",
         "--no-visible",
         "--labels",
@@ -47,7 +56,8 @@ def test_generated_arguments_reconstruct_typed_dataclass():
 
     assert dataclass_from_cli(_ExampleCfg, args_cli) == _ExampleCfg(
         required_value="example",
-        mode="safe",
+        mode=_Mode.SAFE,
+        strategy="careful",
         enabled=True,
         visible=False,
         labels=["left", "right"],

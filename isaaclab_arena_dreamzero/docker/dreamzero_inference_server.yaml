@@ -3,6 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Standalone DreamZero inference server for local development: submit with
+# `osmo workflow submit <this file> --pool isaac-dev-h100-01` (the CLI requires
+# an explicit pool), then reach it from a local policy runner via
+# `osmo workflow port-forward <workflow-id> serve --port {{ port }}`.
+# For fully-remote evaluations use
+# `osmo/submit_evaluation_workflow.py --policy dreamzero` instead, which manages
+# the server workflow's lifecycle itself.
+
 workflow:
   name: dreamzero-inference-server
   # H100 only: the checkpoint runs in bfloat16 and uses ~46 GiB of GPU
@@ -17,25 +25,26 @@ workflow:
       gpu: 1
       memory: 128Gi
       storage: 100Gi
+      platform: dgx-h100
 
   tasks:
   - name: serve
-    image: nvcr.io/nvidian/dreamzero_inference_server:latest
-    credentials:
-      nvcr-nvidian: {}
+    # Arena image with the DreamZero server code and the DreamZero-DROID
+    # checkpoint baked into /workspace/dreamzero/checkpoints.
+    image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:dreamzero-server-commit-checkpoints-20260709-130610
     command: ["bash", "-c"]
     args:
     - |
       set -e
 
       cd /workspace/dreamzero
-      CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run \
+      exec env CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run \
         --standalone \
         --nproc_per_node=1 \
         socket_test_optimized_AR.py \
         --port {{ port }} \
         --enable-dit-cache \
-        --model-path "${MODELS_DIR}/DreamZero-DROID"
+        --model-path "${DREAMZERO_MODEL_PATH:-${MODELS_DIR:-/workspace/dreamzero/checkpoints}/DreamZero-DROID}"
 
     environment:
       NCCL_DEBUG: INFO

@@ -40,7 +40,10 @@ objects:
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale: [0.5, 0.5, 0.5]
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
 - id: spoon_big
   registry_name: spoon_big_vomp_robolab
   params: {}
@@ -110,11 +113,13 @@ relations:
   subject: pitcher
   reference: maple_table_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: apple
-    destination_location: plasticpail
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
+task:
+  composition: atomic
   description: place the apple into the plasticpail on the table
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple
+      destination_location: plasticpail
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

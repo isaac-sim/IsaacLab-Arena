@@ -3,10 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pydantic schema for :class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec`."""
+"""Pydantic schema for :class:`~isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec`."""
 
 from __future__ import annotations
 
+from enum import Enum
 from numbers import Real
 from typing import Any
 
@@ -14,6 +15,23 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+
+
+def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
+    """Return the asset's root USD path or URL, or ``None`` if not extractable."""
+    class_usd = getattr(asset_cls, "usd_path", None)
+    if isinstance(class_usd, str) and class_usd:
+        return class_usd
+
+    # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
+    # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
+    try:
+        instance = asset_cls(**params)
+    except Exception:
+        return None
+
+    usd_path = getattr(instance, "usd_path", None)
+    return str(usd_path) if usd_path else None
 
 
 class AssetSpec(BaseModel):
@@ -42,6 +60,13 @@ class AssetSpec(BaseModel):
         assert registry.is_registered(value), f"Unknown asset registry_name '{value}'"
         return value
 
+    def resolve_usd_path(self) -> str:
+        """Return the USD path or URL for this registered asset instance."""
+        asset_cls = AssetRegistry().get_asset_by_name(self.registry_name)
+        usd_path = _extract_asset_usd_path(asset_cls, **self.params)
+        assert usd_path, f"asset {self.registry_name!r} has no usd_path"
+        return usd_path
+
 
 class ObjectReferenceSpec(BaseModel):
     """USD prim reference inside a parent background asset."""
@@ -64,7 +89,7 @@ class ObjectReferenceSpec(BaseModel):
 
 
 class TaskSpec(BaseModel):
-    """Task entry in an environment graph."""
+    """Atomic registered task leaf referenced by a composite root task."""
 
     kind: str = Field(
         min_length=1,
@@ -72,10 +97,6 @@ class TaskSpec(BaseModel):
             "Registered task class name from the TASKS block in the user message "
             "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
         ),
-    )
-    description: str = Field(
-        min_length=1,
-        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
@@ -90,6 +111,40 @@ class TaskSpec(BaseModel):
     def _validate_registered_task_type(cls, value: str) -> str:
         assert TaskRegistry().is_registered(value), f"Unknown task kind '{value}'"
         return value
+
+
+class TaskCompositionType(str, Enum):
+    """How atomic subtasks combine in a composite root task."""
+
+    ATOMIC = "atomic"
+    PARALLEL = "parallel"
+    SEQUENTIAL = "sequential"
+
+
+class CompositeTaskSpec(BaseModel):
+    """Root task node for an environment graph."""
+
+    composition: TaskCompositionType = Field(
+        description="How the subtasks combine: " + ", ".join([f"'{e.value}'" for e in TaskCompositionType])
+    )
+    description: str = Field(
+        min_length=1,
+        description="Natural-language summary of the overall task (e.g. 'pick and place all bananas into the bin').",
+    )
+    subtasks: list[TaskSpec] = Field(
+        default_factory=list,
+        description="Atomic registered tasks that compose this root task.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_composition_task_count(self) -> CompositeTaskSpec:
+        if self.composition is TaskCompositionType.ATOMIC:
+            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
+        else:
+            assert (
+                len(self.subtasks) >= 2
+            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
+        return self
 
 
 class SpatialRelationSpec(BaseModel):

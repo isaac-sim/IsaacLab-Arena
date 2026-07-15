@@ -8,12 +8,11 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
 
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def required_task_init_param_names(task_cls: type) -> list[str]:
@@ -50,26 +49,11 @@ def format_validation_error(exc: ValidationError) -> list[str]:
     return lines
 
 
-def try_parse_env_graph_spec(data: dict[str, Any]) -> tuple[ArenaEnvGraphSpec | None, list[str]]:
-    """Parse agent output into an ``ArenaEnvGraphSpec`` without raising.
-
-    Args:
-        data: Parsed JSON object from the model response.
-
-    Returns:
-        A ``(spec, validation_traces)`` tuple. ``spec`` is ``None`` when parsing fails.
-    """
-    try:
-        return ArenaEnvGraphSpec.model_validate(data), []
-    except ValidationError as exc:
-        return None, format_validation_error(exc)
-
-
 def collect_agent_ready_task_validation_traces(spec: ArenaEnvGraphSpec) -> list[str]:
     """Return agent-only task constraint violations not enforced by ``ArenaEnvGraphSpec``."""
     traces: list[str] = []
     task_registry = TaskRegistry()
-    for task in spec.tasks:
+    for task in spec.task.subtasks:
         task_cls = task_registry.get_task_by_name(task.kind)
         if not getattr(task_cls, "agent_ready", False):
             traces.append(f"Task {task.kind!r} is not agent-ready")

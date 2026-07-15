@@ -8,10 +8,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_reference import ObjectReference
+from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
-from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_specs
-from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -21,7 +21,7 @@ _DEFAULT_LIGHT_ASSET_NAME = "light"
 _DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
@@ -39,7 +39,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
-        task=build_task_from_specs(graph_spec.tasks, assets_by_node_id),
+        task=build_task_from_spec(graph_spec.task, assets_by_node_id),
     )
 
 
@@ -77,6 +77,13 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     return False
 
 
+def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
+    """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
+    if prim_path.startswith("{ENV_REGEX_NS}/"):
+        return prim_path
+    return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
+
+
 def _instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
 ) -> dict[str, type[Asset]]:
@@ -101,13 +108,23 @@ def _instantiate_assets_from_spec(
 
     for ref in graph_spec.object_references or []:
         assert ref.prim_path is not None, "Object reference must have a prim path"
-        assets_by_node_id[ref.id] = ObjectReference(
-            name=ref.id,
-            prim_path=ref.prim_path,
-            parent_asset=assets_by_node_id[ref.parent_id],
-            object_type=ref.object_type,
-            **ref.params,
-        )
+        ref_params = dict(ref.params)
+        openable_joint_name = ref_params.pop("openable_joint_name", None)
+        prim_path = _prim_path_for_relative(graph_spec.background.registry_name, ref.prim_path)
+        common_kwargs = {
+            "name": ref.id,
+            "prim_path": prim_path,
+            "parent_asset": assets_by_node_id[ref.parent_id],
+            "object_type": ref.object_type,
+            **ref_params,
+        }
+        if openable_joint_name is not None:
+            assets_by_node_id[ref.id] = OpenableObjectReference(
+                openable_joint_name=openable_joint_name,
+                **common_kwargs,
+            )
+        else:
+            assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)
 
     return assets_by_node_id
 

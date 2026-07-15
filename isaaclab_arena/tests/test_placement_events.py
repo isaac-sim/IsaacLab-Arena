@@ -151,11 +151,22 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
     return env
 
 
+def _solve_and_place_with_pool(env, env_ids, objects, pool):
+    """Call the reset event with the same runtime params EventTermCfg stores."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+
+    return solve_and_place_objects(
+        env,
+        env_ids,
+        objects=objects,
+        placement_pool=pool,
+    )
+
+
 def test_solve_and_place_objects_writes_poses_to_sim():
     """solve_and_place_objects should call write_root_pose_to_sim for non-anchor objects."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -169,7 +180,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
     placer_params = ObjectPlacerParams(solver_params=solver_params)
     pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, env_ids, objects, pool)
+    _solve_and_place_with_pool(env, env_ids, objects, pool)
 
     # Anchor (desk) should NOT have been written.
     assert "desk" not in env._assets, "Anchor pose should not be written to sim"
@@ -179,16 +190,60 @@ def test_solve_and_place_objects_writes_poses_to_sim():
         asset = env._assets[name]
         asset.write_root_pose_to_sim.assert_called_once()
         asset.write_root_velocity_to_sim.assert_called_once()
-
         pose_arg = asset.write_root_pose_to_sim.call_args[0][0]
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
+
+
+def test_solve_and_place_objects_uses_runtime_pool():
+    """Reset params should use the runtime placement pool directly."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, box1, _ = _create_test_objects()
+    env = _make_mock_env(num_envs=1)
+
+    class Pool:
+        num_envs = 1
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            assert env_ids == [0]
+            return {
+                0: PlacementResult(
+                    validation_results=_checklist(True),
+                    positions={box1: (0.2, 0.3, 0.4)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            }
+
+    solve_and_place_objects(
+        env,
+        torch.tensor([0]),
+        objects=[desk, box1],
+        placement_pool=Pool(),
+    )
+
+    assert "desk" not in env._assets
+    env._assets["box1"].write_root_pose_to_sim.assert_called_once()
+
+
+def test_get_placement_pool_returns_runtime_pool():
+    """Pool validation can retrieve the runtime placement pool from the reset event."""
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+
+    class Pool:
+        pass
+
+    pool = Pool()
+    env = MagicMock()
+    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
+    assert get_placement_pool(env) is pool
 
 
 def test_solve_and_place_objects_applies_random_yaw():
     """With random_yaw_init enabled the runtime path should write yawed (non-identity) poses."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -206,7 +261,7 @@ def test_solve_and_place_objects_applies_random_yaw():
     )
     pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, env_ids, objects, pool)
+    _solve_and_place_with_pool(env, env_ids, objects, pool)
 
     # Anchor (desk) is never rotated or written, even with random yaw enabled.
     assert "desk" not in env._assets, "Anchor pose should not be written to sim"
@@ -226,7 +281,6 @@ def test_solve_and_place_objects_skips_empty_env_ids():
     """solve_and_place_objects should return immediately for an empty env_ids tensor."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -237,7 +291,7 @@ def test_solve_and_place_objects_skips_empty_env_ids():
     placer_params = ObjectPlacerParams(solver_params=solver_params)
     pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], pool)
+    _solve_and_place_with_pool(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], pool)
 
     assert len(env._assets) == 0, "No writes should occur for empty env_ids"
 
@@ -246,7 +300,6 @@ def test_solve_and_place_objects_skips_none_env_ids():
     """solve_and_place_objects should return immediately when env_ids is None."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -257,7 +310,7 @@ def test_solve_and_place_objects_skips_none_env_ids():
     placer_params = ObjectPlacerParams(solver_params=solver_params)
     pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, None, [desk, box1, box2], pool)
+    _solve_and_place_with_pool(env, None, [desk, box1, box2], pool)
 
     assert len(env._assets) == 0, "No writes should occur for None env_ids"
 
@@ -266,7 +319,6 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
     """solve_and_place_objects should write poses for each resetting environment."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -281,7 +333,7 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
     placer_params = ObjectPlacerParams(solver_params=solver_params)
     pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
 
-    solve_and_place_objects(env, env_ids, objects, pool)
+    _solve_and_place_with_pool(env, env_ids, objects, pool)
 
     assert "desk" not in env._assets, "Anchor pose should not be written to sim"
 
@@ -297,7 +349,6 @@ def test_solve_and_place_objects_partial_reset_homogeneous_pool_consumes_only_re
     """A partial reset should consume only the resetting env pools, not a full env round."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -312,7 +363,7 @@ def test_solve_and_place_objects_partial_reset_homogeneous_pool_consumes_only_re
     pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
 
     available_before = pool.total_remaining
-    solve_and_place_objects(env, env_ids, objects, pool)
+    _solve_and_place_with_pool(env, env_ids, objects, pool)
     available_after = pool.total_remaining
 
     assert available_before - available_after == len(env_ids)
@@ -321,7 +372,6 @@ def test_solve_and_place_objects_partial_reset_homogeneous_pool_consumes_only_re
 def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     """Invalid fallback layouts should still be written, matching pool fallback behavior."""
 
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
 
     desk, box1, box2 = _create_test_objects()
@@ -342,19 +392,18 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
                 )
             }
 
-    solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
+    _solve_and_place_with_pool(env, torch.tensor([0]), objects, InvalidPool())
     captured = capsys.readouterr()
 
     assert set(env._assets) == {box1.name, box2.name}
     assert env._assets[box1.name].write_root_pose_to_sim.call_count == 1
     assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
-    assert "Writing best-loss fallback placement" in captured.out
+    assert "Writing best-loss fallback placement for env 0; failed checks: ['valid']." in captured.out
 
 
 def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():
     """Env-indexed partial resets should write the result for each absolute env id."""
 
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
 
     desk, box1, box2 = _create_test_objects()
@@ -384,7 +433,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
             }
 
     pool = EnvIndexedPool()
-    solve_and_place_objects(env, torch.tensor([2]), objects, pool)
+    _solve_and_place_with_pool(env, torch.tensor([2]), objects, pool)
 
     box1_pose = env._assets[box1.name].write_root_pose_to_sim.call_args[0][0]
     box2_pose = env._assets[box2.name].write_root_pose_to_sim.call_args[0][0]
@@ -400,8 +449,6 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
 def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
     """Env-indexed pool slots must line up with absolute Isaac Lab env ids."""
 
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
-
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
     env = _make_mock_env(num_envs=2)
@@ -410,7 +457,7 @@ def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
         num_envs = 1
 
     with pytest.raises(AssertionError, match="scene has 2 env origins"):
-        solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
+        _solve_and_place_with_pool(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
 
 
 def test_pooled_placer_sample_without_replacement_returns_different_layouts():
@@ -655,3 +702,78 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     assert pool.had_fallbacks
     assert "Falling back to best-loss layouts" in captured.out
     assert not pool.sample_without_replacement(1)[0].success
+
+
+def test_pooled_placer_only_falls_back_on_final_batch(capsys):
+    """Fallbacks should only be accepted on the last configured solve batch."""
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    big = DummyObject(
+        name="big",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big.add_relation(On(desk))
+
+    solver_params = RelationSolverParams(max_iters=10, convergence_threshold=1e-6)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=2)
+
+    pool = PooledObjectPlacer(objects=[desk, big], placer_params=placer_params, pool_size=1)
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks
+    assert captured.out.count("Placement pool solved") == 2
+    assert not pool.sample_without_replacement(1)[0].success
+
+
+def test_pooled_placer_can_reject_best_loss_fallbacks():
+    """PooledObjectPlacer should fail loudly when fallback layouts are disabled."""
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    big1 = DummyObject(
+        name="big1",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big2 = DummyObject(
+        name="big2",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big1.add_relation(On(desk))
+    big2.add_relation(On(desk))
+
+    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
+    placer_params = ObjectPlacerParams(
+        solver_params=solver_params,
+        max_placement_attempts=1,
+        allow_best_loss_fallbacks=False,
+    )
+
+    with pytest.raises(RuntimeError, match="could not fill"):
+        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)

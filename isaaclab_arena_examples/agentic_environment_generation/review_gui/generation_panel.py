@@ -21,7 +21,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -135,7 +135,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     if spec is None:
-        traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
+        traces = "\n".join(agent.traces) or "unknown validation error"
         error = f"Agent returned an invalid spec:\n{traces}"
         _apply_generated_yaml(yaml_text, validation_error=error)
         return True, f"Invalid spec loaded into the YAML editor.\n{traces}"

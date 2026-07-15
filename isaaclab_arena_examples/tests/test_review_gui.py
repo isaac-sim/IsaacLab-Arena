@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -260,7 +260,7 @@ class TestRunGenerationPipeline:
     ):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_agent.generate_spec.return_value = (valid_spec, "{}")
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()
@@ -279,7 +279,7 @@ class TestRunGenerationPipeline:
     def test_save_failure_still_reports_success(self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_agent.generate_spec.return_value = (valid_spec, "{}")
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()

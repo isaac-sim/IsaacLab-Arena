@@ -19,7 +19,7 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 SIMAPP_SOCKET_ENV = "ARENA_REVIEW_SIMAPP_SOCKET"
 

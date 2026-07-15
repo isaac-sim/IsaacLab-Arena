@@ -37,11 +37,13 @@ relations:
   reference: null
   params:
     pitch_rad: 1.57
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: mustard_bottle
-    destination_location: raisin_box
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
+task:
+  composition: atomic
   description: Pick up the mustard bottle and place it on the raisin box.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mustard_bottle
+      destination_location: raisin_box
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

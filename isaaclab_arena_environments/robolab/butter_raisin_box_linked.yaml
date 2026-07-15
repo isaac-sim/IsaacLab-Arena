@@ -37,11 +37,13 @@ relations:
   reference: null
   params:
     pitch_rad: 1.57
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: butter_hope_robolab
-    destination_location: raisin_box_hope_robolab
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
+task:
+  composition: atomic
   description: pick up the butter box and place it on top of the raisin box
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: butter_hope_robolab
+      destination_location: raisin_box_hope_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

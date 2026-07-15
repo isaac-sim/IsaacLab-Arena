@@ -16,8 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import (
+    AssetSpec,
+    CompositeTaskSpec,
+    TaskCompositionType,
+    TaskSpec,
+)
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
@@ -31,7 +36,7 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
     assert arena_env.name == "pick_and_place_maple_table_default"
     assert isinstance(arena_env.task, SequentialTaskBase)
-    assert arena_env.task.desired_subtask_success_state == [True, True]
+    assert arena_env.task.desired_subtask_success_state is None
     assert len(arena_env.task.subtasks) == 2
     assert all(isinstance(subtask, PickAndPlaceTask) for subtask in arena_env.task.subtasks)
     assert arena_env.task.subtasks[0].pick_up_object.name == "rubiks_cube_hot3d_robolab"
@@ -111,6 +116,20 @@ def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
         embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
         background=AssetSpec(id="background", registry_name="maple_table_robolab"),
         objects=objects,
+        task=CompositeTaskSpec(
+            composition=TaskCompositionType.ATOMIC,
+            description="noop task",
+            subtasks=[
+                TaskSpec(
+                    kind="PickAndPlaceTask",
+                    params={
+                        "pick_up_object": objects[0].id,
+                        "destination_location": objects[0].id,
+                        "background_scene": "background",
+                    },
+                )
+            ],
+        ),
     )
 
 

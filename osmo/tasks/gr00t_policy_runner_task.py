@@ -5,12 +5,20 @@
 
 """GR00T policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
-import argparse
+from dataclasses import dataclass
 
-from tasks.policy_runner_task import PolicyRunnerTask
-from workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 DEFAULT_POLICY_CONFIG = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
+
+
+@dataclass
+class Gr00tPolicyRunnerTaskCfg(PolicyRunnerTaskCfg):
+    """Config for the GR00T policy-runner task."""
+
+    policy_config_yaml_path: str = DEFAULT_POLICY_CONFIG
+    """GR00T closed-loop config YAML."""
 
 
 class Gr00tPolicyRunnerTask(PolicyRunnerTask):
@@ -18,30 +26,20 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
 
     def __init__(
         self,
-        workflow_args: argparse.Namespace,
-        task_args: argparse.Namespace,
+        task_cfg: Gr00tPolicyRunnerTaskCfg,
         remote_host: str,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
-        self.policy_config_yaml_path = task_args.policy_config_yaml_path
+        super().__init__(task_cfg=task_cfg, lead=lead)
         # Host of the GR00T server this runner connects to; the workflow resolves it from the server task.
         self.remote_host = remote_host
-
-    @staticmethod
-    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
-        PolicyRunnerTask.add_task_arguments(parser)
-        group = parser.add_argument_group("gr00t policy runner")
-        group.add_argument(
-            "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
-        )
 
     def _get_policy_args(self) -> list[str]:
         return [
             "--policy_type",
             "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
             "--policy_config_yaml_path",
-            self.policy_config_yaml_path,
+            self.task_cfg.policy_config_yaml_path,
             "--remote_host",
             self.remote_host,
             "--remote_port",
