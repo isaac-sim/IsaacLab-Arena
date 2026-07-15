@@ -18,18 +18,20 @@ def _test_droid_stand_scale(simulation_app) -> bool:
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.droid.droid import (
         _DEFAULT_STAND_HEIGHT_SCALE,
-        _STAND_UNIT_HEIGHT_M,
         DroidAbsoluteJointPositionEmbodiment,
+        _stand_unit_height_m,
     )
     from isaaclab_arena.utils.pose import Pose
-
-    expected_offset = _STAND_UNIT_HEIGHT_M * (_CUSTOM_STAND_HEIGHT - _DEFAULT_STAND_HEIGHT_SCALE)
 
     try:
         # The default leaves the stand at its nominal scale and the robot base at z=0.
         default_emb = DroidAbsoluteJointPositionEmbodiment()
         assert tuple(default_emb.scene_config.stand.spawn.scale) == _DEFAULT_STAND_SCALE
         assert default_emb.scene_config.robot.init_state.pos[2] == 0.0
+
+        # The lift is driven by the stand's native height (read from its USD, with a fallback).
+        unit_height = _stand_unit_height_m(default_emb.scene_config.stand.spawn.usd_path)
+        expected_offset = unit_height * (_CUSTOM_STAND_HEIGHT - _DEFAULT_STAND_HEIGHT_SCALE)
 
         # An override changes only the z-scale (x/y footprint and robot mesh untouched)...
         custom_emb = DroidAbsoluteJointPositionEmbodiment(stand_height=_CUSTOM_STAND_HEIGHT)

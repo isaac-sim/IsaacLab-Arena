@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import functools
 import torch
+import warnings
 from abc import ABC
 from typing import Any
 
@@ -48,10 +50,37 @@ _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
 _DEFAULT_STAND_HEIGHT_SCALE: float = 1.7
 
 # The stand's top is pinned at the robot base and it extends downward to the floor, so scaling its
-# height moves the floor contact, not the mount. Measured native (scale=1.0) stand height in meters;
-# used to lift the robot base by the same amount the stand grows, keeping the stand's bottom on the
-# floor while the robot rides higher.
-_STAND_UNIT_HEIGHT_M: float = 0.795
+# height moves the floor contact, not the mount. We lift the robot base by the amount the stand
+# grows (native height x scale delta), keeping the stand's bottom on the floor while the robot rides
+# higher. The native height is read from the stand USD; this measured value is the fallback used when
+# the asset can't be opened (e.g. no asset resolver / network outside a running SimulationApp).
+_FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
+
+
+@functools.lru_cache(maxsize=None)
+def _stand_unit_height_m(usd_path: str) -> float:
+    """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
+
+    Falls back to ``_FALLBACK_STAND_UNIT_HEIGHT_M`` if the asset cannot be opened or measured.
+    """
+    try:
+        from pxr import Usd, UsdGeom
+
+        stage = Usd.Stage.Open(usd_path)
+        assert stage is not None, f"could not open stand USD: {usd_path}"
+        # Bound the asset's default prim (its geometry root), not the pseudo-root, so stray stage
+        # prims (lights, cameras, guides) can't inflate the measured height.
+        root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+        bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
+        height = bound.ComputeAlignedRange().GetSize()[2]
+        assert height > 0.0, f"non-positive stand height {height} from {usd_path}"
+        return height
+    except Exception as exc:  # noqa: BLE001 - any failure falls back to the measured constant
+        warnings.warn(
+            f"Falling back to {_FALLBACK_STAND_UNIT_HEIGHT_M} m for the stand height; "
+            f"could not measure {usd_path}: {exc!r}"
+        )
+        return _FALLBACK_STAND_UNIT_HEIGHT_M
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -77,7 +106,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.scene_config = DroidSceneCfg()
         self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height)
         # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
-        self._robot_base_z_offset = _STAND_UNIT_HEIGHT_M * (stand_height - _DEFAULT_STAND_HEIGHT_SCALE)
+        stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
+        self._robot_base_z_offset = stand_unit_height * (stand_height - _DEFAULT_STAND_HEIGHT_SCALE)
         self.scene_config.robot.init_state.pos = self._lift_z(self.scene_config.robot.init_state.pos)
         self.scene_config.stand.init_state.pos = self._lift_z(self.scene_config.stand.init_state.pos)
         self.action_config = None
