@@ -570,9 +570,12 @@ Rubik’s cube and destination bowl, with the home_office_robolab HDR.</span><a 
 <p>To measure success rates across several variations of the environment in a single command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
 </pre></div>
 </div>
+<p>The Experiment config adds cameras to each environment, while <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> enables camera support in
+Isaac Sim before the Experiment is loaded. Both are currently required.</p>
 <p>This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.</p>
 <figure class="align-center" id="id3">
@@ -640,7 +643,8 @@ HTML evaluation report. For visualization add <code class="docutils literal notr
 episode; the runner writes an <code class="docutils literal notranslate"><span class="pre">index.html</span></code> which is then served over HTTP.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_base_dir<span class="w"> </span>./output<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--record_camera_video<span class="w"> </span>--serve_evaluation_report
 </pre></div>
