@@ -30,8 +30,7 @@ def build_asset_cards(
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
     entries: list[tuple[str, AssetSpec | ObjectReferenceSpec]] = []
-    if spec.background is not None:
-        entries.append(("background", spec.background))
+    entries.append(("background", spec.background))
     entries.extend(("object_reference", ref) for ref in (spec.object_references or []))
     entries.extend(("object", obj) for obj in spec.objects)
 

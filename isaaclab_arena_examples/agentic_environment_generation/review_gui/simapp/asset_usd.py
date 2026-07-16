@@ -11,16 +11,13 @@ import hashlib
 import sys
 from typing import Any
 
-from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_reference import ObjectReference
+from isaaclab_arena.assets.object_base import ObjectBase
 
 AabbDimensionsM = tuple[float, float, float]
 
 
-def aabb_dimensions_from_asset(asset: Any) -> AabbDimensionsM | None:
+def aabb_dimensions_from_asset(asset: ObjectBase) -> AabbDimensionsM | None:
     """Return local axis-aligned bounding box size (x, y, z) in meters for one live asset."""
-    if not isinstance(asset, (Object, ObjectReference)):
-        return None
     try:
         bbox = asset.get_bounding_box()
         size = bbox.size[0]
@@ -35,6 +32,8 @@ def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, Aa
     """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references)."""
     dimensions: dict[str, AabbDimensionsM] = {}
     for node_id, asset in assets_by_node_id.items():
+        if not isinstance(asset, ObjectBase):
+            continue
         dims = aabb_dimensions_from_asset(asset)
         if dims is not None:
             dimensions[node_id] = dims

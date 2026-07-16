@@ -34,8 +34,6 @@ def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]
     """Return the background USD prim tree records, empty when unavailable."""
     from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
-    if spec.background is None:
-        return []
     try:
         usd_path = spec.background.resolve_usd_path()
         if not usd_path:

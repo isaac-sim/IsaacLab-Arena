@@ -48,9 +48,11 @@ class _UsdSnapshotJob:
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     assets_by_node_id = _instantiate_assets_from_spec(spec, AssetRegistry())
+    # Exclude embodiment from thumbnail rendering.
+    assets_by_node_id.pop(spec.embodiment.id)
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
     asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
-    background_viewer_cfg = getattr(assets_by_node_id[spec.background.id], "get_viewer_cfg", None)
+    background_viewer_cfg = assets_by_node_id[spec.background.id].get_viewer_cfg()
 
     cache_dir = thumbnail_cache_dir()
 
@@ -64,8 +66,8 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
             thumbnail_paths[node_id] = cache_path
         else:
             job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
-            if node_id == spec.background.id and background_viewer_cfg:
-                job.viewer_cfg = background_viewer_cfg()
+            if node_id == spec.background.id:
+                job.viewer_cfg = background_viewer_cfg
             job.asset_captures.append((node_id, cache_path))
             asset_render_count += 1
 
@@ -81,8 +83,8 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
             thumbnail_paths[ref.id] = cache_path
         else:
             job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
-            if ref.parent_id == spec.background.id and background_viewer_cfg:
-                job.viewer_cfg = background_viewer_cfg()
+            if ref.parent_id == spec.background.id:
+                job.viewer_cfg = background_viewer_cfg
             job.ref_captures.append((ref.id, relative_prim_path, cache_path))
             ref_render_count += 1
 
