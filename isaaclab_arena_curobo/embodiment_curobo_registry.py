@@ -20,7 +20,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.assets import ARENA_NUCLEUS_DIR
 
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 
@@ -56,7 +56,7 @@ def get_curobo_cfg_for(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg:
     )
 
 
-_DROID_CUROBO_ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
+_DROID_CUROBO_ASSET_DIR = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
 
 DROID_CUROBO_CFG = CuroboEmbodimentCfg(
     robot_cfg_template=f"{_DROID_CUROBO_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo.yml",
