@@ -19,46 +19,11 @@ from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
-class ArenaExperimentWorkflow(Workflow):
-    """Run a complete Arena Experiment without deploying a policy server."""
-
-    task_cls_list = [ExperimentRunnerTask]
-    task_cfg_type = ExperimentRunnerTaskCfg
-    lead_list = [True]
-
-    def __init__(
-        self,
-        workflow_cfg: WorkflowCfg,
-        experiment_definition: ArenaExperimentCfg,
-        group_name: str = "arena",
-        task_cfg: ExperimentRunnerTaskCfg | None = None,
-    ) -> None:
-        assert isinstance(experiment_definition, ArenaExperimentCfg)
-        self.experiment_definition = deepcopy(experiment_definition)
-
-        super().__init__(
-            workflow_cfg=workflow_cfg,
-            task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
-            group_name=group_name,
-        )
-
-    def _get_tasks(self) -> list[BaseTask]:
-        """Create the lead evaluator."""
-        return [self._create_experiment_runner_task()]
-
-    def _create_experiment_runner_task(self) -> ExperimentRunnerTask:
-        """Create the lead Experiment Runner task."""
-        return ExperimentRunnerTask(
-            task_cfg=self.task_cfg,
-            experiment_definition=self.experiment_definition,
-            lead=self.lead_flags[0],
-        )
-
-
-class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
+class Pi0ArenaExperimentWorkflow(Workflow):
     """Run an Arena Experiment with one shared pi0 policy server."""
 
     task_cls_list = [ExperimentRunnerTask, Pi0ServerTask]
+    task_cfg_type = ExperimentRunnerTaskCfg
     server_task_cfg_type = Pi0ServerTaskCfg
     """Configuration type used by this policy-server workflow."""
 
@@ -67,16 +32,17 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_definition: ArenaExperimentCfg,
+        experiment_cfg: ArenaExperimentCfg,
         server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
+        assert isinstance(experiment_cfg, ArenaExperimentCfg)
+        self.experiment_cfg = deepcopy(experiment_cfg)
         self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
             workflow_cfg=workflow_cfg,
-            experiment_definition=experiment_definition,
-            task_cfg=task_cfg,
+            task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
             group_name=group_name,
         )
 
@@ -90,14 +56,18 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def _get_tasks(self) -> list[BaseTask]:
         """Create the lead evaluator and non-lead pi0 server."""
         return [
-            self._create_experiment_runner_task(),
+            ExperimentRunnerTask(
+                task_cfg=self.task_cfg,
+                experiment_cfg=self.experiment_cfg,
+                lead=self.lead_flags[0],
+            ),
             Pi0ServerTask(self.pi0_server_task_cfg, lead=self.lead_flags[1]),
         ]
 
     def _get_pi0_run_variants(self) -> dict[str, str]:
         """Return effective pi0-remote Run variants needed for compatibility checks."""
         pi0_run_variants = {}
-        for run_name, run_cfg in self.experiment_definition.runs.items():
+        for run_name, run_cfg in self.experiment_cfg.runs.items():
             if not isinstance(run_cfg.policy, Pi0RemotePolicyCfg):
                 continue
             pi0_run_variants[run_name] = run_cfg.policy.policy_variant
@@ -120,7 +90,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         """Connect matching pi0 Runs to the shared server task."""
         host_token = Pi0ServerTask.host_token()
         for run_name in run_names:
-            policy_cfg = self.experiment_definition.runs[run_name].policy
+            policy_cfg = self.experiment_cfg.runs[run_name].policy
             assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
             policy_cfg.remote_host = host_token
             policy_cfg.remote_port = POLICY_SERVER_PORT
