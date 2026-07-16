@@ -380,31 +380,20 @@ def test_cli_requires_experiment_cfg_path_and_policy_server(capsys):
 
 
 def test_cli_help_explains_paths_and_override_names(capsys):
-    """Describe the Experiment path, server selector, and typed override namespaces."""
+    """Describe the Experiment path, server selector, and typed override syntax."""
     with pytest.raises(SystemExit, match="0"):
         main(["--help"])
     help_text = capsys.readouterr().out
     normalized_help_text = " ".join(help_text.split())
     assert "--experiment-cfg PATH" in help_text
     assert "path to a typed Arena Experiment YAML configuration" in normalized_help_text
-    assert "visible inside the submitting container or process" in normalized_help_text
     assert "droid_pnp_srl_openpi_experiment.yaml" in help_text
     assert "--policy-server {pi0}" in help_text
-    assert "required --policy-server" in normalized_help_text
-    assert "built-in server implementation" in normalized_help_text
-    assert "does not select the policy evaluated by the Experiment" in normalized_help_text
-    assert "must already select Pi0RemotePolicy" in normalized_help_text
-    assert "typed defaults < Experiment file values < trailing Hydra overrides" in help_text
-    assert "osmo.pool=" in help_text
-    assert "osmo.platform=" in help_text
-    assert "osmo.memory=" in help_text
-    assert "osmo.dry_run=true" in help_text
-    assert "experiment_runner.image=" in help_text
-    assert "policy_server.image=" in help_text
-    assert "policy_server.client_ping_timeout_s=300.0" in help_text
-    assert "experiment_cfg.runs.my_run" in help_text
-    assert "Referenced model, checkpoint, and config paths are not copied" in help_text
-    assert "swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/WORKFLOW_ID" in help_text
+    assert "typed defaults < Experiment YAML < CLI overrides" in help_text
+    assert "osmo.workflow_name=my-evaluation" in help_text
+    assert "experiment_cfg.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4" in help_text
+    assert "Common overrides:" not in help_text
+    assert "Current defaults:" not in help_text
     assert "experiment_cfg=<name>" not in help_text
 
 

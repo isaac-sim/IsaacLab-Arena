@@ -18,10 +18,7 @@ from omegaconf import OmegaConf
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.arena_experiment_submission import ArenaExperimentSubmissionCfg, submit_arena_experiment
-from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
-from osmo.workflows.workflow import WorkflowCfg
-from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
 
 SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 POLICY_SERVER_TASK_CFG_BY_NAME = {
@@ -73,62 +70,22 @@ def build_arena_experiment_submission_cfg(
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create the path-first submission command-line parser."""
     policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
-    workflow_defaults = WorkflowCfg()
-    experiment_runner_defaults = ExperimentRunnerTaskCfg()
-    pi0_server_defaults = Pi0ServerTaskCfg()
-    result_url = DATASET_SWIFT_URL.replace("{{workflow_id}}", "WORKFLOW_ID")
     parser = argparse.ArgumentParser(
         usage=f"%(prog)s [-h] --experiment-cfg PATH --policy-server {{{policy_server_choices}}} [OVERRIDE ...]",
         description="Submit a typed Arena Experiment as an OSMO workflow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=rf"""
-The Experiment Definition must be typed YAML at a filesystem location visible
-inside the submitting container or process.
-
-Minimal Pi0 example:
+        epilog=r"""
+Example:
 
   python -m osmo.submit_arena_experiment \
     --experiment-cfg isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-    --policy-server pi0
+    --policy-server pi0 \
+    osmo.workflow_name=my-evaluation \
+    experiment_cfg.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4
 
-The required --policy-server deploys and connects a built-in server
-implementation; it does not select the policy evaluated by the Experiment.
-With --policy-server pi0, the Experiment YAML must already select
-Pi0RemotePolicy with a compatible policy_variant. Override deployment values
-with policy_server.<field>=<value>.
+Hydra override precedence:
 
-Values are resolved in this order:
-
-  typed defaults < Experiment file values < trailing Hydra overrides
-
-Trailing Hydra overrides are optional. Examples:
-
-  osmo.workflow_name=my-evaluation
-  osmo.pool=isaac-dev-l40-03
-  osmo.dry_run=true
-  experiment_cfg.runs.my_run.rollout_limit.num_episodes=4
-
-Current defaults, which can be overridden through the same field paths:
-
-  osmo.pool={workflow_defaults.pool}
-  osmo.platform={workflow_defaults.platform}
-  osmo.memory={workflow_defaults.memory}
-  experiment_runner.image={experiment_runner_defaults.image}
-  policy_server.image={pi0_server_defaults.image}
-  policy_server.client_ping_timeout_s={pi0_server_defaults.client_ping_timeout_s}
-
-Referenced model, checkpoint, and config paths are not copied from the
-submission container. They must exist in experiment_runner.image or refer to
-storage the remote task can access.
-
-Reports and episode results are uploaded to:
-
-  {result_url}
-
-After replacing WORKFLOW_ID with the ID printed by OSMO, download them with:
-
-  mkdir -p results
-  osmo data download {result_url} results
+  typed defaults < Experiment YAML < CLI overrides
 """,
     )
     parser.add_argument(
