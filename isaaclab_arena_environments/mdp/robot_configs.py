@@ -18,7 +18,7 @@ _LEGACY_FRANKA_PANDA_USD_PATH = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Lega
 # ===========================================================================================
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-# Isaac 6.0 moved this asset to Legacy.
+# Use the available Franka asset under Legacy instead of the unavailable path in the pinned Isaac Lab config.
 # test_franka_assembly_asset_override_is_still_required flags future upstream path changes.
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = _LEGACY_FRANKA_PANDA_USD_PATH
 
