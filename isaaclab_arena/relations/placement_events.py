@@ -87,6 +87,12 @@ def write_layout_to_sim(
     for obj, pos in result.positions.items():
         if obj in anchor_objects_set:
             continue
+        # Embodiments are placed once at spawn, not re-written per reset. Their spawn pose already
+        # encodes any base offset (e.g. the droid's stand-height lift), and accessory prims such as
+        # the droid stand are static assets that cannot be moved at runtime, so re-writing only the
+        # robot root here would detach it from the stand and drop the lift (robot floats).
+        if obj.placement_kind == "embodiment":
+            continue
         asset = env.scene[obj.placement_scene_entity_name]
         marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
         total_yaw = result.orientations.get(obj, marker_yaw)
