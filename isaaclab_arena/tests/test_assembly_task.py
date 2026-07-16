@@ -379,6 +379,17 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 
 # Test functions that will be called by pytest
+def test_franka_assembly_asset_override_is_still_required():
+    """Alert when Isaac Lab updates its Franka Panda asset path."""
+    from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+    from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+
+    removed_upstream_path = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/panda_instanceable.usd"
+    assert (
+        FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path == removed_upstream_path
+    ), "Isaac Lab updated the Franka Panda asset path; review and remove the Arena compatibility override."
+
+
 def test_peg_insert_assembly_single():
     result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_single.__name__} failed"
