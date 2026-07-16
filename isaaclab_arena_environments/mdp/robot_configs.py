@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
 # ===========================================================================================
@@ -15,6 +16,9 @@ from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 # ===========================================================================================
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = (
+    f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Legacy/panda_instanceable.usd"
+)
 
 # Enable contact sensors for assembly tasks
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.activate_contact_sensors = True
