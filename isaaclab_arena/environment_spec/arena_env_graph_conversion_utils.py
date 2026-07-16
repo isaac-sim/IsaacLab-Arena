@@ -29,10 +29,11 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
         enable_cameras: Forwarded to the embodiment so its cameras are added.
     """
+    # Lazy import to avoid pxr early import causing unit test failures.
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
 
-    assets_by_node_id = _instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
+    assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
@@ -85,7 +86,7 @@ def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
     return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
 
 
-def _instantiate_assets_from_spec(
+def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
 ) -> dict[str, type[Asset]]:
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""

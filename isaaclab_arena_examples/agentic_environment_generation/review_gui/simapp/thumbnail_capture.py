@@ -16,7 +16,7 @@ from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_assets_from_spec
+from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import instantiate_assets_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
@@ -47,7 +47,7 @@ class _UsdSnapshotJob:
 
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
-    assets_by_node_id = _instantiate_assets_from_spec(spec, AssetRegistry())
+    assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     # Exclude embodiment from thumbnail rendering.
     assets_by_node_id.pop(spec.embodiment.id)
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
