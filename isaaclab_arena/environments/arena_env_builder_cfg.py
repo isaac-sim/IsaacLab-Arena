@@ -6,6 +6,7 @@
 """Typed configuration for compiling an Arena environment."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 
 # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace this flat legacy-CLI-shaped configuration with
@@ -26,6 +27,11 @@ class ArenaEnvBuilderCfg:
     presets: str | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
+    relation_collision_mode: Literal["bbox", "mesh"] = "bbox"
+    """Default collision mode for relation placement. ``"mesh"`` enables sphere-to-SDF checks against
+    actual geometry and pulls the whole-scene background in as a collision obstacle; ``"bbox"`` (default)
+    uses fast axis-aligned box overlap and ignores the background mesh. Applied only when the environment
+    does not supply its own placement parameters."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

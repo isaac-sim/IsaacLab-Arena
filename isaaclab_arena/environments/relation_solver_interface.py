@@ -42,7 +42,7 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-) -> EventTermCfg | None:
+) -> tuple[EventTermCfg | None, PooledObjectPlacer | None]:
     """Solve relation placement and apply the result to object reset/static state.
 
     Args:
@@ -57,13 +57,15 @@ def solve_and_apply_relation_placement(
             when collision_objects is not supplied.
 
     Returns:
-        Reset event config to attach to the environment when placement should be
-        resolved on reset. Returns ``None`` when no reset event is needed.
+        A ``(placement_event_cfg, placement_pool)`` pair. When placement is resolved on
+        reset, ``placement_pool`` holds the runtime pool (it is not stored in the event
+        config because mesh collision caches contain non-deepcopyable GPU handles).
+        Both are ``None`` when relation solving is skipped or uses static per-env poses.
     """
     objects = list(objects)
     if not objects:
         print("No placement entities with relations found. Skipping relation solving.")
-        return None
+        return None, None
 
     if placer_params is None:
         placer_params = ObjectPlacerParams()
@@ -123,20 +125,21 @@ def _apply_relation_placement_result(
     placer_params: ObjectPlacerParams,
     placement_pool: PooledObjectPlacer,
     num_envs: int,
-) -> EventTermCfg | None:
+) -> tuple[EventTermCfg | None, PooledObjectPlacer | None]:
     """Apply selected layouts to spawn state and build reset event config."""
     anchor_objects_set = set(get_anchor_objects(objects))
     _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
 
     if anchor_objects_set == set(objects):
-        return None
+        return None, None
 
     if placer_params.resolve_on_reset:
-        return _apply_dynamic_spawn_pose(
+        event_cfg = _apply_dynamic_spawn_pose(
             objects=objects,
             placement_pool=placement_pool,
             anchor_objects_set=anchor_objects_set,
         )
+        return event_cfg, placement_pool
 
     _apply_static_initial_poses(
         objects=objects,
@@ -144,7 +147,7 @@ def _apply_relation_placement_result(
         anchor_objects_set=anchor_objects_set,
         num_envs=num_envs,
     )
-    return None
+    return None, None
 
 
 def _apply_dynamic_spawn_pose(
@@ -180,7 +183,6 @@ def _apply_dynamic_spawn_pose(
         mode="reset",
         params={
             "objects": objects,
-            "placement_pool": placement_pool,
         },
     )
 

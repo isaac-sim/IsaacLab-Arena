@@ -106,6 +106,17 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     arena_group.add_argument(
+        "--relation_collision_mode",
+        type=str,
+        choices=["bbox", "mesh"],
+        default="bbox",
+        help=(
+            "Collision mode for relation placement. 'mesh' checks actual geometry and adds the scene background as a"
+            " collision obstacle (slower, avoids clutter intersections); 'bbox' (default) uses fast box overlap and"
+            " ignores the background mesh."
+        ),
+    )
+    arena_group.add_argument(
         "--list_variations",
         action="store_true",
         default=False,

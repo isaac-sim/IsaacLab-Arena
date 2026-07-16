@@ -55,9 +55,10 @@ def _fallback_layout(positions):
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
-    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():
@@ -65,13 +66,14 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     params = ObjectPlacerParams(placement_seed=11, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
@@ -85,13 +87,14 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     box.add_relation(On(desk, clearance_m=0.01))
 
     params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [desk, box],
         num_envs=2,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
@@ -128,7 +131,7 @@ def test_dynamic_spawn_pose_event_params_use_runtime_objects():
     )
 
     assert [obj.name for obj in event_cfg.params["objects"]] == ["desk", "box"]
-    assert "placement_pool" in event_cfg.params
+    assert "placement_pool" not in event_cfg.params
 
 
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):

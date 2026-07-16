@@ -20,19 +20,10 @@ objects:
 - id: plate
   registry_name: plate_large_vomp_robolab
   params: {}
-- id: distractor_1
-  registry_name: red_bell_pepper_objaverse_robolab
-  params: {}
-- id: distractor_2
-  registry_name: broccoli
-  params: {}
-- id: distractor_3
-  registry_name: sweet_potato
-  params: {}
 object_references:
 - id: right_counter_top
   parent_id: kitchen
-  prim_path: counter_right_main_group/top_geometry
+  prim_path: counter_main_main_group/top_geometry_right
   object_type: base
   params: {}
 - id: floor
@@ -67,18 +58,6 @@ relations:
   params: {}
 - kind: 'on'
   subject: plate
-  reference: right_counter_top
-  params: {}
-- kind: 'on'
-  subject: distractor_1
-  reference: right_counter_top
-  params: {}
-- kind: 'on'
-  subject: distractor_2
-  reference: right_counter_top
-  params: {}
-- kind: 'on'
-  subject: distractor_3
   reference: right_counter_top
   params: {}
 task:

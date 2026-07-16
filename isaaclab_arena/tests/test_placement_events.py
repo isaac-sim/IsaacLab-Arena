@@ -228,7 +228,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
 
 
 def test_get_placement_pool_returns_runtime_pool():
-    """Pool validation can retrieve the runtime placement pool from the reset event."""
+    """get_placement_pool reads the pool stored on the env."""
     from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
@@ -236,6 +236,20 @@ def test_get_placement_pool_returns_runtime_pool():
 
     pool = Pool()
     env = MagicMock()
+    env.unwrapped._arena_placement_pool = pool
+    assert get_placement_pool(env) is pool
+
+
+def test_get_placement_pool_falls_back_to_event_params():
+    """get_placement_pool falls back to legacy event params when the env has no pool attribute."""
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+
+    class Pool:
+        pass
+
+    pool = Pool()
+    env = MagicMock()
+    env.unwrapped._arena_placement_pool = None
     env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
     assert get_placement_pool(env) is pool
 
