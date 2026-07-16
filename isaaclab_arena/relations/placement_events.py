@@ -101,6 +101,10 @@ def write_layout_to_sim(
     for asset in result.positions:
         if asset in anchor_assets:
             continue
+        # Assets without a root-pose reset event (such as embodiments with
+        # static accessories) are placed once at spawn.
+        if not asset.has_pose_reset_event():
+            continue
         scene_asset = env.scene[asset.get_scene_name()]
         pose = get_pose_from_layout(asset, result)
         pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
