@@ -58,7 +58,7 @@ def _experiment(*run_cfgs: ArenaRunCfg) -> ArenaExperimentCfg:
     return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
 
 
-def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
+def test_execute_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
     run = _run()
     rollout_limits = []
     received_run_cfgs = []
@@ -77,7 +77,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
 
-    result = run_execution.build_and_run(
+    result = run_execution.execute_run(
         run,
         output_dir=tmp_path,
     )
@@ -89,7 +89,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert run.rollout_limit == RolloutLimitCfg(num_episodes=5)
 
 
-def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
+def test_execute_run_raises_and_closes_resources(monkeypatch, tmp_path):
     closed_resources = []
     environment = _environment()
     policy = _Policy()
@@ -113,7 +113,7 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     )
 
     with pytest.raises(RuntimeError, match="rollout failed"):
-        run_execution.build_and_run(
+        run_execution.execute_run(
             _run(rollout_limit=RolloutLimitCfg(num_steps=2), num_rebuilds=1),
             output_dir=tmp_path,
         )
@@ -121,7 +121,7 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     assert closed_resources == [(policy, environment)]
 
 
-def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp_path):
+def test_execute_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp_path):
     closed_resources = []
     environment = _environment()
     policy = _Policy()
@@ -139,7 +139,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
     )
 
     with pytest.raises(AssertionError, match="must configure num_steps or num_episodes"):
-        run_execution.build_and_run(
+        run_execution.execute_run(
             _run(rollout_limit=RolloutLimitCfg(), num_rebuilds=1),
             output_dir=tmp_path,
         )
@@ -150,11 +150,11 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
 def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
     received = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def execute_run(run_cfg, output_dir, video_cfg):
         received.append((run_cfg.name, output_dir, video_cfg.video_base_dir))
         return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
 
-    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+    monkeypatch.setattr(run_execution, "execute_run", execute_run)
 
     results = run_execution.execute_experiment(
         _experiment(_run(name="first"), _run(name="second")),
@@ -171,13 +171,13 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path):
     attempted = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def execute_run(run_cfg, output_dir, video_cfg):
         attempted.append(run_cfg.name)
         if run_cfg.name == "failing":
             raise RuntimeError("rollout failed")
         return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
 
-    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+    monkeypatch.setattr(run_execution, "execute_run", execute_run)
 
     results = run_execution.execute_experiment(
         _experiment(_run(name="failing"), _run(name="passing")),
@@ -195,11 +195,11 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
 def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
     attempted = []
 
-    def build_and_run(run_cfg, output_dir, video_cfg):
+    def execute_run(run_cfg, output_dir, video_cfg):
         attempted.append(run_cfg.name)
         raise RuntimeError("rollout failed")
 
-    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+    monkeypatch.setattr(run_execution, "execute_run", execute_run)
 
     with pytest.raises(RuntimeError, match="rollout failed"):
         run_execution.execute_experiment(

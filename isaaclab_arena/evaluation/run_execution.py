@@ -58,7 +58,7 @@ def execute_experiment(
         print(f"Running run '{run_cfg.name}'", flush=True)
         run_output_dir = output_dir / run_cfg.name
         try:
-            result = build_and_run(
+            result = execute_run(
                 run_cfg,
                 output_dir=run_output_dir,
                 video_cfg=VideoRecordingCfg(
@@ -79,19 +79,31 @@ def execute_experiment(
     return results
 
 
-def build_and_run(
-    cfg: ArenaRunCfg,
+def execute_run(
+    run_cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result."""
+    """Execute one typed Arena Run inside an active SimulationApp.
+
+    The caller owns the SimulationApp lifecycle. This function owns the
+    environments and policies created for the Run, including every rebuild.
+
+    Args:
+        run_cfg: Complete configuration for the Run to execute.
+        output_dir: Directory for the Run's episode results and videos.
+        video_cfg: Optional viewport and camera recording configuration.
+
+    Returns:
+        The completed Run result. Execution errors propagate after cleanup.
+    """
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _split_episodes_across_rebuilds(
-        cfg.rollout_limit.num_episodes,
-        cfg.num_rebuilds,
-        cfg.name,
+        run_cfg.rollout_limit.num_episodes,
+        run_cfg.num_rebuilds,
+        run_cfg.name,
     )
 
     for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
@@ -103,14 +115,14 @@ def build_and_run(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            env = _build_environment_from_cfg(cfg, rebuild_video_cfg.render_mode)
+            env = _build_environment_from_cfg(run_cfg, rebuild_video_cfg.render_mode)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
-            env.unwrapped.episode_recorder.set_job_name(cfg.name)
+            env.unwrapped.episode_recorder.set_job_name(run_cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(cfg)
+            policy = _build_policy_from_cfg(run_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
-                cfg,
+                run_cfg,
                 policy,
                 num_episodes,
             )
@@ -122,7 +134,7 @@ def build_and_run(
             close_run_resources(policy, env)
 
     return ArenaRunResult(
-        run_name=cfg.name,
+        run_name=run_cfg.name,
         status=RunStatus.COMPLETED,
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
     )
