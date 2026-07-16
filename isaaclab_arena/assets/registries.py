@@ -196,7 +196,7 @@ class PolicyRegistry(Registry):
         self._policy_types_by_cfg_type[cfg_type] = policy_type
 
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove this policy-to-config
-    # lookup when policy_runner and eval_runner receive PolicyCfg instances directly.
+    # lookup when policy_runner and experiment_runner receive PolicyCfg instances directly.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()

@@ -3,6 +3,11 @@ Assets Management
 
 .. note::
 
+   **Internal NVIDIA use only.** This page documents workflows and infrastructure (OV Nucleus Server,
+   staging/production S3 buckets, internal ticketing) that are only accessible to NVIDIA employees.
+
+.. note::
+
    These steps are only required if you are adding your own assets to Isaac Lab Arena's production S3 buckets.
    Assets and files that are used by Isaac Lab Arena by default are publicly available without additional authentication.
 
@@ -15,6 +20,11 @@ Isaac Lab Arena uses the following environment variables to access those S3 buck
 - ``ISAACLAB_STAGING_NUCLEUS_DIR``: The directory of Isaac Lab Arena's development assets on the staging S3 bucket, auto-synced every 6 hours
   from the Nucleus Server (omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/). Those assets have not yet reviewed by legal team -- use in production at your own risk.
   Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.
+
+.. note::
+
+   In Isaac Lab 3.0-alpha, ``ISAACLAB_NUCLEUS_DIR`` currently points to the *staging* S3 bucket rather than the production bucket.
+   See the `Isaac Lab staging-bucket configuration <https://github.com/isaac-sim/IsaacLab/blob/55df2c34390ba94b22d41879514c5485c5115462/apps/isaaclab.python.kit#L309>`__.
 
 Adding assets
 -------------
@@ -37,3 +47,11 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
 3. Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.
 
 4. Run Isaac Lab Arena to verify that the assets are loaded correctly.
+
+Syncing assets from OV Nucleus to S3 production
+-----------------------------------------------
+
+.. note::
+
+   Syncing assets from the OV Nucleus Server to the *production* S3 bucket requires filing a ticket:
+   https://jirasw.nvidia.com/browse/ISIM-5044

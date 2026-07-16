@@ -16,8 +16,9 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.predicates.spatial import objects_on_destinations
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import objects_on_destinations, root_height_below_minimum_multi_objects
+from isaaclab_arena.tasks.terminations import root_height_below_minimum_multi_objects
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
 

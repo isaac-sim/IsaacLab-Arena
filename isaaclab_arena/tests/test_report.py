@@ -28,7 +28,7 @@ def test_episode_video_filename_roundtrip_no_rebuild():
 
 
 def test_build_report_smoke(tmp_path):
-    # One job sub-directory (eval_runner layout) with two cameras, two envs, two rebuilds, plus a
+    # One job sub-directory (experiment_runner layout) with two cameras, two envs, two rebuilds, plus a
     # flat file (policy_runner layout) and stray files the scanner must ignore.
     job_dir = tmp_path / "pick_and_place"
     job_dir.mkdir()

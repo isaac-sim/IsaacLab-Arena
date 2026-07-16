@@ -12,7 +12,7 @@ from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
 
 # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this Namespace-to-config adapter after policy_runner,
-# eval_runner, and the remaining argparse scripts pass ArenaEnvBuilderCfg directly.
+# experiment_runner, and the remaining argparse scripts pass ArenaEnvBuilderCfg directly.
 def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEnvBuilderCfg:
     """Translate parsed CLI arguments into the typed builder configuration.
 
@@ -26,7 +26,7 @@ def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEn
 
 
 # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this parser pipeline and its add_* helpers after
-# policy_runner, eval_runner, and the remaining argparse scripts accept typed configs.
+# policy_runner, experiment_runner, and the remaining argparse scripts accept typed configs.
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
