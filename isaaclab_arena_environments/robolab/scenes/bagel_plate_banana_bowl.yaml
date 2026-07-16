@@ -1,0 +1,54 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+- id: bagel_1
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
+- id: bagel_2
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: banana
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: maple_table_robolab
+  params: {}

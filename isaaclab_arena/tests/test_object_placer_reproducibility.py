@@ -18,7 +18,8 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi
 
 
 def _create_test_objects():
@@ -306,7 +307,6 @@ def test_random_yaw_init_applied_yaw_matches_selected_candidate():
 
 
 def test_random_yaw_init_composes_marker_yaw():
-    """A yaw RotateAroundSolution marker composes with the sampled yaw: applied == marker + sampled."""
     marker_yaw = math.pi / 6
     solver_params = RelationSolverParams(max_iters=10, verbose=False)
     desk, box1, box2 = _create_test_objects()
@@ -316,7 +316,8 @@ def test_random_yaw_init_composes_marker_yaw():
     )
     (result,) = placer.place([desk, box1, box2], num_envs=1)
     applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
-    assert abs(wrap_angle_to_pi(applied - (marker_yaw + result.orientations[box1]))) < 1e-5
+    # result.orientations now carries total yaw = marker + sampled
+    assert abs(wrap_angle_to_pi(applied - result.orientations[box1])) < 1e-5
 
 
 def test_random_yaw_init_rejects_roll_pitch_marker():
@@ -329,6 +330,22 @@ def test_random_yaw_init_rejects_roll_pitch_marker():
     )
     with pytest.raises(AssertionError):
         placer.place([desk, box1, box2], num_envs=1)
+
+
+def test_marker_yaw_applied_without_random_yaw_init():
+    """RotateAroundSolution marker must be applied even when random_yaw_init=False."""
+    marker_yaw = math.pi / 4
+    solver_params = RelationSolverParams(max_iters=5, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    box1.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=False)
+    )
+    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
+    assert abs(wrap_angle_to_pi(orientations[box1] - marker_yaw)) < 1e-5
+    placer.place([desk, box1, box2], num_envs=1)
+    applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
+    assert abs(wrap_angle_to_pi(applied - marker_yaw)) < 1e-5, f"Marker yaw {marker_yaw} must be applied; got {applied}"
 
 
 def _positions_by_name(result: PlacementResult) -> dict[str, tuple[float, float, float]]:

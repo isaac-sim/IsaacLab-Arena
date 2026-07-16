@@ -19,8 +19,27 @@ TEST_ASSET_NAME = "sphere"
 TEST_OVERRIDE_RADIUS = 0.37
 
 
+def test_nested_values_are_serialized_as_hydra_overrides():
+    overrides = variations_hydra.overrides_from_dict({
+        "cracker_box": {
+            "color": {
+                "enabled": True,
+                "sampler": {"low": [0.2, 0.2, 0.0], "high": [1.0, 1.0, 0.0]},
+            }
+        },
+        "light": {"hdr_image": {"enabled": False}},
+    })
+
+    assert "cracker_box.color.enabled=true" in overrides
+    assert "cracker_box.color.sampler.low=[0.2,0.2,0.0]" in overrides
+    assert "cracker_box.color.sampler.high=[1.0,1.0,0.0]" in overrides
+    assert "light.hdr_image.enabled=false" in overrides
+    assert all(" " not in override for override in overrides)
+    assert variations_hydra.overrides_from_dict({}) == []
+
+
 def _test_hydra_override_applies_build_time_variation(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # The variation starts disabled; the Hydra override must both enable it and set the
@@ -30,7 +49,7 @@ def _test_hydra_override_applies_build_time_variation(simulation_app):
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
     builder = ArenaEnvBuilder(
         arena_env,
-        args_cli,
+        arena_env_builder_cfg_from_argparse(args_cli),
         hydra_overrides=[
             f"{TEST_ASSET_NAME}.test_build_time.enabled=true",
             f"{TEST_ASSET_NAME}.test_build_time.sampler_cfg.low=[{TEST_OVERRIDE_RADIUS}]",
@@ -57,7 +76,7 @@ def test_hydra_override_applies_build_time_variation():
 
 
 def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # The variation starts disabled; the Hydra override must enable it so the event
@@ -66,7 +85,7 @@ def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
     builder = ArenaEnvBuilder(
         arena_env,
-        args_cli,
+        arena_env_builder_cfg_from_argparse(args_cli),
         hydra_overrides=[f"{TEST_ASSET_NAME}.test_runtime.enabled=true"],
     )
 

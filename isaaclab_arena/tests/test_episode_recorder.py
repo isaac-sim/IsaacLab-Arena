@@ -39,6 +39,9 @@ CORE_KEYS = {
 # Field contributed by the custom term registered in the custom-term test.
 CUSTOM_KEY = "step_bucket"
 
+# Field contributed by the progress-tracking recorder.
+PROGRESS_KEY = "progress"
+
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
 VARIATION_NAME = "record_test_variation"
 VARIATION_SAMPLE = [0.25, 0.5]
@@ -98,7 +101,7 @@ def create_recorder_env(
     """
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -136,7 +139,7 @@ def create_recorder_env(
     # The builder applies the language-instruction override onto the env cfg's task_description, which the
     # core recorder then records.
     args_cli.language_instruction = LANGUAGE_INSTRUCTION
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
     # Per-env reset poses: env 0 lands in the drawer (success), env 1 lands outside (failure).
@@ -185,8 +188,10 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
         # episode_in_env must increment from 0 per env, and the deterministic poses fix success.
         per_env_counter: dict[int, int] = {}
         for record in records:
-            # With no variation drawn and no custom term, every record is exactly the core schema.
-            assert set(record.keys()) == CORE_KEYS, f"Unexpected keys: {set(record.keys()) - CORE_KEYS}"
+            # With no variation drawn and no custom term, every record is the core schema plus the
+            # progress block contributed by PickAndPlaceTask's progress objectives.
+            expected_keys = CORE_KEYS | {PROGRESS_KEY}
+            assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
             assert isinstance(record["episode_length"], int)
@@ -235,7 +240,8 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
 
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
-            assert set(record.keys()) == CORE_KEYS | {CUSTOM_KEY}, f"Unexpected keys: {set(record.keys())}"
+            expected_keys = CORE_KEYS | {PROGRESS_KEY, CUSTOM_KEY}
+            assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == record["episode_length"] // 10
     finally:
         env.close()

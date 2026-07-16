@@ -4,6 +4,66 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+from dataclasses import fields
+from typing import TYPE_CHECKING
+
+from isaaclab_arena.assets.registries import PolicyRegistry
+from isaaclab_arena.cli.dataclass_cli import (
+    add_dataclass_cli_args,
+    assert_cli_defaults_match_dataclass,
+    dataclass_from_cli,
+)
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+
+
+# Legacy argparse compatibility
+#
+# Registered policy configs are the source of truth. Until policy_runner receives a
+# PolicyCfg directly, these helpers generate its policy flags and reconstruct the same
+# config from the parsed Namespace.
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this compatibility section when policy_runner receives
+# typed policy configs directly.
+_FIELDS_PROVIDED_BY_SHARED_PARSER = {"device", "num_envs"}
+
+
+def _add_policy_cfg_arguments(
+    parser: argparse.ArgumentParser,
+    policy_cfg_type: type["PolicyCfg"],
+) -> None:
+    """Generate CLI flags from one registered policy config."""
+    cfg_field_names = {config_field.name for config_field in fields(policy_cfg_type)}
+    shared_fields = cfg_field_names.intersection(_FIELDS_PROVIDED_BY_SHARED_PARSER)
+    assert_cli_defaults_match_dataclass(parser, policy_cfg_type, shared_fields)
+    add_dataclass_cli_args(parser, policy_cfg_type, excluded_fields=shared_fields)
+
+
+def add_policy_cli_args(
+    parser: argparse.ArgumentParser,
+    policy_type: type["PolicyBase"],
+) -> argparse.ArgumentParser:
+    """Add CLI flags generated from a policy's registered config."""
+    policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_type)
+    _add_policy_cfg_arguments(parser, policy_cfg_type)
+    return parser
+
+
+def policy_cfg_from_cli(
+    policy_type: type["PolicyBase"],
+    args_cli: argparse.Namespace,
+) -> "PolicyCfg":
+    """Create a registered policy's typed config from parsed CLI values."""
+    policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_type)
+    return dataclass_from_cli(policy_cfg_type, args_cli)
+
+
+def build_policy_from_cli(
+    policy_type: type["PolicyBase"],
+    args_cli: argparse.Namespace,
+) -> "PolicyBase":
+    """Build a policy from CLI values through its registered typed config."""
+    return policy_type(policy_cfg_from_cli(policy_type, args_cli))
 
 
 def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:

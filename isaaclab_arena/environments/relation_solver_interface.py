@@ -5,39 +5,55 @@
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.relations.collision_object import CollisionObject
+
+
+def _get_passive_collision_objects(
+    assets: Iterable[Asset | RigidObjectSet],
+    include_background: bool = False,
+) -> list[CollisionObject]:
+    """Load passive collision discovery only when relation placement needs it."""
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
+    return get_passive_collision_objects(assets, include_background=include_background)
 
 
 def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
     num_envs: int,
-    placement_seed: int | None = None,
-    resolve_on_reset: bool | None = None,
-    random_yaw_init: bool = False,
+    placer_params: ObjectPlacerParams | None = None,
+    collision_objects: list[CollisionObject] | None = None,
+    scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
     Args:
         objects: Objects with spatial predicates that should be relation-solved.
         num_envs: Number of environments to prepare placements for.
-        placement_seed: Optional random seed for reproducible object placement.
-        resolve_on_reset: Optional override for whether to draw fresh layouts from
-            the placement pool on reset. When ``False``, fixed per-environment
-            initial poses are applied immediately.
-        random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
-            axis at startup to add visual variety to the scene.
+        placer_params: Optional placement parameters. A shallow copy is used so
+            this function can force pooled placement without mutating the caller's instance.
+        collision_objects: Fixed obstacles avoided during placement but never optimized
+            or relation-constrained.
+        scene_assets: Optional scene assets to scan for passive collision objects
+            when collision_objects is not supplied.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -48,15 +64,19 @@ def solve_and_apply_relation_placement(
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
-    placer_params = ObjectPlacerParams(
-        placement_seed=placement_seed,
-        apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(save_position_history=False, verbose=False),
-        random_yaw_init=random_yaw_init,
-    )
-    if resolve_on_reset is not None:
-        placer_params.resolve_on_reset = resolve_on_reset
-
+    if placer_params is None:
+        placer_params = ObjectPlacerParams()
+    else:
+        placer_params = copy.copy(placer_params)
+    placer_params.apply_positions_to_objects = False
+    if collision_objects is None and scene_assets is not None:
+        scene_assets = list(scene_assets)
+        collision_objects = _get_passive_collision_objects(
+            scene_assets,
+            include_background=_should_include_background_mesh(
+                objects, scene_assets, placer_params.solver_params.collision_mode
+            ),
+        )
     # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
     # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
@@ -64,6 +84,7 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
+        collision_objects=collision_objects,
     )
 
     if placement_pool.had_fallbacks:
@@ -77,6 +98,24 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
+    )
+
+
+def _should_include_background_mesh(
+    objects: list[ObjectBase],
+    scene_assets: Iterable[Asset | RigidObjectSet],
+    default_collision_mode: CollisionMode,
+) -> bool:
+    """Return True when the default mode or any object/Background override resolves to MESH."""
+    from isaaclab_arena.assets.background import Background
+
+    if default_collision_mode == CollisionMode.MESH:
+        return True
+    if any(get_object_collision_mode(obj, default_collision_mode) == CollisionMode.MESH for obj in objects):
+        return True
+    return any(
+        isinstance(asset, Background) and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
+        for asset in scene_assets
     )
 
 
@@ -127,8 +166,10 @@ def _apply_dynamic_spawn_pose(
         pos = layout.positions.get(obj)
         if pos is None:
             continue
-        yaw = layout.orientations.get(obj, 0.0)
-        rot = rotate_quat_by_yaw(get_rotation_xyzw(obj), yaw)
+        base_rot = get_rotation_xyzw(obj)
+        marker_yaw = yaw_from_quat_xyzw(base_rot)
+        total_yaw = layout.orientations.get(obj, marker_yaw)
+        rot = rotate_quat_by_yaw(base_rot, total_yaw - marker_yaw)
         object_cfg = getattr(obj, "object_cfg", None)
         assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
@@ -163,8 +204,9 @@ def _apply_static_initial_poses(
             if pos is None:
                 missing_envs.append(env_idx)
             else:
-                yaw = layouts[env_idx].orientations.get(obj, 0.0)
-                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
+                marker_yaw = yaw_from_quat_xyzw(base_rotation_xyzw)
+                total_yaw = layouts[env_idx].orientations.get(obj, marker_yaw)
+                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, total_yaw - marker_yaw)
                 poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
         if missing_envs:
             print(

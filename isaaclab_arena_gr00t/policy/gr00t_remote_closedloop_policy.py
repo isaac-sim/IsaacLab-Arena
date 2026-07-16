@@ -11,19 +11,19 @@ This policy connects to a GR00T policy server (launched via
 
 from __future__ import annotations
 
-import argparse
 import gymnasium as gym
 import torch
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
-    Gr00tBasePolicyArgs,
+    Gr00tBasePolicyCfg,
     build_gr00t_action_tensor,
     build_gr00t_policy_observations,
     compute_action_dim,
@@ -33,36 +33,33 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
 
 
-# TODO(xinjieyao, 2026-04-27): consider adding RemotePolicyArgs to inherit from BasePolicyArgs
-# and then having Gr00tRemoteClosedloopPolicyArgs inherit from RemotePolicyArgs
+# TODO(xinjieyao, 2026-04-27): Consider adding RemotePolicyCfg and deriving this config from it.
 @dataclass
-class Gr00tRemoteClosedloopPolicyArgs(Gr00tBasePolicyArgs):
+class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Configuration for Gr00tRemoteClosedloopPolicy.
 
-    Inherits policy_config_yaml_path and policy_device from Gr00tBasePolicyArgs,
+    Inherits policy_config_yaml_path and policy_device from Gr00tBasePolicyCfg,
     and adds remote server connection parameters and num_envs.
     """
 
-    num_envs: int = field(default=1, metadata={"help": "Number of environments to simulate"})
-    remote_host: str = field(default="localhost", metadata={"help": "GR00T policy server hostname"})
-    remote_port: int = field(default=5555, metadata={"help": "GR00T policy server port"})
-    remote_api_token: str | None = field(default=None, metadata={"help": "API token for the policy server"})
+    num_envs: int = 1
+    """Number of parallel environments served by the policy."""
 
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> Gr00tRemoteClosedloopPolicyArgs:
-        """Create configuration from parsed CLI arguments."""
-        return cls(
-            policy_config_yaml_path=args.policy_config_yaml_path,
-            policy_device=args.policy_device,
-            num_envs=args.num_envs,
-            remote_host=args.remote_host,
-            remote_port=args.remote_port,
-            remote_api_token=getattr(args, "remote_api_token", None),
-        )
+    remote_host: str = "localhost"
+    """GR00T policy server hostname."""
+
+    remote_port: int = 5555
+    """GR00T policy server port."""
+
+    remote_api_token: str | None = None
+    """Optional policy-server API token."""
+
+    scheduler: Literal["chunk", "synced_batch"] = "chunk"
+    """Action scheduler used to consume inference chunks."""
 
 
-# TODO(xinjieyao, 2026-04-27): add policy registry
-class Gr00tRemoteClosedloopPolicy(PolicyBase):
+@register_policy
+class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
 
     Uses GR00T's native ``PolicyClient`` (from ``gr00t.policy.server_client``)
@@ -70,19 +67,21 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
     """
 
     name = "gr00t_remote_closedloop"
-    config_class = Gr00tRemoteClosedloopPolicyArgs
 
-    def __init__(
-        self,
-        config: Gr00tRemoteClosedloopPolicyArgs,
-        action_scheduler_cls: type[ActionScheduler] = ActionChunkScheduler,
-    ):
+    def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
+
+        action_scheduler_cls: type[ActionScheduler]
+        if config.scheduler == "synced_batch":
+            action_scheduler_cls = SyncedBatchActionScheduler
+        else:
+            assert config.scheduler == "chunk", f"Unknown action scheduler: {config.scheduler}"
+            action_scheduler_cls = ActionChunkScheduler
 
         # Policy config (for obs/action translation — no model loading)
         # TODO(xinjieyao, 2026-04-27): to be refactored
-        self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
-            config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
+        self.policy_config: Gr00tClosedloopPolicyCfg = create_config_from_yaml(
+            config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg
         )
         self.num_envs = config.num_envs
         self.device = config.policy_device
@@ -125,52 +124,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 
         self.task_description: str | None = None
-
-    # ---------------------- CLI helpers -------------------
-
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        group = parser.add_argument_group(
-            "Gr00t Remote Closedloop Policy",
-            "Arguments for GR00T remote closed-loop policy evaluation.",
-        )
-        group.add_argument(
-            "--policy_config_yaml_path",
-            type=str,
-            required=True,
-            help="Path to the Gr00t closedloop policy config YAML file",
-        )
-        group.add_argument(
-            "--policy_device",
-            type=str,
-            default="cuda",
-            help="Device for Arena-side tensor operations (default: cuda)",
-        )
-        group.add_argument("--remote_host", type=str, default="localhost", help="GR00T policy server hostname")
-        group.add_argument("--remote_port", type=int, default=5555, help="GR00T policy server port")
-        group.add_argument("--remote_api_token", type=str, default=None, help="API token for the policy server")
-        group.add_argument(
-            "--scheduler",
-            type=str,
-            default="chunk",
-            choices=["chunk", "synced_batch"],
-            help=(
-                "Action scheduler: 'chunk' fetches a new chunk for any env that needs one;"
-                " 'synced_batch' waits until ALL envs need a new chunk and then issues a single"
-                " full-batch inference call (envs that finish early hold their current robot state)."
-            ),
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> Gr00tRemoteClosedloopPolicy:
-        config = Gr00tRemoteClosedloopPolicyArgs.from_cli_args(args)
-        scheduler_cls: type[ActionScheduler] = (
-            SyncedBatchActionScheduler
-            if getattr(args, "scheduler", "chunk") == "synced_batch"
-            else ActionChunkScheduler
-        )
-        return Gr00tRemoteClosedloopPolicy(config, action_scheduler_cls=scheduler_cls)
 
     # ---------------------- Policy interface -------------------
 

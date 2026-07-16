@@ -5,6 +5,8 @@
 
 from dataclasses import dataclass
 
+from isaaclab_arena.policy.policy_base import PolicyCfg
+
 DEFAULT_VARIANT = "pi05"
 
 MAX_RECONNECT_ATTEMPTS = 3
@@ -15,8 +17,11 @@ MAX_RECONNECT_ATTEMPTS = 3
 # (--policy_config_yaml_path). Decide on one mechanism (likely Hydra) when the
 # planned RemotePolicy base class lands; the config-loading shape belongs there.
 @dataclass
-class Pi0RemotePolicyArgs:
+class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
+
+    openpi_embodiment_adapter: str = "droid"
+    """Adapter used to translate Arena observations and policy actions."""
 
     policy_variant: str = DEFAULT_VARIANT
     policy_device: str = "cuda"

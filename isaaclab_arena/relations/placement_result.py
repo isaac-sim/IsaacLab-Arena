@@ -30,8 +30,7 @@ class PlacementResult:
     """Number of attempts made."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
-    """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
-    base rotation. Keyed by object, like positions. Empty when unrotated."""
+    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
 
     @property
     def success(self) -> bool:

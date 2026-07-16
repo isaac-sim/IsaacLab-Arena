@@ -38,7 +38,7 @@ To add teleoperation to an environment, pick a device by name and pass it in:
        teleop_device=teleop_device,
    )
 
-   env = ArenaEnvBuilder(environment, args_cli).make_registered()
+   env = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg()).make_registered()
 
 ``teleop_device`` is optional — omit it for policy evaluation and include it
 when collecting demonstrations.

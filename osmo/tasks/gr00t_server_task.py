@@ -5,17 +5,25 @@
 
 """GR00T inference-server task for OSMO eval workflows, used by the GR00T policy-runner task."""
 
+from dataclasses import dataclass
 from typing import Any
 
-from tasks.base_task import BaseTask
-from workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
-# GR00T server image (containing the droid checkpoints).
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid:latest"
-# Droid checkpoint baked into the GR00T server image.
-MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-DROID"
-# Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml).
-EMBODIMENT_TAG = "OXE_DROID"
+
+@dataclass
+class Gr00tServerTaskCfg(TaskCfg):
+    """Config for the GR00T inference-server task."""
+
+    image: str = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid"
+    """GR00T server image (containing the droid checkpoints)."""
+
+    model_path: str = "/workspace/pretrained_ckpts/GR00T-N1.6-DROID"
+    """Droid checkpoint baked into the GR00T server image."""
+
+    embodiment_tag: str = "OXE_DROID"
+    """Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml)."""
 
 
 class Gr00tServerTask(BaseTask):
@@ -23,20 +31,17 @@ class Gr00tServerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_args: Any,
-        task_args: Any,
-        image: str = DEFAULT_IMAGE,
+        task_cfg: Gr00tServerTaskCfg | None = None,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
-        self.image = image
+        super().__init__(task_cfg=task_cfg or Gr00tServerTaskCfg(), lead=lead)
 
     @staticmethod
     def get_task_name() -> str:
         return "gr00t_server"
 
     def _get_image(self) -> str:
-        return self.image
+        return self.task_cfg.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
         return []
@@ -50,8 +55,8 @@ class Gr00tServerTask(BaseTask):
             "nvidia-smi\n"
             "cd /workspace\n"
             "exec uv run python gr00t/eval/run_gr00t_server.py \\\n"
-            f'  --model_path="{MODEL_PATH}" \\\n'
-            f'  --embodiment_tag="{EMBODIMENT_TAG}" \\\n'
+            f"  --model_path={self.task_cfg.model_path} \\\n"
+            f"  --embodiment_tag={self.task_cfg.embodiment_tag} \\\n"
             "  --host=0.0.0.0 \\\n"
             f"  --port={POLICY_SERVER_PORT}\n"
         )

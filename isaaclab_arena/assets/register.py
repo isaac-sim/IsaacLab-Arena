@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from types import get_original_bases
+from typing import TYPE_CHECKING, get_args, get_origin
+
 from isaaclab_arena.assets.registries import (
     AssetRegistry,
     DeviceRegistry,
@@ -13,6 +16,10 @@ from isaaclab_arena.assets.registries import (
     RetargeterRegistry,
     TaskRegistry,
 )
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -45,11 +52,12 @@ def register_retargeter(cls):
 
 
 # Decorator to register a policy with the PolicyRegistry.
-def register_policy(cls):
+def register_policy(cls: type["PolicyBase"]):
+    """Register a policy and its typed configuration."""
     if PolicyRegistry().is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
     else:
-        PolicyRegistry().register(cls, cls.name)
+        PolicyRegistry().register_policy(cls, _policy_cfg_type_from_policy(cls))
     return cls
 
 
@@ -68,7 +76,7 @@ def register_environment(cls):
     if registry.is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
     else:
-        registry.register(cls, cls.name)
+        registry.register_environment(cls, _environment_cfg_type_from_factory(cls))
     return cls
 
 
@@ -98,3 +106,50 @@ def agent_ready(cls):
     """Mark a task class as available to the environment-generation agent."""
     cls.agent_ready = True
     return cls
+
+
+def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
+    """Read ``PolicyBase[Cfg]`` so the registry can map a config back to its policy."""
+    # Importing PolicyBase at module load time creates assets.register -> policy package ->
+    # concrete policy -> assets.register. Delay it until a concrete policy is decorated.
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+
+    policy_bases = [base for base in get_original_bases(policy_type) if get_origin(base) is PolicyBase]
+    assert len(policy_bases) == 1, f"{policy_type.__name__} must directly inherit PolicyBase[ConcretePolicyCfg]"
+
+    cfg_types = get_args(policy_bases[0])
+    assert len(cfg_types) == 1, f"{policy_type.__name__} must declare exactly one policy config"
+
+    cfg_type = cfg_types[0]
+    assert isinstance(cfg_type, type) and issubclass(
+        cfg_type, PolicyCfg
+    ), f"{policy_type.__name__} must use a concrete PolicyCfg subclass"
+    return cfg_type
+
+
+def _environment_cfg_type_from_factory(
+    factory_type: type["ArenaEnvironmentFactory"],
+) -> type["ArenaEnvironmentCfg"]:
+    """Read the config type from a factory's ``ArenaEnvironmentFactory[Cfg]`` base.
+
+    The generic base is the single declaration of which config a factory consumes.
+    Registration records that relationship so typed execution can later resolve the
+    factory from a concrete config instance.
+    """
+    generic_factory_bases = [
+        declared_base
+        for declared_base in get_original_bases(factory_type)
+        if get_origin(declared_base) is ArenaEnvironmentFactory
+    ]
+    assert (
+        len(generic_factory_bases) == 1
+    ), f"{factory_type.__name__} must directly inherit ArenaEnvironmentFactory[ConcreteEnvironmentCfg]"
+
+    declared_cfg_types = get_args(generic_factory_bases[0])
+    assert len(declared_cfg_types) == 1, f"{factory_type.__name__} must declare exactly one environment config"
+
+    declared_cfg_type = declared_cfg_types[0]
+    assert isinstance(declared_cfg_type, type) and issubclass(
+        declared_cfg_type, ArenaEnvironmentCfg
+    ), f"{factory_type.__name__} must use a concrete ArenaEnvironmentCfg subclass"
+    return declared_cfg_type

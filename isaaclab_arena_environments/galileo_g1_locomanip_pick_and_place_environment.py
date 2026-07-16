@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -78,7 +77,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
+class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
     _legacy_argparse_cfg_type = GalileoG1LocomanipPickAndPlaceEnvironmentCfg

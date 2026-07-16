@@ -10,9 +10,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -21,6 +20,9 @@ if TYPE_CHECKING:
 RANDOMIZATION_HALF_RANGE_X_M = 0.03
 RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
+
+# The GR1 embodiments that are compatible with this environment.
+GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
 
 
 @dataclass
@@ -36,7 +38,7 @@ class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnvironmentCfg]):
+class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEnvironmentCfg]):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:
     1. Pick and place object into the refrigerator shelf
@@ -51,6 +53,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnv
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
+        from isaaclab.sensors import CameraCfg
         from isaaclab.utils import configclass
 
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
@@ -117,8 +120,14 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnv
                     setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
-            enable_cameras=cfg.enable_cameras, camera_offset=camera_offset
+        assert (
+            cfg.embodiment in GR1_EMBODIMENTS
+        ), f"{self.name} only supports GR1 embodiments {GR1_EMBODIMENTS}, got '{cfg.embodiment}'."
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_xyzw,
+            convention="opengl",
         )
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=cfg.kitchen_style

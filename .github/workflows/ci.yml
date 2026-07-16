@@ -268,6 +268,35 @@ jobs:
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
+  test_curobo_deps:
+    name: cuRobo deps check
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 30
+    needs: [pre_commit]
+
+    container:
+      # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - *nvidia_smi
+      - *lscpu
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+
+      - name: Run cuRobo dependency check
+        run: |
+          MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
+
+
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
@@ -315,7 +344,8 @@ jobs:
       - *cleanup_step
       - *checkout_step
 
-      - name: Install docker
+      - &install_docker_step
+        name: Install docker
         run: |
           apt-get update
           apt-get install -y ca-certificates curl gnupg && \
@@ -327,7 +357,8 @@ jobs:
           apt-get update && apt-get install -y docker.io docker-buildx-plugin
           docker --version
 
-      - name: Docker login to NGC
+      - &docker_login_ngc_step
+        name: Docker login to NGC
         # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
         run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
@@ -335,3 +366,33 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p
+
+
+  build_and_push_curobo_image_post_merge:
+    name: Build & push cuRobo NGC image (post-merge)
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    # Separate from the base image so a cuRobo test/build failure never blocks the base :latest push.
+    needs: [test, test_curobo_deps]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    container:
+      image: ubuntu:latest
+
+    env:
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+    steps:
+      # Setup.
+      - *install_git_step
+      - *mark_repo_safe_step
+      - *cleanup_step
+      - *checkout_step
+      - *install_docker_step
+      - *docker_login_ngc_step
+
+      # cuRobo-enabled image (:curobo tag). Compiles CUDA extensions, so it adds build time.
+      - name: Build & push cuRobo image to NGC
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -c -p

@@ -34,8 +34,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -85,6 +84,9 @@ HETERO_FIXED_OBJECTS = [
     ("lime01_fruits_veggies_robolab", 0.5, 0.15),
 ]
 
+# The GR1 embodiments that are compatible with this environment.
+GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
+
 
 @dataclass
 class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
@@ -104,7 +106,7 @@ class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableMultiObjectNoCollisionEnvironmentCfg]):
+class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1TableMultiObjectNoCollisionEnvironmentCfg]):
     """
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
@@ -118,6 +120,8 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableM
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
+        from isaaclab.sensors import CameraCfg
+
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor
@@ -129,11 +133,16 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableM
             position_xyz=(0.12515, 0.0, 0.06776),
             rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
-            enable_cameras=cfg.enable_cameras,
-            camera_offset=camera_offset,
-            use_tiled_camera=(cfg.num_envs > 1),
+        assert (
+            cfg.embodiment in GR1_EMBODIMENTS
+        ), f"{self.name} only supports GR1 embodiments {GR1_EMBODIMENTS}, got '{cfg.embodiment}'."
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_xyzw,
+            convention="opengl",
         )
+        embodiment.camera_config.use_tiled_camera = cfg.num_envs > 1
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),

@@ -15,7 +15,7 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
     """Sim-preview controls and viewport frame display in the right column."""
     st.subheader("Sim preview")
     st.caption(
-        "Runs link → to_arena_env → relation solver, then zero-action steps. "
+        "Runs to_arena_env → relation solver, then zero-action steps. "
         "Viewport captures use a world-frame overview of the full env grid."
     )
 
@@ -50,7 +50,7 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         )
 
     if st.button(
-        "Run link + relation solver preview",
+        "Run relation solver preview",
         type="secondary",
         use_container_width=True,
         disabled=not validation.is_valid,

@@ -8,25 +8,26 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.envs import ManagerBasedEnv
-
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
-# Name of the reset event term that owns the pooled object placer
+# Name of the reset event term that owns the pooled object placer.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
-    """Return the pooled placer registered on the env, or ``None`` when the env has no pooled placement.
+    """Return the pooled placer stored on the env reset event, or ``None`` when absent.
 
     Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
     without holding the builder. The pool is reached through the env's event manager.
@@ -85,7 +86,9 @@ def write_layout_to_sim(
         if obj in anchor_objects_set:
             continue
         asset = env.scene[obj.name]
-        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], result.orientations.get(obj, 0.0))
+        marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
+        total_yaw = result.orientations.get(obj, marker_yaw)
+        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
         pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
         pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
@@ -108,19 +111,17 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        objects: All objects (including anchors) participating in relation solving.
-        placement_pool: Pooled object placer to draw layouts from.
+        objects: Objects participating in relation solving.
+        placement_pool: Runtime pool of solved placement layouts.
     """
     if env_ids is None or len(env_ids) == 0:
         return
-
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
         placement_pool.num_envs == num_scene_envs
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-
     anchor_objects_set = set(get_anchor_objects(objects))
     base_rotations = get_base_rotation_per_object(objects)
 
@@ -129,7 +130,7 @@ def solve_and_place_objects(
         if not result.success:
             print(
                 "Warning: Writing best-loss fallback placement for "
-                f"env {cur_env}; layout failed strict placement validation."
+                f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # only write the non-anchor objects to the sim
         write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)

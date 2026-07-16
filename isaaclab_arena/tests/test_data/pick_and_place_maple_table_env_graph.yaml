@@ -3,106 +3,86 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 env_name: pick_and_place_maple_table_default
-
-# Optional CLI overrides.
+embodiment:
+  id: droid_abs_joint_pos
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: rubiks_cube_hot3d_robolab
+  registry_name: rubiks_cube_hot3d_robolab
+  params: {}
+- id: bowl_ycb_robolab
+  registry_name: bowl_ycb_robolab
+  params: {}
+- id: mug_ycb_robolab
+  registry_name: mug_ycb_robolab
+  params: {}
+object_references:
+- id: maple_table_robolab_table
+  parent_id: maple_table_robolab
+  prim_path: '{ENV_REGEX_NS}/maple_table_robolab/table'
+  object_type: rigid
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab_table
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: rubiks_cube_hot3d_robolab
+  reference: maple_table_robolab_table
+  params: {}
+- kind: position_limits
+  subject: rubiks_cube_hot3d_robolab
+  reference: null
+  params:
+    x_min: 0.55
+    x_max: 0.7
+    y_min: -0.4
+    y_max: -0.1
+- kind: 'on'
+  subject: bowl_ycb_robolab
+  reference: maple_table_robolab_table
+  params: {}
+- kind: position_limits
+  subject: bowl_ycb_robolab
+  reference: null
+  params:
+    x_min: 0.55
+    x_max: 0.7
+    y_min: -0.4
+    y_max: -0.1
+- kind: at_position
+  subject: mug_ycb_robolab
+  reference: null
+  params:
+    x: 0.65
+    y: 0.25
+    z: 0.85
 cli_override_specs:
 - arg: embodiment
   target_node_id: droid_abs_joint_pos
 - arg: object
   target_node_id: rubiks_cube_hot3d_robolab
-nodes:
-- id: droid_abs_joint_pos
-  name: droid_abs_joint_pos
-  type: embodiment
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
-- id: maple_table_robolab_table
-  name: table
-  type: object_reference
-  parent: maple_table_robolab
-  prim_path: '{ENV_REGEX_NS}/maple_table_robolab/table'
-  object_type: rigid
-- id: rubiks_cube_hot3d_robolab
-  name: rubiks_cube_hot3d_robolab
-  type: object
-- id: bowl_ycb_robolab
-  name: bowl_ycb_robolab
-  type: object
-- id: mug_ycb_robolab
-  name: mug_ycb_robolab
-  type: object
-tasks:
-- id: pick_and_place_0
-  initial_state_spec_id: state_spec_0
-  success_state_spec_id: state_spec_1
-  kind: PickAndPlaceTask
-  params:
-    pick_up_object: rubiks_cube_hot3d_robolab
-    destination_location: bowl_ycb_robolab
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-- id: pick_and_place_1
-  initial_state_spec_id: state_spec_1
-  success_state_spec_id: state_spec_2
-  kind: PickAndPlaceTask
-  params:
-    pick_up_object: mug_ycb_robolab
-    destination_location: bowl_ycb_robolab
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-state_specs:
-- id: state_spec_0
-  is_delta: false
-  spatial_constraints:
-  - id: state_spec_0_maple_table_robolab_table_is_anchor
-    kind: is_anchor
-    subject: maple_table_robolab_table
-  - id: state_spec_0_rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
-    kind: 'on'
-    reference: maple_table_robolab_table
-    subject: rubiks_cube_hot3d_robolab
-  - id: state_spec_0_rubiks_cube_hot3d_robolab_position_limits
-    kind: position_limits
-    subject: rubiks_cube_hot3d_robolab
+task:
+  composition: sequential
+  description: pick up the rubiks cube and place it in the bowl ; pick up the mug
+    and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
     params:
-      x_min: 0.55
-      x_max: 0.7
-      y_min: -0.4
-      y_max: -0.1
-  - id: state_spec_0_bowl_ycb_robolab_on_maple_table_robolab_table
-    kind: 'on'
-    reference: maple_table_robolab_table
-    subject: bowl_ycb_robolab
-  - id: state_spec_0_bowl_ycb_robolab_position_limits
-    kind: position_limits
-    subject: bowl_ycb_robolab
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
     params:
-      x_min: 0.55
-      x_max: 0.7
-      y_min: -0.4
-      y_max: -0.1
-  # TODO(qianl): replace with at_pose once placer supports it
-  - id: state_spec_0_mug_ycb_robolab_at_position
-    kind: at_position
-    subject: mug_ycb_robolab
-    params:
-      x: 0.65
-      y: 0.25
-      z: 0.85
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - id: state_spec_1_rubiks_cube_hot3d_robolab_on_bowl_ycb_robolab
-    kind: 'on'
-    reference: bowl_ycb_robolab
-    subject: rubiks_cube_hot3d_robolab
-- id: state_spec_2
-  is_delta: true
-  spatial_constraints:
-  - id: state_spec_2_mug_ycb_robolab_on_bowl_ycb_robolab
-    kind: 'on'
-    reference: bowl_ycb_robolab
-    subject: mug_ycb_robolab
+      pick_up_object: mug_ycb_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

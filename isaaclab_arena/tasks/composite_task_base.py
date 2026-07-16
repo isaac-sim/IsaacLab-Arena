@@ -117,6 +117,7 @@ class CompositeTaskBase(TaskBase):
     Args:
         subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
         episode_length_s: Maximum duration of a single episode in seconds. If None, no time limit is enforced.
+        task_description: (Optional) Natural-language summary of the overall composite task.
         desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
             Can be used to enforce a specific current state for each subtask at the end of the episode.
     """
@@ -125,9 +126,10 @@ class CompositeTaskBase(TaskBase):
         self,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
+        task_description: str | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        super().__init__(episode_length_s)
+        super().__init__(episode_length_s, task_description)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
         self.subtasks = subtasks
 

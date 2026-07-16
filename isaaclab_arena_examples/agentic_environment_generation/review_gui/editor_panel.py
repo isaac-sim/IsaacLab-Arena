@@ -13,15 +13,15 @@ from pathlib import Path
 import streamlit as st
 from streamlit_ace import st_ace
 
-from isaaclab_arena.agentic_environment_generation.spec_io import initial_spec_path, save_initial_graph_spec
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 @dataclass
 class SpecParseResult:
-    """Outcome of parsing and validating YAML text as an initial graph spec."""
+    """Outcome of parsing and validating YAML text as an environment graph spec."""
 
-    spec: ArenaEnvInitialGraphSpec | None
+    spec: ArenaEnvGraphSpec | None
     error: str | None
 
     @property
@@ -31,7 +31,7 @@ class SpecParseResult:
 
 
 def validate_yaml_text(text: str) -> SpecParseResult:
-    """Parse YAML text and validate it as an ArenaEnvInitialGraphSpec."""
+    """Parse YAML text and validate it as an ArenaEnvGraphSpec."""
     cached_text = st.session_state.get("_validation_text")
     cached_result = st.session_state.get("_validation_result")
     if cached_text == text and isinstance(cached_result, SpecParseResult):
@@ -47,7 +47,7 @@ def validate_yaml_text(text: str) -> SpecParseResult:
             elif not isinstance(raw, dict):
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
-                spec = ArenaEnvInitialGraphSpec.from_dict(raw)
+                spec = ArenaEnvGraphSpec.from_dict(raw)
                 result = SpecParseResult(spec=spec, error=None)
         except Exception:
             result = SpecParseResult(spec=None, error=traceback.format_exc())
@@ -64,8 +64,7 @@ def render_validation_badge(validation: SpecParseResult) -> None:
     if validation.is_valid:
         spec = validation.spec
         st.success(
-            f"Valid spec — {spec.env_name} · {len(spec.nodes)} nodes · "
-            f"{len(spec.tasks)} tasks · initial state: {spec.initial_state_spec.id}",
+            f"Valid spec — {spec.env_name} · {spec.summary()}",
             icon="✅",
         )
     else:
@@ -73,23 +72,21 @@ def render_validation_badge(validation: SpecParseResult) -> None:
 
 
 def sync_save_path_from_spec(validation: SpecParseResult) -> None:
-    """Point ``save_path`` at the initial YAML path implied by the editor's ``env_name``."""
+    """Point ``save_path`` at the graph-spec YAML path implied by the editor's ``env_name``."""
     if not validation.is_valid:
         return
     out_dir = Path(st.session_state["out_dir"])
-    st.session_state["save_path"] = str(initial_spec_path(validation.spec.env_name, out_dir))
+    st.session_state["save_path"] = str(env_graph_spec_path(validation.spec.env_name, out_dir))
 
 
-def try_save_initial_graph_spec(
-    spec: ArenaEnvInitialGraphSpec, out_dir: Path
-) -> tuple[tuple[Path, Path] | None, str | None]:
-    """Link and write ``spec`` under ``out_dir``.
+def try_save_env_graph_spec(spec: ArenaEnvGraphSpec, out_dir: Path) -> tuple[Path | None, str | None]:
+    """Write ``spec`` under ``out_dir``.
 
     Returns:
-        ``((initial_path, linked_path), None)`` on success, or ``(None, error_message)`` on failure.
+        ``(path, None)`` on success, or ``(None, error_message)`` on failure.
     """
     try:
-        return save_initial_graph_spec(spec, out_dir), None
+        return write_env_graph_spec(spec, out_dir), None
     except OSError as exc:
         return None, f"Save failed: {exc}"
     except Exception:
@@ -108,16 +105,15 @@ def render_save_button(validation: SpecParseResult) -> None:
         save_label,
         disabled=not can_save,
         use_container_width=True,
-        help=f"Writes the validated spec to {out_dir}/<env_name>_initial.yaml and {out_dir}/<env_name>_linked.yaml.",
+        help=f"Writes the validated spec to {out_dir}/<env_name>.yaml.",
     ):
-        paths, error = try_save_initial_graph_spec(validation.spec, out_dir)
+        path, error = try_save_env_graph_spec(validation.spec, out_dir)
         if error is not None:
             st.error(f"Save failed\n\n```\n{error}\n```", icon="🛑")
         else:
-            initial_path, linked_path = paths
-            st.session_state["save_path"] = str(initial_path)
+            st.session_state["save_path"] = str(path)
             st.session_state["original_text"] = st.session_state["edited_text"]
-            st.toast(f"Saved → {initial_path.name} (+ {linked_path.name})", icon="💾")
+            st.toast(f"Saved → {path.name}", icon="💾")
 
     with st.expander("Change output directory", expanded=False):
         out_dir_str = st.session_state["out_dir"]
@@ -125,7 +121,7 @@ def render_save_button(validation: SpecParseResult) -> None:
             "Output directory",
             value=out_dir_str,
             key="out_dir_input",
-            help="Directory for generated <env_name>_initial.yaml and <env_name>_linked.yaml files.",
+            help="Directory for generated <env_name>.yaml files.",
         )
         if new_out_dir and new_out_dir != out_dir_str:
             st.session_state["out_dir"] = new_out_dir
@@ -133,7 +129,7 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
-    """Render the ACE YAML editor; dashboard preview refreshes in the visualization fragment."""
+    """Render the ACE YAML editor; the visualization panel refreshes in its fragment."""
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")

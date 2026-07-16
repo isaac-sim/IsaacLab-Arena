@@ -49,7 +49,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     """Returns a scene which we use for these tests."""
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCJointEmbodiment, G1WBCPinkEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -75,7 +75,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
 

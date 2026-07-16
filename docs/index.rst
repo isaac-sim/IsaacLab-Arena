@@ -122,7 +122,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
       teleop_device=teleop_device,
    )
 
-   env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+   env_builder = ArenaEnvBuilder(isaaclab_arena_environment, ArenaEnvBuilderCfg())
    env = env_builder.make_registered() # This will register the environment with the gym registry.
 
 .. figure:: images/franka_kitchen_pickup.gif

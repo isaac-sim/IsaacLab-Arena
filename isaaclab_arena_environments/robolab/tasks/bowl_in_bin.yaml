@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: bowl_in_bin
+external_yaml: ../scenes/bin_mug_mustard_marker_bowl.yaml
+task:
+  composition: atomic
+  description: Pick up the bowl and place it in the grey bin.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: bowl
+      destination_location: grey_bin
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

@@ -10,8 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -31,7 +30,7 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMapleTableEnvironmentCfg]):
+class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapleTableEnvironmentCfg]):
     """Registered provider for the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
@@ -39,7 +38,6 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
 
     def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_base import ObjectType
@@ -73,11 +71,11 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
             obj.add_relation(On(table_reference))
 
         # Step 3: Configure lighting
-        light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=cfg.light_intensity),
-        )
+        light = self.asset_registry.get_asset_by_name("light")()
+        light.set_intensity(cfg.light_intensity)
         if cfg.hdr is not None:
             light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
+        directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
         # Step 4: Select the embodiment
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
@@ -86,7 +84,15 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
 
         # Step 5: Compose the scene
         scene = Scene(
-            assets=[background, light, pick_up_object, destination_location, table_reference, *additional_table_objects]
+            assets=[
+                background,
+                light,
+                directional_light,
+                pick_up_object,
+                destination_location,
+                table_reference,
+                *additional_table_objects,
+            ]
         )
 
         # Step 6: Define the task
@@ -112,10 +118,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
         )
         return isaaclab_arena_environment
 
-    # TODO(cvolk, 2026-07-03): Delete this CLI-only option when teleoperation runners
+    # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners
     # receive typed configuration instead of the environment subparser namespace.
-    @classmethod
-    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
-        super().add_cli_args(parser)
+    @staticmethod
+    def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
         # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)

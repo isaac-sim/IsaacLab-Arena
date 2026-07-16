@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -23,7 +22,7 @@ class DexsuiteLiftEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class DexsuiteLiftEnvironment(ExampleEnvironmentBase[DexsuiteLiftEnvironmentCfg]):
+class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg]):
     """
     Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``.
     The robot picks up a cube and lifts it to a target position.

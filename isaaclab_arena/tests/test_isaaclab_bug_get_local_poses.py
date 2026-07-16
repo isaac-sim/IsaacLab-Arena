@@ -30,7 +30,7 @@ TEST_CAMERA_OFFSET = Pose(
 def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
     from isaaclab.sensors import CameraCfg
 
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -38,11 +38,11 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
 
     arena_env = IsaacLabArenaEnvironment(
         name="test_isaac_lab_bug_local_poses",
-        embodiment=FrankaIKEmbodiment(enable_cameras=True, camera_offset=TEST_CAMERA_OFFSET),
+        embodiment=FrankaIKEmbodiment(enable_cameras=True),
         scene=Scene(),
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
-    builder = ArenaEnvBuilder(arena_env, args_cli)
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, env_kwargs = builder.compose_manager_cfg()
 
     env_cfg.scene.wrist_cam.offset = CameraCfg.OffsetCfg(

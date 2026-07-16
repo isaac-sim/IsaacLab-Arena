@@ -27,8 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -163,7 +162,7 @@ class GalileoG1StaticPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1StaticPickAndPlaceEnvironmentCfg]):
+class GalileoG1StaticPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG1StaticPickAndPlaceEnvironmentCfg]):
     """G1 (WBC-balanced, no nav) pick-and-place on the locomanip warehouse shelf.
 
     Defaults to the apple-to-plate pairing so this env composes cleanly into the existing

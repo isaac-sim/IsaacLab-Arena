@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: banana_then_rubiks_cube
+external_yaml: ../scenes/rubiks_cube_banana_bowl.yaml
+task:
+  composition: sequential
+  description: pick up the banana and place it in the bowl ; pick up the cube and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cube
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
