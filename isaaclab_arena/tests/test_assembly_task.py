@@ -380,14 +380,16 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 # Test functions that will be called by pytest
 def test_franka_assembly_asset_override_is_still_required():
-    """Alert when Isaac Lab updates its Franka Panda asset path."""
+    """Flag upstream Franka path changes that may obsolete Arena's Legacy override."""
     from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
     from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
     removed_upstream_path = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/panda_instanceable.usd"
-    assert (
-        FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path == removed_upstream_path
-    ), "Isaac Lab updated the Franka Panda asset path; review and remove the Arena compatibility override."
+    assert FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path == removed_upstream_path, (
+        "Isaac Lab changed FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path. Verify the new asset with the assembly tests, "
+        "then remove _LEGACY_FRANKA_PANDA_USD_PATH and the FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path "
+        "assignment from isaaclab_arena_environments/mdp/robot_configs.py and delete this tripwire test."
+    )
 
 
 def test_peg_insert_assembly_single():

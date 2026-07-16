@@ -11,7 +11,6 @@ from __future__ import annotations
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
-_REMOVED_FRANKA_PANDA_USD_PATH = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/panda_instanceable.usd"
 _LEGACY_FRANKA_PANDA_USD_PATH = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Legacy/panda_instanceable.usd"
 
 # ===========================================================================================
@@ -19,10 +18,9 @@ _LEGACY_FRANKA_PANDA_USD_PATH = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Lega
 # ===========================================================================================
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-
-# Compatibility for Isaac Lab revisions pinned before the asset moved to the Legacy directory.
-if FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path == _REMOVED_FRANKA_PANDA_USD_PATH:
-    FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = _LEGACY_FRANKA_PANDA_USD_PATH
+# Isaac 6.0 moved this asset to Legacy.
+# test_franka_assembly_asset_override_is_still_required flags future upstream path changes.
+FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = _LEGACY_FRANKA_PANDA_USD_PATH
 
 # Enable contact sensors for assembly tasks
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.activate_contact_sensors = True
