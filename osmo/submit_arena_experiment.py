@@ -3,25 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-r"""Submit a typed Arena Experiment Definition from an explicit YAML path.
-
-The Experiment Definition describes the named Runs evaluated by the Experiment
-Runner. An optional policy-server selector adds a built-in server task that OSMO
-starts alongside that runner. The Experiment Definition may live anywhere
-accessible to the submission process.
-
-Example:
-
-    python -m osmo.submit_arena_experiment \
-        --experiment-definition isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-        --policy-server pi0
-
-The policy server is optional. Omit it when the Experiment uses only local
-policies or connects to an externally hosted policy server. Hydra applies the
-optional trailing field overrides after typed defaults and Experiment file
-values. Files referenced by the Experiment must already exist in the runner
-image or be remotely accessible; the submitter does not copy referenced files.
-"""
+"""Submit typed Arena Experiments as OSMO workflows."""
 
 from __future__ import annotations
 
@@ -137,7 +119,7 @@ Current defaults, which can be overridden through the same field paths:
   osmo.memory={workflow_defaults.memory}
   experiment_runner.image={experiment_runner_defaults.image}
   policy_server.image={pi0_server_defaults.image}
-  policy_server.client_ping_timeout={pi0_server_defaults.client_ping_timeout}
+  policy_server.client_ping_timeout_s={pi0_server_defaults.client_ping_timeout_s}
 
 Referenced model, checkpoint, and config paths are not copied from the
 submission container. They must exist in experiment_runner.image or refer to

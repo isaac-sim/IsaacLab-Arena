@@ -8,24 +8,21 @@
 from __future__ import annotations
 
 import shlex
-import yaml
 from copy import deepcopy
 from dataclasses import dataclass
-from enum import Enum
-from pathlib import Path
 from typing import Any
 
-from omegaconf import OmegaConf
-
-from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
+# Repository-relative entry point executed inside the task container.
 EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
+# Default container image containing Arena and its runtime dependencies.
 DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
+# Location where OSMO creates the effective Experiment YAML for the runner.
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 
 
@@ -63,38 +60,13 @@ class ExperimentRunnerTask(BaseTask):
     def _get_outputs(self) -> list[dict[str, Any]]:
         return [{"url": DATASET_SWIFT_URL}]
 
-    def _get_files(self) -> list[dict[str, Any]]:
+    def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the effective Experiment at the path consumed by ``experiment_runner.py``."""
-        experiment_yaml = yaml.safe_dump(self._get_experiment_definition_yaml_values(), sort_keys=False)
+        experiment_yaml = serialize_arena_experiment_to_yaml(self.experiment_definition)
         return [
-            *super()._get_files(),
+            *super()._get_files_to_create(),
             {"path": REMOTE_EXPERIMENT_PATH, "contents": block_literal_str(experiment_yaml)},
         ]
-
-    def _get_experiment_definition_yaml_values(self) -> dict[str, Any]:
-        """Restore YAML selectors around the effective typed Run configs."""
-        environment_registry = EnvironmentRegistry()
-        policy_registry = PolicyRegistry()
-        run_values_by_name = {}
-        for run_name, run_cfg in self.experiment_definition.runs.items():
-            assert isinstance(run_cfg, ArenaRunCfg)
-            run_values = OmegaConf.to_container(
-                OmegaConf.structured(run_cfg),
-                resolve=True,
-                enum_to_str=True,
-            )
-            assert isinstance(run_values, dict)
-            assert run_values.pop("name") == run_name
-
-            environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
-            policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
-            run_values["environment"] = {"type": environment_type.name, **run_values["environment"]}
-            policy_selector = policy_type.name
-            if not policy_type.__module__.startswith("isaaclab_arena.policy."):
-                policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
-            run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
-            run_values_by_name[run_name] = _to_yaml_values(run_values)
-        return {"runs": run_values_by_name}
 
     def _get_run_script(self) -> str:
         command = [
@@ -109,16 +81,3 @@ class ExperimentRunnerTask(BaseTask):
             "--enable_cameras",
         ]
         return f"set -euo pipefail\n{shlex.join(command)}\n"
-
-
-def _to_yaml_values(value: Any) -> Any:
-    """Convert structured-config leaf values into safe YAML primitives."""
-    if isinstance(value, dict):
-        return {key: _to_yaml_values(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_to_yaml_values(item) for item in value]
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, Enum):
-        return value.value
-    return value

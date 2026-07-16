@@ -31,7 +31,7 @@ from osmo.tasks.experiment_runner_task import (
     REMOTE_EXPERIMENT_PATH,
     ExperimentRunnerTaskCfg,
 )
-from osmo.tasks.pi0_server_task import DEFAULT_PI0_CLIENT_PING_TIMEOUT, Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
@@ -144,7 +144,7 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
     assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
     assert submission_cfg.policy_server == Pi0ServerTaskCfg()
-    assert submission_cfg.policy_server.client_ping_timeout == DEFAULT_PI0_CLIENT_PING_TIMEOUT
+    assert submission_cfg.policy_server.client_ping_timeout_s == Pi0ServerTaskCfg.client_ping_timeout_s
 
     with pytest.raises(AssertionError, match="Unknown policy server 'unknown'.*pi0"):
         _compose_submission(policy_server_name="unknown")
@@ -203,10 +203,10 @@ def test_renders_experiment_runner_and_shared_pi0_server_with_effective_endpoint
     server_host = Pi0ServerTask.host_token()
     assert experiment["runs"]["first"]["policy"]["remote_host"] == server_host
     assert experiment["runs"]["first"]["policy"]["remote_port"] == POLICY_SERVER_PORT
-    assert experiment["runs"]["first"]["policy"]["ping_timeout"] == DEFAULT_PI0_CLIENT_PING_TIMEOUT
+    assert experiment["runs"]["first"]["policy"]["ping_timeout"] == Pi0ServerTaskCfg.client_ping_timeout_s
     assert experiment["runs"]["second"]["policy"]["remote_host"] == server_host
     assert experiment["runs"]["second"]["policy"]["remote_port"] == POLICY_SERVER_PORT
-    assert experiment["runs"]["second"]["policy"]["ping_timeout"] == DEFAULT_PI0_CLIENT_PING_TIMEOUT
+    assert experiment["runs"]["second"]["policy"]["ping_timeout"] == Pi0ServerTaskCfg.client_ping_timeout_s
     assert "remote_host" not in experiment["runs"]["local"]["policy"]
     assert "remote_port" not in experiment["runs"]["local"]["policy"]
     assert source_experiment_definition.runs["first"].policy.remote_host == "user-host"
@@ -291,7 +291,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
             "experiment_runner.image=registry.example.com/evaluator:branch",
             "policy_server.image=registry.example.com/openpi:overridden",
             "policy_server.policy_config=overridden-pi0-config",
-            "policy_server.client_ping_timeout=600.0",
+            "policy_server.client_ping_timeout_s=600.0",
             "experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4",
             "experiment_definition.runs.openpi_maple_table.environment_builder.num_envs=2",
             "experiment_definition.runs.openpi_maple_table.policy.ping_interval=33.0",
@@ -347,7 +347,7 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
     assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
     assert run_cfg.policy.remote_host == Pi0ServerTask.host_token()
     assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
-    assert run_cfg.policy.ping_timeout == DEFAULT_PI0_CLIENT_PING_TIMEOUT
+    assert run_cfg.policy.ping_timeout == Pi0ServerTaskCfg.client_ping_timeout_s
 
 
 def test_submission_overrides_osmo_resources(monkeypatch):
@@ -411,7 +411,7 @@ def test_cli_help_explains_paths_and_override_names(capsys):
     assert "osmo.dry_run=true" in help_text
     assert "experiment_runner.image=" in help_text
     assert "policy_server.image=" in help_text
-    assert "policy_server.client_ping_timeout=300.0" in help_text
+    assert "policy_server.client_ping_timeout_s=300.0" in help_text
     assert "experiment_definition.runs.my_run" in help_text
     assert "Referenced model, checkpoint, and config paths are not copied" in help_text
     assert "swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/WORKFLOW_ID" in help_text

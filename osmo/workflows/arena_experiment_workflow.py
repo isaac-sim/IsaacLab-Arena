@@ -80,19 +80,11 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             group_name=group_name,
         )
 
-        # The Experiment selects policies independently from the OSMO submission's server.
-        # Verify compatibility before connecting matching Runs to that server.
+        # Each Experiment Run selects the policy client that Experiment Runner instantiates.
+        # This workflow separately launches one Pi0 inference-server task. Verify that every
+        # Pi0RemotePolicy Run requests the variant served by that task before connecting it.
         pi0_run_variants = self._get_pi0_run_variants()
-        assert pi0_run_variants, "pi0 server requires at least one Run using Pi0RemotePolicy"
-        incompatible_runs = {
-            run_name: variant
-            for run_name, variant in pi0_run_variants.items()
-            if variant != self.pi0_server_task_cfg.policy_variant
-        }
-        assert not incompatible_runs, (
-            f"pi0_remote Runs require variants {incompatible_runs}, but the pi0 server is configured for "
-            f"'{self.pi0_server_task_cfg.policy_variant}'"
-        )
+        self._assert_pi0_server_compatible(pi0_run_variants)
         self._connect_pi0_runs(list(pi0_run_variants))
 
     def _get_tasks(self) -> list[BaseTask]:
@@ -111,6 +103,19 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             pi0_run_variants[run_name] = run_cfg.policy.policy_variant
         return pi0_run_variants
 
+    def _assert_pi0_server_compatible(self, pi0_run_variants: dict[str, str]) -> None:
+        """Require Pi0RemotePolicy Runs whose variants match the deployed server."""
+        assert pi0_run_variants, "pi0 server requires at least one Run using Pi0RemotePolicy"
+        incompatible_runs = {
+            run_name: variant
+            for run_name, variant in pi0_run_variants.items()
+            if variant != self.pi0_server_task_cfg.policy_variant
+        }
+        assert not incompatible_runs, (
+            f"pi0_remote Runs require variants {incompatible_runs}, but the pi0 server is configured for "
+            f"'{self.pi0_server_task_cfg.policy_variant}'"
+        )
+
     def _connect_pi0_runs(self, run_names: Sequence[str]) -> None:
         """Connect matching pi0 Runs to the shared server task."""
         host_token = Pi0ServerTask.host_token()
@@ -121,4 +126,4 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             policy_cfg.remote_port = POLICY_SERVER_PORT
             # The first OSMO inference may compile longer than the policy's normal
             # keepalive timeout. Use the timeout owned by this server deployment.
-            policy_cfg.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout
+            policy_cfg.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s
