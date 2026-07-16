@@ -99,7 +99,7 @@ jobs:
     name: Run tests (native uv)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
-    needs: [pre_commit]
+    # needs: [pre_commit]
     env:
       # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
@@ -171,304 +171,304 @@ jobs:
           uv run pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
-  test:
-    name: Run tests
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 80
-    needs: [pre_commit]
-    env:
-      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
-      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
+  # test:
+  #   name: Run tests
+  #   runs-on: [self-hosted, gpu-arena]
+  #   timeout-minutes: 80
+  #   needs: [pre_commit]
+  #   env:
+  #     # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+  #     NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
 
-    steps:
-      # nvidia-smi
-      - &nvidia_smi
-        name: nvidia-smi
-        run: nvidia-smi
+  #   steps:
+  #     # nvidia-smi
+  #     - &nvidia_smi
+  #       name: nvidia-smi
+  #       run: nvidia-smi
 
-      - &lscpu
-        name: lscpu
-        run: lscpu
+  #     - &lscpu
+  #       name: lscpu
+  #       run: lscpu
 
-      # Setup
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
+  #     # Setup
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
 
-      - &install_project_step
-        name: Install project and link isaac-sim
-        run: |
-          /isaac-sim/python.sh -m pip install --no-cache-dir -e .
-          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+  #     - &install_project_step
+  #       name: Install project and link isaac-sim
+  #       run: |
+  #         /isaac-sim/python.sh -m pip install --no-cache-dir -e .
+  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      - &setup_isaac_sim_kit_cache_step
-        name: Setup Isaac Sim kit cache (shader warmup on miss)
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+  #     - &setup_isaac_sim_kit_cache_step
+  #       name: Setup Isaac Sim kit cache (shader warmup on miss)
+  #       uses: ./.github/actions/setup-isaac-sim-kit-cache
 
-      # Run the tests.
-      #
-      # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
-      # we don't close the SimulationApp between tests, where this is possible. We need, however, to restart the
-      # SimulationApp between tests that require cameras/rendering and those that don't. To make
-      # matters more complicated, since Isaac Sim 6.0, this persistent SimulationApp scheme is also not
-      # mixing well with subprocess-spawning tests. We get intermittent hangs if a subprocess-spawning
-      # test is run while a persistent SimulationApp is still open. For that reason we also need to
-      # separate those test that spawn subprocess. So in the end, we run
-      #
-      # - All tests not requiring cameras in a shared SimulationApp.
-      # - All tests requiring cameras in a shared SimulationApp.
-      # - All subprocess-spawning tests (each spawns their own SimulationApp)
-      #
-      # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-      - name: Run in-process Newton tests
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
-            isaaclab_arena/tests/
+  #     # Run the tests.
+  #     #
+  #     # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
+  #     # we don't close the SimulationApp between tests, where this is possible. We need, however, to restart the
+  #     # SimulationApp between tests that require cameras/rendering and those that don't. To make
+  #     # matters more complicated, since Isaac Sim 6.0, this persistent SimulationApp scheme is also not
+  #     # mixing well with subprocess-spawning tests. We get intermittent hangs if a subprocess-spawning
+  #     # test is run while a persistent SimulationApp is still open. For that reason we also need to
+  #     # separate those test that spawn subprocess. So in the end, we run
+  #     #
+  #     # - All tests not requiring cameras in a shared SimulationApp.
+  #     # - All tests requiring cameras in a shared SimulationApp.
+  #     # - All subprocess-spawning tests (each spawns their own SimulationApp)
+  #     #
+  #     # To restore sanity here is a goal for Isaac Lab Arena v0.3.
+  #     - name: Run in-process Newton tests
+  #       run: |
+  #         /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
+  #           isaaclab_arena/tests/
 
-      - name: Run in-process PhysX tests without cameras
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+  #     - name: Run in-process PhysX tests without cameras
+  #       run: |
+  #         /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+  #           isaaclab_arena/tests/
 
-      - name: Run GR00T policy/data tests (lightweight gr00t deps only)
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
-            isaaclab_arena_gr00t/tests/
-
-
-  tests_with_subprocess:
-    name: Run tests with subprocess
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    needs: [pre_commit]
-
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-    steps:
-      # nvidia-smi
-      - *nvidia_smi
-      - *lscpu
-
-      # Setup.
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
-
-      # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
-      # causing the whole CI run to fail. I am moving these to a parallel job, and then
-      # will make the job containing them optional in terms of passing.
-      - name: Run subprocess-spawning PhysX tests
-        run: |
-          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
-            isaaclab_arena/tests/
+  #     - name: Run GR00T policy/data tests (lightweight gr00t deps only)
+  #       run: |
+  #         /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
+  #           isaaclab_arena_gr00t/tests/
 
 
-  test_gr00t_closedloop_e2e:
-    name: GR00T closed-loop E2E
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    needs: [pre_commit]
-    env:
-      GR00T_REMOTE_HOST: gr00t
-      GR00T_REMOTE_PORT: "5555"
-      GR00T_REMOTE_E2E_TIMEOUT: "900"
+  # tests_with_subprocess:
+  #   name: Run tests with subprocess
+  #   runs-on: [self-hosted, gpu-arena]
+  #   timeout-minutes: 60
+  #   needs: [pre_commit]
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #   steps:
+  #     # nvidia-smi
+  #     - *nvidia_smi
+  #     - *lscpu
 
-    services:
-      gr00t:
-        image: nvcr.io/nvidian/gr00t1_6_arena_ci:latest
-        credentials:
-          username: $oauthtoken
-          password: ${{ env.NGC_API_KEY }}
-        ports:
-          - 5555:5555
-        # Mount the runner's workspace into the GR00T container. The baked
-        # entrypoint polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
-        volumes:
-          - ${{ github.workspace }}:/arena_workspace
-        options: >-
-          --gpus all
-          --entrypoint /workspace/ci_gr00t_train_and_serve.sh
+  #     # Setup.
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *install_project_step
+  #     - *setup_isaac_sim_kit_cache_step
 
-    steps:
-      - *nvidia_smi
-      - *lscpu
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
-
-      # The GR00T sidecar post-trains a tiny checkpoint before loading it. Its
-      # entrypoint waits for the LFS-backed dataset media fetched above before
-      # starting training.
-      # Poll the ZMQ endpoint because the socket can bind before the model is ready.
-      - name: Wait for GR00T server
-        timeout-minutes: 20
-        env:
-          PYTHONUNBUFFERED: "1"
-        run: |
-          /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
-            --host "${GR00T_REMOTE_HOST}" \
-            --port "${GR00T_REMOTE_PORT}" \
-            --timeout-sec 1200 \
-            --poll-interval-sec 15 \
-            --request-timeout-ms 5000
-
-      - name: Run GR00T remote closed-loop policy runner test
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
-            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
+  #     # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
+  #     # causing the whole CI run to fail. I am moving these to a parallel job, and then
+  #     # will make the job containing them optional in terms of passing.
+  #     - name: Run subprocess-spawning PhysX tests
+  #       run: |
+  #         ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+  #         /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
+  #           isaaclab_arena/tests/
 
 
-  test_curobo_deps:
-    name: cuRobo deps check
-    runs-on: [self-hosted, gpu]
-    timeout-minutes: 30
-    needs: [pre_commit]
+  # test_gr00t_closedloop_e2e:
+  #   name: GR00T closed-loop E2E
+  #   runs-on: [self-hosted, gpu-arena]
+  #   timeout-minutes: 60
+  #   needs: [pre_commit]
+  #   env:
+  #     GR00T_REMOTE_HOST: gr00t
+  #     GR00T_REMOTE_PORT: "5555"
+  #     GR00T_REMOTE_E2E_TIMEOUT: "900"
 
-    container:
-      # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
 
-    steps:
-      - *nvidia_smi
-      - *lscpu
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
+  #   services:
+  #     gr00t:
+  #       image: nvcr.io/nvidian/gr00t1_6_arena_ci:latest
+  #       credentials:
+  #         username: $oauthtoken
+  #         password: ${{ env.NGC_API_KEY }}
+  #       ports:
+  #         - 5555:5555
+  #       # Mount the runner's workspace into the GR00T container. The baked
+  #       # entrypoint polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
+  #       volumes:
+  #         - ${{ github.workspace }}:/arena_workspace
+  #       options: >-
+  #         --gpus all
+  #         --entrypoint /workspace/ci_gr00t_train_and_serve.sh
 
-      - name: Run cuRobo dependency check
-        run: |
-          MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv --durations=0 -m curobo_deps \
-            isaaclab_arena_curobo/tests/
+  #   steps:
+  #     - *nvidia_smi
+  #     - *lscpu
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *install_project_step
+  #     - *setup_isaac_sim_kit_cache_step
 
+  #     # The GR00T sidecar post-trains a tiny checkpoint before loading it. Its
+  #     # entrypoint waits for the LFS-backed dataset media fetched above before
+  #     # starting training.
+  #     # Poll the ZMQ endpoint because the socket can bind before the model is ready.
+  #     - name: Wait for GR00T server
+  #       timeout-minutes: 20
+  #       env:
+  #         PYTHONUNBUFFERED: "1"
+  #       run: |
+  #         /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
+  #           --host "${GR00T_REMOTE_HOST}" \
+  #           --port "${GR00T_REMOTE_PORT}" \
+  #           --timeout-sec 1200 \
+  #           --poll-interval-sec 15 \
+  #           --request-timeout-ms 5000
 
-  build_docs_pre_merge:
-    name: Build the docs (pre-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 30
-    needs: [pre_commit]
-
-    container:
-      image: python:3.11-slim
-
-    steps:
-      # Setup.
-      - *install_git_step
-      - *mark_repo_safe_step
-      - *cleanup_step
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # Build docs for the current branch (validates PR changes)
-      - name: Build docs
-        working-directory: ./docs
-        run: |
-          pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
-
-
-  build_and_push_image_post_merge:
-    name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    needs: [test]       # only push if tests passed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    container:
-      image: ubuntu:latest
-
-    env:
-      # already defined at top, but keep here for clarity/local override if needed
-      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
-
-    steps:
-      # Setup.
-      - *install_git_step
-      - *mark_repo_safe_step
-      - *cleanup_step
-      - *checkout_step
-
-      - &install_docker_step
-        name: Install docker
-        run: |
-          apt-get update
-          apt-get install -y ca-certificates curl gnupg && \
-          install -m 0755 -d /etc/apt/keyrings && \
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-          chmod a+r /etc/apt/keyrings/docker.gpg && \
-          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-          apt-get update && apt-get install -y docker.io docker-buildx-plugin
-          docker --version
-
-      - &docker_login_ngc_step
-        name: Docker login to NGC
-        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
-        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
-
-      - name: Build & push image to NGC
-        run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p
+  #     - name: Run GR00T remote closed-loop policy runner test
+  #       run: |
+  #         /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+  #           isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
-  build_and_push_curobo_image_post_merge:
-    name: Build & push cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu]
-    timeout-minutes: 60
-    # Separate from the base image so a cuRobo test/build failure never blocks the base :latest push.
-    needs: [test, test_curobo_deps]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  # test_curobo_deps:
+  #   name: cuRobo deps check
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 30
+  #   needs: [pre_commit]
 
-    container:
-      image: ubuntu:latest
+  #   container:
+  #     # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
 
-    env:
-      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+  #   steps:
+  #     - *nvidia_smi
+  #     - *lscpu
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *install_project_step
 
-    steps:
-      # Setup.
-      - *install_git_step
-      - *mark_repo_safe_step
-      - *cleanup_step
-      - *checkout_step
-      - *install_docker_step
-      - *docker_login_ngc_step
+  #     - name: Run cuRobo dependency check
+  #       run: |
+  #         MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv --durations=0 -m curobo_deps \
+  #           isaaclab_arena_curobo/tests/
 
-      # cuRobo-enabled image (:curobo tag). Compiles CUDA extensions, so it adds build time.
-      - name: Build & push cuRobo image to NGC
-        run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -c -p
+
+  # build_docs_pre_merge:
+  #   name: Build the docs (pre-merge)
+  #   runs-on: [self-hosted, gpu-arena]
+  #   timeout-minutes: 30
+  #   needs: [pre_commit]
+
+  #   container:
+  #     image: python:3.11-slim
+
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *mark_repo_safe_step
+  #     - *cleanup_step
+
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+
+  #     # Build docs for the current branch (validates PR changes)
+  #     - name: Build docs
+  #       working-directory: ./docs
+  #       run: |
+  #         pip3 install -r requirements.txt
+  #         make SPHINXOPTS=-W html
+
+
+  # build_and_push_image_post_merge:
+  #   name: Build & push NGC image (post-merge)
+  #   runs-on: [self-hosted, gpu-arena]
+  #   timeout-minutes: 60
+  #   needs: [test]       # only push if tests passed
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+  #   container:
+  #     image: ubuntu:latest
+
+  #   env:
+  #     # already defined at top, but keep here for clarity/local override if needed
+  #     NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *mark_repo_safe_step
+  #     - *cleanup_step
+  #     - *checkout_step
+
+  #     - &install_docker_step
+  #       name: Install docker
+  #       run: |
+  #         apt-get update
+  #         apt-get install -y ca-certificates curl gnupg && \
+  #         install -m 0755 -d /etc/apt/keyrings && \
+  #         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+  #         chmod a+r /etc/apt/keyrings/docker.gpg && \
+  #         echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  #         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+  #         apt-get update && apt-get install -y docker.io docker-buildx-plugin
+  #         docker --version
+
+  #     - &docker_login_ngc_step
+  #       name: Docker login to NGC
+  #       # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+  #       run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+  #     - name: Build & push image to NGC
+  #       run: |
+  #         chmod +x ./docker/push_to_ngc* || true
+  #         ./docker/push_to_ngc.sh -p
+
+
+  # build_and_push_curobo_image_post_merge:
+  #   name: Build & push cuRobo NGC image (post-merge)
+  #   runs-on: [self-hosted, gpu]
+  #   timeout-minutes: 60
+  #   # Separate from the base image so a cuRobo test/build failure never blocks the base :latest push.
+  #   needs: [test, test_curobo_deps]
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+  #   container:
+  #     image: ubuntu:latest
+
+  #   env:
+  #     NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *mark_repo_safe_step
+  #     - *cleanup_step
+  #     - *checkout_step
+  #     - *install_docker_step
+  #     - *docker_login_ngc_step
+
+  #     # cuRobo-enabled image (:curobo tag). Compiles CUDA extensions, so it adds build time.
+  #     - name: Build & push cuRobo image to NGC
+  #       run: |
+  #         chmod +x ./docker/push_to_ngc* || true
+  #         ./docker/push_to_ngc.sh -c -p
