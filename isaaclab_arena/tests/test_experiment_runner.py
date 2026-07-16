@@ -22,11 +22,13 @@ def test_experiment_runner_parses_native_hydra_overrides():
     args_cli, experiment_overrides = parse_experiment_runner_args([
         "--experiment_config",
         "experiment.yaml",
+        "--show-overrides",
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ])
 
     assert args_cli.experiment_config == "experiment.yaml"
+    assert args_cli.show_overrides is True
     assert experiment_overrides == [
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",

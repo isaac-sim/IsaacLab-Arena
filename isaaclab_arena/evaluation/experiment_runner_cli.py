@@ -33,6 +33,11 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Record viewport videos for each Run.",
     )
     parser.add_argument(
+        "--show-overrides",
+        action="store_true",
+        help="Print Hydra override paths and effective values for typed YAML, then exit.",
+    )
+    parser.add_argument(
         "--record_camera_video",
         action="store_true",
         default=False,

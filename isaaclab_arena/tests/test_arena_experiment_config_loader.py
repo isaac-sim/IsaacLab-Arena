@@ -138,6 +138,61 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
     experiment_runner.main()
 
 
+def test_experiment_runner_prints_overrides_without_starting_simulation(monkeypatch, capsys):
+    """Inspect a typed Experiment before starting simulation or evaluation."""
+    experiment_cfg = _experiment_cfg()
+    experiment_cfg.runs["baseline"].rollout_limit.num_episodes = 4
+
+    def load_experiment_for_help(config_path, *, device, overrides):
+        assert config_path == GETTING_STARTED_YAML_PATH
+        assert device == "cuda:0"
+        assert overrides == ["runs.baseline.rollout_limit.num_episodes=4"]
+        return experiment_cfg
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("override help must exit before simulation and legacy loading")
+
+    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment_for_help)
+    monkeypatch.setattr(experiment_runner, "load_legacy_json_experiment_config", fail_if_called)
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", fail_if_called)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_YAML_PATH),
+            "--show-overrides",
+            "runs.baseline.rollout_limit.num_episodes=4",
+        ],
+    )
+
+    experiment_runner.main()
+
+    output = capsys.readouterr().out
+    assert "Available Hydra overrides for this Arena Experiment:" in output
+    assert "runs.baseline.rollout_limit.num_episodes=4" in output
+    assert "runs.baseline.environment.enable_cameras=false" in output
+    assert "runs.baseline.name=" not in output
+    assert "runs.baseline.environment_builder.device=" not in output
+    assert "experiment_cfg.runs" not in output
+
+
+def test_experiment_runner_override_help_requires_typed_yaml(monkeypatch):
+    """Do not present legacy JSON fields as supported Hydra overrides."""
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_JSON_PATH),
+            "--show-overrides",
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="requires a typed YAML Experiment"):
+        experiment_runner.main()
+
+
 def test_typed_camera_run_requires_prelaunch_camera_flag():
     experiment_cfg = _experiment_cfg(enable_cameras=True)
 

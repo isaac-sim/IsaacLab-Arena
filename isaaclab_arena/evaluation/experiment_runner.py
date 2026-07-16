@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
     run_legacy_json_in_chunks,
 )
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
+from isaaclab_arena.hydra.config_override_help import print_config_override_help
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
@@ -57,6 +58,20 @@ def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_ca
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
+    if args_cli.show_overrides:
+        assert experiment_config_path.suffix.lower() in {
+            ".yaml",
+            ".yml",
+        }, "--show-overrides requires a typed YAML Experiment"
+        experiment_cfg = load_arena_experiment_from_config_file(
+            experiment_config_path,
+            device=args_cli.device,
+            overrides=experiment_overrides,
+        )
+        print("Available Hydra overrides for this Arena Experiment:\n")
+        process_managed_paths = {f"runs.{run_name}.environment_builder.device" for run_name in experiment_cfg.runs}
+        print_config_override_help(experiment_cfg, excluded_paths=process_managed_paths)
+        return
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
         experiment_overrides,
