@@ -44,7 +44,11 @@ def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[
     """Map each requested ``node_id`` to its ``usd_path``, skipping assets without one."""
     paths: dict[str, str] = {}
     for node_id in node_ids:
-        usd_path = getattr(assets_by_node_id[node_id], "usd_path", None)
+        asset = assets_by_node_id.get(node_id)
+        if asset is None:
+            print(f"[asset_usd]   {node_id}: not found in instantiated assets, skipping.", file=sys.stderr)
+            continue
+        usd_path = getattr(asset, "usd_path", None)
         if usd_path:
             paths[node_id] = usd_path
     return paths
@@ -63,7 +67,8 @@ def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
 def absolute_prim_path(stage, relative_suffix: str) -> str:
     """Join a default-prim-relative suffix to the stage default prim."""
     default_prim = stage.GetDefaultPrim()
-    assert default_prim and default_prim.IsValid(), "USD stage has no default prim"
+    if not default_prim or not default_prim.IsValid():
+        raise RuntimeError("USD stage has no default prim")
     base = str(default_prim.GetPath())
     if not relative_suffix:
         return base
