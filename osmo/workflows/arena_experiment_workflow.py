@@ -97,7 +97,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             resource=self.aggregation_resource_name,
         )
         groups.append({
-            "name": "aggregate-results",
+            "name": "arena-aggregation",
             "tasks": [aggregate_task.create_task_dict()],
         })
         return groups

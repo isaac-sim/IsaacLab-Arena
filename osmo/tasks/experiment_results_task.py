@@ -54,9 +54,7 @@ class ExperimentResultsTask(BaseTask):
         return [{"url": DATASET_SWIFT_URL}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
-        run_input_dirs = {
-            run_name: task_input_token(task_name) for run_name, task_name in self.run_task_names.items()
-        }
+        run_input_dirs = {run_name: task_input_token(task_name) for run_name, task_name in self.run_task_names.items()}
         return [
             *super()._get_files_to_create(),
             {

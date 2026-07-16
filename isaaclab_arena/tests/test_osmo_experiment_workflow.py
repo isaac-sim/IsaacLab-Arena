@@ -198,10 +198,13 @@ def test_fans_out_singleton_runs_with_dedicated_pi0_servers_and_aggregation():
         "arena-run-0",
         "arena-run-1",
         "arena-run-2",
-        "aggregate-results",
+        "arena-aggregation",
     ]
     task_names = [task["name"] for group in groups for task in group["tasks"]]
     assert len(task_names) == len(set(task_names))
+    workflow_names = [group["name"] for group in groups] + task_names
+    normalized_workflow_names = [name.lower().replace("_", "-") for name in workflow_names]
+    assert len(normalized_workflow_names) == len(set(normalized_workflow_names))
 
     first_tasks = groups[0]["tasks"]
     second_tasks = groups[1]["tasks"]
