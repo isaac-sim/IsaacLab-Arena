@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv
 
@@ -15,6 +16,9 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -27,12 +31,14 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        placement_pool: PooledObjectPlacer | None = None,
         **kwargs,
     ):
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._arena_placement_pool = placement_pool
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)

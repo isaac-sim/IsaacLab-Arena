@@ -57,9 +57,10 @@ def _fallback_layout(positions):
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
-    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_solve_and_apply_relation_placement_requires_unique_asset_names():
@@ -89,13 +90,14 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     params = ObjectPlacerParams(placement_seed=11, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
@@ -109,13 +111,14 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     box.add_relation(On(desk, clearance_m=0.01))
 
     params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [desk, box],
         num_envs=2,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
@@ -151,7 +154,7 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
     )
 
     assert [asset.name for asset in event_cfg.params["assets"]] == ["desk", "box"]
-    assert "placement_pool" in event_cfg.params
+    assert "placement_pool" not in event_cfg.params
 
 
 def test_static_embodiment_placement_uses_coordinated_reset():
@@ -174,7 +177,7 @@ def test_static_embodiment_placement_uses_coordinated_reset():
         _fallback_layout(positions={robot: (0.3, 0.4, 0.0)}),
     ]
 
-    event_cfg = _apply_relation_placement_result(
+    event_cfg, placement_pool = _apply_relation_placement_result(
         assets=[desk, robot],
         placer_params=ObjectPlacerParams(resolve_on_reset=False),
         placement_pool=_FakePlacementPool(layouts),
@@ -185,6 +188,7 @@ def test_static_embodiment_placement_uses_coordinated_reset():
     assert isinstance(initial_pose, Pose)
     assert initial_pose.position_xyz == (0.1, 0.2, 0.0)
     assert event_cfg is not None
+    assert placement_pool is None
     runtime_robot = event_cfg.params["assets"][1]
     assert runtime_robot in event_cfg.params["layouts"][0].positions
     assert event_cfg.params["layouts"][1].positions[runtime_robot] == (0.3, 0.4, 0.0)

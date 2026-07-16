@@ -223,10 +223,10 @@ def test_solve_and_place_objects_uses_runtime_pool():
 
     assert "desk" not in env._assets
     assert "droid" not in env._assets
-    env._assets["robot"].write_root_pose_to_sim.assert_called_once()
+    assert "robot" not in env._assets
 
 
-def test_static_layout_event_writes_embodiment_to_configured_scene_asset():
+def test_static_layout_event_does_not_rewrite_embodiment_root():
     from isaaclab_arena.relations.placement_events import place_assets_from_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
@@ -261,8 +261,7 @@ def test_static_layout_event_writes_embodiment_to_configured_scene_asset():
     )
 
     assert "droid" not in env._assets
-    pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
-    assert torch.allclose(pose[0, :3], torch.tensor([0.4, 0.5, 0.0]))
+    assert "robot" not in env._assets
 
     with pytest.raises(AssertionError, match="Static layouts must match"):
         place_assets_from_layouts(
@@ -291,6 +290,7 @@ def test_static_layout_event_rejects_missing_non_anchor_assets():
 
 
 def test_get_placement_pool_returns_runtime_pool():
+    """get_placement_pool reads the pool stored on the env."""
     from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
@@ -298,6 +298,20 @@ def test_get_placement_pool_returns_runtime_pool():
 
     pool = Pool()
     env = MagicMock()
+    env.unwrapped._arena_placement_pool = pool
+    assert get_placement_pool(env) is pool
+
+
+def test_get_placement_pool_falls_back_to_event_params():
+    """get_placement_pool falls back to legacy event params when the env has no pool attribute."""
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+
+    class Pool:
+        pass
+
+    pool = Pool()
+    env = MagicMock()
+    env.unwrapped._arena_placement_pool = None
     env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
     assert get_placement_pool(env) is pool
 
