@@ -44,16 +44,19 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
-# The base stand's x/y footprint is fixed; only its height (the z-axis scale factor) is
-# configurable, so the stand can be made taller or shorter without changing its footprint.
+# The base stand's x/y footprint is fixed; only its height is configurable, so the stand can be made
+# taller or shorter without changing its footprint. ``stand_height_m`` is an absolute height in meters
+# (not a scale factor); the z-axis scale applied to the USD is derived from it and the stand's native
+# height.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
-_DEFAULT_STAND_HEIGHT_SCALE: float = 1.7
+_DEFAULT_STAND_HEIGHT_M: float = 1.35
 
-# The stand's top is pinned at the robot base and it extends downward to the floor, so scaling its
-# height moves the floor contact, not the mount. We lift the robot base by the amount the stand
-# grows (native height x scale delta), keeping the stand's bottom on the floor while the robot rides
-# higher. The native height is read from the stand USD; this measured value is the fallback used when
-# the asset can't be opened (e.g. no asset resolver / network outside a running SimulationApp).
+# The stand's top is pinned at the robot base and it extends downward to the floor, so changing its
+# height moves the floor contact, not the mount. We lift the robot base by the amount the stand grows
+# (height delta from the default), keeping the stand's bottom on the floor while the robot rides
+# higher. The stand's native (scale=1.0) height is read from its USD to convert the requested absolute
+# height into a z-scale; this measured value is the fallback used when the asset can't be opened
+# (e.g. no asset resolver / network outside a running SimulationApp).
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
 
 
@@ -98,14 +101,15 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height: float = _DEFAULT_STAND_HEIGHT_SCALE,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
-        self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height)
-        # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
+        # ``stand_height_m`` is an absolute height in meters; convert it to the z-scale the USD needs.
         stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
-        self._robot_base_z_offset = stand_unit_height * (stand_height - _DEFAULT_STAND_HEIGHT_SCALE)
+        self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
+        # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
+        self._robot_base_z_offset = stand_height_m - _DEFAULT_STAND_HEIGHT_M
         self.scene_config.robot.init_state.pos = self._lift_z(self.scene_config.robot.init_state.pos)
         self.scene_config.stand.init_state.pos = self._lift_z(self.scene_config.stand.init_state.pos)
         self.action_config = None
@@ -159,7 +163,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height: float = _DEFAULT_STAND_HEIGHT_SCALE,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
         super().__init__(
             enable_cameras,
@@ -167,7 +171,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             initial_joint_pose,
             concatenate_observation_terms,
             arm_mode,
-            stand_height,
+            stand_height_m,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
 
@@ -186,7 +190,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height: float = _DEFAULT_STAND_HEIGHT_SCALE,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
         super().__init__(
             enable_cameras,
@@ -194,7 +198,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
             initial_joint_pose,
             concatenate_observation_terms,
             arm_mode,
-            stand_height,
+            stand_height_m,
         )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
@@ -214,7 +218,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height: float = _DEFAULT_STAND_HEIGHT_SCALE,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
         super().__init__(
             enable_cameras,
@@ -222,7 +226,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
             initial_joint_pose,
             concatenate_observation_terms,
             arm_mode,
-            stand_height,
+            stand_height_m,
         )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
@@ -297,7 +301,7 @@ class DroidSceneCfg:
             usd_path=(
                 f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
             ),
-            scale=(*_STAND_FOOTPRINT_SCALE_XY, _DEFAULT_STAND_HEIGHT_SCALE),
+            scale=(*_STAND_FOOTPRINT_SCALE_XY, _DEFAULT_STAND_HEIGHT_M / _FALLBACK_STAND_UNIT_HEIGHT_M),
             activate_contact_sensors=False,
         ),
     )
