@@ -8,18 +8,21 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import fields, replace
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.experiment_composition import compose_arena_run, load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena_environments.cli import ensure_environments_registered
+
+_INLINE_RUN_NAME = "preview"
+_INLINE_POLICY_TYPE = "zero_action"
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -66,6 +69,70 @@ def load_arena_experiment_from_config_file(
         overrides=overrides,
     )
 
+    return _with_process_device(experiment_cfg, device)
+
+
+def compose_inline_arena_experiment(
+    environment_name: str,
+    *,
+    device: str,
+    environment_builder_values: dict[str, Any],
+    shared_environment_values: dict[str, Any],
+    num_steps: int | None,
+    num_episodes: int | None,
+    overrides: list[str] | None = None,
+) -> ArenaExperimentCfg:
+    """Compose one zero-action preview Run from CLI-provided values.
+
+    Args:
+        environment_name: Registered environment selected for the preview.
+        device: Process-wide simulation device applied to the Run.
+        environment_builder_values: Base values for the typed environment builder config.
+        shared_environment_values: Shared CLI values copied into matching environment config fields.
+        num_steps: Step limit for the preview, or None for an episode-driven preview.
+        num_episodes: Episode limit for the preview, or None for a step-driven preview.
+        overrides: Hydra overrides relative to the implicit preview Run.
+
+    Returns:
+        A one-Run typed Arena Experiment.
+    """
+    environment_cfg_types = _registered_environment_cfg_types()
+    available_environment_names = ", ".join(sorted(environment_cfg_types))
+    assert (
+        environment_name in environment_cfg_types
+    ), f"Unknown registered environment '{environment_name}'. Available environments: {available_environment_names}"
+
+    environment_cfg_type = environment_cfg_types[environment_name]
+    environment_field_names = {config_field.name for config_field in fields(environment_cfg_type)}
+    if shared_environment_values.get("enable_cameras", False):
+        assert (
+            "enable_cameras" in environment_field_names
+        ), f"Environment '{environment_name}' does not expose camera support in its typed configuration"
+    environment_values = {
+        field_name: value
+        for field_name, value in shared_environment_values.items()
+        if field_name in environment_field_names
+    }
+    environment_values["type"] = environment_name
+
+    run_cfg = compose_arena_run(
+        _INLINE_RUN_NAME,
+        {
+            "environment": environment_values,
+            "policy": {"type": _INLINE_POLICY_TYPE},
+            "environment_builder": environment_builder_values,
+            "rollout_limit": {"num_steps": num_steps, "num_episodes": num_episodes},
+        },
+        environment_cfg_types=environment_cfg_types,
+        policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
+        overrides=overrides,
+        source=f"inline environment '{environment_name}'",
+    )
+    return _with_process_device(ArenaExperimentCfg(runs={_INLINE_RUN_NAME: run_cfg}), device)
+
+
+def _with_process_device(experiment_cfg: ArenaExperimentCfg, device: str) -> ArenaExperimentCfg:
+    """Apply one process device to every Run in an Experiment."""
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
     # evaluation setting shared by AppLauncher and Run execution. Then remove device
     # from ArenaEnvBuilderCfg and delete this per-Run copy.
@@ -82,6 +149,8 @@ def load_arena_experiment_from_config_file(
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     """Return registered environment selector names and their config types."""
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
     ensure_environments_registered()
     registry = EnvironmentRegistry()
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]] = {}

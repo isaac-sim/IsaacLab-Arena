@@ -14,7 +14,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.experiment_composition import compose_arena_run, load_arena_experiment_from_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -70,6 +70,51 @@ def test_getting_started_experiment_composes_typed_runs():
     assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
     assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
     assert [run.rollout_limit.num_steps for run in runs.values()] == [50, 50, 50, 100]
+
+
+def test_inline_run_composes_with_run_relative_overrides():
+    run = compose_arena_run(
+        "preview",
+        {
+            "environment": {"type": "pick_and_place_maple_table"},
+            "policy": {"type": "zero_action"},
+            "rollout_limit": {"num_steps": 100},
+        },
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
+        overrides=[
+            "environment.light_intensity=750.0",
+            "environment_builder.num_envs=4",
+            "rollout_limit.num_steps=5",
+            "num_rebuilds=2",
+            "+variations.light.hdr_image.enabled=true",
+        ],
+    )
+
+    assert run.name == "preview"
+    assert run.environment.light_intensity == 750.0
+    assert run.policy == ZeroActionPolicyCfg()
+    assert run.environment_builder.num_envs == 4
+    assert run.rollout_limit.num_steps == 5
+    assert run.num_rebuilds == 2
+    assert run.variations == {"light": {"hdr_image": {"enabled": True}}}
+
+
+def test_inline_run_accepts_episode_limit_override_without_step_default():
+    run = compose_arena_run(
+        "preview",
+        {
+            "environment": {"type": "pick_and_place_maple_table"},
+            "policy": {"type": "zero_action"},
+            "rollout_limit": {"num_steps": None, "num_episodes": None},
+        },
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
+        overrides=["rollout_limit.num_episodes=2"],
+    )
+
+    assert run.rollout_limit.num_steps is None
+    assert run.rollout_limit.num_episodes == 2
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():

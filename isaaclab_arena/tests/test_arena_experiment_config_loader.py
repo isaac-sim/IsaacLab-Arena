@@ -5,13 +5,17 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import pytest
 
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import arena_experiment_config_loader, experiment_runner
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    compose_inline_arena_experiment,
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
@@ -28,6 +32,11 @@ GETTING_STARTED_JSON_PATH = (
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
+
+
+@dataclass
+class _EnvironmentCfgWithNumEnvs(ArenaEnvironmentCfg):
+    num_envs: int = 1
 
 
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
@@ -69,6 +78,91 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def test_compose_inline_experiment_builds_zero_action_preview(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+
+    experiment_cfg = compose_inline_arena_experiment(
+        "pick_and_place_maple_table",
+        device="cuda:1",
+        environment_builder_values=asdict(ArenaEnvBuilderCfg()),
+        shared_environment_values={"enable_cameras": True, "num_envs": 4},
+        num_steps=100,
+        num_episodes=None,
+        overrides=[
+            "environment.light_intensity=750.0",
+            "environment_builder.num_envs=8",
+            "rollout_limit.num_steps=5",
+            "+variations.light.hdr_image.enabled=true",
+        ],
+    )
+
+    assert list(experiment_cfg.runs) == ["preview"]
+    run_cfg = experiment_cfg.runs["preview"]
+    assert run_cfg.environment == PickAndPlaceMapleTableEnvironmentCfg(
+        enable_cameras=True,
+        light_intensity=750.0,
+    )
+    assert run_cfg.policy == ZeroActionPolicyCfg()
+    assert run_cfg.environment_builder.num_envs == 8
+    assert run_cfg.environment_builder.device == "cuda:1"
+    assert run_cfg.rollout_limit.num_steps == 5
+    assert run_cfg.num_rebuilds == 1
+    assert run_cfg.variations == {"light": {"hdr_image": {"enabled": True}}}
+
+
+def test_compose_inline_experiment_copies_shared_environment_fields(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"environment_with_num_envs": _EnvironmentCfgWithNumEnvs},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+
+    experiment_cfg = compose_inline_arena_experiment(
+        "environment_with_num_envs",
+        device="cuda:0",
+        environment_builder_values=asdict(ArenaEnvBuilderCfg(num_envs=4)),
+        shared_environment_values={"num_envs": 4},
+        num_steps=100,
+        num_episodes=None,
+    )
+
+    run_cfg = experiment_cfg.runs["preview"]
+    assert run_cfg.environment.num_envs == 4
+    assert run_cfg.environment_builder.num_envs == 4
+
+
+def test_compose_inline_experiment_rejects_cameras_for_environment_without_camera_field(monkeypatch):
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"environment_with_num_envs": _EnvironmentCfgWithNumEnvs},
+    )
+
+    with pytest.raises(AssertionError, match="does not expose camera support"):
+        compose_inline_arena_experiment(
+            "environment_with_num_envs",
+            device="cuda:0",
+            environment_builder_values=asdict(ArenaEnvBuilderCfg()),
+            shared_environment_values={"enable_cameras": True},
+            num_steps=100,
+            num_episodes=None,
+        )
 
 
 def test_policy_config_type_resolves_from_dotted_class_path():
@@ -131,6 +225,49 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
             "experiment_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_YAML_PATH),
+            "--list_variations",
+        ],
+    )
+
+    experiment_runner.main()
+
+
+def test_experiment_runner_composes_inline_preview_after_simulation_starts(monkeypatch):
+    simulation_is_running = False
+
+    class _SimulationAppContext:
+        def __init__(self, args_cli):
+            self.args_cli = args_cli
+
+        def __enter__(self):
+            nonlocal simulation_is_running
+            assert self.args_cli.enable_cameras
+            simulation_is_running = True
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            nonlocal simulation_is_running
+            simulation_is_running = False
+
+    def compose_inline_after_startup(environment_name, **kwargs):
+        assert simulation_is_running
+        assert environment_name == "pick_and_place_maple_table"
+        assert kwargs["num_steps"] == 100
+        assert kwargs["environment_builder_values"]["num_envs"] == 4
+        assert kwargs["shared_environment_values"]["enable_cameras"] is True
+        return _experiment_cfg(enable_cameras=True)
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(experiment_runner, "compose_inline_arena_experiment", compose_inline_after_startup)
+    monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--environment",
+            "pick_and_place_maple_table",
+            "--num_envs",
+            "4",
+            "--record_camera_video",
             "--list_variations",
         ],
     )

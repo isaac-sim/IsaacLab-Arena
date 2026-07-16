@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import json
 import os
 import subprocess
@@ -18,6 +19,10 @@ NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
 
 
+def _raise_parser_error(_parser, message: str) -> None:
+    raise ValueError(message)
+
+
 def test_experiment_runner_parses_native_hydra_overrides():
     args_cli, experiment_overrides = parse_experiment_runner_args([
         "--experiment_config",
@@ -31,6 +36,94 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ]
+
+
+def test_experiment_runner_parses_inline_preview_defaults_and_overrides():
+    args_cli, run_overrides = parse_experiment_runner_args([
+        "--environment",
+        "pick_and_place_maple_table",
+        "environment.embodiment=droid_rel_joint_pos",
+        "+variations.light.hdr_image.enabled=true",
+    ])
+
+    assert args_cli.environment == "pick_and_place_maple_table"
+    assert args_cli.experiment_config is None
+    assert args_cli.num_steps == 100
+    assert args_cli.num_episodes is None
+    assert run_overrides == [
+        "environment.embodiment=droid_rel_joint_pos",
+        "+variations.light.hdr_image.enabled=true",
+    ]
+
+
+def test_experiment_runner_does_not_add_step_default_to_inline_episode_override():
+    args_cli, run_overrides = parse_experiment_runner_args([
+        "--environment",
+        "pick_and_place_maple_table",
+        "rollout_limit.num_episodes=2",
+    ])
+
+    assert args_cli.num_steps is None
+    assert args_cli.num_episodes is None
+    assert run_overrides == ["rollout_limit.num_episodes=2"]
+
+
+def test_experiment_runner_parses_explicit_inline_episode_limit():
+    args_cli, run_overrides = parse_experiment_runner_args([
+        "--environment",
+        "pick_and_place_maple_table",
+        "--num_episodes",
+        "2",
+    ])
+
+    assert args_cli.num_steps is None
+    assert args_cli.num_episodes == 2
+    assert run_overrides == []
+
+
+def test_experiment_runner_requires_exactly_one_input_source(monkeypatch):
+    monkeypatch.setattr(argparse.ArgumentParser, "error", _raise_parser_error)
+
+    with pytest.raises(ValueError, match="Specify exactly one input source"):
+        parse_experiment_runner_args([])
+
+    with pytest.raises(ValueError, match="Specify exactly one input source"):
+        parse_experiment_runner_args([
+            "--experiment_config",
+            "experiment.yaml",
+            "--environment",
+            "pick_and_place_maple_table",
+        ])
+
+
+@pytest.mark.parametrize(
+    "unsupported_args",
+    [
+        ["--env_graph_spec_yaml", "environment.yaml"],
+        ["--external_environment_class_path", "package.Environment"],
+    ],
+)
+def test_experiment_runner_rejects_unsupported_inline_environment_sources(unsupported_args, monkeypatch):
+    monkeypatch.setattr(argparse.ArgumentParser, "error", _raise_parser_error)
+
+    with pytest.raises(ValueError, match="is not supported in inline preview mode"):
+        parse_experiment_runner_args([
+            "--environment",
+            "pick_and_place_maple_table",
+            *unsupported_args,
+        ])
+
+
+def test_experiment_runner_rejects_inline_rollout_flags_for_configured_experiment(monkeypatch):
+    monkeypatch.setattr(argparse.ArgumentParser, "error", _raise_parser_error)
+
+    with pytest.raises(ValueError, match="supported only with --environment"):
+        parse_experiment_runner_args([
+            "--experiment_config",
+            "experiment.yaml",
+            "--num_steps",
+            "2",
+        ])
 
 
 @pytest.mark.with_subprocess
@@ -122,6 +215,30 @@ runs:
     assert result is not None
     run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
     run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
+    assert run_cells[4] == "2"
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_from_inline_environment(tmp_path):
+    """Execute the implicit zero-action preview Run without an Experiment file."""
+    result = run_subprocess(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
+            "--environment",
+            "pick_and_place_maple_table",
+            "--headless",
+            "--output_base_dir",
+            str(tmp_path / "output"),
+            "rollout_limit.num_steps=2",
+        ],
+        capture_output=True,
+    )
+
+    assert result is not None
+    run_row = next(line for line in result.stdout.splitlines() if "preview" in line and "pending" in line)
+    run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
+    assert run_cells[2] == "zero_action"
     assert run_cells[4] == "2"
 
 

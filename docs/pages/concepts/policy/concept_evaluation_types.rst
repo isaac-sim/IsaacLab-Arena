@@ -1,10 +1,11 @@
 Evaluation Types
 =================
 
-Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
-**policy runner** (single or multi-GPU) and an **Experiment Runner** for
-multiple jobs in one process. This section summarizes when to use each and how
-they work. Each section below links to the relevant concept docs:
+Isaac Lab Arena supports two evaluation entry points: an **Experiment Runner**
+for inline environment previews and configured typed Runs, and a **policy
+runner** for compatibility workflows such as distributed execution. This
+section summarizes when to use each and how they work. Each section below links
+to the relevant concept docs:
 :doc:`Policy Design <index>`,
 :doc:`Environment Design <../concept_overview>`, and
 :doc:`Metrics Design <../task/concept_metrics_design>`.
@@ -39,7 +40,7 @@ Summary
      - ``policy_runner.py``
      - Yes (torchrun)
    * - Experiment Runner
-     - Multiple jobs (env/policy combos) in sequence
+     - Quick registered-environment preview or configured typed Runs
      - ``experiment_runner.py``
      - No
 
@@ -47,9 +48,9 @@ Summary
 --------------------------------------------------------
 
 The **policy runner** (``isaaclab_arena/evaluation/policy_runner.py``) runs one
-evaluation job: one environment configuration and one policy. It is the right
-choice for ad-hoc runs, debugging, or when you want to drive one scenario with
-full control over CLI arguments.
+environment configuration and one policy. Use it when compatibility with
+graph-spec or external environments, arbitrary policy CLI configuration, or
+distributed execution is required.
 
 **Design context:** For how policies are defined and integrated with environments,
 see :doc:`Policy Design <index>`.
@@ -139,109 +140,100 @@ registered policies, policy-specific flags are generated from their ``PolicyCfg`
 
 .. _sequential-batch-experiment-runner:
 
-2. Experiment Runner — batch jobs
---------------------------------------------
+2. Experiment Runner — inline preview and configured Runs
+---------------------------------------------------------
 
 The **Experiment Runner** (``isaaclab_arena/evaluation/experiment_runner.py``)
-runs a **batch** of evaluation jobs sequentially in a single process. Each job can have
-a different environment (scene/object/embodiment), policy type, policy config,
-and length (steps or episodes). This is suited for benchmarking many
-configurations (e.g. many objects or tasks) without launching multiple processes
-by hand. Persistence of the simulation application is maintained between jobs.
+executes typed Arena Runs. It accepts exactly one input source:
 
-**Design context:** For how environments are composed and how metrics are
-defined and computed, see :doc:`Environment Design <../concept_overview>`
-and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
-follow :doc:`Policy Design <index>`.
+- ``--environment NAME`` creates one inline ``preview`` Run for a registered
+  environment.
+- ``--experiment_config PATH`` loads named Runs from a typed YAML Experiment
+  Definition or a legacy JSON configuration.
 
-**Features:**
+Inline environment preview
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- One JSON config file (``--eval_jobs_config``) listing all jobs.
-- Jobs run one after another; each job builds its environment, creates the
-  policy from the job config, runs ``rollout_policy``, then tears down the env
-  before the next job.
-- If a job fails, the runner continues with the next job and marks the failed
-  job accordingly.
-- Metrics are aggregated and printed at the end (e.g. via ``MetricsLogger``).
-- **Distributed evaluation is not supported**: the Experiment Runner
-  runs in a single process. For multi-GPU, use multiple policy runner
-  invocations (e.g. with ``torchrun``) or split the batch across machines.
-
-.. todo::
-
-    Experiment with distributed evaluation in the Experiment Runner.
-
-**Jobs config format**
-
-The config file must be a JSON object with a ``"jobs"`` array. Each job is an
-object with:
-
-- ``name``: Unique job name (for logging and metrics).
-- ``arena_env_args``: Environment arguments as a dict (e.g. ``environment``,
-  ``num_envs``, ``object``, ``embodiment``, ``enable_cameras``, etc.). Converted
-  internally to the same CLI-style list the policy runner uses.
-- ``policy_type``: Same as policy runner (registered name or dotted class path).
-- ``policy_config_dict``: Policy configuration (e.g. checkpoint path, model
-  options). Deserialized through the policy's registered config type; the
-  deprecated CLI conversion fallback remains for legacy policies without one.
-- ``num_steps`` or ``num_episodes`` (optional): Simulation length for this job.
-  If both are omitted, the runner uses the policy’s length if defined, or a CLI
-  default (e.g. ``--num_steps``).
-
-**Example config structure**
-
-.. code-block:: json
-
-   {
-     "jobs": [
-       {
-         "name": "gr1_open_microwave_cracker_box",
-         "arena_env_args": {
-           "environment": "gr1_open_microwave",
-           "object": "cracker_box",
-           "embodiment": "gr1_joint",
-           "num_envs": 4
-         },
-         "num_steps": 500,
-         "policy_type": "zero_action",
-         "policy_config_dict": {}
-       },
-       {
-         "name": "gr1_sequential_static_manipulation_put_ranch_dressing_bottle_in_fridge_and_close_door",
-         "arena_env_args": {
-           "enable_cameras": true,
-           "environment": "gr1_sequential_static_manipulation",
-           "object": "ranch_dressing_hope_robolab",
-           "embodiment": "gr1_joint"
-         },
-         "num_steps": 100,
-         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-         "policy_config_dict": {
-           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-           "policy_device": "cuda:0",
-           "remote_host": "127.0.0.1",
-           "remote_port": 5555
-          }
-       }
-     ]
-   }
-
-**Running the Experiment Runner**
+Use inline mode to build and inspect a registered environment without first
+writing an Experiment YAML:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config path/to/eval_jobs_config.json \
-     --num_steps 1000
+     --environment pick_and_place_maple_table
 
-If any job needs cameras, set ``enable_cameras: true`` in that job’s
-``arena_env_args``; the Experiment Runner automatically enables camera support if any job requires it.
+The generated ``preview`` Run uses ``zero_action`` for 100 steps, one
+environment, and one rebuild. Trailing Hydra overrides are relative to that
+Run. Select an explicit limit with ``--num_steps`` or ``--num_episodes``, or
+override the corresponding ``rollout_limit.*`` field:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --environment pick_and_place_maple_table \
+     --num_envs 4 \
+     environment.embodiment=droid_rel_joint_pos \
+     environment.pick_up_object=mustard_bottle_hot3d_robolab \
+     rollout_limit.num_steps=500 \
+     num_rebuilds=2 \
+     +variations.light.hdr_image.enabled=true
+
+Use the ``environment.*``, ``environment_builder.*``,
+``rollout_limit.*``, ``variations.*``, and ``num_rebuilds`` namespaces. The
+leading ``+`` is required when adding entries to the initially empty
+``variations`` mapping. Prefer shared builder flags such as ``--num_envs`` and
+``--mimic`` when available; inline composition also copies them into matching
+environment-specific fields. Use ``environment_builder.*`` for builder fields
+without a shared CLI flag.
+
+Add ``--enable_cameras`` when the preview needs camera sensors.
+``--record_camera_video`` enables camera support automatically. Inline mode
+supports registered environments and the zero-action policy. Use
+``policy_runner.py`` for graph-spec or external environments, arbitrary policy
+CLI configuration, and distributed execution.
+
+Configured Experiments
+^^^^^^^^^^^^^^^^^^^^^^
+
+For repeatable or multi-Run evaluation, declare typed Runs in YAML:
+
+.. code-block:: yaml
+
+   runs:
+     baseline:
+       environment:
+         type: pick_and_place_maple_table
+         embodiment: droid_rel_joint_pos
+       policy:
+         type: zero_action
+       rollout_limit:
+         num_steps: 50
+
+Run the definition with:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+
+Configured-Experiment overrides use the complete named-Run path, for example
+``runs.baseline.rollout_limit.num_steps=100``. Runs execute sequentially in one
+Isaac Sim process. Metrics and reports use the same execution path in inline
+and configured modes.
+
+Legacy JSON configs and the ``--eval_jobs_config`` alias remain supported for
+compatibility. New Experiment Definitions should use typed YAML. Distributed
+evaluation is not supported by the Experiment Runner.
 
 Choosing an evaluation type
 ---------------------------
 
-- **One-off run, one setup**: use the **policy runner** (single or multi-GPU);
-  use ``--object_set`` for heterogeneous objects in one run.
-- **Many env/policy combinations in one go**: use the **sequential batch eval
-  runner** with a jobs JSON; use ``--object_set`` for heterogeneous objects in one run.
+- **Quickly inspect a registered environment**: use
+  ``experiment_runner.py --environment NAME``.
+- **Repeatable or multi-Run evaluation**: use ``experiment_runner.py`` with a
+  typed YAML Experiment Definition.
+- **Graph-spec or external environments, arbitrary policy CLI configuration,
+  or multi-GPU execution**: use ``policy_runner.py``.

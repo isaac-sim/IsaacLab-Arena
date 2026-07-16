@@ -3,11 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import os
+from dataclasses import asdict
 from pathlib import Path
 
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    compose_inline_arena_experiment,
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
@@ -23,6 +27,8 @@ from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+
+_SHARED_ENVIRONMENT_VALUE_NAMES = ("enable_cameras", "mimic", "auto", "num_envs")
 
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
@@ -54,12 +60,47 @@ def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_ca
     )
 
 
+def _load_selected_experiment(
+    args_cli: argparse.Namespace,
+    experiment_config_path: Path | None,
+    experiment_overrides: list[str],
+) -> ArenaExperimentCfg:
+    """Load a configured Experiment or compose one inline preview Run."""
+    if args_cli.environment is not None:
+        builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
+        shared_environment_values = {
+            name: getattr(args_cli, name) for name in _SHARED_ENVIRONMENT_VALUE_NAMES if hasattr(args_cli, name)
+        }
+        return compose_inline_arena_experiment(
+            args_cli.environment,
+            device=args_cli.device,
+            environment_builder_values=asdict(builder_cfg),
+            shared_environment_values=shared_environment_values,
+            num_steps=args_cli.num_steps,
+            num_episodes=args_cli.num_episodes,
+            overrides=experiment_overrides,
+        )
+
+    assert experiment_config_path is not None
+    return load_arena_experiment_from_config_file(
+        experiment_config_path,
+        device=args_cli.device,
+        overrides=experiment_overrides,
+    )
+
+
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
-    experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
-    legacy_experiment_config = load_legacy_json_experiment_config(
-        experiment_config_path,
-        experiment_overrides,
+    experiment_config_path = (
+        validate_experiment_config_path(args_cli.experiment_config) if args_cli.experiment_config is not None else None
+    )
+    legacy_experiment_config = (
+        load_legacy_json_experiment_config(
+            experiment_config_path,
+            experiment_overrides,
+        )
+        if experiment_config_path is not None
+        else None
     )
 
     if args_cli.record_camera_video or (
@@ -70,10 +111,10 @@ def main():
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            experiment_cfg = load_arena_experiment_from_config_file(
+            experiment_cfg = _load_selected_experiment(
+                args_cli,
                 experiment_config_path,
-                device=args_cli.device,
-                overrides=experiment_overrides,
+                experiment_overrides,
             )
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
             list_variations(experiment_cfg)
@@ -91,10 +132,10 @@ def main():
             return
 
     with SimulationAppContext(args_cli):
-        experiment_cfg = load_arena_experiment_from_config_file(
+        experiment_cfg = _load_selected_experiment(
+            args_cli,
             experiment_config_path,
-            device=args_cli.device,
-            overrides=experiment_overrides,
+            experiment_overrides,
         )
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
         metrics_logger = MetricsLogger()
