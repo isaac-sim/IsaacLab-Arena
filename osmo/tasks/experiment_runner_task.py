@@ -40,12 +40,12 @@ class ExperimentRunnerTask(BaseTask):
     def __init__(
         self,
         task_cfg: ExperimentRunnerTaskCfg,
-        experiment_definition: ArenaExperimentCfg,
+        experiment_cfg: ArenaExperimentCfg,
         lead: bool | None = None,
     ) -> None:
         super().__init__(task_cfg=task_cfg, lead=lead)
-        assert isinstance(experiment_definition, ArenaExperimentCfg)
-        self.experiment_definition = deepcopy(experiment_definition)
+        assert isinstance(experiment_cfg, ArenaExperimentCfg)
+        self.experiment_cfg = deepcopy(experiment_cfg)
 
     @staticmethod
     def get_task_name() -> str:
@@ -62,7 +62,7 @@ class ExperimentRunnerTask(BaseTask):
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the effective Experiment at the path consumed by ``experiment_runner.py``."""
-        experiment_yaml = serialize_arena_experiment_to_yaml(self.experiment_definition)
+        experiment_yaml = serialize_arena_experiment_to_yaml(self.experiment_cfg)
         return [
             *super()._get_files_to_create(),
             {"path": REMOTE_EXPERIMENT_PATH, "contents": block_literal_str(experiment_yaml)},

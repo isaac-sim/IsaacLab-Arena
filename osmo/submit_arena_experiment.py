@@ -30,35 +30,33 @@ POLICY_SERVER_TASK_CFG_BY_NAME = {
 
 
 def build_arena_experiment_submission_cfg(
-    experiment_definition_path: str | Path,
-    policy_server_name: str | None = None,
+    experiment_cfg_path: str | Path,
+    policy_server_name: str,
     overrides: list[str] | None = None,
 ) -> ArenaExperimentSubmissionCfg:
-    """Load an Experiment, select its optional server, and apply typed overrides.
+    """Load an Experiment, select its policy server, and apply typed overrides.
 
     Args:
-        experiment_definition_path: Arena Experiment configuration file.
-        policy_server_name: Optional built-in policy-server implementation name.
+        experiment_cfg_path: Arena Experiment configuration file.
+        policy_server_name: Built-in policy-server implementation name.
         overrides: Hydra field overrides rooted at the composed submission.
 
     Returns:
         The fully composed typed submission configuration.
     """
-    experiment_definition_path = Path(experiment_definition_path).expanduser()
-    assert experiment_definition_path.suffix.lower() in {
+    experiment_cfg_path = Path(experiment_cfg_path).expanduser()
+    assert experiment_cfg_path.suffix.lower() in {
         ".yaml",
         ".yml",
-    }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_definition_path}'"
-    experiment_definition = load_arena_experiment_from_config_file(experiment_definition_path, device="cuda:0")
-    policy_server = None
-    if policy_server_name is not None:
-        available_names = ", ".join(sorted(POLICY_SERVER_TASK_CFG_BY_NAME))
-        assert (
-            policy_server_name in POLICY_SERVER_TASK_CFG_BY_NAME
-        ), f"Unknown policy server '{policy_server_name}'. Available policy servers: {available_names}"
-        policy_server = POLICY_SERVER_TASK_CFG_BY_NAME[policy_server_name]()
+    }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_cfg_path}'"
+    experiment_cfg = load_arena_experiment_from_config_file(experiment_cfg_path, device="cuda:0")
+    available_names = ", ".join(sorted(POLICY_SERVER_TASK_CFG_BY_NAME))
+    assert (
+        policy_server_name in POLICY_SERVER_TASK_CFG_BY_NAME
+    ), f"Unknown policy server '{policy_server_name}'. Available policy servers: {available_names}"
+    policy_server = POLICY_SERVER_TASK_CFG_BY_NAME[policy_server_name]()
     base_submission = ArenaExperimentSubmissionCfg(
-        experiment_definition=experiment_definition,
+        experiment_cfg=experiment_cfg,
         policy_server=policy_server,
     )
 
@@ -80,9 +78,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     pi0_server_defaults = Pi0ServerTaskCfg()
     result_url = DATASET_SWIFT_URL.replace("{{workflow_id}}", "WORKFLOW_ID")
     parser = argparse.ArgumentParser(
-        usage=(
-            f"%(prog)s [-h] --experiment-definition PATH [--policy-server {{{policy_server_choices}}}] [OVERRIDE ...]"
-        ),
+        usage=f"%(prog)s [-h] --experiment-cfg PATH --policy-server {{{policy_server_choices}}} [OVERRIDE ...]",
         description="Submit a typed Arena Experiment as an OSMO workflow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=rf"""
@@ -92,10 +88,10 @@ inside the submitting container or process.
 Minimal Pi0 example:
 
   python -m osmo.submit_arena_experiment \
-    --experiment-definition isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
+    --experiment-cfg isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
     --policy-server pi0
 
-The optional --policy-server deploys and connects a built-in server
+The required --policy-server deploys and connects a built-in server
 implementation; it does not select the policy evaluated by the Experiment.
 With --policy-server pi0, the Experiment YAML must already select
 Pi0RemotePolicy with a compatible policy_variant. Override deployment values
@@ -110,7 +106,7 @@ Trailing Hydra overrides are optional. Examples:
   osmo.workflow_name=my-evaluation
   osmo.pool=isaac-dev-l40-03
   osmo.dry_run=true
-  experiment_definition.runs.my_run.rollout_limit.num_episodes=4
+  experiment_cfg.runs.my_run.rollout_limit.num_episodes=4
 
 Current defaults, which can be overridden through the same field paths:
 
@@ -136,16 +132,18 @@ After replacing WORKFLOW_ID with the ID printed by OSMO, download them with:
 """,
     )
     parser.add_argument(
-        "--experiment-definition",
+        "--experiment-cfg",
+        dest="experiment_cfg_path",
         required=True,
         type=Path,
         metavar="PATH",
-        help="typed Arena Experiment Definition YAML file",
+        help="path to a typed Arena Experiment YAML configuration",
     )
     parser.add_argument(
         "--policy-server",
+        required=True,
         choices=POLICY_SERVER_TASK_CFG_BY_NAME,
-        help="optional co-scheduled policy-server implementation",
+        help="co-scheduled policy-server implementation",
     )
     parser.allow_abbrev = False
     return parser
@@ -159,7 +157,7 @@ def main(cli_args: list[str] | None = None) -> int:
     args, overrides = parser.parse_known_args(cli_args)
     assert_hydra_overrides(overrides, parser)
     submission_cfg = build_arena_experiment_submission_cfg(
-        experiment_definition_path=args.experiment_definition,
+        experiment_cfg_path=args.experiment_cfg_path,
         policy_server_name=args.policy_server,
         overrides=overrides,
     )
