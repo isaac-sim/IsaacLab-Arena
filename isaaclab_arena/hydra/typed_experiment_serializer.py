@@ -18,7 +18,7 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 
 def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> str:
-    """Serialize an effective Arena Experiment as typed Experiment YAML.
+    """Serialize an effective Arena Experiment to a typed Experiment YAML-formatted string.
 
     The resulting YAML preserves executable configuration, including composed
     defaults and overrides, but not source comments, anchors, or omissions.
@@ -27,7 +27,7 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
         experiment_cfg: Effective typed Arena Experiment to serialize.
 
     Returns:
-        YAML accepted by the typed Arena Experiment loader.
+        A YAML-formatted string accepted by the typed Arena Experiment loader.
     """
     assert isinstance(experiment_cfg, ArenaExperimentCfg)
     environment_registry = EnvironmentRegistry()
