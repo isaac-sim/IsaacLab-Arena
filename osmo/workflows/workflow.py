@@ -146,17 +146,25 @@ class Workflow(SubmittableWorkflow):
             "version": 2,
             "workflow": {
                 "name": self.workflow_cfg.workflow_name,
-                "groups": [{
-                    "name": self.group_name,
-                    "tasks": [task.create_task_dict() for task in self._get_tasks()],
-                }],
-                "resources": {"default": self._create_resource_dict()},
+                "groups": self._get_group_dicts(),
+                "resources": self._create_resources_dict(),
                 "timeout": {
                     "exec_timeout": self.workflow_cfg.exec_timeout,
                     "queue_timeout": self.workflow_cfg.queue_timeout,
                 },
             },
         }
+
+    def _get_group_dicts(self) -> list[dict[str, Any]]:
+        """Create the OSMO groups in this workflow."""
+        return [{
+            "name": self.group_name,
+            "tasks": [task.create_task_dict() for task in self._get_tasks()],
+        }]
+
+    def _create_resources_dict(self) -> dict[str, dict[str, Any]]:
+        """Create the named OSMO task resources used by this workflow."""
+        return {"default": self._create_resource_dict()}
 
     def render_yaml(self) -> str:
         """Render the workflow dict to YAML text."""
