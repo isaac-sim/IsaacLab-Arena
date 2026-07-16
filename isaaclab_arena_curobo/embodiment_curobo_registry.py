@@ -20,8 +20,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.utils.assets import ARENA_NUCLEUS_DIR
-
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 
 if TYPE_CHECKING:
