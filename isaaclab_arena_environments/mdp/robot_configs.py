@@ -16,6 +16,15 @@ from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
 
+# The Isaac 6.0 asset tree replaced FrankaEmika/panda_instanceable.usd with a
+# restructured MuJoCo-converted asset that upstream FRANKA_PANDA_CFG has not
+# been updated for, so the inherited usd_path 404s. Load the identical asset
+# from the Isaac 5.0 tree instead.
+# TODO(2026.07.16, Remove once isaaclab_assets points at a valid Franka USD)
+FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path.replace(
+    "/Assets/Isaac/6.0/", "/Assets/Isaac/5.0/"
+)
+
 # Enable contact sensors for assembly tasks
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.activate_contact_sensors = True
 
