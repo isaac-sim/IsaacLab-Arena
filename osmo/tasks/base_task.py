@@ -28,14 +28,18 @@ class BaseTask(ABC):
         self,
         task_cfg: TaskCfg | None = None,
         lead: bool | None = None,
+        task_name: str | None = None,
+        resource: str | None = None,
     ) -> None:
         self.task_cfg = task_cfg
         self.lead = lead
+        self.task_name = task_name or self.get_task_name()
+        self.resource = resource
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
-        return {
-            "name": self.get_task_name(),
+        task = {
+            "name": self.task_name,
             "args": ["/tmp/entry.sh"],
             "command": ["bash"],
             "credentials": self._get_credentials(),
@@ -47,6 +51,9 @@ class BaseTask(ABC):
             "outputs": self._get_outputs(),
             "lead": self.lead,
         }
+        if self.resource is not None:
+            task["resource"] = self.resource
+        return task
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Return files OSMO creates in the task container before starting it."""
@@ -77,9 +84,9 @@ class BaseTask(ABC):
         """Return the task name."""
 
     @classmethod
-    def host_token(cls) -> str:
+    def host_token(cls, task_name: str | None = None) -> str:
         """Return the OSMO ``{{host:<task>}}`` token that resolves to this task's runtime host/IP."""
-        return "{{host:" + cls.get_task_name() + "}}"
+        return "{{host:" + (task_name or cls.get_task_name()) + "}}"
 
     @abstractmethod
     def _get_image(self) -> str:

@@ -67,8 +67,9 @@ class Pi0ServerTask(BaseTask):
         self,
         task_cfg: Pi0ServerTaskCfg | None = None,
         lead: bool | None = None,
+        task_name: str | None = None,
     ) -> None:
-        super().__init__(task_cfg=task_cfg or Pi0ServerTaskCfg(), lead=lead)
+        super().__init__(task_cfg=task_cfg or Pi0ServerTaskCfg(), lead=lead, task_name=task_name)
 
     @staticmethod
     def get_task_name() -> str:
