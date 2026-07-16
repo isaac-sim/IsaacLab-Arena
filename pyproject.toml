@@ -75,22 +75,12 @@ index-strategy = "first-index"
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
 override-dependencies = ["numpy==2.3.1"]
-# Not worked around: isaacsim-kernel 6.0.0.1 hard-pins coverage==7.4.4, but numba
-# >=0.62 (required for numpy 2.3.1) needs coverage>=7.6, so `import numba` fails.
-# Arena never imports numba (only a transitive isaaclab dep); numba-backed upstream
-# Isaac Lab functionality is outside the native-uv scope -- use Docker for that.
-# Constrain transitive deps that isaaclab / isaacsim declare too broadly:
-#   * pin-pink: isaaclab's pink IK controller calls
-#     `DampingTask.set_target_from_configuration`, which pink dropped in 3.4.0.
-#     Pin to 3.1.0, the version isaaclab validates against (its own runtime error
-#     prescribes `pin-pink==3.1.0 daqp==0.8.5`).
-#   * pyglet: the viewer renders on the stable 2.x line; a 3.0.dev build appeared
-#     upstream and would otherwise be picked. (rerun-sdk is intentionally left
-#     alone: stable 0.33 needs psutil>=7, which isaacsim 6.0 pins to 5.9.8.)
-#   * tinyobjloader: isaacsim-core requires this exact RC transitively; making it
-#     explicit lets the narrow prerelease policy admit it during a fresh lock.
-#   * mujoco-usd-converter: the NVIDIA index contains only incompatible 0.1.0
-#     prereleases, so this exact requirement is routed to PyPI below.
+# Isaac Lab 3.0 Beta 2 does not correctly pin its dependencies: the published
+# wheel declares these transitive deps too broadly, so we constrain them to
+# working versions here.
+# TODO(alexmillane, 2026-07-16): Remove these pins after we upgrade to Isaac Lab
+# 3.0 GA, which will correctly pin its dependencies. See:
+# https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
 constraint-dependencies = [
     "pin-pink==3.1.0",
     "pyglet<3",
@@ -118,6 +108,8 @@ explicit = true
 # torch / torchvision / torchaudio are pulled transitively by the isaaclab
 # wheel; steer them to the CUDA 12.8 index (Linux x86_64 is the only supported
 # platform, see `environments` above).
+# mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
+# prereleases, so route it to PyPI.
 mujoco-usd-converter = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
