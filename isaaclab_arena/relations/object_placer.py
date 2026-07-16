@@ -414,18 +414,21 @@ class ObjectPlacer:
     ) -> dict[ObjectBase, float]:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
-        Marker yaw is always included; random_yaw_init adds a sampled delta.
+        Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects
+        are omitted so their requested rotation is applied directly.
         """
         orientations: dict[ObjectBase, float] = {}
         for obj in objects:
-            marker_yaw = self._get_yaw_from_rotate_around_solution(obj)
+            marker = self._get_relation(obj, RotateAroundSolution)
+            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
+            marker_yaw = marker.yaw_rad if marker is not None else 0.0
             if obj in anchor_objects:
-                assert marker_yaw == 0.0, (
-                    f"Anchor '{obj.name}' has a RotateAroundSolution (yaw={marker_yaw:.3f}). "
+                assert marker is None or (marker_yaw == 0.0 and not has_roll_pitch), (
+                    f"Anchor '{obj.name}' has a RotateAroundSolution. "
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif self._get_relation(obj, FaceTo) is None:
+            elif self._get_relation(obj, FaceTo) is None and not has_roll_pitch:
                 sampled_yaw = get_random_rotation(generator) if self.params.random_yaw_init else 0.0
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
                 if total_yaw != 0.0:
@@ -478,22 +481,6 @@ class ObjectPlacer:
                 bbox = bbox.rotated_around_z(yaw_tensor)
             rotated[obj] = bbox
         return rotated
-
-    @staticmethod
-    def _get_yaw_from_rotate_around_solution(obj: ObjectBase) -> float:
-        """Z-yaw (radians) of obj's RotateAroundSolution marker, 0.0 if none.
-
-        Rejects roll/pitch markers: a Z-rotated box can't enclose them, so they would otherwise
-        validate a silently-wrong footprint.
-        """
-        marker = ObjectPlacer._get_relation(obj, RotateAroundSolution)
-        if marker is None:
-            return 0.0
-        assert marker.roll_rad == 0.0 and marker.pitch_rad == 0.0, (
-            f"random_yaw_init cannot enclose a roll/pitch RotateAroundSolution on '{obj.name}' "
-            f"(roll={marker.roll_rad}, pitch={marker.pitch_rad}); only yaw markers are supported."
-        )
-        return marker.yaw_rad
 
     @staticmethod
     def _get_bounding_boxes_for_candidate_index(
