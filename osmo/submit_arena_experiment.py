@@ -16,6 +16,7 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.hydra.config_override_help import print_config_override_help
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.arena_experiment_submission import ArenaExperimentSubmissionCfg, submit_arena_experiment
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
@@ -24,6 +25,20 @@ SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 POLICY_SERVER_TASK_CFG_BY_NAME = {
     "pi0": Pi0ServerTaskCfg,
 }
+
+
+def _workflow_managed_override_paths(submission_cfg: ArenaExperimentSubmissionCfg) -> set[str]:
+    """Return Experiment fields replaced when the OSMO workflow is assembled."""
+    managed_paths = set()
+    for run_name in submission_cfg.experiment_cfg.runs:
+        run_prefix = f"experiment_cfg.runs.{run_name}"
+        managed_paths.add(f"{run_prefix}.environment_builder.device")
+        managed_paths.update({
+            f"{run_prefix}.policy.remote_host",
+            f"{run_prefix}.policy.remote_port",
+            f"{run_prefix}.policy.ping_timeout",
+        })
+    return managed_paths
 
 
 def build_arena_experiment_submission_cfg(
@@ -102,6 +117,11 @@ Hydra override precedence:
         choices=POLICY_SERVER_TASK_CFG_BY_NAME,
         help="co-scheduled policy-server implementation",
     )
+    parser.add_argument(
+        "--show-overrides",
+        action="store_true",
+        help="print Hydra override paths and effective values, then exit",
+    )
     parser.allow_abbrev = False
     return parser
 
@@ -118,6 +138,13 @@ def main(cli_args: list[str] | None = None) -> int:
         policy_server_name=args.policy_server,
         overrides=overrides,
     )
+    if args.show_overrides:
+        print("Available Hydra overrides for this OSMO submission:\n")
+        print_config_override_help(
+            submission_cfg,
+            excluded_paths=_workflow_managed_override_paths(submission_cfg),
+        )
+        return 0
     return submit_arena_experiment(submission_cfg)
 
 

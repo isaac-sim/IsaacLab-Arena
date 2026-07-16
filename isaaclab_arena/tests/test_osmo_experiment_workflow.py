@@ -389,12 +389,45 @@ def test_cli_help_explains_paths_and_override_names(capsys):
     assert "path to a typed Arena Experiment YAML configuration" in normalized_help_text
     assert "droid_pnp_srl_openpi_experiment.yaml" in help_text
     assert "--policy-server {pi0}" in help_text
+    assert "--show-overrides" in help_text
     assert "typed defaults < Experiment YAML < CLI overrides" in help_text
     assert "osmo.workflow_name=my-evaluation" in help_text
     assert "experiment_cfg.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4" in help_text
     assert "Common overrides:" not in help_text
     assert "Current defaults:" not in help_text
     assert "experiment_cfg=<name>" not in help_text
+
+
+def test_cli_prints_effective_override_paths_without_submitting(monkeypatch, capsys):
+    """Inspect the concrete submission configuration and exit before submission."""
+
+    def fail_if_submitted(_submission_cfg):
+        raise AssertionError("showing overrides must not submit a workflow")
+
+    monkeypatch.setattr("osmo.submit_arena_experiment.submit_arena_experiment", fail_if_submitted)
+
+    return_code = main([
+        "--experiment-cfg",
+        str(OPENPI_EXPERIMENT_CFG_PATH),
+        "--policy-server",
+        "pi0",
+        "--show-overrides",
+        "osmo.memory=96Gi",
+        f"experiment_cfg.runs.{OPENPI_RUN_NAME}.rollout_limit.num_episodes=4",
+    ])
+
+    output = capsys.readouterr().out
+    assert return_code == 0
+    assert "Available Hydra overrides for this OSMO submission:" in output
+    assert 'osmo.memory="96Gi"' in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.rollout_limit.num_episodes=4" in output
+    assert "experiment_runner.image=" in output
+    assert "policy_server.client_ping_timeout_s=300.0" in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.name=" not in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.environment_builder.device=" not in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.policy.remote_host=" not in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.policy.remote_port=" not in output
+    assert f"experiment_cfg.runs.{OPENPI_RUN_NAME}.policy.ping_timeout=" not in output
 
 
 def test_submission_rejects_legacy_json_experiment(tmp_path):

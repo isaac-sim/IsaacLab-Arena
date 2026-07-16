@@ -44,7 +44,8 @@ class RolloutLimitCfg:
 class ArenaRunCfg:
     """Declare one independently dispatchable Arena evaluation run."""
 
-    name: str
+    # The Experiment mapping key owns the Run name, so changing this field is invalid.
+    name: str = field(metadata={"override_help": False})
     """Name used to identify the run and its recorded output."""
 
     environment: ArenaEnvironmentCfg
