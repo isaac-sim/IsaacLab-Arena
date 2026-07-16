@@ -20,8 +20,8 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> str:
     """Serialize an effective Arena Experiment to a typed Experiment YAML-formatted string.
 
-    The resulting YAML preserves executable configuration, including composed
-    defaults and overrides, but not source comments, anchors, or omissions.
+    The output contains the fully composed configuration, including resolved
+    defaults and overrides. Source formatting and comments are not preserved.
 
     Args:
         experiment_cfg: Effective typed Arena Experiment to serialize.
