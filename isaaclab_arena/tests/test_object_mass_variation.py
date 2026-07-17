@@ -8,7 +8,7 @@ import torch
 import pytest
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
-from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation, ObjectMassVariationCfg
+from isaaclab_arena.variations.object_mass_variation import ObjectMassVariationCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
 HEADLESS = True
@@ -19,9 +19,18 @@ TEST_HYDRA_MASS = 0.25
 
 
 def get_test_environment(
-    *, enabled: bool, mass: float = TEST_MASS, min_mass: float = 1e-6, recompute_inertia: bool = True
+    *,
+    enabled: bool,
+    mass: float = TEST_MASS,
+    mass_low: float | None = None,
+    mass_high: float | None = None,
+    recompute_inertia: bool = True,
 ):
-    """Build a minimal arena env with an optional enabled object mass variation."""
+    """Build a minimal arena env with an optional enabled object mass variation.
+
+    By default the mass sampler is a point mass (``low == high == mass``). Pass ``mass_low``/``mass_high``
+    to sample over a range instead (used to draw distinct per-env masses).
+    """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -29,11 +38,12 @@ def get_test_environment(
     sphere = AssetRegistry().get_asset_by_name(TEST_ASSET_NAME)()
     assert sphere.name == TEST_ASSET_NAME
 
+    low = [mass_low if mass_low is not None else mass]
+    high = [mass_high if mass_high is not None else mass]
     variation = sphere.get_variation("mass")
     variation.apply_cfg(
         ObjectMassVariationCfg(
-            sampler_cfg=UniformSamplerCfg(low=[mass], high=[mass]),
-            min_mass=min_mass,
+            sampler_cfg=UniformSamplerCfg(low=low, high=high),
             recompute_inertia=recompute_inertia,
         )
     )
@@ -45,11 +55,6 @@ def get_test_environment(
         name="test_object_mass_variation",
         scene=Scene(assets=[sphere]),
     )
-
-
-def test_invalid_min_mass_is_rejected():
-    with pytest.raises(AssertionError, match="min_mass"):
-        ObjectMassVariation("cube", ObjectMassVariationCfg(min_mass=0.0))
 
 
 def _test_object_mass_variation_registration(simulation_app):
@@ -148,7 +153,7 @@ def _test_disabled_object_mass_variation_not_in_events_cfg(simulation_app):
 def _test_enabled_object_mass_variation_in_events_cfg(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.variations.object_mass_variation import apply_object_mass_from_sampler
+    from isaaclab_arena.variations.object_mass_variation import ApplyObjectMassFromSampler
 
     arena_env = get_test_environment(enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
@@ -158,7 +163,7 @@ def _test_enabled_object_mass_variation_in_events_cfg(simulation_app):
         env_cfg.events, TEST_EVENT_NAME
     ), f"Expected env_cfg.events to contain '{TEST_EVENT_NAME}'; got event fields: {sorted(vars(env_cfg.events))}."
     event_cfg = getattr(env_cfg.events, TEST_EVENT_NAME)
-    assert event_cfg.func is apply_object_mass_from_sampler
+    assert event_cfg.func is ApplyObjectMassFromSampler
     assert event_cfg.mode == "reset"
     assert event_cfg.params["asset_cfg"].name == TEST_ASSET_NAME
     assert event_cfg.params["recompute_inertia"] is True
@@ -197,6 +202,47 @@ def _test_object_mass_variation_realized_and_recorded(simulation_app):
         env.reset()
         second_inertia = wp.to_torch(asset.data.body_inertia).clone()
         torch.testing.assert_close(second_inertia, first_inertia, atol=1e-6, rtol=1e-6)
+    finally:
+        env.close()
+    return True
+
+
+def _test_object_mass_variation_scales_inertia(simulation_app):
+    """With recompute_inertia, each env's inertia scales linearly with its sampled mass.
+
+    Draws distinct per-env masses over a range, then checks ``inertia / mass`` is the same across
+    envs (i.e. inertia == default_inertia * mass / default_mass), directly validating the scaling.
+    """
+    import warp as wp
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "4", "--seed", "0"])
+    env = ArenaEnvBuilder(
+        get_test_environment(enabled=True, mass_low=0.1, mass_high=3.0, recompute_inertia=True),
+        arena_env_builder_cfg_from_argparse(args_cli),
+    ).make_registered()
+    try:
+        env.reset()
+        asset = env.unwrapped.scene[TEST_ASSET_NAME]
+        masses = wp.to_torch(asset.data.body_mass)[:, 0].clone()  # (num_envs,)
+        inertias = wp.to_torch(asset.data.body_inertia)[:, 0].clone()  # (num_envs, K)
+
+        # The test is only meaningful if the envs actually drew different masses.
+        assert (masses.max() - masses.min()).item() > 0.1, f"expected a spread of per-env masses, got {masses}."
+
+        # inertia == default_inertia * (mass / default_mass) => inertia / mass is constant across envs.
+        inertia_per_mass = inertias / masses[:, None]
+        reference = inertia_per_mass[0]
+        significant = reference.abs() > 1e-9  # ignore identically-zero inertia components
+        for env_id in range(1, masses.shape[0]):
+            torch.testing.assert_close(
+                inertia_per_mass[env_id][significant],
+                reference[significant],
+                rtol=1e-4,
+                atol=1e-8,
+            )
     finally:
         env.close()
     return True
@@ -276,18 +322,19 @@ def _test_object_mass_variation_partial_reset_accepts_sequence_env_ids(simulatio
     return True
 
 
-def _test_object_mass_sample_below_min_mass_fails(simulation_app):
+def _test_object_mass_sample_below_floor_fails(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
+    # Sample a mass below the fixed physical floor (_MIN_PHYSICAL_MASS_KG = 1e-6) to trip the guard.
     builder = ArenaEnvBuilder(
-        get_test_environment(enabled=True, mass=0.01, min_mass=0.02),
+        get_test_environment(enabled=True, mass=1e-9),
         arena_env_builder_cfg_from_argparse(args_cli),
     )
     env = None
     try:
-        with pytest.raises(AssertionError, match="below min_mass"):
+        with pytest.raises(AssertionError, match="minimum physical mass"):
             env = builder.make_registered()
             env.reset()
     finally:
@@ -324,6 +371,13 @@ def test_object_mass_variation_realized_and_recorded():
     )
 
 
+def test_object_mass_variation_scales_inertia():
+    assert run_simulation_app_function(
+        _test_object_mass_variation_scales_inertia,
+        headless=HEADLESS,
+    )
+
+
 def test_hydra_override_applies_object_mass_variation():
     assert run_simulation_app_function(
         _test_hydra_override_applies_object_mass_variation,
@@ -338,8 +392,8 @@ def test_object_mass_variation_partial_reset_accepts_sequence_env_ids():
     )
 
 
-def test_object_mass_sample_below_min_mass_fails():
+def test_object_mass_sample_below_floor_fails():
     assert run_simulation_app_function(
-        _test_object_mass_sample_below_min_mass_fails,
+        _test_object_mass_sample_below_floor_fails,
         headless=HEADLESS,
     )

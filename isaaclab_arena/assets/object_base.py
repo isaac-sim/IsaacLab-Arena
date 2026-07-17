@@ -32,6 +32,7 @@ from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
 __all__ = [
     "ObjectBase",
@@ -55,8 +56,6 @@ class ObjectBase(Asset, ABC):
         self.prim_path = prim_path
         self.object_type = object_type
         if self.object_type == ObjectType.RIGID:
-            from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation  # noqa: PLC0415
-
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self.initial_velocity: Velocity | None = None
