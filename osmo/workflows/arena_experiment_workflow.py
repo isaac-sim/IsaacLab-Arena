@@ -82,9 +82,10 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
 
         pi0_policy_server_tasks: list[BaseTask] = []
-        if isinstance(single_run_experiment_config.runs[run_name].policy, Pi0RemotePolicyCfg):
+        run_policy_config = single_run_experiment_config.runs[run_name].policy
+        if isinstance(run_policy_config, Pi0RemotePolicyCfg):
             pi0_server_task_name = f"policy-server-{run_index}"
-            self._connect_pi0_run(single_run_experiment_config, run_name, pi0_server_task_name)
+            self._configure_pi0_remote_policy_for_server(run_policy_config, pi0_server_task_name)
             pi0_policy_server_tasks.append(
                 Pi0ServerTask(
                     self.pi0_server_task_cfg,
@@ -116,7 +117,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         """Create the CPU group that combines every runner's staged output."""
         experiment_results_task = ExperimentResultsTask(
             image=self.task_cfg.image,
-            run_task_names=experiment_runner_task_names_by_run,
+            experiment_runner_task_names_by_run=experiment_runner_task_names_by_run,
             lead=True,
             resource=self.aggregation_resource_name,
         )
@@ -156,17 +157,14 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             f" for '{self.pi0_server_task_cfg.policy_variant}'"
         )
 
-    def _connect_pi0_run(
+    def _configure_pi0_remote_policy_for_server(
         self,
-        experiment_config: ArenaExperimentCfg,
-        run_name: str,
+        pi0_remote_policy_config: Pi0RemotePolicyCfg,
         pi0_server_task_name: str,
     ) -> None:
-        """Connect one Experiment Run to its dedicated pi0 server."""
-        pi0_policy_config = experiment_config.runs[run_name].policy
-        assert isinstance(pi0_policy_config, Pi0RemotePolicyCfg)
-        pi0_policy_config.remote_host = Pi0ServerTask.host_token(pi0_server_task_name)
-        pi0_policy_config.remote_port = POLICY_SERVER_PORT
+        """Configure a Pi0 remote policy to use its dedicated OSMO server task."""
+        pi0_remote_policy_config.remote_host = Pi0ServerTask.host_token(pi0_server_task_name)
+        pi0_remote_policy_config.remote_port = POLICY_SERVER_PORT
         # The first OSMO inference may compile longer than the policy's normal
         # keepalive timeout. Use the timeout owned by this server deployment.
-        pi0_policy_config.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s
+        pi0_remote_policy_config.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s
