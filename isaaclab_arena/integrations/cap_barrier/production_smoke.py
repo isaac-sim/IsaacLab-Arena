@@ -92,6 +92,9 @@ class DroidGripperTransitionProof:
         self._open_midpoint_crossed = False
         self._maximum_arm_command_delta_rad = 0.0
         self._maximum_arm_physical_delta_rad = 0.0
+        self._arm_observation_count = 0
+        self._maximum_arm_physical_delta_sample: int | None = None
+        self._maximum_arm_physical_delta_phase: str | None = None
 
     @property
     def complete(self) -> bool:
@@ -118,17 +121,42 @@ class DroidGripperTransitionProof:
         self,
         commanded_positions: tuple[float, ...],
         physical_positions: tuple[float, ...],
+        transition_phase: str,
     ) -> None:
+        self._arm_observation_count += 1
         command_delta = self._maximum_delta(commanded_positions[:7], self._arm_reference)
         physical_delta = self._maximum_delta(physical_positions[:7], self._arm_reference)
         self._maximum_arm_command_delta_rad = max(self._maximum_arm_command_delta_rad, command_delta)
-        self._maximum_arm_physical_delta_rad = max(self._maximum_arm_physical_delta_rad, physical_delta)
-        if command_delta > self._arm_command_tolerance_rad or physical_delta > self._arm_physical_tolerance_rad:
-            raise RuntimeError(
-                "DROID arm moved during the gripper transition proof: "
-                f"command_delta={command_delta}, command_tolerance={self._arm_command_tolerance_rad}, "
-                f"physical_delta={physical_delta}, physical_tolerance={self._arm_physical_tolerance_rad}"
-            )
+        if physical_delta > self._maximum_arm_physical_delta_rad:
+            self._maximum_arm_physical_delta_rad = physical_delta
+            self._maximum_arm_physical_delta_sample = self._arm_observation_count
+            self._maximum_arm_physical_delta_phase = transition_phase
+        if command_delta > self._arm_command_tolerance_rad:
+            self._raise_arm_movement()
+
+    def _raise_arm_movement(self) -> None:
+        raise RuntimeError(
+            "DROID arm moved during the gripper transition proof: "
+            f"command_delta={self._maximum_arm_command_delta_rad}, "
+            f"command_tolerance={self._arm_command_tolerance_rad}, "
+            f"physical_delta={self._maximum_arm_physical_delta_rad}, "
+            f"physical_tolerance={self._arm_physical_tolerance_rad}, "
+            f"physical_peak_sample={self._maximum_arm_physical_delta_sample}, "
+            f"physical_peak_phase={self._maximum_arm_physical_delta_phase}"
+        )
+
+    def _validate_physical_arm_reaction(self) -> None:
+        if self._maximum_arm_physical_delta_rad > self._arm_physical_tolerance_rad:
+            self._raise_arm_movement()
+
+    def _arm_transition_phase(self, command_closedness: float) -> str:
+        if self._phase == "await_close":
+            return "closing" if command_closedness == 1.0 else "open_settling"
+        if self._phase == "await_open":
+            return "reopening" if command_closedness == 0.0 else "closed_settling"
+        if self._phase == "opening":
+            return "reopening"
+        return self._phase
 
     def _elapsed(self, started_at_s: float, observed_at_s: float, direction: str) -> float:
         elapsed_s = observed_at_s - started_at_s
@@ -159,9 +187,8 @@ class DroidGripperTransitionProof:
             or observed_at_s < step_started_at_s
         ):
             raise ValueError("gripper transition timestamps must be finite and ordered")
-        self._observe_held_arm(commanded, physical)
-
         command_closedness = droid_binary_gripper_action(commanded[7])
+        self._observe_held_arm(commanded, physical, self._arm_transition_phase(command_closedness))
         physical_position = physical[7]
         if self._phase == "await_close":
             if command_closedness == 0.0:
@@ -222,6 +249,7 @@ class DroidGripperTransitionProof:
                     raise RuntimeError("DROID gripper reached open without an observed midpoint crossing")
                 self._open_elapsed_s = elapsed_s
                 self._final_position_rad = physical_position
+                self._validate_physical_arm_reaction()
                 self._phase = "complete"
 
     def observation(self) -> DroidGripperTransitionObservation:

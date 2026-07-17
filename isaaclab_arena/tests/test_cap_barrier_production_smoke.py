@@ -153,7 +153,7 @@ def test_gripper_transition_proof_observes_bounded_physical_open_close_open() ->
     )
     proof.observe(
         _droid_frame(2, DROID_GRIPPER_CLOSED_POSITION_RAD),
-        _physical(half_closed + 0.01),
+        _physical(half_closed + 0.01, 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD),
         step_started_at_s=1.2,
         observed_at_s=1.5,
     )
@@ -188,7 +188,9 @@ def test_gripper_transition_proof_observes_bounded_physical_open_close_open() ->
     assert observation.closed_position_rad == pytest.approx(DROID_GRIPPER_CLOSED_POSITION_RAD - 0.005)
     assert observation.final_position_rad == pytest.approx(0.005)
     assert observation.maximum_arm_command_delta_rad == 0.0
-    assert observation.maximum_arm_physical_delta_rad == 0.0
+    assert observation.maximum_arm_physical_delta_rad == pytest.approx(
+        0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD
+    )
 
 
 def test_gripper_transition_proof_rejects_command_echo_without_physical_motion() -> None:
@@ -208,28 +210,52 @@ def test_gripper_transition_proof_rejects_command_echo_without_physical_motion()
         )
 
 
-def test_gripper_transition_proof_allows_calibrated_physical_arm_reaction() -> None:
+def test_gripper_transition_proof_defers_physical_drift_until_transition_completion() -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
+    half_closed = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
+
     proof.observe(
         _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD),
-        _physical(0.1, 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD),
+        _physical(half_closed + 0.01, 2e-4),
         step_started_at_s=1.0,
         observed_at_s=1.1,
     )
+    proof.observe(
+        _droid_frame(1, DROID_GRIPPER_CLOSED_POSITION_RAD),
+        _physical(DROID_GRIPPER_CLOSED_POSITION_RAD - 0.005, 1e-4),
+        step_started_at_s=1.2,
+        observed_at_s=1.4,
+    )
+    proof.observe(
+        _droid_frame(2, 0.0),
+        _physical(half_closed - 0.01, 0.0),
+        step_started_at_s=1.6,
+        observed_at_s=1.8,
+    )
+    with pytest.raises(RuntimeError, match="arm moved") as error:
+        proof.observe(
+            _droid_frame(3, 0.0),
+            _physical(0.005, 0.0),
+            step_started_at_s=2.0,
+            observed_at_s=2.2,
+        )
+
+    assert "command_delta=0.0" in str(error.value)
+    assert "physical_delta=0.0002" in str(error.value)
+    assert "physical_peak_sample=1" in str(error.value)
+    assert "physical_peak_phase=closing" in str(error.value)
 
 
-@pytest.mark.parametrize(("commanded_arm", "physical_arm"), [(1e-12, 0.0), (0.0, 2e-4)])
-def test_gripper_transition_proof_rejects_arm_command_or_physical_drift(
-    commanded_arm: float, physical_arm: float
-) -> None:
+def test_gripper_transition_proof_rejects_nonzero_arm_command_immediately() -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
     with pytest.raises(RuntimeError, match="arm moved") as error:
         proof.observe(
-            _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD, commanded_arm),
-            _physical(0.1, physical_arm),
+            _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD, 1e-12),
+            _physical(0.1, 0.0),
             step_started_at_s=1.0,
             observed_at_s=1.1,
         )
+    assert "command_delta=1e-12" in str(error.value)
     assert "command_tolerance=0.0" in str(error.value)
     assert f"physical_tolerance={DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD}" in str(error.value)
 

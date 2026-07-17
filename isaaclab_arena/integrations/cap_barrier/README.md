@@ -41,11 +41,15 @@ profile assembly lands, the ROS gripper relay configuration must mirror that tol
 The smoke brackets each commanded close and open transition with synchronized monotonic timestamps,
 requires physical slot 7 to cross the half-closed position and reach the requested endpoint within
 the declared `2 s` gripper bound. Commanded arm slots must remain exactly at their held values; the
-physical arm slots may react by at most `1e-4 rad` (`0.00573 deg`) to gripper motion. That physical
-tolerance was calibrated on 2026-07-17 from one `arena_droid_b1` run with the real
-`robotiq_gripper_controller`: the observed maximum was `2.82e-5 rad`, giving `3.55x` headroom
-(`N=1`). Any future run above half the tolerance (`5e-5 rad`) requires recalibration and a recorded
-observation before acceptance. Command-frame echo alone cannot satisfy this proof.
+physical arm reaction is accumulated across the complete open-close-open transition before the
+provisional `1e-4 rad` diagnostic bound is evaluated. Earlier 2026-07-17 runs on the pinned
+`arena_droid_b1` scene with the real `robotiq_gripper_controller` stopped once at `2.82e-5 rad`
+(`1e-5` bound), then stopped five times at the bit-identical `1.003742218e-4 rad` crossing (`1e-4`
+bound). Those fail-fast values are censored and are not calibration maxima; the five identical
+crossings establish determinism only for this fixed scene, seed, and physics configuration. The
+final config-scoped tolerance requires at least five full-transition maxima. A scene, embodiment,
+or physics configuration change invalidates that calibration, and any later observation above half
+the final tolerance requires recalibration. Command-frame echo alone cannot satisfy this proof.
 
 The ABI's legacy-named `wait_interrupted` field is the atomic serviceability/reservation word. Its
 layout is unchanged, but the four values and transitions are normative:
