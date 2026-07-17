@@ -1,7 +1,7 @@
 Variation System
 ================
 
-A variation is a controlled change to one part of an environment. It lets you test the same
+A variation is a controlled randomization to one part of an environment. It lets you test the same
 policy and task under different conditions without creating a separate environment for every
 case.
 
@@ -9,12 +9,39 @@ Imagine testing a pick-and-place policy under dim, normal, and bright lighting. 
 objects, and task stay the same; only the light changes. That makes it easier to tell whether
 lighting affected the result.
 
-.. figure:: ../../../images/wrist_camera_position_variation_placeholder.svg
+.. figure:: ../../../images/lighting_variations_2x2_grid.gif
    :width: 100%
-   :alt: Placeholder for an illustration of a wrist camera sampled at different positions
+   :alt: Lighting variations/
    :align: center
 
-   Placeholder for a future illustration of wrist-camera position variation.
+   The results of activating several different lighting variations in the same environment.
+   The variations are lighting direction (top-left), lighting color (top-right),
+   lighting temperature (bottom-left), and lighting intensity (bottom-right).
+
+Lighting is not the only factor that can influence a policy's performance.
+We also expose variations for modifying camera parameters.
+
+.. figure:: ../../../images/camera_variations_1x2.gif
+   :width: 100%
+   :alt: Wrist-camera views with intrinsics and extrinsics variations enabled
+   :align: center
+
+   The results of activating several different camera-related variations in the same environment.
+   The variations are wrist-camera intrinsics (left), wrist-camera extrinsics (right).
+
+Beyond lighting and cameras, the scene background itself can be varied by sampling the HDR
+environment map used by the dome light.
+
+.. figure:: ../../../images/hdr_variations.gif
+   :width: 100%
+   :alt: The same pick-and-place scene rendered with different HDR background images
+   :align: center
+
+   The result of activating the background image (HDR) variation: the same task rendered
+   against backgrounds sampled from the HDR image library.
+
+See the :ref:`available-variations` table for a complete list of supported variations.
+
 
 Why use variations?
 -------------------
@@ -25,13 +52,20 @@ cannot show.
 
 Variations help you:
 
-* test a policy across a repeatable set of conditions;
-* change one property without duplicating the full environment definition;
-* record the exact condition used in every episode; and
-* create the varied results needed for a sensitivity analysis.
+* test a policy across a set of random conditions;
+* determine the sensitivity of the policy to these varied conditions (covered in the next section);
 
-Run the included example
-------------------------
+Arena provides features to make introducing variations easy. In particular:
+
+* it allows you to introduce variations without duplicating the full environment definition;
+  variations are available in all Arena-defined environments automatically; no additional code is needed
+  to make them available; and
+* Arena automatically records the sampled variation value in every episode.
+
+This is the basis for the :doc:`sensitivity_analysis` that follows.
+
+Run an Example
+--------------
 
 The repository includes a ready-to-run variation example. It uses the DROID robot for a
 pick-and-place task and enables three variations:
@@ -114,7 +148,7 @@ Discovering available variations
    documentation, where variation discovery and configuration are already covered.
 
 The available variations depend on the assets and embodiment in the selected environment.
-Use ``--list-variations`` with the policy or evaluation runner to see:
+Use ``--list_variations`` with the policy or evaluation runner to see:
 
 * which assets have variations;
 * whether each variation is build-time or run-time;
