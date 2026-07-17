@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: butter_raisin_box
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,11 +12,17 @@ background:
   registry_name: maple_table_robolab
   params: {}
 objects:
-- id: butter_hope_robolab
-  registry_name: butter_hope_robolab
+- id: cheez_it_box
+  registry_name: cheez_it_ycb_robolab
   params: {}
-- id: raisin_box_hope_robolab
-  registry_name: raisin_box_hope_robolab
+- id: bin_a06
+  registry_name: bin_a06_vomp_robolab
+  params: {}
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+- id: tomato_soup_can
+  registry_name: tomato_soup_can
   params: {}
 relations:
 - kind: is_anchor
@@ -25,25 +30,23 @@ relations:
   reference: null
   params: {}
 - kind: 'on'
-  subject: butter_hope_robolab
+  subject: cheez_it_box
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
-  subject: raisin_box_hope_robolab
+  subject: bin_a06
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: mustard
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: tomato_soup_can
   reference: maple_table_robolab
   params: {}
 - kind: rotate_around_solution
-  subject: raisin_box_hope_robolab
+  subject: tomato_soup_can
   reference: null
   params:
-    pitch_rad: 1.57
-task:
-  composition: atomic
-  description: pick up the butter box and place it on top of the raisin box
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: butter_hope_robolab
-      destination_location: raisin_box_hope_robolab
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0
+    roll_rad: -1.57

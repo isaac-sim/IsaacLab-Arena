@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: workdesk
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -113,13 +112,3 @@ relations:
   subject: granola_bar
   reference: maple_table_robolab
   params: {}
-task:
-  composition: atomic
-  description: place the computer mouse on the keyboard
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: computer_mouse
-      destination_location: keyboard
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0

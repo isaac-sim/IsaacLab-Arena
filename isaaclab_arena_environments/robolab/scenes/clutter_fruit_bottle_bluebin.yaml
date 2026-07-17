@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: clutter_fruit_bottle_bluebin
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -134,17 +133,3 @@ relations:
   subject: container_f24
   reference: maple_table_robolab
   params: {}
-task:
-  composition: atomic
-  description: pick up the large pumpkin and place it into the bin
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: pumpkin_large
-      destination_location: container_f24
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0
-      max_separation:
-      - 0.1
-      - 0.1
-      - 0.1

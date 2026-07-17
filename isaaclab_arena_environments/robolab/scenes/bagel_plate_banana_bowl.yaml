@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: bin_mug_mustard_marker_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,20 +12,20 @@ background:
   registry_name: maple_table_robolab
   params: {}
 objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+- id: bagel_1
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
+- id: bagel_2
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
-  params: {}
-- id: grey_bin
-  registry_name: grey_bin_robolab
-  params: {}
-- id: mustard
-  registry_name: mustard_bottle_hope_robolab
-  params: {}
-- id: dry_erase_marker
-  registry_name: dry_erase_marker_ycb_robolab
-  params: {}
-- id: mug
-  registry_name: mug
   params: {}
 relations:
 - kind: is_anchor
@@ -34,32 +33,22 @@ relations:
   reference: null
   params: {}
 - kind: 'on'
+  subject: banana
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
   subject: bowl
   reference: maple_table_robolab
   params: {}
-- kind: 'on'
-  subject: grey_bin
-  reference: maple_table_robolab
-  params: {}
-- kind: 'on'
-  subject: mustard
-  reference: maple_table_robolab
-  params: {}
-- kind: 'on'
-  subject: dry_erase_marker
-  reference: maple_table_robolab
-  params: {}
-- kind: 'on'
-  subject: mug
-  reference: maple_table_robolab
-  params: {}
-task:
-  composition: atomic
-  description: Pick up the bowl and place it in the grey bin.
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: bowl
-      destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0

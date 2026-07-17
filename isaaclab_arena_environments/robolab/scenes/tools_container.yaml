@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: tools_container
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -66,17 +65,3 @@ relations:
   params:
     side: positive_y
     distance_m: 0.3
-task:
-  composition: atomic
-  description: pick up the spring clamp and place it in the right bin
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: spring_clamp
-      destination_location: bin_b04
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0
-      max_separation:
-      - 0.1
-      - 0.1
-      - 0.1

@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: butter_raisin_box_grey_bin
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -49,18 +48,3 @@ relations:
   reference: null
   params:
     pitch_rad: 90.0
-task:
-  composition: atomic
-  description: Pick up the red raisin box and place it into the grey bin on the maple
-    table.
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: raisin_box
-      destination_location: grey_bin
-      background_scene: maple_table_robolab
-      max_separation:
-      - 0.1
-      - 0.1
-      - 0.1
-      episode_length_s: 20.0
