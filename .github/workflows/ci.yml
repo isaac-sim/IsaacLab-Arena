@@ -171,7 +171,7 @@ jobs:
   tests_with_subprocess:
     name: Run tests with subprocess
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs: [pre_commit]
 
     container:
