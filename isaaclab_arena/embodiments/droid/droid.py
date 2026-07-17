@@ -44,44 +44,11 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
-# The base stand's x/y footprint is fixed; only its height is configurable, so the stand can be made
-# taller or shorter without changing its footprint. ``stand_height_m`` is an absolute height in meters
-# (not a scale factor); the z-axis scale applied to the USD is derived from it and the stand's native
-# height.
+# The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
+# The default stand height.
 _DEFAULT_STAND_HEIGHT_M: float = 1.35
-
-# The stand's top is pinned at the robot base and it extends downward to the floor, so changing its
-# height moves the floor contact, not the mount. We lift the robot base by the amount the stand grows
-# (height delta from the default), keeping the stand's bottom on the floor while the robot rides
-# higher. The stand's native (scale=1.0) height is read from its USD to convert the requested absolute
-# height into a z-scale; this measured value is the fallback used when the asset can't be opened
-# (e.g. no asset resolver / network outside a running SimulationApp).
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
-
-
-@functools.cache
-def _stand_unit_height_m(usd_path: str) -> float:
-    """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
-
-    Falls back to ``_FALLBACK_STAND_UNIT_HEIGHT_M`` if the asset cannot be opened or measured.
-    """
-    try:
-        from pxr import Usd, UsdGeom
-
-        stage = Usd.Stage.Open(usd_path)
-        assert stage is not None, f"could not open stand USD: {usd_path}"
-        root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-        bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
-        height = bound.ComputeAlignedRange().GetSize()[2]
-        assert height > 0.0, f"non-positive stand height {height} from {usd_path}"
-        return height
-    except Exception as exc:  # noqa: BLE001 - any failure falls back to the measured constant
-        warnings.warn(
-            f"Falling back to {_FALLBACK_STAND_UNIT_HEIGHT_M} m for the stand height; "
-            f"could not measure {usd_path}: {exc!r}"
-        )
-        return _FALLBACK_STAND_UNIT_HEIGHT_M
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -515,3 +482,27 @@ class DroidCameraCfg(ArenaCameraCfg):
             pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
         ),
     )
+
+
+@functools.cache
+def _stand_unit_height_m(usd_path: str) -> float:
+    """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
+
+    Falls back to ``_FALLBACK_STAND_UNIT_HEIGHT_M`` if the asset cannot be opened or measured.
+    """
+    try:
+        from pxr import Usd, UsdGeom
+
+        stage = Usd.Stage.Open(usd_path)
+        assert stage is not None, f"could not open stand USD: {usd_path}"
+        root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+        bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
+        height = bound.ComputeAlignedRange().GetSize()[2]
+        assert height > 0.0, f"non-positive stand height {height} from {usd_path}"
+        return height
+    except Exception as exc:  # noqa: BLE001 - any failure falls back to the measured constant
+        warnings.warn(
+            f"Falling back to {_FALLBACK_STAND_UNIT_HEIGHT_M} m for the stand height; "
+            f"could not measure {usd_path}: {exc!r}"
+        )
+        return _FALLBACK_STAND_UNIT_HEIGHT_M
