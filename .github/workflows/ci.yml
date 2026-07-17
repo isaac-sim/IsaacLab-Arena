@@ -128,7 +128,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libsm6 libvulkan1
+            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1
 
       - name: Install uv
         run: |
