@@ -24,7 +24,8 @@ from .shared_memory import BarrierInterrupted, BarrierStatus
 
 DROID_GRIPPER_TRANSITION_TIMEOUT_S = 2.0
 DROID_GRIPPER_HALF_CLOSED_POSITION_RAD = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
-DROID_GRIPPER_SMOKE_ARM_TOLERANCE_RAD = 1e-5
+DROID_GRIPPER_SMOKE_ARM_COMMAND_TOLERANCE_RAD = 0.0
+DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD = 1e-4
 
 
 @dataclass(frozen=True)
@@ -57,15 +58,18 @@ class DroidGripperTransitionProof:
         *,
         transition_timeout_s: float = DROID_GRIPPER_TRANSITION_TIMEOUT_S,
         endpoint_tolerance_rad: float = DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
-        arm_tolerance_rad: float = DROID_GRIPPER_SMOKE_ARM_TOLERANCE_RAD,
+        arm_command_tolerance_rad: float = DROID_GRIPPER_SMOKE_ARM_COMMAND_TOLERANCE_RAD,
+        arm_physical_tolerance_rad: float = DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
     ):
         initial = self._validated_positions(initial_positions, "initial physical state")
         if transition_timeout_s <= 0 or not math.isfinite(transition_timeout_s):
             raise ValueError("gripper transition timeout must be finite and positive")
         if endpoint_tolerance_rad <= 0 or not math.isfinite(endpoint_tolerance_rad):
             raise ValueError("gripper endpoint tolerance must be finite and positive")
-        if arm_tolerance_rad < 0 or not math.isfinite(arm_tolerance_rad):
-            raise ValueError("gripper smoke arm tolerance must be finite and nonnegative")
+        if arm_command_tolerance_rad < 0 or not math.isfinite(arm_command_tolerance_rad):
+            raise ValueError("gripper smoke arm command tolerance must be finite and nonnegative")
+        if arm_physical_tolerance_rad < 0 or not math.isfinite(arm_physical_tolerance_rad):
+            raise ValueError("gripper smoke arm physical tolerance must be finite and nonnegative")
         if not self._within_endpoint(initial[7], DROID_GRIPPER_OPEN_POSITION_RAD, endpoint_tolerance_rad):
             raise RuntimeError(
                 "DROID gripper transition proof must start physically open: "
@@ -75,7 +79,8 @@ class DroidGripperTransitionProof:
         self._arm_reference = initial[:7]
         self._transition_timeout_s = transition_timeout_s
         self._endpoint_tolerance_rad = endpoint_tolerance_rad
-        self._arm_tolerance_rad = arm_tolerance_rad
+        self._arm_command_tolerance_rad = arm_command_tolerance_rad
+        self._arm_physical_tolerance_rad = arm_physical_tolerance_rad
         self._phase = "await_close"
         self._close_started_at_s: float | None = None
         self._open_started_at_s: float | None = None
@@ -118,11 +123,11 @@ class DroidGripperTransitionProof:
         physical_delta = self._maximum_delta(physical_positions[:7], self._arm_reference)
         self._maximum_arm_command_delta_rad = max(self._maximum_arm_command_delta_rad, command_delta)
         self._maximum_arm_physical_delta_rad = max(self._maximum_arm_physical_delta_rad, physical_delta)
-        if command_delta > self._arm_tolerance_rad or physical_delta > self._arm_tolerance_rad:
+        if command_delta > self._arm_command_tolerance_rad or physical_delta > self._arm_physical_tolerance_rad:
             raise RuntimeError(
                 "DROID arm moved during the gripper transition proof: "
-                f"command_delta={command_delta}, physical_delta={physical_delta}, "
-                f"tolerance={self._arm_tolerance_rad}"
+                f"command_delta={command_delta}, command_tolerance={self._arm_command_tolerance_rad}, "
+                f"physical_delta={physical_delta}, physical_tolerance={self._arm_physical_tolerance_rad}"
             )
 
     def _elapsed(self, started_at_s: float, observed_at_s: float, direction: str) -> float:

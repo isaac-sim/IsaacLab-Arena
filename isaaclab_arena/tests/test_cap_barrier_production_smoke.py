@@ -12,6 +12,7 @@ import pytest
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import DROID_GRIPPER_CLOSED_POSITION_RAD
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import FrameResult
 from isaaclab_arena.integrations.cap_barrier.production_smoke import (
+    DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
     DroidGripperTransitionProof,
     run_physics_until_generation_transition,
 )
@@ -207,25 +208,40 @@ def test_gripper_transition_proof_rejects_command_echo_without_physical_motion()
         )
 
 
-@pytest.mark.parametrize(
-    ("commanded_arm", "physical_arm"),
-    [
-        (2e-5, 0.0),
-        (0.0, 2e-5),
-    ],
-)
-def test_gripper_transition_proof_requires_arm_to_remain_undisturbed(
-    commanded_arm: float,
-    physical_arm: float,
+def test_gripper_transition_proof_allows_calibrated_physical_arm_reaction() -> None:
+    proof = DroidGripperTransitionProof(_physical(0.0))
+    proof.observe(
+        _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD),
+        _physical(0.1, 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD),
+        step_started_at_s=1.0,
+        observed_at_s=1.1,
+    )
+
+
+@pytest.mark.parametrize(("commanded_arm", "physical_arm"), [(1e-12, 0.0), (0.0, 2e-4)])
+def test_gripper_transition_proof_rejects_arm_command_or_physical_drift(
+    commanded_arm: float, physical_arm: float
 ) -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
-    with pytest.raises(RuntimeError, match="arm moved"):
+    with pytest.raises(RuntimeError, match="arm moved") as error:
         proof.observe(
             _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD, commanded_arm),
             _physical(0.1, physical_arm),
             step_started_at_s=1.0,
             observed_at_s=1.1,
         )
+    assert "command_tolerance=0.0" in str(error.value)
+    assert f"physical_tolerance={DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD}" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "tolerance",
+    [-1.0, float("nan"), float("inf")],
+)
+@pytest.mark.parametrize("parameter", ["arm_command_tolerance_rad", "arm_physical_tolerance_rad"])
+def test_gripper_transition_proof_rejects_invalid_arm_tolerances(parameter: str, tolerance: float) -> None:
+    with pytest.raises(ValueError, match="arm .* tolerance"):
+        DroidGripperTransitionProof(_physical(0.0), **{parameter: tolerance})
 
 
 @pytest.mark.parametrize("initial", [0.1, float("nan"), float("inf")])
