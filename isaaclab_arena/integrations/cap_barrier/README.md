@@ -5,8 +5,8 @@ normative ABI remains `cap_backend_arena/protocol.hpp` in `isaac_ros_cap`; the c
 JSON and binary fixtures under `isaaclab_arena/tests/test_data/cap_barrier` are generated
 by its test-only `cap_arena_abi_golden_dump` target.
 
-The original runner remains a deliberately fixed integration smoke. It is designed to prove one
-B=1 DROID environment at a 200 Hz declared base:
+The original runner remains a deliberately fixed, non-blocking integration diagnostic. It is
+designed to exercise one B=1 DROID environment at a 200 Hz declared base:
 
 1. bootstrap generation 1 with FENCE frames while Kit physics is frozen;
 2. while the arm remains in hold, observe the physical finger move open-to-close-to-open;
@@ -14,9 +14,11 @@ B=1 DROID environment at a 200 Hz declared base:
 4. stage an Arena reset without a physics step and attach generation 2;
 5. emit the reset fence, resume in hold, and shut down cleanly.
 
-Historical Franka smoke results do not transfer to this embodiment. DROID parity must be re-earned
-after the producer revision is pinned, including an observed finger transition so an already-open
-initial state cannot make the gripper path pass vacuously.
+Historical Franka smoke results do not transfer to this embodiment. Any claimed DROID diagnostic
+pass must be re-earned after the producer revision is pinned, including an observed finger
+transition so an already-open initial state cannot make the gripper path pass vacuously. This fixed
+runner is not the capability-advertisement gate; the production three-process smoke below is the
+authoritative gate.
 
 The fixed CAP builder removes the Gaussian offset from DROID's generic joint reset while retaining
 the event's deterministic state write. The event reuses a Franka helper which preserves only the
@@ -95,7 +97,7 @@ docker inspect -f '{{.HostConfig.IpcMode}}' isaac_ros_dev_container
 The expected output is `host`; no additional `~/.isaac_ros_dev-dockerargs` entry is
 needed in the canonical setup.
 
-## Run
+## Fixed diagnostic
 
 Build `isaac_ros_cap` with `BUILD_TESTING=ON`, then start the test-only
 `cap_smoke_orchestrator` inside `isaac_ros_dev_container`. Wait until it prints
@@ -112,15 +114,21 @@ PYTHONPATH=/home/rafael/Projects/arena-cap-barrier \
   isaaclab_arena/scripts/run_cap_barrier_smoke.py --viz none --device cuda:0
 ```
 
-The Kit side must emit `CAP_SMOKE_KIT_GRIPPER_TRANSITION_OK` before
-`CAP_SMOKE_KIT_DONE`; the ROS side finishes with `CAP_SMOKE_ORCHESTRATOR_DONE`.
+For this diagnostic to be green, the Kit side must emit
+`CAP_SMOKE_KIT_GRIPPER_TRANSITION_OK` before `CAP_SMOKE_KIT_DONE`, and the ROS side must finish with
+`CAP_SMOKE_ORCHESTRATOR_DONE`. An orchestrator-only completion is not a diagnostic pass. The
+diagnostic is useful for protocol development but is non-blocking and must not be cited as
+capability-advertisement evidence.
 
-## Production control-plane smoke
+## Production control-plane advertisement gate
 
-The production runner leaves the reset instant to the ROS Session Manager action. The smoke uses
-three processes: the custom in-process ROS composition container, the ROS-free Kit producer, and a
-test-only typed ROS client. Build `isaac_ros_cap` with `BUILD_TESTING=ON`; the client is intentionally
-not installed and must be run from the colcon build tree.
+The production runner is the authoritative DROID capability-advertisement gate. It leaves the reset
+instant to the ROS Session Manager action and uses three processes: the custom in-process ROS
+composition container, the ROS-free Kit producer, and a test-only typed ROS client. Build
+`isaac_ros_cap` with `BUILD_TESTING=ON`; the client is intentionally not installed and must be run
+from the colcon build tree. The canonical bounded supervisor and cleanup-attestation command is
+`scripts/run_cap_barrier_production_e2e.py` in the pinned Isaac-cap repository; the manual commands
+below are for diagnosis only.
 
 Cold-start Kit first in terminal 1 on the host:
 
@@ -145,8 +153,7 @@ development container. Replace the build and install bases below if colcon used 
 ```bash
 docker exec -it -u admin isaac_ros_dev_container bash -lc \
   'source /opt/ros/jazzy/setup.bash && \
-   source /tmp/cap_binary_install/setup.bash && \
-   source /tmp/cap_prod_clean_install/setup.bash && \
+   source /workspaces/isaac_ros-dev/ros_ws/install/setup.bash && \
    ros2 launch cap_backend_arena arena_control_plane.launch.py'
 ```
 
@@ -163,9 +170,8 @@ endpoints, drives a guarded close then open gripper operation, releases that lea
 ```bash
 docker exec -it -u admin isaac_ros_dev_container bash -lc \
   'source /opt/ros/jazzy/setup.bash && \
-   source /tmp/cap_binary_install/setup.bash && \
-   source /tmp/cap_prod_clean_install/setup.bash && \
-   /tmp/cap_prod_clean_build/cap_backend_arena/cap_production_smoke_client'
+   source /workspaces/isaac_ros-dev/ros_ws/install/setup.bash && \
+   /workspaces/isaac_ros-dev/ros_ws/build/cap_backend_arena/cap_production_smoke_client'
 ```
 
 After the generation-1 bootstrap fence, Kit samples the owner generation and consumer-serviceability
@@ -173,10 +179,15 @@ latch before every next PHYSICS publication. It stops generation-1 publication a
 becomes observable, waits for exact generation 2, resets DROID without advancing physics, attaches
 only after the sidecar is serviceable, and emits the generation-2 fence. The
 `CAP_PRODUCTION_KIT_GENERATION_2_DETECTED` marker includes the actual generation-1 physics count.
-After the client and Kit markers appear, send Ctrl-C to terminal 1. Success requires
-`CAP_PRODUCTION_CLIENT_GRIPPER_TRANSITION_OK`, `CAP_PRODUCTION_KIT_GRIPPER_TRANSITION_OK`,
-`CAP_PRODUCTION_CLIENT_RESET_ACTION_OK`, `CAP_PRODUCTION_KIT_DONE`, and a clean control-plane
-shutdown.
+After the client and Kit markers appear, send Ctrl-C to terminal 2. Success requires
+`CAP_CONTROL_PLANE_ACTIVE generation=1`,
+`CAP_PRODUCTION_CLIENT_GRIPPER_TRANSITION_OK`,
+`CAP_PRODUCTION_CLIENT_RESET_ACTION_OK`,
+`CAP_PRODUCTION_KIT_GRIPPER_TRANSITION_OK`,
+`CAP_PRODUCTION_KIT_GENERATION_2_DETECTED`,
+`CAP_PRODUCTION_KIT_HOLD_RESUME_OK`,
+`CAP_PRODUCTION_KIT_DONE`, zero Kit/client exits, a clean control-plane shutdown, and positive local
+and remote process-group death attestations from the canonical supervisor.
 
 ## Deliberate boundaries
 
