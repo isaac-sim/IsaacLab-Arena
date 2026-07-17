@@ -13,7 +13,6 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.experiment_output_layout import get_experiment_run_output_directory
 from isaaclab_arena.visualization.report import build_report
 
 
@@ -37,10 +36,7 @@ def aggregate_run_outputs(
         assert (
             source_run_output_directory.is_dir()
         ), f"Run '{run_name}' output directory does not exist: '{source_run_output_directory}'"
-        destination_run_output_directory = get_experiment_run_output_directory(
-            combined_experiment_output_directory,
-            run_name,
-        )
+        destination_run_output_directory = combined_experiment_output_directory / run_name
         assert (
             not destination_run_output_directory.exists()
         ), f"Run output destination already exists: '{destination_run_output_directory}'"

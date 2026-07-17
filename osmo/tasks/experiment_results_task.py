@@ -13,7 +13,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena.evaluation.experiment_output_layout import get_experiment_run_output_directory
 from osmo.tasks.base_task import BaseTask
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
@@ -60,12 +59,7 @@ class ExperimentResultsTask(BaseTask):
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         run_output_directory_tokens_by_name = {
-            run_name: str(
-                get_experiment_run_output_directory(
-                    Path(task_input_token(experiment_runner_task_name)),
-                    run_name,
-                )
-            )
+            run_name: str(Path(task_input_token(experiment_runner_task_name)) / run_name)
             for run_name, experiment_runner_task_name in self.experiment_runner_task_names_by_run.items()
         }
         return [
