@@ -79,11 +79,11 @@ def _apply_generated_yaml(
     spec: ArenaEnvGraphSpec | None = None,
     validation_error: str | None = None,
 ) -> None:
-    """Push generated spec YAML into the editor; dashboard preview refreshes in the viz fragment."""
+    """Push generated spec YAML into the editor; the visualization panel refreshes in the viz fragment."""
     st.session_state["edited_text"] = yaml_text
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
     st.session_state["last_rendered_text"] = ""
-    st.session_state["rendered_html"] = ""
+    st.session_state["rendered_visualization"] = None
     reset_viz_render_state()
     if spec is not None:
         st.session_state["_validation_text"] = yaml_text

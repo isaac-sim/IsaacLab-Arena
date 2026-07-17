@@ -38,7 +38,7 @@ There are three ways to evaluate a trained policy:
 
 1. **Single environment** (``policy_runner.py``): detailed evaluation with metrics
 2. **Parallel environments** (``policy_runner.py``): larger-scale statistical evaluation
-3. **Batch evaluation** (``eval_runner.py``): automated evaluation across multiple checkpoints
+3. **Batch evaluation** (``experiment_runner.py``): automated evaluation across multiple checkpoints
 
 
 Method 1: Single Environment Evaluation
@@ -97,7 +97,7 @@ For more statistically significant results, run across many environments in para
 Method 3: Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a JSON config.
+To evaluate multiple checkpoints in sequence, use ``experiment_runner.py`` with a JSON config.
 Here we evaluate the models you trained yourself.
 The checkpoint path should be replaced with the timestamp of your training run in the ``logs/rsl_rl/generic_experiment/`` directory.
 
@@ -140,7 +140,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --eval_jobs_config eval_config.json
 

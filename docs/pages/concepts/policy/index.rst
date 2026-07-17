@@ -3,7 +3,7 @@ Policy
 
 A policy in Arena is a standard interface between your model and the evaluation
 pipeline. You implement one method — ``get_action(env, obs)`` — and the policy
-plugs into both the single-job runner and the batch eval runner without any
+plugs into both the single-job runner and the Experiment Runner without any
 changes to either. In bare IsaacLab you would write an ad-hoc inference loop
 for each model; Arena's ``PolicyBase`` gives a consistent contract that all
 runners depend on.
@@ -73,7 +73,7 @@ Construct the policy by passing its typed configuration directly:
    policy = MyPolicy(policy_cfg)
 
 The typed registration lets the single-job runner generate CLI flags from
-``MyPolicyCfg`` and lets the batch eval runner convert the current
+``MyPolicyCfg`` and lets the Experiment Runner convert the current
 ``Job.policy_config_dict`` representation into that same type. See
 :doc:`concept_evaluation_types` for details.
 

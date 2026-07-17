@@ -2,7 +2,7 @@ Evaluation Types
 =================
 
 Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
-**policy runner** (single or multi-GPU) and a **sequential batch eval runner** for
+**policy runner** (single or multi-GPU) and an **Experiment Runner** for
 multiple jobs in one process. This section summarizes when to use each and how
 they work. Each section below links to the relevant concept docs:
 :doc:`Policy Design <index>`,
@@ -38,9 +38,9 @@ Summary
      - Single job, one env config, one policy
      - ``policy_runner.py``
      - Yes (torchrun)
-   * - Sequential batch eval runner
+   * - Experiment Runner
      - Multiple jobs (env/policy combos) in sequence
-     - ``eval_runner.py``
+     - ``experiment_runner.py``
      - No
 
 1. Policy runner — single job (single GPU and multi-GPU)
@@ -137,12 +137,12 @@ and pass ``--distributed`` so each process uses a different GPU (via ``LOCAL_RAN
 The remaining environment arguments come from the Arena environments CLI. For
 registered policies, policy-specific flags are generated from their ``PolicyCfg``.
 
-.. _sequential-batch-eval-runner:
+.. _sequential-batch-experiment-runner:
 
-2. Sequential batch eval runner — batch jobs
+2. Experiment Runner — batch jobs
 --------------------------------------------
 
-The **sequential batch eval runner** (``isaaclab_arena/evaluation/eval_runner.py``)
+The **Experiment Runner** (``isaaclab_arena/evaluation/experiment_runner.py``)
 runs a **batch** of evaluation jobs sequentially in a single process. Each job can have
 a different environment (scene/object/embodiment), policy type, policy config,
 and length (steps or episodes). This is suited for benchmarking many
@@ -163,13 +163,13 @@ follow :doc:`Policy Design <index>`.
 - If a job fails, the runner continues with the next job and marks the failed
   job accordingly.
 - Metrics are aggregated and printed at the end (e.g. via ``MetricsLogger``).
-- **Distributed evaluation is not supported**: the sequential batch eval runner
+- **Distributed evaluation is not supported**: the Experiment Runner
   runs in a single process. For multi-GPU, use multiple policy runner
   invocations (e.g. with ``torchrun``) or split the batch across machines.
 
 .. todo::
 
-    Experiment with distributed evaluation in the sequential batch eval runner.
+    Experiment with distributed evaluation in the Experiment Runner.
 
 **Jobs config format**
 
@@ -226,17 +226,17 @@ object with:
      ]
    }
 
-**Running the sequential batch eval runner**
+**Running the Experiment Runner**
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --eval_jobs_config path/to/eval_jobs_config.json \
      --num_steps 1000
 
 If any job needs cameras, set ``enable_cameras: true`` in that job’s
-``arena_env_args``; the sequential batch eval runner automatically enables camera support if any job requires it.
+``arena_env_args``; the Experiment Runner automatically enables camera support if any job requires it.
 
 Choosing an evaluation type
 ---------------------------

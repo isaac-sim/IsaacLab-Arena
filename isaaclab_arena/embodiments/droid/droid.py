@@ -6,7 +6,6 @@
 
 import torch
 from abc import ABC
-from dataclasses import MISSING
 from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -28,7 +27,6 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
-from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils.configclass import configclass
@@ -40,6 +38,7 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
@@ -393,57 +392,47 @@ class DroidEventCfg:
 
 
 @configclass
-class DroidCameraCfg:
+class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
-    external_camera: CameraCfg | TiledCameraCfg = MISSING
-    external_camera_2: CameraCfg | TiledCameraCfg = MISSING
-    wrist_camera: CameraCfg | TiledCameraCfg = MISSING
-
-    def __post_init__(self):
-        # Get configuration from private attributes set by embodiment constructor
-        # These use getattr with defaults to avoid scene parser treating them as assets
-        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
-
-        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
-        OffsetClass = CameraClass.OffsetCfg
-
-        self.external_camera = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/external_camera",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.1,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
-        )
-        self.external_camera_2 = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.1,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
-        )
-        self.wrist_camera = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.8,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"),
-        )
+    external_camera: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/external_camera",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.1,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
+    )
+    external_camera_2: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.1,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
+    )
+    wrist_camera: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.8,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
+        ),
+    )

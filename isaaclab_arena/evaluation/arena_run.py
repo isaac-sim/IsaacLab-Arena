@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from prettytable import PrettyTable
@@ -95,7 +96,7 @@ class ArenaRunResult:
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
 
-def build_runs_info_table(run_cfgs: list[ArenaRunCfg], results: list[ArenaRunResult]) -> PrettyTable:
+def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
     """Build a table containing the configuration and current status of every Run."""
     results_by_name = {result.run_name: result for result in results}
     table = PrettyTable(

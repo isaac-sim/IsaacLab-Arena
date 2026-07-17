@@ -122,7 +122,7 @@ Use ``--list-variations`` on any environment to discover the exact paths availab
 Configuring variations in an eval jobs config
 ---------------------------------------------
 
-When running batches of jobs with ``eval_runner.py``, variations are configured per job via a
+When running batches of jobs with ``experiment_runner.py``, variations are configured per job via a
 dedicated ``variations`` field instead of command-line override tokens.  The field is a nested
 dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
 the ``<asset>.<variation_name>.<cfg_field>`` path.  For example, the nested entry
@@ -166,17 +166,17 @@ Run it with:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --headless \
      --enable_cameras \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
 
-``--list-variations`` works with ``eval_runner.py`` too, printing the variations catalogue for
+``--list-variations`` works with ``experiment_runner.py`` too, printing the variations catalogue for
 each job's environment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --headless \
      --list-variations \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json

@@ -100,7 +100,7 @@ class PolicyRunnerTask(BaseTask):
         The ``--arena_env`` value chooses the environment source and is resolved as follows:
 
         - Registered example-environment pass by name: kitchen_pick_and_place
-        - A graph-spec YAML path is preceded by the flag: --env_graph_spec_yaml robolab/mustard_raisin_box.yaml``.
+        - A graph-spec YAML path is preceded by the flag: --env_graph_spec_yaml robolab/tasks/mustard_above_raisin.yaml``.
         """
         if self.task_cfg.arena_env.endswith((".yaml", ".yml")):
             return f"--env_graph_spec_yaml {self.task_cfg.arena_env}"

@@ -3,18 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Workflow class for Isaac Lab Arena OSMO workflows.
+"""Workflow classes for Isaac Lab Arena OSMO workflows.
 
-Workflows and their tasks declare parameters as config dataclasses (WorkflowCfg plus a per-workflow
-task config). Only the top-level submit script turns those configs into CLI flags; in-program
-callers construct the config objects directly.
+A ``Workflow`` renders and submits one OSMO workflow; a ``CompositeWorkflow`` submits an
+ordered sequence of them; both share the ``SubmittableWorkflow`` contract the submit script
+drives. Workflows and their tasks declare parameters as config dataclasses (WorkflowCfg plus
+a per-workflow task config). Only the top-level submit script turns those configs into CLI
+flags; in-program callers construct the config objects directly.
 """
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tempfile
 import yaml
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -70,14 +74,46 @@ class WorkflowCfg:
     """Render the workflow YAML and print it instead of submitting to OSMO."""
 
 
-class Workflow:
-    """Builds, renders, and submits an Arena OSMO workflow."""
+@dataclass(frozen=True)
+class WorkflowSubmissionResult:
+    """Outcome of submitting a workflow to OSMO."""
 
-    task_cls_list: list[type[BaseTask]] = []
-    """Task classes that make up this workflow, in group order. Subclasses must set this."""
+    returncode: int
+    """Exit code from ``osmo workflow submit`` (0 on success, and 0 for a dry-run)."""
+
+    workflow_id: str | None = None
+    """OSMO workflow ID parsed from the submit output; None on a dry-run or parse failure."""
+
+
+class SubmittableWorkflow(ABC):
+    """A configurable unit of work that can be submitted to OSMO.
+
+    Implementations are either a single OSMO workflow (``Workflow``) or a composite that
+    submits several in sequence (``CompositeWorkflow``). The top-level submit script needs
+    only this contract: the two config dataclass types to build a CLI from, a constructor
+    that takes the parsed configs, and ``submit_workflow``.
+    """
 
     task_cfg_type: type[TaskCfg] = TaskCfg
     """Config dataclass type for this workflow's lead task. Subclasses set this."""
+
+    workflow_cfg_type: type[WorkflowCfg] = WorkflowCfg
+    """Workflow config dataclass type; subclasses override it to change resource defaults."""
+
+    def __init__(self, workflow_cfg: WorkflowCfg, task_cfg: TaskCfg) -> None:
+        self.workflow_cfg = workflow_cfg
+        self.task_cfg = task_cfg
+
+    @abstractmethod
+    def submit_workflow(self) -> WorkflowSubmissionResult:
+        """Submit to OSMO (or print the rendered spec on a dry-run) and return the outcome."""
+
+
+class Workflow(SubmittableWorkflow):
+    """Builds, renders, and submits a single Arena OSMO workflow."""
+
+    task_cls_list: list[type[BaseTask]] = []
+    """Task classes that make up this workflow, in group order. Subclasses must set this."""
 
     lead_list: list[bool] | None = None
     """Per-task lead flags; ``None`` lets a single-task workflow default its task to lead."""
@@ -89,8 +125,7 @@ class Workflow:
         group_name: str = "arena",
     ) -> None:
         assert len(self.task_cls_list) > 0, "Workflow subclasses must set task_cls_list"
-        self.workflow_cfg = workflow_cfg
-        self.task_cfg = task_cfg
+        super().__init__(workflow_cfg=workflow_cfg, task_cfg=task_cfg)
         # Single-task workflows may leave lead_list unset; that task defaults to lead.
         self.lead_flags = self.lead_list if self.lead_list is not None else [True]
         self._assert_single_lead_task(self.lead_flags)
@@ -132,13 +167,13 @@ class Workflow:
             default_style="",
         )
 
-    def submit_workflow(self) -> int:
+    def submit_workflow(self) -> WorkflowSubmissionResult:
         """Render the workflow and either print it (dry-run) or submit it to OSMO."""
         rendered = self.render_yaml()
         if self.workflow_cfg.dry_run:
             print("[dry-run] Rendered workflow YAML:\n")
             print(rendered)
-            return 0
+            return WorkflowSubmissionResult(returncode=0)
 
         return self._submit_rendered_workflow(rendered=rendered)
 
@@ -150,7 +185,7 @@ class Workflow:
             tasks.append(task_cls(self.task_cfg, lead=lead))
         return tasks
 
-    def _submit_rendered_workflow(self, rendered: str) -> int:
+    def _submit_rendered_workflow(self, rendered: str) -> WorkflowSubmissionResult:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="arena_", delete=False) as f:
             f.write(rendered)
             rendered_path = f.name
@@ -165,10 +200,22 @@ class Workflow:
         print(f"  {' '.join(cmd)}\n")
 
         try:
-            result = subprocess.run(cmd)
-            return result.returncode
+            # Capture stdout only, to parse the workflow ID; stderr stays inherited so
+            # interactive output (login prompts, progress) remains visible live.
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+            print(result.stdout, end="")
+            return WorkflowSubmissionResult(
+                returncode=result.returncode,
+                workflow_id=self._parse_submitted_workflow_id(result.stdout),
+            )
         finally:
             Path(rendered_path).unlink(missing_ok=True)
+
+    @staticmethod
+    def _parse_submitted_workflow_id(submit_stdout: str) -> str | None:
+        """Extract the workflow ID from ``osmo workflow submit`` output, or None."""
+        match = re.search(r"Workflow ID\s*[-:]\s*(\S+)", submit_stdout)
+        return match.group(1) if match else None
 
     def _create_resource_dict(self) -> dict[str, Any]:
         return {
@@ -178,3 +225,24 @@ class Workflow:
             "platform": self.workflow_cfg.platform,
             "storage": self.workflow_cfg.storage,
         }
+
+
+class CompositeWorkflow(SubmittableWorkflow):
+    """A workflow that submits an ordered sequence of sub-workflows instead of one group.
+
+    Use this when the work cannot live in a single OSMO workflow — for example tasks that
+    must run in different pools, which OSMO cannot gang-schedule into one group. Subclasses
+    implement ``_submit_steps`` to submit each sub-workflow and thread results (such as a
+    workflow ID a later step needs) between them.
+
+    ``_submit_steps`` is responsible for honoring ``workflow_cfg.dry_run`` — each sub-workflow
+    already does (it prints its spec instead of submitting), and a dry-run must still exercise
+    the step sequencing, so the base intentionally does not short-circuit it.
+    """
+
+    def submit_workflow(self) -> WorkflowSubmissionResult:
+        return self._submit_steps()
+
+    @abstractmethod
+    def _submit_steps(self) -> WorkflowSubmissionResult:
+        """Submit the sub-workflows in order; return the result representing the composite."""

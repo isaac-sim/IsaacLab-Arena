@@ -45,7 +45,7 @@ def _num_robolab_environments(value: str) -> int:
 
 def get_n_robolab_envs(num_environments: int) -> list[Path]:
     robolab_dir = Path(__file__).resolve().parents[1]
-    robolab_envs = sorted(robolab_dir.glob("*.yaml"))
+    robolab_envs = sorted(robolab_dir.glob("tasks/*.yaml"))
     if num_environments == -1:
         return robolab_envs
     return robolab_envs[:num_environments]
@@ -56,7 +56,7 @@ def _repo_relative(path: Path) -> str:
 
 
 def _workflow_name(prefix: str, policy: str, env_path: Path, run_id: str) -> str:
-    stem = env_path.stem.removesuffix("_linked")
+    stem = env_path.stem
     slug = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
     return f"{prefix}-{policy}-{slug}-{run_id}"
 

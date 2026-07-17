@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
 
 
 def execute_experiment(
-    run_cfgs: list[ArenaRunCfg],
+    experiment_cfg: ArenaExperimentCfg,
     output_dir: Path,
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
@@ -43,7 +44,7 @@ def execute_experiment(
     """Execute an experiment's runs in order and return their results.
 
     Args:
-        run_cfgs: Ordered run configurations that make up the experiment.
+        experiment_cfg: Named Run configurations that make up the Experiment.
         output_dir: Directory containing one output subdirectory per run.
         record_viewport_video: Whether to record the viewport for each run.
         record_camera_video: Whether to record observation cameras for each run.
@@ -53,7 +54,7 @@ def execute_experiment(
         One result per attempted run, in execution order.
     """
     results = []
-    for run_cfg in run_cfgs:
+    for run_cfg in experiment_cfg.runs.values():
         print(f"Running run '{run_cfg.name}'", flush=True)
         run_output_dir = output_dir / run_cfg.name
         try:

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import numpy as np
 import torch
 from dataclasses import dataclass
@@ -41,7 +40,7 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
     Values fixed by the droid embodiment (camera keys, arm DOF) and by the
     DreamZero-DROID checkpoint (action layout, target image size) are class
     constants, mirroring the openpi DROID adapter. Only cam2_source is a
-    per-eval choice, so it is the sole constructor argument / CLI flag.
+    per-eval choice, so it is the sole constructor argument.
     """
 
     # Fixed by the DreamZero-DROID checkpoint: 7 arm joints + 1 gripper command.
@@ -64,34 +63,6 @@ class DroidAdapter(DreamZeroEmbodimentAdapter):
             cam2_source in valid_cam2_sources
         ), f"cam2_source must be one of {valid_cam2_sources}, got {cam2_source!r}"
         self.cam2_source: Cam2Source = cam2_source
-
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add DROID adapter CLI arguments to parser.
-
-        Only cam2_source is exposed; it is a per-eval choice. It defaults to the
-        droid embodiment's second exterior camera ('right'); override with 'black'
-        or 'duplicate' for scenes that do not mount one. Everything else is fixed
-        by the droid embodiment or the DreamZero-DROID checkpoint and lives as
-        class constants.
-        """
-        group = parser.add_argument_group(
-            "DreamZero DROID Adapter",
-            "Arguments for the DROID observation/action wire format.",
-        )
-        group.add_argument(
-            "--dreamzero_cam2_source",
-            type=str,
-            default="right",
-            choices=list(get_args(Cam2Source)),
-            help="Source for the second exterior camera slot.",
-        )
-        return parser
-
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> DroidAdapter:
-        """Build adapter from parsed CLI arguments."""
-        return cls(cam2_source=args.dreamzero_cam2_source)
 
     def extract(self, observation: dict[str, Any], env_id: int) -> DroidObservation:
         """Pull one env's camera and joint tensors out of the Arena observation dict."""

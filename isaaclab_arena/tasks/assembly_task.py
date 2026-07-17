@@ -21,8 +21,8 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.events import randomize_poses_and_align_auxiliary_assets
+from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import objects_in_proximity
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 

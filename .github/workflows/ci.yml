@@ -356,7 +356,7 @@ jobs:
 
     container:
       # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing_curobo
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
