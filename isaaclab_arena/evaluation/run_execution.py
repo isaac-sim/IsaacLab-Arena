@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
-from isaaclab_arena.evaluation.experiment_output_layout import get_experiment_run_output_directory
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
@@ -57,7 +56,7 @@ def execute_experiment(
     results = []
     for run_config in experiment_cfg.runs.values():
         print(f"Running run '{run_config.name}'", flush=True)
-        run_output_directory = get_experiment_run_output_directory(output_dir, run_config.name)
+        run_output_directory = output_dir / run_config.name
         try:
             result = execute_run(
                 run_config,
