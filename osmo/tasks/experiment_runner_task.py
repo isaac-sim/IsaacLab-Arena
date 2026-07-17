@@ -69,15 +69,15 @@ class ExperimentRunnerTask(BaseTask):
         ]
 
     def _get_run_script(self) -> str:
-        command = [
+        experiment_runner_command = [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
             REMOTE_EXPERIMENT_PATH,
-            "--output_base_dir",
+            "--experiment_output_directory",
             OSMO_TASK_OUTPUT_DIR,
             "--viz",
             "none",
             "--enable_cameras",
         ]
-        return f"set -euo pipefail\n{shlex.join(command)}\n"
+        return f"set -euo pipefail\n{shlex.join(experiment_runner_command)}\n"

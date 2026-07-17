@@ -9,6 +9,7 @@ import subprocess
 
 import pytest
 
+from isaaclab_arena.evaluation import experiment_runner
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
@@ -31,6 +32,66 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ]
+
+
+def test_experiment_runner_parses_exact_experiment_output_directory(tmp_path):
+    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+
+    parsed_arguments, experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--experiment_output_directory",
+        str(exact_experiment_output_directory),
+    ])
+
+    assert parsed_arguments.experiment_output_directory == str(exact_experiment_output_directory)
+    assert experiment_overrides == []
+
+
+def test_experiment_runner_rejects_exact_and_timestamped_output_options(tmp_path):
+    with pytest.raises(SystemExit, match="2"):
+        parse_experiment_runner_args([
+            "--output_base_dir",
+            str(tmp_path / "timestamped-output-base"),
+            "--experiment_output_directory",
+            str(tmp_path / "exact-experiment-output"),
+        ])
+
+
+def test_resolves_timestamped_experiment_output_directory_by_default(monkeypatch, tmp_path):
+    output_base_directory = tmp_path / "output-base"
+    expected_experiment_output_directory = output_base_directory / "2026-07-17_12-00-00"
+    received_output_base_directories = []
+
+    def create_timestamped_directory_path(received_output_base_directory: str) -> str:
+        received_output_base_directories.append(received_output_base_directory)
+        return str(expected_experiment_output_directory)
+
+    monkeypatch.setattr(experiment_runner, "timestamped_run_dir", create_timestamped_directory_path)
+
+    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(
+        str(output_base_directory),
+        None,
+    )
+
+    assert resolved_experiment_output_directory == expected_experiment_output_directory
+    assert received_output_base_directories == [str(output_base_directory)]
+
+
+def test_resolves_exact_experiment_output_directory_without_timestamping(monkeypatch, tmp_path):
+    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+
+    def fail_if_timestamped_directory_is_requested(_output_base_directory: str) -> str:
+        pytest.fail("Exact Experiment output must not request a timestamped directory")
+
+    monkeypatch.setattr(experiment_runner, "timestamped_run_dir", fail_if_timestamped_directory_is_requested)
+
+    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(
+        str(tmp_path / "unused-output-base"),
+        str(exact_experiment_output_directory),
+    )
+
+    assert resolved_experiment_output_directory == exact_experiment_output_directory
 
 
 @pytest.mark.with_subprocess

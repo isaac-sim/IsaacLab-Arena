@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.experiment_output_layout import get_experiment_run_output_directory
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
@@ -54,22 +55,22 @@ def execute_experiment(
         One result per attempted run, in execution order.
     """
     results = []
-    for run_cfg in experiment_cfg.runs.values():
-        print(f"Running run '{run_cfg.name}'", flush=True)
-        run_output_dir = output_dir / run_cfg.name
+    for run_config in experiment_cfg.runs.values():
+        print(f"Running run '{run_config.name}'", flush=True)
+        run_output_directory = get_experiment_run_output_directory(output_dir, run_config.name)
         try:
             result = execute_run(
-                run_cfg,
-                output_dir=run_output_dir,
+                run_config,
+                output_dir=run_output_directory,
                 video_cfg=VideoRecordingCfg(
                     record_viewport_video=record_viewport_video,
                     record_camera_video=record_camera_video,
-                    video_base_dir=str(run_output_dir),
+                    video_base_dir=str(run_output_directory),
                 ),
             )
         except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
-            print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
+            results.append(ArenaRunResult(run_name=run_config.name, status=RunStatus.FAILED))
+            print(f"Run '{run_config.name}' failed with error: {error}", flush=True)
             print(f"Traceback: {traceback.format_exc()}", flush=True)
             if not continue_on_error:
                 raise

@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -33,6 +32,16 @@ def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
+
+
+def _resolve_experiment_output_directory(
+    output_base_directory: str,
+    exact_experiment_output_directory: str | None,
+) -> Path:
+    """Return an exact Experiment output directory or derive a timestamped directory."""
+    if exact_experiment_output_directory is not None:
+        return Path(exact_experiment_output_directory)
+    return Path(timestamped_run_dir(output_base_directory))
 
 
 # TODO(cvolk, 2026-07-10): [typed-config-migration] Typed YAML is composed only
@@ -85,6 +94,9 @@ def main():
     # release it.
     if args_cli.chunk_size is not None:
         assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
+        assert (
+            args_cli.experiment_output_directory is None
+        ), "--chunk_size cannot be combined with --experiment_output_directory"
 
         if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
             run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
@@ -101,19 +113,22 @@ def main():
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
-        # One reverse-dated output directory for the Experiment, with one subdirectory
-        # per Run. Always date it so each invocation produces its own report directory.
+        # Local invocations default to a reverse-dated Experiment directory. Managed
+        # execution may provide an exact, freshly allocated Experiment output directory.
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
-        experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
+        experiment_output_directory = _resolve_experiment_output_directory(
+            args_cli.output_base_dir,
+            args_cli.experiment_output_directory,
+        )
+        experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
         if args_cli.record_viewport_video:
-            os.makedirs(experiment_output_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_dir}")
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
 
         results = execute_experiment(
             experiment_cfg,
-            output_dir=experiment_output_dir,
+            output_dir=experiment_output_directory,
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
@@ -126,7 +141,7 @@ def main():
         metrics_logger.print_metrics()
 
         # Write HTML report.
-        report_path = build_report(experiment_output_dir)
+        report_path = build_report(experiment_output_directory)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 

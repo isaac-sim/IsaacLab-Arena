@@ -38,13 +38,23 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
     )
-    parser.add_argument(
+    output_directory_arguments = parser.add_mutually_exclusive_group()
+    output_directory_arguments.add_argument(
         "--output_base_dir",
         type=str,
         default="/eval/output",
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
             " reverse-dated Experiment subdirectory and per-Run subdirectory are added."
+        ),
+    )
+    output_directory_arguments.add_argument(
+        "--experiment_output_directory",
+        type=str,
+        default=None,
+        help=(
+            "Exact directory for this Experiment output; per-Run subdirectories are added directly without a"
+            " reverse-dated Experiment directory. Intended for managed execution environments such as OSMO."
         ),
     )
     parser.add_argument(
