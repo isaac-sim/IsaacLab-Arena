@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Note(alexmillane, 2026-07-16): Third-party and Arena imports are therefore are deferred into the
+# Note(alexmillane, 2026-07-16): Third-party and Arena imports are deferred into the
 # function bodies to avoid importing in them whenever any pytest test is run. This can occur
 # because of this modules appearance in pytest_plugins. This causes issues with the packaging
 # tests, which run in a bare venv with only pytest installed.

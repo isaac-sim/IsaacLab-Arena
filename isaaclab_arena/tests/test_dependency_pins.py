@@ -10,6 +10,14 @@ wheel), so uv's resolver already fails ``uv lock`` on any mismatch. ``daqp`` is
 the one pin Arena chooses freely -- the isaaclab wheel only declares it for ARM,
 so the Docker build and the native uv group install it explicitly on x86_64 --
 which is why it needs an explicit drift guard against the submodule.
+
+The ``tinyobjloader`` and ``mujoco-usd-converter`` constraints have no submodule
+counterpart to drift from: they are transitive Isaac Sim dependencies that
+upstream leaves unpinned, so Arena's constraint is itself the source of truth.
+
+TODO(alexmillane, 2026.07.17): Remove after upgrade to Isaac Lab 3.0 GA which
+correctly declares its pinned dependencies, obviating the need for pinning in
+Arena.
 """
 
 import re
@@ -30,6 +38,14 @@ def _arena_pin(package: str) -> str:
     return versions[0]
 
 
+def _arena_constraint(package: str) -> str:
+    """Return the requirement Arena declares for ``package`` in [tool.uv] constraint-dependencies."""
+    constraints = tomllib.loads(_ARENA_PYPROJECT.read_text())["tool"]["uv"]["constraint-dependencies"]
+    matches = [constraint for constraint in constraints if re.fullmatch(rf"{package}[=<>!~].*", constraint)]
+    assert len(matches) == 1, f"expected exactly one {package} constraint, found {matches}"
+    return matches[0]
+
+
 def _isaaclab_pin(package: str) -> str:
     """Return the version the Isaac Lab submodule's setup.py pins ``package`` to."""
     match = re.search(rf"{package}==([\d.]+)", _ISAACLAB_SETUP.read_text())
@@ -39,3 +55,14 @@ def _isaaclab_pin(package: str) -> str:
 
 def test_daqp_pin_matches_isaaclab_submodule():
     assert _arena_pin("daqp") == _isaaclab_pin("daqp")
+
+
+def test_pin_pink_constraint_matches_isaaclab_submodule():
+    assert _arena_constraint("pin-pink") == f"pin-pink=={_isaaclab_pin('pin-pink')}"
+
+
+def test_pyglet_constraint_matches_isaaclab_submodule():
+    """The submodule declares ``pyglet>=2.1.6,<3``; Arena constrains only the upper bound."""
+    match = re.search(r"\"pyglet[^\"]*?(<[\d.]+)\"", _ISAACLAB_SETUP.read_text())
+    assert match is not None, f"no pyglet upper bound found in {_ISAACLAB_SETUP}"
+    assert _arena_constraint("pyglet") == f"pyglet{match.group(1)}"

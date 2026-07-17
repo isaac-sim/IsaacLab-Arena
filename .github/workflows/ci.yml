@@ -107,15 +107,11 @@ jobs:
       OMNI_KIT_ACCEPT_EULA: "YES"
       ACCEPT_EULA: "Y"
 
-    # Validates the documented native developer workflow (uv-managed
-    # environment against the public wheels) in a clean ubuntu:24.04 container.
+    # Validates the native workflow in a clean ubuntu:24.04 container.
     container:
       image: nvidia/cuda:12.8.2-base-ubuntu24.04
       env:
-        # The CUDA base image defaults to "compute,utility", which makes the
-        # NVIDIA container runtime skip the driver's graphics libraries
-        # (libGLX_nvidia, libEGL_nvidia, Vulkan ICD). Without them Kit's
-        # MDL/Neuray renderer fails to load libGL and material creation hangs.
+        # Needed to give the container access to the driver's graphics libraries.
         NVIDIA_DRIVER_CAPABILITIES: all
 
     steps:
@@ -128,9 +124,6 @@ jobs:
       - *checkout_step
       - *git_lfs_step
 
-      # The GL/Vulkan loader layer that dispatches to the injected NVIDIA
-      # driver libraries — the same package set the official Isaac Sim
-      # container image installs.
       - name: Install graphics loader libraries
         run: |
           apt-get update
@@ -144,10 +137,8 @@ jobs:
           curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      # Out-of-source packaging check: validates the lockfile and the
-      # editable-install packaging (roots, namespace modules, runtime
-      # resources) via the packaging tests, run against a bare --no-deps
-      # editable install from a neutral cwd.
+      # Out-of-source packaging check: validates the lockfile via the
+      # packaging tests, run in an out of source directory.
       - name: Validate uv lock and editable package
         run: |
           uv python install 3.12
@@ -163,8 +154,6 @@ jobs:
       - name: Sync the locked environment
         run: uv sync
 
-      # Same phase split as the Docker-backed jobs (see the note on the `test`
-      # job), plus the camera phase, so the whole suite is validated natively.
       - name: Run in-process Newton tests
         run: |
           uv run pytest -sv --durations=0 -m with_newton \
