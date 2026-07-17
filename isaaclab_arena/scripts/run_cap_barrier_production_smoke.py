@@ -5,9 +5,10 @@
 
 """Run the B=1 DROID half of the CAP production control-plane smoke.
 
-Start the production control-plane process and wait for
-``CAP_CONTROL_PLANE_READY_FOR_KIT`` before launching Kit. Unlike the fixed demo,
-this producer observes the barrier owner and does not choose the reset instant.
+Cold-start Kit first. The orchestrator starts the production control plane only after
+``CAP_PRODUCTION_KIT_ENV_READY``; this producer then waits for the sidecar to become
+serviceable before attaching. Unlike the fixed demo, it observes the barrier owner and
+does not choose the reset instant.
 """
 
 from __future__ import annotations
@@ -49,7 +50,9 @@ def _run_smoke(device: str) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
     from isaaclab_arena.integrations.cap_barrier.production_smoke import (
+        CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
         DroidGripperTransitionProof,
+        open_production_startup_rendezvous,
         run_physics_until_generation_transition,
     )
     from isaaclab_arena.integrations.cap_barrier.protocol import ControllerTimingSpec
@@ -61,8 +64,15 @@ def _run_smoke(device: str) -> None:
         ControllerTimingSpec("joint_streaming_controller", 1),
         ControllerTimingSpec("robotiq_gripper_controller", 1),
     )
-    adapter = make_cap_franka_environment(device=device)
-    client = ArenaBarrierClient(_SHM_NAME, open_timeout_s=30.0)
+    adapter, client, startup_deadline = open_production_startup_rendezvous(
+        lambda: make_cap_franka_environment(device=device),
+        lambda deadline: ArenaBarrierClient(
+            _SHM_NAME,
+            open_timeout_s=CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
+            startup_deadline_monotonic_s=deadline,
+        ),
+        marker_sink=lambda marker: print(marker, flush=True),
+    )
     try:
         manager = ArenaLockstepManager(
             client=client,
@@ -71,7 +81,10 @@ def _run_smoke(device: str) -> None:
             controller_specs=timing,
             command_timeout_s=30.0,
         )
-        generation_1 = manager.attach_initial_generation(timeout_s=30.0)
+        generation_1 = manager.attach_initial_generation(
+            timeout_s=CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
+            startup_deadline_monotonic_s=startup_deadline,
+        )
         if generation_1 != 1:
             raise RuntimeError(f"production smoke must bootstrap at generation 1, got {generation_1}")
         print("CAP_PRODUCTION_KIT_GENERATION_1_ATTACHED", flush=True)

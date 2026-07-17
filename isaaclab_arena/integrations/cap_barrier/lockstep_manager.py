@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -83,10 +84,27 @@ class ArenaLockstepManager:
         """Return owner generation/serviceability observed between frame exchanges."""
         return self._client.status
 
-    def attach_initial_generation(self, *, timeout_s: float = 10.0) -> int:
-        generation = self._client.wait_for_generation(timeout_s=timeout_s)
+    def attach_initial_generation(
+        self,
+        *,
+        timeout_s: float = 10.0,
+        startup_deadline_monotonic_s: float | None = None,
+    ) -> int:
+        deadline = (
+            time.monotonic() + timeout_s if startup_deadline_monotonic_s is None else startup_deadline_monotonic_s
+        )
+        generation = self._client.wait_for_generation(
+            timeout_s=timeout_s,
+            deadline_monotonic_s=deadline,
+            startup_rendezvous=True,
+        )
         self._simulation.reset_without_physics_step()
-        self._client.attach_generation(generation, timeout_s=timeout_s)
+        self._client.attach_generation(
+            generation,
+            timeout_s=timeout_s,
+            deadline_monotonic_s=deadline,
+            startup_rendezvous=True,
+        )
         return generation
 
     def attach_next_generation(self, *, timeout_s: float = 10.0) -> int:

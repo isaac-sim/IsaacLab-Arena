@@ -11,6 +11,7 @@ import math
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Protocol, TypeVar
 
 from .joint_mapping import (
     DROID_GRIPPER_CLOSED_POSITION_RAD,
@@ -28,6 +29,39 @@ DROID_GRIPPER_SMOKE_ARM_COMMAND_TOLERANCE_RAD = 0.0
 DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD = 0.00016736984252929688
 DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD = 2.0 * DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD
 DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD = 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD
+CAP_PRODUCTION_KIT_ENV_READY_MARKER = "CAP_PRODUCTION_KIT_ENV_READY"
+CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S = 300.0
+
+
+class _ClosableEnvironment(Protocol):
+    def close(self) -> None:
+        pass
+
+
+_EnvironmentT = TypeVar("_EnvironmentT", bound=_ClosableEnvironment)
+_BarrierClientT = TypeVar("_BarrierClientT")
+
+
+def open_production_startup_rendezvous(
+    environment_factory: Callable[[], _EnvironmentT],
+    barrier_client_factory: Callable[[float], _BarrierClientT],
+    *,
+    marker_sink: Callable[[str], None],
+    timeout_s: float = CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> tuple[_EnvironmentT, _BarrierClientT, float]:
+    """Create Kit state, announce readiness, then begin the bounded barrier rendezvous."""
+    if not math.isfinite(timeout_s) or timeout_s <= 0.0:
+        raise ValueError("production startup rendezvous timeout must be finite and positive")
+    adapter = environment_factory()
+    try:
+        marker_sink(CAP_PRODUCTION_KIT_ENV_READY_MARKER)
+        deadline = monotonic() + timeout_s
+        client = barrier_client_factory(deadline)
+    except BaseException:
+        adapter.close()
+        raise
+    return adapter, client, deadline
 
 
 @dataclass(frozen=True)

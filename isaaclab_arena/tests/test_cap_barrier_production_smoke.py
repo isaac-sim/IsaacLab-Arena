@@ -13,14 +13,81 @@ import pytest
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import DROID_GRIPPER_CLOSED_POSITION_RAD
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import FrameResult
 from isaaclab_arena.integrations.cap_barrier.production_smoke import (
+    CAP_PRODUCTION_KIT_ENV_READY_MARKER,
+    CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
     DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD,
     DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
     DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD,
     DroidGripperTransitionProof,
+    open_production_startup_rendezvous,
     run_physics_until_generation_transition,
 )
 from isaaclab_arena.integrations.cap_barrier.protocol import BarrierPhase, FrameKind, ServiceabilityState
 from isaaclab_arena.integrations.cap_barrier.shared_memory import BarrierInterrupted, BarrierStatus
+
+
+def test_production_startup_marks_environment_ready_before_barrier_open() -> None:
+    events = []
+
+    class _Environment:
+        def close(self) -> None:
+            events.append("environment-close")
+
+    class _Client:
+        pass
+
+    def make_environment() -> _Environment:
+        events.append("environment-created")
+        return _Environment()
+
+    def emit_marker(marker: str) -> None:
+        events.append(marker)
+
+    def open_barrier(deadline: float) -> _Client:
+        events.append(f"barrier-open:{deadline}")
+        return _Client()
+
+    environment, client, deadline = open_production_startup_rendezvous(
+        make_environment,
+        open_barrier,
+        marker_sink=emit_marker,
+        monotonic=lambda: 100.0,
+    )
+
+    assert isinstance(environment, _Environment)
+    assert isinstance(client, _Client)
+    assert deadline == 100.0 + CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S
+    assert events == [
+        "environment-created",
+        CAP_PRODUCTION_KIT_ENV_READY_MARKER,
+        f"barrier-open:{deadline}",
+    ]
+
+
+def test_production_startup_closes_environment_when_barrier_open_fails() -> None:
+    events = []
+
+    class _Environment:
+        def close(self) -> None:
+            events.append("environment-close")
+
+    def fail_barrier_open(deadline: float):
+        events.append(f"barrier-open:{deadline}")
+        raise RuntimeError("barrier unavailable")
+
+    with pytest.raises(RuntimeError, match="barrier unavailable"):
+        open_production_startup_rendezvous(
+            lambda: _Environment(),
+            fail_barrier_open,
+            marker_sink=lambda marker: events.append(marker),
+            monotonic=lambda: 20.0,
+        )
+
+    assert events == [
+        CAP_PRODUCTION_KIT_ENV_READY_MARKER,
+        f"barrier-open:{20.0 + CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S}",
+        "environment-close",
+    ]
 
 
 class _TransitioningManager:

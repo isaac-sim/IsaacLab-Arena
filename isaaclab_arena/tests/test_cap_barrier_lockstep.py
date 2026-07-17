@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Sequence
 from types import SimpleNamespace
 
@@ -68,13 +69,35 @@ class _FakeBarrierClient:
         self._pending_kind = None
         self._step_count_at_begin = 0
         self.completed: list[FrameKind] = []
+        self.wait_deadline = None
+        self.attach_deadline = None
+        self.wait_is_startup = False
+        self.attach_is_startup = False
 
-    def wait_for_generation(self, *, after=None, timeout_s=10.0):
+    def wait_for_generation(
+        self,
+        *,
+        after=None,
+        timeout_s=10.0,
+        deadline_monotonic_s=None,
+        startup_rendezvous=False,
+    ):
         del timeout_s
+        self.wait_deadline = deadline_monotonic_s
+        self.wait_is_startup = startup_rendezvous
         return self.generations[0] if after is None else self.generations[1]
 
-    def attach_generation(self, generation, *, timeout_s=10.0):
+    def attach_generation(
+        self,
+        generation,
+        *,
+        timeout_s=10.0,
+        deadline_monotonic_s=None,
+        startup_rendezvous=False,
+    ):
         del timeout_s
+        self.attach_deadline = deadline_monotonic_s
+        self.attach_is_startup = startup_rendezvous
         self.attached_generation = generation
         self.expected_sequence = 0
         self.expected_physics_tick = 0
@@ -160,6 +183,19 @@ def test_fence_discards_command_and_physics_steps_exactly_once() -> None:
     assert manager.sequence == 2
     assert manager.physics_tick == 1
     assert client.completed == [FrameKind.FENCE, FrameKind.PHYSICS]
+
+
+def test_initial_generation_uses_one_absolute_startup_deadline() -> None:
+    manager, simulation, client = _manager()
+    startup_deadline = time.monotonic() + 300.0
+
+    assert manager.attach_initial_generation(startup_deadline_monotonic_s=startup_deadline) == 1
+
+    assert simulation.reset_count == 1
+    assert client.wait_deadline == startup_deadline
+    assert client.attach_deadline == startup_deadline
+    assert client.wait_is_startup
+    assert client.attach_is_startup
 
 
 def test_next_generation_resets_sim_without_stepping_and_restarts_counters() -> None:

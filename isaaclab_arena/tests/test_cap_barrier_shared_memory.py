@@ -274,6 +274,62 @@ def test_real_shm_semaphores_and_atomics_hold_quiescence_until_sim_step() -> Non
         barrier.close()
 
 
+def test_client_open_and_initialization_share_one_absolute_startup_deadline(monkeypatch) -> None:
+    barrier = _OwnedTestBarrier()
+    observed_deadlines = []
+    original_open = ArenaBarrierClient._open_mapping
+    original_wait = ArenaBarrierClient._wait_until_initialized
+
+    def record_open(self, deadline_monotonic_s):
+        observed_deadlines.append(deadline_monotonic_s)
+        return original_open(self, deadline_monotonic_s)
+
+    def record_wait(self, deadline_monotonic_s):
+        observed_deadlines.append(deadline_monotonic_s)
+        return original_wait(self, deadline_monotonic_s)
+
+    monkeypatch.setattr(ArenaBarrierClient, "_open_mapping", record_open)
+    monkeypatch.setattr(ArenaBarrierClient, "_wait_until_initialized", record_wait)
+    deadline = time.monotonic() + 300.0
+    client = ArenaBarrierClient(barrier.name, startup_deadline_monotonic_s=deadline)
+    try:
+        assert observed_deadlines == [deadline, deadline]
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_open_mapping_retries_object_visible_before_ftruncate() -> None:
+    _OwnedTestBarrier._configure_libc()
+    name = f"/cap_pytest_short_{uuid.uuid4().hex}"
+    descriptor = _SYNC.libc.shm_open(name.encode(), os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+    if descriptor < 0:
+        raise OSError(ctypes.get_errno(), "shm_open failed")
+    os.ftruncate(descriptor, 0)
+    resized = threading.Event()
+
+    def finish_sizing() -> None:
+        time.sleep(0.02)
+        os.ftruncate(descriptor, ctypes.sizeof(SharedMemoryLayout))
+        resized.set()
+
+    thread = threading.Thread(target=finish_sizing, daemon=True)
+    thread.start()
+    client = ArenaBarrierClient.__new__(ArenaBarrierClient)
+    client.name = name
+    mapping = None
+    try:
+        mapping = client._open_mapping(time.monotonic() + 1.0)
+        assert resized.wait(timeout=1.0)
+        assert len(mapping) == ctypes.sizeof(SharedMemoryLayout)
+    finally:
+        if mapping is not None:
+            mapping.close()
+        thread.join(timeout=1.0)
+        os.close(descriptor)
+        assert _SYNC.libc.shm_unlink(name.encode()) == 0
+
+
 @pytest.mark.parametrize("frame_kind", [FrameKind.PHYSICS, FrameKind.FENCE])
 def test_stale_generation_fails_closed_for_both_frame_kinds(frame_kind: FrameKind) -> None:
     barrier = _OwnedTestBarrier()
@@ -321,6 +377,51 @@ def test_generation_attach_waits_for_consumer_serviceability_latch() -> None:
         client.attach_generation(2)
         assert client.attached_generation == 2
         assert client.status.permits_publish(2)
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_startup_attach_retries_interrupted_generation_until_sidecar_is_serviceable() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    barrier.request_interrupt()
+
+    def activate_sidecar() -> None:
+        time.sleep(0.02)
+        barrier.clear_interrupt()
+
+    thread = threading.Thread(target=activate_sidecar, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 1.0
+        generation = client.wait_for_generation(
+            deadline_monotonic_s=deadline,
+            startup_rendezvous=True,
+        )
+        client.attach_generation(
+            generation,
+            deadline_monotonic_s=deadline,
+            startup_rendezvous=True,
+        )
+        assert client.attached_generation == 1
+        assert client.status.consumer_serviceable
+    finally:
+        thread.join(timeout=1.0)
+        client.close()
+        barrier.close()
+
+
+def test_startup_attach_expiry_names_sidecar_activation_not_operational_interrupt() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    barrier.request_interrupt()
+    try:
+        with pytest.raises(ProtocolError, match="sidecar never reached active state") as error:
+            client.attach_generation(1, timeout_s=0.01, startup_rendezvous=True)
+        assert error.value.code == FaultCode.TIMEOUT
+        assert "sidecar serviceability" in str(error.value)
+        assert client.attached_generation is None
     finally:
         client.close()
         barrier.close()

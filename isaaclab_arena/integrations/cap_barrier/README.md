@@ -122,18 +122,7 @@ three processes: the custom in-process ROS composition container, the ROS-free K
 test-only typed ROS client. Build `isaac_ros_cap` with `BUILD_TESTING=ON`; the client is intentionally
 not installed and must be run from the colcon build tree.
 
-In terminal 1, start the control plane inside the Isaac ROS development container. Replace the
-build and install bases below if colcon used different paths:
-
-```bash
-docker exec -it -u admin isaac_ros_dev_container bash -lc \
-  'source /opt/ros/jazzy/setup.bash && \
-   source /tmp/cap_binary_install/setup.bash && \
-   source /tmp/cap_prod_clean_install/setup.bash && \
-   ros2 launch cap_backend_arena arena_control_plane.launch.py'
-```
-
-Wait for `CAP_CONTROL_PLANE_READY_FOR_KIT`, then start Kit in terminal 2 on the host:
+Cold-start Kit first in terminal 1 on the host:
 
 ```bash
 cd /home/rafael/Projects/arena-cap-barrier
@@ -144,7 +133,30 @@ PYTHONPATH="$PWD" \
   isaaclab_arena/scripts/run_cap_barrier_production_smoke.py --viz none --device cuda:0
 ```
 
-In terminal 3, start the typed test client. It waits for Kit-driven bootstrap and the production
+Kit constructs the complete DROID environment before emitting `CAP_PRODUCTION_KIT_ENV_READY` and
+touching shared memory. It then has one 300-second startup-only rendezvous deadline spanning shared
+memory creation, initialization, generation discovery, and the sidecar becoming serviceable. The
+deadline is not the operational frame timeout: command frames and generation fences retain their
+30-second safety bound.
+
+After `CAP_PRODUCTION_KIT_ENV_READY`, start the control plane in terminal 2 inside the Isaac ROS
+development container. Replace the build and install bases below if colcon used different paths:
+
+```bash
+docker exec -it -u admin isaac_ros_dev_container bash -lc \
+  'source /opt/ros/jazzy/setup.bash && \
+   source /tmp/cap_binary_install/setup.bash && \
+   source /tmp/cap_prod_clean_install/setup.bash && \
+   ros2 launch cap_backend_arena arena_control_plane.launch.py'
+```
+
+The bootstrap generation is published interrupted until lifecycle activation makes the sidecar
+serviceable. Seeing the shared-memory name or generation is therefore not permission to reserve the
+barrier; the Kit producer retries within the one startup deadline. This closes both cold-start race
+orders without extending the operational generation-fence timeout.
+
+After `CAP_CONTROL_PLANE_ACTIVE generation=1`, start the typed test client in terminal 3. It waits
+for Kit-driven bootstrap and the production
 endpoints, drives a guarded close then open gripper operation, releases that lease, then acquires
 `joint_streaming`, publishes through the validating relay, and invokes the real reset action:
 

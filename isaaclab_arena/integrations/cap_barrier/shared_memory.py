@@ -10,6 +10,7 @@ from __future__ import annotations
 import ctypes
 import ctypes.util
 import errno
+import math
 import mmap
 import os
 import time
@@ -115,17 +116,24 @@ class BarrierInterrupted(RuntimeError):
 class ArenaBarrierClient:
     """Non-owning Kit-side endpoint; the ROS sidecar creates and unlinks the region."""
 
-    def __init__(self, name: str, *, open_timeout_s: float = 10.0):
+    def __init__(
+        self,
+        name: str,
+        *,
+        open_timeout_s: float = 10.0,
+        startup_deadline_monotonic_s: float | None = None,
+    ):
         self.name = self._normalize_name(name)
-        self._mapping = self._open_mapping(open_timeout_s)
+        startup_deadline = self._resolve_deadline(open_timeout_s, startup_deadline_monotonic_s)
+        self._mapping = self._open_mapping(startup_deadline)
         try:
             self._layout = SharedMemoryLayout.from_buffer(self._mapping)
             self._base_address = ctypes.addressof(self._layout)
             if self._base_address % 64 != 0:
                 raise ProtocolError(FaultCode.ABI_MISMATCH, "shared-memory mapping is not 64-byte aligned")
-            self._wait_until_initialized(open_timeout_s)
+            self._wait_until_initialized(startup_deadline)
             self._validate_layout()
-        except Exception:
+        except BaseException:
             self.close()
             raise
         self._generation: int | None = None
@@ -144,27 +152,59 @@ class ArenaBarrierClient:
             raise ValueError("POSIX shared-memory name must not contain nested slashes")
         return normalized
 
-    def _open_mapping(self, timeout_s: float) -> mmap.mmap:
-        deadline = time.monotonic() + timeout_s
+    @staticmethod
+    def _resolve_deadline(timeout_s: float, deadline_monotonic_s: float | None) -> float:
+        if not math.isfinite(timeout_s) or timeout_s <= 0.0:
+            raise ValueError("barrier timeout must be finite and positive")
+        if deadline_monotonic_s is None:
+            return time.monotonic() + timeout_s
+        if not math.isfinite(deadline_monotonic_s):
+            raise ValueError("barrier deadline must be finite")
+        return deadline_monotonic_s
+
+    @staticmethod
+    def _sleep_before_retry(deadline_monotonic_s: float, interval_s: float) -> None:
+        remaining = deadline_monotonic_s - time.monotonic()
+        if remaining > 0.0:
+            time.sleep(min(interval_s, remaining))
+
+    @staticmethod
+    def _startup_timeout(stage: str) -> ProtocolError:
+        return ProtocolError(
+            FaultCode.TIMEOUT,
+            f"startup rendezvous expired: sidecar never reached active state ({stage})",
+        )
+
+    def _open_mapping(self, deadline_monotonic_s: float) -> mmap.mmap:
+        observed_short_mapping = False
         while True:
             descriptor = _SYNC.libc.shm_open(self.name.encode(), os.O_RDWR, 0o600)
             if descriptor >= 0:
                 try:
                     status = os.fstat(descriptor)
                     if status.st_size < ctypes.sizeof(SharedMemoryLayout):
-                        raise ProtocolError(FaultCode.ABI_MISMATCH, "shared-memory object has the wrong size")
-                    return mmap.mmap(
-                        descriptor,
-                        ctypes.sizeof(SharedMemoryLayout),
-                        flags=mmap.MAP_SHARED,
-                        prot=mmap.PROT_READ | mmap.PROT_WRITE,
-                    )
+                        # shm_open makes the name visible before the owner finishes ftruncate.
+                        # Treat a short object as startup-in-progress until the single rendezvous
+                        # deadline expires instead of misclassifying that race as an ABI fault.
+                        observed_short_mapping = True
+                    else:
+                        return mmap.mmap(
+                            descriptor,
+                            ctypes.sizeof(SharedMemoryLayout),
+                            flags=mmap.MAP_SHARED,
+                            prot=mmap.PROT_READ | mmap.PROT_WRITE,
+                        )
                 finally:
                     os.close(descriptor)
-            error = ctypes.get_errno()
-            if error != errno.ENOENT or time.monotonic() >= deadline:
-                raise OSError(error, os.strerror(error), self.name)
-            time.sleep(0.01)
+            else:
+                error = ctypes.get_errno()
+                if error != errno.ENOENT:
+                    raise OSError(error, os.strerror(error), self.name)
+            if time.monotonic() >= deadline_monotonic_s:
+                if observed_short_mapping:
+                    raise self._startup_timeout("shared-memory sizing")
+                raise self._startup_timeout("shared-memory creation")
+            self._sleep_before_retry(deadline_monotonic_s, 0.01)
 
     def _field_address(self, field_name: str) -> int:
         return self._base_address + getattr(SharedMemoryLayout, field_name).offset
@@ -199,12 +239,11 @@ class ArenaBarrierClient:
         exchanged, _ = self._compare_exchange4("phase", expected, desired)
         return exchanged
 
-    def _wait_until_initialized(self, timeout_s: float) -> None:
-        deadline = time.monotonic() + timeout_s
+    def _wait_until_initialized(self, deadline_monotonic_s: float) -> None:
         while self._load4("initialized") != 1:
-            if time.monotonic() >= deadline:
-                raise ProtocolError(FaultCode.TIMEOUT, "timed out waiting for barrier initialization")
-            time.sleep(0.001)
+            if time.monotonic() >= deadline_monotonic_s:
+                raise self._startup_timeout("shared-memory initialization")
+            self._sleep_before_retry(deadline_monotonic_s, 0.001)
 
     def _validate_layout(self) -> None:
         if (
@@ -284,19 +323,35 @@ class ArenaBarrierClient:
                 code, f"shared-memory barrier fault latched: generation={generation} sequence={sequence}"
             )
 
-    def wait_for_generation(self, *, after: int | None = None, timeout_s: float = 10.0) -> int:
-        deadline = time.monotonic() + timeout_s
+    def wait_for_generation(
+        self,
+        *,
+        after: int | None = None,
+        timeout_s: float = 10.0,
+        deadline_monotonic_s: float | None = None,
+        startup_rendezvous: bool = False,
+    ) -> int:
+        deadline = self._resolve_deadline(timeout_s, deadline_monotonic_s)
         while True:
             self._throw_if_faulted()
             generation = self.active_generation
             if generation is not None and (after is None or generation > after):
                 return generation
             if time.monotonic() >= deadline:
+                if startup_rendezvous:
+                    raise self._startup_timeout("generation discovery")
                 raise ProtocolError(FaultCode.TIMEOUT, "timed out waiting for active generation")
-            time.sleep(0.001)
+            self._sleep_before_retry(deadline, 0.001)
 
-    def attach_generation(self, generation: int, *, timeout_s: float = 10.0) -> None:
-        deadline = time.monotonic() + timeout_s
+    def attach_generation(
+        self,
+        generation: int,
+        *,
+        timeout_s: float = 10.0,
+        deadline_monotonic_s: float | None = None,
+        startup_rendezvous: bool = False,
+    ) -> None:
+        deadline = self._resolve_deadline(timeout_s, deadline_monotonic_s)
         while True:
             self._throw_if_faulted()
             if (
@@ -306,8 +361,10 @@ class ArenaBarrierClient:
             ):
                 break
             if time.monotonic() >= deadline:
+                if startup_rendezvous:
+                    raise self._startup_timeout("sidecar serviceability")
                 raise ProtocolError(FaultCode.RESET_VIOLATION, "cannot attach Arena before generation is serviceable")
-            time.sleep(0.001)
+            self._sleep_before_retry(deadline, 0.001)
         self._generation = generation
         self._expected_sequence = 0
         self._expected_tick = 0
