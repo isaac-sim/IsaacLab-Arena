@@ -182,7 +182,7 @@ def test_policy_server_rejects_workflow_fields():
         ])
 
 
-def test_fans_out_singleton_runs_with_dedicated_pi0_servers_and_aggregation():
+def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregation():
     """Render one independent Run group per Run and aggregate every runner output."""
     source_experiment_cfg = _pi0_experiment_cfg()
     workflow = Pi0ArenaExperimentWorkflow(
@@ -375,7 +375,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
 
 
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
-    """Keep every singleton OSMO handoff compatible with the Experiment Runner loader."""
+    """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()
     assert isinstance(submission_cfg.policy_server, Pi0ServerTaskCfg)
     workflow = Pi0ArenaExperimentWorkflow(

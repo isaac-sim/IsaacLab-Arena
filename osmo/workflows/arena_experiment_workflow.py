@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.experiment_results_task import ExperimentResultsTask
@@ -51,99 +52,121 @@ class Pi0ArenaExperimentWorkflow(Workflow):
 
         # Every Pi0 Run gets a dedicated server task. Verify that all of those
         # clients request the variant configured for the server deployment.
-        pi0_run_variants = self._get_pi0_run_variants()
-        self._assert_pi0_server_compatible(pi0_run_variants)
+        pi0_policy_variants_by_run = self._get_pi0_policy_variants_by_run()
+        self._assert_pi0_server_compatible(pi0_policy_variants_by_run)
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
-        """Create one singleton runner group per Run followed by aggregation."""
-        groups: list[dict[str, Any]] = []
-        run_task_names: dict[str, str] = {}
-        for index, (run_name, run_cfg) in enumerate(self.experiment_cfg.runs.items()):
-            runner_task_name = f"experiment-runner-{index}"
-            singleton_experiment = ArenaExperimentCfg(runs={run_name: deepcopy(run_cfg)})
-            tasks: list[BaseTask] = []
-
-            if isinstance(singleton_experiment.runs[run_name].policy, Pi0RemotePolicyCfg):
-                server_task_name = f"policy-server-{index}"
-                self._connect_pi0_run(singleton_experiment, run_name, server_task_name)
-                tasks.append(
-                    Pi0ServerTask(
-                        self.pi0_server_task_cfg,
-                        lead=False,
-                        task_name=server_task_name,
-                    )
-                )
-
-            tasks.insert(
-                0,
-                ExperimentRunnerTask(
-                    task_cfg=self.task_cfg,
-                    experiment_cfg=singleton_experiment,
-                    lead=True,
-                    task_name=runner_task_name,
-                    output_url=None,
-                ),
+        """Create one independently scheduled group per Run, then aggregate their outputs."""
+        run_group_dicts: list[dict[str, Any]] = []
+        experiment_runner_task_names_by_run: dict[str, str] = {}
+        for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
+            run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
+                run_index,
+                run_name,
+                run_config,
             )
-            groups.append({
-                "name": f"arena-run-{index}",
-                "tasks": [task.create_task_dict() for task in tasks],
-            })
-            run_task_names[run_name] = runner_task_name
+            run_group_dicts.append(run_group_dict)
+            experiment_runner_task_names_by_run[run_name] = experiment_runner_task_name
 
-        aggregate_task = ExperimentResultsTask(
+        aggregation_group_dict = self._create_aggregation_group_dict(experiment_runner_task_names_by_run)
+        return [*run_group_dicts, aggregation_group_dict]
+
+    def _create_run_group_dict(
+        self,
+        run_index: int,
+        run_name: str,
+        run_config: ArenaRunCfg,
+    ) -> tuple[dict[str, Any], str]:
+        """Create one OSMO group that executes a single-Run Arena Experiment."""
+        experiment_runner_task_name = f"experiment-runner-{run_index}"
+        single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
+
+        pi0_policy_server_tasks: list[BaseTask] = []
+        if isinstance(single_run_experiment_config.runs[run_name].policy, Pi0RemotePolicyCfg):
+            pi0_server_task_name = f"policy-server-{run_index}"
+            self._connect_pi0_run(single_run_experiment_config, run_name, pi0_server_task_name)
+            pi0_policy_server_tasks.append(
+                Pi0ServerTask(
+                    self.pi0_server_task_cfg,
+                    lead=False,
+                    task_name=pi0_server_task_name,
+                )
+            )
+
+        # Construct this after connecting the policy because the task snapshots the Experiment.
+        experiment_runner_task = ExperimentRunnerTask(
+            task_cfg=self.task_cfg,
+            experiment_cfg=single_run_experiment_config,
+            lead=True,
+            task_name=experiment_runner_task_name,
+            output_url=None,
+        )
+        run_group_tasks = [experiment_runner_task, *pi0_policy_server_tasks]
+
+        run_group_dict = {
+            "name": f"arena-run-{run_index}",
+            "tasks": [run_group_task.create_task_dict() for run_group_task in run_group_tasks],
+        }
+        return run_group_dict, experiment_runner_task_name
+
+    def _create_aggregation_group_dict(
+        self,
+        experiment_runner_task_names_by_run: dict[str, str],
+    ) -> dict[str, Any]:
+        """Create the CPU group that combines every runner's staged output."""
+        experiment_results_task = ExperimentResultsTask(
             image=self.task_cfg.image,
-            run_task_names=run_task_names,
+            run_task_names=experiment_runner_task_names_by_run,
             lead=True,
             resource=self.aggregation_resource_name,
         )
-        groups.append({
+        return {
             "name": "arena-aggregation",
-            "tasks": [aggregate_task.create_task_dict()],
-        })
-        return groups
+            "tasks": [experiment_results_task.create_task_dict()],
+        }
 
     def _create_resources_dict(self) -> dict[str, dict[str, Any]]:
-        """Create GPU Run resources and a CPU-only aggregation resource."""
-        default_resource = self._create_resource_dict()
-        aggregation_resource = {**default_resource, "gpu": 0}
+        """Use configured resources for Runs and a CPU-only resource for aggregation."""
+        run_task_resource = self._create_resource_dict()
+        aggregation_task_resource = {**run_task_resource, "gpu": 0}
         return {
-            "default": default_resource,
-            self.aggregation_resource_name: aggregation_resource,
+            "default": run_task_resource,
+            self.aggregation_resource_name: aggregation_task_resource,
         }
 
-    def _get_pi0_run_variants(self) -> dict[str, str]:
+    def _get_pi0_policy_variants_by_run(self) -> dict[str, str]:
         """Return effective pi0-remote Run variants needed for compatibility checks."""
-        pi0_run_variants = {}
-        for run_name, run_cfg in self.experiment_cfg.runs.items():
-            if not isinstance(run_cfg.policy, Pi0RemotePolicyCfg):
+        pi0_policy_variants_by_run = {}
+        for run_name, run_config in self.experiment_cfg.runs.items():
+            if not isinstance(run_config.policy, Pi0RemotePolicyCfg):
                 continue
-            pi0_run_variants[run_name] = run_cfg.policy.policy_variant
-        return pi0_run_variants
+            pi0_policy_variants_by_run[run_name] = run_config.policy.policy_variant
+        return pi0_policy_variants_by_run
 
-    def _assert_pi0_server_compatible(self, pi0_run_variants: dict[str, str]) -> None:
+    def _assert_pi0_server_compatible(self, pi0_policy_variants_by_run: dict[str, str]) -> None:
         """Require Pi0RemotePolicy Runs whose variants match the deployed server."""
-        assert pi0_run_variants, "pi0 server requires at least one Run using Pi0RemotePolicy"
-        incompatible_runs = {
-            run_name: variant
-            for run_name, variant in pi0_run_variants.items()
-            if variant != self.pi0_server_task_cfg.policy_variant
+        assert pi0_policy_variants_by_run, "pi0 server requires at least one Run using Pi0RemotePolicy"
+        incompatible_policy_variants_by_run = {
+            run_name: policy_variant
+            for run_name, policy_variant in pi0_policy_variants_by_run.items()
+            if policy_variant != self.pi0_server_task_cfg.policy_variant
         }
-        assert not incompatible_runs, (
-            f"pi0_remote Runs require variants {incompatible_runs}, but the pi0 server is configured for "
-            f"'{self.pi0_server_task_cfg.policy_variant}'"
+        assert not incompatible_policy_variants_by_run, (
+            f"pi0_remote Runs require variants {incompatible_policy_variants_by_run}, but the pi0 server is configured"
+            f" for '{self.pi0_server_task_cfg.policy_variant}'"
         )
 
     def _connect_pi0_run(
         self,
-        experiment_cfg: ArenaExperimentCfg,
+        experiment_config: ArenaExperimentCfg,
         run_name: str,
-        server_task_name: str,
+        pi0_server_task_name: str,
     ) -> None:
-        """Connect one singleton Experiment Run to its dedicated pi0 server."""
-        policy_cfg = experiment_cfg.runs[run_name].policy
-        assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
-        policy_cfg.remote_host = Pi0ServerTask.host_token(server_task_name)
-        policy_cfg.remote_port = POLICY_SERVER_PORT
+        """Connect one Experiment Run to its dedicated pi0 server."""
+        pi0_policy_config = experiment_config.runs[run_name].policy
+        assert isinstance(pi0_policy_config, Pi0RemotePolicyCfg)
+        pi0_policy_config.remote_host = Pi0ServerTask.host_token(pi0_server_task_name)
+        pi0_policy_config.remote_port = POLICY_SERVER_PORT
         # The first OSMO inference may compile longer than the policy's normal
         # keepalive timeout. Use the timeout owned by this server deployment.
-        policy_cfg.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s
+        pi0_policy_config.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s
