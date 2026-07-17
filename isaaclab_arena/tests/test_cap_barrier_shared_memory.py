@@ -16,7 +16,12 @@ from collections.abc import Sequence
 import pytest
 
 import isaaclab_arena.integrations.cap_barrier.shared_memory as shared_memory_module
-from isaaclab_arena.integrations.cap_barrier.joint_mapping import PANDA_ARM_JOINTS, make_franka_joint_mapping
+from isaaclab_arena.integrations.cap_barrier.joint_mapping import (
+    DROID_FINGER_JOINT,
+    DROID_GRIPPER_CLOSED_POSITION_RAD,
+    PANDA_ARM_JOINTS,
+    make_droid_joint_mapping,
+)
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
 from isaaclab_arena.integrations.cap_barrier.protocol import (
     PROTOCOL_MAJOR,
@@ -172,6 +177,8 @@ class _OwnedTestBarrier:
                         command.controller_timing[0].name = b"\xffcorrupt"
                     for index in range(command.header.joint_count):
                         command.joints[index].position = 0.1 * (index + 1)
+                    if command.header.joint_count == 8:
+                        command.joints[7].position = DROID_GRIPPER_CLOSED_POSITION_RAD
                     ctypes.memmove(
                         self.address("command"),
                         ctypes.addressof(command),
@@ -205,8 +212,8 @@ class _OwnedTestBarrier:
 class _QuiescenceCheckingSimulation:
     def __init__(self, barrier: _OwnedTestBarrier):
         self.barrier = barrier
-        self._joint_names = (*PANDA_ARM_JOINTS, "panda_finger_joint1", "panda_finger_joint2")
-        self.positions = [0.0] * 9
+        self._joint_names = (*PANDA_ARM_JOINTS, DROID_FINGER_JOINT)
+        self.positions = [0.0] * 8
         self.steps = 0
         self.resets = 0
 
@@ -215,16 +222,16 @@ class _QuiescenceCheckingSimulation:
         return self._joint_names
 
     def read_joint_state(self):
-        return self.positions, [0.0] * 9, [0.0] * 9
+        return self.positions, [0.0] * 8, [0.0] * 8
 
     def step_position_targets(self, positions_in_abi_order):
         assert self.barrier.load4("phase") == BarrierPhase.COMMAND_READY
-        self.positions[:7] = positions_in_abi_order
+        self.positions[:] = positions_in_abi_order
         self.steps += 1
 
     def reset_without_physics_step(self):
         self.resets += 1
-        self.positions = [0.0] * 9
+        self.positions = [0.0] * 8
 
 
 def _state_frame(*, sequence: int = 0, physics_tick: int = 0) -> StateFrame:
@@ -247,7 +254,7 @@ def test_real_shm_semaphores_and_atomics_hold_quiescence_until_sim_step() -> Non
         manager = ArenaLockstepManager(
             client=client,
             simulation=simulation,
-            joint_mapping=make_franka_joint_mapping(simulation.joint_names),
+            joint_mapping=make_droid_joint_mapping(simulation.joint_names),
             controller_specs=[ControllerTimingSpec("hold_controller")],
         )
         thread = barrier.serve(2)
@@ -256,6 +263,8 @@ def test_real_shm_semaphores_and_atomics_hold_quiescence_until_sim_step() -> Non
         assert simulation.steps == 0
         manager.physics_step()
         assert simulation.steps == 1
+        assert barrier.layout.state.header.joint_count == 8
+        assert simulation.positions[7] == pytest.approx(DROID_GRIPPER_CLOSED_POSITION_RAD)
         barrier.wait_for_phase(BarrierPhase.AWAIT_STATE)
         thread.join(timeout=1.0)
         assert not thread.is_alive()
@@ -544,11 +553,7 @@ def test_base_exception_after_reservation_cas_recovers_and_releases(
 
         def reserve_then_abort(field_name: str, expected: int, desired: int) -> tuple[bool, int]:
             result = compare_exchange(field_name, expected, desired)
-            if (
-                field_name == "wait_interrupted"
-                and desired == ServiceabilityState.PRODUCER_RESERVED
-                and result[0]
-            ):
+            if field_name == "wait_interrupted" and desired == ServiceabilityState.PRODUCER_RESERVED and result[0]:
                 if interrupt_pending:
                     barrier.request_interrupt()
                 raise InjectedAbort

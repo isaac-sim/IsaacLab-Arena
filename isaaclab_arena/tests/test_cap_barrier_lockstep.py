@@ -5,15 +5,23 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
+from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.integrations.cap_barrier.franka_env import FrankaSimulationAdapter, _configure_cap_droid_embodiment
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import (
-    FR3_ARM_JOINTS,
+    DROID_ABI_JOINTS,
+    DROID_FINGER_JOINT,
+    DROID_GRIPPER_CLOSED_POSITION_RAD,
+    DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+    DROID_SIMULATION_JOINTS,
     PANDA_ARM_JOINTS,
     JointOrderMapping,
-    make_franka_joint_mapping,
+    droid_binary_gripper_action,
+    make_droid_joint_mapping,
 )
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
 from isaaclab_arena.integrations.cap_barrier.protocol import (
@@ -26,7 +34,7 @@ from isaaclab_arena.integrations.cap_barrier.protocol import (
 
 class _FakeSimulation:
     def __init__(self):
-        self._joint_names = ("panda_finger_joint1", *reversed(PANDA_ARM_JOINTS), "panda_finger_joint2")
+        self._joint_names = ("right_mimic_joint", DROID_FINGER_JOINT, *reversed(PANDA_ARM_JOINTS))
         self.positions = [float(index) for index in range(9)]
         self.velocities = [0.1 * index for index in range(9)]
         self.efforts = [0.2 * index for index in range(9)]
@@ -83,6 +91,7 @@ class _FakeBarrierClient:
         command = make_command_frame(state, due_mask)
         for index in range(command.header.joint_count):
             command.joints[index].position = 0.25 * (index + 1)
+        command.joints[7].position = DROID_GRIPPER_CLOSED_POSITION_RAD
         return command
 
     def complete_exchange(self):
@@ -101,7 +110,7 @@ class _FakeBarrierClient:
 def _manager() -> tuple[ArenaLockstepManager, _FakeSimulation, _FakeBarrierClient]:
     simulation = _FakeSimulation()
     client = _FakeBarrierClient(simulation)
-    mapping = make_franka_joint_mapping(simulation.joint_names)
+    mapping = make_droid_joint_mapping(simulation.joint_names)
     manager = ArenaLockstepManager(
         client=client,
         simulation=simulation,
@@ -111,20 +120,20 @@ def _manager() -> tuple[ArenaLockstepManager, _FakeSimulation, _FakeBarrierClien
     return manager, simulation, client
 
 
-def test_franka_mapping_is_explicit_and_order_preserving() -> None:
-    simulation_names = ("panda_finger_joint1", *reversed(PANDA_ARM_JOINTS), "panda_finger_joint2")
-    mapping = make_franka_joint_mapping(simulation_names)
-    assert mapping.abi_joint_names == FR3_ARM_JOINTS
-    assert mapping.mapped_simulation_joint_names == PANDA_ARM_JOINTS
-    assert mapping.to_abi_order(tuple(range(9))) == (7, 6, 5, 4, 3, 2, 1)
-    mapping.assert_action_order(PANDA_ARM_JOINTS)
+def test_droid_mapping_is_explicit_and_order_preserving() -> None:
+    simulation_names = ("right_mimic_joint", DROID_FINGER_JOINT, *reversed(PANDA_ARM_JOINTS))
+    mapping = make_droid_joint_mapping(simulation_names)
+    assert mapping.abi_joint_names == DROID_ABI_JOINTS
+    assert mapping.mapped_simulation_joint_names == DROID_SIMULATION_JOINTS
+    assert mapping.to_abi_order(tuple(range(9))) == (8, 7, 6, 5, 4, 3, 2, 1)
+    mapping.assert_action_order(DROID_SIMULATION_JOINTS)
     with pytest.raises(RuntimeError, match="action joint order"):
-        mapping.assert_action_order(tuple(reversed(PANDA_ARM_JOINTS)))
+        mapping.assert_action_order((*PANDA_ARM_JOINTS, "right_mimic_joint"))
 
 
 def test_mapping_rejects_missing_or_duplicate_joints() -> None:
     with pytest.raises(ValueError, match="missing"):
-        make_franka_joint_mapping(PANDA_ARM_JOINTS[:-1])
+        make_droid_joint_mapping(PANDA_ARM_JOINTS)
     with pytest.raises(ValueError, match="duplicates"):
         JointOrderMapping.from_names(("a", "a"), {"a": "x"}, ("x",))
 
@@ -147,7 +156,7 @@ def test_fence_discards_command_and_physics_steps_exactly_once() -> None:
     assert physics.sequence == 1
     assert physics.physics_tick == 0
     assert simulation.step_count == 1
-    assert simulation.targets == [(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75)]
+    assert simulation.targets == [(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, DROID_GRIPPER_CLOSED_POSITION_RAD)]
     assert manager.sequence == 2
     assert manager.physics_tick == 1
     assert client.completed == [FrameKind.FENCE, FrameKind.PHYSICS]
@@ -168,3 +177,141 @@ def test_next_generation_resets_sim_without_stepping_and_restarts_counters() -> 
     first = manager.physics_step()
     assert first.sequence == 0
     assert first.physics_tick == 0
+
+
+@pytest.mark.parametrize(
+    ("position", "expected"),
+    [
+        (0.0, 0.0),
+        (-DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD, 0.0),
+        (DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD, 0.0),
+        (DROID_GRIPPER_CLOSED_POSITION_RAD, 1.0),
+        (
+            DROID_GRIPPER_CLOSED_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+            1.0,
+        ),
+        (
+            DROID_GRIPPER_CLOSED_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+            1.0,
+        ),
+    ],
+)
+def test_droid_gripper_endpoint_bands_map_to_binary_polarity(position: float, expected: float) -> None:
+    assert DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD == 0.01
+    assert droid_binary_gripper_action(position) == expected
+
+
+@pytest.mark.parametrize(
+    "position",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        math.nextafter(-DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD, -math.inf),
+        math.nextafter(DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD, math.inf),
+        0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD,
+        math.nextafter(
+            DROID_GRIPPER_CLOSED_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+            -math.inf,
+        ),
+        math.nextafter(
+            DROID_GRIPPER_CLOSED_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+            math.inf,
+        ),
+    ],
+)
+def test_droid_gripper_rejects_nonfinite_and_intermediate_positions(position: float) -> None:
+    with pytest.raises(ValueError):
+        droid_binary_gripper_action(position)
+
+
+class _FakeActionManager:
+    active_terms = ("arm_action", "gripper_action")
+    action_term_dim = (7, 1)
+    total_action_dim = 8
+
+    @staticmethod
+    def get_term(name: str):
+        if name == "arm_action":
+            return SimpleNamespace(_joint_names=PANDA_ARM_JOINTS)
+        if name == "gripper_action":
+            return SimpleNamespace(_joint_names=(DROID_FINGER_JOINT,))
+        raise KeyError(name)
+
+
+def test_cap_droid_profile_disables_intermediate_joint_reset_randomization() -> None:
+    arm_action = SimpleNamespace()
+    joint_reset = SimpleNamespace(params={"mean": 1.0, "std": 0.02})
+    embodiment = SimpleNamespace(
+        action_config=SimpleNamespace(arm_action=arm_action),
+        event_config=SimpleNamespace(randomize_franka_joint_state=joint_reset),
+    )
+
+    _configure_cap_droid_embodiment(embodiment)
+
+    assert embodiment.event_config.randomize_franka_joint_state is joint_reset
+    assert joint_reset.params == {"mean": 0.0, "std": 0.0}
+    assert arm_action.joint_names == list(PANDA_ARM_JOINTS)
+    assert arm_action.preserve_order is True
+    assert arm_action.scale == 1.0
+    assert arm_action.offset == 0.0
+    assert arm_action.use_default_offset is False
+
+
+class _FakeDroidEnvironment:
+    def __init__(self, torch):
+        joint_names = ("right_mimic_joint", DROID_FINGER_JOINT, *PANDA_ARM_JOINTS)
+        joint_position = torch.tensor([[9.0, DROID_GRIPPER_CLOSED_POSITION_RAD / 3, *range(1, 8)]])
+        robot = SimpleNamespace(
+            joint_names=joint_names,
+            data=SimpleNamespace(
+                joint_pos=joint_position,
+                joint_vel=torch.zeros_like(joint_position),
+                applied_torque=torch.zeros_like(joint_position),
+            ),
+        )
+        self.unwrapped = SimpleNamespace(
+            num_envs=1,
+            scene={"robot": robot},
+            action_manager=_FakeActionManager(),
+            device="cpu",
+        )
+        self.actions = []
+
+    def step(self, action) -> None:
+        self.actions.append(action.clone())
+
+    def reset(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+def test_droid_adapter_preserves_raw_finger_state_and_applies_only_supported_endpoints() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    adapter = FrankaSimulationAdapter(environment)
+    assert adapter.abi_positions() == pytest.approx((
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        DROID_GRIPPER_CLOSED_POSITION_RAD / 3,
+    ))
+
+    arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+    adapter.step_position_targets((*arm_target, 0.0))
+    adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+    assert environment.actions[0][0].tolist() == pytest.approx([*arm_target, 0.0])
+    assert environment.actions[1][0].tolist() == pytest.approx([*arm_target, 1.0])
+
+    for invalid_target in (float("nan"), 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD):
+        step_count = adapter.physics_step_count
+        with pytest.raises(ValueError):
+            adapter.step_position_targets((*arm_target, invalid_target))
+        assert adapter.physics_step_count == step_count
+        assert len(environment.actions) == step_count

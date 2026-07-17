@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run the B=1 Franka half of the CAP production control-plane smoke.
+"""Run the B=1 DROID half of the CAP production control-plane smoke.
 
 Start the production control-plane process and wait for
 ``CAP_CONTROL_PLANE_READY_FOR_KIT`` before launching Kit. Unlike the fixed demo,
@@ -30,7 +30,7 @@ def _max_delta(lhs, rhs) -> float:
 
 
 def _paced_fences(manager, adapter, count: int):
-    frozen_state = adapter.arm_positions()
+    frozen_state = adapter.abi_positions()
     results = []
     deadline = time.monotonic()
     for _ in range(count):
@@ -39,16 +39,19 @@ def _paced_fences(manager, adapter, count: int):
         remaining = deadline - time.monotonic()
         if remaining > 0:
             time.sleep(remaining)
-    frozen_delta = _max_delta(frozen_state, adapter.arm_positions())
+    frozen_delta = _max_delta(frozen_state, adapter.abi_positions())
     if frozen_delta > 1e-12:
-        raise RuntimeError(f"FENCE advanced Franka state: max_delta={frozen_delta}")
+        raise RuntimeError(f"FENCE advanced DROID state: max_delta={frozen_delta}")
     return results
 
 
 def _run_smoke(device: str) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
-    from isaaclab_arena.integrations.cap_barrier.production_smoke import run_physics_until_generation_transition
+    from isaaclab_arena.integrations.cap_barrier.production_smoke import (
+        DroidGripperTransitionProof,
+        run_physics_until_generation_transition,
+    )
     from isaaclab_arena.integrations.cap_barrier.protocol import ControllerTimingSpec
     from isaaclab_arena.integrations.cap_barrier.shared_memory import ArenaBarrierClient
 
@@ -56,6 +59,7 @@ def _run_smoke(device: str) -> None:
     timing = (
         ControllerTimingSpec("hold_controller", 1),
         ControllerTimingSpec("joint_streaming_controller", 1),
+        ControllerTimingSpec("robotiq_gripper_controller", 1),
     )
     adapter = make_cap_franka_environment(device=device)
     client = ArenaBarrierClient(_SHM_NAME, open_timeout_s=30.0)
@@ -81,14 +85,27 @@ def _run_smoke(device: str) -> None:
             flush=True,
         )
 
-        bootstrap_pose = adapter.arm_positions()
+        initial_positions = adapter.abi_positions()
+        bootstrap_pose = initial_positions[:7]
+        gripper_proof = DroidGripperTransitionProof(initial_positions)
         maximum_target_delta = 0.0
 
         def observe_streaming_result(result) -> None:
             nonlocal maximum_target_delta
+            physical_positions = adapter.abi_positions()
+            observed_at_s = time.monotonic()
+            step_started_at_s = adapter.last_physics_step_started_at_s
+            if step_started_at_s is None:
+                raise RuntimeError("DROID adapter did not bracket the PHYSICS step")
+            gripper_proof.observe(
+                result,
+                physical_positions,
+                step_started_at_s=step_started_at_s,
+                observed_at_s=observed_at_s,
+            )
             maximum_target_delta = max(
                 maximum_target_delta,
-                _max_delta(result.commanded_positions, bootstrap_pose),
+                _max_delta(result.commanded_positions[:7], bootstrap_pose),
             )
 
         transition = run_physics_until_generation_transition(
@@ -96,6 +113,7 @@ def _run_smoke(device: str) -> None:
             timeout_s=_RESET_TIMEOUT_S,
             on_frame=observe_streaming_result,
         )
+        gripper = gripper_proof.observation()
         moved = _max_delta(adapter.arm_positions(), bootstrap_pose)
         if transition.physics_frames < _MINIMUM_GENERATION_1_PHYSICS:
             raise RuntimeError(
@@ -105,7 +123,15 @@ def _run_smoke(device: str) -> None:
         if maximum_target_delta <= 1e-4:
             raise RuntimeError("joint_streaming never produced a target distinct from the bootstrap pose")
         if moved <= 1e-5:
-            raise RuntimeError("Franka did not respond to the streamed trajectory")
+            raise RuntimeError("DROID arm did not respond to the streamed trajectory")
+        print(
+            "CAP_PRODUCTION_KIT_GRIPPER_TRANSITION_OK direction=open-close-open "
+            f"closed_rad={gripper.closed_position_rad:.6f} final_rad={gripper.final_position_rad:.6f} "
+            f"close_s={gripper.close_elapsed_s:.6f} open_s={gripper.open_elapsed_s:.6f} "
+            f"arm_command_delta={gripper.maximum_arm_command_delta_rad:.9f} "
+            f"arm_physical_delta={gripper.maximum_arm_physical_delta_rad:.9f}",
+            flush=True,
+        )
         observed_generation = transition.status.active_generation
         print(
             f"CAP_PRODUCTION_KIT_GENERATION_2_DETECTED g1_physics={transition.physics_frames} "

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypeVar
@@ -15,6 +16,16 @@ _Value = TypeVar("_Value")
 
 FR3_ARM_JOINTS = tuple(f"fr3_joint{index}" for index in range(1, 8))
 PANDA_ARM_JOINTS = tuple(f"panda_joint{index}" for index in range(1, 8))
+ROBOTIQ_ABI_JOINT = "robotiq_85_left_knuckle_joint"
+DROID_FINGER_JOINT = "finger_joint"
+DROID_ABI_JOINTS = (*FR3_ARM_JOINTS, ROBOTIQ_ABI_JOINT)
+DROID_SIMULATION_JOINTS = (*PANDA_ARM_JOINTS, DROID_FINGER_JOINT)
+
+DROID_GRIPPER_OPEN_POSITION_RAD = 0.0
+DROID_GRIPPER_CLOSED_POSITION_RAD = math.pi / 4
+# arena_droid_b1 profile value. Until profile assembly lands, the ROS relay
+# configuration must mirror this producer-side endpoint tolerance explicitly.
+DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD = 0.01
 
 
 @dataclass(frozen=True)
@@ -57,13 +68,36 @@ class JointOrderMapping:
         actual = tuple(action_joint_names)
         if actual != self.mapped_simulation_joint_names:
             raise RuntimeError(
-                f"Franka arm action joint order mismatch: expected {self.mapped_simulation_joint_names}, got {actual}"
+                f"DROID action joint order mismatch: expected {self.mapped_simulation_joint_names}, got {actual}"
             )
 
 
-def make_franka_joint_mapping(simulation_joint_names: Sequence[str]) -> JointOrderMapping:
+def make_droid_joint_mapping(simulation_joint_names: Sequence[str]) -> JointOrderMapping:
     return JointOrderMapping.from_names(
-        FR3_ARM_JOINTS,
-        dict(zip(FR3_ARM_JOINTS, PANDA_ARM_JOINTS, strict=True)),
+        DROID_ABI_JOINTS,
+        dict(zip(DROID_ABI_JOINTS, DROID_SIMULATION_JOINTS, strict=True)),
         simulation_joint_names,
+    )
+
+
+def droid_binary_gripper_action(position_rad: float) -> float:
+    """Map a supported virtual-joint endpoint to Arena's binary closedness action."""
+    if not math.isfinite(position_rad):
+        raise ValueError("DROID gripper target must be finite")
+    if (
+        DROID_GRIPPER_OPEN_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        <= position_rad
+        <= DROID_GRIPPER_OPEN_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+    ):
+        return 0.0
+    if (
+        DROID_GRIPPER_CLOSED_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        <= position_rad
+        <= DROID_GRIPPER_CLOSED_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+    ):
+        return 1.0
+    raise ValueError(
+        "DROID gripper target is outside the supported endpoint bands: "
+        f"position={position_rad}, open={DROID_GRIPPER_OPEN_POSITION_RAD}, "
+        f"closed={DROID_GRIPPER_CLOSED_POSITION_RAD}, tolerance={DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD}"
     )

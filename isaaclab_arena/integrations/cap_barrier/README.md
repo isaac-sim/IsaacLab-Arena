@@ -5,19 +5,43 @@ normative ABI remains `cap_backend_arena/protocol.hpp` in `isaac_ros_cap`; the c
 JSON and binary fixtures under `isaaclab_arena/tests/test_data/cap_barrier` are generated
 by its test-only `cap_arena_abi_golden_dump` target.
 
-The original runner remains a deliberately fixed integration smoke. It proves one B=1
-Franka environment at a 200 Hz declared base:
+The original runner remains a deliberately fixed integration smoke. It is designed to prove one
+B=1 DROID environment at a 200 Hz declared base:
 
 1. bootstrap generation 1 with FENCE frames while Kit physics is frozen;
-2. run a short joint-streaming trajectory in lockstep;
-3. stage an Arena reset without a physics step and attach generation 2;
-4. emit the reset fence, resume in hold, and shut down cleanly.
+2. while the arm remains in hold, observe the physical finger move open-to-close-to-open;
+3. run a short joint-streaming trajectory in lockstep;
+4. stage an Arena reset without a physics step and attach generation 2;
+5. emit the reset fence, resume in hold, and shut down cleanly.
+
+Historical Franka smoke results do not transfer to this embodiment. DROID parity must be re-earned
+after the producer revision is pinned, including an observed finger transition so an already-open
+initial state cannot make the gripper path pass vacuously.
+
+The fixed CAP builder removes the Gaussian offset from DROID's generic joint reset while retaining
+the event's deterministic state write. The event reuses a Franka helper which preserves only the
+final two articulation joints; on DROID those are mimic joints, not the commanded `finger_joint`.
+Each generation therefore starts at the deterministic open endpoint rather than an unsupported
+intermediate position.
 
 For each frame, Kit publishes joint state and waits for the matching controller command.
 It keeps the shared phase at `COMMAND_READY` while applying a PHYSICS command and calling
 `env.step()` exactly once. Only after the step returns does it release `AWAIT_STATE`.
 FENCE commands are discarded without calling `env.step()`. This makes `AWAIT_STATE` a
 real simulator-quiescence point for generation changes.
+
+The `arena_droid_b1` joint roster is exactly the seven `fr3_joint*` ABI joints followed by the
+virtual `robotiq_85_left_knuckle_joint`. The producer maps those names to Arena's seven ordered
+`panda_joint*` joints followed by `finger_joint`; it does not rely on articulation indices because
+the DROID USD also contains mimic joints. Slot 7 remains in radians (`0` open, `pi/4` closed) in
+both state and command frames. Arena's action is binary closedness (`0` open, `1` closed), so the
+producer accepts only the two endpoint bands with the `arena_droid_b1` profile tolerance of
+`0.01 rad` and rejects nonfinite or intermediate commands before stepping physics. Until shared
+profile assembly lands, the ROS gripper relay configuration must mirror that tolerance explicitly.
+The smoke brackets each commanded close and open transition with synchronized monotonic timestamps,
+requires physical slot 7 to cross the half-closed position and reach the requested endpoint within
+the declared `2 s` gripper bound, and verifies that both commanded and physical arm slots remain
+within `1e-5 rad` of their held values. Command-frame echo alone cannot satisfy this proof.
 
 The ABI's legacy-named `wait_interrupted` field is the atomic serviceability/reservation word. Its
 layout is unchanged, but the four values and transitions are normative:
@@ -69,8 +93,8 @@ PYTHONPATH=/home/rafael/Projects/arena-cap-barrier \
   isaaclab_arena/scripts/run_cap_barrier_smoke.py --viz none --device cuda:0
 ```
 
-The final markers are `CAP_SMOKE_KIT_DONE` on the Kit side and
-`CAP_SMOKE_ORCHESTRATOR_DONE` on the ROS side.
+The Kit side must emit `CAP_SMOKE_KIT_GRIPPER_TRANSITION_OK` before
+`CAP_SMOKE_KIT_DONE`; the ROS side finishes with `CAP_SMOKE_ORCHESTRATOR_DONE`.
 
 ## Production control-plane smoke
 
@@ -102,8 +126,8 @@ PYTHONPATH="$PWD" \
 ```
 
 In terminal 3, start the typed test client. It waits for Kit-driven bootstrap and the production
-endpoints, then acquires `joint_streaming`, publishes through the validating relay, and invokes the
-real reset action:
+endpoints, drives a guarded close then open gripper operation, releases that lease, then acquires
+`joint_streaming`, publishes through the validating relay, and invokes the real reset action:
 
 ```bash
 docker exec -it -u admin isaac_ros_dev_container bash -lc \
@@ -115,10 +139,11 @@ docker exec -it -u admin isaac_ros_dev_container bash -lc \
 
 After the generation-1 bootstrap fence, Kit samples the owner generation and consumer-serviceability
 latch before every next PHYSICS publication. It stops generation-1 publication as soon as the reset
-becomes observable, waits for exact generation 2, resets Franka without advancing physics, attaches
+becomes observable, waits for exact generation 2, resets DROID without advancing physics, attaches
 only after the sidecar is serviceable, and emits the generation-2 fence. The
 `CAP_PRODUCTION_KIT_GENERATION_2_DETECTED` marker includes the actual generation-1 physics count.
 After the client and Kit markers appear, send Ctrl-C to terminal 1. Success requires
+`CAP_PRODUCTION_CLIENT_GRIPPER_TRANSITION_OK`, `CAP_PRODUCTION_KIT_GRIPPER_TRANSITION_OK`,
 `CAP_PRODUCTION_CLIENT_RESET_ACTION_OK`, `CAP_PRODUCTION_KIT_DONE`, and a clean control-plane
 shutdown.
 
@@ -127,6 +152,7 @@ shutdown.
 - The fixed controller timing roster is smoke data, not a CR-21 roster/discovery answer.
 - `applied_torque` is carried as smoke-level effort data; real/sim World State effort
   parity remains open.
-- Nonfinite commands and safety fallback composition remain CR-22 work.
+- Arm-command finite-value policy and safety fallback composition remain CR-22 work; the DROID
+  gripper endpoint is already finite and discrete at this producer boundary.
 - The production control plane owns reset admission and fence closure; the Kit producer remains
   ROS-free and observes only the CR-05 shared-memory contract.

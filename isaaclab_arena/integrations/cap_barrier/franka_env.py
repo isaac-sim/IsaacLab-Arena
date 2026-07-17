@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Minimal B=1 Franka Arena environment for the CAP barrier smoke.
+"""Minimal B=1 DROID Arena environment for the CAP barrier smoke.
 
 Import this module only after ``SimulationApp`` has started. Its construction path
 uses Arena's normal scene/embodiment builder rather than a standalone Isaac Lab task.
@@ -11,10 +11,26 @@ uses Arena's normal scene/embodiment builder rather than a standalone Isaac Lab 
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from typing import Any
 
-from .joint_mapping import PANDA_ARM_JOINTS, make_franka_joint_mapping
+from .joint_mapping import PANDA_ARM_JOINTS, droid_binary_gripper_action, make_droid_joint_mapping
+
+
+def _configure_cap_droid_embodiment(embodiment: Any) -> None:
+    # The reused Franka reset helper preserves only the final two articulation joints,
+    # which are mimic joints on DROID rather than the commanded finger joint. This fixed
+    # profile retains the state-writing reset event but removes its Gaussian offset.
+    joint_reset = embodiment.event_config.randomize_franka_joint_state
+    joint_reset.params["mean"] = 0.0
+    joint_reset.params["std"] = 0.0
+    arm_action = embodiment.action_config.arm_action
+    arm_action.joint_names = list(PANDA_ARM_JOINTS)
+    arm_action.preserve_order = True
+    arm_action.scale = 1.0
+    arm_action.offset = 0.0
+    arm_action.use_default_offset = False
 
 
 class FrankaSimulationAdapter:
@@ -30,20 +46,22 @@ class FrankaSimulationAdapter:
             raise RuntimeError(f"CAP barrier smoke requires B=1, got {self._unwrapped.num_envs}")
         self._robot = self._unwrapped.scene["robot"]
         self._joint_names = tuple(self._robot.joint_names)
-        self.joint_mapping = make_franka_joint_mapping(self._joint_names)
+        self.joint_mapping = make_droid_joint_mapping(self._joint_names)
 
         action_manager = self._unwrapped.action_manager
         active_terms = tuple(action_manager.active_terms)
         term_dimensions = tuple(action_manager.action_term_dim)
         if active_terms != ("arm_action", "gripper_action") or term_dimensions != (7, 1):
             raise RuntimeError(
-                "CAP Franka profile requires action terms arm_action[7], gripper_action[1], "
+                "CAP DROID profile requires action terms arm_action[7], gripper_action[1], "
                 f"got {list(zip(active_terms, term_dimensions, strict=True))}"
             )
         arm_term = action_manager.get_term("arm_action")
-        self.joint_mapping.assert_action_order(arm_term._joint_names)
+        gripper_term = action_manager.get_term("gripper_action")
+        self.joint_mapping.assert_action_order((*arm_term._joint_names, *gripper_term._joint_names))
         self._arm_slice = slice(0, 7)
         self._gripper_slice = slice(7, 8)
+        self.last_physics_step_started_at_s: float | None = None
         self.physics_step_count = 0
         self.reset_count = 0
 
@@ -64,23 +82,37 @@ class FrankaSimulationAdapter:
         return position, velocity, effort
 
     def arm_positions(self) -> tuple[float, ...]:
+        return self.abi_positions()[:7]
+
+    def gripper_position(self) -> float:
+        return self.abi_positions()[7]
+
+    def abi_positions(self) -> tuple[float, ...]:
         positions, _, _ = self.read_joint_state()
         return self.joint_mapping.to_abi_order(positions)
 
+    def synchronize(self) -> None:
+        device = self._torch.device(self._unwrapped.device)
+        if device.type == "cuda":
+            self._torch.cuda.synchronize(device)
+
     def step_position_targets(self, positions_in_abi_order: Sequence[float]) -> None:
-        if len(positions_in_abi_order) != 7:
-            raise ValueError(f"expected seven Franka arm targets, got {len(positions_in_abi_order)}")
+        if len(positions_in_abi_order) != 8:
+            raise ValueError(f"expected eight DROID targets, got {len(positions_in_abi_order)}")
+        gripper_action = droid_binary_gripper_action(float(positions_in_abi_order[7]))
         action = self._torch.zeros(
             (1, self._unwrapped.action_manager.total_action_dim),
             device=self._unwrapped.device,
             dtype=self._as_tensor(self._robot.data.joint_pos).dtype,
         )
         action[:, self._arm_slice] = self._torch.as_tensor(
-            positions_in_abi_order,
+            positions_in_abi_order[:7],
             device=self._unwrapped.device,
             dtype=action.dtype,
         )
-        action[:, self._gripper_slice] = 1.0
+        action[:, self._gripper_slice] = gripper_action
+        self.synchronize()
+        self.last_physics_step_started_at_s = time.monotonic()
         self._environment.step(action)
         self.physics_step_count += 1
 
@@ -104,13 +136,8 @@ def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAd
     from isaaclab_arena.tasks.no_task import NoTask
 
     registry = AssetRegistry()
-    embodiment = registry.get_asset_by_name("franka_joint_pos")()
-    arm_action = embodiment.action_config.arm_action
-    arm_action.joint_names = list(PANDA_ARM_JOINTS)
-    arm_action.preserve_order = True
-    arm_action.scale = 1.0
-    arm_action.offset = 0.0
-    arm_action.use_default_offset = False
+    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")()
+    _configure_cap_droid_embodiment(embodiment)
 
     ground_plane = registry.get_asset_by_name("ground_plane")()
     light = registry.get_asset_by_name("light")()
@@ -122,7 +149,7 @@ def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAd
         return cfg
 
     description = IsaacLabArenaEnvironment(
-        name="CAP-Barrier-Franka-B1-v0",
+        name="CAP-Barrier-DROID-B1-v0",
         scene=scene,
         embodiment=embodiment,
         task=NoTask(),
