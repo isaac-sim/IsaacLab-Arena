@@ -25,7 +25,9 @@ from .shared_memory import BarrierInterrupted, BarrierStatus
 DROID_GRIPPER_TRANSITION_TIMEOUT_S = 2.0
 DROID_GRIPPER_HALF_CLOSED_POSITION_RAD = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
 DROID_GRIPPER_SMOKE_ARM_COMMAND_TOLERANCE_RAD = 0.0
-DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD = 1e-4
+DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD = 0.00016736984252929688
+DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD = 2.0 * DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD
+DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD = 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class DroidGripperTransitionProof:
         endpoint_tolerance_rad: float = DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
         arm_command_tolerance_rad: float = DROID_GRIPPER_SMOKE_ARM_COMMAND_TOLERANCE_RAD,
         arm_physical_tolerance_rad: float = DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
+        arm_physical_drift_trigger_rad: float = DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD,
     ):
         initial = self._validated_positions(initial_positions, "initial physical state")
         if transition_timeout_s <= 0 or not math.isfinite(transition_timeout_s):
@@ -70,6 +73,10 @@ class DroidGripperTransitionProof:
             raise ValueError("gripper smoke arm command tolerance must be finite and nonnegative")
         if arm_physical_tolerance_rad < 0 or not math.isfinite(arm_physical_tolerance_rad):
             raise ValueError("gripper smoke arm physical tolerance must be finite and nonnegative")
+        if arm_physical_drift_trigger_rad < 0 or not math.isfinite(arm_physical_drift_trigger_rad):
+            raise ValueError("gripper smoke arm physical drift trigger must be finite and nonnegative")
+        if arm_physical_drift_trigger_rad > arm_physical_tolerance_rad:
+            raise ValueError("gripper smoke arm physical drift trigger must not exceed the physical tolerance")
         if not self._within_endpoint(initial[7], DROID_GRIPPER_OPEN_POSITION_RAD, endpoint_tolerance_rad):
             raise RuntimeError(
                 "DROID gripper transition proof must start physically open: "
@@ -81,6 +88,7 @@ class DroidGripperTransitionProof:
         self._endpoint_tolerance_rad = endpoint_tolerance_rad
         self._arm_command_tolerance_rad = arm_command_tolerance_rad
         self._arm_physical_tolerance_rad = arm_physical_tolerance_rad
+        self._arm_physical_drift_trigger_rad = arm_physical_drift_trigger_rad
         self._phase = "await_close"
         self._close_started_at_s: float | None = None
         self._open_started_at_s: float | None = None
@@ -132,22 +140,32 @@ class DroidGripperTransitionProof:
             self._maximum_arm_physical_delta_sample = self._arm_observation_count
             self._maximum_arm_physical_delta_phase = transition_phase
         if command_delta > self._arm_command_tolerance_rad:
-            self._raise_arm_movement()
+            self._raise_arm_failure("command isolation failure")
 
-    def _raise_arm_movement(self) -> None:
+    def _raise_arm_failure(self, classification: str, remedy: str | None = None) -> None:
+        failure = f"DROID arm {classification} during the gripper transition proof"
+        if remedy is not None:
+            failure = f"{failure}: {remedy}"
         raise RuntimeError(
-            "DROID arm moved during the gripper transition proof: "
+            f"{failure}: "
             f"command_delta={self._maximum_arm_command_delta_rad}, "
             f"command_tolerance={self._arm_command_tolerance_rad}, "
             f"physical_delta={self._maximum_arm_physical_delta_rad}, "
-            f"physical_tolerance={self._arm_physical_tolerance_rad}, "
+            f"physical_drift_trigger={self._arm_physical_drift_trigger_rad}, "
+            f"physical_hard_limit={self._arm_physical_tolerance_rad}, "
             f"physical_peak_sample={self._maximum_arm_physical_delta_sample}, "
             f"physical_peak_phase={self._maximum_arm_physical_delta_phase}"
         )
 
     def _validate_physical_arm_reaction(self) -> None:
         if self._maximum_arm_physical_delta_rad > self._arm_physical_tolerance_rad:
-            self._raise_arm_movement()
+            self._raise_arm_failure("physical isolation failure")
+        if self._maximum_arm_physical_delta_rad > self._arm_physical_drift_trigger_rad:
+            self._raise_arm_failure(
+                "physical calibration drift",
+                "new maximum exceeds calibrated envelope - if config unchanged, extend calibration with additional runs"
+                " and adopt the new max; if config changed, full recalibration per config-scope rule",
+            )
 
     def _arm_transition_phase(self, command_closedness: float) -> str:
         if self._phase == "await_close":

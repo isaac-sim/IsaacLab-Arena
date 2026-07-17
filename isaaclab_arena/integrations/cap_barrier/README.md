@@ -41,15 +41,26 @@ profile assembly lands, the ROS gripper relay configuration must mirror that tol
 The smoke brackets each commanded close and open transition with synchronized monotonic timestamps,
 requires physical slot 7 to cross the half-closed position and reach the requested endpoint within
 the declared `2 s` gripper bound. Commanded arm slots must remain exactly at their held values; the
-physical arm reaction is accumulated across the complete open-close-open transition before the
-provisional `1e-4 rad` diagnostic bound is evaluated. Earlier 2026-07-17 runs on the pinned
-`arena_droid_b1` scene with the real `robotiq_gripper_controller` stopped once at `2.82e-5 rad`
-(`1e-5` bound), then stopped five times at the bit-identical `1.003742218e-4 rad` crossing (`1e-4`
-bound). Those fail-fast values are censored and are not calibration maxima; the five identical
-crossings establish determinism only for this fixed scene, seed, and physics configuration. The
-final config-scoped tolerance requires at least five full-transition maxima. A scene, embodiment,
-or physics configuration change invalidates that calibration, and any later observation above half
-the final tolerance requires recalibration. Command-frame echo alone cannot satisfy this proof.
+physical arm reaction is accumulated across the complete open-close-open transition. The calibrated
+envelope is `0.00016736984252929688 rad` (`0.00959 deg`), and the hard physical-isolation limit is
+exactly twice it, `0.00033473968505859375 rad` (`0.01918 deg`). A peak at or below the envelope
+passes; a peak above the envelope through the hard limit is calibration drift; and a peak above the
+hard limit is a physical-isolation failure. Command-frame echo alone cannot satisfy this proof.
+
+The envelope comes from ten uncensored full-transition GPU runs on 2026-07-17 at producer commit
+`9c89f96ff39777ab2f0c0ba73b2048fdd8e7ce31`, using `arena_droid_b1`,
+`CAP-Barrier-DROID-B1-v0`, `droid_abs_joint_pos`, the real `robotiq_gripper_controller`,
+`sim.dt=0.005`, `decimation=1`, `num_envs=1`, Isaac Sim `6.0.0.1`, Isaac Lab `3.0.0b2`, and
+`cuda:0` float32 execution on an NVIDIA GeForce RTX 4090 with driver `580.159.04`. Their maxima
+formed three observed float32 levels:
+`0.0001494884490966797 rad` in six runs,
+`0.0001621246337890625 rad` in two, and `0.00016736984252929688 rad` in two. Command delta was zero
+in every run; every physical maximum occurred while reopening, at samples 182 through 360. The
+histogram does not prove that a fourth level is impossible, so any new maximum above the envelope
+deliberately fails. With unchanged configuration, extend the calibration and adopt the new maximum.
+Changes to source or dependency pins, scene, embodiment, controller or gains, simulator or physics
+settings, device or dtype, hardware, timing, or producer measurement invalidate this calibration and
+require the complete config-scoped calibration again.
 
 The ABI's legacy-named `wait_interrupted` field is the atomic serviceability/reservation word. Its
 layout is unchanged, but the four values and transitions are normative:

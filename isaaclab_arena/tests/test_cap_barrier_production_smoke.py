@@ -6,13 +6,16 @@
 from __future__ import annotations
 
 import math
+import struct
 
 import pytest
 
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import DROID_GRIPPER_CLOSED_POSITION_RAD
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import FrameResult
 from isaaclab_arena.integrations.cap_barrier.production_smoke import (
+    DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD,
     DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
+    DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD,
     DroidGripperTransitionProof,
     run_physics_until_generation_transition,
 )
@@ -140,6 +143,44 @@ def _physical(gripper_position: float, arm_position: float = 0.0) -> tuple[float
     return (*([arm_position] * 7), gripper_position)
 
 
+def _next_float32(value: float) -> float:
+    bits = struct.unpack("<I", struct.pack("<f", value))[0]
+    return struct.unpack("<f", struct.pack("<I", bits + 1))[0]
+
+
+def test_gripper_transition_arm_reaction_thresholds_are_derived_from_calibration() -> None:
+    assert DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD == 0.00016736984252929688
+    assert DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD == DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD
+    assert DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD == 2.0 * DROID_GRIPPER_SMOKE_CALIBRATED_ARM_PHYSICAL_MAX_RAD
+    assert _next_float32(DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD) == 0.0001673698570812121
+    assert _next_float32(DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD) == 0.0003347397141624242
+
+
+def _observe_gripper_transition_before_final_open(
+    proof: DroidGripperTransitionProof,
+    arm_physical_peak_rad: float,
+) -> None:
+    half_closed = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
+    proof.observe(
+        _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD),
+        _physical(half_closed + 0.01),
+        step_started_at_s=1.0,
+        observed_at_s=1.1,
+    )
+    proof.observe(
+        _droid_frame(1, DROID_GRIPPER_CLOSED_POSITION_RAD),
+        _physical(DROID_GRIPPER_CLOSED_POSITION_RAD - 0.005),
+        step_started_at_s=1.2,
+        observed_at_s=1.4,
+    )
+    proof.observe(
+        _droid_frame(2, 0.0),
+        _physical(half_closed - 0.01, arm_physical_peak_rad),
+        step_started_at_s=1.6,
+        observed_at_s=1.8,
+    )
+
+
 def test_gripper_transition_proof_observes_bounded_physical_open_close_open() -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
     half_closed = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
@@ -153,7 +194,7 @@ def test_gripper_transition_proof_observes_bounded_physical_open_close_open() ->
     )
     proof.observe(
         _droid_frame(2, DROID_GRIPPER_CLOSED_POSITION_RAD),
-        _physical(half_closed + 0.01, 0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD),
+        _physical(half_closed + 0.01),
         step_started_at_s=1.2,
         observed_at_s=1.5,
     )
@@ -171,7 +212,7 @@ def test_gripper_transition_proof_observes_bounded_physical_open_close_open() ->
     )
     proof.observe(
         _droid_frame(5, 0.0),
-        _physical(half_closed - 0.01),
+        _physical(half_closed - 0.01, DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD),
         step_started_at_s=2.2,
         observed_at_s=2.5,
     )
@@ -188,9 +229,7 @@ def test_gripper_transition_proof_observes_bounded_physical_open_close_open() ->
     assert observation.closed_position_rad == pytest.approx(DROID_GRIPPER_CLOSED_POSITION_RAD - 0.005)
     assert observation.final_position_rad == pytest.approx(0.005)
     assert observation.maximum_arm_command_delta_rad == 0.0
-    assert observation.maximum_arm_physical_delta_rad == pytest.approx(
-        0.5 * DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD
-    )
+    assert observation.maximum_arm_physical_delta_rad == DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD
 
 
 def test_gripper_transition_proof_rejects_command_echo_without_physical_motion() -> None:
@@ -210,29 +249,17 @@ def test_gripper_transition_proof_rejects_command_echo_without_physical_motion()
         )
 
 
-def test_gripper_transition_proof_defers_physical_drift_until_transition_completion() -> None:
+@pytest.mark.parametrize(
+    "drift",
+    [
+        _next_float32(DROID_GRIPPER_SMOKE_ARM_PHYSICAL_DRIFT_TRIGGER_RAD),
+        DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD,
+    ],
+)
+def test_gripper_transition_proof_defers_calibration_drift_until_transition_completion(drift: float) -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
-    half_closed = 0.5 * DROID_GRIPPER_CLOSED_POSITION_RAD
-
-    proof.observe(
-        _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD),
-        _physical(half_closed + 0.01, 2e-4),
-        step_started_at_s=1.0,
-        observed_at_s=1.1,
-    )
-    proof.observe(
-        _droid_frame(1, DROID_GRIPPER_CLOSED_POSITION_RAD),
-        _physical(DROID_GRIPPER_CLOSED_POSITION_RAD - 0.005, 1e-4),
-        step_started_at_s=1.2,
-        observed_at_s=1.4,
-    )
-    proof.observe(
-        _droid_frame(2, 0.0),
-        _physical(half_closed - 0.01, 0.0),
-        step_started_at_s=1.6,
-        observed_at_s=1.8,
-    )
-    with pytest.raises(RuntimeError, match="arm moved") as error:
+    _observe_gripper_transition_before_final_open(proof, drift)
+    with pytest.raises(RuntimeError, match="physical calibration drift") as error:
         proof.observe(
             _droid_frame(3, 0.0),
             _physical(0.005, 0.0),
@@ -241,14 +268,34 @@ def test_gripper_transition_proof_defers_physical_drift_until_transition_complet
         )
 
     assert "command_delta=0.0" in str(error.value)
-    assert "physical_delta=0.0002" in str(error.value)
-    assert "physical_peak_sample=1" in str(error.value)
-    assert "physical_peak_phase=closing" in str(error.value)
+    assert f"physical_delta={drift}" in str(error.value)
+    assert "new maximum exceeds calibrated envelope" in str(error.value)
+    assert "extend calibration with additional runs and adopt the new max" in str(error.value)
+    assert "full recalibration per config-scope rule" in str(error.value)
+    assert "physical_peak_sample=3" in str(error.value)
+    assert "physical_peak_phase=reopening" in str(error.value)
+
+
+def test_gripper_transition_proof_distinguishes_physical_isolation_failure() -> None:
+    proof = DroidGripperTransitionProof(_physical(0.0))
+    physical_delta = _next_float32(DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD)
+    _observe_gripper_transition_before_final_open(proof, physical_delta)
+    with pytest.raises(RuntimeError, match="physical isolation failure") as error:
+        proof.observe(
+            _droid_frame(3, 0.0),
+            _physical(0.005),
+            step_started_at_s=2.0,
+            observed_at_s=2.2,
+        )
+
+    assert f"physical_delta={physical_delta}" in str(error.value)
+    assert "calibration drift" not in str(error.value)
+    assert "physical_peak_phase=reopening" in str(error.value)
 
 
 def test_gripper_transition_proof_rejects_nonzero_arm_command_immediately() -> None:
     proof = DroidGripperTransitionProof(_physical(0.0))
-    with pytest.raises(RuntimeError, match="arm moved") as error:
+    with pytest.raises(RuntimeError, match="command isolation failure") as error:
         proof.observe(
             _droid_frame(0, DROID_GRIPPER_CLOSED_POSITION_RAD, 1e-12),
             _physical(0.1, 0.0),
@@ -257,17 +304,29 @@ def test_gripper_transition_proof_rejects_nonzero_arm_command_immediately() -> N
         )
     assert "command_delta=1e-12" in str(error.value)
     assert "command_tolerance=0.0" in str(error.value)
-    assert f"physical_tolerance={DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD}" in str(error.value)
+    assert f"physical_hard_limit={DROID_GRIPPER_SMOKE_ARM_PHYSICAL_TOLERANCE_RAD}" in str(error.value)
 
 
 @pytest.mark.parametrize(
     "tolerance",
     [-1.0, float("nan"), float("inf")],
 )
-@pytest.mark.parametrize("parameter", ["arm_command_tolerance_rad", "arm_physical_tolerance_rad"])
+@pytest.mark.parametrize(
+    "parameter",
+    ["arm_command_tolerance_rad", "arm_physical_tolerance_rad", "arm_physical_drift_trigger_rad"],
+)
 def test_gripper_transition_proof_rejects_invalid_arm_tolerances(parameter: str, tolerance: float) -> None:
-    with pytest.raises(ValueError, match="arm .* tolerance"):
+    with pytest.raises(ValueError, match="arm .*"):
         DroidGripperTransitionProof(_physical(0.0), **{parameter: tolerance})
+
+
+def test_gripper_transition_proof_rejects_drift_trigger_above_physical_tolerance() -> None:
+    with pytest.raises(ValueError, match="drift trigger must not exceed"):
+        DroidGripperTransitionProof(
+            _physical(0.0),
+            arm_physical_drift_trigger_rad=2.0,
+            arm_physical_tolerance_rad=1.0,
+        )
 
 
 @pytest.mark.parametrize("initial", [0.1, float("nan"), float("inf")])
