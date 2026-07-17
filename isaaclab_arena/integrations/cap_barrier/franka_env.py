@@ -18,7 +18,7 @@ from typing import Any
 from .joint_mapping import PANDA_ARM_JOINTS, droid_binary_gripper_action, make_droid_joint_mapping
 
 
-def _configure_cap_droid_embodiment(embodiment: Any) -> None:
+def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any) -> None:
     # The reused Franka reset helper preserves only the final two articulation joints,
     # which are mimic joints on DROID rather than the commanded finger joint. This fixed
     # profile retains the state-writing reset event but removes its Gaussian offset.
@@ -31,6 +31,7 @@ def _configure_cap_droid_embodiment(embodiment: Any) -> None:
     arm_action.scale = 1.0
     arm_action.offset = 0.0
     arm_action.use_default_offset = False
+    embodiment.scene_config.stand.spawn = stand_spawn
 
 
 class FrankaSimulationAdapter:
@@ -128,6 +129,8 @@ class FrankaSimulationAdapter:
 
 def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAdapter:
     """Build the fixed arena_droid_b1 smoke profile after Kit startup."""
+    import isaaclab.sim as sim_utils
+
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -137,7 +140,11 @@ def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAd
 
     registry = AssetRegistry()
     embodiment = registry.get_asset_by_name("droid_abs_joint_pos")()
-    _configure_cap_droid_embodiment(embodiment)
+    # The DROID stand is not hosted on the public S3 Nucleus. Retain its scene
+    # entry because the embodiment updates its pose, but replace the unavailable
+    # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
+    stand_spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
+    _configure_cap_droid_embodiment(embodiment, stand_spawn=stand_spawn)
 
     ground_plane = registry.get_asset_by_name("ground_plane")()
     light = registry.get_asset_by_name("light")()

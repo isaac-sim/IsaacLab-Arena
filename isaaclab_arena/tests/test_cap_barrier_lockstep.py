@@ -239,18 +239,23 @@ class _FakeActionManager:
         raise KeyError(name)
 
 
-def test_cap_droid_profile_disables_intermediate_joint_reset_randomization() -> None:
+def test_cap_droid_profile_replaces_stand_and_disables_intermediate_joint_reset_randomization() -> None:
     arm_action = SimpleNamespace()
     joint_reset = SimpleNamespace(params={"mean": 1.0, "std": 0.02})
+    original_stand_spawn = object()
+    stand_spawn = object()
     embodiment = SimpleNamespace(
         action_config=SimpleNamespace(arm_action=arm_action),
         event_config=SimpleNamespace(randomize_franka_joint_state=joint_reset),
+        scene_config=SimpleNamespace(stand=SimpleNamespace(spawn=original_stand_spawn)),
     )
 
-    _configure_cap_droid_embodiment(embodiment)
+    _configure_cap_droid_embodiment(embodiment, stand_spawn=stand_spawn)
 
     assert embodiment.event_config.randomize_franka_joint_state is joint_reset
     assert joint_reset.params == {"mean": 0.0, "std": 0.0}
+    assert embodiment.scene_config.stand.spawn is stand_spawn
+    assert embodiment.scene_config.stand.spawn is not original_stand_spawn
     assert arm_action.joint_names == list(PANDA_ARM_JOINTS)
     assert arm_action.preserve_order is True
     assert arm_action.scale == 1.0
