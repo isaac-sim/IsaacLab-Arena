@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
 # ===========================================================================================
@@ -15,6 +16,11 @@ from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 # ===========================================================================================
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+# Match Arena Franka embodiments: stock panda_instanceable.usd is missing from the Isaac 6.0
+# staging asset root, and the stand-combined USD is what ObjectPlacementSolver expects.
+FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = (
+    f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+)
 
 # Enable contact sensors for assembly tasks
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.activate_contact_sensors = True
