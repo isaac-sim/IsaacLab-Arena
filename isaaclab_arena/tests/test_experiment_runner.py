@@ -6,6 +6,7 @@
 import json
 import os
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,103 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, r
 HEADLESS = True
 NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
+
+
+class _FakeMetricsLogger:
+    def append_job_metrics(self, _job_name, _metrics):
+        raise AssertionError("the minimal test run must not produce metrics")
+
+    def print_metrics(self):
+        pass
+
+
+def _patch_minimal_experiment_run(monkeypatch, tmp_path, events, *, chunk_size=None):
+    from isaaclab_arena.evaluation import experiment_runner
+
+    args_cli = SimpleNamespace(
+        experiment_config=str(tmp_path / "experiment.yaml"),
+        record_camera_video=False,
+        record_viewport_video=False,
+        enable_cameras=False,
+        list_variations=False,
+        chunk_size=chunk_size,
+        output_base_dir=str(tmp_path / "output"),
+        device="cpu",
+        continue_on_error=False,
+        serve_evaluation_report=False,
+        evaluation_report_port=0,
+    )
+
+    class FakeSimulationAppContext:
+        def __init__(self, _args_cli):
+            pass
+
+        def __enter__(self):
+            events.append("simulation_enter")
+
+        def __exit__(self, _exc_type, _exc, _traceback):
+            events.append("simulation_exit")
+
+    experiment_cfg = SimpleNamespace(runs={})
+    monkeypatch.setattr(experiment_runner, "parse_experiment_runner_args", lambda: (args_cli, []))
+    monkeypatch.setattr(
+        experiment_runner,
+        "validate_experiment_config_path",
+        lambda _path: tmp_path / "experiment.yaml",
+    )
+    monkeypatch.setattr(
+        experiment_runner,
+        "load_legacy_json_experiment_config",
+        lambda _path, _overrides: {"jobs": []} if chunk_size is not None else None,
+    )
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", FakeSimulationAppContext)
+
+    def load_config(_path, *, device, overrides):
+        assert device == "cpu"
+        assert overrides == []
+        events.append("load_config")
+        return experiment_cfg
+
+    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_config)
+    monkeypatch.setattr(experiment_runner, "MetricsLogger", _FakeMetricsLogger)
+    monkeypatch.setattr(experiment_runner, "build_runs_info_table", lambda _runs, _results: "runs")
+    monkeypatch.setattr(experiment_runner, "timestamped_run_dir", lambda base_dir: base_dir)
+
+    def execute(_cfg, **_kwargs):
+        events.append("execute")
+        return []
+
+    monkeypatch.setattr(experiment_runner, "execute_experiment", execute)
+    monkeypatch.setattr(experiment_runner, "build_report", lambda output_dir: output_dir / "report.html")
+    return experiment_runner
+
+
+def test_runtime_initializer_runs_after_simulation_start_before_config_load(monkeypatch, tmp_path):
+    events = []
+    experiment_runner = _patch_minimal_experiment_run(monkeypatch, tmp_path, events)
+
+    experiment_runner.main(runtime_initializer=lambda: events.append("initialize"))
+
+    assert events == ["simulation_enter", "initialize", "load_config", "execute", "simulation_exit"]
+
+
+def test_experiment_runner_default_does_not_require_runtime_initializer(monkeypatch, tmp_path):
+    events = []
+    experiment_runner = _patch_minimal_experiment_run(monkeypatch, tmp_path, events)
+
+    experiment_runner.main()
+
+    assert events == ["simulation_enter", "load_config", "execute", "simulation_exit"]
+
+
+def test_runtime_initializer_rejects_chunked_dispatch(monkeypatch, tmp_path):
+    events = []
+    experiment_runner = _patch_minimal_experiment_run(monkeypatch, tmp_path, events, chunk_size=1)
+
+    with pytest.raises(ValueError, match="runtime initializer.*chunk_size"):
+        experiment_runner.main(runtime_initializer=lambda: None)
+
+    assert events == []
 
 
 def test_experiment_runner_parses_native_hydra_overrides():
