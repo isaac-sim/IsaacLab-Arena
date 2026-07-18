@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
-    from isaaclab_arena.relations.placement_validation import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PlacementValidator
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
 

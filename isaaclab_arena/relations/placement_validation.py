@@ -5,16 +5,8 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, ClassVar
-
-if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.relations.collision_object import CollisionObject
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlacementCheck(StrEnum):

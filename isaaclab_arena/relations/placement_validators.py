@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import torch
 import trimesh
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.assets.register import register_validator
 from isaaclab_arena.assets.registries import PlacementValidatorRegistry

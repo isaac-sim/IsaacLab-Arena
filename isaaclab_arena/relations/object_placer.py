@@ -35,7 +35,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_f
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
-    from isaaclab_arena.relations.placement_validation import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
 @dataclass
