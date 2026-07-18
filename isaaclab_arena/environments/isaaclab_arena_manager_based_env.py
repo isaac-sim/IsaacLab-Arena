@@ -107,6 +107,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if self._first_reset:
             self._first_reset = False
             super()._reset_idx(env_ids)
+            self.episode_recorder_manager.record_post_reset(env_ids)
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
@@ -115,6 +116,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
         super()._reset_idx(env_ids)
+        self.episode_recorder_manager.record_post_reset(env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

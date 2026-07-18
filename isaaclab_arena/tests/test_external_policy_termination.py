@@ -80,6 +80,9 @@ def _test_external_policy_termination_contract(_simulation_app):
         def record_pre_reset(self, env_ids):
             events.append(("record", reset_env._external_policy_termination_buf.clone()))
 
+        def record_post_reset(self, _env_ids):
+            pass
+
     reset_env.episode_recorder_manager = Recorder()
     original_reset = IsaacLabArenaManagerBasedRLEnv.__mro__[1]._reset_idx
     try:
