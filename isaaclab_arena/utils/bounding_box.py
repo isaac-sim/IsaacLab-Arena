@@ -305,6 +305,23 @@ class AxisAlignedBoundingBox:
             max_point=torch.stack([new_max_x, new_max_y, max_z], dim=1),
         )
 
+    def rotated_by_quat(self, rotation_xyzw: tuple[float, float, float, float]) -> "AxisAlignedBoundingBox":
+        """Refit to the axis-aligned box enclosing this box rotated about its origin by a quaternion.
+
+        Unlike rotated_around_z this handles roll/pitch, so a tilted object gets a footprint that
+        reflects its true extent. The result is the tight AABB of the 8 rotated corners.
+
+        Args:
+            rotation_xyzw: Rotation quaternion as (x, y, z, w).
+        """
+        # Rotate the 8 object-frame corners by the quaternion, then take their min/max as the new box.
+        corners = self.get_corners_at()  # (N, 8, 3)
+        qx, qy, qz, qw = rotation_xyzw
+        axis = torch.tensor([qx, qy, qz], dtype=corners.dtype, device=corners.device).view(1, 1, 3).expand_as(corners)
+        axis_cross = torch.linalg.cross(axis, corners, dim=-1)
+        rotated = corners + 2.0 * qw * axis_cross + 2.0 * torch.linalg.cross(axis, axis_cross, dim=-1)
+        return AxisAlignedBoundingBox(min_point=rotated.amin(dim=1), max_point=rotated.amax(dim=1))
+
 
 def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.

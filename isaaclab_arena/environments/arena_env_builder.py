@@ -87,14 +87,16 @@ class ArenaEnvBuilder:
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
 
+        # The env may supply placer_params carrying its build-time check policy.
         placer_params = self.arena_env.placer_params
         if placer_params is None:
             placer_params = ObjectPlacerParams(
-                placement_seed=self.cfg.placement_seed,
                 solver_params=RelationSolverParams(verbose=False, save_position_history=False),
             )
-            if self.cfg.resolve_on_reset is not None:
-                placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+        if self.cfg.placement_seed is not None:
+            placer_params.placement_seed = self.cfg.placement_seed
+        if self.cfg.resolve_on_reset is not None:
+            placer_params.resolve_on_reset = self.cfg.resolve_on_reset
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,

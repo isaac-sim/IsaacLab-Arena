@@ -12,6 +12,10 @@ from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObje
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -42,6 +46,20 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
+        placer_params=build_placer_params(graph_spec),
+    )
+
+
+def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
+    """Build placement params defining what checks to run during layout validation for this env."""
+    placement = graph_spec.placement
+    enabled = placement.enabled_checks if placement is not None else None
+    required = placement.required_checks if placement is not None else None
+
+    return ObjectPlacerParams(
+        enabled_checks=set(enabled) if enabled is not None else None,
+        required_checks=set(required) if required is not None else None,
+        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
 
 

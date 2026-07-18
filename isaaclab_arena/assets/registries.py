@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.relations.placement_validation import PlacementValidator
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -342,8 +343,25 @@ class TaskRegistry(Registry):
         return self.get_component_by_name(name)
 
 
+class PlacementValidatorRegistry(Registry):
+    """Registry for PlacementValidator subclasses, keyed by the check name they report."""
+
+    def __init__(self):
+        super().__init__()
+
+    def get_validator_by_name(self, check: str) -> type["PlacementValidator"]:
+        """Gets a placement validator class by the check name it reports.
+
+        Args:
+            check: The placement check name whose validator class to fetch.
+        """
+        return self.get_component_by_name(check)
+
+
 # Registries populated lazily by ensure_assets_registered(). EnvironmentRegistry is
 # excluded: triggering the cascade during env registration causes an env<->tasks cycle.
+# PlacementValidatorRegistry is excluded: it self-populates when placement_validators is
+# imported (always before any build_validators() lookup) and needs no asset cascade.
 REGISTRIES = (
     AssetRegistry,
     DeviceRegistry,

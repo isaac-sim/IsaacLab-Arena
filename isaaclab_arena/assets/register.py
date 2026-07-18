@@ -12,6 +12,7 @@ from isaaclab_arena.assets.registries import (
     EnvironmentRegistry,
     HDRImageRegistry,
     ObjectRelationLibraryRegistry,
+    PlacementValidatorRegistry,
     PolicyRegistry,
     RetargeterRegistry,
     TaskRegistry,
@@ -105,6 +106,17 @@ def register_task(cls):
 def agent_ready(cls):
     """Mark a task class as available to the environment-generation agent."""
     cls.agent_ready = True
+    return cls
+
+
+# Decorator to register a PlacementValidator subclass with the PlacementValidatorRegistry.
+# Keyed by `cls.check` (the PlacementCheck it reports) so build_validators() can resolve it.
+def register_validator(cls):
+    registry = PlacementValidatorRegistry()
+    if registry.is_registered(cls.check, ensure_loaded=False):
+        print(f"WARNING: Placement validator for {cls.check} is already registered. Doing nothing.")
+    else:
+        registry.register(cls, cls.check)
     return cls
 
 

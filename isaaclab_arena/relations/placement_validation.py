@@ -5,12 +5,19 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlacementCheck(StrEnum):
-    """Standard names for the placement validation checks."""
 
     NO_OVERLAP = "no_overlap"
     """Build-time check: no two placed object bounding boxes intersect."""
@@ -46,16 +53,16 @@ class PlacementValidationResults:
     Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
     """
 
-    validation_results: dict[PlacementCheck, bool] = field(default_factory=dict)
+    validation_results: dict[str, bool] = field(default_factory=dict)
 
-    required_checks: set[PlacementCheck] = field(default_factory=set)
-    """Names of checks that must pass for the layout to be valid. Empty means every check is required."""
+    required_checks: set[str] = field(default_factory=set)
+    """Names of checks that must pass for the layout to be valid. Empty means every check that ran is required."""
 
-    def _required(self) -> set[PlacementCheck]:
-        """Required check names, defaulting to every check when none are declared."""
-        return self.required_checks or set(PlacementCheck)
+    def _required(self) -> set[str]:
+        """Required check names, defaulting to every check that produced a result when none are declared."""
+        return self.required_checks or set(self.validation_results)
 
-    def do_all_required_validation_checks_pass(self, required_checks: list[PlacementCheck] | None = None) -> bool:
+    def do_all_required_validation_checks_pass(self, required_checks: list[str] | None = None) -> bool:
         """Check whether all the required validation checks pass.
 
         Args:
@@ -87,7 +94,7 @@ class PlacementValidationResults:
         optional_failed = sum(1 for check in failed if check not in required)
         return (required_failed, optional_failed)
 
-    def add_validation_check(self, check: PlacementCheck, value: bool, required: bool = False) -> None:
+    def add_validation_check(self, check: str, value: bool, required: bool = False) -> None:
         """Add a validation check.
 
         Args:

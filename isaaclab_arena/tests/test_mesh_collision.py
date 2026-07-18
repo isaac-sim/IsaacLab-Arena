@@ -402,8 +402,8 @@ def test_object_placer_mesh_mode_end_to_end():
 
 @requires_warp
 def test_validate_no_overlap_mesh_catches_overlap():
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _make_table()
     a = _make_cylinder("cyl_a")
@@ -415,15 +415,15 @@ def test_validate_no_overlap_mesh_catches_overlap():
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
         verbose=False,
     )
-    placer = ObjectPlacer(params=params)
+    validator = NoOverlapValidator(params)
 
     # Overlapping positions
     positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}
-    assert not placer._validate_no_overlap_mesh(positions, _env_bboxes_for(positions))
+    assert not validator._validate_no_overlap_mesh(positions, _env_bboxes_for(positions))
 
     # Separated positions
     positions_sep = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
-    assert placer._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep))
+    assert validator._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep))
 
 
 @requires_warp
@@ -449,11 +449,11 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
     env_bboxes = {table: table.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.075)}
-    validation = placer._validate_placement(overlapping, env_bboxes, collision_objects=[background])
+    validation = placer._validate_candidates([overlapping], [{}], [env_bboxes], [background])[0]
     assert not validation.validation_results[PlacementCheck.NO_OVERLAP]
 
     clear = {table: (0.0, 0.0, 0.0), box: (0.3, 0.0, 0.075)}
-    validation = placer._validate_placement(clear, env_bboxes, collision_objects=[background])
+    validation = placer._validate_candidates([clear], [{}], [env_bboxes], [background])[0]
     assert validation.validation_results[PlacementCheck.NO_OVERLAP]
 
 
@@ -461,8 +461,8 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
 def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
     from isaaclab_arena.relations import warp_sdf_kernels
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _make_table()
     a = _make_cylinder("cyl_a")
@@ -474,13 +474,13 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
         verbose=False,
     )
-    placer = ObjectPlacer(params=params)
+    validator = NoOverlapValidator(params)
     positions = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
     env_bboxes = _env_bboxes_for(positions)
-    assert placer._validate_no_overlap_mesh(positions, env_bboxes)
+    assert validator._validate_no_overlap_mesh(positions, env_bboxes)
 
     # Force every query to hit the sentinel; the same separated layout must now fail.
-    from isaaclab_arena.relations import object_placer as _op_mod
+    from isaaclab_arena.relations import placement_validators as _pv_mod
 
     real_mesh_sdf = warp_sdf_kernels.mesh_sdf
 
@@ -488,15 +488,15 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
         return torch.full_like(real_mesh_sdf(points, mesh), 1.0e6)
 
     monkeypatch.setattr(warp_sdf_kernels, "mesh_sdf", fake_sdf)
-    monkeypatch.setattr(_op_mod, "mesh_sdf", fake_sdf)
-    assert not placer._validate_no_overlap_mesh(positions, env_bboxes)
+    monkeypatch.setattr(_pv_mod, "mesh_sdf", fake_sdf)
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes)
 
 
 @requires_warp
 def test_validate_no_overlap_mesh_respects_anchor_yaw():
     """Validator must use anchor's initial_pose yaw (not identity) when checking overlap."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _make_table()
     # Long thin anchor rotated 90° about Z
@@ -518,12 +518,12 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
         verbose=False,
     )
-    placer = ObjectPlacer(params=params)
+    validator = NoOverlapValidator(params)
 
     # Child at Y=0.02: outside unrotated anchor (half-width=0.01),
     # but inside rotated anchor (half-length=0.1 now spans Y).
     positions = {table: (0.0, 0.0, 0.0), anchor: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}
-    assert not placer._validate_no_overlap_mesh(
+    assert not validator._validate_no_overlap_mesh(
         positions, _env_bboxes_for(positions)
     ), "Validator should detect overlap with yawed anchor"
 
@@ -723,8 +723,8 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
 @requires_warp
 def test_yawed_aabb_proxy_validation_is_not_double_rotated():
     """AABB proxy spheres built from yaw-expanded bboxes must not rotate by source yaw again."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     source = DummyObject(
         "source",
@@ -739,11 +739,11 @@ def test_yawed_aabb_proxy_validation_is_not_double_rotated():
         source: source.get_bounding_box().rotated_around_z(torch.tensor([math.pi / 2])),
         target: target.get_bounding_box(),
     }
-    placer = ObjectPlacer(
-        params=ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
+    validator = NoOverlapValidator(
+        ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not placer._validate_no_overlap_mesh(positions, env_bboxes, orientations={source: math.pi / 2})
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, orientations={source: math.pi / 2})
 
 
 @requires_warp
@@ -799,8 +799,8 @@ def test_yawed_aabb_proxy_solver_loss_rotates_unexpanded_bbox():
 @requires_warp
 def test_validate_no_overlap_mesh_respects_yawed_collision_object():
     """Passive mesh obstacles use their fixed initial_pose yaw during validation."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     source = DummyObject(
         "source",
@@ -814,11 +814,11 @@ def test_validate_no_overlap_mesh_respects_yawed_collision_object():
     obstacle.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, sz, cz)))
     positions = {source: (0.0, 0.05, 0.0)}
     env_bboxes = {source: source.get_bounding_box()}
-    placer = ObjectPlacer(
-        params=ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
+    validator = NoOverlapValidator(
+        ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not placer._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle])
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle])
 
 
 @requires_warp
@@ -983,8 +983,8 @@ def test_anchor_initial_pose_yaw_affects_collision():
 @requires_warp
 def test_aabb_gate_does_not_reject_diagonal_cylinders():
     """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _make_table()
     # r=0.05, b at (0.09, 0.09): AABB overlap (0.09 < 2*0.05=0.10) but geometric
@@ -998,23 +998,23 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
         verbose=False,
     )
-    placer = ObjectPlacer(params=params)
+    validator = NoOverlapValidator(params)
 
     positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.09, 0.09, 0.05)}
 
     # Sanity: AABB check without skip_mesh_pairs REJECTS this layout
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
-    assert not placer._validate_no_overlap(
+    assert not validator._validate_no_overlap(
         positions, env_bboxes, skip_mesh_pairs=False
     ), "Sanity check failed: AABB should reject diagonal cylinders"
 
     # With skip_mesh_pairs=True (MESH mode), AABB validator skips this pair
-    assert placer._validate_no_overlap(
+    assert validator._validate_no_overlap(
         positions, env_bboxes, skip_mesh_pairs=True
     ), "AABB validator with skip_mesh_pairs should accept this pair"
 
     # Mesh validator accepts (cylinders don't actually overlap)
-    assert placer._validate_no_overlap_mesh(
+    assert validator._validate_no_overlap_mesh(
         positions, env_bboxes
     ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
 
@@ -1100,11 +1100,12 @@ def test_mesh_mode_scores_background_collision_object():
     solver.solve([table, box], initial, collision_objects=[background])
 
     params = ObjectPlacerParams(solver_params=solver_params)
-    validation = ObjectPlacer(params=params)._validate_placement(
-        {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)},
-        {table: table.get_bounding_box(), box: box.get_bounding_box()},
-        collision_objects=[background],
-    )
+    validation = ObjectPlacer(params=params)._validate_candidates(
+        [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}],
+        [{}],
+        [{table: table.get_bounding_box(), box: box.get_bounding_box()}],
+        [background],
+    )[0]
 
     assert solver.last_loss_per_env[0].item() > 0.0
     assert not validation.do_all_required_validation_checks_pass()
