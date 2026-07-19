@@ -5,6 +5,7 @@
 
 """Typed configuration for compiling an Arena environment."""
 
+import math
 from dataclasses import dataclass
 
 
@@ -20,6 +21,7 @@ class ArenaEnvBuilderCfg:
     seed: int = 42
     solve_relations: bool = True
     placement_seed: int | None = None
+    placement_clearance_m: float | None = None
     resolve_on_reset: bool | None = None
     disable_fabric: bool = False
     mimic: bool = False
@@ -29,3 +31,7 @@ class ArenaEnvBuilderCfg:
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        if self.placement_clearance_m is not None and (
+            not math.isfinite(self.placement_clearance_m) or self.placement_clearance_m < 0.0
+        ):
+            raise ValueError("placement_clearance_m must be finite and non-negative")

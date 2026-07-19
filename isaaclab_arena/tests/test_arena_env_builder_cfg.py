@@ -37,6 +37,8 @@ def test_argparse_adapter_maps_builder_configuration():
         "--no_solve_relations",
         "--placement_seed",
         "11",
+        "--placement_clearance_m",
+        "0.0005",
         "--no-resolve_on_reset",
         "--disable_fabric",
         "--mimic",
@@ -56,6 +58,7 @@ def test_argparse_adapter_maps_builder_configuration():
         seed=7,
         solve_relations=False,
         placement_seed=11,
+        placement_clearance_m=0.0005,
         resolve_on_reset=False,
         disable_fabric=True,
         mimic=True,
@@ -69,3 +72,43 @@ def test_builder_configuration_requires_positive_num_envs():
     """Reject configurations that cannot build any environment instances."""
     with pytest.raises(AssertionError, match="num_envs must be greater than zero"):
         ArenaEnvBuilderCfg(num_envs=0)
+
+
+@pytest.mark.parametrize("value", [-0.1, float("inf"), float("nan")])
+def test_builder_configuration_rejects_invalid_placement_clearance(value):
+    """Reject relation-solver clearances that cannot describe a physical distance."""
+    with pytest.raises(ValueError, match="placement_clearance_m"):
+        ArenaEnvBuilderCfg(placement_clearance_m=value)
+
+
+def test_compose_manager_cfg_preserves_placement_provenance():
+    """Expose the effective builder placement inputs on the runtime configuration."""
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+    scene = SimpleNamespace(
+        assets={},
+        get_asset_variations=lambda: {},
+        get_scene_cfg=lambda: None,
+        get_observation_cfg=lambda: None,
+        get_events_cfg=lambda: None,
+        get_termination_cfg=lambda: None,
+        get_rewards_cfg=lambda: None,
+        get_curriculum_cfg=lambda: None,
+        get_commands_cfg=lambda: None,
+    )
+    builder = ArenaEnvBuilder(
+        IsaacLabArenaEnvironment(name="placement_provenance", scene=scene),
+        ArenaEnvBuilderCfg(
+            solve_relations=False,
+            placement_seed=71,
+            placement_clearance_m=0.0005,
+        ),
+    )
+
+    env_cfg, _ = builder.compose_manager_cfg()
+
+    assert env_cfg.placement_seed == builder.cfg.placement_seed
+    assert env_cfg.placement_clearance_m == builder.cfg.placement_clearance_m

@@ -591,6 +591,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         objects, num_envs, placer_params, collision_objects=None, scene_assets=None
     ):
         calls["objects"] = objects
+        calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
@@ -601,8 +602,47 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     builder._solve_relations()
 
     assert calls["objects"] == []
+    assert calls["placer_params"].solver_params.clearance_m == 0.01
     assert calls["scene_assets"] == []
     assert calls["collision_objects"] is None
+
+
+def test_arena_env_builder_applies_requested_default_solver_clearance(monkeypatch):
+    """A builder-owned placer forwards the requested seed and collision clearance."""
+    from types import SimpleNamespace
+
+    import pytest
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    captured = {}
+    scene = SimpleNamespace(
+        assets={},
+        get_objects_with_relations=lambda: [],
+    )
+
+    def fake_solve(objects, num_envs, placer_params, collision_objects=None, scene_assets=None):
+        captured["placer_params"] = placer_params
+
+    monkeypatch.setattr(
+        builder_module,
+        "solve_and_apply_relation_placement",
+        fake_solve,
+    )
+    builder = ArenaEnvBuilder(
+        SimpleNamespace(scene=scene, placer_params=None),
+        ArenaEnvBuilderCfg(
+            placement_seed=71,
+            placement_clearance_m=0.0005,
+        ),
+    )
+
+    builder._solve_relations()
+
+    assert captured["placer_params"].placement_seed == 71
+    assert captured["placer_params"].solver_params.clearance_m == pytest.approx(0.0005)
 
 
 def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):

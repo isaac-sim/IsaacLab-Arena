@@ -87,6 +87,15 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Seed for object placement. If set, objects are placed at the same positions across runs.",
     )
     arena_group.add_argument(
+        "--placement_clearance_m",
+        type=float,
+        default=None,
+        help=(
+            "Override the default relation-solver collision clearance in metres. "
+            "When omitted, RelationSolverParams keeps its 0.01 m default."
+        ),
+    )
+    arena_group.add_argument(
         "--presets",
         type=str,
         default=None,

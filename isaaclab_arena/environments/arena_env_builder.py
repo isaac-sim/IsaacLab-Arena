@@ -91,9 +91,15 @@ class ArenaEnvBuilder:
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
+            solver_kwargs: dict[str, Any] = {
+                "verbose": False,
+                "save_position_history": False,
+            }
+            if self.cfg.placement_clearance_m is not None:
+                solver_kwargs["clearance_m"] = self.cfg.placement_clearance_m
             placer_params = ObjectPlacerParams(
                 placement_seed=self.cfg.placement_seed,
-                solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+                solver_params=RelationSolverParams(**solver_kwargs),
             )
             if self.cfg.resolve_on_reset is not None:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
@@ -392,6 +398,9 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
+
+        env_cfg.placement_seed = self.cfg.placement_seed
+        env_cfg.placement_clearance_m = self.cfg.placement_clearance_m
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.
