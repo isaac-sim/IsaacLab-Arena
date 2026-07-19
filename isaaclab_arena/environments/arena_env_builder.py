@@ -399,6 +399,7 @@ class ArenaEnvBuilder:
                 viewer=viewer_cfg,
             )
 
+        env_cfg.num_rerenders_on_reset = self.cfg.num_rerenders_on_reset
         env_cfg.placement_seed = self.cfg.placement_seed
         env_cfg.placement_clearance_m = self.cfg.placement_clearance_m
 

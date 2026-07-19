@@ -21,6 +21,11 @@ def test_cli_defaults_match_builder_configuration():
     assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
 
 
+def test_builder_configuration_defaults_to_no_reset_rerenders():
+    """Keep the typed builder's reset rendering behavior backward-compatible."""
+    assert ArenaEnvBuilderCfg().num_rerenders_on_reset == 0
+
+
 def test_argparse_adapter_maps_builder_configuration():
     """Translate only builder-owned command-line values into the typed config."""
     parser = get_isaaclab_arena_cli_parser()
@@ -32,6 +37,8 @@ def test_argparse_adapter_maps_builder_configuration():
         "3",
         "--env_spacing",
         "2.5",
+        "--num_rerenders_on_reset",
+        "5",
         "--seed",
         "7",
         "--no_solve_relations",
@@ -55,6 +62,7 @@ def test_argparse_adapter_maps_builder_configuration():
     assert cfg == ArenaEnvBuilderCfg(
         num_envs=3,
         env_spacing=2.5,
+        num_rerenders_on_reset=5,
         seed=7,
         solve_relations=False,
         placement_seed=11,
@@ -74,6 +82,19 @@ def test_builder_configuration_requires_positive_num_envs():
         ArenaEnvBuilderCfg(num_envs=0)
 
 
+def test_builder_configuration_rejects_negative_reset_rerenders():
+    """Reject reset rendering counts that cannot describe a number of steps."""
+    with pytest.raises(ValueError, match="num_rerenders_on_reset must be non-negative"):
+        ArenaEnvBuilderCfg(num_rerenders_on_reset=-1)
+
+
+@pytest.mark.parametrize("value", [True, 1.5])
+def test_builder_configuration_requires_integral_reset_rerenders(value):
+    """Reject booleans and fractional reset rendering counts."""
+    with pytest.raises(TypeError, match="num_rerenders_on_reset must be an integer"):
+        ArenaEnvBuilderCfg(num_rerenders_on_reset=value)
+
+
 @pytest.mark.parametrize("value", [-0.1, float("inf"), float("nan")])
 def test_builder_configuration_rejects_invalid_placement_clearance(value):
     """Reject relation-solver clearances that cannot describe a physical distance."""
@@ -83,8 +104,8 @@ def test_builder_configuration_rejects_invalid_placement_clearance(value):
 
 # ArenaEnvBuilder transitively imports pxr. Run this assertion only after
 # run_simulation_app_function has initialized Kit, regardless of pytest's test order.
-def _test_compose_manager_cfg_preserves_placement_provenance(_simulation_app):
-    """Expose the effective builder placement inputs on the runtime configuration."""
+def _test_compose_manager_cfg_preserves_runtime_builder_values(_simulation_app):
+    """Expose effective builder inputs on the runtime configuration."""
     from types import SimpleNamespace
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -105,6 +126,7 @@ def _test_compose_manager_cfg_preserves_placement_provenance(_simulation_app):
         IsaacLabArenaEnvironment(name="placement_provenance", scene=scene),
         ArenaEnvBuilderCfg(
             solve_relations=False,
+            num_rerenders_on_reset=5,
             placement_seed=71,
             placement_clearance_m=0.0005,
         ),
@@ -112,15 +134,16 @@ def _test_compose_manager_cfg_preserves_placement_provenance(_simulation_app):
 
     env_cfg, _ = builder.compose_manager_cfg()
 
+    assert env_cfg.num_rerenders_on_reset == builder.cfg.num_rerenders_on_reset
     assert env_cfg.placement_seed == builder.cfg.placement_seed
     assert env_cfg.placement_clearance_m == builder.cfg.placement_clearance_m
     return True
 
 
-def test_compose_manager_cfg_preserves_placement_provenance():
+def test_compose_manager_cfg_preserves_runtime_builder_values():
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
     assert run_simulation_app_function(
-        _test_compose_manager_cfg_preserves_placement_provenance,
+        _test_compose_manager_cfg_preserves_runtime_builder_values,
         headless=True,
-    ), "placement provenance composition test failed"
+    ), "runtime builder value composition test failed"
