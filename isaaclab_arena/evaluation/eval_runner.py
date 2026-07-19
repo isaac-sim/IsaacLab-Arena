@@ -17,10 +17,10 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.datagen_collector import DatagenRunManagerBase
+from isaaclab_arena.evaluation.datagen_collector import DatagenRunManagerBase, NoOpDatagenRunManager
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
-from isaaclab_arena.evaluation.policy_runner import get_policy_cls, prepare_env_cfg_for_datagen, rollout_policy
+from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
@@ -43,7 +43,7 @@ def load_env(
     variations: list[str] | None = None,
     render_mode: str | None = None,
     language_instruction: str | None = None,
-    disable_auto_reset: bool = False,
+    datagen_run_manager: DatagenRunManagerBase | None = None,
 ):
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
@@ -59,13 +59,14 @@ def load_env(
     if env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
-    # Datagen: disable the env's in-step() auto-reset (and metric recorders) so the rollout
-    # loop can drive episode boundaries and resets explicitly (see prepare_env_cfg_for_datagen).
-    reset_terms = prepare_env_cfg_for_datagen(env_cfg) if disable_auto_reset else None
+    # Datagen: let the run manager adjust the cfg before the env is built (e.g. drop the
+    # env's metric recorders so the collector's own dataset is the only one written).
+    if datagen_run_manager is not None:
+        datagen_run_manager.prepare_env_cfg(env_cfg)
 
     env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env, reset_terms
+    return env
 
 
 def list_variations(eval_jobs_config: dict) -> None:
@@ -212,11 +213,13 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
     """Run all jobs in an eval config.
 
     Args:
-        datagen_run_manager: Optional datagen run manager. It spawns and owns one
-            data collector per job (implementations live in the collecting package).
-            When ``None``, no datagen collection runs and behavior matches the plain
-            evaluation path.
+        datagen_run_manager: Optional datagen run manager. It drives one data collector
+            per job (implementations live in the collecting package). When None, the no-op
+            default runs and behavior matches the plain evaluation path.
     """
+    if datagen_run_manager is None:
+        datagen_run_manager = NoOpDatagenRunManager()
+
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
 
@@ -251,22 +254,20 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
         return
 
     # Optional top-level datagen defaults, applied to every job (a per-job "datagen"
-    # block overrides these). When present, datagen data collection runs alongside
-    # each rollout, writing one HDF5 file per episode.
+    # block overrides these). When present, the injected run manager collects data
+    # alongside each rollout.
     datagen_defaults = eval_jobs_config.get("datagen")
 
-    # Injecting a run manager enables collection for every job; start_run asserts that
-    # the config actually configures collection (datagen block with an output_dir).
-    datagen_is_enabled = datagen_run_manager is not None
-    if datagen_is_enabled:
-        datagen_run_manager.start_run(eval_jobs_config, args_cli.datagen_description, args_cli.device)
+    # start_run asserts the config actually configures collection (a datagen block with an
+    # output_dir). The no-op default manager does nothing.
+    datagen_run_manager.start_run(eval_jobs_config, args_cli.datagen_description, args_cli.device)
 
     # Check if any job requires cameras and enable them if needed before starting simulation
     if args_cli.record_camera_video:
         args_cli.enable_cameras = True
     enable_cameras_if_required(eval_jobs_config, args_cli)
     # Datagen collection renders dedicated cameras, which requires camera support.
-    if datagen_defaults or any(job_dict.get("datagen") for job_dict in eval_jobs_config["jobs"]):
+    if datagen_run_manager.needs_cameras():
         args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
@@ -313,15 +314,13 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
                         video_base_dir=job_output_dir,
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
-                    # Datagen: disable the env's auto-reset so the rollout drives episode
-                    # boundaries and resets explicitly (see prepare_env_cfg_for_datagen).
-                    env, datagen_reset_terms = load_env(
+                    env = load_env(
                         job.arena_env_args,
                         job.name,
                         variations=job.variations,
                         render_mode=video_cfg.render_mode,
                         language_instruction=job.language_instruction,
-                        disable_auto_reset=datagen_is_enabled,
+                        datagen_run_manager=datagen_run_manager,
                     )
 
                     # Write per-episode results to disk.
@@ -346,16 +345,7 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
 
                     env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
 
-                    collector = (
-                        datagen_run_manager.create_collector(job.name, datagen_job_dict, env)
-                        if datagen_is_enabled
-                        else None
-                    )
-
-                    # Per-episode step cap for datagen, bounded by the env's own cap.
-                    max_episode_length = int(env.unwrapped.max_episode_length)
-                    if collector is not None:
-                        max_episode_length = collector.cap_episode_length(max_episode_length)
+                    collector = datagen_run_manager.create_collector(job.name, datagen_job_dict, env)
 
                     metrics = rollout_policy(
                         env,
@@ -364,8 +354,6 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
                         num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                         collector=collector,
-                        datagen_reset_terms=datagen_reset_terms,
-                        max_episode_length=max_episode_length,
                     )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
@@ -383,14 +371,11 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
 
                 finally:
                     try:
-                        # on_job_finished closes the job's collector, releasing its cameras
-                        # BEFORE the stage teardown so their replicator annotators do not
-                        # leak into the next job.
-                        if collector is not None:
-                            try:
-                                datagen_run_manager.on_job_finished(job, env)
-                            except Exception as exc:  # never let datagen bookkeeping fail a run
-                                print(f"[datagen] Warning: failed to record job '{job.name}': {exc}")
+                        # Run the per-job hook while the env is still alive and before the
+                        # stage teardown, so an implementation can release its resources.
+                        datagen_run_manager.on_job_finished(job, env)
+                    except Exception as exc:  # never let datagen bookkeeping fail a run
+                        print(f"[datagen] Warning: failed to record job '{job.name}': {exc}")
                     finally:
                         try:
                             _close_job_resources(policy, env)
@@ -405,8 +390,7 @@ def main(datagen_run_manager: DatagenRunManagerBase | None = None):
                 aggregated_metrics = aggregate_metrics(metrics_per_run)
                 metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
-        if datagen_is_enabled:
-            datagen_run_manager.finish_run()
+        datagen_run_manager.finish_run()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

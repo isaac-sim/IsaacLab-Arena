@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import argparse
 import os
-import dataclasses
 import torch
 import tqdm
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -20,8 +19,11 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_runner_arguments,
     build_policy_from_cli,
 )
-from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
-from isaaclab_arena.evaluation.episode_outcome import classify_outcome
+from isaaclab_arena.evaluation.datagen_collector import (
+    DatagenCollectorBase,
+    EpisodeOutcome,
+    NoOpDatagenCollector,
+)
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
@@ -67,101 +69,22 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
-def prepare_env_cfg_for_datagen(env_cfg) -> list[tuple[str, Any]]:
-    """Prepare *env_cfg* for datagen collection. Call on the cfg *before* the env is built.
+def _datagen_episode_outcome(env, truncated) -> EpisodeOutcome:
+    """Best-effort outcome for an auto-reset datagen episode from the termination manager.
 
-    Two changes, both so the dedicated datagen cameras capture clean frames:
-
-    1. Remove the termination terms so the env never auto-resets inside ``step()``. Isaac
-       Lab resets a done env *within* ``step()`` and re-renders before the new scene is
-       flushed, so a dedicated camera reads back the previous episode's final frame as the
-       first frame of the next episode. The rollout loop instead evaluates the returned
-       terms manually and drives a clean, explicit ``env.reset()`` between episodes (which
-       flushes to the renderer before re-rendering). Mirrors
-       ``submodules/IsaacLab/scripts/tools/record_demos.py``.
-    2. Drop the metrics and their recorder terms. The datagen collector writes its own
-       per-episode HDF5, and the success-rate recorder asserts the (now removed) success
-       termination is active, so it must not run.
-
-    Returns:
-        The stashed non-timeout terms as ``(name, term)`` pairs (e.g. success, object_dropped)
-        for manual evaluation. Timeout terms are replaced by the env's ``max_episode_length``
-        cap in the loop.
+    Right after the auto-reset inside step(), the termination manager still holds the buffers
+    that triggered it: a fired success term maps to "success", a truncation to "timeout", and
+    anything else (e.g. object dropped) to "failure".
     """
-    # Datagen has its own writer; drop the env's metrics + recorder terms (the success
-    # recorder also depends on the success termination removed below). recorders=None makes
-    # the RecorderManager a no-op.
-    if hasattr(env_cfg, "metrics"):
-        env_cfg.metrics = None
-    if hasattr(env_cfg, "recorders"):
-        env_cfg.recorders = None
-
-    terminations = getattr(env_cfg, "terminations", None)
-    if terminations is None:
-        return []
-    stashed = []
-    for field in dataclasses.fields(terminations):
-        term = getattr(terminations, field.name)
-        # Skip unset/empty fields; real termination terms are TerminationTermCfg (have .func).
-        if term is None or not hasattr(term, "func"):
-            continue
-        setattr(terminations, field.name, None)
-        is_timeout = field.name == "time_out" or getattr(term, "time_out", False)
-        if not is_timeout:
-            stashed.append((field.name, term))
-    return stashed
-
-
-def _manual_episode_done(env, reset_terms: list) -> str | None:
-    """Return the name of the first stashed termination term that fires, else ``None``."""
-    base_env = env.unwrapped
-    for name, term in reset_terms:
-        result = term.func(base_env, **(term.params or {}))
-        if bool(torch.as_tensor(result).any()):
-            return name
-    return None
-
-
-def _run_datagen_rollout(
-    env, policy, collector, pbar, num_steps, num_episodes, reset_terms, max_episode_length, obs
-) -> None:
-    """Rollout loop for datagen collection with the env's auto-reset disabled.
-
-    Records every (settled) frame, decides episode end from the stashed termination terms
-    plus a max-length cap, then flushes the episode and performs a clean explicit
-    ``env.reset()`` before the next one so the first frame of each episode is correct.
-    """
-    assert max_episode_length is not None, "datagen rollout requires max_episode_length"
-    num_episodes_completed = 0
-    num_steps_completed = 0
-    steps_in_episode = 0
-    while True:
-        with torch.inference_mode():
-            actions = policy.get_action(env, obs)
-            obs, _, _, _, _ = env.step(actions)
-        steps_in_episode += 1
-        collector.on_step(env, obs, actions, num_steps_completed)
-        num_steps_completed += 1
-
-        if num_steps is not None:
-            pbar.update(1)
-            if num_steps_completed >= num_steps:
-                break
-
-        ended_by = _manual_episode_done(env, reset_terms)
-        hit_cap = steps_in_episode >= max_episode_length
-        if ended_by is not None or hit_cap:
-            collector.on_episode_end(env, outcome=classify_outcome(ended_by))
-            num_episodes_completed += 1
-            if num_episodes is not None:
-                pbar.update(1)
-                if num_episodes_completed >= num_episodes:
-                    break
-            # The reset must come after on_episode_end: its RTX rerenders (num_rerenders_on_reset)
-            # flush any camera poses the collector re-aimed for the next episode.
-            obs, _ = env.reset()
-            policy.reset()
-            steps_in_episode = 0
+    try:
+        termination_manager = env.unwrapped.termination_manager
+        if "success" in termination_manager.active_terms and bool(
+            termination_manager.get_term("success")[0]
+        ):
+            return "success"
+    except Exception:  # best-effort provenance: never fail a rollout on outcome labelling
+        pass
+    return "timeout" if bool(torch.as_tensor(truncated)[0]) else "failure"
 
 
 def rollout_policy(
@@ -171,30 +94,19 @@ def rollout_policy(
     num_episodes: int | None,
     language_instruction: str | None = None,
     collector: DatagenCollectorBase | None = None,
-    datagen_reset_terms: list | None = None,
-    max_episode_length: int | None = None,
 ) -> MetricsDataCollection | None:
     """Roll out *policy* in *env*.
 
     Args:
-        collector: Optional data collector. When provided, ``collector.on_step(env,
-            obs, actions, step_idx)`` is called after every environment step and
-            ``collector.finalize(env)`` once the rollout finishes. Implementations
-            live in the collecting package (see :class:`DatagenCollectorBase`).
-        datagen_reset_terms: Stashed termination terms returned by
-            :func:`prepare_env_cfg_for_datagen`. Required whenever a collector is
-            given: with the env's auto-reset disabled, the loop evaluates these terms
-            (plus ``max_episode_length``) to end episodes and resets explicitly, so no
-            frame is captured mid-reset.
-        max_episode_length: Per-episode step cap (replaces the removed timeout term).
-            Required when ``datagen_reset_terms`` is given.
+        collector: Data collector driven during the rollout, defaulting to a no-op. on_step
+            runs after every env step, on_episode_end when the env resets, and finalize when
+            the rollout finishes. On a done step the returned obs is already the next episode's
+            first frame, so the finished episode is closed before that obs is recorded. See
+            DatagenCollectorBase.
     """
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
-    assert collector is None or datagen_reset_terms is not None, (
-        "A datagen collector requires the env's auto-reset to be disabled; pass datagen_reset_terms"
-        " from prepare_env_cfg_for_datagen() (and max_episode_length)."
-    )
+    collector = collector or NoOpDatagenCollector()
 
     pbar = None
     try:
@@ -208,48 +120,42 @@ def rollout_policy(
         else:
             pbar = tqdm.tqdm(total=num_episodes, desc="Episodes", unit="episode")
 
-        if collector is not None:
-            # Datagen path: env auto-reset is disabled, so we drive episode boundaries
-            # and resets explicitly (see _run_datagen_rollout / record_demos.py).
-            _run_datagen_rollout(
-                env, policy, collector, pbar, num_steps, num_episodes, datagen_reset_terms, max_episode_length, obs
-            )
-        else:
-            num_episodes_completed = 0
-            num_steps_completed = 0
+        num_episodes_completed = 0
+        num_steps_completed = 0
 
-            while True:
-                with torch.inference_mode():
-                    actions = policy.get_action(env, obs)
-                    obs, _, terminated, truncated, _ = env.step(actions)
+        while True:
+            with torch.inference_mode():
+                actions = policy.get_action(env, obs)
+                obs, _, terminated, truncated, _ = env.step(actions)
 
-                    if terminated.any() or truncated.any():
-                        # Only reset policy for those envs that are terminated or truncated
-                        print(
-                            f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
-                            f" and truncated env_ids: {truncated.nonzero().flatten()}"
-                        )
-                        env_ids = (terminated | truncated).nonzero().flatten()
-                        policy.reset(env_ids=env_ids)
-                        # Break if number of episodes is reached
-                        completed_episodes = env_ids.shape[0]
-                        num_episodes_completed += completed_episodes
-                        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                            metrics = env.unwrapped.compute_metrics()
-                            tqdm.tqdm.write(
-                                f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
-                                f" {metrics_to_plain_python_types(metrics)}"
-                            )
-                        if num_episodes is not None:
-                            pbar.update(completed_episodes)
-                            if num_episodes_completed >= num_episodes:
-                                break
-                    # Break if number of steps is reached
-                    num_steps_completed += 1
-                    if num_steps is not None:
-                        pbar.update(1)
-                        if num_steps_completed >= num_steps:
-                            break
+            done = bool(terminated.any() or truncated.any())
+
+            if done:
+                # Close the finished episode before recording obs: the auto-reset already made
+                # it the next episode's first frame, so it must be attributed there, not here.
+                collector.on_episode_end(env, outcome=_datagen_episode_outcome(env, truncated))
+                env_ids = (terminated | truncated).nonzero().flatten()
+                policy.reset(env_ids=env_ids)
+                completed_episodes = env_ids.shape[0]
+                num_episodes_completed += completed_episodes
+                if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+                    metrics = env.unwrapped.compute_metrics()
+                    tqdm.tqdm.write(
+                        f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
+                        f" {metrics_to_plain_python_types(metrics)}"
+                    )
+                if num_episodes is not None:
+                    pbar.update(completed_episodes)
+                    if num_episodes_completed >= num_episodes:
+                        break
+
+            collector.on_step(env, obs, actions, num_steps_completed)
+
+            num_steps_completed += 1
+            if num_steps is not None:
+                pbar.update(1)
+                if num_steps_completed >= num_steps:
+                    break
 
         pbar.close()
 
@@ -261,8 +167,7 @@ def rollout_policy(
     else:
 
         # Persist and close any datagen dataset before returning.
-        if collector is not None:
-            collector.finalize(env)
+        collector.finalize(env)
 
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
