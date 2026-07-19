@@ -313,6 +313,42 @@ def _test_post_reset_recorder_hook(_simulation_app):
     return True
 
 
+def test_builder_merges_environment_and_task_episode_recorder_terms():
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    environment_term = object()
+    task_term = object()
+    arena_env = SimpleNamespace(episode_recorder_terms={"environment": environment_term})
+    task = SimpleNamespace(
+        get_episode_recorder_terms=lambda received: ({"task": task_term} if received is arena_env else {})
+    )
+    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
+    builder.arena_env = arena_env
+
+    assert builder._collect_episode_recorder_terms(task) == {
+        "environment": environment_term,
+        "task": task_term,
+    }
+
+
+def test_builder_rejects_duplicate_environment_and_task_recorder_names():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_env = SimpleNamespace(episode_recorder_terms={"poses": object()})
+    task = SimpleNamespace(get_episode_recorder_terms=lambda _: {"poses": object()})
+    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
+    builder.arena_env = arena_env
+
+    with pytest.raises(ValueError, match="duplicate episode recorder term 'poses'"):
+        builder._collect_episode_recorder_terms(task)
+
+
 def test_core_terms(tmp_path):
     assert run_simulation_app_function(
         _test_core_terms, headless=HEADLESS, output_dir=tmp_path

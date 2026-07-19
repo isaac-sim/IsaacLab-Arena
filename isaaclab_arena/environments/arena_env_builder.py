@@ -42,6 +42,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -174,6 +175,19 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
+    def _collect_episode_recorder_terms(
+        self,
+        task: TaskBase,
+    ) -> dict[str, EpisodeRecorderTermCfg]:
+        terms = dict(self.arena_env.episode_recorder_terms)
+        for name, term_cfg in task.get_episode_recorder_terms(self.arena_env).items():
+            if name in terms:
+                raise ValueError(
+                    f"duplicate episode recorder term {name!r} contributed by both the environment and task"
+                )
+            terms[name] = term_cfg
+        return terms
+
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
@@ -186,11 +200,8 @@ class ArenaEnvBuilder:
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
-            assert name not in (
-                "core",
-                "variations",
-                "progress",
-            ), f"Episode recorder term name '{name}' collides with a built-in term."
+            if name in {"core", "variations", "progress"}:
+                raise ValueError(f"episode recorder term name {name!r} collides with a built-in term")
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
@@ -323,7 +334,7 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self._collect_episode_recorder_terms(task))
 
         viewer_cfg = task.get_viewer_cfg()
 
