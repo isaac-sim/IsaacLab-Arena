@@ -313,7 +313,9 @@ def _test_post_reset_recorder_hook(_simulation_app):
     return True
 
 
-def test_builder_merges_environment_and_task_episode_recorder_terms():
+# ArenaEnvBuilder transitively imports pxr. Run these builder assertions only after
+# run_simulation_app_function has initialized Kit, regardless of pytest's test order.
+def _test_builder_merges_environment_and_task_episode_recorder_terms(_simulation_app):
     from types import SimpleNamespace
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -331,9 +333,10 @@ def test_builder_merges_environment_and_task_episode_recorder_terms():
         "environment": environment_term,
         "task": task_term,
     }
+    return True
 
 
-def test_builder_rejects_duplicate_environment_and_task_recorder_names():
+def _test_builder_rejects_duplicate_environment_and_task_recorder_names(_simulation_app):
     from types import SimpleNamespace
 
     import pytest
@@ -347,6 +350,21 @@ def test_builder_rejects_duplicate_environment_and_task_recorder_names():
 
     with pytest.raises(ValueError, match="duplicate episode recorder term 'poses'"):
         builder._collect_episode_recorder_terms(task)
+    return True
+
+
+def test_builder_merges_environment_and_task_episode_recorder_terms():
+    assert run_simulation_app_function(
+        _test_builder_merges_environment_and_task_episode_recorder_terms,
+        headless=HEADLESS,
+    ), "builder recorder-term merge test failed"
+
+
+def test_builder_rejects_duplicate_environment_and_task_recorder_names():
+    assert run_simulation_app_function(
+        _test_builder_rejects_duplicate_environment_and_task_recorder_names,
+        headless=HEADLESS,
+    ), "builder recorder-term duplicate-name test failed"
 
 
 def test_core_terms(tmp_path):

@@ -81,7 +81,9 @@ def test_builder_configuration_rejects_invalid_placement_clearance(value):
         ArenaEnvBuilderCfg(placement_clearance_m=value)
 
 
-def test_compose_manager_cfg_preserves_placement_provenance():
+# ArenaEnvBuilder transitively imports pxr. Run this assertion only after
+# run_simulation_app_function has initialized Kit, regardless of pytest's test order.
+def _test_compose_manager_cfg_preserves_placement_provenance(_simulation_app):
     """Expose the effective builder placement inputs on the runtime configuration."""
     from types import SimpleNamespace
 
@@ -112,3 +114,13 @@ def test_compose_manager_cfg_preserves_placement_provenance():
 
     assert env_cfg.placement_seed == builder.cfg.placement_seed
     assert env_cfg.placement_clearance_m == builder.cfg.placement_clearance_m
+    return True
+
+
+def test_compose_manager_cfg_preserves_placement_provenance():
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    assert run_simulation_app_function(
+        _test_compose_manager_cfg_preserves_placement_provenance,
+        headless=True,
+    ), "placement provenance composition test failed"
