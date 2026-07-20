@@ -30,8 +30,8 @@ from osmo.submit_arena_experiment import (
 )
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_output_task import (
-    REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
-    REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+    _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
@@ -271,21 +271,21 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     ]
     assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
     experiment_runner_output_directories_by_run_name = json.loads(
-        _task_file(experiment_output_task, REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
+        _task_file(experiment_output_task, _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
     )
     assert experiment_runner_output_directories_by_run_name == {
         "first": experiment_runner_output_directory_input_token("experiment-runner-0"),
         "second": experiment_runner_output_directory_input_token("experiment-runner-1"),
         "local": experiment_runner_output_directory_input_token("experiment-runner-2"),
     }
-    experiment_output_script_file = _task_file(experiment_output_task, REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
+    experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
     assert "localpath" not in experiment_output_script_file
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
-    assert REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
+    assert _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
     assert (
-        f"--experiment-runner-output-directories-file {REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
+        f"--experiment-runner-output-directories-file {_REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
         in experiment_output_command
     )
     assert "--experiment-output-directory" in experiment_output_command

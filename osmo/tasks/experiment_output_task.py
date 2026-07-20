@@ -18,8 +18,8 @@ from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 _LOCAL_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "build_experiment_output.py"
-REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = "/tmp/arena_build_experiment_output.py"
-REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = "/tmp/arena_experiment_runner_output_directories.json"
+_REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = "/tmp/arena_build_experiment_output.py"
+_REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = "/tmp/arena_experiment_runner_output_directories.json"
 
 
 def experiment_runner_output_directory_input_token(experiment_runner_task_name: str) -> str:
@@ -75,11 +75,11 @@ class ExperimentOutputTask(BaseTask):
         return [
             *super()._get_files_to_create(),
             {
-                "path": REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+                "path": _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
                 "contents": block_literal_str(_LOCAL_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH.read_text(encoding="utf-8")),
             },
             {
-                "path": REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+                "path": _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
                 "contents": block_literal_str(
                     json.dumps(experiment_runner_output_directory_tokens_by_run_name, indent=2)
                 ),
@@ -89,9 +89,9 @@ class ExperimentOutputTask(BaseTask):
     def _get_run_script(self) -> str:
         build_experiment_output_command = shlex.join([
             "/isaac-sim/python.sh",
-            REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+            _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
             "--experiment-runner-output-directories-file",
-            REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+            _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
             "--experiment-output-directory",
             OSMO_TASK_OUTPUT_DIR,
         ])
