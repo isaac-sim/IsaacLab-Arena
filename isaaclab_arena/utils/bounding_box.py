@@ -218,6 +218,42 @@ class AxisAlignedBoundingBox:
                 max_point=torch.stack([max_y, -min_x, max_z], dim=1),
             )
 
+    def enclosing_after_rotation(
+        self, rotation_xyzw: tuple[float, float, float, float] | torch.Tensor
+    ) -> "AxisAlignedBoundingBox":
+        """Refit to the axis-aligned box enclosing this box under an arbitrary rotation.
+
+        Rotates the eight corners about the object origin by ``rotation_xyzw`` and returns the
+        tightest AABB containing them. Conservative (larger than the true rotated box) for any
+        non-axis-aligned rotation. Unlike :meth:`rotated_around_z`, roll and pitch tilt the box
+        out of plane, so the Z extent may grow as well.
+
+        Args:
+            rotation_xyzw: Quaternion ``(x, y, z, w)`` applied about the object origin. A single
+                quaternion rotates every stacked box equally.
+
+        Returns:
+            New AxisAlignedBoundingBox enclosing the rotated corners.
+        """
+        device = self._min_point.device
+        quat = torch.as_tensor(rotation_xyzw, dtype=torch.float32, device=device).reshape(-1)
+        assert quat.shape == (
+            4,
+        ), f"enclosing_after_rotation expects a single (x, y, z, w) quaternion, got {tuple(quat.shape)}."
+        qx, qy, qz, qw = quat.unbind(0)
+        # Rotation matrix from the (x, y, z, w) quaternion.
+        rot = torch.stack([
+            torch.stack([1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)]),
+            torch.stack([2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)]),
+            torch.stack([2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)]),
+        ])  # (3, 3)
+        corners = self.get_corners_at()  # (N, 8, 3)
+        rotated = corners @ rot.transpose(0, 1)  # (N, 8, 3): each corner mapped by rot
+        return AxisAlignedBoundingBox(
+            min_point=rotated.min(dim=1).values,
+            max_point=rotated.max(dim=1).values,
+        )
+
     def rotated_around_z(self, angle_rad: float | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Refit to the axis-aligned box enclosing this box rotated by angle_rad around Z.
 

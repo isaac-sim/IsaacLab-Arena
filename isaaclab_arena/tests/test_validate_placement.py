@@ -166,6 +166,42 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
 
 
+def test_enclosing_after_rotation_pitch_swaps_extents():
+    """A 90° pitch rotates the tall Z extent into X, so the enclosing AABB swaps X and Z half-sizes."""
+    box = AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.3), max_point=(0.05, 0.05, 0.3))
+    quat = RotateAroundSolution(pitch_rad=math.pi / 2).get_rotation_xyzw()
+    rotated = box.enclosing_after_rotation(quat)
+    torch.testing.assert_close(rotated.max_point, torch.tensor([[0.3, 0.05, 0.05]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.min_point, torch.tensor([[-0.3, -0.05, -0.05]]), atol=1e-6, rtol=0)
+
+
+def test_bake_marker_rotation_footprints_encloses_pitched_object():
+    """A tall box pitched 90° sweeps into a neighbor that its unrotated footprint clears."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    a = _make_long_box("a", half_x=0.05, half_y=0.05, half_z=0.3)  # tall in Z
+    a.add_relation(RotateAroundSolution(pitch_rad=math.pi / 2))
+    b = _make_box("b", size=0.1)  # half-size 0.05
+    positions = {a: (0.0, 0.0, 0.0), b: (0.25, 0.0, 0.0)}
+
+    # Unrotated, a's 0.05 half-X clears b at x=0.25: overlap check passes (the latent bug).
+    axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
+    assert placer._validate_placement(positions, axis_aligned).do_all_required_validation_checks_pass() is True
+
+    # Baking the applied pitch grows a's X extent to 0.3, so it now overlaps b and is rejected.
+    baked = placer._bake_marker_rotation_footprints([a, b], axis_aligned)
+    assert placer._validate_placement(positions, baked).do_all_required_validation_checks_pass() is False
+
+
+def test_bake_marker_rotation_footprints_skips_yaw_only_marker():
+    """Yaw-only markers stay on the yaw path and are left unchanged by the roll/pitch baking."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    box = _make_long_box("box")
+    box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
+    bboxes = {box: box.get_bounding_box()}
+    baked = placer._bake_marker_rotation_footprints([box], bboxes)
+    assert baked[box] is bboxes[box]
+
+
 def test_on_relation_containment_uses_rotated_bbox():
     """Test that a child fits the parent rim axis-aligned but spills past it once yaw-inflated 90°."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
