@@ -9,6 +9,9 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+  schedule:
+    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job).
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 # Concurrency control to prevent parallel runs on the same PR
@@ -100,6 +103,8 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
+    # Excluded from pre-merge (pull requests); still runs nightly, on push to main, and on manual dispatch.
+    if: github.event_name != 'pull_request'
     env:
       # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
