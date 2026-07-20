@@ -1,0 +1,1130 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>RoboLab Task Catalog &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/robolab_task_catalog';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Imitation Learning" href="imitation_learning/index.html" />
+    <link rel="prev" title="Example Environments" href="example_environments.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="../../../../main/pages/example_workflows/robolab_task_catalog.html" >main</option>
+            <option value="../../../0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../0.1.1/index.html" >release/0.1.1</option>
+            <option value="../../../0.2.0/index.html" >release/0.2.0</option>
+            <option value="../../../0.2.1/index.html" >release/0.2.1</option>
+            <option value="robolab_task_catalog.html" selected>release/0.3.0-prerelease</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy/openpi.html">OpenPi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy/dreamzero.html">DreamZero</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="example_environments.html">Example Environments</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">RoboLab Task Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="static_apple/index.html">Unitree G1 Static Apple-to-Plate Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="static_apple/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_apple/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_apple/step_3_policy_training.html">Policy Post-Training (GR00T N1.7)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_apple/step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="agentic_env_gen/index.html">Agentic Environment Generation and Policy Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="agentic_env_gen/gui_runner.html">Agentic Environment Generation GUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agentic_env_gen/eval_with_gr00t.html">Evaluate with GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agentic_env_gen/eval_with_openpi.html">Evaluate with OpenPI</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis/variation_system.html">Variation System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="example_environments.html" class="nav-link">Example Environments</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">RoboLab Task Catalog</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="robolab-task-catalog">
+<h1>RoboLab Task Catalog<a class="headerlink" href="#robolab-task-catalog" title="Link to this heading">#</a></h1>
+<p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md">120 Robolab tasks</a> and their Arena counterparts when available. Arena specs are split into reusable scene YAMLs under <code class="docutils literal notranslate"><span class="pre">scenes/</span></code> and task YAMLs under <code class="docutils literal notranslate"><span class="pre">tasks/</span></code> that include the scene via a top-level <code class="docutils literal notranslate"><span class="pre">external_yaml:</span></code> path.</p>
+<style>
+/* Fit the 3-column catalog within the Sphinx article width (no horizontal
+   scroller). The theme wraps tables in .pst-scrollable-table-container. */
+#robolab-task-catalog .pst-scrollable-table-container {
+  overflow-x: visible;
+}
+
+#robolab-task-catalog table.table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+#robolab-task-catalog table.table th:nth-child(1),
+#robolab-task-catalog table.table td:nth-child(1) {
+  width: 40%;
+}
+
+#robolab-task-catalog table.table th:nth-child(2),
+#robolab-task-catalog table.table td:nth-child(2) {
+  width: 30%;
+}
+
+#robolab-task-catalog table.table th:nth-child(3),
+#robolab-task-catalog table.table td:nth-child(3) {
+  width: 30%;
+}
+
+#robolab-task-catalog table.table td,
+#robolab-task-catalog table.table th {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+#robolab-task-catalog table.table img {
+  max-width: 100%;
+  width: 210px;
+  height: auto;
+}
+</style>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Arena task spec</p></th>
+<th class="head"><p>RoboLab scene image</p></th>
+<th class="head"><p>RoboLab task</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/banana_in_bowl.yaml">banana_in_bowl.yaml</a><br>scene: <a class="reference external" href="scenes/banana_bowl.yaml">banana_bowl.yaml</a><br>prompt: droid Pick up the banana and place it in the bowl. Using maple table background.</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/banana_bowl.png" alt="banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/banana_bowl.png">banana_bowl.png</a><br>object count: 2</p></td>
+<td><p>BananaInBowlTask<br>Pick up the banana and place it in the bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bowls_2_table.png" alt="bowls_2_table.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bowls_2_table.png">bowls_2_table.png</a><br>object count: 2</p></td>
+<td><p>BowlStackingLeftOnRightTask<br>Stack the left bowl on the right bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bowls_2_table.png">bowls_2_table.png</a></p></td>
+<td><p>BowlStackingRightOnLeftTask<br>Stack the right bowl on the left bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/butter_above_raisin.yaml">butter_above_raisin.yaml</a><br>scene: <a class="reference external" href="scenes/butter_raisin_box.yaml">butter_raisin_box.yaml</a><br>prompt: droid Pick up the butter box and place it on top of the raisin box. Using maple table background</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/butter_raisin_box.png" alt="butter_raisin_box.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/butter_raisin_box.png">butter_raisin_box.png</a><br>object count: 2</p></td>
+<td><p>ButterAboveRaisinTask<br>Pick up the butter box and place it on top of the raisin box<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/mustard_above_raisin.yaml">mustard_above_raisin.yaml</a><br>scene: <a class="reference external" href="scenes/mustard_raisin_box.yaml">mustard_raisin_box.yaml</a><br>prompt: droid Place the mustard on the raisin box. Using maple table background</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mustard_raisin_box.png" alt="mustard_raisin_box.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mustard_raisin_box.png">mustard_raisin_box.png</a><br>object count: 2</p></td>
+<td><p>MustardAboveRaisinTask<br>Place the mustard on the raisin box.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/rubiks_cube.yaml">rubiks_cube.yaml</a><br>scene: <a class="reference external" href="scenes/rubiks_cube_bowl.yaml">rubiks_cube_bowl.yaml</a><br>prompt: droid put the rubiks cube in the bowl. Using maple table background</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_bowl.png" alt="rubiks_cube_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_bowl.png">rubiks_cube_bowl.png</a><br>object count: 2</p></td>
+<td><p>RubiksCubeTask<br>Put the cube in the bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/larger_object_raisin_box_in_bin.yaml">larger_object_raisin_box_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/butter_raisin_box_grey_bin.yaml">butter_raisin_box_grey_bin.yaml</a><br>prompt: droid place the raisin box into the grey bin on the maple table. Other objects on the table as distractors: butter</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/butter_raisin_box_grey_bin.png" alt="butter_raisin_box_grey_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/butter_raisin_box_grey_bin.png">butter_raisin_box_grey_bin.png</a><br>object count: 3</p></td>
+<td><p>LargerObjectRaisinBoxInBinTask<br>Place the larger object in the grey bin.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/butter_raisin_box_grey_bin.png">butter_raisin_box_grey_bin.png</a></p></td>
+<td><p>SmallerObjectButterInBinTask<br>Place the smaller object in the grey bin.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_banana_bowl.png" alt="rubiks_cube_banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a><br>object count: 3</p></td>
+<td><p>RubiksCubeOrBananaTask<br>Put the cube or the banana in the bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/banana_then_rubiks_cube.yaml">banana_then_rubiks_cube.yaml</a><br>scene: <a class="reference external" href="scenes/rubiks_cube_banana_bowl.yaml">rubiks_cube_banana_bowl.yaml</a><br>prompt: droid put the banana then the cube in the bowl. Using maple table background</p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>BananaThenRubiksCubeTask<br>put the banana then the cube in the bowl<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>RubiksCubeAndBananaTask<br>Put the cube and the banana in the bowl<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>RubiksCubeThenBananaTask<br>Put the cube then the banana in the bowl<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>RubiksCubeBehindBowlTask<br>Put the rubiks cube behind the bowl<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>RubiksCubeInFrontOfBowlTask<br>Put the rubiks cube in front of the bowl<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
+<td><p>RubiksCubeLeftOfBowlTask<br>Put the rubiks cube to the left of the bowl<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/mustard_in_left_bin.yaml">mustard_in_left_bin.yaml</a><br>scene: <a class="reference external" href="scenes/two_bin.yaml">two_bin.yaml</a><br>prompt: Two grey bins and a mustard on the maple table. Left grey bin is on the left of the right grey bin. Droid put the mustard in the left bin.</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/two_bin.png" alt="two_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/two_bin.png">two_bin.png</a><br>object count: 3</p></td>
+<td><p>MustardInLeftBinTask<br>Put the mustard in the left bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/two_bin.png">two_bin.png</a></p></td>
+<td><p>MustardInRightBinTask<br>Put the mustard in the right bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/blue.png" alt="blue.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/blue.png">blue.png</a><br>object count: 3</p></td>
+<td><p>PickUpBluePitcherTask<br>Pick up the large blue pitcher<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_3.png" alt="rubiks_cube_3.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_3.png">rubiks_cube_3.png</a><br>object count: 3</p></td>
+<td><p>Stack3RubiksCubeTask<br>Stack the rubiks cubes in a tower<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/sauce_bottles_crate.yaml">sauce_bottles_crate.yaml</a><br>scene: <a class="reference external" href="scenes/bottles_crate.yaml">bottles_crate.yaml</a><br>prompt: Using maple table background. Droid place the bbq sauce bottle into the purple crate on the table. Other objects on the table as distractors: ceramic mug, salad dressing bottle</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bottles_crate.png" alt="bottles_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bottles_crate.png">bottles_crate.png</a><br>object count: 4</p></td>
+<td><p>SauceBottlesCrateTask<br>Put the red bbq sauce bottle in the crate<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/food_packing_1_boxes.yaml">food_packing_1_boxes.yaml</a><br>scene: <a class="reference external" href="scenes/foodpacking_1bin_1box_1can.yaml">foodpacking_1bin_1box_1can.yaml</a><br>prompt: Using maple table background. Droid place the cheez it box into the bin a06 on the table. Other objects on the table as distractors: mustard, tomato soup can</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/foodpacking_1bin_1box_1can.png" alt="foodpacking_1bin_1box_1can.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_1box_1can.png">foodpacking_1bin_1box_1can.png</a><br>object count: 4</p></td>
+<td><p>FoodPacking1BoxesTask<br>Pack boxed foods into the bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_1box_1can.png">foodpacking_1bin_1box_1can.png</a></p></td>
+<td><p>FoodPacking1CansTask<br>Pack canned foods into the bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/green.png" alt="green.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/green.png">green.png</a><br>object count: 4</p></td>
+<td><p>PickUpGreenObjectTask<br>Pick up the green vegetable block<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/colored_blocks.png" alt="colored_blocks.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/colored_blocks.png">colored_blocks.png</a><br>object count: 4</p></td>
+<td><p>BlockStackingOrderAgnosticTask<br>Stack the blocks into a tower<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/colored_blocks.png">colored_blocks.png</a></p></td>
+<td><p>BlockStackingSpecifiedOrderTask<br>Stack the blocks in the order from bottom to top: red, blue, green, yellow<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/banana_on_plate.yaml">banana_on_plate.yaml</a><br>scene: <a class="reference external" href="scenes/bagel_plate_banana_bowl.yaml">bagel_plate_banana_bowl.yaml</a><br>prompt: droid pick up the banana and put it on the plate. Using maple table background. Other objects on the table as distractors: two bagels, bowl</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bagel_plate_banana_bowl.png" alt="bagel_plate_banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bagel_plate_banana_bowl.png">bagel_plate_banana_bowl.png</a><br>object count: 5</p></td>
+<td><p>BananaOnPlateTask<br>Pick up the banana and put it on the plate<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bagel_plate_banana_bowl.png">bagel_plate_banana_bowl.png</a></p></td>
+<td><p>BagelsOnPlateTask<br>Put the bagels on the plate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/bowl_in_bin.yaml">bowl_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/bin_mug_mustard_marker_bowl.yaml">bin_mug_mustard_marker_bowl.yaml</a><br>prompt: droid put the bowl in the grey bin. Using maple table background. Other objects on the table as distractors: mustard, dry erase marker, mug</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bin_mug_mustard_marker_bowl.png" alt="bin_mug_mustard_marker_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_mug_mustard_marker_bowl.png">bin_mug_mustard_marker_bowl.png</a><br>object count: 5</p></td>
+<td><p>BowlInBinTask<br>put the bowl in the grey bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/shelf_mugs_jug_bowl.png" alt="shelf_mugs_jug_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_mugs_jug_bowl.png">shelf_mugs_jug_bowl.png</a><br>object count: 5</p></td>
+<td><p>PutBowlOnShelfTopTask<br>Put the serving bowl anywhere on the shelf in front of you<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_mugs_jug_bowl.png">shelf_mugs_jug_bowl.png</a></p></td>
+<td><p>PutMugsOnShelfTask<br>Put the two mugs on the shelf<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mugs_on_shelf.png" alt="mugs_on_shelf.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs_on_shelf.png">mugs_on_shelf.png</a><br>object count: 5</p></td>
+<td><p>TakeMugsOffOfShelfTask<br>Take the mugs off the shelf<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_banana_bowl_mug_bin.png" alt="rubiks_cube_banana_bowl_mug_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl_mug_bin.png">rubiks_cube_banana_bowl_mug_bin.png</a><br>object count: 5</p></td>
+<td><p>RedDishesInBinTask<br>Put the red dishware in the grey bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl_mug_bin.png">rubiks_cube_banana_bowl_mug_bin.png</a></p></td>
+<td><p>RedItemsInBinTask<br>Put all the red things in the grey bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl_mug_bin.png">rubiks_cube_banana_bowl_mug_bin.png</a></p></td>
+<td><p>RubiksCubeRightOfBowlTask<br>Put the rubiks cube to the right of the bowl<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bananas_5_grey_bin.png" alt="bananas_5_grey_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bananas_5_grey_bin.png">bananas_5_grey_bin.png</a><br>object count: 6</p></td>
+<td><p>BananasInBinOneMoreTask<br>Put one (1) more bananas in the grey bin.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bananas_5_grey_bin.png">bananas_5_grey_bin.png</a></p></td>
+<td><p>BananasInBinThreeTotalTask<br>Make sure there are 3 (three) bananas in the grey bin.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bananas_5_grey_bin.png">bananas_5_grey_bin.png</a></p></td>
+<td><p>BananasOutOfBinTask<br>Take the bananas out<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bananas_5_in_crate.png" alt="bananas_5_in_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bananas_5_in_crate.png">bananas_5_in_crate.png</a><br>object count: 6</p></td>
+<td><p>BananasInCrateTask<br>Put 2 bananas in the crate<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/clamp_in_right_bin.yaml">clamp_in_right_bin.yaml</a><br>scene: <a class="reference external" href="scenes/tools_container.yaml">tools_container.yaml</a><br>prompt: Two bins on maple table. container_f24 bin is on the left of bin_b04 bin. droid put the spring clamp in the right bin. Other objects on the table as distractors: two hammers, cordless drill</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/tools_container.png" alt="tools_container.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a><br>object count: 6</p></td>
+<td><p>ClampInRightBinTask<br>Put the spring clamp in the right bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a></p></td>
+<td><p>HammersInLeftBinTask<br>Put the red hammer and black hammer in the left bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a></p></td>
+<td><p>NonHammerToolsInRightBinTask<br>Put the non-hammer tools in the right bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a></p></td>
+<td><p>ToolOrganizationBothTask<br>Put hammers in the right bin and do not touch anything else<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a></p></td>
+<td><p>ToolOrganizationTask<br>Put the red hammer and black hammer in the left bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/foodpacking_1bin_2box_2can.png" alt="foodpacking_1bin_2box_2can.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_2box_2can.png">foodpacking_1bin_2box_2can.png</a><br>object count: 6</p></td>
+<td><p>FoodPacking2BoxesTask<br>Pack boxed foods into the bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_2box_2can.png">foodpacking_1bin_2box_2can.png</a></p></td>
+<td><p>FoodPacking2CansTask<br>Pack canned foods into the bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl.png" alt="mugs4_measuringcup_drill_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl.png">mugs4_measuringcup_drill_bowl.png</a><br>object count: 7</p></td>
+<td><p>PickDrillTask<br>Pick up the cordless drill.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl.png">mugs4_measuringcup_drill_bowl.png</a></p></td>
+<td><p>ReorientRedMugTask<br>Put the red mug upright so that the opening is facing upwards.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl.png">mugs4_measuringcup_drill_bowl.png</a></p></td>
+<td><p>StackWhiteMugsTask<br>Stack the white mugs on top of each other.<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl.png">mugs4_measuringcup_drill_bowl.png</a></p></td>
+<td><p>ReorientAllMugsTask<br>Reorient all the mugs upright so that the opening is facing upwards.<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl_v2.png" alt="mugs4_measuringcup_drill_bowl_v2.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl_v2.png">mugs4_measuringcup_drill_bowl_v2.png</a><br>object count: 7</p></td>
+<td><p>ReorientWhiteMugsTask<br>Make sure all the white mugs are upright so that the opening is facing upwards.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs4_measuringcup_drill_bowl_v2.png">mugs4_measuringcup_drill_bowl_v2.png</a></p></td>
+<td><p>TakeMeasuringSpoonOutTask<br>Take the white colored measuring spoon out of the red bowl and put it on the table.<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/shelf_with_cleaning_products.png" alt="shelf_with_cleaning_products.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_with_cleaning_products.png">shelf_with_cleaning_products.png</a><br>object count: 8</p></td>
+<td><p>OneBottleInSquarePailTask<br>Put any white plastic bottle in the square pail<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_with_cleaning_products.png">shelf_with_cleaning_products.png</a></p></td>
+<td><p>OneBottleOnShelfTask<br>Put any white plastic bottle on the shelf<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_with_cleaning_products.png">shelf_with_cleaning_products.png</a></p></td>
+<td><p>ReorientJugTask<br>Stand the jug upright<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_with_cleaning_products.png">shelf_with_cleaning_products.png</a></p></td>
+<td><p>JugsOnShelfTask<br>Put all the jugs on the shelf<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/shelf_with_cleaning_products.png">shelf_with_cleaning_products.png</a></p></td>
+<td><p>PlasticBottlesInSquarePailTask<br>Put all the small plastic bottles in the square pail<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/wire_shelf_mugs_plate_spatula.png" alt="wire_shelf_mugs_plate_spatula.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/wire_shelf_mugs_plate_spatula.png">wire_shelf_mugs_plate_spatula.png</a><br>object count: 8</p></td>
+<td><p>TakeSpatulaOffShelfTask<br>Take the spatula off the shelf and put it on the table<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/wire_shelf_mugs_plate_spatula.png">wire_shelf_mugs_plate_spatula.png</a></p></td>
+<td><p>PutTwoMugsOnShelfTask<br>Put two (2) mugs on the wire shelf<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/cartons_in_crate.png" alt="cartons_in_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cartons_in_crate.png">cartons_in_crate.png</a><br>object count: 8</p></td>
+<td><p>RecycleCartonTask<br>Put the recyclable cartons in the grey bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/cartons_in_vertical_crate.png" alt="cartons_in_vertical_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cartons_in_vertical_crate.png">cartons_in_vertical_crate.png</a><br>object count: 8</p></td>
+<td><p>RecycleCartonsVerticalCrateTask<br>Put the cartons that can be recycled in the vertical crate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/cartons_on_box.png" alt="cartons_on_box.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cartons_on_box.png">cartons_on_box.png</a><br>object count: 8</p></td>
+<td><p>RecycleCartonsOnBoxTask<br>Put the cartons that can be recycled on the box<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mug_banana_ketchup_bowl_rubiks3_bin.png" alt="mug_banana_ketchup_bowl_rubiks3_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mug_banana_ketchup_bowl_rubiks3_bin.png">mug_banana_ketchup_bowl_rubiks3_bin.png</a><br>object count: 8</p></td>
+<td><p>UnstackRubiksCubeTask<br>Unstack the rubiks cube tower<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mug_banana_ketchup_bowl_rubiks3_bin.png">mug_banana_ketchup_bowl_rubiks3_bin.png</a></p></td>
+<td><p>YellowAndWhiteObjectsInBinTask<br>Put all white objects and yellow objects in the grey bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/foodpacking_1bin_3box_3can.png" alt="foodpacking_1bin_3box_3can.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_3box_3can.png">foodpacking_1bin_3box_3can.png</a><br>object count: 8</p></td>
+<td><p>FoodPacking3BoxesTask<br>Pack boxed foods into the bin<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_3box_3can.png">foodpacking_1bin_3box_3can.png</a></p></td>
+<td><p>FoodPacking3CansTask<br>Pack canned foods into the bin<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/objects_around_table.png" alt="objects_around_table.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/objects_around_table.png">objects_around_table.png</a><br>object count: 8</p></td>
+<td><p>WhiteMugInCenterOfTableTask<br>Put the white mug in the center of the table.<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/food_packing.png" alt="food_packing.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/food_packing.png">food_packing.png</a><br>object count: 9</p></td>
+<td><p>FoodPackingByColorTask<br>Pack yellow objects in right container and blue object in the left container<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mugs2_bananas2_ketchup_rubiks3_bin.png" alt="mugs2_bananas2_ketchup_rubiks3_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs2_bananas2_ketchup_rubiks3_bin.png">mugs2_bananas2_ketchup_rubiks3_bin.png</a><br>object count: 10</p></td>
+<td><p>WhiteMugsInBinTask<br>Clean up the white mugs<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mugs2_bananas2_ketchup_rubiks3_bin.png">mugs2_bananas2_ketchup_rubiks3_bin.png</a></p></td>
+<td><p>DishesInBinTask<br>Put the dishware in the grey bin<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/tools_picking.png" alt="tools_picking.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_picking.png">tools_picking.png</a><br>object count: 11</p></td>
+<td><p>ToolsPickingDrillTask<br>Select the cordless drill and put it on the table<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_picking.png">tools_picking.png</a></p></td>
+<td><p>ToolsPickingHammerTask<br>Select the blue hammer and put it on the table<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_picking.png">tools_picking.png</a></p></td>
+<td><p>ToolsPickingAllHammersTask<br>Take out all the hammers and put them on the table<br>subtask count: 4</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/toys_cleanup.png" alt="toys_cleanup.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a><br>object count: 11</p></td>
+<td><p>AnimalsInBinTask<br>Put the lizards in the bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a></p></td>
+<td><p>StackYellowOnRedTask<br>Stack the yellow block on the red block<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a></p></td>
+<td><p>RubiksCubesInBinTask<br>Sort all rubiks cubes into the bin<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a></p></td>
+<td><p>BlocksInBinTask<br>Sort all colored blocks into the bin<br>subtask count: 4</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a></p></td>
+<td><p>CubesAndBlocksInBinTask<br>Put all the cubes and blocks in the bin<br>subtask count: 7</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/toys_cleanup.png">toys_cleanup.png</a></p></td>
+<td><p>CleanUpToysTask<br>Clean up all the smaller toys and leave the birdhouse on the table<br>subtask count: 9</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bin_condiments.png" alt="bin_condiments.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a><br>object count: 12</p></td>
+<td><p>CannedFoodInBinTask<br>Put the canned food in the grey bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/coffee_pot_in_bin.yaml">coffee_pot_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/bin_condiments.yaml">bin_condiments.yaml</a><br>prompt: Using maple table background: droid place the coffee pot into the grey bin on the table. Other objects on the table as distractors: mug, mustard, bowl, ranch dressing, two bbq sauce bottles, oatmeal raisin cookies, canned tuna, soft scrub, wood block</p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a></p></td>
+<td><p>CoffeePotInBinTask<br>Put the coffee pot in the grey bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a></p></td>
+<td><p>BBQSauceInBinTask<br>Put the red BBQ sauce bottles in the grey bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a></p></td>
+<td><p>CondimentsInBinTask<br>Sort the sauce condiments into the grey bin<br>subtask count: 4</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/ladle_pot.png" alt="ladle_pot.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/ladle_pot.png">ladle_pot.png</a><br>object count: 13</p></td>
+<td><p>PinkSpoonInPotTask<br>Put the pink spaghetti spoon in the pot<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/ladle_pot.png">ladle_pot.png</a></p></td>
+<td><p>GreenSpoonsInPotTask<br>Put the green spoons in the pot<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/ladle_pot.png">ladle_pot.png</a></p></td>
+<td><p>SpoonsInPotTask<br>Put all of the serving spoons with no holes in the pot<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/workdesk_bin.png" alt="workdesk_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a><br>object count: 13</p></td>
+<td><p>KeyboardOutOfBinTask<br>Take the keyboard out of the bin and put it on the table<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>PhoneOrRemoteInBinTask<br>Put the phone or the remote in the grey bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>SmartphoneInBinTask<br>Put the smartphone in the grey bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>SpoonInMugTask<br>Put the metal spoon that’s in the wooden bowl in the mug<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/toy_in_bin.yaml">toy_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk_bin.yaml">workdesk_bin.yaml</a><br>prompt: Using maple table background. Droid place the lizard figurine into the grey bin on the table. Other objects on the table as distractors: ceramic mug, glasses, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and granola bar.</p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>ToyInBinTask<br>Put the lizard away in the bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>ElectronicsInBinTask<br>Put the electronic devices in the grey bin<br>subtask count: 4</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
+<td><p>BlackItemsInBinTask<br>Put the black items in the grey bin<br>subtask count: 5</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/throw_away_apple.yaml">throw_away_apple.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk_snacks.yaml">workdesk_snacks.yaml</a><br>prompt: Using maple table background. droid place the apple into the plasticpail on the table. Other objects on the table as distractors: ceramic mug, glasses, keyboard, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and pitcher</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/workdesk_snacks.png" alt="workdesk_snacks.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_snacks.png">workdesk_snacks.png</a><br>object count: 13</p></td>
+<td><p>ThrowAwayAppleTask<br>Throw away the apple<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_snacks.png">workdesk_snacks.png</a></p></td>
+<td><p>AppleAndYogurtInBowlTask<br>Put the apple and yogurt in the bowl<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_snacks.png">workdesk_snacks.png</a></p></td>
+<td><p>ThrowAwaySnacksTask<br>Put away the snacks in the bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/workdesk.png" alt="workdesk.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk.png">workdesk.png</a><br>object count: 14</p></td>
+<td><p>MarkerInMugTask<br>Put the whiteboard marker in the mug<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/mouse_on_keyboard.yaml">mouse_on_keyboard.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk.yaml">workdesk.yaml</a><br>prompt: Using maple table background. Droid place the computer mouse into the keyboard on the table. Other objects on the table as distractors: ceramic mug, glasses, lizard figurine, marker, remote control, rubiks cube, smartphone, wooden bowl, big spoon, yogurt cup, oatmeal raisin cookies and granola bar</p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk.png">workdesk.png</a></p></td>
+<td><p>MouseOnKeyboardTask<br>Put the computer mouse on the keyboard<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk.png">workdesk.png</a></p></td>
+<td><p>PickGlassesTask<br>Pick up the eye glasses<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/cooking_table.png" alt="cooking_table.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cooking_table.png">cooking_table.png</a><br>object count: 15</p></td>
+<td><p>CookingPickPastaToolTask<br>Move the pink tool from this utensil container to the other utensil holder<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cooking_table.png">cooking_table.png</a></p></td>
+<td><p>CookingClearPlateTask<br>Put the two measuring cups outside of the plate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/cooking_table.png">cooking_table.png</a></p></td>
+<td><p>PickOrangeObjectTask<br>Pick up the orange measuring cup<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/fruits_out_of_basket.png" alt="fruits_out_of_basket.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_out_of_basket.png">fruits_out_of_basket.png</a><br>object count: 15</p></td>
+<td><p>FruitsGreenLimesOnPlateTask<br>Put all the green fruit on the plate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_out_of_basket.png">fruits_out_of_basket.png</a></p></td>
+<td><p>FruitsOrangesOnPlateTask<br>Put all the oranges on the plate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_out_of_basket.png">fruits_out_of_basket.png</a></p></td>
+<td><p>FruitsOnPlate3Task<br>Put three (3) fruits on the plate<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_out_of_basket.png">fruits_out_of_basket.png</a></p></td>
+<td><p>FruitsOnPlateTask<br>Put all the fruits on the plate<br>subtask count: 7</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/fruits_in_basket.png" alt="fruits_in_basket.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a><br>object count: 16</p></td>
+<td><p>FruitsMovingOrangeOrLimeTask<br>Move an orange or a lime to the wood bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a></p></td>
+<td><p>FruitsMovingTask<br>Move an orange to the white bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a></p></td>
+<td><p>FruitsOnionTask<br>Put the onion in the wood bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a></p></td>
+<td><p>FruitsOnionToPlateTask<br>Put the onion on the plate<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a></p></td>
+<td><p>WoodSpatulaToBowlTask<br>Put the wooden spatula in the bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/big_pumpkin_in_bin.yaml">big_pumpkin_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/clutter_fruit_bottle_bluebin.yaml">clutter_fruit_bottle_bluebin.yaml</a><br>prompt: Using a maple table background. There are two pumpkins on the table, a larger one and a smaller one. Droid picks and places the pumpkin large into the blue bin on the table. Other objects on the table as distractors: two lemons, two limes, two oranges, a pomegranate, white packer bottle, avocado, crabbypenholder, serving_bowl, utilityjug and red_onion</p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png" alt="clutter_fruit_bottle_bluebin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a><br>object count: 17</p></td>
+<td><p>BigPumpkinInBinTask<br>Put the bigger pumpkin in the bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a></p></td>
+<td><p>SmallPumpkinInBinTask<br>Put the small pumpkin in the bin<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a></p></td>
+<td><p>ClutterPumpkinTask<br>Put all the pumpkins away in the bin<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a></p></td>
+<td><p>ClutterPlasticTask<br>Put all plastic bottles away in the bin<br>subtask count: 3</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a></p></td>
+<td><p>ClearOrganicObjectsTask<br>Clear away the organic objects<br>subtask count: 11</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/breakfast_table.png" alt="breakfast_table.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/breakfast_table.png">breakfast_table.png</a><br>object count: 19</p></td>
+<td><p>GrabABagelTask<br>Grab a bagel<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/breakfast_table.png">breakfast_table.png</a></p></td>
+<td><p>GrabAFruitTask<br>Pick up a fruit<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/breakfast_table.png">breakfast_table.png</a></p></td>
+<td><p>YogurtInBowlTask<br>Put the small red yogurt in the red bowl<br>subtask count: 1</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/breakfast_table.png">breakfast_table.png</a></p></td>
+<td><p>MoveBananaToBagelPlateTask<br>Move the bananas to the bagel plate<br>subtask count: 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/breakfast_table.png">breakfast_table.png</a></p></td>
+<td><p>UtensilsInMugTask<br>Put the fork and spoon in the ceramicmug<br>subtask count: 2</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="example_environments.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Example Environments</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="imitation_learning/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Imitation Learning</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+<div class="bd-sidebar-secondary"></div>
+
+
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

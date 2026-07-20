@@ -1,0 +1,1000 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Teleoperation Data Collection &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/static_apple/step_2_teleoperation';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Policy Post-Training (GR00T N1.7)" href="step_3_policy_training.html" />
+    <link rel="prev" title="Environment Setup and Validation" href="step_1_environment_setup.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="../../../../../main/pages/example_workflows/static_apple/step_2_teleoperation.html" >main</option>
+            <option value="../../../../0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../0.1.1/index.html" >release/0.1.1</option>
+            <option value="../../../../0.2.0/index.html" >release/0.2.0</option>
+            <option value="../../../../0.2.1/pages/example_workflows/static_apple/step_2_teleoperation.html" >release/0.2.1</option>
+            <option value="step_2_teleoperation.html" selected>release/0.3.0-prerelease</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/openpi.html">OpenPi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/dreamzero.html">DreamZero</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Unitree G1 Static Apple-to-Plate Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="step_3_policy_training.html">Policy Post-Training (GR00T N1.7)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_env_gen/index.html">Agentic Environment Generation and Policy Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/gui_runner.html">Agentic Environment Generation GUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/eval_with_gr00t.html">Evaluate with GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/eval_with_openpi.html">Evaluate with OpenPI</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/variation_system.html">Variation System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../imitation_learning/index.html" class="nav-link">Imitation Learning</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Unitree G1 Static Apple-to-Plate Task</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Teleoperation Data Collection</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="teleoperation-data-collection">
+<h1>Teleoperation Data Collection<a class="headerlink" href="#teleoperation-data-collection" title="Link to this heading">#</a></h1>
+<p>This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using <strong>Meta Quest 3</strong> or <strong>Pico 4 Ultra</strong> supported by <a class="reference external" href="https://github.com/NVIDIA/IsaacTeleop">Nvidia IsaacTeleop</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For supported IsaacTeleop hardware devices, see <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices">Supported Input Devices</a>.
+Before starting teleoperation, also review the <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab">IsaacTeleop system requirements</a>.</p>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>A stable network connection meeting the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements">CloudXR network requirements</a>
+is required before starting the steps below.</p>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">No teleoperation hardware?</p>
+<p>The static task drops the locomotion / squat / turn channels but still needs bimanual end-effector
+control, so a keyboard or SpaceMouse is not practical. If you don’t have an XR headset, you can
+still smoke-test the pipeline with the
+<a class="reference external" href="https://github.com/meta-quest/immersive-web-emulator">Immersive Web Emulator Runtime (IWER)</a>. Open
+<a class="reference external" href="https://nvidia.github.io/IsaacTeleop/client">https://nvidia.github.io/IsaacTeleop/client</a> in desktop Chrome (instead of the Quest browser);
+the page auto-loads IWER and emulates a Quest 3 with your mouse and keyboard, per the
+<a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html">IsaacTeleop Quick Start</a>. Follow Steps 1–4
+below unchanged; the only difference is that Step 3 is done from a desktop browser tab. Because
+the static task is upper-body-only, IWER drives it noticeably better than the loco-manipulation
+variant — you can plausibly complete a few demos with just mouse + keyboard, though a real Quest
+3 still gives much smoother demonstrations.</p>
+</div>
+<section id="step-1-start-the-cloudxr-runtime">
+<h2>Step 1: Start the CloudXR Runtime<a class="headerlink" href="#step-1-start-the-cloudxr-runtime" title="Link to this heading">#</a></h2>
+<ol class="arabic">
+<li><p>On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type. The example below uses <code class="docutils literal notranslate"><span class="pre">ufw</span></code> (Ubuntu); on other distributions use the equivalent firewall tooling (e.g. <code class="docutils literal notranslate"><span class="pre">firewalld</span></code> on Fedora/RHEL, <code class="docutils literal notranslate"><span class="pre">pf</span></code> on macOS).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">49100</span>/tcp<span class="w">   </span><span class="c1"># Signaling</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp<span class="w">   </span><span class="c1"># Media stream</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Proxy (HTTPS mode only)</span>
+</pre></div>
+</div>
+</li>
+<li><p>Start the CloudXR runtime from the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr
+</pre></div>
+</div>
+</li>
+</ol>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
+To accept the EULA, reply <code class="docutils literal notranslate"><span class="pre">Yes</span></code> when prompted with the below message:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>NVIDIA<span class="w"> </span>CloudXR<span class="w"> </span>EULA<span class="w"> </span>must<span class="w"> </span>be<span class="w"> </span>accepted<span class="w"> </span>to<span class="w"> </span>run.<span class="w"> </span>View:<span class="w"> </span>https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
+
+Accept<span class="w"> </span>NVIDIA<span class="w"> </span>CloudXR<span class="w"> </span>EULA?<span class="w"> </span><span class="o">[</span>y/N<span class="o">]</span>:<span class="w"> </span>Yes
+</pre></div>
+</div>
+</div>
+</section>
+<section id="step-2-start-arena-teleop">
+<h2>Step 2: Start Arena Teleop<a class="headerlink" href="#step-2-start-arena-teleop" title="Link to this heading">#</a></h2>
+<ol class="arabic">
+<li><p>In another terminal, start the Arena Docker container and launch the teleop session to verify the pipeline:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</li>
+<li><p>Run the following command to activate IsaacTeleop CloudXR environment settings:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/.cloudxr/run/cloudxr.env
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Order matters.</strong> In the terminal where you will run Arena, <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">~/.cloudxr/run/cloudxr.env</span></code> <em>after</em> the CloudXR runtime from Step 1 is already running,
+and <em>before</em> you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.</p>
+</div>
+</li>
+<li><p>Run the teleop script:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span><span class="se">\</span>
+--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+--teleop_device<span class="w"> </span>openxr
+</pre></div>
+</div>
+</li>
+<li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../../_images/static_apple_scene.png"><img alt="Arena teleop with XR running (stereoscopic view and OpenXR settings)" src="../../../_images/static_apple_scene.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</li>
+</ol>
+</section>
+<section id="step-2b-monitor-recording-with-a-second-viewport-optional">
+<h2>Step 2b: Monitor Recording with a Second Viewport (Optional)<a class="headerlink" href="#step-2b-monitor-recording-with-a-second-viewport-optional" title="Link to this heading">#</a></h2>
+<p>For higher-quality datasets, we recommend a two-person workflow when collecting demonstrations in
+Step 4: one person teleoperates from the headset, while a second person watches the host monitor
+to confirm each trajectory stays inside the robot’s head-camera field of view. Anything that
+drifts outside the recording FOV is absent from the saved HDF5 and absent from the policy’s view
+at training time, so catching it live saves a re-record.</p>
+<p>The Arena application’s default viewport shows the <em>teleoperator’s</em> stereoscopic perspective —
+what the headset wearer sees, not what <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> will store.</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../../_images/xr-dual-viewport-start.jpg"><img alt="Isaac Lab with a single viewport showing the teleoperator's stereoscopic XR view." src="../../../_images/xr-dual-viewport-start.jpg" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The default single viewport shows the teleoperator’s stereoscopic XR perspective.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>To watch both perspectives side-by-side, open a second viewport bound to the robot’s head camera:</p>
+<ol class="arabic">
+<li><p>In the running Arena application, open the <strong>Window</strong> menu and toggle on <strong>Viewport 2</strong>.</p></li>
+<li><p>In the new Viewport 2, click the camera selector in the viewport toolbar and choose the
+robot’s head-mounted camera (<code class="docutils literal notranslate"><span class="pre">RobotHeadCam</span></code>, under
+<code class="docutils literal notranslate"><span class="pre">/World/envs/env_0/Robot/head_link</span></code>). This is the camera that <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> writes
+to the HDF5 file in Step 4, so any motion that leaves this frame will be absent from the
+dataset.</p>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="../../../_images/xr-dual-viewport-menu.jpg"><img alt="Viewport camera selector with RobotHeadCam highlighted under the Cameras submenu." src="../../../_images/xr-dual-viewport-menu.jpg" style="width: 60%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Choose <code class="docutils literal notranslate"><span class="pre">RobotHeadCam</span></code> from the Viewport 2 camera selector.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</li>
+</ol>
+<p>Both viewports now update live — the left shows the teleoperator’s stereoscopic view and the
+right shows exactly what <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> records:</p>
+<figure class="align-center" id="id5">
+<a class="reference internal image-reference" href="../../../_images/xr-dual-viewport-result.jpg"><img alt="Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right)." src="../../../_images/xr-dual-viewport-result.jpg" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator’s perspective,
+and the head-camera view (right) is what the dataset captures. The observer keeps every
+grasp and placement inside the right viewport and gives the teleoperator live feedback
+(“move a touch to your right — your hand is at the edge of frame”).</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">RobotHeadCam</span></code> is only spawned when <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> is set. The <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code>
+command in Step 4 enables it by default, so the camera shows up in the camera selector once
+you are recording. The smoke-test <code class="docutils literal notranslate"><span class="pre">teleop.py</span></code> command above omits <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> for
+performance; pass it there too if you want to validate the dual-viewport layout before
+entering VR.</p>
+</div>
+</section>
+<section id="step-3-connect-from-the-headset-device">
+<h2>Step 3: Connect from the headset device<a class="headerlink" href="#step-3-connect-from-the-headset-device" title="Link to this heading">#</a></h2>
+<p>For detailed instructions please refer to <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime">Connect an XR Device</a>:</p>
+<ol class="arabic">
+<li><p>Open the browser on your headset and navigate to <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/client">https://nvidia.github.io/IsaacTeleop/client</a>.</p></li>
+<li><p>Enter the IP address of your Isaac Lab host machine in the <strong>Server IP</strong> field.</p></li>
+<li><p>Click the <strong>Click https://&lt;ip&gt;:48322/ to accept cert</strong> link that appears on the page.
+Accept the certificate in the new page that opens, then navigate back to the
+CloudXR.js client page.</p></li>
+<li><p>Click <strong>Connect</strong> to begin teleoperation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Once you press <strong>Connect</strong> in the web browser, you should see the following control panel. Press <strong>Play</strong> to start teleoperation.
+You can also reset the scene by pressing the <strong>Reset</strong> button.</p>
+<p>If the control panel is not visible (for example, behind a solid wall in the simulated environment), you can put the headset on
+before clicking <strong>Start XR</strong> in the Isaac Lab Arena application, and drag the control panel to a better location.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../../_images/react-isaac-sample-controls-start.jpg"><img alt="IsaacSim view" src="../../../_images/react-isaac-sample-controls-start.jpg" style="width: 40%;" />
+</a>
+</figure>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the robot does not align with your body direction after connecting the headset, reset the
+headset view before recording. On Meta Quest, hold the Meta/Oculus button or use
+<strong>Quick controls</strong> &gt; <strong>Reset view</strong>. On PICO 4 Ultra, look straight ahead and hold the
+controller <strong>Home</strong> button for at least 1 second. See Meta’s
+<a class="reference external" href="https://www.meta.com/help/quest/149215193811647/">Quest guide</a> and the
+<a class="reference external" href="https://p16-platform-static-va.ibyteimg.com/tos-maliva-i-jo6vmmv194-us/pico4-ultra-user-guide-apac.pdf">PICO 4 Ultra User Guide</a>.</p>
+</div>
+</li>
+<li><p><strong>Teleoperation Controls</strong>:</p>
+<ul class="simple">
+<li><p><strong>Left joystick</strong>: Move the body forward/backward/left/right.</p></li>
+<li><p><strong>Right joystick</strong>: Squat (down), rotate torso (left/right).</p></li>
+<li><p><strong>Controllers</strong>: Move end-effector (EE) targets for the arms.</p></li>
+</ul>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.</p>
+<figure class="align-center" id="id6">
+<a class="reference internal image-reference" href="../../../_images/xr_resolution.png"><img alt="XR resolution panel" src="../../../_images/xr_resolution.png" style="width: 40%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Reducing render resolution from 1 (default) to 0.2.</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="step-4-record-with-the-headset-device">
+<h2>Step 4: Record with the headset device<a class="headerlink" href="#step-4-record-with-the-headset-device" title="Link to this heading">#</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Run the following command to activate IsaacTeleop CloudXR environment settings again if you are starting the recording app from a different terminal.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/.cloudxr/run/cloudxr.env
+</pre></div>
+</div>
+</div>
+<ol class="arabic">
+<li><p><strong>Recording</strong>: When ready to collect data, run the recording script from the Arena container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_apple_tutorial
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$DATASET_DIR</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Record demonstrations with OpenXR teleop</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--disable_full_sim_buffer_reset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>openxr
+</pre></div>
+</div>
+</li>
+<li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p></li>
+<li><p>Follow Step 3 to connect the headset again.</p></li>
+<li><p>Complete the task for each demo. After a successful placement, wait for the demo to
+end automatically and for the environment to reset automatically. The script saves
+successful runs to the HDF5 file above. Pressing <strong>Reset</strong> early can save an
+incomplete or failed demonstration.</p></li>
+<li><p>After the automatic reset, place your hands back in the initial starting position and
+press <strong>Reset</strong> on the control panel to start the next demo.</p></li>
+</ol>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>High-quality seed demonstrations are required because these recordings are converted directly to
+LeRobot format and used for policy post-training (see <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>). The command
+above records <code class="docutils literal notranslate"><span class="pre">--num_demos</span> <span class="pre">10</span></code> for a fast tutorial pass. For better inference results, change it
+to <code class="docutils literal notranslate"><span class="pre">--num_demos</span> <span class="pre">400</span></code> and keep <code class="docutils literal notranslate"><span class="pre">--num_success_steps</span> <span class="pre">10</span></code> so each successful episode includes
+extra stable frames after the success condition is triggered.</p>
+<p>Policy success rate depends heavily on both dataset quality and dataset size. For better success
+rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
+collisions.</p>
+<p>Follow this protocol while collecting data:</p>
+<ul class="simple">
+<li><p><strong>Warm-up:</strong> complete about 5 practice runs before recording the main dataset so you
+are used to XR latency and the apple’s contact behavior.</p></li>
+<li><p><strong>Smoothness:</strong> move consistently and avoid jerky motions. Jerky seed demonstrations lead to
+poor synthetic augmentations and unstable policy behavior.</p></li>
+<li><p><strong>Body motion:</strong> keep the robot torso and body fixed during this static task. Use only the arms
+and hands for manipulation.</p></li>
+<li><p><strong>Grasp diversity:</strong> include diverse grasp styles across the dataset, including top-down grasps
+and side grasps, so the policy does not overfit to one approach direction.</p></li>
+<li><p><strong>Clean successes only:</strong> save only runs with no unnecessary collisions, no dropped objects before
+placement, and no recovery motions that would confuse the policy.</p></li>
+<li><p><strong>Wait for success freeze:</strong> after releasing the apple onto the plate, keep the scene stable and
+wait until the recording auto-terminates/freezes. Only reset after that happens.</p></li>
+<li><p><strong>Trajectory length:</strong> aim for demonstrations around 200–400 timesteps. Very long episodes slow
+down downstream data processing, while very short episodes tend to contain abrupt motion.</p></li>
+<li><p><strong>Replay validation:</strong> after recording, replay the HDF5 with Step 5 and inspect camera frames,
+action smoothness, trajectory consistency, and overall task quality before training.</p></li>
+</ul>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>Suggested sequence for good data collection:</p>
+<ol class="arabic simple">
+<li><p><strong>Prepare the camera view:</strong> first move the right arm to the side and keep it still, resting near the
+shelf/table surface if possible, to reduce visual clutter and self-occlusion.</p></li>
+<li><p><strong>Move to the apple:</strong> approach the apple smoothly with the left arm, primarily along a horizontal
+path. A side approach is a good default trajectory for clean demonstrations.</p></li>
+<li><p><strong>Grasp execution:</strong> once the hand is aligned with the apple, close the gripper/fingers firmly
+to establish a stable grasp.</p></li>
+<li><p><strong>Lift motion:</strong> lift the apple straight upward before translating toward the plate. Avoid
+backtracking along the original approach path because it makes it harder for GR00T to distinguish
+approach and retreat motions during training.</p></li>
+<li><p><strong>Placement:</strong> lower the apple until it is slightly above the plate surface, pause briefly in a
+stable pose, then release cleanly so the apple drops naturally onto the plate.</p></li>
+<li><p><strong>Reset:</strong> after the automatic reset finishes, return your hands to the initial starting
+position, then press <strong>Reset</strong> on the control panel to start the next demo.</p></li>
+</ol>
+<p>Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
+bin. Keep the release height low and the orientation stable.</p>
+<figure class="align-center" id="id7">
+<a class="reference internal image-reference" href="../../../_images/static_apple_pick_and_place.gif"><img alt="Static apple-to-plate demonstration with the Unitree G1" src="../../../_images/static_apple_pick_and_place.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Example static apple-to-plate demonstration trajectory.</span><a class="headerlink" href="#id7" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="step-4b-merge-multiple-recording-sessions-optional">
+<span id="static-apple-merge-demos"></span><h2>Step 4b: Merge Multiple Recording Sessions (Optional)<a class="headerlink" href="#step-4b-merge-multiple-recording-sessions-optional" title="Link to this heading">#</a></h2>
+<p>Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue,
+and the realities of stopping and starting the Arena app for breaks. The
+recommended workflow is to record one HDF5 per session by pointing <code class="docutils literal notranslate"><span class="pre">--dataset_file</span></code> at a fresh
+path each time:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Session 1 (e.g. morning)</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_a.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
+
+<span class="c1"># Session 2 (after lunch)</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_b.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
+</pre></div>
+</div>
+<p>Then concatenate the per-session files into the single training-ready dataset that
+<a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a> expects:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/merge_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">$DATASET_DIR</span>/session_a.hdf5<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_b.hdf5
+</pre></div>
+</div>
+<p>The script is pure <code class="docutils literal notranslate"><span class="pre">h5py</span></code> (no Isaac Sim startup), so it returns in seconds. It validates
+that all inputs share the same <code class="docutils literal notranslate"><span class="pre">format_version</span></code>, action shape, observation keys, and camera
+geometry, and prints a per-file summary with the demo and step counts:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[1/2] session_a.hdf5             demos=  50  steps=    12,805  size= 187.3 MiB  env=&quot;&quot;  v=1  keys=14
+[2/2] session_b.hdf5             demos=  50  steps=    11,422  size= 171.0 MiB  env=&quot;&quot;  v=1  keys=14
+------------------------------------------------------------------------------------------
+        arena_g1_static_apple_dataset_recorded.hdf5 (output)   demos= 100  steps=    24,227  size= 358.3 MiB
+Validation: format_version OK, schema OK, env_args OK
+Demo numbering: demo_0..demo_99 (input order preserved)
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">--dry_run</span></code> to inspect the report without writing the output file. This is a quick
+compatibility check before clobbering an existing combined dataset, and it returns a non-zero
+exit code if any input would block the merge.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Successful demos are renumbered sequentially (<code class="docutils literal notranslate"><span class="pre">demo_0</span></code>, <code class="docutils literal notranslate"><span class="pre">demo_1</span></code>, …) in the order the
+input files are listed, so list the sessions chronologically if you want the merged file to
+reflect the order of collection.</p>
+</div>
+<p>If a session was recorded against a slightly different environment (e.g. a different physics
+timestep) the merge will warn but still proceed. Schema-level differences (different action
+dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
+the offending session against the canonical environment instead.</p>
+</section>
+<section id="step-5-replay-recorded-demos-optional">
+<h2>Step 5: Replay Recorded Demos (Optional)<a class="headerlink" href="#step-5-replay-recorded-demos-optional" title="Link to this heading">#</a></h2>
+<p>Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
+check on the environment: it drives the env from the recorded actions and needs no teleoperation
+device, so you can visually verify the scene, embodiment, and asset placements without launching
+CloudXR.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">replay_demos.py</span></code> replays the captured <strong>actions</strong> in simulation; it is not exact trajectory
+or video playback. Because this is open-loop replay, small differences in contact dynamics,
+physics backend, timing, environment configuration, or the apple’s randomized initial pose can
+make replay miss or drop the apple even when the original recorded demo succeeded. Treat replay
+as an action-level sanity check, and inspect the recorded camera data before recollecting data.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay from the recorded HDF5 dataset</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="step_1_environment_setup.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Environment Setup and Validation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="step_3_policy_training.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Policy Post-Training (GR00T N1.7)</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-cloudxr-runtime">Step 1: Start the CloudXR Runtime</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-arena-teleop">Step 2: Start Arena Teleop</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2b-monitor-recording-with-a-second-viewport-optional">Step 2b: Monitor Recording with a Second Viewport (Optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-connect-from-the-headset-device">Step 3: Connect from the headset device</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-record-with-the-headset-device">Step 4: Record with the headset device</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4b-merge-multiple-recording-sessions-optional">Step 4b: Merge Multiple Recording Sessions (Optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-replay-recorded-demos-optional">Step 5: Replay Recorded Demos (Optional)</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

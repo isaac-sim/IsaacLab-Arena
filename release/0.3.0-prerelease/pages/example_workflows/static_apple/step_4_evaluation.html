@@ -1,0 +1,806 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Closed-Loop Policy Inference and Evaluation &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/static_apple/step_4_evaluation';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="GR1 Open Microwave Door Task" href="../static_manipulation/index.html" />
+    <link rel="prev" title="Policy Post-Training (GR00T N1.7)" href="step_3_policy_training.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="../../../../../main/pages/example_workflows/static_apple/step_4_evaluation.html" >main</option>
+            <option value="../../../../0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../0.1.1/index.html" >release/0.1.1</option>
+            <option value="../../../../0.2.0/index.html" >release/0.2.0</option>
+            <option value="../../../../0.2.1/pages/example_workflows/static_apple/step_4_evaluation.html" >release/0.2.1</option>
+            <option value="step_4_evaluation.html" selected>release/0.3.0-prerelease</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/openpi.html">OpenPi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/dreamzero.html">DreamZero</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Unitree G1 Static Apple-to-Plate Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="step_3_policy_training.html">Policy Post-Training (GR00T N1.7)</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_env_gen/index.html">Agentic Environment Generation and Policy Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/gui_runner.html">Agentic Environment Generation GUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/eval_with_gr00t.html">Evaluate with GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/eval_with_openpi.html">Evaluate with OpenPI</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/variation_system.html">Variation System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../imitation_learning/index.html" class="nav-link">Imitation Learning</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Unitree G1 Static Apple-to-Plate Task</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Closed-Loop Policy Inference and Evaluation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="closed-loop-policy-inference-and-evaluation">
+<h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
+<p>This workflow demonstrates running the finetuned GR00T N1.7 policy in closed-loop and evaluating it
+in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena’s <strong>server-client
+(remote-policy) architecture</strong>. The GR00T policy server, which hosts the finetuned checkpoint, runs
+outside the Arena container. The Arena container itself runs only the simulation and a thin GR00T
+client that queries the server for actions.</p>
+<p>This tutorial uses the dataset you collected in <a class="reference internal" href="step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a> and the model
+you trained in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>, or the released checkpoint downloaded below.</p>
+<section id="step-1-start-the-gr00t-policy-server">
+<h2>Step 1: Start the GR00T policy server<a class="headerlink" href="#step-1-start-the-gr00t-policy-server" title="Link to this heading">#</a></h2>
+<p>The server runs GR00T’s stock <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> from the standalone Isaac-GR00T (N1.7) checkout.
+Start it <strong>before</strong> launching the client; the client will connect on first inference. Run the
+server <strong>outside Docker</strong> in the standalone Isaac-GR00T venv created in <a class="reference internal" href="index.html"><span class="doc">Unitree G1 Static Apple-to-Plate Task</span></a>.</p>
+<p>The server takes all of its configuration from CLI flags (model checkpoint, embodiment tag, the
+modality config from Arena’s source tree, and bind host/port). Replace
+<code class="docutils literal notranslate"><span class="pre">/path/to/IsaacLab-Arena</span></code> with the absolute path to your Arena clone and <code class="docutils literal notranslate"><span class="pre">${MODEL_PATH}</span></code> with
+the finetuned checkpoint directory from <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Download Pre-trained Model (skip policy post-training)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.7 static apple checkpoint,
+such that the policy post-training step can be skipped. Run them <strong>outside Docker</strong> in the
+standalone Isaac-GR00T venv before starting the server.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>~/models/isaaclab_arena/static_apple_tutorial
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODEL_PATH</span><span class="o">=</span><span class="nv">$MODELS_DIR</span>/gn1x_tuned_static_apple
+
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MODEL_PATH</span><span class="s2">&quot;</span>
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>model<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODEL_PATH</span>
+</pre></div>
+</div>
+<p class="sd-card-text">If you trained your own checkpoint in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>, set <code class="docutils literal notranslate"><span class="pre">MODEL_PATH</span></code> to that
+trainer output instead, for example
+<code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000</span></code>.</p>
+</div>
+</details><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span>
+
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--modality-config-path<span class="w"> </span>/path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--model-path<span class="w"> </span><span class="si">${</span><span class="nv">MODEL_PATH</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--embodiment-tag<span class="w"> </span>NEW_EMBODIMENT<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--device<span class="w"> </span>cuda<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--port<span class="w"> </span><span class="m">5555</span>
+</pre></div>
+</div>
+<p>The server prints <code class="docutils literal notranslate"><span class="pre">Server</span> <span class="pre">Ready</span> <span class="pre">and</span> <span class="pre">listening</span> <span class="pre">on</span> <span class="pre">0.0.0.0:5555</span></code> once it is ready for clients.</p>
+</section>
+<section id="step-2-run-single-environment-evaluation-arena-container">
+<h2>Step 2: Run Single Environment Evaluation (Arena container)<a class="headerlink" href="#step-2-run-single-environment-evaluation-arena-container" title="Link to this heading">#</a></h2>
+<p>With the server from Step 1 running, launch the Arena client. The client side does not need any
+GR00T dependencies — it talks to the server over ZeroMQ — so it runs in the standard <strong>Base</strong>
+Arena container. <code class="docutils literal notranslate"><span class="pre">Gr00tRemoteClosedloopPolicy</span></code> is Arena’s client wrapper around the remote GR00T server.</p>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Once inside the container, set the dataset and models directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_apple_tutorial
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_apple_tutorial
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If Kit reports permission errors while writing
+<code class="docutils literal notranslate"><span class="pre">/isaac-sim/kit/data/Kit/IsaacLab/3.0/user.config.json</span></code> or cache files, start from a clean
+Arena container/cache or rebuild the Docker image. This can happen when stale Isaac Sim / Kit
+state from another setup is reused with incompatible ownership.</p>
+</div>
+<p>We first run the policy in a single environment with visualization via the GUI. Replace
+<code class="docutils literal notranslate"><span class="pre">&lt;SERVER_HOST&gt;</span></code> below with the IP of the host running Step 1 (or <code class="docutils literal notranslate"><span class="pre">localhost</span></code> if it is the
+same machine).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--remote_host<span class="w"> </span>&lt;SERVER_HOST&gt;<span class="w"> </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--num_steps<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--embodiment<span class="w"> </span>g1_wbc_agile_joint
+</pre></div>
+</div>
+<p>Note the lower <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code> (600 instead of 1500): with no walking phase, a successful
+static apple-to-plate episode runs for roughly half as long as the loco-manipulation variant.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The 600-step command is intended as a quick smoke test. To get a more representative
+success rate, evaluate complete episodes instead of relying on one short rollout: use
+<code class="docutils literal notranslate"><span class="pre">--num_episodes</span> <span class="pre">100</span></code> for a quick estimate or <code class="docutils literal notranslate"><span class="pre">--num_episodes</span> <span class="pre">1000</span></code> for a stronger
+estimate. If you prefer <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code>, this task’s 6-second timeout comes from the
+task episode length (<code class="docutils literal notranslate"><span class="pre">episode_length_s=6.0</span></code> in
+<code class="docutils literal notranslate"><span class="pre">galileo_g1_static_pick_and_place_environment.py</span></code>). At 50 Hz control, that is about
+300 environment steps per episode, so 100 episodes is roughly <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">30000</span></code>
+and 1000 episodes is roughly <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">300000</span></code>.</p>
+</div>
+<p>The evaluation should produce the following output on the console at the end of the evaluation.
+You should see similar metrics.</p>
+<p>Note that all these metrics are computed over the entire evaluation process, and are affected
+by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 1}
+</pre></div>
+</div>
+</section>
+<section id="run-parallel-environments-evaluation-optional">
+<h2>Run Parallel Environments Evaluation (Optional)<a class="headerlink" href="#run-parallel-environments-evaluation-optional" title="Link to this heading">#</a></h2>
+<p>Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.</p>
+<p>Test the policy in 5 parallel environments with visualization via the GUI. The 600-step smoke test
+gives each environment enough steps to complete at least one full 6-second episode.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--remote_host<span class="w"> </span>&lt;SERVER_HOST&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--num_steps<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--embodiment<span class="w"> </span>g1_wbc_agile_joint
+</pre></div>
+</div>
+<p>During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
+</pre></div>
+</div>
+<p>At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 5}
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that the embodiment used in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_joint</span></code>, which is
+different from <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> used during teleoperation recording.
+This is because during tele-operation, the upper body is controlled via target end-effector poses,
+which are realized by using the PINK IK controller, and the lower body is controlled via the AGILE
+WBC policy. The GR00T N1.7 policy is trained on upper body joint positions and lower body WBC
+policy inputs, so we use the joint-control twin (<code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_joint</span></code>) for closed-loop policy
+inference – it shares the AGILE lower-body backend with the recording embodiment, just bypasses
+PinkIK.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The same-shelf placement makes the static variant slightly easier than the loco-manipulation
+apple-to-plate task: the destination plate is always within arm’s reach so the policy
+never has to recover from a mistimed approach, and there are no intermediate locomotion
+phases that can drift off-course. The success criterion is the same contact-sensor
+termination used by the loco-manipulation variant (<code class="docutils literal notranslate"><span class="pre">force_threshold=0.5</span> <span class="pre">N</span></code>,
+<code class="docutils literal notranslate"><span class="pre">velocity_threshold=0.1</span> <span class="pre">m/s</span></code>), filtered to contacts with the <code class="docutils literal notranslate"><span class="pre">--destination</span></code> asset.
+Both values are passed to <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> from
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/galileo_g1_static_pick_and_place_environment.py</span></code>; edit the
+<code class="docutils literal notranslate"><span class="pre">force_threshold</span></code> / <code class="docutils literal notranslate"><span class="pre">velocity_threshold</span></code> kwargs there if you need a different success
+criterion for a new pick-up object or destination.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Common server-client failure modes.</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ValueError:</span> <span class="pre">Invalid</span> <span class="pre">action</span> <span class="pre">shape,</span> <span class="pre">expected:</span> <span class="pre">23,</span> <span class="pre">received:</span> <span class="pre">50.</span></code> — the client’s embodiment
+expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
+client uses <code class="docutils literal notranslate"><span class="pre">--embodiment</span> <span class="pre">g1_wbc_agile_joint</span></code> (joint twin), not
+<code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> (PinkIK twin).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> on the client side — check the client’s <code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>. This
+workflow must use the remote client wrapper
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span></code>,
+together with <code class="docutils literal notranslate"><span class="pre">--policy_config_yaml_path</span></code>.</p></li>
+<li><p>Action shape mismatch on the server (e.g., <code class="docutils literal notranslate"><span class="pre">Action</span> <span class="pre">key</span> <span class="pre">'left_arm''s</span> <span class="pre">horizon</span> <span class="pre">must</span> <span class="pre">be</span> <span class="pre">40.</span>
+<span class="pre">Got</span> <span class="pre">50</span></code>) — the action modality used to launch the server does not match the checkpoint’s
+training horizon. This workflow trains and serves GR00T N1.7 with <code class="docutils literal notranslate"><span class="pre">action_horizon:</span> <span class="pre">40</span></code>.
+Re-finetune with the same action <code class="docutils literal notranslate"><span class="pre">delta_indices</span></code> horizon, or launch
+<code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> with the same <code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> used during finetuning. Keep
+the Arena client YAML’s <code class="docutils literal notranslate"><span class="pre">action_horizon</span></code> and <code class="docutils literal notranslate"><span class="pre">action_chunk_length</span></code> in sync as well (see
+the caution in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>).</p></li>
+</ul>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="step_3_policy_training.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Policy Post-Training (GR00T N1.7)</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../static_manipulation/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">GR1 Open Microwave Door Task</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-gr00t-policy-server">Step 1: Start the GR00T policy server</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-single-environment-evaluation-arena-container">Step 2: Run Single Environment Evaluation (Arena container)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-parallel-environments-evaluation-optional">Run Parallel Environments Evaluation (Optional)</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
