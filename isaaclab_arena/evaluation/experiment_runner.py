@@ -55,15 +55,15 @@ def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_ca
 
 def _assert_exact_experiment_output_directory_is_available(experiment_output_directory: Path) -> None:
     """Check that an exact Experiment output path is missing or empty."""
-    if not experiment_output_directory.exists():
-        return
-    assert (
-        experiment_output_directory.is_dir()
-    ), f"Experiment output path exists but is not a directory: '{experiment_output_directory}'"
-    assert not any(experiment_output_directory.iterdir()), (
-        f"Experiment output directory '{experiment_output_directory}' is not empty. Choose another directory,"
-        " clear it, or use --output_base_dir to create a timestamped Experiment directory."
-    )
+    if experiment_output_directory.exists():
+        assert (
+            experiment_output_directory.is_dir()
+        ), f"Experiment output path exists but is not a directory: '{experiment_output_directory}'"
+        existing_experiment_output_paths = list(experiment_output_directory.iterdir())
+        assert len(existing_experiment_output_paths) == 0, (
+            f"Experiment output directory '{experiment_output_directory}' is not empty. Choose another directory,"
+            " clear it, or use --output_base_dir to create a timestamped Experiment directory."
+        )
 
 
 def main():
