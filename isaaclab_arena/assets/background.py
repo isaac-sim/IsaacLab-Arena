@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from isaaclab.envs.common import ViewerCfg
+
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.utils.pose import Pose
@@ -37,3 +39,6 @@ class Background(Object):
         # TODO(alexmillane, 2025.09.19): Make this value relative to the background
         # prim origin.
         self.object_min_z = object_min_z
+
+    def get_viewer_cfg(self) -> ViewerCfg | None:
+        """Return a custom viewer camera framing for this background, or None to auto-frame."""

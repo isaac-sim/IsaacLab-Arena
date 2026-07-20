@@ -38,7 +38,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
 
     arena_env = IsaacLabArenaEnvironment(
         name="test_isaac_lab_bug_local_poses",
-        embodiment=FrankaIKEmbodiment(enable_cameras=True, camera_offset=TEST_CAMERA_OFFSET),
+        embodiment=FrankaIKEmbodiment(enable_cameras=True),
         scene=Scene(),
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
@@ -60,6 +60,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
     assert view is not None, "Camera XformPrimView was not initialized."
 
     _, q_parent_C = view.get_local_poses()
+    q_parent_C = q_parent_C.torch
     expected_rot_xyzw = torch.tensor(offset_cfg.rot, device=q_parent_C.device, dtype=q_parent_C.dtype)
     torch.testing.assert_close(q_parent_C[0], expected_rot_xyzw, atol=1e-5, rtol=1e-5)
 

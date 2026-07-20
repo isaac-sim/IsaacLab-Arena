@@ -62,10 +62,10 @@ generate, edit, and visualize the prompt-specified environment in a web browser:
 
    For example:
 
-   * ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
+   * ``isaaclab_arena_environments/robolab/scenes/mustard_raisin_box.yaml``
      manually adds a ``rotate_around_solution`` relation to set the raisin box
      in a standup position.
-   * ``isaaclab_arena_environments/robolab/two_bin_linked.yaml`` manually edits
+   * ``isaaclab_arena_environments/robolab/scenes/two_bin.yaml`` manually edits
      the ``next_to`` relation ``side`` param to set the correct left/right
      positioning in robot coordinates.
 
@@ -74,9 +74,10 @@ See :doc:`gui_runner` for the full UI walkthrough.
 Available Generated Specs
 -------------------------
 
-The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment graph specs generated
-from RoboLab tasks. See :doc:`../robolab_task_catalog` for the list of RoboLab tasks
-currently supported in Arena.
+The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment graph specs for
+RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
+``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
+:doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
 
 Run a Generated Environment
 ---------------------------
@@ -90,7 +91,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
       --policy_type zero_action \
       --enable_cameras \
       --num_steps 100 \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
 
 The same YAML can also be built directly by the generation runner:
 
@@ -98,7 +99,7 @@ The same YAML can also be built directly by the generation runner:
 
    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode build \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml \
       --headless
 
 
@@ -114,7 +115,7 @@ with variations through the policy runner:
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
-      isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
+      isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml \
       light.hdr_image.enabled=true \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
@@ -136,7 +137,7 @@ spec YAML with variations, instead of a registered example-environment name:
    {
        "name": "agentic_env_eval",
        "arena_env_args": {
-           "environment": "isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml",
+           "environment": "isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml",
            "enable_cameras": true
        },
        "num_steps": 100,

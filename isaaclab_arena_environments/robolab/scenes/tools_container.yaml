@@ -1,0 +1,67 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: container_f24
+  registry_name: container_f24_vomp_robolab
+  params: {}
+- id: bin_b04
+  registry_name: bin_b04_vomp_robolab
+  params: {}
+- id: spring_clamp
+  registry_name: spring_clamp_ycb_robolab
+  params: {}
+- id: hammer_1
+  registry_name: hammer_handal_robolab
+  params: {}
+- id: hammer_2
+  registry_name: hammer_handal_robolab
+  params: {}
+- id: cordless_drill
+  registry_name: cordless_drill_ycb_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: container_f24
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bin_b04
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: spring_clamp
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: hammer_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: hammer_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: cordless_drill
+  reference: maple_table_robolab
+  params: {}
+- kind: next_to
+  subject: container_f24
+  reference: bin_b04
+  params:
+    side: positive_y
+    distance_m: 0.3

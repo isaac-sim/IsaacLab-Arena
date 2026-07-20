@@ -6,7 +6,7 @@
 import os
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
@@ -27,9 +27,9 @@ from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
 # Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
-def list_variations(experiment: ArenaExperiment) -> None:
+def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
     """Print the Hydra-configurable variations for each run's environment."""
-    for run_cfg in experiment:
+    for run_cfg in experiment_cfg.runs.values():
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
@@ -41,9 +41,13 @@ def list_variations(experiment: ArenaExperiment) -> None:
 # update each factory to honor it or reject unsupported cameras, and apply YAML
 # values and Hydra overrides before startup. Enable AppLauncher when any Run enables
 # cameras, then remove this getattr and the requirement to also pass --enable_cameras.
-def _assert_camera_support_enabled(experiment: ArenaExperiment, enable_cameras: bool) -> None:
+def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
     """Check that AppLauncher enabled camera support requested by typed Runs."""
-    camera_run_names = [run_cfg.name for run_cfg in experiment if getattr(run_cfg.environment, "enable_cameras", False)]
+    camera_run_names = [
+        run_cfg.name
+        for run_cfg in experiment_cfg.runs.values()
+        if getattr(run_cfg.environment, "enable_cameras", False)
+    ]
     assert not camera_run_names or enable_cameras, (
         f"Runs {camera_run_names} enable environment cameras. Pass --enable_cameras so AppLauncher enables "
         "camera support before the typed Experiment is composed."
@@ -66,13 +70,13 @@ def main():
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            experiment = load_arena_experiment_from_config_file(
+            experiment_cfg = load_arena_experiment_from_config_file(
                 experiment_config_path,
                 device=args_cli.device,
                 overrides=experiment_overrides,
             )
-            _assert_camera_support_enabled(experiment, args_cli.enable_cameras)
-            list_variations(experiment)
+            _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
+            list_variations(experiment_cfg)
         return
 
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
@@ -87,15 +91,15 @@ def main():
             return
 
     with SimulationAppContext(args_cli):
-        experiment = load_arena_experiment_from_config_file(
+        experiment_cfg = load_arena_experiment_from_config_file(
             experiment_config_path,
             device=args_cli.device,
             overrides=experiment_overrides,
         )
-        _assert_camera_support_enabled(experiment, args_cli.enable_cameras)
+        _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
         metrics_logger = MetricsLogger()
 
-        print(build_runs_info_table(experiment, []))
+        print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
         # One reverse-dated output directory for the Experiment, with one subdirectory
         # per Run. Always date it so each invocation produces its own report directory.
@@ -108,7 +112,7 @@ def main():
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_dir}")
 
         results = execute_experiment(
-            experiment,
+            experiment_cfg,
             output_dir=experiment_output_dir,
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
@@ -118,7 +122,7 @@ def main():
             if result.metrics is not None:
                 metrics_logger.append_job_metrics(result.run_name, result.metrics)
 
-        print(build_runs_info_table(experiment, results))
+        print(build_runs_info_table(experiment_cfg.runs.values(), results))
         metrics_logger.print_metrics()
 
         # Write HTML report.

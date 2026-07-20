@@ -10,6 +10,7 @@ import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -51,6 +52,10 @@ def _run(**overrides):
     }
     values.update(overrides)
     return ArenaRunCfg(**values)
+
+
+def _experiment(*run_cfgs: ArenaRunCfg) -> ArenaExperimentCfg:
+    return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
 
 
 def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
@@ -151,7 +156,10 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
-    results = run_execution.execute_experiment([_run(name="first"), _run(name="second")], output_dir=tmp_path)
+    results = run_execution.execute_experiment(
+        _experiment(_run(name="first"), _run(name="second")),
+        output_dir=tmp_path,
+    )
 
     assert [result.run_name for result in results] == ["first", "second"]
     assert received == [
@@ -172,7 +180,7 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
     results = run_execution.execute_experiment(
-        [_run(name="failing"), _run(name="passing")],
+        _experiment(_run(name="failing"), _run(name="passing")),
         output_dir=tmp_path,
         continue_on_error=True,
     )
@@ -195,7 +203,7 @@ def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="rollout failed"):
         run_execution.execute_experiment(
-            [_run(name="failing"), _run(name="not_attempted")],
+            _experiment(_run(name="failing"), _run(name="not_attempted")),
             output_dir=tmp_path,
         )
 

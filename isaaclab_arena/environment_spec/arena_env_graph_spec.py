@@ -19,6 +19,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     SpatialRelationSpec,
     TaskSpec,
 )
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 
 if TYPE_CHECKING:
     import argparse
@@ -147,12 +148,7 @@ class ArenaEnvGraphSpec(BaseModel):
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
-        path = Path(path)
-        assert path.is_file(), f"Env graph spec YAML not found: {path}"
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
-        return data
+        return load_env_graph_spec_dict(path)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Self:

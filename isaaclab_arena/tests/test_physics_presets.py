@@ -6,62 +6,32 @@
 """Tests for the ArenaPhysicsCfg preset system and ArenaEnvBuilder integration."""
 
 import pytest
-from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
-from isaaclab_physx.physics import PhysxCfg
 
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
 
 
-# ---------------------------------------------------------------------------
-# ArenaPhysicsCfg preset lookup (no simulation required)
-# ---------------------------------------------------------------------------
+def _test_arena_physics_cfg_presets(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+    from isaaclab_physx.physics import PhysxCfg
 
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
-class TestArenaPhysicsCfgPresets:
-    """Verify that ArenaPhysicsCfg resolves the correct config for each preset name."""
-
-    def test_default_is_physx(self):
-        assert isinstance(ArenaPhysicsCfg().default, PhysxCfg)
-
-    def test_physx_preset(self):
-        assert isinstance(ArenaPhysicsCfg().physx, PhysxCfg)
-
-    def test_newton_preset(self):
-        assert isinstance(ArenaPhysicsCfg().newton, NewtonCfg)
-
-    def test_physx_and_default_are_equal(self):
-        cfg = ArenaPhysicsCfg()
-        assert cfg.physx == cfg.default
-
-    def test_getattr_physx(self):
-        assert isinstance(getattr(ArenaPhysicsCfg(), "physx"), PhysxCfg)
-
-    def test_getattr_newton(self):
-        assert isinstance(getattr(ArenaPhysicsCfg(), "newton"), NewtonCfg)
-
-    def test_getattr_unknown_raises(self):
-        with pytest.raises(AttributeError):
-            getattr(ArenaPhysicsCfg(), "unknown_backend")
-
-
-# ---------------------------------------------------------------------------
-# Newton solver parameter smoke checks (no simulation required)
-# ---------------------------------------------------------------------------
-
-
-class TestNewtonPresetParameters:
-    """Verify the Newton preset has the expected solver tuning."""
-
-    def test_solver_type(self):
-        assert ArenaPhysicsCfg().newton.solver_cfg.solver == "newton"
-
-
-# ---------------------------------------------------------------------------
-# ArenaEnvBuilder end-to-end preset tests (requires SimulationApp)
-# ---------------------------------------------------------------------------
+    cfg = ArenaPhysicsCfg()
+    # default resolves to PhysX
+    assert isinstance(cfg.default, PhysxCfg)
+    assert isinstance(cfg.physx, PhysxCfg)
+    assert isinstance(cfg.newton, NewtonCfg)
+    assert cfg.physx == cfg.default
+    # getattr access
+    assert isinstance(getattr(cfg, "physx"), PhysxCfg)
+    assert isinstance(getattr(cfg, "newton"), NewtonCfg)
+    with pytest.raises(AttributeError):
+        getattr(cfg, "unknown_backend")
+    # Newton solver tuning
+    assert cfg.newton.solver_cfg.solver == "newton"
+    return True
 
 
 def _build_env_cfg(presets: str | None):
@@ -102,6 +72,8 @@ def _test_builder_no_presets_defaults_to_physx(simulation_app) -> bool:
 
 
 def _test_builder_physx_preset(simulation_app) -> bool:
+    from isaaclab_physx.physics import PhysxCfg
+
     env_cfg = _build_env_cfg(presets="physx")
     assert isinstance(env_cfg.sim.physics, PhysxCfg), f"Expected PhysxCfg, got {type(env_cfg.sim.physics)}"
     assert env_cfg.scene.replicate_physics is False
@@ -109,6 +81,8 @@ def _test_builder_physx_preset(simulation_app) -> bool:
 
 
 def _test_builder_newton_preset(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+
     env_cfg = _build_env_cfg(presets="newton")
     assert isinstance(env_cfg.sim.physics, NewtonCfg), f"Expected NewtonCfg, got {type(env_cfg.sim.physics)}"
     assert env_cfg.scene.replicate_physics is True
@@ -124,6 +98,10 @@ def _test_builder_unknown_preset_raises(simulation_app) -> bool:
 
 
 # --- pytest-visible outer functions ---
+
+
+def test_arena_physics_cfg_presets():
+    assert run_simulation_app_function(_test_arena_physics_cfg_presets, headless=HEADLESS)
 
 
 def test_builder_no_presets_defaults_to_physx():
