@@ -6,8 +6,8 @@
 """Build one Arena Experiment output from independently staged OSMO Run outputs.
 
 The input JSON maps each Run name to its Experiment Runner task's staged output root. Each root must contain
-exactly one ``<experiment-output>/<run-name>`` directory. The Run directories are copied into the final
-``<experiment-output>/<run-name>`` layout, where one combined ``index.html`` report is generated.
+exactly one ``<timestamped-experiment-output>/<run-name>`` directory. The Run directories are copied into the
+``<combined-experiment-output>/<run-name>`` layout, where one ``index.html`` report is generated.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def load_staged_experiment_runner_output_directories_by_run_name(
         serialized_output_directories_path: JSON file containing one staged task output root per Run.
 
     Returns:
-        Run names mapped to staged Experiment Runner output directory paths.
+        Run names mapped to staged Experiment Runner task output roots.
     """
     with serialized_output_directories_path.open(encoding="utf-8") as serialized_output_directories_file:
         serialized_output_directories_by_run_name = json.load(serialized_output_directories_file)
@@ -51,7 +51,7 @@ def load_staged_experiment_runner_output_directories_by_run_name(
 def resolve_run_output_directories_from_staged_experiment_runner_outputs(
     staged_output_directories_by_run_name: Mapping[str, Path],
 ) -> dict[str, Path]:
-    """Resolve ``<staged-task-output>/<experiment-output>/<run-name>`` for every Run.
+    """Resolve ``<staged-task-output>/<timestamped-experiment-output>/<run-name>`` for every Run.
 
     Args:
         staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
@@ -73,7 +73,8 @@ def resolve_run_output_directories_from_staged_experiment_runner_outputs(
             if experiment_output_directory.is_dir() and (experiment_output_directory / run_name).is_dir()
         ]
         assert len(matching_run_output_directories) == 1, (
-            f"Expected exactly one Run output matching '<staged-output>/<experiment-output>/{run_name}' below "
+            "Expected exactly one Run output matching "
+            f"'<staged-output>/<timestamped-experiment-output>/{run_name}' below "
             f"'{staged_output_directory}', found {len(matching_run_output_directories)}: "
             f"{[str(run_output_directory) for run_output_directory in matching_run_output_directories]}"
         )
@@ -90,7 +91,7 @@ def build_experiment_output_from_staged_experiment_runner_outputs(
 
     Args:
         staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
-        combined_experiment_output_directory: Final directory containing one subdirectory per Run and
+        combined_experiment_output_directory: Combined Experiment directory containing one subdirectory per Run and
             ``index.html``.
 
     Returns:
@@ -119,7 +120,7 @@ def _parse_arguments() -> argparse.Namespace:
         "--combined-experiment-output-directory",
         required=True,
         type=Path,
-        help="Final Arena Experiment output containing one directory per Run and index.html",
+        help="Combined Arena Experiment output containing one directory per Run and index.html",
     )
     return parser.parse_args()
 

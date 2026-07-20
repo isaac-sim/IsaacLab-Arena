@@ -25,7 +25,7 @@ REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = (
 
 
 def staged_task_output_directory_token(upstream_task_name: str) -> str:
-    """Return the token resolving to an upstream task's workflow-local ``{{output}}`` directory."""
+    """Return the OSMO input token resolving to a staged upstream task output directory."""
     return "{{input:" + upstream_task_name + "}}"
 
 
