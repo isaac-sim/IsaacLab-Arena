@@ -80,7 +80,22 @@ def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
     checks = get_build_time_checks()
     enabled_checks = params.enabled_checks
     if enabled_checks is not None:
+        unknown = set(enabled_checks) - set(checks)
+        assert not unknown, (
+            f"enabled_checks names unknown build-time check(s): {sorted(unknown)}. "
+            "A silently-dropped typo could leave zero validators, so this fails loudly. "
+            f"Registered build-time checks: {sorted(checks)}."
+        )
         checks = tuple(check for check in checks if check in enabled_checks)
+
+    required_checks = params.required_checks
+    if required_checks is not None:
+        not_running = set(required_checks) - set(checks)
+        assert not not_running, (
+            f"required_checks names check(s) that will not run: {sorted(not_running)}. "
+            "A required check that never runs is scored as passing, silently voiding the gate, so this "
+            f"fails loudly. Checks that will run: {sorted(checks)}."
+        )
     return [registry.get_validator_by_name(check)(params) for check in checks]
 
 
