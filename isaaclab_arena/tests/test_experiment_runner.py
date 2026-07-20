@@ -48,19 +48,8 @@ def test_experiment_runner_parses_exact_experiment_output_directory(tmp_path):
     assert experiment_overrides == []
 
 
-def test_experiment_runner_rejects_exact_and_timestamped_output_options(tmp_path):
-    with pytest.raises(SystemExit, match="2"):
-        parse_experiment_runner_args([
-            "--output_base_dir",
-            str(tmp_path / "timestamped-output-base"),
-            "--experiment_output_directory",
-            str(tmp_path / "exact-experiment-output"),
-        ])
-
-
-def test_resolves_timestamped_experiment_output_directory_by_default(monkeypatch, tmp_path):
-    output_base_directory = tmp_path / "output-base"
-    expected_experiment_output_directory = output_base_directory / "2026-07-17_12-00-00"
+def test_resolves_timestamped_default_when_output_directory_is_omitted(monkeypatch, tmp_path):
+    expected_experiment_output_directory = tmp_path / "2026-07-17_12-00-00"
     received_output_base_directories = []
 
     def create_timestamped_directory_path(received_output_base_directory: str) -> str:
@@ -69,13 +58,10 @@ def test_resolves_timestamped_experiment_output_directory_by_default(monkeypatch
 
     monkeypatch.setattr(experiment_runner, "timestamped_run_dir", create_timestamped_directory_path)
 
-    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(
-        str(output_base_directory),
-        None,
-    )
+    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(None)
 
     assert resolved_experiment_output_directory == expected_experiment_output_directory
-    assert received_output_base_directories == [str(output_base_directory)]
+    assert received_output_base_directories == [experiment_runner.DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY]
 
 
 def test_resolves_exact_experiment_output_directory_without_timestamping(monkeypatch, tmp_path):
@@ -87,8 +73,7 @@ def test_resolves_exact_experiment_output_directory_without_timestamping(monkeyp
     monkeypatch.setattr(experiment_runner, "timestamped_run_dir", fail_if_timestamped_directory_is_requested)
 
     resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(
-        str(tmp_path / "unused-output-base"),
-        str(exact_experiment_output_directory),
+        str(exact_experiment_output_directory)
     )
 
     assert resolved_experiment_output_directory == exact_experiment_output_directory
@@ -174,7 +159,7 @@ runs:
         str(experiment_config_path),
         config_option="--experiment_config",
         extra_args=[
-            "--output_base_dir",
+            "--experiment_output_directory",
             str(tmp_path / "output"),
             "runs.yaml_baseline.rollout_limit.num_steps=2",
         ],

@@ -11,7 +11,10 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     validate_experiment_config_path,
 )
 from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.evaluation.experiment_runner_cli import (
+    DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY,
+    parse_experiment_runner_args,
+)
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
@@ -34,14 +37,11 @@ def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-def _resolve_experiment_output_directory(
-    output_base_directory: str,
-    exact_experiment_output_directory: str | None,
-) -> Path:
-    """Return an exact Experiment output directory or derive a timestamped directory."""
-    if exact_experiment_output_directory is not None:
-        return Path(exact_experiment_output_directory)
-    return Path(timestamped_run_dir(output_base_directory))
+def _resolve_experiment_output_directory(requested_experiment_output_directory: str | None) -> Path:
+    """Use the requested Experiment directory or create a timestamped local default."""
+    if requested_experiment_output_directory is not None:
+        return Path(requested_experiment_output_directory)
+    return Path(timestamped_run_dir(DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY))
 
 
 # TODO(cvolk, 2026-07-10): [typed-config-migration] Typed YAML is composed only
@@ -113,14 +113,11 @@ def main():
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
-        # Local invocations default to a reverse-dated Experiment directory. Managed
-        # execution may provide an exact, freshly allocated Experiment output directory.
+        # Local invocations that do not choose a directory receive a timestamped default.
+        # Managed execution provides the exact directory allocated for this task.
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
-        experiment_output_directory = _resolve_experiment_output_directory(
-            args_cli.output_base_dir,
-            args_cli.experiment_output_directory,
-        )
+        experiment_output_directory = _resolve_experiment_output_directory(args_cli.experiment_output_directory)
         experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
         if args_cli.record_viewport_video:

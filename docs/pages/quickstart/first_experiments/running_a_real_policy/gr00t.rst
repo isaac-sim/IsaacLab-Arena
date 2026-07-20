@@ -153,11 +153,11 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json \
-     --output_base_dir ./output \
+     --experiment_output_directory ./output \
      --record_camera_video --serve_evaluation_report
 
-You can also (re)build and serve a report later by pointing the standalone tool at the output
-root — it picks the most recent run:
+You can also (re)build and serve a report later by pointing the standalone tool at the same
+output directory:
 
 .. code-block:: bash
 

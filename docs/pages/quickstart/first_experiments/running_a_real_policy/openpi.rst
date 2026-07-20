@@ -167,11 +167,11 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
      --viz kit \
      --enable_cameras \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-     --output_base_dir ./output \
+     --experiment_output_directory ./output \
      --record_camera_video --serve_evaluation_report
 
-You can also (re)build and serve a report later by pointing the standalone tool at the output
-root — it picks the most recent run:
+You can also (re)build and serve a report later by pointing the standalone tool at the same
+output directory:
 
 .. code-block:: bash
 

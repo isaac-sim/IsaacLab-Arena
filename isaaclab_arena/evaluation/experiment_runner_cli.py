@@ -9,6 +9,7 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
+DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "/eval/output"
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -38,23 +39,14 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
     )
-    output_directory_arguments = parser.add_mutually_exclusive_group()
-    output_directory_arguments.add_argument(
-        "--output_base_dir",
-        type=str,
-        default="/eval/output",
-        help=(
-            "Base directory for evaluation outputs (videos, per-episode results, report); a"
-            " reverse-dated Experiment subdirectory and per-Run subdirectory are added."
-        ),
-    )
-    output_directory_arguments.add_argument(
+    parser.add_argument(
         "--experiment_output_directory",
         type=str,
         default=None,
         help=(
-            "Exact directory for this Experiment output; per-Run subdirectories are added directly without a"
-            " reverse-dated Experiment directory. Intended for managed execution environments such as OSMO."
+            "Directory that will contain this Experiment's report and one subdirectory per Run. The path is used"
+            " exactly as provided. When omitted, a timestamped directory is created under"
+            f" {DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY}."
         ),
     )
     parser.add_argument(
