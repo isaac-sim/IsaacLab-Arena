@@ -12,7 +12,6 @@ import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
@@ -30,6 +29,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.utils.configclass import make_configclass
 
 
 @agent_ready
@@ -70,11 +70,8 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.scene_config = SceneCfg(
-            pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-                contact_against_object=self.destination_location,
-            ),
-        )
+        self.contact_sensor_name = self.contact_sensor_name_for_pick_up_object(pick_up_object)
+        self.scene_config = self._make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
         if max_separation is not None:
@@ -89,6 +86,22 @@ class PickAndPlaceTask(TaskBase):
             else task_description
         )
 
+    @classmethod
+    def contact_sensor_name_for_pick_up_object(cls, pick_up_object: Asset | str) -> str:
+        """Return the scene sensor name for a pick-up object's destination contact check."""
+        object_name = pick_up_object.name if isinstance(pick_up_object, Asset) else pick_up_object
+        return f"contact_sensor_{object_name}"
+
+    def _make_scene_cfg(self):
+        contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
+            contact_against_object=self.destination_location,
+        )
+        scene_cfg_type = make_configclass(
+            "SceneCfg",
+            [(self.contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg)],
+        )
+        return scene_cfg_type()
+
     def get_scene_cfg(self):
         return self.scene_config
 
@@ -101,7 +114,7 @@ class PickAndPlaceTask(TaskBase):
                 func=object_on_destination,
                 params={
                     "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
                 },
@@ -181,7 +194,7 @@ class PickAndPlaceTask(TaskBase):
                     partial(
                         object_on_destination,
                         object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
+                        contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
                     ),
@@ -206,13 +219,6 @@ class PickAndPlaceTask(TaskBase):
             subject=pick_up_object,
             effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
-
-
-@configclass
-class SceneCfg:
-    """Scene configuration for the pick and place task."""
-
-    pick_up_object_contact_sensor: ContactSensorCfg = MISSING
 
 
 @configclass
