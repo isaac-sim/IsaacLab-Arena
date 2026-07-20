@@ -11,7 +11,7 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
-DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "/eval/output"
+_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "/eval/output"
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -44,11 +44,11 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--experiment_output_directory",
         type=Path,
-        default=Path(timestamped_run_dir(DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY)),
+        default=Path(timestamped_run_dir(_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY)),
         help=(
             "Directory that will contain this Experiment's report and one subdirectory per Run. The path is used"
             " exactly as provided. By default, a timestamped directory is used under"
-            f" {DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY}."
+            f" {_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY}."
         ),
     )
     parser.add_argument(

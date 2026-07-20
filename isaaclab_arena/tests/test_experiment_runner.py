@@ -64,7 +64,7 @@ def test_experiment_runner_defaults_to_timestamped_experiment_output_directory(m
     ])
 
     assert parsed_arguments.experiment_output_directory == expected_experiment_output_directory
-    assert received_output_base_directories == [experiment_runner_cli.DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY]
+    assert received_output_base_directories == ["/eval/output"]
     assert experiment_overrides == []
 
 
