@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
