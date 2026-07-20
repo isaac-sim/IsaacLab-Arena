@@ -3,16 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve staged OSMO Run outputs and combine them into one Arena Experiment report."""
+"""Resolve staged OSMO Run outputs and build one Arena Experiment output."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.aggregate_run_outputs import aggregate_run_outputs
+from isaaclab_arena.visualization.report import build_report
 
 
 def load_staged_experiment_runner_output_directories_by_run_name(
@@ -76,11 +77,11 @@ def resolve_run_output_directories_from_staged_experiment_runner_outputs(
     return run_output_directories_by_name
 
 
-def aggregate_staged_experiment_runner_outputs(
+def build_experiment_output_from_staged_experiment_runner_outputs(
     staged_output_directories_by_run_name: Mapping[str, Path],
     combined_experiment_output_directory: Path,
 ) -> Path:
-    """Resolve staged OSMO outputs and build their combined Arena Experiment report.
+    """Copy staged Run outputs into one Experiment directory and generate its HTML report.
 
     Args:
         staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
@@ -92,7 +93,12 @@ def aggregate_staged_experiment_runner_outputs(
     run_output_directories_by_name = resolve_run_output_directories_from_staged_experiment_runner_outputs(
         staged_output_directories_by_run_name
     )
-    return aggregate_run_outputs(run_output_directories_by_name, combined_experiment_output_directory)
+    for run_name, source_run_output_directory in run_output_directories_by_name.items():
+        shutil.copytree(
+            source_run_output_directory,
+            combined_experiment_output_directory / run_name,
+        )
+    return build_report(combined_experiment_output_directory)
 
 
 def _parse_arguments() -> argparse.Namespace:
@@ -113,12 +119,12 @@ def _parse_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Resolve the staged Run outputs described on the command line and aggregate them."""
+    """Build one Experiment output from the staged Run outputs described on the command line."""
     parsed_arguments = _parse_arguments()
     staged_output_directories_by_run_name = load_staged_experiment_runner_output_directories_by_run_name(
         parsed_arguments.staged_experiment_runner_output_directories_file
     )
-    aggregate_staged_experiment_runner_outputs(
+    build_experiment_output_from_staged_experiment_runner_outputs(
         staged_output_directories_by_run_name,
         parsed_arguments.combined_experiment_output_directory,
     )
