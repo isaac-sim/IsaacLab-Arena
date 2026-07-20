@@ -407,6 +407,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../example_workflows/agentic_env_gen/eval_with_openpi.html">Evaluate with OpenPI</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/variation_system.html">Variation System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -551,12 +556,6 @@ samples the joint posterior conditioned on a chosen observation (by default, suc
 <li><p><strong>Report.</strong> A probability density curve for each continuous factor and a probability bar
 chart for each categorical factor.</p></li>
 </ol>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>The per-episode recorder that emits <code class="docutils literal notranslate"><span class="pre">episode_results.jsonl</span></code> during evaluation lands in a
-follow-up. For now, run the analysis on synthetic data (see below) or on a JSONL produced
-externally.</p>
-</div>
 </section>
 <section id="input">
 <h2>Input<a class="headerlink" href="#input" title="Link to this heading">#</a></h2>
@@ -597,8 +596,7 @@ all episodes carries no information and is dropped.</p>
 </tr>
 <tr class="row-odd"><td><p>All continuous factors</p></td>
 <td><p>NPE</p></td>
-<td><p>Restricts to a Gaussian on a single factor, so a meaningful continuous-only
-analysis needs at least two continuous factors.</p></td>
+<td><p>Models the joint posterior over the continuous factors.</p></td>
 </tr>
 </tbody>
 </table>
@@ -638,7 +636,7 @@ python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.tests.sen
 </section>
 <section id="reading-the-output">
 <h2>Reading the output<a class="headerlink" href="#reading-the-output" title="Link to this heading">#</a></h2>
-<div class="admonition-todo admonition" id="id2">
+<div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
 <p>Add a sample report figure here and walk through reading it.</p>
 </div>

@@ -3,7 +3,7 @@ Welcome to Isaac Lab Arena!
 
 .. warning::
    This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
-   For the tested version, please refer to the `release/0.2.0 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.0/index.html>`_.
+   For the tested version, please refer to the `release/0.2.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html>`_.
 
 ``Isaac Lab Arena`` extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
@@ -218,6 +218,7 @@ TABLE OF CONTENTS
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
    pages/example_workflows/agentic_env_gen/index
+   pages/example_workflows/sensitivity_analysis/index
 
 .. toctree::
    :maxdepth: 1

@@ -407,6 +407,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../example_workflows/agentic_env_gen/eval_with_openpi.html">Evaluate with OpenPI</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/variation_system.html">Variation System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -505,28 +510,59 @@
   <section id="variations">
 <h1>Variations<a class="headerlink" href="#variations" title="Link to this heading">#</a></h1>
 <p>Variations are a structured way of introducing randomization into simulated environments.</p>
-<p>Variations are attached to assets, travelling with them in a deactivated state.
-A user can enable a variation in any environment that contains an
-asset with that variation attached.</p>
-<p>Variations are enabled by appending a Hydra override to the command line.</p>
+<p>Variations are automatically available in Arena-defined environments.
+Activating the variation causes that particular source of randomness to be
+injected into the environment.</p>
+<section id="build-time-and-run-time-variations">
+<span id="build-time-run-time-variations"></span><h2>Build-time and run-time variations<a class="headerlink" href="#build-time-and-run-time-variations" title="Link to this heading">#</a></h2>
+<p>Some properties must be chosen before the environment is created. Others can change whenever
+an environment resets during policy rollouts. Arena calls these <em>build-time</em> and <em>run-time</em> variations.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 25.0%" />
+<col style="width: 35.0%" />
+<col style="width: 20.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>When it changes</p></th>
+<th class="head"><p>Where the drawn value applies</p></th>
+<th class="head"><p>Examples</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Build-time</p></td>
+<td><p>Before the environment is built</p></td>
+<td><p>Every parallel environment and episode in that build</p></td>
+<td><p>Background image, lighting changes.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Run-time</p></td>
+<td><p>When an environment resets</p></td>
+<td><p>One episode in one parallel environment</p></td>
+<td><p>Camera extrinsics, camera intrinsics</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This distinction matters when planning an evaluation. To collect several values of a
+build-time variation, the environment must be rebuilt several times. A run-time variation can
+produce a new value on each reset without rebuilding the scene.</p>
+</section>
 <section id="discovering-available-variations">
 <h2>Discovering available variations<a class="headerlink" href="#discovering-available-variations" title="Link to this heading">#</a></h2>
-<p>Pass <code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> to print every Hydra-configurable variation for the selected
+<p>Pass <code class="docutils literal notranslate"><span class="pre">--list_variations</span></code> to print every Hydra-configurable variation for the selected
 environment and then exit before rollout:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--list-variations<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab
+<span class="w">  </span>--list_variations<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table
 </pre></div>
 </div>
 <p>The output lists each asset (scene asset or embodiment), the variation name, whether it is
 run-time or build-time, the Hydra path to enable it, and all tunable fields with their current
 defaults:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Hydra-configurable variations
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Variations (Hydra-configurable)
 ================================
 
 Asset: droid_abs_joint_pos
@@ -543,44 +579,34 @@ Asset: light
       light.hdr_image.hdr_names = []
 
 Asset: bowl_ycb_robolab
-  (no Hydra-configurable variations)
+  (no variations)
 
 ...
 </pre></div>
 </div>
 </section>
-<section id="enabling-variations-minimal">
-<h2>Enabling variations (minimal)<a class="headerlink" href="#enabling-variations-minimal" title="Link to this heading">#</a></h2>
-<p>To enable both variations, append their <code class="docutils literal notranslate"><span class="pre">enabled=true</span></code> override tokens after the environment
-subcommand.  All other parameters stay at their defaults — the HDR is sampled uniformly from
-every registered HDR, and the camera extrinsics offset is drawn from <code class="docutils literal notranslate"><span class="pre">[-0.005,</span> <span class="pre">0.005]</span></code> m per
-axis on every reset:</p>
+<section id="enabling-variations">
+<h2>Enabling variations<a class="headerlink" href="#enabling-variations" title="Link to this heading">#</a></h2>
+<p>To enable a variation, with default control parameters append its <code class="docutils literal notranslate"><span class="pre">enabled=true</span></code> override token
+after the environment subcommand. For example, to enable the HDR image and camera extrinsics variations
+run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>light.hdr_image.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled<span class="o">=</span><span class="nb">true</span>
 </pre></div>
 </div>
-</section>
-<section id="enabling-variations-with-explicit-parameters">
-<h2>Enabling variations with explicit parameters<a class="headerlink" href="#enabling-variations-with-explicit-parameters" title="Link to this heading">#</a></h2>
-<p>The same run with every tunable parameter spelled out, showing the full override syntax:</p>
+<p>The same run with tunable variation control parameters spelled out:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>light.hdr_image.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span><span class="s2">&quot;light.hdr_image.hdr_names=[home_office_robolab,billiard_hall_robolab,garage_robolab]&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
@@ -591,77 +617,108 @@ axis on every reset:</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">hdr_names</span></code> list restricts HDR sampling to the three named maps instead of the full
 registered set.  The <code class="docutils literal notranslate"><span class="pre">sampler_cfg.low</span></code> / <code class="docutils literal notranslate"><span class="pre">sampler_cfg.high</span></code> vectors widen the camera
 extrinsics jitter range to ±10 mm per axis.</p>
+<p>To see the available variations and control parameters for a specific environment,
+see <a class="reference internal" href="../../example_workflows/sensitivity_analysis/variation_system.html#discovering-available-variations"><span class="std std-ref">Discovering available variations</span></a>.</p>
 </section>
-<section id="how-hydra-override-paths-are-structured">
-<h2>How Hydra override paths are structured<a class="headerlink" href="#how-hydra-override-paths-are-structured" title="Link to this heading">#</a></h2>
-<p>All override paths follow the pattern:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">asset</span><span class="o">&gt;.&lt;</span><span class="n">variation_name</span><span class="o">&gt;.&lt;</span><span class="n">cfg_field</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>where:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">&lt;asset&gt;</span></code> is the scene asset name (e.g. <code class="docutils literal notranslate"><span class="pre">light</span></code>) or the embodiment name
-(e.g. <code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&lt;variation_name&gt;</span></code> is the name under which the variation is registered on that asset
-(e.g. <code class="docutils literal notranslate"><span class="pre">hdr_image</span></code>, <code class="docutils literal notranslate"><span class="pre">camera_extrinsics_wrist_camera</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&lt;cfg_field&gt;</span></code> is any attribute path within the variation’s <code class="docutils literal notranslate"><span class="pre">*Cfg</span></code> dataclass
-(e.g. <code class="docutils literal notranslate"><span class="pre">enabled</span></code>, <code class="docutils literal notranslate"><span class="pre">sampler_cfg.low</span></code>).</p></li>
-</ul>
-<p>Use <code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> on any environment to discover the exact paths available.</p>
-</section>
-<section id="configuring-variations-in-an-eval-jobs-config">
-<h2>Configuring variations in an eval jobs config<a class="headerlink" href="#configuring-variations-in-an-eval-jobs-config" title="Link to this heading">#</a></h2>
-<p>When running batches of jobs with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code>, variations are configured per job via a
-dedicated <code class="docutils literal notranslate"><span class="pre">variations</span></code> field instead of command-line override tokens.  The field is a nested
-dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
-the <code class="docutils literal notranslate"><span class="pre">&lt;asset&gt;.&lt;variation_name&gt;.&lt;cfg_field&gt;</span></code> path.  For example, the nested entry
-<code class="docutils literal notranslate"><span class="pre">{&quot;light&quot;:</span> <span class="pre">{&quot;hdr_image&quot;:</span> <span class="pre">{&quot;enabled&quot;:</span> <span class="pre">true}}}</span></code> is equivalent to the command-line override
-<code class="docutils literal notranslate"><span class="pre">light.hdr_image.enabled=true</span></code>.</p>
-<p>The example config <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json</span></code>
-enables three variations on a single job:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;variations_demo&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pick_and_place_maple_table&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;droid_rel_joint_pos&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;pick_up_object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;destination_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bowl_ycb_robolab&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;hdr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;home_office_robolab&quot;</span>
-<span class="w">            </span><span class="p">},</span>
-<span class="w">            </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;num_rebuilds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zero_action&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
-<span class="w">            </span><span class="nt">&quot;variations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;light&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;hdr_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
-<span class="w">                    </span><span class="nt">&quot;intensity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
-<span class="w">                </span><span class="p">},</span>
-<span class="w">                </span><span class="nt">&quot;droid_rel_joint_pos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;camera_extrinsics_wrist_camera&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
-<span class="w">                </span><span class="p">}</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">]</span>
-<span class="p">}</span>
+<section id="configuring-variations-in-an-experiment-config">
+<h2>Configuring variations in an experiment config<a class="headerlink" href="#configuring-variations-in-an-experiment-config" title="Link to this heading">#</a></h2>
+<p>When running experiments with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code>, variations are configured per run via a
+dedicated <code class="docutils literal notranslate"><span class="pre">variations</span></code> field instead of command-line override tokens.  The field maps each
+dotted Hydra path to its value.  For example, the entry <code class="docutils literal notranslate"><span class="pre">light.hdr_image.enabled:</span> <span class="pre">true</span></code> is
+equivalent to the command-line override <code class="docutils literal notranslate"><span class="pre">light.hdr_image.enabled=true</span></code>.</p>
+<p>The example config <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml</span></code>
+enables three variations on a single run:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).</span>
+<span class="c1"># All rights reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">variations_demo</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
+<span class="w">      </span><span class="nt">enable_cameras</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">embodiment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_rel_joint_pos</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">    </span><span class="c1"># Number of times the environment is rebuilt with different variation values.</span>
+<span class="w">    </span><span class="nt">num_rebuilds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="c1"># The variations to enable for this run.</span>
+<span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">light.hdr_image.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">light.intensity.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">droid_rel_joint_pos.camera_extrinsics_wrist_camera.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
 <p>Run it with:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> works with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> too, printing the variations catalogue for
-each job’s environment:</p>
+<p><code class="docutils literal notranslate"><span class="pre">--list_variations</span></code> works with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> too, printing the variations catalogue for
+each run’s environment:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--list-variations<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+<span class="w">  </span>--list_variations<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 </pre></div>
+</div>
+</section>
+<section id="available-variations">
+<span id="id1"></span><h2>Available variations<a class="headerlink" href="#available-variations" title="Link to this heading">#</a></h2>
+<p>The variations shipped in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/variations/</span></code> are listed below.  Run-time variations
+are realised via an event term and resampled during simulation (e.g. per reset); build-time
+variations are sampled once and applied to asset configs before the environment is composed.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variation</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CameraExtrinsicsVariation</span></code></p></td>
+<td><p>run-time</p></td>
+<td><p>Adds a small sampled offset to a camera’s nominal local position on every reset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsBuildTimeVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Perturbs a pinhole camera’s focal lengths and principal point when the environment is built.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CameraIntrinsicsRunTimeVariation</span></code></p></td>
+<td><p>run-time</p></td>
+<td><p>Perturbs a pinhole camera’s focal lengths and principal point on every reset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">HDRImageVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Samples a single HDR and attaches it to a dome light.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorTemperatureVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Samples a white-point color temperature (Kelvin) and applies it to a light.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightColorVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Samples an RGB color and applies it to a light.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LightDirectionVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Samples a continuous orientation and applies it to a directional light.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LightIntensityVariation</span></code></p></td>
+<td><p>build-time</p></td>
+<td><p>Samples a single intensity and applies it to a light.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
 </section>
@@ -715,11 +772,11 @@ each job’s environment:</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#build-time-and-run-time-variations">Build-time and run-time variations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#discovering-available-variations">Discovering available variations</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-variations-minimal">Enabling variations (minimal)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-variations-with-explicit-parameters">Enabling variations with explicit parameters</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-hydra-override-paths-are-structured">How Hydra override paths are structured</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-variations-in-an-eval-jobs-config">Configuring variations in an eval jobs config</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-variations">Enabling variations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-variations-in-an-experiment-config">Configuring variations in an experiment config</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-variations">Available variations</a></li>
 </ul>
   </nav></div>
 

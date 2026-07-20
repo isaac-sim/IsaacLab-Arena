@@ -52,12 +52,6 @@ neural posterior estimators. The flow is:
 4. **Report.** A probability density curve for each continuous factor and a probability bar
    chart for each categorical factor.
 
-.. todo::
-
-   The per-episode recorder that emits ``episode_results.jsonl`` during evaluation lands in a
-   follow-up. For now, run the analysis on synthetic data (see below) or on a JSONL produced
-   externally.
-
 Input
 -----
 
@@ -95,8 +89,7 @@ Choice of estimator
      - Mixed density estimator; handles continuous + categorical factors together.
    * - All continuous factors
      - NPE
-     - Restricts to a Gaussian on a single factor, so a meaningful continuous-only
-       analysis needs at least two continuous factors.
+     - Models the joint posterior over the continuous factors.
 
 Continuous factors are normalised to ``[0, 1]`` before fitting and de-normalised when
 sampling, so factors on very different scales (e.g. light in the thousands, an offset in
