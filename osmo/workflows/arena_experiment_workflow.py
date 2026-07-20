@@ -58,7 +58,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
     def _get_group_dicts(self) -> list[dict[str, Any]]:
         """Create one independently scheduled group per Run, then aggregate their outputs."""
         run_group_dicts: list[dict[str, Any]] = []
-        experiment_runner_task_names_by_run: dict[str, str] = {}
+        experiment_runner_task_names_by_run_name: dict[str, str] = {}
         for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
             run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
                 run_index,
@@ -66,9 +66,9 @@ class Pi0ArenaExperimentWorkflow(Workflow):
                 run_config,
             )
             run_group_dicts.append(run_group_dict)
-            experiment_runner_task_names_by_run[run_name] = experiment_runner_task_name
+            experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
 
-        aggregation_group_dict = self._create_aggregation_group_dict(experiment_runner_task_names_by_run)
+        aggregation_group_dict = self._create_aggregation_group_dict(experiment_runner_task_names_by_run_name)
         return [*run_group_dicts, aggregation_group_dict]
 
     def _create_run_group_dict(
@@ -112,12 +112,12 @@ class Pi0ArenaExperimentWorkflow(Workflow):
 
     def _create_aggregation_group_dict(
         self,
-        experiment_runner_task_names_by_run: dict[str, str],
+        experiment_runner_task_names_by_run_name: dict[str, str],
     ) -> dict[str, Any]:
         """Create the CPU group that combines every runner's staged output."""
         experiment_results_task = ExperimentResultsTask(
             image=self.task_cfg.image,
-            experiment_runner_task_names_by_run=experiment_runner_task_names_by_run,
+            experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             lead=True,
             resource=self.aggregation_resource_name,
         )

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.evaluation.aggregate_run_outputs import _load_run_output_directories_by_name, aggregate_run_outputs
+from isaaclab_arena.evaluation.aggregate_run_outputs import aggregate_run_outputs
 
 
 def _write_run_output(run_output_directory: Path, run_name: str, success: bool) -> None:
@@ -25,19 +25,6 @@ def _write_run_output(run_output_directory: Path, run_name: str, success: bool) 
         json.dumps(record) + "\n",
         encoding="utf-8",
     )
-
-
-def test_loads_serialized_run_output_directories_as_paths(tmp_path):
-    serialized_run_output_directories_path = tmp_path / "run-output-directories.json"
-    first_run_output_directory = tmp_path / "runner-0-output" / "first"
-    serialized_run_output_directories_path.write_text(
-        json.dumps({"first": str(first_run_output_directory)}),
-        encoding="utf-8",
-    )
-
-    run_output_directories_by_name = _load_run_output_directories_by_name(serialized_run_output_directories_path)
-
-    assert run_output_directories_by_name == {"first": first_run_output_directory}
 
 
 def test_aggregates_run_directories_and_builds_one_report(tmp_path):
