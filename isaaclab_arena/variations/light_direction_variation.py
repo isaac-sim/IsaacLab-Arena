@@ -83,7 +83,7 @@ class LightDirectionVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightDirectionVariationCfg(), name=name)
         self._light = light
 
-    def apply(self) -> None:
+    def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
         azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()
         self._light.set_orientation(quat_xyzw_from_azimuth_elevation(azimuth, elevation))
