@@ -100,23 +100,23 @@ def test_sphere_decomposition_covers_surface():
 
 def test_object_placer_aabb_proxy_uses_candidate_bbox():
     """Mesh validation builds AABB proxies from the candidate bbox."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
-    proxy = ObjectPlacer._collision_mesh_or_aabb_proxy(None, bbox)
+    proxy = NoOverlapValidator._collision_mesh_or_aabb_proxy(None, bbox)
 
     np.testing.assert_allclose(proxy.extents, [0.4, 0.2, 0.1], atol=1e-6)
 
 
 def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
     """Placed non-anchors do not inherit initial_pose yaw unless the caller explicitly allows pose yaw."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     obj = _make_box_obj("placed", sx=0.1, sy=0.02, sz=0.05)
     obj.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
 
-    assert ObjectPlacer._effective_yaw(obj, orientations=None, use_pose_yaw=False) == 0.0
-    assert ObjectPlacer._effective_yaw(obj, orientations=None, use_pose_yaw=True) > 1.5
+    assert NoOverlapValidator._effective_yaw(obj, orientations=None, use_pose_yaw=False) == 0.0
+    assert NoOverlapValidator._effective_yaw(obj, orientations=None, use_pose_yaw=True) > 1.5
 
 
 def test_mesh_broadphase_rotates_bbox_about_object_origin():
@@ -347,7 +347,7 @@ def test_anchor_with_rotate_around_solution_rejected():
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
 
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     src = DummyObject(
         "src",
@@ -364,16 +364,16 @@ def test_centers_in_target_frame_applies_both_yaws():
     tgt_pos = torch.tensor([0.0, 0.0, 0.0])
 
     # No orientations: pass-through
-    result = ObjectPlacer._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
+    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
     assert torch.allclose(result, centers, atol=1e-6)
 
     # Source yaw=pi/2, target yaw=0: net rotation = pi/2
-    result = ObjectPlacer._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2})
+    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2})
     assert abs(result[0, 0].item()) < 1e-5
     assert abs(result[0, 1].item() - 0.10) < 1e-5
 
     # Both at same yaw: net rotation = 0, centers unchanged (offset is zero here)
-    result = ObjectPlacer._centers_in_target_frame(
+    result = NoOverlapValidator._centers_in_target_frame(
         centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2, tgt: math.pi / 2}
     )
     assert torch.allclose(result, centers, atol=1e-5)
