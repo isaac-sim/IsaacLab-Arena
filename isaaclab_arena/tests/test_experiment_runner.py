@@ -6,6 +6,7 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -31,6 +32,29 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ]
+
+
+def test_experiment_runner_parses_exact_output_directory_and_timestamp_opt_in(tmp_path):
+    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+
+    parsed_arguments, experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--experiment_output_directory",
+        str(exact_experiment_output_directory),
+    ])
+
+    assert parsed_arguments.experiment_output_directory == exact_experiment_output_directory
+    assert not parsed_arguments.create_timestamped_output_directory
+    assert experiment_overrides == []
+
+    timestamped_arguments, _ = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--create_timestamped_output_directory",
+    ])
+    assert timestamped_arguments.experiment_output_directory == Path("/eval/output")
+    assert timestamped_arguments.create_timestamped_output_directory
 
 
 @pytest.mark.with_subprocess
@@ -113,7 +137,7 @@ runs:
         str(experiment_config_path),
         config_option="--experiment_config",
         extra_args=[
-            "--output_base_dir",
+            "--experiment_output_directory",
             str(tmp_path / "output"),
             "runs.yaml_baseline.rollout_limit.num_steps=2",
         ],
@@ -123,6 +147,8 @@ runs:
     run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
     run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
     assert run_cells[4] == "2"
+    assert (tmp_path / "output/index.html").is_file()
+    assert (tmp_path / "output/yaml_baseline/episode_results_rebuild0.jsonl").is_file()
 
 
 @pytest.mark.with_subprocess

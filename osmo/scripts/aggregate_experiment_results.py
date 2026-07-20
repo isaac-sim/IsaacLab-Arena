@@ -5,8 +5,8 @@
 
 """Build one Arena Experiment output from independently staged OSMO Run outputs.
 
-The input JSON maps each Run name to its Experiment Runner task's staged output root. Each root must contain
-exactly one ``<timestamped-experiment-output>/<run-name>`` directory. The Run directories are copied into the
+The input JSON maps each Run name to its Experiment Runner task's staged, single-Run Experiment directory. Each
+directory must contain ``<run-name>/...``. Those Run directories are copied into the
 ``<combined-experiment-output>/<run-name>`` layout, where one ``index.html`` report is generated.
 """
 
@@ -48,41 +48,6 @@ def load_staged_experiment_runner_output_directories_by_run_name(
     return staged_output_directories_by_run_name
 
 
-def resolve_run_output_directories_from_staged_experiment_runner_outputs(
-    staged_output_directories_by_run_name: Mapping[str, Path],
-) -> dict[str, Path]:
-    """Resolve ``<staged-task-output>/<timestamped-experiment-output>/<run-name>`` for every Run.
-
-    Args:
-        staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
-
-    Returns:
-        Run names mapped to the exact Run output directories within those task outputs.
-    """
-    assert staged_output_directories_by_run_name, "At least one staged Experiment Runner output is required"
-
-    run_output_directories_by_name: dict[str, Path] = {}
-    for run_name, staged_output_directory in staged_output_directories_by_run_name.items():
-        assert staged_output_directory.is_dir(), (
-            f"Staged Experiment Runner output directory for Run '{run_name}' does not exist or is not a directory: "
-            f"'{staged_output_directory}'"
-        )
-        matching_run_output_directories = [
-            experiment_output_directory / run_name
-            for experiment_output_directory in sorted(staged_output_directory.iterdir())
-            if experiment_output_directory.is_dir() and (experiment_output_directory / run_name).is_dir()
-        ]
-        assert len(matching_run_output_directories) == 1, (
-            "Expected exactly one Run output matching "
-            f"'<staged-output>/<timestamped-experiment-output>/{run_name}' below "
-            f"'{staged_output_directory}', found {len(matching_run_output_directories)}: "
-            f"{[str(run_output_directory) for run_output_directory in matching_run_output_directories]}"
-        )
-        run_output_directories_by_name[run_name] = matching_run_output_directories[0]
-
-    return run_output_directories_by_name
-
-
 def build_experiment_output_from_staged_experiment_runner_outputs(
     staged_output_directories_by_run_name: Mapping[str, Path],
     combined_experiment_output_directory: Path,
@@ -97,10 +62,13 @@ def build_experiment_output_from_staged_experiment_runner_outputs(
     Returns:
         Path to the generated Experiment report.
     """
-    run_output_directories_by_name = resolve_run_output_directories_from_staged_experiment_runner_outputs(
-        staged_output_directories_by_run_name
-    )
-    for run_name, source_run_output_directory in run_output_directories_by_name.items():
+    assert staged_output_directories_by_run_name, "At least one staged Experiment Runner output is required"
+    for run_name, staged_experiment_output_directory in staged_output_directories_by_run_name.items():
+        source_run_output_directory = staged_experiment_output_directory / run_name
+        assert source_run_output_directory.is_dir(), (
+            f"Expected Run output directory for Run '{run_name}' does not exist or is not a directory: "
+            f"'{source_run_output_directory}'"
+        )
         shutil.copytree(
             source_run_output_directory,
             combined_experiment_output_directory / run_name,

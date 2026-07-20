@@ -34,9 +34,10 @@ def staged_task_output_directory_token(upstream_task_name: str) -> str:
 class ExperimentResultsTask(BaseTask):
     """Publish one Experiment output from workflow-local outputs produced per Run.
 
-    For each Run, OSMO stages ``{{input:<runner-task>}}/<timestamp>/<run-name>/...``. The embedded script copies
-    those Run directories to ``{{output}}/<run-name>/...`` and writes ``{{output}}/index.html``. Only this final
-    task output is published to Swift; the upstream runner outputs remain workflow-local.
+    For each Run, OSMO stages its exact single-Run Experiment directory at ``{{input:<runner-task>}}``. The
+    embedded script copies ``{{input:<runner-task>}}/<run-name>/...`` to ``{{output}}/<run-name>/...`` and writes
+    ``{{output}}/index.html``. Only this final task output is published to Swift; the upstream runner outputs remain
+    workflow-local.
     """
 
     def __init__(

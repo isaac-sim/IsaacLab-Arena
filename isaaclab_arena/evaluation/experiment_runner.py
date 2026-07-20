@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -87,8 +86,16 @@ def main():
         assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
 
         if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
+            # TODO(cvolk): Let the parent choose one timestamped directory and pass its exact path to every child.
+            assert (
+                not args_cli.create_timestamped_output_directory
+            ), "--create_timestamped_output_directory is not supported when --chunk_size dispatches multiple chunks"
             run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
             return
+
+    experiment_output_directory = args_cli.experiment_output_directory
+    if args_cli.create_timestamped_output_directory:
+        experiment_output_directory = Path(timestamped_run_dir(str(experiment_output_directory)))
 
     with SimulationAppContext(args_cli):
         experiment_cfg = load_arena_experiment_from_config_file(
@@ -101,19 +108,14 @@ def main():
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
-        # One reverse-dated output directory for the Experiment, with one subdirectory
-        # per Run. Always date it so each invocation produces its own report directory.
-        # TODO(alexmillane): Currently each chunk produces its own output directory.
-        # We should use the same output directory for all chunks in the future.
-        experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
+        experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
         if args_cli.record_viewport_video:
-            os.makedirs(experiment_output_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_dir}")
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
 
         results = execute_experiment(
             experiment_cfg,
-            output_dir=experiment_output_dir,
+            output_dir=experiment_output_directory,
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
@@ -126,7 +128,7 @@ def main():
         metrics_logger.print_metrics()
 
         # Write HTML report.
-        report_path = build_report(experiment_output_dir)
+        report_path = build_report(experiment_output_directory)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 

@@ -169,6 +169,23 @@ def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monk
         experiment_runner.main()
 
 
+def test_experiment_runner_rejects_timestamped_output_for_multiple_legacy_chunks(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_JSON_PATH),
+            "--chunk_size",
+            "1",
+            "--create_timestamped_output_directory",
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="not supported when --chunk_size dispatches multiple chunks"):
+        experiment_runner.main()
+
+
 def test_legacy_json_experiment_rejects_hydra_overrides():
     with pytest.raises(AssertionError, match="only for typed YAML"):
         load_arena_experiment_from_config_file(

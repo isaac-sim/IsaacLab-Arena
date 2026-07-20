@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify discovery and assembly of timestamped Experiment outputs staged by OSMO."""
+"""Verify assembly of exact single-Run Experiment outputs staged by OSMO."""
 
 import json
 from pathlib import Path
@@ -13,7 +13,6 @@ import pytest
 from osmo.scripts.aggregate_experiment_results import (
     build_experiment_output_from_staged_experiment_runner_outputs,
     load_staged_experiment_runner_output_directories_by_run_name,
-    resolve_run_output_directories_from_staged_experiment_runner_outputs,
 )
 
 
@@ -46,59 +45,22 @@ def test_loads_staged_experiment_runner_output_directories_as_paths(tmp_path):
     assert staged_output_directories_by_run_name == {"first": staged_output_directory}
 
 
-def test_resolves_run_directory_below_one_generated_experiment_directory(tmp_path):
+def test_rejects_staged_experiment_output_without_the_requested_run(tmp_path):
     staged_output_directory = tmp_path / "experiment-runner-0-output"
-    expected_run_output_directory = staged_output_directory / "generated-experiment-output" / "first"
-    expected_run_output_directory.mkdir(parents=True)
-    (staged_output_directory / "runner.log").write_text("complete\n", encoding="utf-8")
+    (staged_output_directory / "another-run").mkdir(parents=True)
 
-    run_output_directories_by_name = resolve_run_output_directories_from_staged_experiment_runner_outputs(
-        {"first": staged_output_directory}
-    )
-
-    assert run_output_directories_by_name == {"first": expected_run_output_directory}
-
-
-def test_rejects_missing_staged_experiment_runner_output_directory(tmp_path):
-    missing_staged_output_directory = tmp_path / "missing-experiment-runner-output"
-
-    with pytest.raises(AssertionError, match="Staged Experiment Runner output directory.*does not exist"):
-        resolve_run_output_directories_from_staged_experiment_runner_outputs({"first": missing_staged_output_directory})
-
-
-def test_rejects_staged_output_without_the_requested_run(tmp_path):
-    staged_output_directory = tmp_path / "experiment-runner-0-output"
-    (staged_output_directory / "2026-07-20_12-00-00" / "another-run").mkdir(parents=True)
-
-    with pytest.raises(AssertionError, match="Expected exactly one Run output.*found 0"):
-        resolve_run_output_directories_from_staged_experiment_runner_outputs({"first": staged_output_directory})
-
-
-def test_does_not_search_below_the_generated_experiment_directory(tmp_path):
-    staged_output_directory = tmp_path / "experiment-runner-0-output"
-    deeply_nested_run_output_directory = (
-        staged_output_directory / "unexpected-wrapper" / "2026-07-20_12-00-00" / "first"
-    )
-    deeply_nested_run_output_directory.mkdir(parents=True)
-
-    with pytest.raises(AssertionError, match="Expected exactly one Run output.*found 0"):
-        resolve_run_output_directories_from_staged_experiment_runner_outputs({"first": staged_output_directory})
-
-
-def test_rejects_multiple_generated_experiment_directories_containing_the_run(tmp_path):
-    staged_output_directory = tmp_path / "experiment-runner-0-output"
-    (staged_output_directory / "2026-07-20_12-00-00" / "first").mkdir(parents=True)
-    (staged_output_directory / "2026-07-20_12-01-00" / "first").mkdir(parents=True)
-
-    with pytest.raises(AssertionError, match="Expected exactly one Run output.*found 2"):
-        resolve_run_output_directories_from_staged_experiment_runner_outputs({"first": staged_output_directory})
+    with pytest.raises(AssertionError, match="Expected Run output directory for Run 'first'.*first"):
+        build_experiment_output_from_staged_experiment_runner_outputs(
+            {"first": staged_output_directory},
+            tmp_path / "combined-experiment-output",
+        )
 
 
 def test_builds_experiment_output_from_separate_staged_experiment_runner_outputs(tmp_path):
     first_staged_output_directory = tmp_path / "experiment-runner-0-output"
     second_staged_output_directory = tmp_path / "experiment-runner-1-output"
-    first_run_output_directory = first_staged_output_directory / "2026-07-20_12-00-00" / "first"
-    second_run_output_directory = second_staged_output_directory / "2026-07-20_12-00-00" / "second"
+    first_run_output_directory = first_staged_output_directory / "first"
+    second_run_output_directory = second_staged_output_directory / "second"
     _write_run_output(first_run_output_directory, "first", True)
     _write_run_output(second_run_output_directory, "second", False)
     combined_experiment_output_directory = tmp_path / "combined-experiment-output"

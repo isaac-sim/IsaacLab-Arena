@@ -78,7 +78,7 @@ class ExperimentRunnerTask(BaseTask):
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
             REMOTE_EXPERIMENT_PATH,
-            "--output_base_dir",
+            "--experiment_output_directory",
             OSMO_TASK_OUTPUT_DIR,
             "--viz",
             "none",

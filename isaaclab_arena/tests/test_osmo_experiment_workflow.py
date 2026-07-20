@@ -247,9 +247,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
     assert "experiment_runner.py" in experiment_runner_command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
-    assert "--output_base_dir" in experiment_runner_command
-    assert OSMO_TASK_OUTPUT_DIR in experiment_runner_command
-    assert "--experiment_output_directory" not in experiment_runner_command
+    assert f"--experiment_output_directory '{OSMO_TASK_OUTPUT_DIR}'" in experiment_runner_command
+    assert "--output_base_dir" not in experiment_runner_command
+    assert "--create_timestamped_output_directory" not in experiment_runner_command
     assert "--enable_cameras" in experiment_runner_command
     assert "policy_runner.py" not in experiment_runner_command
     assert "runs." not in experiment_runner_command
@@ -281,9 +281,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
     }
     aggregation_script_file = _task_file(aggregate_task, REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH)
     assert "localpath" not in aggregation_script_file
+    assert "def build_experiment_output_from_staged_experiment_runner_outputs" in aggregation_script_file["contents"]
     assert (
-        "def resolve_run_output_directories_from_staged_experiment_runner_outputs"
-        in aggregation_script_file["contents"]
+        "resolve_run_output_directories_from_staged_experiment_runner_outputs"
+        not in aggregation_script_file["contents"]
     )
     aggregation_command = _task_file(aggregate_task, "/tmp/entry.sh")["contents"]
     assert aggregation_command.startswith("set -euo pipefail")
