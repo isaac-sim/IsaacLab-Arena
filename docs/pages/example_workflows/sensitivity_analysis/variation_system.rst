@@ -120,6 +120,8 @@ while the wrist-camera position is run-time (redrawn on each reset).
 See :ref:`build-time-run-time-variations` for a full explanation of the distinction and why it
 matters when planning an evaluation.
 
+.. _discovering-available-variations:
+
 Discovering available variations
 --------------------------------
 

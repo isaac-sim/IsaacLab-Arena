@@ -68,8 +68,8 @@ all three recorded conditions are numeric, Arena will use NPE for this analysis.
 .. dropdown:: Configuration file (``droid_pnp_camera_sensitivity_openpi_config.json``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../isaaclab_arena_environments/eval_jobs_configs/droid_pnp_camera_sensitivity_openpi_config.json
-      :language: json
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
+      :language: yaml
 
 Start the OpenPI server in one terminal:
 
