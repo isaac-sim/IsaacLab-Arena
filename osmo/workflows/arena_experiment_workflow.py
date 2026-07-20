@@ -100,7 +100,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             experiment_cfg=single_run_experiment_config,
             lead=True,
             task_name=experiment_runner_task_name,
-            output_url=None,
+            published_output_url=None,
         )
         run_group_tasks = [experiment_runner_task, *pi0_policy_server_tasks]
 
@@ -114,7 +114,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         self,
         experiment_runner_task_names_by_run_name: dict[str, str],
     ) -> dict[str, Any]:
-        """Create the CPU group that combines every runner's staged output."""
+        """Stage every runner's local output and publish one combined Experiment output."""
         experiment_results_task = ExperimentResultsTask(
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,

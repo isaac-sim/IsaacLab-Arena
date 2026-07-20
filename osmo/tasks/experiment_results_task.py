@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSMO task that combines independently executed Arena Run outputs."""
+"""OSMO task that stages per-Run task outputs and publishes one Arena Experiment output."""
 
 from __future__ import annotations
 
@@ -24,13 +24,18 @@ REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = (
 )
 
 
-def task_input_token(upstream_task_name: str) -> str:
-    """Return the OSMO token for a task's staged output directory."""
+def staged_task_output_directory_token(upstream_task_name: str) -> str:
+    """Return the token resolving to an upstream task's workflow-local ``{{output}}`` directory."""
     return "{{input:" + upstream_task_name + "}}"
 
 
 class ExperimentResultsTask(BaseTask):
-    """Lead CPU task that builds the combined Arena Experiment output."""
+    """Publish one Experiment output from workflow-local outputs produced per Run.
+
+    For each Run, OSMO stages ``{{input:<runner-task>}}/<timestamp>/<run-name>/...``. The embedded script copies
+    those Run directories to ``{{output}}/<run-name>/...`` and writes ``{{output}}/index.html``. Only this final
+    task output is published to Swift; the upstream runner outputs remain workflow-local.
+    """
 
     def __init__(
         self,
@@ -39,7 +44,7 @@ class ExperimentResultsTask(BaseTask):
         lead: bool | None = None,
         resource: str | None = None,
     ) -> None:
-        assert experiment_runner_task_names_by_run_name, "Experiment result aggregation requires at least one Run task"
+        assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
         super().__init__(lead=lead, resource=resource)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
@@ -52,17 +57,20 @@ class ExperimentResultsTask(BaseTask):
         return self.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
+        """Stage the workflow-local output directory from every Run's Experiment Runner task."""
         return [
             {"task": experiment_runner_task_name}
             for experiment_runner_task_name in self.experiment_runner_task_names_by_run_name.values()
         ]
 
     def _get_outputs(self) -> list[dict[str, Any]]:
+        """Publish the final Experiment directory, including all Runs and ``index.html``."""
         return [{"url": DATASET_SWIFT_URL}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
+        """Embed the builder and its ``run-name -> staged task output root`` JSON input."""
         staged_experiment_runner_output_directory_tokens_by_run_name = {
-            run_name: task_input_token(experiment_runner_task_name)
+            run_name: staged_task_output_directory_token(experiment_runner_task_name)
             for run_name, experiment_runner_task_name in self.experiment_runner_task_names_by_run_name.items()
         }
         return [
@@ -82,7 +90,7 @@ class ExperimentResultsTask(BaseTask):
         ]
 
     def _get_run_script(self) -> str:
-        aggregation_command = shlex.join([
+        build_experiment_output_command = shlex.join([
             "/isaac-sim/python.sh",
             REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH,
             "--staged-experiment-runner-output-directories-file",
@@ -90,4 +98,4 @@ class ExperimentResultsTask(BaseTask):
             "--combined-experiment-output-directory",
             OSMO_TASK_OUTPUT_DIR,
         ])
-        return f"set -euo pipefail\n{aggregation_command}\n"
+        return f"set -euo pipefail\n{build_experiment_output_command}\n"
