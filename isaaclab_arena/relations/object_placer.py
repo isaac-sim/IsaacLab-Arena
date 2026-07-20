@@ -394,7 +394,7 @@ class ObjectPlacer:
 
         Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects are
         omitted so their requested rotation is applied verbatim; their footprint is enclosed by
-        build_per_env_bounding_boxes so overlap validation stays sound.
+        _rotate_candidate_bboxes so overlap validation stays sound.
         """
         orientations: dict[ObjectBase, float] = {}
         for obj in objects:
@@ -443,22 +443,32 @@ class ObjectPlacer:
         candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         orientations_per_candidate: list[dict[ObjectBase, float]],
     ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Replace each candidate's bbox with the enclosing box of its yaw-rotated object.
+        """Replace each candidate's bbox with the AABB enclosing its fully-oriented object.
 
-        orientations_per_candidate carries absolute world yaw.
-        Returns the input unchanged when no yaw is set, keeping the no-yaw path exact.
+        Composes each object's static RotateAroundSolution marker rotation (roll/pitch/yaw) with the
+        per-candidate yaw (sampled + FaceTo, carried as absolute world yaw in orientations_per_candidate)
+        and refits the box to that combined quaternion -- the same composition _apply_poses uses for the
+        final pose, so overlap boxes match the placed object regardless of rotation axis. Objects with
+        no rotation are returned unchanged, keeping the no-rotation path exact.
         """
-        if not any(orientations for orientations in orientations_per_candidate):
-            return candidate_bboxes
         num_candidates = len(orientations_per_candidate)
         rotated: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj in objects:
             bbox = candidate_bboxes[obj]
-            yaws = [orientations_per_candidate[c].get(obj, 0.0) for c in range(num_candidates)]
-            if any(yaw != 0.0 for yaw in yaws):
-                yaw_tensor = torch.tensor(yaws, dtype=torch.float32, device=bbox.min_point.device)
-                bbox = bbox.rotated_around_z(yaw_tensor)
-            rotated[obj] = bbox
+            marker = get_relation(obj, RotateAroundSolution)
+            marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
+            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
+            # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
+            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
+            extra_yaws = [
+                orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)
+            ]
+            if not has_roll_pitch and all(yaw == 0.0 for yaw in extra_yaws):
+                rotated[obj] = bbox
+            else:
+                quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
+                quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
+                rotated[obj] = bbox.rotated_by_quat(quat_tensor)
         return rotated
 
     @staticmethod
@@ -586,13 +596,12 @@ class ObjectPlacer:
             validator.check: validator.validate_batch(positions, orientations, bboxes, collision_objects)
             for validator in self._validators
         }
-        # required_checks=None means "every enabled check is required"; an empty set on the results
-        # already carries that meaning (see PlacementValidationResults._required).
+        # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
         return [
             PlacementValidationResults(
                 validation_results={check: verdicts[candidate_idx] for check, verdicts in verdicts_by_check.items()},
-                required_checks=set(required) if required is not None else set(),
+                required_checks=set(required) if required is not None else None,
             )
             for candidate_idx in range(len(positions))
         ]

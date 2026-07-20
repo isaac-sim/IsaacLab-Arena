@@ -122,17 +122,10 @@ class PerEnvBoundingBoxes:
 
 
 def build_per_env_bounding_boxes(objects: list[ObjectBase], num_envs: int) -> PerEnvBoundingBoxes:
-    """Build per-env bboxes for each placement object.
+    """Build per-env base bboxes for each placement object.
 
-    Roll/pitch RotateAroundSolution objects keep their requested rotation without a sampled yaw, but a
-    Z-only footprint can't represent a tilted box, so their bbox is refit to enclose the marker-rotated
-    box; overlap validation then stays sound. Other objects are unchanged.
+    Object orientation (marker roll/pitch/yaw plus sampled and FaceTo yaw) is applied later per
+    candidate in ObjectPlacer._rotate_candidate_bboxes, so these boxes carry object geometry only.
     """
-    from isaaclab_arena.relations.relations import RotateAroundSolution, get_relation
-
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
-    for obj in objects:
-        marker = get_relation(obj, RotateAroundSolution)
-        if marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0):
-            object_bboxes[obj] = object_bboxes[obj].rotated_by_quat(marker.get_rotation_xyzw())
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)
