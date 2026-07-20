@@ -19,12 +19,14 @@ from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from osmo.arena_experiment_submission import (
+from osmo.submit_arena_experiment import (
+    POLICY_SERVER_TASK_CFG_BY_NAME,
     POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE,
     ArenaExperimentSubmissionCfg,
+    build_arena_experiment_submission_cfg,
+    main,
     submit_arena_experiment,
 )
-from osmo.submit_arena_experiment import POLICY_SERVER_TASK_CFG_BY_NAME, build_arena_experiment_submission_cfg, main
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -132,10 +134,10 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
     assert len(submission_cfg.experiment_cfg.runs) == 9
     assert isinstance(submission_cfg.experiment_cfg.runs[OPENPI_RUN_NAME].policy, Pi0RemotePolicyCfg)
     assert submission_cfg.osmo == WorkflowCfg()
-    assert submission_cfg.osmo.pool == "isaac-dev-l40-03"
-    assert submission_cfg.osmo.platform == "ovx-l40"
+    assert submission_cfg.osmo.pool == "isaac-dev-l40s-04"
+    assert submission_cfg.osmo.platform == "ovx-l40s"
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
-    assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
+    assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
     assert submission_cfg.policy_server == Pi0ServerTaskCfg()
     assert submission_cfg.policy_server.client_ping_timeout_s == Pi0ServerTaskCfg.client_ping_timeout_s
 
