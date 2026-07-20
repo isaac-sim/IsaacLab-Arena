@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve staged OSMO Run outputs and build one Arena Experiment output."""
+"""Build one Arena Experiment output from independently staged OSMO Run outputs.
+
+The input JSON maps each Run name to its Experiment Runner task's staged output root. Each root must contain
+exactly one ``<experiment-output>/<run-name>`` directory. The Run directories are copied into the final
+``<experiment-output>/<run-name>`` layout, where one combined ``index.html`` report is generated.
+"""
 
 from __future__ import annotations
 
@@ -19,10 +24,10 @@ from isaaclab_arena.visualization.report import build_report
 def load_staged_experiment_runner_output_directories_by_run_name(
     serialized_output_directories_path: Path,
 ) -> dict[str, Path]:
-    """Load Run names mapped to their staged OSMO Experiment Runner output directories.
+    """Load ``run-name -> staged Experiment Runner task output root`` from JSON.
 
     Args:
-        serialized_output_directories_path: JSON file containing the Run-to-task-output mapping.
+        serialized_output_directories_path: JSON file containing one staged task output root per Run.
 
     Returns:
         Run names mapped to staged Experiment Runner output directory paths.
@@ -46,7 +51,7 @@ def load_staged_experiment_runner_output_directories_by_run_name(
 def resolve_run_output_directories_from_staged_experiment_runner_outputs(
     staged_output_directories_by_run_name: Mapping[str, Path],
 ) -> dict[str, Path]:
-    """Resolve each exact Run directory below its staged, timestamped Experiment output.
+    """Resolve ``<staged-task-output>/<experiment-output>/<run-name>`` for every Run.
 
     Args:
         staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
@@ -81,11 +86,12 @@ def build_experiment_output_from_staged_experiment_runner_outputs(
     staged_output_directories_by_run_name: Mapping[str, Path],
     combined_experiment_output_directory: Path,
 ) -> Path:
-    """Copy staged Run outputs into one Experiment directory and generate its HTML report.
+    """Copy every staged Run directory into one Experiment output and generate its report.
 
     Args:
         staged_output_directories_by_run_name: Run names mapped to staged Experiment Runner task outputs.
-        combined_experiment_output_directory: Destination for the combined Run directories and report.
+        combined_experiment_output_directory: Final directory containing one subdirectory per Run and
+            ``index.html``.
 
     Returns:
         Path to the generated Experiment report.
@@ -107,13 +113,13 @@ def _parse_arguments() -> argparse.Namespace:
         "--staged-experiment-runner-output-directories-file",
         required=True,
         type=Path,
-        help="JSON mapping of Run names to staged OSMO Experiment Runner output directories",
+        help="JSON mapping of each Run name to its staged OSMO Experiment Runner task output root",
     )
     parser.add_argument(
         "--combined-experiment-output-directory",
         required=True,
         type=Path,
-        help="Destination directory for the combined Arena Experiment output",
+        help="Final Arena Experiment output containing one directory per Run and index.html",
     )
     return parser.parse_args()
 

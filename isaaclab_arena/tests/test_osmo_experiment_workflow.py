@@ -32,7 +32,7 @@ from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_results_task import (
     REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH,
     REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
-    task_input_token,
+    staged_task_output_directory_token,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -271,9 +271,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
         _task_file(aggregate_task, REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
     )
     assert staged_experiment_runner_output_directories_by_run_name == {
-        "first": task_input_token("experiment-runner-0"),
-        "second": task_input_token("experiment-runner-1"),
-        "local": task_input_token("experiment-runner-2"),
+        "first": staged_task_output_directory_token("experiment-runner-0"),
+        "second": staged_task_output_directory_token("experiment-runner-1"),
+        "local": staged_task_output_directory_token("experiment-runner-2"),
     }
     aggregation_script_file = _task_file(aggregate_task, REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH)
     assert "localpath" not in aggregation_script_file
