@@ -29,7 +29,11 @@ from osmo.submit_arena_experiment import (
     submit_arena_experiment,
 )
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.experiment_results_task import REMOTE_RUN_OUTPUT_DIRECTORIES_FILE_PATH, task_input_token
+from osmo.tasks.experiment_results_task import (
+    REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH,
+    REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+    task_input_token,
+)
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
@@ -239,9 +243,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
     assert "experiment_runner.py" in experiment_runner_command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
-    assert "--experiment_output_directory" in experiment_runner_command
+    assert "--output_base_dir" in experiment_runner_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_runner_command
-    assert "--output_base_dir" not in experiment_runner_command
+    assert "--experiment_output_directory" not in experiment_runner_command
     assert "--enable_cameras" in experiment_runner_command
     assert "policy_runner.py" not in experiment_runner_command
     assert "runs." not in experiment_runner_command
@@ -263,18 +267,28 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
         {"task": "experiment-runner-2"},
     ]
     assert aggregate_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
-    run_output_directories_by_name = json.loads(
-        _task_file(aggregate_task, REMOTE_RUN_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
+    staged_experiment_runner_output_directories_by_run_name = json.loads(
+        _task_file(aggregate_task, REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
     )
-    assert run_output_directories_by_name == {
-        "first": f'{task_input_token("experiment-runner-0")}/first',
-        "second": f'{task_input_token("experiment-runner-1")}/second',
-        "local": f'{task_input_token("experiment-runner-2")}/local',
+    assert staged_experiment_runner_output_directories_by_run_name == {
+        "first": task_input_token("experiment-runner-0"),
+        "second": task_input_token("experiment-runner-1"),
+        "local": task_input_token("experiment-runner-2"),
     }
+    aggregation_script_file = _task_file(aggregate_task, REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH)
+    assert "localpath" not in aggregation_script_file
+    assert (
+        "def resolve_run_output_directories_from_staged_experiment_runner_outputs"
+        in aggregation_script_file["contents"]
+    )
     aggregation_command = _task_file(aggregate_task, "/tmp/entry.sh")["contents"]
     assert aggregation_command.startswith("set -euo pipefail")
-    assert "aggregate_run_outputs.py" in aggregation_command
-    assert f"--run-output-directories-file {REMOTE_RUN_OUTPUT_DIRECTORIES_FILE_PATH}" in aggregation_command
+    assert REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH in aggregation_command
+    assert (
+        "--staged-experiment-runner-output-directories-file "
+        f"{REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
+        in aggregation_command
+    )
     assert "--combined-experiment-output-directory" in aggregation_command
     assert OSMO_TASK_OUTPUT_DIR in aggregation_command
     assert rendered_workflow["workflow"]["resources"]["aggregation"]["gpu"] == 0
