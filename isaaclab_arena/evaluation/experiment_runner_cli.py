@@ -8,7 +8,16 @@ import argparse
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
-_DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
+_DEFAULT_INLINE_NUM_STEPS = 100
+
+
+def _overrides_inline_rollout_limit(overrides: list[str]) -> bool:
+    """Return whether Hydra overrides provide an inline rollout limit."""
+    for override in overrides:
+        override_key = override.partition("=")[0].lstrip("+~")
+        if override_key == "rollout_limit" or override_key.startswith("rollout_limit."):
+            return True
+    return False
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -20,11 +29,33 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--eval_jobs_config",
         dest="experiment_config",
         type=str,
-        default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
+        default=None,
         help=(
             "Path to a typed YAML Experiment or legacy JSON evaluation config. "
             "For YAML, append Hydra KEY=VALUE overrides for fields on declared Runs."
         ),
+    )
+    parser.add_argument(
+        "--environment",
+        type=str,
+        default=None,
+        help=(
+            "Registered environment to run as an inline zero-action preview. "
+            "Append Hydra overrides relative to the generated preview Run."
+        ),
+    )
+    rollout_limit_group = parser.add_mutually_exclusive_group()
+    rollout_limit_group.add_argument(
+        "--num_steps",
+        type=int,
+        default=None,
+        help=f"Inline preview step limit. Defaults to {_DEFAULT_INLINE_NUM_STEPS}.",
+    )
+    rollout_limit_group.add_argument(
+        "--num_episodes",
+        type=int,
+        default=None,
+        help="Inline preview episode limit instead of a step limit.",
     )
     parser.add_argument(
         "--record_viewport_video",
@@ -89,5 +120,20 @@ def parse_experiment_runner_args(argv: list[str] | None = None) -> tuple[argpars
     parser.allow_abbrev = False
     args_cli, experiment_overrides = parser.parse_known_args(argv)
     assert_hydra_overrides(experiment_overrides, parser)
+    if (args_cli.experiment_config is None) == (args_cli.environment is None):
+        parser.error("Specify exactly one input source: --experiment_config PATH or --environment NAME")
+    if args_cli.environment is not None and args_cli.env_graph_spec_yaml is not None:
+        parser.error("--env_graph_spec_yaml is not supported in inline preview mode; use policy_runner.py")
+    if args_cli.environment is not None and args_cli.external_environment_class_path is not None:
+        parser.error("--external_environment_class_path is not supported in inline preview mode; use policy_runner.py")
+    if args_cli.experiment_config is not None and (args_cli.num_steps is not None or args_cli.num_episodes is not None):
+        parser.error("--num_steps and --num_episodes are supported only with --environment")
+    if (
+        args_cli.environment is not None
+        and args_cli.num_steps is None
+        and args_cli.num_episodes is None
+        and not _overrides_inline_rollout_limit(experiment_overrides)
+    ):
+        args_cli.num_steps = _DEFAULT_INLINE_NUM_STEPS
     assert not args_cli.distributed, "Distributed evaluation is not supported yet"
     return args_cli, experiment_overrides

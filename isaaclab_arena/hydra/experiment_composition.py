@@ -61,6 +61,36 @@ def load_arena_experiment_from_yaml(
         The typed Experiment Definition, preserving YAML mapping declaration order.
     """
     run_values_by_name = _read_and_validate_yaml_runs_as_values(yaml_path)
+    return compose_arena_experiment(
+        run_values_by_name,
+        environment_cfg_types=environment_cfg_types,
+        policy_cfg_type_resolver=policy_cfg_type_resolver,
+        overrides=overrides,
+        source=str(yaml_path),
+    )
+
+
+def compose_arena_experiment(
+    run_values_by_name: dict[str, dict[str, Any]],
+    *,
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
+    overrides: list[str] | None = None,
+    source: str = "in-memory configuration",
+) -> ArenaExperimentCfg:
+    """Compose a typed Arena Experiment from source-independent Run values.
+
+    Args:
+        run_values_by_name: Unresolved Run values keyed by Run name.
+        environment_cfg_types: Environment selector names mapped to typed configuration classes.
+        policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
+        overrides: Hydra field overrides for Runs declared in ``run_values_by_name``.
+        source: Description included in composition errors.
+
+    Returns:
+        The typed Experiment Definition, preserving Run declaration order.
+    """
+    _validate_run_values_by_name(run_values_by_name)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_experiment_composition"
@@ -68,7 +98,7 @@ def load_arena_experiment_from_yaml(
     try:
         with _get_new_hydra_context_if_none_exists():
             arena_runs_by_name = {
-                run_name: _build_arena_run_cfg_from_yaml_values(
+                run_name: _build_arena_run_cfg_from_values(
                     config_store,
                     hydra_config_namespace,
                     index,
@@ -87,10 +117,49 @@ def load_arena_experiment_from_yaml(
             composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=overrides or [])
             experiment_cfg = OmegaConf.to_object(composed_experiment)
     except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
-        raise ValueError(f"Could not compose Arena Experiment '{yaml_path}': {exc}") from exc
+        raise ValueError(f"Could not compose Arena Experiment from {source!r}: {exc}") from exc
 
     assert isinstance(experiment_cfg, ArenaExperimentCfg)
     return experiment_cfg
+
+
+def compose_arena_run(
+    run_name: str,
+    run_values: dict[str, Any],
+    *,
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
+    overrides: list[str] | None = None,
+    source: str = "in-memory configuration",
+) -> ArenaRunCfg:
+    """Compose one typed Arena Run with Run-relative Hydra overrides.
+
+    Args:
+        run_name: Name assigned to the composed Run.
+        run_values: Unresolved values for the Run.
+        environment_cfg_types: Environment selector names mapped to typed configuration classes.
+        policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
+        overrides: Hydra field overrides relative to the Run.
+        source: Description included in composition errors.
+
+    Returns:
+        The fully composed typed Run configuration.
+    """
+    _validate_run_values_by_name({run_name: run_values})
+    try:
+        with _get_new_hydra_context_if_none_exists():
+            return _build_arena_run_cfg_from_values(
+                ConfigStore.instance(),
+                "isaaclab_arena_inline_run_composition",
+                0,
+                run_name,
+                run_values,
+                environment_cfg_types,
+                policy_cfg_type_resolver,
+                overrides=overrides,
+            )
+    except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
+        raise ValueError(f"Could not compose Arena Run from {source!r}: {exc}") from exc
 
 
 def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
@@ -133,17 +202,25 @@ def _read_and_validate_yaml_runs_as_values(yaml_path: str | Path) -> dict[str, d
 
     runs: dict[str, dict[str, Any]] = {}
     for run_name, raw_run_config in raw_experiment_config.runs.items():
-        assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
-        _assert_run_name_is_hydra_compatible(run_name)
         assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
         run_values = OmegaConf.to_container(raw_run_config, resolve=False)
         assert isinstance(run_values, dict)
-        assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
         runs[run_name] = run_values
+    _validate_run_values_by_name(runs)
     return runs
 
 
-def _build_arena_run_cfg_from_yaml_values(
+def _validate_run_values_by_name(run_values_by_name: dict[str, dict[str, Any]]) -> None:
+    """Validate the named-Run mapping shared by YAML and inline callers."""
+    assert isinstance(run_values_by_name, dict) and run_values_by_name, "Experiment must define at least one Run"
+    for run_name, run_values in run_values_by_name.items():
+        assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
+        _assert_run_name_is_hydra_compatible(run_name)
+        assert isinstance(run_values, dict), f"Run '{run_name}' must be a mapping"
+        assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
+
+
+def _build_arena_run_cfg_from_values(
     config_store: ConfigStore,
     hydra_config_namespace: str,
     index: int,
@@ -151,17 +228,19 @@ def _build_arena_run_cfg_from_yaml_values(
     run_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
+    overrides: list[str] | None = None,
 ) -> ArenaRunCfg:
-    """Build one typed Arena Run from its unresolved YAML values.
+    """Build one typed Arena Run from its unresolved configuration values.
 
     Args:
         config_store: Hydra store used for the temporary typed schemas.
         hydra_config_namespace: Unique prefix for this Experiment's temporary Hydra configs.
-        index: Position of the Run in YAML declaration order.
-        run_name: Name declared by the Run's YAML mapping key.
+        index: Position of the Run in declaration order.
+        run_name: Name declared by the Run mapping key.
         run_values: Unresolved values declared for the Run.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
+        overrides: Hydra field overrides relative to this Run.
 
     Returns:
         The fully composed typed Run configuration.
@@ -173,7 +252,7 @@ def _build_arena_run_cfg_from_yaml_values(
     hydra_run_config_name = f"{hydra_config_namespace}_run_{index}"
     hydra_environment_config_name = f"{hydra_run_config_name}_environment"
     hydra_policy_config_name = f"{hydra_run_config_name}_policy"
-    environment = _compose_typed_config_from_yaml_selector(
+    environment = _compose_typed_config_from_selector(
         config_store,
         hydra_environment_config_name,
         run_name,
@@ -187,7 +266,7 @@ def _build_arena_run_cfg_from_yaml_values(
         policy_selector = policy_values.get("type")
         if isinstance(policy_selector, str) and policy_selector:
             policy_cfg_types[policy_selector] = policy_cfg_type_resolver(policy_selector)
-    policy = _compose_typed_config_from_yaml_selector(
+    policy = _compose_typed_config_from_selector(
         config_store,
         hydra_policy_config_name,
         run_name,
@@ -203,12 +282,12 @@ def _build_arena_run_cfg_from_yaml_values(
         name=hydra_run_config_name,
         node={"defaults": [hydra_run_schema_name, "_self_"], **remaining_values},
     )
-    run = OmegaConf.to_object(compose(config_name=hydra_run_config_name))
+    run = OmegaConf.to_object(compose(config_name=hydra_run_config_name, overrides=overrides or []))
     assert isinstance(run, ArenaRunCfg)
     return run
 
 
-def _compose_typed_config_from_yaml_selector(
+def _compose_typed_config_from_selector(
     config_store: ConfigStore,
     hydra_config_name: str,
     run_name: str,
@@ -217,7 +296,7 @@ def _compose_typed_config_from_yaml_selector(
     cfg_types: dict[str, type[Any]],
     expected_base_type: type[Any],
 ) -> Any:
-    """Resolve one YAML type selector into a concrete typed configuration.
+    """Resolve one type selector into a concrete typed configuration.
 
     The value under type selects a class from cfg_types. All remaining
     values are composed and validated against that class by Hydra.
@@ -227,7 +306,7 @@ def _compose_typed_config_from_yaml_selector(
         hydra_config_name: Unique name for the temporary Hydra config.
         run_name: Run containing the selected environment or policy.
         section_name: YAML section being composed, such as environment or policy.
-        section_values_with_selector: YAML field values for the section, including its type selector.
+        section_values_with_selector: Field values for the section, including its type selector.
         cfg_types: Available selector names mapped to typed configuration classes.
         expected_base_type: Base class that the selected configuration must inherit.
 
