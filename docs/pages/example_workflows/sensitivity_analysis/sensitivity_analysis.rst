@@ -6,12 +6,11 @@ conditions it worked or failed. During a variation sweep, Arena records every te
 alongside the episode result. Sensitivity analysis uses those records to estimate which
 combinations of conditions are associated with success or failure.
 
-.. figure:: ../../../images/droid_camera_sensitivity_report.png
+.. figure:: ../../../images/sensitivity_report_200_trails.png
    :width: 100%
-   :alt: REPLACE WITH THE REAL FIGURE!
    :align: center
 
-   An example sensitivity report which shows the sensitivity of a policy to displacements of the
+   An example sensitivity report which shows the sensitivity of the Pi0.5 policy to displacements of the
    wrist-camera. We will build this figure later in this section.
 
 
@@ -112,10 +111,16 @@ variation and keeps all three components of its recorded offset:
 
 This places the report as a ``.png`` file at the requested output path ``/eval/camera_sensitivity_report.png``.
 
-.. figure:: ../../../images/droid_camera_sensitivity_report.png
+.. figure:: ../../../images/sensitivity_report_5_trails.png
    :width: 100%
    :alt: Sensitivity report for three wrist-camera translation components
    :align: center
+
+   Example sensitivity report from the five-episode experiment. Horizontal axes show offsets in metres. The
+   blue curve is the estimated distribution for successful episodes, its shading marks the 5%
+   to 95% range, and the grey dashed line is the uniform sampling distribution. A blue curve
+   close to the dashed line suggests no clear relationship; concentration in one region
+   suggests a stronger association with success.
 
 Note that your report will look different due to randomness in the experiments.
 
@@ -143,21 +148,11 @@ Generate the report using:
      --output /eval/camera_sensitivity_report.png \
      --episode_results isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl
 
-.. todo::
-
-   Replace this dry-run figure with the final plot from an evaluation that contains enough
-   successful and failed episodes to support an interpretation.
-
-.. figure:: ../../../images/droid_camera_sensitivity_report.png
+.. figure:: ../../../images/sensitivity_report_200_trails.png
    :width: 100%
-   :alt: REPLACE WITH THE REAL FIGURE!
    :align: center
 
-   Temporary report from the five-episode dry run. Horizontal axes show offsets in metres. The
-   blue curve is the estimated distribution for successful episodes, its shading marks the 5%
-   to 95% range, and the grey dashed line is the uniform sampling distribution. A blue curve
-   close to the dashed line suggests no clear relationship; concentration in one region
-   suggests a stronger association with success.
+   The sensitivity report from a 200-episode experiment included in the Isaac Lab - Arena repo.
 
 
 Each panel shows one axis/direction of the wrist-camera offset for the selected outcome. The report
@@ -177,16 +172,13 @@ A peaked distribution suggests that the outcome is sensitive to the varied quant
 
 Our generated report shows that:
 
-.. todo::
-
-   Replace with insights from the final data.
-
-* **Horizontal displacement:** Pi0.5 appears more successful when the wrist camera moves to the
-  right of its nominal position.
-* **Vertical displacement:** Pi0.5 appears relatively robust to vertical movement because the
-  posterior remains close to the uniform reference.
-* **Depth displacement:** Pi0.5 appears more successful when the wrist camera moves about 3 mm
-  forward from its nominal position.
+* **Horizontal (x) displacement:** Pi0.5 appears to be sensitive to horizontal displacement of the wrist-camera.
+  The proportion of successful episodes drops as horizontal distance from the nominal position increases.
+  At the extremum of our experiment (5cm displacement), there are significantly fewer successful episodes.
+* **Vertical displacement (y):** Pi0.5 appears relatively **more** sensitive to vertical displacement of the
+  camera. This is indicated by the posterior distribution being more peaked than the uniform reference, or
+  the posteriors from x and z. The success of the policy drops rapidly as the camera moves away from
+  the nominal position in y.
 
 Insights you can take from the report
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
