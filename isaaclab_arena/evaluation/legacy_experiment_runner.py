@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import subprocess
@@ -51,48 +50,96 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
     )
 
 
-def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
-    """Run legacy JSON entries in a fresh experiment_runner subprocess."""
+def _run_legacy_json_chunk(
+    chunk_label: str,
+    legacy_job_configs: list[dict],
+    experiment_output_directory: Path,
+) -> int:
+    """Run legacy JSON entries in a fresh subprocess using the shared Experiment directory.
+
+    Args:
+        chunk_label: Human-readable position of this chunk in the Experiment.
+        legacy_job_configs: Legacy Run configurations assigned to this child process.
+        experiment_output_directory: Exact output directory shared by every chunk.
+
+    Returns:
+        The child process return code.
+    """
     print(f"[experiment_runner] {chunk_label}", flush=True)
     # Serialize this chunk's jobs to a temp config the child loads via --experiment_config.
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-        json.dump({"jobs": legacy_job_configs}, tmp)
-        chunk_path = Path(tmp.name)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temporary_chunk_config_file:
+        json.dump({"jobs": legacy_job_configs}, temporary_chunk_config_file)
+        chunk_config_path = Path(temporary_chunk_config_file.name)
     # Re-run this invocation in the child, with --experiment_config appended so it wins over
     # the master config (argparse keeps the last value).
     # Strip --serve_evaluation_report: a child that served its report would block on
     # serve_until_ctrl_c forever.
-    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
-    config_override = ["--experiment_config", str(chunk_path)]
-    child_cmd = [sys.executable, *forwarded_args, *config_override]
+    forwarded_arguments = [argument for argument in sys.argv if argument != "--serve_evaluation_report"]
+    experiment_config_override = ["--experiment_config", str(chunk_config_path)]
+    experiment_output_directory_override = [
+        "--experiment_output_directory",
+        str(experiment_output_directory),
+    ]
+    child_command = [
+        sys.executable,
+        *forwarded_arguments,
+        *experiment_config_override,
+        *experiment_output_directory_override,
+    ]
     try:
-        result = subprocess.run(child_cmd, check=False)
+        completed_child_process = subprocess.run(child_command, check=False)
     finally:
         # Remove the temp chunk config now that the child has loaded it.
-        chunk_path.unlink(missing_ok=True)
-    return result.returncode
+        chunk_config_path.unlink(missing_ok=True)
+    return completed_child_process.returncode
 
 
-def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_config: dict) -> None:
-    """Run each chunk of a legacy JSON Experiment in a fresh subprocess."""
+def run_legacy_json_in_chunks(
+    legacy_experiment_config: dict,
+    *,
+    chunk_size: int,
+    experiment_output_directory: Path,
+    serve_evaluation_report: bool,
+) -> None:
+    """Run every chunk sequentially in fresh processes sharing one Experiment directory.
+
+    Args:
+        legacy_experiment_config: Complete legacy Experiment mapping containing all Runs.
+        chunk_size: Maximum number of Runs assigned to one child process.
+        experiment_output_directory: Exact output directory shared by every chunk.
+        serve_evaluation_report: Whether report serving was requested by the parent.
+    """
     # TODO(cvolk): Aggregate per-chunk metrics into one centralized view. Each chunk
     # subprocess currently prints its own MetricsLogger summary and nothing is merged
     # or persisted (save_metrics_to_file() is unused). Have each chunk write metrics
     # JSON to a temp file, then merge and print or save them here.
-    jobs = legacy_experiment_config["jobs"]
-    chunk_size = args_cli.chunk_size
+    legacy_job_configs = legacy_experiment_config["jobs"]
     assert chunk_size > 0, f"--chunk_size must be positive, got {chunk_size}"
-    n_chunks = math.ceil(len(jobs) / chunk_size)
-    print(f"[experiment_runner] {len(jobs)} Runs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+    legacy_run_names = [legacy_job_config["name"] for legacy_job_config in legacy_job_configs]
+    assert len(legacy_run_names) == len(set(legacy_run_names)), "run names must be unique"
+    number_of_chunks = math.ceil(len(legacy_job_configs) / chunk_size)
+    print(
+        f"[experiment_runner] {len(legacy_job_configs)} Runs → {number_of_chunks} chunks of <= {chunk_size}",
+        flush=True,
+    )
 
-    if args_cli.serve_evaluation_report:
+    if serve_evaluation_report:
         print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
 
-    for chunk_idx in range(n_chunks):
-        start = chunk_idx * chunk_size
-        end = min(start + chunk_size, len(jobs))
-        chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: Runs {start}..{end - 1}"
-        returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end])
-        if returncode != 0:
-            print(f"[experiment_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
-            sys.exit(returncode)
+    for chunk_index in range(number_of_chunks):
+        first_run_index = chunk_index * chunk_size
+        end_run_index_exclusive = min(first_run_index + chunk_size, len(legacy_job_configs))
+        chunk_label = (
+            f"chunk {chunk_index + 1}/{number_of_chunks}: Runs {first_run_index}..{end_run_index_exclusive - 1}"
+        )
+        child_return_code = _run_legacy_json_chunk(
+            chunk_label,
+            legacy_job_configs[first_run_index:end_run_index_exclusive],
+            experiment_output_directory,
+        )
+        if child_return_code != 0:
+            print(
+                f"[experiment_runner] chunk {chunk_index + 1} failed (exit {child_return_code}).",
+                flush=True,
+            )
+            sys.exit(child_return_code)

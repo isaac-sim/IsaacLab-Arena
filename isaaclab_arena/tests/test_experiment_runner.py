@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-from isaaclab_arena.evaluation import experiment_runner
+from isaaclab_arena.evaluation import experiment_runner_cli
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
@@ -44,11 +44,11 @@ def test_experiment_runner_parses_exact_experiment_output_directory(tmp_path):
         str(exact_experiment_output_directory),
     ])
 
-    assert parsed_arguments.experiment_output_directory == str(exact_experiment_output_directory)
+    assert parsed_arguments.experiment_output_directory == exact_experiment_output_directory
     assert experiment_overrides == []
 
 
-def test_resolves_timestamped_default_when_output_directory_is_omitted(monkeypatch, tmp_path):
+def test_experiment_runner_defaults_to_timestamped_experiment_output_directory(monkeypatch, tmp_path):
     expected_experiment_output_directory = tmp_path / "2026-07-17_12-00-00"
     received_output_base_directories = []
 
@@ -56,27 +56,16 @@ def test_resolves_timestamped_default_when_output_directory_is_omitted(monkeypat
         received_output_base_directories.append(received_output_base_directory)
         return str(expected_experiment_output_directory)
 
-    monkeypatch.setattr(experiment_runner, "timestamped_run_dir", create_timestamped_directory_path)
+    monkeypatch.setattr(experiment_runner_cli, "timestamped_run_dir", create_timestamped_directory_path)
 
-    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(None)
+    parsed_arguments, experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+    ])
 
-    assert resolved_experiment_output_directory == expected_experiment_output_directory
-    assert received_output_base_directories == [experiment_runner.DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY]
-
-
-def test_resolves_exact_experiment_output_directory_without_timestamping(monkeypatch, tmp_path):
-    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
-
-    def fail_if_timestamped_directory_is_requested(_output_base_directory: str) -> str:
-        pytest.fail("Exact Experiment output must not request a timestamped directory")
-
-    monkeypatch.setattr(experiment_runner, "timestamped_run_dir", fail_if_timestamped_directory_is_requested)
-
-    resolved_experiment_output_directory = experiment_runner._resolve_experiment_output_directory(
-        str(exact_experiment_output_directory)
-    )
-
-    assert resolved_experiment_output_directory == exact_experiment_output_directory
+    assert parsed_arguments.experiment_output_directory == expected_experiment_output_directory
+    assert received_output_base_directories == [experiment_runner_cli.DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY]
+    assert experiment_overrides == []
 
 
 @pytest.mark.with_subprocess
@@ -173,7 +162,7 @@ runs:
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_two_jobs_zero_action(tmp_path):
-    """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
+    """Run two legacy chunks into one Experiment directory and combined report."""
     jobs = [
         {
             "name": "gr1_open_microwave_cracker_box",
@@ -200,8 +189,23 @@ def test_experiment_runner_two_jobs_zero_action(tmp_path):
     ]
 
     temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
+    experiment_output_directory = tmp_path / "chunked-experiment-output"
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_experiment_runner(temp_config_path)
+    run_experiment_runner(
+        temp_config_path,
+        extra_args=[
+            "--chunk_size",
+            "1",
+            "--experiment_output_directory",
+            str(experiment_output_directory),
+        ],
+    )
+
+    assert (experiment_output_directory / "gr1_open_microwave_cracker_box").is_dir()
+    assert (experiment_output_directory / "gr1_open_microwave_sugar_box").is_dir()
+    report_contents = (experiment_output_directory / "index.html").read_text(encoding="utf-8")
+    assert "gr1_open_microwave_cracker_box" in report_contents
+    assert "gr1_open_microwave_sugar_box" in report_contents
 
 
 @pytest.mark.with_subprocess
