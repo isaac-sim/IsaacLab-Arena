@@ -14,7 +14,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
-from osmo.tasks.experiment_results_task import ExperimentResultsTask
+from osmo.tasks.experiment_output_task import ExperimentOutputTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
@@ -31,7 +31,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
 
     lead_list = [True, False]
 
-    aggregation_resource_name = "aggregation"
+    experiment_output_assembly_resource_name = "experiment-output-assembly"
 
     def __init__(
         self,
@@ -56,7 +56,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         self._assert_pi0_server_compatible(pi0_policy_variants_by_run)
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
-        """Create one independently scheduled group per Run, then aggregate their outputs."""
+        """Create one independently scheduled group per Run, then assemble their outputs."""
         run_group_dicts: list[dict[str, Any]] = []
         experiment_runner_task_names_by_run_name: dict[str, str] = {}
         for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
@@ -68,8 +68,10 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             run_group_dicts.append(run_group_dict)
             experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
 
-        aggregation_group_dict = self._create_aggregation_group_dict(experiment_runner_task_names_by_run_name)
-        return [*run_group_dicts, aggregation_group_dict]
+        experiment_output_assembly_group_dict = self._create_experiment_output_assembly_group_dict(
+            experiment_runner_task_names_by_run_name
+        )
+        return [*run_group_dicts, experiment_output_assembly_group_dict]
 
     def _create_run_group_dict(
         self,
@@ -110,29 +112,29 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         }
         return run_group_dict, experiment_runner_task_name
 
-    def _create_aggregation_group_dict(
+    def _create_experiment_output_assembly_group_dict(
         self,
         experiment_runner_task_names_by_run_name: dict[str, str],
     ) -> dict[str, Any]:
-        """Stage every runner's local output and publish one combined Experiment output."""
-        experiment_results_task = ExperimentResultsTask(
+        """Stage every runner's local output and publish one Experiment output."""
+        experiment_output_task = ExperimentOutputTask(
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             lead=True,
-            resource=self.aggregation_resource_name,
+            resource=self.experiment_output_assembly_resource_name,
         )
         return {
-            "name": "arena-aggregation",
-            "tasks": [experiment_results_task.create_task_dict()],
+            "name": "arena-output-assembly",
+            "tasks": [experiment_output_task.create_task_dict()],
         }
 
     def _create_resources_dict(self) -> dict[str, dict[str, Any]]:
-        """Use configured resources for Runs and a CPU-only resource for aggregation."""
+        """Use configured resources for Runs and a CPU-only resource for Experiment output assembly."""
         run_task_resource = self._create_resource_dict()
-        aggregation_task_resource = {**run_task_resource, "gpu": 0}
+        experiment_output_assembly_task_resource = {**run_task_resource, "gpu": 0}
         return {
             "default": run_task_resource,
-            self.aggregation_resource_name: aggregation_task_resource,
+            self.experiment_output_assembly_resource_name: experiment_output_assembly_task_resource,
         }
 
     def _get_pi0_policy_variants_by_run(self) -> dict[str, str]:

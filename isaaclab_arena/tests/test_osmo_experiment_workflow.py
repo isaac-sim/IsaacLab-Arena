@@ -29,9 +29,9 @@ from osmo.submit_arena_experiment import (
     submit_arena_experiment,
 )
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.experiment_results_task import (
-    REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH,
-    REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+from osmo.tasks.experiment_output_task import (
+    REMOTE_ASSEMBLE_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    REMOTE_STAGED_EXPERIMENT_OUTPUT_DIRECTORIES_FILE_PATH,
     staged_task_output_directory_token,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
@@ -190,8 +190,8 @@ def test_policy_server_rejects_workflow_fields():
         ])
 
 
-def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregation():
-    """Render one independent Run group per Run and aggregate every runner output."""
+def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_output_assembly():
+    """Render one independent Run group per Run and assemble one Experiment output."""
     source_experiment_cfg = _pi0_experiment_cfg()
     workflow = Pi0ArenaExperimentWorkflow(
         workflow_cfg=WorkflowCfg(workflow_name="pi0-experiment"),
@@ -206,7 +206,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
         "arena-run-0",
         "arena-run-1",
         "arena-run-2",
-        "arena-aggregation",
+        "arena-output-assembly",
     ]
     task_names = [task["name"] for group in groups for task in group["tasks"]]
     assert len(task_names) == len(set(task_names))
@@ -261,41 +261,38 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
     assert f"scripts/serve_policy.py --port={POLICY_SERVER_PORT} policy:checkpoint" in server_command
     assert "--policy.config=pi05_droid_jointpos_polaris" in server_command
 
-    aggregate_task = groups[3]["tasks"][0]
-    assert aggregate_task["name"] == "aggregate-results"
-    assert aggregate_task["resource"] == "aggregation"
-    assert aggregate_task["inputs"] == [
+    experiment_output_task = groups[3]["tasks"][0]
+    assert experiment_output_task["name"] == "assemble-experiment-output"
+    assert experiment_output_task["resource"] == "experiment-output-assembly"
+    assert experiment_output_task["inputs"] == [
         {"task": "experiment-runner-0"},
         {"task": "experiment-runner-1"},
         {"task": "experiment-runner-2"},
     ]
-    assert aggregate_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
-    staged_experiment_runner_output_directories_by_run_name = json.loads(
-        _task_file(aggregate_task, REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
+    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
+    staged_experiment_output_directories_by_run_name = json.loads(
+        _task_file(experiment_output_task, REMOTE_STAGED_EXPERIMENT_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
     )
-    assert staged_experiment_runner_output_directories_by_run_name == {
+    assert staged_experiment_output_directories_by_run_name == {
         "first": staged_task_output_directory_token("experiment-runner-0"),
         "second": staged_task_output_directory_token("experiment-runner-1"),
         "local": staged_task_output_directory_token("experiment-runner-2"),
     }
-    aggregation_script_file = _task_file(aggregate_task, REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH)
-    assert "localpath" not in aggregation_script_file
-    assert "def build_experiment_output_from_staged_experiment_runner_outputs" in aggregation_script_file["contents"]
-    assert (
-        "resolve_run_output_directories_from_staged_experiment_runner_outputs"
-        not in aggregation_script_file["contents"]
+    experiment_output_assembly_script_file = _task_file(
+        experiment_output_task, REMOTE_ASSEMBLE_EXPERIMENT_OUTPUT_SCRIPT_PATH
     )
-    aggregation_command = _task_file(aggregate_task, "/tmp/entry.sh")["contents"]
-    assert aggregation_command.startswith("set -euo pipefail")
-    assert REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH in aggregation_command
+    assert "localpath" not in experiment_output_assembly_script_file
+    assert "def assemble_experiment_output" in experiment_output_assembly_script_file["contents"]
+    experiment_output_assembly_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+    assert experiment_output_assembly_command.startswith("set -euo pipefail")
+    assert REMOTE_ASSEMBLE_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_assembly_command
     assert (
-        "--staged-experiment-runner-output-directories-file "
-        f"{REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
-        in aggregation_command
+        f"--staged-experiment-output-directories-file {REMOTE_STAGED_EXPERIMENT_OUTPUT_DIRECTORIES_FILE_PATH}"
+        in experiment_output_assembly_command
     )
-    assert "--combined-experiment-output-directory" in aggregation_command
-    assert OSMO_TASK_OUTPUT_DIR in aggregation_command
-    assert rendered_workflow["workflow"]["resources"]["aggregation"]["gpu"] == 0
+    assert "--experiment-output-directory" in experiment_output_assembly_command
+    assert OSMO_TASK_OUTPUT_DIR in experiment_output_assembly_command
+    assert rendered_workflow["workflow"]["resources"]["experiment-output-assembly"]["gpu"] == 0
 
 
 def test_embeds_effective_experiment_yaml():
@@ -452,9 +449,9 @@ def test_submission_overrides_osmo_resources(monkeypatch):
     assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
     assert submitted_resources["default"]["platform"] == "ovx-l40"
     assert submitted_resources["default"]["memory"] == "120Gi"
-    assert submitted_resources["aggregation"]["platform"] == "ovx-l40"
-    assert submitted_resources["aggregation"]["memory"] == "120Gi"
-    assert submitted_resources["aggregation"]["gpu"] == 0
+    assert submitted_resources["experiment-output-assembly"]["platform"] == "ovx-l40"
+    assert submitted_resources["experiment-output-assembly"]["memory"] == "120Gi"
+    assert submitted_resources["experiment-output-assembly"]["gpu"] == 0
 
 
 def test_cli_requires_experiment_cfg_path_and_policy_server(capsys):
