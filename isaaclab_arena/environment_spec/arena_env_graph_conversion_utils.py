@@ -50,7 +50,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
     """Build placement params defining what checks to run during layout validation for this env."""
-    placement = graph_spec.placement
+    placement = graph_spec.placement_validators
     enabled = placement.enabled_checks if placement is not None else None
     required = placement.required_checks if placement is not None else None
 

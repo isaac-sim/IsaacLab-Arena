@@ -11,10 +11,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from isaaclab_arena.assets.register import register_validator
-from isaaclab_arena.assets.registries import PlacementValidatorRegistry
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,

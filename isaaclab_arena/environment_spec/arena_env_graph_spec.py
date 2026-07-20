@@ -41,9 +41,9 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
-    placement: PlacementSpec | None = Field(
+    placement_validators: PlacementSpec | None = Field(
         default=None,
-        description="Per-env object-placement validators; null runs all build-time checks.",
+        description="Per-env placement validators; none runs all build-time checks.",
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     cli_override_specs: list[CliOverrideSpec] | None = Field(
