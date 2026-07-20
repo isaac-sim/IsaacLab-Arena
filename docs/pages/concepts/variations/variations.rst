@@ -3,11 +3,9 @@ Variations
 
 Variations are a structured way of introducing randomization into simulated environments.
 
-Variations are attached to assets, travelling with them in a deactivated state.
-A user can enable a variation in any environment that contains an
-asset with that variation attached.
-
-Variations are enabled by appending a Hydra override to the command line.
+Variations are automatically available in Arena-defined environments.
+Activating the variation causes that particular source of randomness to be
+injected into the environment.
 
 .. _build-time-run-time-variations:
 
@@ -15,7 +13,7 @@ Build-time and run-time variations
 ----------------------------------
 
 Some properties must be chosen before the environment is created. Others can change whenever
-an episode resets. Arena calls these *build-time* and *run-time* variations.
+an during policy rollouts. Arena calls these *build-time* and *run-time* variations.
 
 .. list-table::
    :header-rows: 1
@@ -28,11 +26,11 @@ an episode resets. Arena calls these *build-time* and *run-time* variations.
    * - Build-time
      - Before the environment is built
      - Every parallel environment and episode in that build
-     - Background image, light intensity
+     - Background image, lighting changes.
    * - Run-time
      - When an environment resets
      - One episode in one parallel environment
-     - Wrist-camera position offset
+     - Camera extrinsics, camera intrinsics
 
 This distinction matters when planning an evaluation. To collect several values of a
 build-time variation, the environment must be rebuilt several times. A run-time variation can
@@ -78,13 +76,12 @@ defaults:
 
    ...
 
-Enabling variations (minimal)
-------------------------------
+Enabling variations
+-------------------
 
-To enable both variations, append their ``enabled=true`` override tokens after the environment
-subcommand.  All other parameters stay at their defaults — the HDR is sampled uniformly from
-every registered HDR, and the camera extrinsics offset is drawn from ``[-0.005, 0.005]`` m per
-axis on every reset:
+To enable a variation, with default control parameters append its ``enabled=true`` override token
+after the environment subcommand. For example, to enable the HDR image and camera extrinsics variations
+run:
 
 .. code-block:: bash
 
@@ -97,10 +94,8 @@ axis on every reset:
      light.hdr_image.enabled=true \
      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
-Enabling variations with explicit parameters
----------------------------------------------
 
-The same run with every tunable parameter spelled out, showing the full override syntax:
+The same run with tunable variation control parameters spelled out:
 
 .. code-block:: bash
 
@@ -120,23 +115,9 @@ The ``hdr_names`` list restricts HDR sampling to the three named maps instead of
 registered set.  The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera
 extrinsics jitter range to ±10 mm per axis.
 
-How Hydra override paths are structured
------------------------------------------
+To see the available variations and control parameters for a specific environment,
+see :ref:`discovering-available-variations`.
 
-All override paths follow the pattern::
-
-   <asset>.<variation_name>.<cfg_field>
-
-where:
-
-* ``<asset>`` is the scene asset name (e.g. ``light``) or the embodiment name
-  (e.g. ``droid_abs_joint_pos``).
-* ``<variation_name>`` is the name under which the variation is registered on that asset
-  (e.g. ``hdr_image``, ``camera_extrinsics_wrist_camera``).
-* ``<cfg_field>`` is any attribute path within the variation's ``*Cfg`` dataclass
-  (e.g. ``enabled``, ``sampler_cfg.low``).
-
-Use ``--list_variations`` on any environment to discover the exact paths available.
 
 Configuring variations in an eval jobs config
 ---------------------------------------------

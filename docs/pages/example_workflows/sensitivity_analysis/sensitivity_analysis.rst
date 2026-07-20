@@ -6,18 +6,31 @@ conditions it worked or failed. During a variation sweep, Arena records every te
 alongside the episode result. Sensitivity analysis uses those records to estimate which
 combinations of conditions are associated with success or failure.
 
-How Arena analyzes the results
-------------------------------
+.. figure:: ../../../images/droid_camera_sensitivity_report.png
+   :width: 100%
+   :alt: REPLACE WITH THE REAL FIGURE!
+   :align: center
+
+   An example sensitivity report which shows the sensitivity of a policy to displacements of the
+   wrist-camera. We will build this figure later in this section.
+
+
+How Arena generates sensitivity reports
+---------------------------------------
+
+For an experiment run with Arena, the input to the sensitivity analysis pipeline
+is the episode-results file discussed in :doc:`variation_system`.
 
 Arena considers all selected conditions together and estimates the distribution for the
 outcome you choose, such as success or failure, over the selected conditions.
-For example, a user may select to analyze the distribution of success over the wrist-camera position.
+For example, a user may select to analyze the distribution of success over variations
+in the wrist-camera position offsets.
 
 Note that you may select to analyze the distribution of a single condition over multiple conditions.
 Considering the conditions together preserves patterns where two conditions matter in combination,
 and reduces the risk of crediting one condition for a pattern that is actually linked to another.
 
-Arena chooses the estimator automatically from the recorded conditions:
+Arena chooses an estimator automatically from the recorded conditions:
 
 .. list-table::
    :header-rows: 1

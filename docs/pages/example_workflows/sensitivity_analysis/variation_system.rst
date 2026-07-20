@@ -51,12 +51,12 @@ may expose failures that a single fixed test condition cannot show.
 
 Variations help you:
 
-* test a policy across a set of random conditions;
-* determine how sensitive the policy is to these varied conditions (covered in the next section);
+* Test a policy across a set of random conditions;
+* Determine how sensitive the policy is to these varied conditions (covered in the next section);
 
 Arena provides features to make introducing variations easy. In particular:
 
-* it allows you to introduce variations without duplicating the full environment definition;
+* Allows you to introduce variations without duplicating the full environment definition -
   variations are available in all Arena-defined environments automatically; no additional code is needed
   to make them available; and
 * Arena automatically records the sampled variation value in every episode.
@@ -159,19 +159,18 @@ The output will look like this:
 
    ...
 
-This file shows:
+This output shows:
 
-* which assets have variations (e.g. ``directional_light`` and ``light`` do, while ``table``
+* Which assets have variations (e.g. ``directional_light`` and ``light`` do, while ``table``
   shows ``(no variations)``);
-* whether each variation is build-time or run-time (e.g. ``hdr_image`` is build-time, while
+* Whether each variation is build-time or run-time (e.g. ``hdr_image`` is build-time, while
   ``camera_extrinsics_wrist_camera`` is run-time);
-* the setting used to enable it (e.g. ``light.intensity.enabled=true``); and
-* the fields that control sampling (e.g. ``light.intensity.sampler_cfg.low = [100.0]`` and
+* The setting used to enable it (e.g. ``light.intensity.enabled=true``); and
+* The fields that control sampling (e.g. ``light.intensity.sampler_cfg.low = [100.0]`` and
   ``light.intensity.sampler_cfg.high = [2000.0]``).
 
 For the exact commands and configuration format, see :doc:`../../concepts/variations/variations`.
-The :doc:`../../quickstart/first_experiments/exploring_variations` tutorial also shows how fixed
-environment choices and parallel environments work in practice.
+
 
 What Arena records
 ------------------
