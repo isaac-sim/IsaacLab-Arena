@@ -27,12 +27,14 @@ def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
         "num_envs": 4,
         "headless": True,
         "enable_cameras": False,
+        "resolve_on_reset": False,
     })
 
     assert args[:3] == ["--num_envs", "4", "test_env"]
     assert args[args.index("--object") + 1] == "box"
     assert "--headless" in args
     assert "--enable_cameras" not in args
+    assert "--no-resolve_on_reset" in args
 
 
 def test_legacy_jobs_become_concrete_run_configs():
