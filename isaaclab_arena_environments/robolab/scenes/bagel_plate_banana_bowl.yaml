@@ -6,7 +6,8 @@
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
-  params: {}
+  params:
+    stand_height_m: 1.35
 background:
   id: maple_table_robolab
   registry_name: maple_table_robolab

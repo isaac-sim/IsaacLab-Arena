@@ -6,6 +6,7 @@
 from typing import Any
 
 import isaaclab.sim as sim_utils
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
@@ -188,6 +189,10 @@ class LightwheelKitchenBackground(LibraryBackground):
             )[0]
         )
         super().__init__()
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        # Looking in through the open front.
+        return ViewerCfg(eye=(2.75, -5.5, 1.5), lookat=(2.75, -1.4, 0.9))
 
 
 @register_asset
