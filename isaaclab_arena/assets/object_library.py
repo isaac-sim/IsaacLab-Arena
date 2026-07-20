@@ -390,6 +390,18 @@ class LightBase(LibraryObject, ABC):
         self.spawner_cfg.color = tuple(color)
         self.object_cfg = self._init_object_cfg()
 
+    def set_color_temperature(self, color_temperature: float) -> None:
+        """Enable and set the light's white-point color temperature in Kelvin.
+
+        The range is limited to [1000, 10000] K, the valid range documented by Isaac Lab's light cfg.
+        """
+        assert (
+            1000.0 <= color_temperature <= 10000.0
+        ), f"Light color temperature must be in [1000, 10000] K, got {color_temperature}."
+        self.spawner_cfg.enable_color_temperature = True
+        self.spawner_cfg.color_temperature = color_temperature
+        self.object_cfg = self._init_object_cfg()
+
 
 @register_asset
 class DomeLight(LightBase):
@@ -425,6 +437,7 @@ class DomeLight(LightBase):
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+        from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
@@ -436,6 +449,7 @@ class DomeLight(LightBase):
         self.add_variation(HDRImageVariation(self))
         self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
+        self.add_variation(LightColorTemperatureVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.
@@ -474,6 +488,7 @@ class DirectionalLight(LightBase):
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DistantLightCfg = default_spawner_cfg,
     ):
+        from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
@@ -487,6 +502,7 @@ class DirectionalLight(LightBase):
         self.add_variation(LightDirectionVariation(self))
         self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
+        self.add_variation(LightColorTemperatureVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
         """Set the light's orientation."""
