@@ -374,11 +374,11 @@ def test_cli_requires_experiment_cfg_path_and_policy_server(capsys):
     """Require the Experiment config path and policy server at the CLI boundary."""
     with pytest.raises(SystemExit, match="2"):
         main([])
-    assert "--experiment-cfg" in capsys.readouterr().err
+    assert "--experiment_cfg" in capsys.readouterr().err
 
     with pytest.raises(SystemExit, match="2"):
-        main(["--experiment-cfg", str(OPENPI_EXPERIMENT_CFG_PATH)])
-    assert "--policy-server" in capsys.readouterr().err
+        main(["--experiment_cfg", str(OPENPI_EXPERIMENT_CFG_PATH)])
+    assert "--policy_server" in capsys.readouterr().err
 
 
 def test_cli_help_explains_paths_and_override_names(capsys):
@@ -387,10 +387,10 @@ def test_cli_help_explains_paths_and_override_names(capsys):
         main(["--help"])
     help_text = capsys.readouterr().out
     normalized_help_text = " ".join(help_text.split())
-    assert "--experiment-cfg PATH" in help_text
+    assert "--experiment_cfg PATH" in help_text
     assert "path to a typed Arena Experiment YAML configuration" in normalized_help_text
     assert "droid_pnp_srl_openpi_experiment.yaml" in help_text
-    assert "--policy-server {pi0}" in help_text
+    assert "--policy_server {pi0}" in help_text
     assert "typed defaults < Experiment YAML < CLI overrides" in help_text
     assert "osmo.workflow_name=my-evaluation" in help_text
     assert "experiment_cfg.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4" in help_text
@@ -423,9 +423,9 @@ def test_cli_accepts_arbitrary_paths_and_trailing_overrides(tmp_path, capsys):
     )
     assert (
         main([
-            "--experiment-cfg",
+            "--experiment_cfg",
             str(experiment_path),
-            "--policy-server",
+            "--policy_server",
             "pi0",
             "osmo.dry_run=true",
             "osmo.workflow_name=path-based-submission",
