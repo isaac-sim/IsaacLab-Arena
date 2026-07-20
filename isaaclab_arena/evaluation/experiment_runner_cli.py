@@ -40,6 +40,12 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
     )
+    # Keep existing Experiment Runner commands backward compatible:
+    # --output_base_dir <base> writes to <base>/<timestamp>.
+    # OSMO workflow tasks use --experiment_output_directory <path> because each task
+    # must write directly to the exact {{output}} directory allocated by OSMO.
+    # TODO(cvolk): Replace these two path options with one path and an explicit
+    # timestamped-or-exact mode after existing --output_base_dir callers migrate.
     output_directory_group = parser.add_mutually_exclusive_group()
     output_directory_group.add_argument(
         "--output_base_dir",
