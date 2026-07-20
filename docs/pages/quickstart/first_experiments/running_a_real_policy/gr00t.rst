@@ -156,10 +156,8 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
      --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 
-The Experiment Runner creates a fresh timestamped Experiment directory below this base directory. OSMO workflow
-tasks instead pass ``--experiment_output_directory`` with the task's ``{{output}}`` directory so Arena writes
-directly to that exact path. You can also (re)build and serve a report later by pointing the standalone tool at the
-output root — it picks the most recent run:
+You can also (re)build and serve a report later by pointing the standalone tool at the output
+root — it picks the most recent run:
 
 .. code-block:: bash
 
