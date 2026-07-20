@@ -9,6 +9,35 @@ asset with that variation attached.
 
 Variations are enabled by appending a Hydra override to the command line.
 
+.. _build-time-run-time-variations:
+
+Build-time and run-time variations
+----------------------------------
+
+Some properties must be chosen before the environment is created. Others can change whenever
+an episode resets. Arena calls these *build-time* and *run-time* variations.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 25 35 20
+
+   * - Type
+     - When it changes
+     - Where the drawn value applies
+     - Examples
+   * - Build-time
+     - Before the environment is built
+     - Every parallel environment and episode in that build
+     - Background image, light intensity
+   * - Run-time
+     - When an environment resets
+     - One episode in one parallel environment
+     - Wrist-camera position offset
+
+This distinction matters when planning an evaluation. To collect several values of a
+build-time variation, the environment must be rebuilt several times. A run-time variation can
+produce a new value on each reset without rebuilding the scene.
+
 Discovering available variations
 ---------------------------------
 
@@ -28,7 +57,7 @@ defaults:
 
 .. code-block:: text
 
-   Hydra-configurable variations
+   Variations (Hydra-configurable)
    ================================
 
    Asset: droid_abs_joint_pos
@@ -45,7 +74,7 @@ defaults:
          light.hdr_image.hdr_names = []
 
    Asset: bowl_ycb_robolab
-     (no Hydra-configurable variations)
+     (no variations)
 
    ...
 
@@ -181,29 +210,32 @@ variations are sampled once and applied to asset configs before the environment 
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 20 15 40
+   :widths: 25 15 60
 
    * - Variation
-     - Default name
      - Type
      - Description
    * - ``CameraExtrinsicsVariation``
-     - ``camera_extrinsics_{camera_name}``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
+   * - ``CameraIntrinsicsBuildTimeVariation``
+     - build-time
+     - Perturbs a pinhole camera's focal lengths and principal point when the environment is built.
+   * - ``CameraIntrinsicsRunTimeVariation``
+     - run-time
+     - Perturbs a pinhole camera's focal lengths and principal point on every reset.
    * - ``HDRImageVariation``
-     - ``hdr_image``
      - build-time
      - Samples a single HDR and attaches it to a dome light.
+   * - ``LightColorTemperatureVariation``
+     - build-time
+     - Samples a white-point color temperature (Kelvin) and applies it to a light.
    * - ``LightColorVariation``
-     - ``color``
      - build-time
      - Samples an RGB color and applies it to a light.
    * - ``LightDirectionVariation``
-     - ``direction``
      - build-time
      - Samples a continuous orientation and applies it to a directional light.
    * - ``LightIntensityVariation``
-     - ``intensity``
      - build-time
      - Samples a single intensity and applies it to a light.

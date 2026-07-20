@@ -29,8 +29,7 @@ We also expose variations for modifying camera parameters.
    The results of activating several different camera-related variations in the same environment.
    The variations are wrist-camera intrinsics (left), wrist-camera extrinsics (right).
 
-Beyond lighting and cameras, the scene background itself can be varied by sampling the HDR
-environment map used by the dome light.
+The scene background can also be varied by sampling the HDR environment map used by the dome light.
 
 .. figure:: ../../../images/hdr_variations.gif
    :width: 100%
@@ -46,14 +45,14 @@ See the :ref:`available-variations` table for a complete list of supported varia
 Why use variations?
 -------------------
 
-A policy can appear reliable when it is always tested in one familiar scene. Small changes in
-lighting, camera placement, or object appearance may expose failures that a single fixed test
-cannot show.
+A policy can appear reliable when it is always tested in one familiar scene.
+However, small changes in lighting, camera placement, or object appearance
+may expose failures that a single fixed test condition cannot show.
 
 Variations help you:
 
 * test a policy across a set of random conditions;
-* determine the sensitivity of the policy to these varied conditions (covered in the next section);
+* determine how sensitive the policy is to these varied conditions (covered in the next section);
 
 Arena provides features to make introducing variations easy. In particular:
 
@@ -78,11 +77,12 @@ The example uses a zero-action policy, so the robot remains still while you insp
 It rebuilds the environment five times, drawing a new background and light intensity for each
 build. The wrist-camera position is drawn when the environment resets.
 
-.. dropdown:: Configuration file (``droid_pnp_variations_config.json``)
+.. dropdown:: Configuration file (``droid_pnp_variations_experiment.yaml``)
    :animate: fade-in
+   :open:
 
-   .. literalinclude:: ../../../../isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
-      :language: json
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
+      :language: yaml
 
 Start the Base Docker container from the repository root:
 
@@ -92,9 +92,10 @@ Then run the example inside the container:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+     --enable_cameras \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 The viewport will show the environment being rebuilt with different variation values:
 
@@ -103,57 +104,70 @@ The viewport will show the environment being rebuilt with different variation va
    :alt: DROID pick-and-place environment rebuilt with different backgrounds and light intensities
    :align: center
 
-   The ``droid_pnp_variations_config.json`` example with variation changes shown at 5x playback
+   The ``droid_pnp_variations_experiment.yaml`` example with variation changes shown at 5x playback
    speed. The wrist-camera position also changes, but that change is not visible from the
    external viewport.
 
 Build-time and run-time variations
 ----------------------------------
 
-.. todo::
+Some variations are sampled before the environment is created, while others are sampled
+whenever each environment is reset.
+Arena calls these *build-time* and *run-time* variations. In this
+example, the background image and light intensity are build-time (redrawn on each rebuild),
+while the wrist-camera position is run-time (redrawn on each reset).
 
-   TODO(cvolk): Consider moving this detail to the Variations concept documentation and
-   keeping only the explanation needed to understand the example workflow.
-
-Some properties must be chosen before the environment is created. Others can change whenever
-an episode resets. Arena calls these *build-time* and *run-time* variations.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 25 35 20
-
-   * - Type
-     - When it changes
-     - Where the drawn value applies
-     - Examples
-   * - Build-time
-     - Before the environment is built
-     - Every parallel environment and episode in that build
-     - Background image, light intensity
-   * - Run-time
-     - When an environment resets
-     - One episode in one parallel environment
-     - Wrist-camera position offset
-
-This distinction matters when planning an evaluation. To collect several values of a
-build-time variation, the environment must be rebuilt several times. A run-time variation can
-produce a new value on each reset without rebuilding the scene.
+See :ref:`build-time-run-time-variations` for a full explanation of the distinction and why it
+matters when planning an evaluation.
 
 Discovering available variations
 --------------------------------
 
-.. todo::
-
-   TODO(cvolk): Consider replacing this section with a short link to the Variations concept
-   documentation, where variation discovery and configuration are already covered.
-
 The available variations depend on the assets and embodiment in the selected environment.
-Use ``--list_variations`` with the policy or evaluation runner to see:
+Use ``--list_variations`` with the policy or experiment runner to see:
 
-* which assets have variations;
-* whether each variation is build-time or run-time;
-* the setting used to enable it; and
-* the fields that control its range or choices.
+For example, to list the variations for the DROID pick-and-place environment, run:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --list_variations \
+     pick_and_place_maple_table
+
+The output will look like this:
+
+.. code-block:: text
+
+   Variations (Hydra-configurable)
+   ================================
+
+   Asset: bowl_ycb_robolab
+     (no variations)
+
+   Asset: directional_light
+     direction (LightDirectionVariation, build-time)
+       Enable: directional_light.direction.enabled=true  (default: False)
+       Fields:
+         directional_light.direction.sampler_cfg.high = [3.14,1.4]
+         directional_light.direction.sampler_cfg.low = [-3.14,0.0]
+
+     intensity (LightIntensityVariation, build-time)
+       Enable: directional_light.intensity.enabled=true  (default: False)
+       Fields:
+         directional_light.intensity.sampler_cfg.high = [2000.0]
+         directional_light.intensity.sampler_cfg.low = [100.0]
+
+   ...
+
+This file shows:
+
+* which assets have variations (e.g. ``directional_light`` and ``light`` do, while ``table``
+  shows ``(no variations)``);
+* whether each variation is build-time or run-time (e.g. ``hdr_image`` is build-time, while
+  ``camera_extrinsics_wrist_camera`` is run-time);
+* the setting used to enable it (e.g. ``light.intensity.enabled=true``); and
+* the fields that control sampling (e.g. ``light.intensity.sampler_cfg.low = [100.0]`` and
+  ``light.intensity.sampler_cfg.high = [2000.0]``).
 
 For the exact commands and configuration format, see :doc:`../../concepts/variations/variations`.
 The :doc:`../../quickstart/first_experiments/exploring_variations` tutorial also shows how fixed
@@ -183,3 +197,10 @@ the policy struggled, but not which environment changes were present when it str
 The zero-action example on this page is intended to make the variations easy to see. In the
 next section, you will run the same pick-and-place task with a policy and analyze how the
 wrist-camera position is associated with success or failure.
+
+
+Next Steps
+----------
+
+Now that you know how to introduce variations, you can run a :doc:`sensitivity_analysis` on the results.
+This will be covered in the next section.
