@@ -64,7 +64,7 @@ Only the wrist-camera position varies; the object, destination, background, and 
 The camera offset is drawn independently along three axes between -10 mm and 10 mm. Because
 all three recorded conditions are numeric, Arena will use NPE for this analysis.
 
-.. dropdown:: Configuration file (``droid_pnp_camera_sensitivity_openpi_config.json``)
+.. dropdown:: Configuration file (``droid_pnp_camera_sensitivity_openpi_experiment.yaml``)
    :animate: fade-in
 
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
@@ -85,7 +85,7 @@ In the Base Docker container, run the evaluation from the repository root:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --output_base_dir /eval/camera_sensitivity \
-     --eval_jobs_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 
 This places the results in the default output path ``/eval/camera_sensitivity/<timestamp>/droid_pnp_camera_sensitivity_openpi``.
 In particular, Arena stores one row per completed episode detailing the sampled variation_system
@@ -133,7 +133,7 @@ This section explains how to read the report.
 .. note::
 
    For this section we use data from an experiment generated from more episodes
-   than the command we ran above (here we use 2000 episodes).
+   than the command we ran above (here we use 200 episodes).
    In general, you need a large number of episodes to generate consistent results.
    The data file we use is included in the repository under
    ``isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl``

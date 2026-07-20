@@ -13,7 +13,7 @@ Build-time and run-time variations
 ----------------------------------
 
 Some properties must be chosen before the environment is created. Others can change whenever
-an during policy rollouts. Arena calls these *build-time* and *run-time* variations.
+an environment resets during policy rollouts. Arena calls these *build-time* and *run-time* variations.
 
 .. list-table::
    :header-rows: 1
