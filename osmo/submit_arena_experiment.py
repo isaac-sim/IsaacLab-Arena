@@ -121,15 +121,15 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     """Create the path-first submission command-line parser."""
     policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
     parser = argparse.ArgumentParser(
-        usage=f"%(prog)s [-h] --experiment-cfg PATH --policy-server {{{policy_server_choices}}} [OVERRIDE ...]",
+        usage=f"%(prog)s [-h] --experiment_cfg PATH --policy_server {{{policy_server_choices}}} [OVERRIDE ...]",
         description="Submit a typed Arena Experiment as an OSMO workflow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=r"""
 Example:
 
   python -m osmo.submit_arena_experiment \
-    --experiment-cfg isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-    --policy-server pi0 \
+    --experiment_cfg isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
+    --policy_server pi0 \
     osmo.workflow_name=my-evaluation \
     experiment_cfg.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4
 
@@ -139,7 +139,7 @@ Hydra override precedence:
 """,
     )
     parser.add_argument(
-        "--experiment-cfg",
+        "--experiment_cfg",
         dest="experiment_cfg_path",
         required=True,
         type=Path,
@@ -147,7 +147,7 @@ Hydra override precedence:
         help="path to a typed Arena Experiment YAML configuration",
     )
     parser.add_argument(
-        "--policy-server",
+        "--policy_server",
         required=True,
         choices=POLICY_SERVER_TASK_CFG_BY_NAME,
         help="co-scheduled policy-server implementation",
