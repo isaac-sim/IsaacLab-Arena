@@ -16,7 +16,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     CliOverrideSpec,
     CompositeTaskSpec,
     ObjectReferenceSpec,
-    PlacementSpec,
+    PlacementValidatorSpec,
     SpatialRelationSpec,
     TaskSpec,
 )
@@ -41,7 +41,7 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
-    placement_validators: PlacementSpec | None = Field(
+    placement_validators: PlacementValidatorSpec | None = Field(
         default=None,
         description="Per-env placement validators; none runs all build-time checks.",
     )

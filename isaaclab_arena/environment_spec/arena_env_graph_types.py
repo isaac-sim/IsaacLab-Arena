@@ -209,11 +209,11 @@ def _convert_to_float_tuple(value: Any, length: int, field_name: str) -> tuple[f
     return tuple(float(item) for item in value)
 
 
-class PlacementSpec(BaseModel):
-    """Per-scene object-placement validation policy.
+class PlacementValidatorSpec(BaseModel):
+    """Per-env placement validators.
 
-    Selects which build-time geometric checks gate object placement for this scene. Defaults to
-    every build-time check, reproducing the standard strict placement behavior.
+    Selects which build-time geometric checks gate object placement for this env. Defaults to
+    every build-time check.
     """
 
     enabled_checks: list[str] | None = Field(
@@ -233,7 +233,7 @@ class PlacementSpec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _validate_required_subset(self) -> PlacementSpec:
+    def _validate_required_subset(self) -> PlacementValidatorSpec:
         if self.enabled_checks is not None and self.required_checks is not None:
             extra = set(self.required_checks) - set(self.enabled_checks)
             assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"

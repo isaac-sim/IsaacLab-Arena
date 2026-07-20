@@ -260,12 +260,12 @@ class ObjectPlacer:
         )
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
-        per_candidate_bboxes = [
+        bboxes_per_candidate = [
             self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
             for candidate_idx in range(num_candidates)
         ]
         all_validations = self._validate_candidates(
-            all_positions, orientations_per_candidate, per_candidate_bboxes, collision_objects
+            all_positions, orientations_per_candidate, bboxes_per_candidate, collision_objects
         )
 
         candidates: list[PlacementCandidate] = []
