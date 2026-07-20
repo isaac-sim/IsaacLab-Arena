@@ -415,8 +415,7 @@ class ObjectPlacer:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
         Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects
-        are omitted here so their requested rotation is applied directly; their overlap footprint
-        is instead enclosed in :meth:`_bake_marker_rotation_footprints`.
+        are omitted here so their requested rotation is applied directly.
         """
         orientations: dict[ObjectBase, float] = {}
         for obj in objects:
@@ -464,15 +463,11 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Enclose the applied footprint of roll/pitch marker objects for overlap validation.
+        """Enclose the applied footprint of roll/pitch marker objects.
 
-        Roll/pitch marker objects are excluded from the sampled-yaw path (see
-        :meth:`_generate_initial_orientations`) because :meth:`_apply_poses` writes their fixed
-        marker rotation verbatim. The yaw-only bbox pass cannot represent that out-of-plane
-        rotation, so replace each such object's box with the AABB enclosing it after the marker
-        rotation. This keeps overlap, On, and NextTo checks conservative (never a false pass)
-        instead of validating a rotated object against its unrotated footprint. The subsequent
-        yaw pass leaves these objects untouched (they carry no sampled yaw).
+        Roll/pitch marker objects are excluded from the sampled-yaw path, because the yaw-only bbox
+        pass cannot represent that out-of-plane rotation, so replace each such object's box with the AABB enclosing
+        it after the marker rotation. The subsequent yaw pass leaves these objects untouched.
 
         Returns a shallow copy with only roll/pitch objects replaced; other boxes are shared.
         """
