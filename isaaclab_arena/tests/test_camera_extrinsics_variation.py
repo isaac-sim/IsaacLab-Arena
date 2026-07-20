@@ -97,6 +97,8 @@ def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
 
     # Get the realized camera position, which is affected by the camera extrinsics variation.
     t_parent_Cnew_in_parent, q_parent_Cnew_xyzw = view.get_local_poses()
+    t_parent_Cnew_in_parent = t_parent_Cnew_in_parent.torch
+    q_parent_Cnew_xyzw = q_parent_Cnew_xyzw.torch
 
     # Difference between the nominal and realized camera positions.
     delta_parent_as_opengl = t_parent_Cnew_in_parent[0] - t_parent_C_in_parent

@@ -24,7 +24,7 @@ from dataclasses import field
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import EventTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
@@ -91,13 +91,23 @@ class VariationBase(ABC):
         if self._sampler is not None:
             self._sampler.add_listener(listener)
 
-    def apply_build_time_effects(self) -> None:
-        """Sample and mutate the bound asset config(s) in place before the scene is materialised.
+    def _prepare_at_build_time(self) -> None:
+        """Configure prerequisites required before environment construction. Default: no-op.
 
-        Called once per env build for every enabled variation. Default:
-        no-op. A ``BuildTimeVariationBase`` realises its whole effect here; a run-time
-        variation overrides this only when it needs a build-time precondition.
+        A run-time variation overrides this when its later event needs a build-time
+        precondition (e.g. forcing its camera untiled so per-env edits take effect).
         """
+
+    def _realize_at_build_time(self) -> None:
+        """Sample and mutate the bound asset config(s) in place during construction. Default: no-op.
+
+        A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
+        """
+
+    def configure_at_build_time(self) -> None:
+        """Run this variation's build-time preparation and realization, once per env build."""
+        self._prepare_at_build_time()
+        self._realize_at_build_time()
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
@@ -137,12 +147,12 @@ class BuildTimeVariationBase(VariationBase):
 
     Use for properties that can't change in-flight: HDR maps, USD swaps,
     spawner params baked into a config. Subclasses hold references to the
-    asset(s) they mutate and realise the effect in ``apply_build_time_effects``.
+    asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
     """
 
     @abstractmethod
-    def apply_build_time_effects(self) -> None:
-        """Sample and mutate the bound asset(s) in place to realise this variation.
+    def _realize_at_build_time(self) -> None:
+        """Sample and apply this variation to its target configuration.
 
         Called once per env build, while the variation is enabled.
         """

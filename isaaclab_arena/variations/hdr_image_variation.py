@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
@@ -57,7 +57,7 @@ class HDRImageVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 
-    def apply_build_time_effects(self) -> None:
+    def _realize_at_build_time(self) -> None:
         from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
         from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
 

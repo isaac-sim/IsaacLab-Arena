@@ -1,6 +1,141 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isaaclab_arena"
+version = "1.0.0"
+description = "Isaac Lab - Arena. An Isaac Lab extension for robotic policy evaluation."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "typing_extensions",
+    "onnxruntime",
+    "vuer[all]",
+    "lightwheel-sdk",
+    "pytest",
+    "pydantic>=2.0",
+    "openai>=2.0",
+    # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
+    "sbi",
+    "scipy",
+    "matplotlib",
+    # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
+    # Pinned to 2.2.3 to match the version used in GR00T.
+    "pandas==2.2.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "debugpy",
+    "tenacity",
+    "streamlit>=1.30",
+    "streamlit-ace>=0.1.1",
+]
+
+# PEP 735 dependency group for the native uv install: the sim wheels the Docker
+# build does not want. `uv sync` installs these by default, but pip (used by the
+# Docker build) ignores PEP 735 groups -- so Docker keeps getting Isaac Lab and
+# Isaac Sim from its base image and submodule, undisturbed by these pins.
+[dependency-groups]
+isaacsim = [
+    "isaaclab[isaacsim,all]==3.0.0b2",
+    "rsl-rl-lib==5.0.1",
+    # QP solver for the Pink IK stack (whole-body control). The isaaclab wheel
+    # does not pull it; the Docker build installs it explicitly. Pinned to the
+    # version isaaclab validates against (see pin-pink note in [tool.uv]).
+    "daqp==0.8.5",
+    # Pin the torch stack as direct deps so [tool.uv.sources] routes them to the
+    # right CUDA index (cu128 on x86_64 / cu130 on aarch64). As transitive-only
+    # deps the source mapping does not apply and torch resolves to PyPI's default
+    # build. Versions are forced by isaacsim-core==6.0.0.1 (via the beta-2 wheel),
+    # which hard-pins torchvision==0.26.0 -- uv's resolver enforces this, so a
+    # mismatch fails `uv lock` outright.
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "torchaudio==2.11.0",
+]
+
+[tool.uv]
+# Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# Install the sim stack (isaaclab/isaacsim wheels) on a bare `uv sync`.
+default-groups = ["isaacsim"]
+# Isaac Lab is explicitly pinned to a beta, while Isaac Sim requires a
+# transitive tinyobjloader release candidate. The exact constraint below makes
+# that RC explicit without allowing unrelated packages to float to prereleases.
+prerelease = "if-necessary-or-explicit"
+# Prefer the first index containing a compatible package. The explicit PyPI
+# route below handles the one known NVIDIA/PyPI name collision without merging
+# candidates from multiple indexes.
+index-strategy = "first-index"
+# Pin numpy to the exact version Isaac Sim requires: isaacsim-kernel needs
+# ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
+# beat a transitive constraint that would otherwise pull numpy<2.
+override-dependencies = ["numpy==2.3.1"]
+# Isaac Lab 3.0 Beta 2 does not correctly pin its dependencies: the published
+# wheel declares these transitive deps too broadly, so we constrain them to
+# working versions here.
+# TODO(alexmillane, 2026-07-16): Remove these pins after we upgrade to Isaac Lab
+# 3.0 GA, which will correctly pin its dependencies. See:
+# https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
+constraint-dependencies = [
+    "pin-pink==3.1.0",
+    "pyglet<3",
+    "tinyobjloader==2.0.0rc13",
+    "mujoco-usd-converter==0.2.0",
+]
+# Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
+python-preference = "only-managed"
+
+[[tool.uv.index]]
+url = "https://pypi.nvidia.com"
+explicit = false
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+# torch / torchvision / torchaudio are pulled transitively by the isaaclab
+# wheel; steer them to the CUDA 12.8 index (Linux x86_64 is the only supported
+# platform, see `environments` above).
+# mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
+# prereleases, so route it to PyPI.
+mujoco-usd-converter = { index = "pypi" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "isaaclab_arena*",
+    "isaaclab_arena_curobo*",
+    "isaaclab_arena_dreamzero*",
+    "isaaclab_arena_environments*",
+    "isaaclab_arena_examples*",
+    "isaaclab_arena_g1*",
+    "isaaclab_arena_gr00t*",
+    "isaaclab_arena_openpi*",
+]
+namespaces = false
+
+# ----------------------------------------------------------------------------
+# Existing tool configuration (migrated unchanged from the previous pyproject)
+# ----------------------------------------------------------------------------
+
 [tool.isort]
 
-py_version = 310
+py_version = 312
 line_length = 120
 group_by_package = true
 

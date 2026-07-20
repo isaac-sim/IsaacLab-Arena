@@ -15,7 +15,7 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_from_angle_axis
 
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -83,7 +83,7 @@ class LightDirectionVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightDirectionVariationCfg(), name=name)
         self._light = light
 
-    def apply_build_time_effects(self) -> None:
+    def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
         azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()
         self._light.set_orientation(quat_xyzw_from_azimuth_elevation(azimuth, elevation))

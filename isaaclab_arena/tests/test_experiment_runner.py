@@ -98,13 +98,13 @@ def test_experiment_runner_from_typed_yaml(tmp_path):
     experiment_config_path.write_text(
         """
 runs:
-- name: yaml_baseline
-  environment:
-    type: pick_and_place_maple_table
-  policy:
-    type: zero_action
-  rollout_limit:
-    num_steps: 10
+  yaml_baseline:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 10
 """,
         encoding="utf-8",
     )

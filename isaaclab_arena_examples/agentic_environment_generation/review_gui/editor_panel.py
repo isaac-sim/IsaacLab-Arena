@@ -129,7 +129,7 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
-    """Render the ACE YAML editor; dashboard preview refreshes in the visualization fragment."""
+    """Render the ACE YAML editor; the visualization panel refreshes in its fragment."""
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")

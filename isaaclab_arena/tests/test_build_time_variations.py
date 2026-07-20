@@ -6,7 +6,7 @@
 from dataclasses import field
 
 import pytest
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -39,7 +39,7 @@ class TestBuildTimeVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg(), name=name)
         self._asset = asset
 
-    def apply_build_time_effects(self) -> None:
+    def _realize_at_build_time(self) -> None:
         assert self.sampler is not None
         self._asset.object_cfg.spawn.radius = float(self.sampler.sample(num_samples=1)[0, 0])
 

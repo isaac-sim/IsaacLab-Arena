@@ -4,6 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
+
+
+def _get_python_path(repo_root: str) -> str:
+    """Return the Isaac Sim python interpreter.
+
+    Docker bundles Isaac Sim's ``python.sh`` under the IsaacLab submodule; the
+    native uv environment uses uv-managed python.
+    """
+    docker_python = f"{repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
+    return docker_python if os.path.exists(docker_python) else sys.executable
 
 
 class _TestConstants:
@@ -25,7 +36,7 @@ class _TestConstants:
 
         self.scripts_dir = f"{self.repo_root}/isaaclab_arena/scripts"
 
-        self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
+        self.python_path = _get_python_path(self.repo_root)
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 

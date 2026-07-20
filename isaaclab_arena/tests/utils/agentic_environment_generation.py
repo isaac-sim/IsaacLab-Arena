@@ -3,26 +3,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared fixtures for agentic environment generation tests."""
+"""Shared fixtures for agentic environment generation tests.
+
+This module is registered via ``pytest_plugins`` in ``conftest.py`` such that all
+pytest tests under ``isaaclab_arena/tests`` have access to the fixtures defined here.
+"""
 
 from __future__ import annotations
 
 import json
-import yaml
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-    AssetCatalogue,
-    RelationCatalogue,
-    TaskCatalogue,
-)
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
-from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+# Note(alexmillane, 2026-07-16): Third-party and Arena imports are deferred into the
+# function bodies to avoid importing in them whenever any pytest test is run. This can occur
+# because of this modules appearance in pytest_plugins. This causes issues with the packaging
+# tests, which run in a bare venv with only pytest installed.
+if TYPE_CHECKING:
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+        AssetCatalogue,
+        RelationCatalogue,
+        TaskCatalogue,
+    )
+    from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 _TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
 _OPENAI_PATCH = "isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI"
@@ -40,6 +47,8 @@ def stub_openai():
 
 def inference_backend(stub_openai, *, model: str = "test-model", max_retries: int = 3) -> InferenceBackend:
     """Build an ``InferenceBackend`` against the patched OpenAI client from ``stub_openai``."""
+    from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+
     _, client = stub_openai
     backend = InferenceBackend(api_key="test-key", model=model, max_retries=max_retries)
     client.chat.completions.create.reset_mock()
@@ -48,6 +57,8 @@ def inference_backend(stub_openai, *, model: str = "test-model", max_retries: in
 
 def load_test_yaml(name: str) -> dict[str, Any]:
     """Load a YAML fixture from ``isaaclab_arena/tests/test_data``."""
+    import yaml
+
     path = _TEST_DATA_DIR / name
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
@@ -81,6 +92,9 @@ def kitchen_resolve_response() -> dict[str, Any]:
 
 def kitchen_prim_tree() -> list[UsdPrimRecord]:
     """Return the mocked kitchen USD prim tree for pass-2 resolver tests."""
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+
     return [
         UsdPrimRecord("counter_right_main_group/top_geometry", ObjectType.BASE),
         UsdPrimRecord("fridge_main_group", ObjectType.ARTICULATION, ("fridge_door_joint",)),
@@ -103,6 +117,8 @@ def chat_response(
 
 def catalog(text: str) -> AssetCatalogue:
     """Return an asset catalogue that renders ``text`` in the user message."""
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
+
     catalogue = AssetCatalogue()
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
@@ -110,6 +126,8 @@ def catalog(text: str) -> AssetCatalogue:
 
 def relation_catalog(text: str) -> RelationCatalogue:
     """Return a relation catalogue that renders ``text`` in the user message."""
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import RelationCatalogue
+
     catalogue = RelationCatalogue()
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
@@ -117,6 +135,8 @@ def relation_catalog(text: str) -> RelationCatalogue:
 
 def task_catalog(text: str) -> TaskCatalogue:
     """Return a task catalogue that renders ``text`` in the user message."""
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import TaskCatalogue
+
     catalogue = TaskCatalogue()
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue

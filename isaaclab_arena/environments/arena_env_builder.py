@@ -145,7 +145,7 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _apply_build_time_variations(self) -> None:
-        """Apply every enabled variation's build-time effects before ``scene_cfg`` is materialised.
+        """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
 
         These mutate asset configs in place (e.g. a dome light's spawner
         texture), so this must run before ``scene_cfg`` is materialised.
@@ -154,7 +154,7 @@ class ArenaEnvBuilder:
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                variation.apply_build_time_effects()
+                variation.configure_at_build_time()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
