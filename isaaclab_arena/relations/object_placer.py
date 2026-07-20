@@ -9,11 +9,7 @@ import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import (
-    PerEnvBoundingBoxes,
-    assign_variants_for_envs,
-    build_per_env_bounding_boxes,
-)
+from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
@@ -82,7 +78,7 @@ class ObjectPlacer:
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
-        self._validators: list[PlacementValidator] = build_validators(self.params.enabled_checks, self.params)
+        self._validators: list[PlacementValidator] = build_validators(self.params)
 
     def place(
         self,
@@ -227,7 +223,6 @@ class ObjectPlacer:
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
-        env_bboxes = self._enclose_roll_pitch_marker_footprints(objects, env_bboxes)
         unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
@@ -399,7 +394,7 @@ class ObjectPlacer:
 
         Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects are
         omitted so their requested rotation is applied verbatim; their footprint is enclosed by
-        _enclose_roll_pitch_marker_footprints so overlap validation stays sound.
+        build_per_env_bounding_boxes so overlap validation stays sound.
         """
         orientations: dict[ObjectBase, float] = {}
         for obj in objects:
@@ -465,23 +460,6 @@ class ObjectPlacer:
                 bbox = bbox.rotated_around_z(yaw_tensor)
             rotated[obj] = bbox
         return rotated
-
-    @staticmethod
-    def _enclose_roll_pitch_marker_footprints(
-        objects: list[ObjectBase], env_bboxes: PerEnvBoundingBoxes
-    ) -> PerEnvBoundingBoxes:
-        """Refit roll/pitch RotateAroundSolution objects' bboxes to enclose their marker-rotated box.
-
-        These objects keep their requested rotation without a sampled yaw, but a Z-only footprint
-        can't represent a tilted box, so overlap validation must use the box enclosing the full
-        marker rotation. Other objects are returned unchanged.
-        """
-        rotated_bboxes = dict(env_bboxes.object_bboxes)
-        for obj in objects:
-            marker = get_relation(obj, RotateAroundSolution)
-            if marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0):
-                rotated_bboxes[obj] = rotated_bboxes[obj].rotated_by_quat(marker.get_rotation_xyzw())
-        return PerEnvBoundingBoxes(object_bboxes=rotated_bboxes, num_envs=env_bboxes.num_envs)
 
     @staticmethod
     def _get_bounding_boxes_for_candidate_index(

@@ -70,15 +70,15 @@ def get_build_time_checks() -> tuple[str, ...]:
     return tuple(PlacementValidatorRegistry().get_all_keys())
 
 
-def build_validators(enabled_checks: set[str] | None, params: ObjectPlacerParams) -> list[PlacementValidator]:
+def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
     """Construct the enabled build-time validators in canonical order.
 
     Args:
-        enabled_checks: Checks to build, or None for every build-time check. Non-build-time checks are ignored.
         params: Placement params injected into each validator.
     """
     registry = PlacementValidatorRegistry()
     checks = get_build_time_checks()
+    enabled_checks = params.enabled_checks
     if enabled_checks is not None:
         checks = tuple(check for check in checks if check in enabled_checks)
     return [registry.get_validator_by_name(check)(params) for check in checks]

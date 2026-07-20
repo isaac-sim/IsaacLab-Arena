@@ -219,7 +219,7 @@ class PlacementSpec(BaseModel):
     enabled_checks: list[str] | None = Field(
         default=None,
         description=(
-            "Build-time check names to evaluate during placement; null runs every registered build-time "
+            "Build-time check names to evaluate during placement; none runs every registered build-time "
             "check. A check not listed here is never run. Built-in names: no_overlap, on_relation, "
             "next_to, not_next_to, face_to; externally-registered validators may add more."
         ),
@@ -227,7 +227,7 @@ class PlacementSpec(BaseModel):
     required_checks: list[str] | None = Field(
         default=None,
         description=(
-            "Enabled checks that must pass for a layout to be valid; null requires every enabled check. "
+            "Enabled checks that must pass for a layout to be valid; none requires every enabled check. "
             "Must be a subset of enabled_checks."
         ),
     )
