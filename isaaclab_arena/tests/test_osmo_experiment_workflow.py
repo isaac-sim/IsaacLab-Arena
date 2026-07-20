@@ -249,7 +249,6 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_aggregat
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
     assert f"--experiment_output_directory '{OSMO_TASK_OUTPUT_DIR}'" in experiment_runner_command
     assert "--output_base_dir" not in experiment_runner_command
-    assert "--create_timestamped_output_directory" not in experiment_runner_command
     assert "--enable_cameras" in experiment_runner_command
     assert "policy_runner.py" not in experiment_runner_command
     assert "runs." not in experiment_runner_command

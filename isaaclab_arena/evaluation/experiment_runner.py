@@ -53,6 +53,19 @@ def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_ca
     )
 
 
+def _assert_exact_experiment_output_directory_is_available(experiment_output_directory: Path) -> None:
+    """Check that an exact Experiment output path is missing or empty."""
+    if not experiment_output_directory.exists():
+        return
+    assert (
+        experiment_output_directory.is_dir()
+    ), f"Experiment output path exists but is not a directory: '{experiment_output_directory}'"
+    assert not any(experiment_output_directory.iterdir()), (
+        f"Experiment output directory '{experiment_output_directory}' is not empty. Choose another directory,"
+        " clear it, or use --output_base_dir to create a timestamped Experiment directory."
+    )
+
+
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
@@ -86,16 +99,18 @@ def main():
         assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
 
         if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
-            # TODO(cvolk): Let the parent choose one timestamped directory and pass its exact path to every child.
+            # TODO(cvolk): Pass one exact output directory to every chunk worker before supporting this combination.
             assert (
-                not args_cli.create_timestamped_output_directory
-            ), "--create_timestamped_output_directory is not supported when --chunk_size dispatches multiple chunks"
+                args_cli.experiment_output_directory is None
+            ), "--experiment_output_directory is not supported when --chunk_size dispatches multiple chunks"
             run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
             return
 
-    experiment_output_directory = args_cli.experiment_output_directory
-    if args_cli.create_timestamped_output_directory:
-        experiment_output_directory = Path(timestamped_run_dir(str(experiment_output_directory)))
+    if args_cli.experiment_output_directory is not None:
+        experiment_output_directory = args_cli.experiment_output_directory
+        _assert_exact_experiment_output_directory_is_available(experiment_output_directory)
+    else:
+        experiment_output_directory = Path(timestamped_run_dir(args_cli.output_base_dir))
 
     with SimulationAppContext(args_cli):
         experiment_cfg = load_arena_experiment_from_config_file(

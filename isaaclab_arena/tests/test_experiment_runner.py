@@ -6,7 +6,6 @@
 import json
 import os
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -34,27 +33,42 @@ def test_experiment_runner_parses_native_hydra_overrides():
     ]
 
 
-def test_experiment_runner_parses_exact_output_directory_and_timestamp_opt_in(tmp_path):
+def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):
     exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+    timestamped_experiment_output_base_directory = tmp_path / "timestamped-experiment-outputs"
 
-    parsed_arguments, experiment_overrides = parse_experiment_runner_args([
+    default_arguments, default_experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+    ])
+    assert default_arguments.output_base_dir == "outputs"
+    assert default_arguments.experiment_output_directory is None
+    assert default_experiment_overrides == []
+
+    timestamped_output_arguments, timestamped_output_experiment_overrides = parse_experiment_runner_args([
+        "--output_base_dir",
+        str(timestamped_experiment_output_base_directory),
+    ])
+    assert timestamped_output_arguments.output_base_dir == str(timestamped_experiment_output_base_directory)
+    assert timestamped_output_arguments.experiment_output_directory is None
+    assert timestamped_output_experiment_overrides == []
+
+    exact_output_arguments, exact_output_experiment_overrides = parse_experiment_runner_args([
         "--experiment_config",
         "experiment.yaml",
         "--experiment_output_directory",
         str(exact_experiment_output_directory),
     ])
+    assert exact_output_arguments.experiment_output_directory == exact_experiment_output_directory
+    assert exact_output_experiment_overrides == []
 
-    assert parsed_arguments.experiment_output_directory == exact_experiment_output_directory
-    assert not parsed_arguments.create_timestamped_output_directory
-    assert experiment_overrides == []
-
-    timestamped_arguments, _ = parse_experiment_runner_args([
-        "--experiment_config",
-        "experiment.yaml",
-        "--create_timestamped_output_directory",
-    ])
-    assert timestamped_arguments.experiment_output_directory == Path("/eval/output")
-    assert timestamped_arguments.create_timestamped_output_directory
+    with pytest.raises(SystemExit):
+        parse_experiment_runner_args([
+            "--output_base_dir",
+            str(tmp_path / "timestamped-outputs"),
+            "--experiment_output_directory",
+            str(exact_experiment_output_directory),
+        ])
 
 
 @pytest.mark.with_subprocess

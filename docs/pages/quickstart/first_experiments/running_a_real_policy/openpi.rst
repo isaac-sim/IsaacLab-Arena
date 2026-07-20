@@ -167,12 +167,13 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
      --viz kit \
      --enable_cameras \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-     --experiment_output_directory ./output \
+     --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 
-The Experiment Runner uses this directory exactly. Add ``--create_timestamped_output_directory`` when you want a
-fresh timestamped directory below it. You can also (re)build and serve a report later by pointing the standalone
-tool at the exact output directory; when given a parent of timestamped directories, it picks the most recent one:
+The Experiment Runner creates a fresh timestamped Experiment directory below this base directory. Managed tooling
+that already provides a fresh directory can use ``--experiment_output_directory`` to select that exact path instead.
+You can also (re)build and serve a report later by pointing the standalone tool at the output root — it picks the
+most recent run:
 
 .. code-block:: bash
 
