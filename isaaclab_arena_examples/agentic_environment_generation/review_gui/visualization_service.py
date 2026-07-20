@@ -3,43 +3,85 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Orchestrate review GUI dashboard rendering with optional SimApp thumbnails."""
+"""Build review GUI asset cards with optional SimApp thumbnails."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import sys
 
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import thumbnail_cache_dir
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     clear_simapp_client,
     ensure_simapp,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
+    AssetCard,
+    build_asset_cards,
+)
+
+
+def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
+    """Return the background USD prim tree records, empty when unavailable."""
+    from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+
+    try:
+        usd_path = spec.background.resolve_usd_path()
+        if not usd_path:
+            return []
+        return load_usd_prim_tree(usd_path)
+    except Exception as exc:
+        print(
+            f"[visualization_service] background prim tree lookup failed for '{spec.background.registry_name}': {exc}",
+            file=sys.stderr,
+        )
+        return []
 
 
 def _spec_render_key(spec: ArenaEnvGraphSpec) -> str:
-    payload = json.dumps(spec.to_dict(), sort_keys=True)
+    payload = json.dumps({"spec": spec.to_dict()}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _cached_dashboard_html(spec_key: str) -> str | None:
-    cache = st.session_state.get("_dashboard_render_cache")
+def _cached_asset_cards(spec_key: str) -> tuple[list[AssetCard], list[UsdPrimRecord]] | None:
+    cache = st.session_state.get("_asset_cards_cache")
     if isinstance(cache, dict) and cache.get("key") == spec_key:
-        html = cache.get("html")
-        if isinstance(html, str):
-            return html
+        asset_cards = cache.get("asset_cards")
+        if isinstance(asset_cards, list):
+            prim_tree = cache.get("prim_tree")
+            if isinstance(prim_tree, list):
+                return asset_cards, prim_tree
     return None
 
 
-def _store_dashboard_html(spec_key: str, html: str) -> None:
-    st.session_state["_dashboard_render_cache"] = {"key": spec_key, "html": html}
+def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard], prim_tree: list[UsdPrimRecord]) -> None:
+    st.session_state["_asset_cards_cache"] = {
+        "key": spec_key,
+        "asset_cards": asset_cards,
+        "prim_tree": prim_tree,
+    }
+
+
+def clear_snapshot_render_caches() -> int:
+    """Delete cached review GUI snapshot PNGs and return how many files were removed."""
+    paths = list(thumbnail_cache_dir().glob("*.png"))
+    for path in paths:
+        path.unlink()
+    return len(paths)
+
+
+def clear_asset_cards_cache() -> None:
+    """Drop the in-memory asset-card cache for the current Streamlit session."""
+    st.session_state.pop("_asset_cards_cache", None)
 
 
 def _warn_simapp_unavailable_once() -> None:
@@ -63,37 +105,43 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> str:
-    """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
+def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[AssetCard], list[UsdPrimRecord]]:
+    """Build per-node asset cards plus the background prim tree records.
+
+    Loads the prim tree from the background USD directly and asks the SimApp
+    server for live USD thumbnails when available.
+
+    Args:
+        spec: Environment graph spec to visualize.
+    """
     spec_key = _spec_render_key(spec)
-    cached_html = _cached_dashboard_html(spec_key)
-    if cached_html is not None:
-        return cached_html
+    cached = _cached_asset_cards(spec_key)
+    if cached is not None:
+        return cached
+
+    thumbnails: dict[str, bytes] = {}
+    aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
+    prim_tree = resolve_background_prim_tree(spec)
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        html = render_dashboard_html(spec)
-        _store_dashboard_html(spec_key, html)
-        return html
+    else:
+        try:
+            thumbnails, aabb_dimensions_m = client.render_spec(spec)
+        except SimAppError as exc:
+            _show_simapp_render_error_once(exc)
+            thumbnails, aabb_dimensions_m = {}, {}
+        finally:
+            # Release the socket so the sequential SimApp server can accept other tabs.
+            clear_simapp_client()
 
-    try:
-        thumbnails, aabb_dimensions_m = client.render_spec(spec)
-    except SimAppError as exc:
-        _show_simapp_render_error_once(exc)
-        html = render_dashboard_html(spec)
-        _store_dashboard_html(spec_key, html)
-        return html
-    finally:
-        # Release the socket so the sequential SimApp server can accept other tabs.
-        clear_simapp_client()
-
-    html = render_dashboard_html(
+    asset_cards = build_asset_cards(
         spec,
-        thumbnails=thumbnails if thumbnails else None,
-        aabb_dimensions_m=aabb_dimensions_m or None,
+        thumbnails or None,
+        aabb_dimensions_m or None,
     )
-    _store_dashboard_html(spec_key, html)
-    return html
+    _store_asset_cards(spec_key, asset_cards, prim_tree)
+    return asset_cards, prim_tree

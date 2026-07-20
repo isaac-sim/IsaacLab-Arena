@@ -23,7 +23,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
         help=(
             "Path to a typed YAML Experiment or legacy JSON evaluation config. "
-            "For YAML, append Hydra KEY=VALUE overrides to the command."
+            "For YAML, append Hydra KEY=VALUE overrides for fields on declared Runs."
         ),
     )
     parser.add_argument(
@@ -41,7 +41,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output_base_dir",
         type=str,
-        default="/eval/output",
+        default="outputs",
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
             " reverse-dated Experiment subdirectory and per-Run subdirectory are added."

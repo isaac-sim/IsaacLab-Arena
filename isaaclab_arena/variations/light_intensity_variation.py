@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg

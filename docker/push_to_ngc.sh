@@ -61,6 +61,8 @@ done
 # Get the NGC path.
 DOCKER_IMAGE_NAME=${ISAACLAB_ARENA_IMAGE_NAME}:${TAG_NAME}
 NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
+echo "DOCKER_IMAGE_NAME is ${DOCKER_IMAGE_NAME}."
+echo "NGC_PATH is ${NGC_PATH}."
 
 # Build the image.
 docker build --pull \

@@ -11,7 +11,7 @@ from dataclasses import field
 from pathlib import Path
 
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -38,6 +38,9 @@ CORE_KEYS = {
 
 # Field contributed by the custom term registered in the custom-term test.
 CUSTOM_KEY = "step_bucket"
+
+# Field contributed by the progress-tracking recorder.
+PROGRESS_KEY = "progress"
 
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
 VARIATION_NAME = "record_test_variation"
@@ -185,8 +188,10 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
         # episode_in_env must increment from 0 per env, and the deterministic poses fix success.
         per_env_counter: dict[int, int] = {}
         for record in records:
-            # With no variation drawn and no custom term, every record is exactly the core schema.
-            assert set(record.keys()) == CORE_KEYS, f"Unexpected keys: {set(record.keys()) - CORE_KEYS}"
+            # With no variation drawn and no custom term, every record is the core schema plus the
+            # progress block contributed by PickAndPlaceTask's progress objectives.
+            expected_keys = CORE_KEYS | {PROGRESS_KEY}
+            assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
             assert isinstance(record["episode_length"], int)
@@ -235,7 +240,8 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
 
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
-            assert set(record.keys()) == CORE_KEYS | {CUSTOM_KEY}, f"Unexpected keys: {set(record.keys())}"
+            expected_keys = CORE_KEYS | {PROGRESS_KEY, CUSTOM_KEY}
+            assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == record["episode_length"] // 10
     finally:
         env.close()

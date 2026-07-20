@@ -24,7 +24,7 @@ from dataclasses import field
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import EventTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 

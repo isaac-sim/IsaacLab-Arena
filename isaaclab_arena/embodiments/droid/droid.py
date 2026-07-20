@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import functools
 import torch
+import warnings
 from abc import ABC
 from typing import Any
 
@@ -29,9 +31,9 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-from isaaclab.utils import configclass
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
@@ -41,6 +43,12 @@ from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+
+# The base stand's x/y footprint.
+_STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
+# The default stand height.
+_DEFAULT_STAND_HEIGHT_M: float = 1.35
+_FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -60,9 +68,17 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
+        # ``stand_height_m`` is an absolute height in meters; convert it to the z-scale the USD needs.
+        stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
+        self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
+        # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
+        self._robot_base_z_offset = stand_height_m - _DEFAULT_STAND_HEIGHT_M
+        self.scene_config.robot.init_state.pos = self._lift_z(self.scene_config.robot.init_state.pos)
+        self.scene_config.stand.init_state.pos = self._lift_z(self.scene_config.stand.init_state.pos)
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -73,13 +89,19 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
 
+    def _lift_z(self, pos: tuple[float, float, float]) -> tuple[float, float, float]:
+        """Return ``pos`` shifted up by the stand-height-driven robot base offset."""
+        return (pos[0], pos[1], pos[2] + self._robot_base_z_offset)
+
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # We override the default initial pose setting function in order to also set
-        # the initial pose of the stand.
+        # We override the default initial pose setting function in order to also set the initial pose
+        # of the stand, and to re-apply the stand-height lift on top of the requested pose (the base
+        # implementation overwrites init_state.pos with the raw pose).
         scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.stand.init_state.pos = pose.position_xyz
+        scene_config.robot.init_state.pos = self._lift_z(pose.position_xyz)
+        scene_config.stand.init_state.pos = self._lift_z(pose.position_xyz)
         scene_config.stand.init_state.rot = pose.rotation_xyzw
 
         return scene_config
@@ -108,8 +130,16 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+        )
         self.action_config = DroidDifferentialIKActionsCfg()
 
 
@@ -127,8 +157,16 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+        )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
 
@@ -147,8 +185,16 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+        )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
 
@@ -160,7 +206,7 @@ class DroidSceneCfg:
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+            usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,
@@ -220,9 +266,9 @@ class DroidSceneCfg:
         init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
         spawn=UsdFileCfg(
             usd_path=(
-                f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
+                f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
             ),
-            scale=(1.2, 1.2, 1.7),
+            scale=(*_STAND_FOOTPRINT_SCALE_XY, _DEFAULT_STAND_HEIGHT_M / _FALLBACK_STAND_UNIT_HEIGHT_M),
             activate_contact_sensors=False,
         ),
     )
@@ -436,3 +482,27 @@ class DroidCameraCfg(ArenaCameraCfg):
             pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
         ),
     )
+
+
+@functools.cache
+def _stand_unit_height_m(usd_path: str) -> float:
+    """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
+
+    Falls back to ``_FALLBACK_STAND_UNIT_HEIGHT_M`` if the asset cannot be opened or measured.
+    """
+    try:
+        from pxr import Usd, UsdGeom
+
+        stage = Usd.Stage.Open(usd_path)
+        assert stage is not None, f"could not open stand USD: {usd_path}"
+        root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+        bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
+        height = bound.ComputeAlignedRange().GetSize()[2]
+        assert height > 0.0, f"non-positive stand height {height} from {usd_path}"
+        return height
+    except Exception as exc:  # noqa: BLE001 - any failure falls back to the measured constant
+        warnings.warn(
+            f"Falling back to {_FALLBACK_STAND_UNIT_HEIGHT_M} m for the stand height; "
+            f"could not measure {usd_path}: {exc!r}"
+        )
+        return _FALLBACK_STAND_UNIT_HEIGHT_M

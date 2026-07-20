@@ -15,7 +15,7 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_from_angle_axis
 
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
