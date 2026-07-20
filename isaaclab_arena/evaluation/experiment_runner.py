@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
@@ -11,6 +13,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 from isaaclab_arena.evaluation.arena_run import build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
+    get_inherited_chunk_experiment_output_directory,
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
     run_legacy_json_in_chunks,
@@ -18,6 +21,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 
@@ -75,7 +79,10 @@ def main():
             list_variations(experiment_cfg)
         return
 
-    experiment_output_directory = args_cli.experiment_output_directory
+    inherited_experiment_output_directory = get_inherited_chunk_experiment_output_directory()
+    experiment_output_directory = inherited_experiment_output_directory or Path(
+        timestamped_run_dir(args_cli.output_base_dir)
+    )
 
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
     # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks

@@ -4,14 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
-from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
-_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "/eval/output"
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -42,13 +39,12 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
     )
     parser.add_argument(
-        "--experiment_output_directory",
-        type=Path,
-        default=Path(timestamped_run_dir(_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY)),
+        "--output_base_dir",
+        type=str,
+        default="/eval/output",
         help=(
-            "Directory that will contain this Experiment's report and one subdirectory per Run. The path is used"
-            " exactly as provided. By default, a timestamped directory is used under"
-            f" {_DEFAULT_LOCAL_EXPERIMENT_OUTPUT_BASE_DIRECTORY}."
+            "Base directory for evaluation outputs (videos, per-episode results, and report). A timestamped"
+            " Experiment directory containing one subdirectory per Run is created below it."
         ),
     )
     parser.add_argument(

@@ -17,11 +17,18 @@ def test_chunk_subprocess_uses_shared_experiment_output_directory(monkeypatch, t
     legacy_job_configs = [{"name": "first"}]
     captured_child_command: list[str] | None = None
     captured_chunk_config: dict | None = None
+    captured_child_environment: dict[str, str] | None = None
 
-    def capture_child_process(child_command: list[str], *, check: bool) -> subprocess.CompletedProcess:
-        nonlocal captured_child_command, captured_chunk_config
+    def capture_child_process(
+        child_command: list[str],
+        *,
+        check: bool,
+        env: dict[str, str],
+    ) -> subprocess.CompletedProcess:
+        nonlocal captured_child_command, captured_chunk_config, captured_child_environment
         captured_child_command = child_command
-        chunk_config_path = Path(child_command[-3])
+        captured_child_environment = env
+        chunk_config_path = Path(child_command[-1])
         captured_chunk_config = json.loads(chunk_config_path.read_text(encoding="utf-8"))
         assert not check
         return subprocess.CompletedProcess(child_command, returncode=0)
@@ -35,6 +42,8 @@ def test_chunk_subprocess_uses_shared_experiment_output_directory(monkeypatch, t
             "complete-experiment.json",
             "--chunk_size",
             "1",
+            "--output_base_dir",
+            "/custom-output-base",
             "--serve_evaluation_report",
         ],
     )
@@ -50,12 +59,36 @@ def test_chunk_subprocess_uses_shared_experiment_output_directory(monkeypatch, t
     assert captured_chunk_config == {"jobs": legacy_job_configs}
     assert captured_child_command is not None
     assert "--serve_evaluation_report" not in captured_child_command
-    assert captured_child_command[-4] == "--experiment_config"
-    assert captured_child_command[-2:] == [
-        "--experiment_output_directory",
-        str(shared_experiment_output_directory),
-    ]
-    assert not Path(captured_child_command[-3]).exists()
+    assert "--output_base_dir" in captured_child_command
+    assert "/custom-output-base" in captured_child_command
+    assert captured_child_command[-2] == "--experiment_config"
+    assert "--experiment_output_directory" not in captured_child_command
+    assert captured_child_environment is not None
+    assert captured_child_environment["ISAACLAB_ARENA_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY"] == str(
+        shared_experiment_output_directory
+    )
+    assert not Path(captured_child_command[-1]).exists()
+
+
+def test_top_level_process_does_not_inherit_experiment_output_directory(monkeypatch):
+    monkeypatch.delenv("ISAACLAB_ARENA_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY", raising=False)
+
+    inherited_experiment_output_directory = legacy_experiment_runner.get_inherited_chunk_experiment_output_directory()
+
+    assert inherited_experiment_output_directory is None
+
+
+def test_chunk_child_inherits_parent_experiment_output_directory(monkeypatch, tmp_path):
+    parent_experiment_output_directory = tmp_path / "experiment-outputs" / "2026-07-21_10-00-00"
+
+    monkeypatch.setenv(
+        "ISAACLAB_ARENA_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY",
+        str(parent_experiment_output_directory),
+    )
+
+    inherited_experiment_output_directory = legacy_experiment_runner.get_inherited_chunk_experiment_output_directory()
+
+    assert inherited_experiment_output_directory == parent_experiment_output_directory
 
 
 def test_all_chunks_receive_same_experiment_output_directory(monkeypatch, tmp_path):

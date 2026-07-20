@@ -229,8 +229,8 @@ def test_embeds_effective_experiment_yaml():
     assert embedded_experiment["runs"]["baseline"]["environment_builder"]["num_envs"] == 1
 
 
-def test_experiment_runner_writes_directly_to_managed_output_directory():
-    """Write the Experiment directly into the output directory allocated by OSMO."""
+def test_experiment_runner_uses_osmo_output_as_timestamp_base_directory():
+    """Create the timestamped Experiment below the output directory allocated by OSMO."""
     experiment_runner_task = ExperimentRunnerTask(
         task_cfg=ExperimentRunnerTaskCfg(),
         experiment_cfg=_zero_action_experiment_cfg(),
@@ -238,9 +238,9 @@ def test_experiment_runner_writes_directly_to_managed_output_directory():
 
     experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
 
-    assert "--experiment_output_directory" in experiment_runner_command
+    assert "--output_base_dir" in experiment_runner_command
     assert "{{output}}" in experiment_runner_command
-    assert "--output_base_dir" not in experiment_runner_command
+    assert "--experiment_output_directory" not in experiment_runner_command
 
 
 def test_submission_removes_temporary_workflow(monkeypatch):

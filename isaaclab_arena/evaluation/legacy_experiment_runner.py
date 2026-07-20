@@ -9,10 +9,29 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY_ENVIRONMENT_VARIABLE = (
+    "ISAACLAB_ARENA_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY"
+)
+
+
+def get_inherited_chunk_experiment_output_directory() -> Path | None:
+    """Return the output directory selected by a chunk parent, when one exists.
+
+    Returns:
+        The inherited directory in a chunk child, or None in the top-level process.
+    """
+    inherited_experiment_output_directory = os.environ.get(
+        _CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY_ENVIRONMENT_VARIABLE
+    )
+    if inherited_experiment_output_directory is None:
+        return None
+    return Path(inherited_experiment_output_directory)
 
 
 def load_legacy_json_experiment_config(
@@ -60,7 +79,7 @@ def _run_legacy_json_chunk(
     Args:
         chunk_label: Human-readable position of this chunk in the Experiment.
         legacy_job_configs: Legacy Run configurations assigned to this child process.
-        experiment_output_directory: Exact output directory shared by every chunk.
+        experiment_output_directory: Timestamped Experiment directory shared by every chunk.
 
     Returns:
         The child process return code.
@@ -76,18 +95,15 @@ def _run_legacy_json_chunk(
     # serve_until_ctrl_c forever.
     forwarded_arguments = [argument for argument in sys.argv if argument != "--serve_evaluation_report"]
     experiment_config_override = ["--experiment_config", str(chunk_config_path)]
-    experiment_output_directory_override = [
-        "--experiment_output_directory",
-        str(experiment_output_directory),
-    ]
     child_command = [
         sys.executable,
         *forwarded_arguments,
         *experiment_config_override,
-        *experiment_output_directory_override,
     ]
+    child_environment = os.environ.copy()
+    child_environment[_CHUNK_PARENT_EXPERIMENT_OUTPUT_DIRECTORY_ENVIRONMENT_VARIABLE] = str(experiment_output_directory)
     try:
-        completed_child_process = subprocess.run(child_command, check=False)
+        completed_child_process = subprocess.run(child_command, check=False, env=child_environment)
     finally:
         # Remove the temp chunk config now that the child has loaded it.
         chunk_config_path.unlink(missing_ok=True)
@@ -106,7 +122,7 @@ def run_legacy_json_in_chunks(
     Args:
         legacy_experiment_config: Complete legacy Experiment mapping containing all Runs.
         chunk_size: Maximum number of Runs assigned to one child process.
-        experiment_output_directory: Exact output directory shared by every chunk.
+        experiment_output_directory: Timestamped Experiment directory shared by every chunk.
         serve_evaluation_report: Whether report serving was requested by the parent.
     """
     # TODO(cvolk): Aggregate per-chunk metrics into one centralized view. Each chunk

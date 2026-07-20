@@ -9,7 +9,6 @@ import subprocess
 
 import pytest
 
-from isaaclab_arena.evaluation import experiment_runner_cli
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
@@ -34,37 +33,27 @@ def test_experiment_runner_parses_native_hydra_overrides():
     ]
 
 
-def test_experiment_runner_parses_exact_experiment_output_directory(tmp_path):
-    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+def test_experiment_runner_parses_custom_output_base_directory(tmp_path):
+    custom_output_base_directory = tmp_path / "custom-output-base"
 
     parsed_arguments, experiment_overrides = parse_experiment_runner_args([
         "--experiment_config",
         "experiment.yaml",
-        "--experiment_output_directory",
-        str(exact_experiment_output_directory),
+        "--output_base_dir",
+        str(custom_output_base_directory),
     ])
 
-    assert parsed_arguments.experiment_output_directory == exact_experiment_output_directory
+    assert parsed_arguments.output_base_dir == str(custom_output_base_directory)
     assert experiment_overrides == []
 
 
-def test_experiment_runner_defaults_to_timestamped_experiment_output_directory(monkeypatch, tmp_path):
-    expected_experiment_output_directory = tmp_path / "2026-07-17_12-00-00"
-    received_output_base_directories = []
-
-    def create_timestamped_directory_path(received_output_base_directory: str) -> str:
-        received_output_base_directories.append(received_output_base_directory)
-        return str(expected_experiment_output_directory)
-
-    monkeypatch.setattr(experiment_runner_cli, "timestamped_run_dir", create_timestamped_directory_path)
-
+def test_experiment_runner_defaults_to_local_output_base_directory():
     parsed_arguments, experiment_overrides = parse_experiment_runner_args([
         "--experiment_config",
         "experiment.yaml",
     ])
 
-    assert parsed_arguments.experiment_output_directory == expected_experiment_output_directory
-    assert received_output_base_directories == ["/eval/output"]
+    assert parsed_arguments.output_base_dir == "/eval/output"
     assert experiment_overrides == []
 
 
@@ -148,7 +137,7 @@ runs:
         str(experiment_config_path),
         config_option="--experiment_config",
         extra_args=[
-            "--experiment_output_directory",
+            "--output_base_dir",
             str(tmp_path / "output"),
             "runs.yaml_baseline.rollout_limit.num_steps=2",
         ],
@@ -189,18 +178,21 @@ def test_experiment_runner_two_jobs_zero_action(tmp_path):
     ]
 
     temp_config_path = str(tmp_path / "test_experiment_runner_two_jobs_zero_action.json")
-    experiment_output_directory = tmp_path / "chunked-experiment-output"
+    output_base_directory = tmp_path / "chunked-experiment-outputs"
     write_jobs_config_to_file(jobs, temp_config_path)
     run_experiment_runner(
         temp_config_path,
         extra_args=[
             "--chunk_size",
             "1",
-            "--experiment_output_directory",
-            str(experiment_output_directory),
+            "--output_base_dir",
+            str(output_base_directory),
         ],
     )
 
+    timestamped_experiment_output_directories = list(output_base_directory.iterdir())
+    assert len(timestamped_experiment_output_directories) == 1
+    experiment_output_directory = timestamped_experiment_output_directories[0]
     assert (experiment_output_directory / "gr1_open_microwave_cracker_box").is_dir()
     assert (experiment_output_directory / "gr1_open_microwave_sugar_box").is_dir()
     report_contents = (experiment_output_directory / "index.html").read_text(encoding="utf-8")
