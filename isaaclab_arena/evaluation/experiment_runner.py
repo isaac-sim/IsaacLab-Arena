@@ -99,7 +99,9 @@ def main():
         assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
 
         if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
-            # TODO(cvolk): Pass one exact output directory to every chunk worker before supporting this combination.
+            # TODO(alexmillane): Choose one timestamped Experiment output directory in the parent and pass that
+            # exact path to every legacy chunk worker. Each worker currently creates its own timestamped directory
+            # from --output_base_dir.
             assert (
                 args_cli.experiment_output_directory is None
             ), "--experiment_output_directory is not supported when --chunk_size dispatches multiple chunks"
@@ -111,6 +113,7 @@ def main():
         _assert_exact_experiment_output_directory_is_available(experiment_output_directory)
     else:
         experiment_output_directory = Path(timestamped_run_dir(args_cli.output_base_dir))
+    experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
         experiment_cfg = load_arena_experiment_from_config_file(
@@ -122,8 +125,6 @@ def main():
         metrics_logger = MetricsLogger()
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
-
-        experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
         if args_cli.record_viewport_video:
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
