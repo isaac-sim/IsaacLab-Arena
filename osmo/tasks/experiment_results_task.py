@@ -17,7 +17,9 @@ from osmo.tasks.base_task import BaseTask
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-_LOCAL_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH = Path(__file__).parents[1] / "aggregate_experiment_results.py"
+_LOCAL_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH = (
+    Path(__file__).parents[1] / "scripts" / "aggregate_experiment_results.py"
+)
 REMOTE_AGGREGATE_EXPERIMENT_RESULTS_SCRIPT_PATH = "/tmp/arena_aggregate_experiment_results.py"
 REMOTE_STAGED_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = (
     "/tmp/arena_staged_experiment_runner_output_directories.json"

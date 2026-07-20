@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from osmo.aggregate_experiment_results import (
+from osmo.scripts.aggregate_experiment_results import (
     build_experiment_output_from_staged_experiment_runner_outputs,
     load_staged_experiment_runner_output_directories_by_run_name,
     resolve_run_output_directories_from_staged_experiment_runner_outputs,
