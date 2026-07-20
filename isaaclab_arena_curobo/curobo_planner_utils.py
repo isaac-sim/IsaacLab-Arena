@@ -14,20 +14,20 @@ from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
 import warp as wp
-from isaaclab.utils.assets import retrieve_file_path
 from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
 
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena_curobo.curobo_frame_utils import (
+    load_patched_robot_yaml,
+    top_down_grasp_matrix,
+    world_pose_to_robot_frame,
+)
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-
-# Top-down grasp orientation (gripper approach axis pointing -Z) in the robot base frame, (x, y, z, w).
-DOWN_FACING_QUAT_XYZW = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
 
 
 def make_planner_cfg(
@@ -48,13 +48,9 @@ def make_planner_cfg(
     """
     curobo_cfg = get_curobo_cfg_for(embodiment)
 
-    # cuRobo reads real on-disk files, so pull the robot config + URDF from the Nucleus/S3 asset server.
-    robot_cfg_path = retrieve_file_path(curobo_cfg.robot_cfg_template)
-    robot_urdf_path = retrieve_file_path(curobo_cfg.robot_urdf)
-
-    with open(robot_cfg_path) as f:
-        robot_yaml = yaml.safe_load(f)
-    robot_yaml["robot_cfg"]["kinematics"]["urdf_path"] = robot_urdf_path
+    # cuRobo reads real on-disk files, so pull + patch the robot config (URDF spliced in) from the
+    # asset server, then re-dump it to a temp file CuroboPlannerCfg can point at.
+    robot_yaml = load_patched_robot_yaml(curobo_cfg)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="curobo_robot_cfg_"))
     robot_cfg_file = tmp_dir / "curobo_runtime.yml"
@@ -89,14 +85,7 @@ def make_planner_cfg(
 
 
 def sync_object_poses_in_robot_base_frame(planner) -> None:
-    """Push every dynamic object's pose into the planner's collision world, in the robot base frame.
-
-    We drive IK goals in the robot base frame, so the collision world must be in that frame too. The
-    planner's own ``_sync_object_poses_with_isaaclab`` syncs in world frame; this is the robot-base-frame
-    counterpart, called explicitly instead of replacing that method (the planner only invokes its own
-    sync from ``update_world``/``plan_motion``, neither of which the IK-feasibility path touches). Call
-    it after writing a new layout into the sim and before the next IK solve.
-    """
+    """Push every dynamic object's pose into the planner's collision world, in the robot base frame."""
     # USD prim path per scene object, used as the key into cuRobo's collision world model.
     object_mappings = planner._get_object_mappings()
     world_model = planner.motion_gen.world_coll_checker.world_model
@@ -105,9 +94,6 @@ def sync_object_poses_in_robot_base_frame(planner) -> None:
     # Frames: W = world, R = robot base, O = object. root_quat_w is (x, y, z, w)
     t_W_R = wp.to_torch(planner.robot.data.root_pos_w)[planner.env_id, :3]
     q_W_R_xyzw = wp.to_torch(planner.robot.data.root_quat_w)[planner.env_id, :4]
-    # World->robot rotation (R_R_W = R_W_R^T) for positions; inverse quaternion (q_R_W) for orientations.
-    R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw.unsqueeze(0))[0].T
-    q_R_W_xyzw = math_utils.quat_inv(q_W_R_xyzw.unsqueeze(0))[0]
     updated_count = 0
     for object_name, object_path in object_mappings.items():
         # Skip objects flagged static in the planner config (e.g. the table) — they aren't re-synced.
@@ -118,8 +104,7 @@ def sync_object_poses_in_robot_base_frame(planner) -> None:
             t_W_O = wp.to_torch(obj.data.root_pos_w)[planner.env_id, :3]
             q_W_O_xyzw = wp.to_torch(obj.data.root_quat_w)[planner.env_id, :4]
             # Re-express the object pose in the robot base frame so it matches the IK goal frame.
-            t_R_O = (R_R_W @ (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1)
-            q_R_O_xyzw = math_utils.quat_mul(q_R_W_xyzw.unsqueeze(0), q_W_O_xyzw.unsqueeze(0))[0]
+            t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(t_W_O, q_W_O_xyzw, t_W_R, q_W_R_xyzw)
             # Convert the object pose to the cuRobo device.
             pos_c = planner._to_curobo_device(t_R_O)
             quat_c_xyzw = planner._to_curobo_device(q_R_O_xyzw)
@@ -166,7 +151,7 @@ def make_curobo_planner(
     return planner
 
 
-def top_down_grasp_pose_in_robot_frame(
+def top_down_grasp_pose_from_env(
     env: ManagerBasedEnv,
     object_name: str,
     grasp_z_offset: float = 0.02,
@@ -187,38 +172,12 @@ def top_down_grasp_pose_in_robot_frame(
     Returns:
         A 4x4 homogeneous transform (robot base frame) on the env's device.
     """
-    # X_B_A maps a vector in frame A to B. Frames: W = world, R = robot base, O = object.
-    # Robot base pose in world frame. root_quat_w is (x, y, z, w)
+    # Frames: W = world, R = robot base, O = object. root_quat_w is (x, y, z, w).
     robot = env.scene[robot_scene_name]
     t_W_R = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
     q_W_R_xyzw = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
-    R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw.unsqueeze(0))[0].T
-    # Object pose in world frame.
     t_W_O = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
     q_W_O_xyzw = wp.to_torch(env.scene[object_name].data.root_quat_w)[env_id, :4]
-    # Object pose in robot base frame.
-    t_R_O = (R_R_W @ (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1).clone()
-    # Add the grasp z offset.
-    t_R_O[2] += grasp_z_offset
 
-    device = t_R_O.device
-    R_down = math_utils.matrix_from_quat(DOWN_FACING_QUAT_XYZW.to(device).unsqueeze(0))[0]
-    if align_yaw_to_object:
-        # Object yaw in the robot base frame, about the vertical axis.
-        q_R_O_xyzw = math_utils.quat_mul(math_utils.quat_inv(q_W_R_xyzw.unsqueeze(0)), q_W_O_xyzw.unsqueeze(0))[0]
-        R_R_O = math_utils.matrix_from_quat(q_R_O_xyzw.unsqueeze(0))[0]
-        yaw = torch.atan2(R_R_O[1, 0], R_R_O[0, 0])
-        # A parallel-jaw grasp is symmetric under a 180 deg spin about the approach axis, so fold the
-        # yaw into [-pi/2, pi/2] to keep the wrist away from its joint limit while matching the object.
-        yaw = torch.remainder(yaw + torch.pi / 2, torch.pi) - torch.pi / 2
-        cos_y, sin_y = torch.cos(yaw), torch.sin(yaw)
-        R_yaw = torch.eye(3, device=device, dtype=t_R_O.dtype)
-        R_yaw[0, 0], R_yaw[0, 1] = cos_y, -sin_y
-        R_yaw[1, 0], R_yaw[1, 1] = sin_y, cos_y
-        R_grasp = R_yaw @ R_down
-    else:
-        R_grasp = R_down
-
-    grasp_quat_xyzw = math_utils.quat_from_matrix(R_grasp.unsqueeze(0))[0]
-    pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(grasp_quat_xyzw.tolist()))
-    return pose.to_transform_matrix(device)
+    t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(t_W_O, q_W_O_xyzw, t_W_R, q_W_R_xyzw)
+    return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)

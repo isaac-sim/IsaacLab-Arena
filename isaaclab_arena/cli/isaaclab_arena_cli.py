@@ -111,6 +111,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Print Hydra-configurable variations for the selected environment and exit.",
     )
+    arena_group.add_argument(
+        "--validate_reachability",
+        action="store_true",
+        default=False,
+        help=(
+            "Gate build-time pooled placement on reachability, storing only layouts whose objects the"
+            " robot can reach (cuRobo top-down-grasp IK). isaaclab_arena_curobo is automatically imported"
+            " when this flag is set. Please make sure dev environment has curobo deps installed."
+        ),
+    )
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:

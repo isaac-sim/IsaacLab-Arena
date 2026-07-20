@@ -29,9 +29,11 @@ CUROBO_DEPENDENCY_MODULES = [
 
 # The cuRobo-gated package modules, which must import without a running SimulationApp.
 ARENA_CUROBO_MODULES = [
+    "isaaclab_arena_curobo.curobo_frame_utils",
+    "isaaclab_arena_curobo.curobo_ik_utils",
     "isaaclab_arena_curobo.curobo_planner_utils",
-    "isaaclab_arena_curobo.ik_utils",
     "isaaclab_arena_curobo.placement_pool_ik_validation",
+    "isaaclab_arena_curobo.standalone_ik_layout_validator",
 ]
 
 
