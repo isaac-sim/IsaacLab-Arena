@@ -3,18 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Camera intrinsics variations.
+"""Camera intrinsics variation.
 
 Perturbs a pinhole camera's focal lengths (fx, fy) and principal point (cx, cy)
 by sampler-drawn fractional amounts, modelling an intrinsic-calibration error.
-Image resolution is left untouched.
-
-Two flavours are provided:
-
-* :class:`CameraIntrinsicsBuildTimeVariation` — sampled once and written into the
-  camera's spawn cfg before the scene is composed.
-* :class:`CameraIntrinsicsRunTimeVariation` — sampled on every reset and applied via
-  USD pinhole parameters on the live camera prim.
+Image resolution is left untouched. The perturbation is sampled on every reset and
+applied via USD pinhole parameters on the live camera prim.
 """
 
 from __future__ import annotations
@@ -29,12 +23,10 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
-    from isaaclab.sensors.camera.camera_cfg import CameraCfg
-    from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 
     from isaaclab_arena.utils.cameras import ArenaCameraCfg
 
@@ -56,10 +48,6 @@ class CameraIntrinsicsVariationCfg(VariationBaseCfg):
         )
     )
     """Uniform distribution over fractional (fx, fy, cx, cy) perturbations."""
-
-
-CameraIntrinsicsBuildTimeVariationCfg = CameraIntrinsicsVariationCfg
-CameraIntrinsicsRunTimeVariationCfg = CameraIntrinsicsVariationCfg
 
 
 def _perturbed_aperture_params(
@@ -85,56 +73,7 @@ def _perturbed_aperture_params(
     }
 
 
-class CameraIntrinsicsBuildTimeVariation(BuildTimeVariationBase):
-    """Perturb a pinhole camera's focal lengths and principal point at build time.
-
-    A single ``(d_fx, d_fy, d_cx, d_cy)`` fraction is sampled per env build and written
-    into the camera's ``PinholeCameraCfg`` spawn parameters before the scene is composed.
-    Nominal apertures are snapshotted on construction so perturbations do not compound.
-
-    Args:
-        camera_cfg: The camera cfg to mutate; its ``spawn`` must be a ``PinholeCameraCfg``.
-        camera_name: Camera identifier, used only to name the variation.
-        cfg: Tunable parameters. Override the perturbation distribution via ``cfg.sampler_cfg``.
-        name: Identifier under which this variation is registered on the asset.
-            Defaults to ``"camera_intrinsics_build_time_{camera_name}"``.
-    """
-
-    cfg: CameraIntrinsicsBuildTimeVariationCfg
-
-    def __init__(
-        self,
-        camera_cfg: CameraCfg | TiledCameraCfg,
-        camera_name: str,
-        cfg: CameraIntrinsicsBuildTimeVariationCfg | None = None,
-        name: str | None = None,
-    ):
-        cfg = cfg if cfg is not None else CameraIntrinsicsBuildTimeVariationCfg()
-        name = name if name is not None else f"camera_intrinsics_build_time_{camera_name}"
-        super().__init__(cfg=cfg, name=name)
-        self._camera_cfg = camera_cfg
-        self._nominal_horizontal_aperture = camera_cfg.spawn.horizontal_aperture
-        self._nominal_vertical_aperture = camera_cfg.spawn.vertical_aperture
-
-    def apply_build_time_effects(self) -> None:
-        assert self.sampler is not None, "CameraIntrinsicsBuildTimeVariation: sampler not set."
-        d_fx, d_fy, d_cx, d_cy = self.sampler.sample(num_samples=1)[0].tolist()
-        params = _perturbed_aperture_params(
-            self._nominal_horizontal_aperture,
-            self._nominal_vertical_aperture,
-            d_fx,
-            d_fy,
-            d_cx,
-            d_cy,
-        )
-        spawn = self._camera_cfg.spawn
-        spawn.horizontal_aperture = params["horizontal_aperture"]
-        spawn.vertical_aperture = params["vertical_aperture"]
-        spawn.horizontal_aperture_offset = params["horizontal_aperture_offset"]
-        spawn.vertical_aperture_offset = params["vertical_aperture_offset"]
-
-
-class CameraIntrinsicsRunTimeVariation(RunTimeVariationBase):
+class CameraIntrinsicsVariation(RunTimeVariationBase):
     """Perturb a pinhole camera's focal lengths and principal point on every reset.
 
     Each reset samples a ``(d_fx, d_fy, d_cx, d_cy)`` fraction per env and writes the
@@ -154,29 +93,29 @@ class CameraIntrinsicsRunTimeVariation(RunTimeVariationBase):
             Defaults to ``"camera_intrinsics_{camera_name}"``.
     """
 
-    cfg: CameraIntrinsicsRunTimeVariationCfg
+    cfg: CameraIntrinsicsVariationCfg
 
     def __init__(
         self,
         camera_name: str,
         camera_rig: ArenaCameraCfg | None = None,
-        cfg: CameraIntrinsicsRunTimeVariationCfg | None = None,
+        cfg: CameraIntrinsicsVariationCfg | None = None,
         name: str | None = None,
     ):
-        cfg = cfg if cfg is not None else CameraIntrinsicsRunTimeVariationCfg()
+        cfg = cfg if cfg is not None else CameraIntrinsicsVariationCfg()
         name = name if name is not None else f"camera_intrinsics_{camera_name}"
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
         self._camera_rig = camera_rig
 
     def apply_build_time_effects(self) -> None:
-        """Force the target camera's rig untiled so the per-env run-time perturbation takes effect."""
+        """Force the target camera's rig untiled so the per-env perturbation takes effect."""
         if self._camera_rig is not None:
             self._camera_rig.set_use_tiled_camera(False)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (
-            f"CameraIntrinsicsRunTimeVariation on '{self.camera_name}' is enabled but no sampler is set; "
+            f"CameraIntrinsicsVariation on '{self.camera_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
         )
         event_name = f"{self.camera_name}_intrinsics_variation"

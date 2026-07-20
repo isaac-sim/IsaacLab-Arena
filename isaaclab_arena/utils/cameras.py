@@ -22,16 +22,14 @@ from isaaclab_arena.utils.pose import PoseRange
 
 
 class ArenaCameraCfg:
-    """Mixin for embodiment camera-rig configclasses that exposes an untiled/tiled selector.
+    """Parent class for camera configs in Arena.
 
-    A rig configclass subclasses this and declares its cameras as ``CameraCfg`` fields (the
-    untiled source of truth). :meth:`get_cfg` then returns the rig untiled, or a tiled copy of
-    it, per :attr:`use_tiled_camera`. Embodiments assign such a rig to ``camera_config``; the
-    env builder resolves it via :meth:`get_cfg`.
+    CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
+    then returns the rig un-tiled, or a tiled copy dependent on the value of ``use_tiled_camera``.
     """
 
+    # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
     _use_tiled_camera: ClassVar[bool] = True
-    """Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it."""
 
     @property
     def use_tiled_camera(self) -> bool:
@@ -56,10 +54,7 @@ class ArenaCameraCfg:
         return self.copy()
 
     def _tiled_rig(self) -> Any:
-        """Return a copy of this rig with every untiled CameraCfg field converted to tiled.
-
-        This instance is left untouched; non-camera fields and already-tiled cameras are copied as-is.
-        """
+        """Return a copy of this rig with every untiled CameraCfg field converted to tiled."""
         tiled = self.copy()
         for f in fields(tiled):
             value = getattr(tiled, f.name)
@@ -68,11 +63,7 @@ class ArenaCameraCfg:
         return tiled
 
     def _as_tiled_camera_cfg(self, camera_cfg: CameraCfg) -> TiledCameraCfg:
-        """Return a TiledCameraCfg mirroring the settings of an untiled CameraCfg.
-
-        All init fields are copied except ``class_type``, so the returned cfg keeps the tiled
-        camera's own ``class_type``.
-        """
+        """Return a TiledCameraCfg mirroring the settings of an untiled CameraCfg."""
         init_fields = {
             f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
         }

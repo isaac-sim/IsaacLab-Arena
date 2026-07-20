@@ -487,12 +487,7 @@ class G1AgileSceneCfg(G1SceneCfg):
 
 @configclass
 class G1CameraCfg(ArenaCameraCfg):
-    """G1 head-camera rig using a standard (untiled) camera.
-
-    Source of truth for the head-camera intrinsics and default pose. Tiling is selected via the
-    inherited :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`; the offset is set from the
-    embodiment's ``camera_offset``.
-    """
+    """Configuration for cameras."""
 
     robot_head_cam: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",

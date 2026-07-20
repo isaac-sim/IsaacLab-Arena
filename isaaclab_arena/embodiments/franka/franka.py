@@ -40,7 +40,7 @@ from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
-from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsRunTimeVariation
+from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711))
 
@@ -85,7 +85,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_cam"))
-        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_cam", camera_rig=self.camera_config))
+        self.add_variation(CameraIntrinsicsVariation(camera_name="wrist_cam", camera_rig=self.camera_config))
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
@@ -240,12 +240,7 @@ class FrankaSceneCfg:
 
 @configclass
 class FrankaCameraCfg(ArenaCameraCfg):
-    """Franka wrist-camera rig using a standard (untiled) camera.
-
-    Source of truth for the wrist-camera intrinsics and default pose. Tiling is selected via
-    the inherited :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`; the offset is set from
-    the embodiment's ``camera_offset``.
-    """
+    """Configuration for cameras."""
 
     wrist_cam: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",

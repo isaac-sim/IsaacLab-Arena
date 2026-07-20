@@ -41,7 +41,7 @@ from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
-from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsRunTimeVariation
+from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -73,7 +73,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
-        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_camera", camera_rig=self.camera_config))
+        self.add_variation(CameraIntrinsicsVariation(camera_name="wrist_camera", camera_rig=self.camera_config))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
@@ -382,26 +382,20 @@ class DroidEventCfg:
             ],
         },
     )
-    randomize_franka_joint_state = None
-    # EventTerm(
-    #     func=franka_stack_events.randomize_joint_by_gaussian_offset,
-    #     mode="reset",
-    #     params={
-    #         "mean": 0.0,
-    #         "std": 0.02,
-    #         "asset_cfg": SceneEntityCfg("robot"),
-    #     },
-    # )
+    randomize_franka_joint_state = EventTerm(
+        func=franka_stack_events.randomize_joint_by_gaussian_offset,
+        mode="reset",
+        params={
+            "mean": 0.0,
+            "std": 0.02,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
 
 
 @configclass
 class DroidCameraCfg(ArenaCameraCfg):
-    """DROID three-camera rig using standard (untiled) cameras, mounted with pre-set poses.
-
-    This is the source of truth for the DROID camera poses and intrinsics. Inherits
-    :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`, whose ``get_cfg`` returns the untiled
-    rig or a tiled copy per ``use_tiled_camera``.
-    """
+    """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/external_camera",
