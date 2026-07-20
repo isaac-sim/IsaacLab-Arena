@@ -12,7 +12,8 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -43,8 +44,17 @@ class PlacementValidator(ABC):
     """The check name this validator reports; its registry key and result key. Built-ins use a
     PlacementCheck constant; external validators may use any unique string."""
 
+    gated: ClassVar[bool] = False
+    """If True, run this validator only on candidates that already pass every required non-gated check,
+    so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper geometry."""
+
     def __init__(self, params: ObjectPlacerParams) -> None:
         self._params = params
+
+    @classmethod
+    def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
+        """Whether this validator runs when enabled_checks is None. Override for opt-in validators."""
+        return True
 
     @abstractmethod
     def validate_batch(
@@ -86,6 +96,10 @@ def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
             f"Registered build-time checks: {sorted(checks)}."
         )
         checks = tuple(check for check in checks if check in enabled_checks)
+    else:
+        # Default policy: run every registered check except opt-in ones (e.g. IK reachability, which
+        # only runs once a reachability predicate has been provisioned).
+        checks = tuple(check for check in checks if registry.get_validator_by_name(check).enabled_by_default(params))
 
     required_checks = params.required_checks
     if required_checks is not None:
@@ -712,3 +726,54 @@ class NoOverlapValidator(PlacementValidator):
         )
         tgt_yaw = NoOverlapValidator._effective_yaw(target_obj, orientations, target_uses_pose_yaw)
         return centers_in_target_frame(centers_local, src_yaw, tgt_yaw, source_pos - target_pos)
+
+
+@register_validator
+class ReachabilityValidator(PlacementValidator):
+    """Gate each candidate on whether the robot can reach a top-down grasp at every movable object.
+
+    Wraps the per-layout reachability predicate an extension supplies via
+    ObjectPlacerParams.reachability_validator (e.g. the cuRobo IK check from isaaclab_arena_curobo), so
+    core stays vendor-agnostic. Opt-in: it runs only when that predicate is set, and (being gated) only
+    on candidates that already pass the geometry checks, since IK is expensive.
+    """
+
+    check = PlacementCheck.IK_REACHABLE
+    gated = True
+
+    def __init__(self, params: ObjectPlacerParams) -> None:
+        super().__init__(params)
+        assert params.reachability_validator is not None, (
+            "ReachabilityValidator requires ObjectPlacerParams.reachability_validator to be set "
+            "(e.g. by passing --validate_reachability)."
+        )
+        self._predicate = params.reachability_validator
+
+    @classmethod
+    def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
+        """Only run when a reachability predicate has been provisioned (opt-in via --validate_reachability)."""
+        return params.reachability_validator is not None
+
+    def validate_batch(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+    ) -> list[bool]:
+        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+
+    def _validate(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        orientations: dict[ObjectBase, float],
+    ) -> bool:
+        """Run the wrapped predicate over a single candidate's solved poses."""
+        candidate = PlacementResult(
+            validation_results=PlacementValidationResults(),
+            positions=positions,
+            final_loss=0.0,
+            attempts=0,
+            orientations=orientations,
+        )
+        return bool(self._predicate(candidate))

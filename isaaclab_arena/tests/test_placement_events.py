@@ -777,3 +777,69 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
 
     with pytest.raises(RuntimeError, match="could not fill"):
         PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+
+
+def _make_validated_pool(
+    num_envs: int,
+    min_layouts_per_env: int,
+    reachability_validator=None,
+    allow_best_loss_fallbacks: bool = True,
+):
+    """Build a small valid pool over the desk/box fixtures with an optional reachability validator."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    objects = list(_create_test_objects())
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=7,
+        reachability_validator=reachability_validator,
+        allow_best_loss_fallbacks=allow_best_loss_fallbacks,
+    )
+    return PooledObjectPlacer(
+        objects=objects,
+        placer_params=params,
+        pool_size=num_envs * min_layouts_per_env,
+        num_envs=num_envs,
+    )
+
+
+def test_reachability_validator_gates_and_refills():
+    """A reachability predicate is registered as the IK_REACHABLE validator; rejected candidates are not
+    stored and the pool solve loop refills until every env meets its target."""
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+
+    num_envs, target = 2, 2
+    # Reject the first num_envs*target candidates the validator sees, accept every one after, forcing at
+    # least one refill batch before the pool can reach the target.
+    reject_first = num_envs * target
+    calls = {"n": 0}
+
+    def validator(result) -> bool:
+        index = calls["n"]
+        calls["n"] += 1
+        return index >= reject_first
+
+    pool = _make_validated_pool(num_envs=num_envs, min_layouts_per_env=target, reachability_validator=validator)
+
+    # Every stored layout passed the reachability check...
+    for env_layouts in pool.layouts_per_env():
+        for layout in env_layouts:
+            assert layout.validation_results.validation_results.get(PlacementCheck.IK_REACHABLE) is True
+    assert all(len(env_layouts) >= target for env_layouts in pool.layouts_per_env())
+    # ...and more candidates were validated than the initial fill, i.e. a refill actually happened.
+    assert calls["n"] > reject_first
+
+
+def test_reachability_validator_reject_all_raises_without_fallback():
+    """When the validator rejects everything and fallbacks are off, the pool cannot fill and raises."""
+    with pytest.raises(RuntimeError, match="could not fill"):
+        _make_validated_pool(
+            num_envs=2,
+            min_layouts_per_env=2,
+            reachability_validator=lambda result: False,
+            allow_best_loss_fallbacks=False,
+        )

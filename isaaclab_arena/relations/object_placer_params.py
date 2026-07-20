@@ -3,9 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from isaaclab_arena.relations.placement_result import PlacementResult
 
 __all__ = ["CollisionMode", "ObjectPlacerParams"]
 
@@ -57,3 +65,10 @@ class ObjectPlacerParams:
     required_checks: set[str] | None = None
     """Check names that must pass for a layout to count as valid (gates rejection/refill in the pool).
     None requires every enabled check; otherwise should be a subset of enabled_checks."""
+
+    reachability_validator: Callable[[PlacementResult], bool] | None = None
+    """Optional per-layout reachability predicate supplied by an extension (e.g. the cuRobo IK check
+    from isaaclab_arena_curobo). When set, the IK_REACHABLE placement validator wraps it and runs on
+    every geometry-valid candidate, so unreachable layouts fail like any other required check. Typed as
+    a plain Callable so core never imports the validator's dependencies. Usually left unset and filled
+    by the builder when a run passes --validate_reachability; set it directly only for a custom gate."""

@@ -34,8 +34,8 @@ class PlacementCheck(StrEnum):
     below threshold, i.e. the layout is stable and does not drift or topple."""
 
     IK_REACHABLE = "ik_reachable"
-    """Run-time check: the robot can reach a top-down grasp at every movable object's
-    resting pose, per cuRobo's collision-aware IK solver."""
+    """Build-time check: the robot can reach a top-down grasp at every movable object's
+    resting pose, per the cuRobo IK solver supplied by the cuRobo extension."""
 
 
 @dataclass

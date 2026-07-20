@@ -584,7 +584,9 @@ class ObjectPlacer:
         """Run every enabled validator over all candidates and collect per-candidate results.
 
         Each validator reports one verdict per candidate; the verdicts are transposed into one
-        PlacementValidationResults per candidate, gated by the configured required_checks.
+        PlacementValidationResults per candidate, gated by the configured required_checks. Gated
+        validators (e.g. IK reachability) run only on candidates that already pass the required
+        non-gated checks, so an expensive check never runs on a layout rejected on cheaper geometry.
 
         Args:
             positions: Solved (x, y, z) per object, one dict per candidate.
@@ -592,12 +594,28 @@ class ObjectPlacer:
             bboxes: Per-object bboxes for each candidate's env, each (1, 3).
             collision_objects: Fixed background obstacles shared across candidates.
         """
-        verdicts_by_check = {
-            validator.check: validator.validate_batch(positions, orientations, bboxes, collision_objects)
-            for validator in self._validators
-        }
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
+        verdicts_by_check: dict[str, list[bool]] = {
+            validator.check: validator.validate_batch(positions, orientations, bboxes, collision_objects)
+            for validator in self._validators
+            if not validator.gated
+        }
+        for validator in self._validators:
+            if validator.gated:
+                kept = [
+                    i for i in range(len(positions)) if self._passes_required_checks(verdicts_by_check, required, i)
+                ]
+                sub_verdicts = validator.validate_batch(
+                    [positions[i] for i in kept],
+                    [orientations[i] for i in kept],
+                    [bboxes[i] for i in kept],
+                    collision_objects,
+                )
+                verdicts = [False] * len(positions)
+                for sub_idx, cand_idx in enumerate(kept):
+                    verdicts[cand_idx] = sub_verdicts[sub_idx]
+                verdicts_by_check[validator.check] = verdicts
         return [
             PlacementValidationResults(
                 validation_results={check: verdicts[candidate_idx] for check, verdicts in verdicts_by_check.items()},
@@ -605,6 +623,22 @@ class ObjectPlacer:
             )
             for candidate_idx in range(len(positions))
         ]
+
+    @staticmethod
+    def _passes_required_checks(
+        verdicts_by_check: dict[str, list[bool]],
+        required_checks: set[str] | None,
+        candidate_idx: int,
+    ) -> bool:
+        """Whether a candidate passes every required check computed so far.
+
+        required_checks=None means every computed check is required; an explicit set gates only its members.
+        """
+        for check, verdicts in verdicts_by_check.items():
+            is_required = required_checks is None or check in required_checks
+            if is_required and not verdicts[candidate_idx]:
+                return False
+        return True
 
     def _apply_poses(
         self,
