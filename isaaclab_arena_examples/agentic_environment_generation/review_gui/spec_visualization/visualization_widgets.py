@@ -10,11 +10,16 @@ import yaml
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import AssetCard
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
     estimate_mermaid_height_px,
     render_mermaid_html,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.prim_tree_view import (
+    estimate_prim_tree_height_px,
+    render_prim_tree_html,
 )
 
 _ASSET_GRID_COLS = 4
@@ -53,16 +58,23 @@ def _render_tasks_table(spec: ArenaEnvGraphSpec) -> None:
 
 def _render_asset_card(card: AssetCard) -> None:
     """Render one asset snapshot card; ``st.image`` provides the native fullscreen zoom."""
+    spec = card.spec
+    is_reference = isinstance(spec, ObjectReferenceSpec)
     with st.container(border=True):
         if card.thumbnail_bytes is not None:
             st.image(card.thumbnail_bytes, use_container_width=True)
+        elif is_reference and spec.prim_path is None:
+            st.caption("⛔ Resolve prim_path to enable collision-mesh snapshot")
         else:
             st.caption("No snapshot available")
-        note = card.asset.registry_name
+        if is_reference:
+            note = f"parent `{spec.parent_id}` · prim `{spec.prim_path or '—'}` · {spec.object_type.value}"
+        else:
+            note = spec.registry_name
         if card.aabb_dimensions_m is not None:
             x, y, z = card.aabb_dimensions_m
             note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
-        st.markdown(f"**[{card.role}] {card.asset.id}**")
+        st.markdown(f"**[{card.role}] {spec.id}**")
         st.caption(note)
 
 
@@ -75,12 +87,29 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
                 _render_asset_card(card)
 
 
-def render_visualization_widgets(spec: ArenaEnvGraphSpec, asset_cards: list[AssetCard]) -> None:
+def _render_prim_tree(prim_tree: list[UsdPrimRecord]) -> None:
+    """Render the background prim tree in a collapsed, searchable, view-only box."""
+    if not prim_tree:
+        return
+    with st.expander("Background prim tree", expanded=False):
+        st.components.v1.html(
+            render_prim_tree_html(prim_tree),
+            height=estimate_prim_tree_height_px(prim_tree),
+            scrolling=True,
+        )
+
+
+def render_visualization_widgets(
+    spec: ArenaEnvGraphSpec,
+    asset_cards: list[AssetCard],
+    prim_tree: list[UsdPrimRecord] | None = None,
+) -> None:
     """Render the spec visualization (assets, spatial graph, tasks) as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
         st.caption(summary)
+    _render_prim_tree(prim_tree or [])
     if asset_cards:
         st.markdown("**Assets**")
         _render_asset_grid(asset_cards)
