@@ -382,12 +382,13 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge_annotated.hdf5" \
-     put_item_in_fridge_and_close_door \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 

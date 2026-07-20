@@ -42,6 +42,7 @@ from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
+from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
@@ -319,6 +320,8 @@ class ArenaEnvBuilder:
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
+        demo_recorder_config = ArenaEnvRecorderManagerCfg() if embodiment.enable_cameras else None
+
         # Build the environment configuration
         if not self.cfg.mimic:
             env_cfg = IsaacLabArenaManagerBasedRLEnvCfg(
@@ -334,6 +337,7 @@ class ArenaEnvBuilder:
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
+                demo_recorder_config=demo_recorder_config,
                 metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
@@ -345,6 +349,9 @@ class ArenaEnvBuilder:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
             task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
+            mimic_recorder_config = task_mimic_env_cfg.mimic_recorder_config
+            if mimic_recorder_config is None:
+                mimic_recorder_config = demo_recorder_config
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -357,11 +364,12 @@ class ArenaEnvBuilder:
                 xr=xr_cfg,
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
+                demo_recorder_config=demo_recorder_config,
                 # Mimic stuff
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
-                mimic_recorder_config=task_mimic_env_cfg.mimic_recorder_config,
+                mimic_recorder_config=mimic_recorder_config,
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
@@ -431,7 +439,10 @@ class ArenaEnvBuilder:
         # Register the environment with the Gym registry.
         kwargs = {
             "env_cfg_entry_point": env_cfg,
+            **env_kwargs,
         }
+        if env_cfg.demo_recorder_config is not None:
+            kwargs["demo_recorder_cfg_entry_point"] = env_cfg.demo_recorder_config
         if self.arena_env.rl_framework_entry_point is not None:
             kwargs[self.arena_env.rl_framework_entry_point] = self.arena_env.rl_policy_cfg
         gym.register(

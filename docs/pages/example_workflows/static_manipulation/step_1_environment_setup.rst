@@ -152,12 +152,13 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \
-     gr1_open_microwave \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task gr1_open_microwave \
      --embodiment gr1_pink
 
 You should see the GR1 robot replaying the demonstrations, performing the microwave door
