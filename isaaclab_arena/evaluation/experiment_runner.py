@@ -89,6 +89,8 @@ def main():
     # each cycle and is only reclaimed when the process exits — in-process teardown can't
     # release it.
     if args_cli.chunk_size is not None:
+        # TODO(cvolk): Support --chunk_size for typed YAML Experiments. Give each child only its assigned Runs,
+        # while all children contribute to one timestamped Experiment directory and combined report.
         assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
         assert args_cli.chunk_size > 0, f"--chunk_size must be positive, got {args_cli.chunk_size}"
 

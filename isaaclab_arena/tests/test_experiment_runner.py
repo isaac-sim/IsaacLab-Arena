@@ -72,6 +72,43 @@ def test_experiment_runner_rejects_unknown_non_hydra_arguments():
     assert "Unrecognized arguments: --headles" in result.stderr
 
 
+@pytest.mark.with_subprocess
+def test_experiment_runner_rejects_chunking_typed_yaml(tmp_path):
+    """Reject typed YAML chunking until chunk workers support typed Experiments."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        """runs:
+  baseline:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 1
+""",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
+            "--experiment_config",
+            str(experiment_config_path),
+            "--chunk_size",
+            "1",
+            "--headless",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode != 0
+    assert "--chunk_size currently supports only legacy JSON Experiments" in result.stderr
+
+
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
     jobs_config = {"jobs": jobs}
 
