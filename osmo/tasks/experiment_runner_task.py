@@ -42,10 +42,13 @@ class ExperimentRunnerTask(BaseTask):
         task_cfg: ExperimentRunnerTaskCfg,
         experiment_cfg: ArenaExperimentCfg,
         lead: bool | None = None,
+        task_name: str | None = None,
+        published_output_url: str | None = DATASET_SWIFT_URL,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead)
+        super().__init__(task_cfg=task_cfg, lead=lead, task_name=task_name)
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
+        self.published_output_url = published_output_url
 
     @staticmethod
     def get_task_name() -> str:
@@ -58,7 +61,8 @@ class ExperimentRunnerTask(BaseTask):
         return []
 
     def _get_outputs(self) -> list[dict[str, Any]]:
-        return [{"url": DATASET_SWIFT_URL}]
+        """Publish this output externally, or leave it workflow-local for downstream task staging."""
+        return [] if self.published_output_url is None else [{"url": self.published_output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the effective Experiment at the path consumed by ``experiment_runner.py``."""

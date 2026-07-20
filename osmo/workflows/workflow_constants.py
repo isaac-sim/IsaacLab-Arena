@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# tag denoting the output folder on OSMO
+# OSMO template token resolved at runtime to the current task's writable output directory.
 OSMO_TASK_OUTPUT_DIR = "{{output}}"
 
 
