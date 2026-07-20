@@ -61,7 +61,7 @@ class ExperimentRunnerTask(BaseTask):
         return []
 
     def _get_outputs(self) -> list[dict[str, Any]]:
-        """Publish this output externally, or leave it workflow-local for downstream task staging."""
+        """Publish this output externally, or leave it workflow-local for a downstream task."""
         return [] if self.published_output_url is None else [{"url": self.published_output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
