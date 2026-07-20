@@ -12,7 +12,7 @@ import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 import isaaclab_arena_environments.mdp as mdp
 from isaaclab_arena.assets.asset import Asset

@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.0.0-dev2
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.0.1
 
 FROM ${BASE_IMAGE}
 
@@ -44,7 +44,6 @@ RUN chmod 777 -R /isaac-sim/kit/
 RUN chmod a+x /isaac-sim
 # Ensure isaaclab_visualizers is installed so --visualizer kit works.
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
-RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_teleop
 
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
@@ -52,9 +51,6 @@ RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 # DAQP version required for latest qpsolvers 4.12.0. Backport of IsaacLab #5556.
 # Can be dropped once the Isaac Lab submodule is bumped past 4934cd0ce5a53b86342f32d89e5491016c841769.
 RUN /isaac-sim/python.sh -m pip install --force-reinstall daqp==0.8.5
-
-# Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
-RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.1.0 --extra-index-url https://pypi.nvidia.com
 
 # Install isaaclab_newton's [all] extra so its pinned mujoco / mujoco-warp / newton
 # versions take effect. The earlier `isaaclab*` loop above and `isaaclab.sh -i`
@@ -124,7 +120,7 @@ COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
 
-# Install IsaacLab Arena (runtime + dev deps declared in setup.py)
+# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml)
 RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
 
 ################################
@@ -151,7 +147,7 @@ RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 
-# Debugging with debugpy (installed via setup.py[dev])
+# Debugging with debugpy (installed via pyproject.toml's [dev] extra)
 # Usage:
 # 1) Set your breakpoints
 # 2) Start the script you want to debug with "debugpy" instead of "python".

@@ -274,7 +274,7 @@ def test_galbot_arm_reaches_goal():
     """Pytest entry point for Galbot arm reaching goal test."""
     result = run_simulation_app_function(
         _test_galbot_arm_reaches_goal,
-        headless=False,
+        headless=HEADLESS,
     )
     assert result, f"Test {_test_galbot_arm_reaches_goal.__name__} failed"
 

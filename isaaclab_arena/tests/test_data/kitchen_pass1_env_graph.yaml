@@ -21,11 +21,9 @@ objects:
 object_references:
 - id: counter_top
   parent_id: lightwheel_robocasa_kitchen
-  prim_path: unknown
   object_type: base
 - id: fridge
   parent_id: lightwheel_robocasa_kitchen
-  prim_path: unknown
   object_type: articulation
 relations:
 - kind: is_anchor

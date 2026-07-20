@@ -9,7 +9,7 @@ from abc import ABC
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 if TYPE_CHECKING:
     import torch

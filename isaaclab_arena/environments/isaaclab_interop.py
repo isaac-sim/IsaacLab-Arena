@@ -52,6 +52,7 @@ def environment_registration_callback() -> list[str]:
         AppLauncher.add_app_launcher_args(parser)
         args, _ = parser.parse_known_args()
         AppLauncher(args)
+        _purge_leaked_isaaclab_assets_presets()
 
     # Imports after the simulation app is started.
     from isaaclab_arena.cli.isaaclab_arena_cli import add_isaac_lab_cli_args, add_isaaclab_arena_cli_args
@@ -81,3 +82,35 @@ def environment_registration_callback() -> list[str]:
     env_builder.build_registered()
     # Return the arguments that were not consumed by this callback
     return remaining_args
+
+
+def _purge_leaked_isaaclab_assets_presets() -> None:
+    """Drop the ``isaaclab_assets`` modules that Kit imported while starting the SimulationApp.
+
+    Call this immediately after ``AppLauncher(...)`` launches the app. It works around a class
+    duplication that otherwise makes ``InteractiveScene`` reject Arena's robot cfg with
+    "Unknown asset config type for robot".
+
+    Background: ``AppLauncher._create_app()`` deletes every ``*lab*`` module from ``sys.modules``,
+    starts ``SimulationApp``, then restores the saved copies. During startup Kit auto-loads the
+    ``isaaclab_assets`` extension, which re-imports (and re-executes) the Isaac Lab cfg modules
+    under the lazy loader — minting a *second* ``ArticulationCfg`` class. The robot presets built
+    at that moment bind to this duplicate class, and because their modules were not in the restored
+    set they leak into ``sys.modules`` carrying it. Arena builds its robot cfg from those presets
+    (e.g. ``FRANKA_PANDA_HIGH_PD_CFG``), while ``InteractiveScene`` — imported before launch and
+    restored — holds the original class, so ``isinstance(asset_cfg, ArticulationCfg)`` fails.
+
+    Dropping the leaked preset modules forces Arena's embodiments to re-import them against the
+    restored (canonical) cfg classes, keeping the robot cfg on the same ``ArticulationCfg`` the
+    scene checks.
+
+    Tracked upstream at https://github.com/isaac-sim/IsaacLab/issues/6514.
+    TODO: remove this workaround once IsaacLab #6514 is resolved.
+    """
+    import sys
+
+    leaked_module_names = [
+        name for name in sys.modules if name == "isaaclab_assets" or name.startswith("isaaclab_assets.")
+    ]
+    for module_name in leaked_module_names:
+        del sys.modules[module_name]

@@ -56,13 +56,19 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
             st.caption("Rendering visualization…")
         else:
             with st.spinner("Rendering node snapshots…"):
-                st.session_state["rendered_visualization"] = build_asset_cards_with_thumbnails(validation.spec)
+                asset_cards, prim_tree = build_asset_cards_with_thumbnails(validation.spec)
+            st.session_state["rendered_visualization"] = asset_cards
+            st.session_state["rendered_prim_tree"] = prim_tree
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
             st.toast("Visualization updated.", icon="🔄")
 
     asset_cards = st.session_state.get("rendered_visualization")
     if isinstance(asset_cards, list):
         st.caption("Updates automatically when the YAML is valid.")
-        render_visualization_widgets(validation.spec, asset_cards)
+        render_visualization_widgets(
+            validation.spec,
+            asset_cards,
+            st.session_state.get("rendered_prim_tree", []),
+        )
     elif not st.session_state.get("_defer_viz_render"):
         st.caption("Rendering visualization…")

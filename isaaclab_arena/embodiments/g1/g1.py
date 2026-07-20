@@ -22,8 +22,8 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg
-from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+from isaaclab.utils.configclass import configclass
 from isaaclab_teleop import XrCfg
 from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 

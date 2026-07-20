@@ -13,7 +13,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import agent_ready, register_task

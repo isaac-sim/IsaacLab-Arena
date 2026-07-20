@@ -20,9 +20,10 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
+import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
@@ -142,8 +143,8 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
             # method claims to return w,x,y,z, but it actually returns x,y,z,w.
             # I am testing this in the test test_isaaclab_bug_get_local_poses.py.
             t_parent_C, q_parent_C_xyzw = view.get_local_poses()
-            self._t_parent_C_in_parent = t_parent_C.detach().clone()
-            self._q_parent_C_xyzw = q_parent_C_xyzw.detach().clone()
+            self._t_parent_C_in_parent = t_parent_C.torch.detach().clone()
+            self._q_parent_C_xyzw = q_parent_C_xyzw.torch.detach().clone()
 
         assert self._t_parent_C_in_parent is not None
         assert self._q_parent_C_xyzw is not None
@@ -163,4 +164,4 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
         # Apply the the sim.
-        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=env_ids.tolist())
+        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=wp.from_torch(env_ids))

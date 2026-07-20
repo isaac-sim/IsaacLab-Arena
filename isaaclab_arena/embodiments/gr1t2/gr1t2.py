@@ -22,7 +22,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 from isaaclab_teleop import XrCfg

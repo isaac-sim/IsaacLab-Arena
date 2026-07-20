@@ -9,6 +9,9 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+  schedule:
+    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job).
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 # Concurrency control to prevent parallel runs on the same PR
@@ -95,6 +98,88 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
+  uv_test:
+    name: Run tests (native uv)
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [pre_commit]
+    # Excluded from pre-merge (pull requests); still runs nightly, on push to main, and on manual dispatch.
+    if: github.event_name != 'pull_request'
+    env:
+      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
+      # Accept the Isaac Sim EULA so the first launch is non-interactive.
+      OMNI_KIT_ACCEPT_EULA: "YES"
+      ACCEPT_EULA: "Y"
+
+    # Validates the native workflow in a clean ubuntu:24.04 container.
+    container:
+      image: nvidia/cuda:12.8.2-base-ubuntu24.04
+      env:
+        # Needed to give the container access to the driver's graphics libraries.
+        NVIDIA_DRIVER_CAPABILITIES: all
+
+    steps:
+      - name: nvidia-smi
+        run: nvidia-smi
+
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+
+      - name: Install graphics loader libraries
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1
+
+      - name: Install uv
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates
+          curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # Out-of-source packaging check: validates the lockfile via the
+      # packaging tests, run in an out of source directory.
+      - name: Validate uv lock and editable package
+        run: |
+          uv python install 3.12
+          uv lock --check --offline --no-python-downloads
+          uv venv --python 3.12 /tmp/arena-package-venv
+          uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
+          uv pip install --python /tmp/arena-package-venv/bin/python pytest
+          REPO_DIR="$PWD"
+          cd /tmp
+          /tmp/arena-package-venv/bin/python -m pytest -v "${REPO_DIR}/isaaclab_arena/tests/test_packaging.py"
+
+      # In-source full environment: sync the locked deps and run the sim suite.
+      - name: Sync the locked environment
+        run: uv sync
+
+      - name: Run in-process Newton tests
+        run: |
+          uv run pytest -sv --durations=0 -m with_newton \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests without cameras
+        run: |
+          uv run pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests with cameras
+        run: |
+          uv run pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+            isaaclab_arena/tests/
+
+      - name: Run subprocess-spawning PhysX tests
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          uv run pytest -sv --durations=0 -m with_subprocess \
+            isaaclab_arena/tests/
+
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
@@ -105,7 +190,7 @@ jobs:
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -171,11 +256,11 @@ jobs:
   tests_with_subprocess:
     name: Run tests with subprocess
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -214,7 +299,7 @@ jobs:
       GR00T_REMOTE_E2E_TIMEOUT: "900"
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -276,7 +361,7 @@ jobs:
 
     container:
       # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing_curobo
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}

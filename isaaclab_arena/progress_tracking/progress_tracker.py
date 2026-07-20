@@ -11,7 +11,7 @@ from typing import Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
