@@ -501,13 +501,54 @@
                   
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>This page describes how to install Isaac Lab Arena from source inside a Docker container.</p>
+<p>This page describes how to install Isaac Lab Arena, either natively with <code class="docutils literal notranslate"><span class="pre">uv</span></code>
+or from source inside a Docker container.</p>
 <section id="supported-systems">
 <h2>Supported Systems<a class="headerlink" href="#supported-systems" title="Link to this heading">#</a></h2>
 <p>Isaac Lab Arena runs on Isaac Sim <code class="docutils literal notranslate"><span class="pre">6.0.0</span></code> and Isaac Lab <code class="docutils literal notranslate"><span class="pre">3.0.0</span></code>.
-The dependencies are installed automatically during the Docker build process.
+The dependencies are installed automatically by either workflow below.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
 <a class="reference external" href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html">Isaac Sim Requirements</a>.</p>
+</section>
+<section id="native-uv-developer-setup">
+<h2>Native uv developer setup<a class="headerlink" href="#native-uv-developer-setup" title="Link to this heading">#</a></h2>
+<p>Isaac Lab Arena can be installed natively with <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>
+against the public Isaac Lab and Isaac Sim wheels; the committed lockfile pins
+the complete environment.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/isaac-sim/IsaacLab-Arena.git
+<span class="nb">cd</span><span class="w"> </span>IsaacLab-Arena
+uv<span class="w"> </span>sync
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> creates a Python virtual environment in <code class="docutils literal notranslate"><span class="pre">.venv/</span></code> (pinned by
+<code class="docutils literal notranslate"><span class="pre">.python-version</span></code>), installs Isaac Lab Arena, and pulls Isaac Lab together
+with the matching Isaac Sim, PyTorch, and Newton wheels at the versions pinned
+by the committed lockfile.</p>
+<p>Accept the Isaac Sim EULA so the first launch is non-interactive:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+<p>Launch a short zero-action rollout as a visual validation that things are
+running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">20</span><span class="w"> </span>cube_goal_pose
+</pre></div>
+</div>
+<p>Optionally, watch the rollout in the GUI visualizer by adding <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> (and
+a few more steps so there is time to see it):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">200</span><span class="w"> </span>cube_goal_pose
+</pre></div>
+</div>
+<p>Optionally verify the installation by running the test phases (the same phases
+the Docker workflow runs below):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
+uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_subprocess<span class="w"> </span>isaaclab_arena/tests/
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed you’re ready to build your first environment;
+see <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a>.</p>
 </section>
 <section id="installation-via-docker">
 <h2>Installation via Docker<a class="headerlink" href="#installation-via-docker" title="Link to this heading">#</a></h2>
@@ -606,6 +647,7 @@ first IsaacLab-Arena Environment. See <a class="reference internal" href="first_
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-systems">Supported Systems</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#native-uv-developer-setup">Native uv developer setup</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-via-docker">Installation via Docker</a></li>
 </ul>
   </nav></div>
