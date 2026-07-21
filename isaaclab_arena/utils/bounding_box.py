@@ -310,9 +310,6 @@ class AxisAlignedBoundingBox:
     ) -> "AxisAlignedBoundingBox":
         """Refit to the axis-aligned box enclosing this box rotated about its origin by a quaternion.
 
-        Unlike rotated_around_z this handles roll/pitch, so a tilted object gets a footprint that
-        reflects its true extent. The result is the tight AABB of the 8 rotated corners.
-
         Args:
             rotation_xyzw: Rotation quaternion as (x, y, z, w). A single quaternion rotates every box
                 equally; a (M, 4) tensor gives per-box quaternions (or, for a single box, one box per
