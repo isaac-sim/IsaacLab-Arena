@@ -15,7 +15,7 @@ from pathlib import Path
 from osmo.workflows.utils.workflow_id import is_valid_workflow_id
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
-DEFAULT_OUTPUT_BASE_DIRECTORY = Path("arena_experiment_outputs")
+DEFAULT_OUTPUT_BASE_DIRECTORY = Path("/eval")
 
 
 def _workflow_id_argument(value: str) -> str:
@@ -75,7 +75,7 @@ Examples:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        help="exact local destination (default: arena_experiment_outputs/<workflow-id>)",
+        help="exact local destination (default: /eval/<workflow-id>)",
     )
     parser.allow_abbrev = False
     return parser

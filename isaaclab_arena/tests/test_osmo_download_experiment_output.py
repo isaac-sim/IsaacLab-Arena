@@ -10,12 +10,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from osmo.scripts.download_experiment_output import download_experiment_output, main
+from osmo.scripts.download_experiment_output import DEFAULT_OUTPUT_BASE_DIRECTORY, download_experiment_output, main
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
 
 def test_downloads_experiment_output_to_default_directory(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
+    assert DEFAULT_OUTPUT_BASE_DIRECTORY == Path("/eval")
+    test_output_base_directory = tmp_path / "eval"
+    monkeypatch.setattr(
+        "osmo.scripts.download_experiment_output.DEFAULT_OUTPUT_BASE_DIRECTORY",
+        test_output_base_directory,
+    )
     captured_command = None
 
     def capture_download(command):
@@ -27,7 +32,7 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch, tmp_path)
 
     return_code = main(["arena-experiment-123"])
 
-    expected_output_directory = Path("arena_experiment_outputs/arena-experiment-123")
+    expected_output_directory = test_output_base_directory / "arena-experiment-123"
     assert return_code == 0
     assert captured_command == [
         "osmo",
@@ -36,7 +41,15 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch, tmp_path)
         f"{DATASETS_SWIFT_URL}/arena-experiment-123/",
         expected_output_directory.as_posix(),
     ]
-    assert (tmp_path / expected_output_directory).is_dir()
+    assert expected_output_directory.is_dir()
+
+
+def test_help_states_default_output_directory(capsys):
+    with pytest.raises(SystemExit) as help_exit:
+        main(["--help"])
+
+    assert help_exit.value.code == 0
+    assert "/eval/<workflow-id>" in capsys.readouterr().out
 
 
 def test_downloads_to_explicit_directory_without_shell_splitting(monkeypatch, tmp_path):
