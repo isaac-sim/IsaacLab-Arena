@@ -10,10 +10,13 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import yaml
+from dataclasses import dataclass
 
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
@@ -33,21 +36,83 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 
 
-def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
-    """Return the background USD prim tree records, empty when unavailable."""
+@dataclass(frozen=True)
+class BackgroundPreview:
+    """Resolved background USD path and prim tree when extractable from YAML."""
+
+    usd_path: str | None
+    prim_tree: list[UsdPrimRecord]
+
+
+def _load_background_prim_tree(usd_path: str, *, registry_name: str) -> list[UsdPrimRecord]:
+    """Load prim tree records for one background USD path."""
     from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
     try:
-        usd_path = spec.background.resolve_usd_path()
-        if not usd_path:
-            return []
         return load_usd_prim_tree(usd_path)
     except Exception as exc:
         print(
-            f"[visualization_service] background prim tree lookup failed for '{spec.background.registry_name}': {exc}",
+            f"[visualization_service] background prim tree lookup failed for '{registry_name}': {exc}",
             file=sys.stderr,
         )
         return []
+
+
+def _background_asset_from_yaml_text(text: str) -> AssetSpec | None:
+    """Parse a ``background`` asset block from YAML text when the full spec is invalid."""
+    try:
+        raw = yaml.safe_load(text)
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    background = raw.get("background")
+    if not isinstance(background, dict):
+        return None
+    try:
+        return AssetSpec.model_validate(background)
+    except Exception:
+        return None
+
+
+def _resolve_background_preview_from_asset(asset: AssetSpec) -> BackgroundPreview:
+    """Resolve USD path and prim tree for one background asset spec."""
+    try:
+        usd_path = asset.resolve_usd_path()
+    except Exception as exc:
+        print(
+            f"[visualization_service] background USD lookup failed for '{asset.registry_name}': {exc}",
+            file=sys.stderr,
+        )
+        return BackgroundPreview(usd_path=None, prim_tree=[])
+    prim_tree = _load_background_prim_tree(usd_path, registry_name=asset.registry_name)
+    return BackgroundPreview(usd_path=usd_path, prim_tree=prim_tree)
+
+
+def resolve_background_preview(text: str, *, spec: ArenaEnvGraphSpec | None = None) -> BackgroundPreview:
+    """Return background USD path and prim tree when extractable from YAML text.
+
+    Uses the validated spec when available; otherwise parses only the ``background`` block.
+    """
+    cached_text = st.session_state.get("_background_preview_text")
+    cached_result = st.session_state.get("_background_preview_result")
+    if cached_text == text and isinstance(cached_result, BackgroundPreview):
+        return cached_result
+
+    if spec is not None:
+        result = _resolve_background_preview_from_asset(spec.background)
+    else:
+        asset = _background_asset_from_yaml_text(text)
+        result = _resolve_background_preview_from_asset(asset) if asset is not None else BackgroundPreview(None, [])
+
+    st.session_state["_background_preview_text"] = text
+    st.session_state["_background_preview_result"] = result
+    return result
+
+
+def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
+    """Return the background USD prim tree records, empty when unavailable."""
+    return _resolve_background_preview_from_asset(spec.background).prim_tree
 
 
 def _spec_render_key(spec: ArenaEnvGraphSpec, *, background_panorama: bool) -> str:
@@ -55,22 +120,19 @@ def _spec_render_key(spec: ArenaEnvGraphSpec, *, background_panorama: bool) -> s
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _cached_asset_cards(spec_key: str) -> tuple[list[AssetCard], list[UsdPrimRecord]] | None:
+def _cached_asset_cards(spec_key: str) -> list[AssetCard] | None:
     cache = st.session_state.get("_asset_cards_cache")
     if isinstance(cache, dict) and cache.get("key") == spec_key:
         asset_cards = cache.get("asset_cards")
         if isinstance(asset_cards, list):
-            prim_tree = cache.get("prim_tree")
-            if isinstance(prim_tree, list):
-                return asset_cards, prim_tree
+            return asset_cards
     return None
 
 
-def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard], prim_tree: list[UsdPrimRecord]) -> None:
+def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard]) -> None:
     st.session_state["_asset_cards_cache"] = {
         "key": spec_key,
         "asset_cards": asset_cards,
-        "prim_tree": prim_tree,
     }
 
 
@@ -112,11 +174,8 @@ def build_asset_cards_with_thumbnails(
     spec: ArenaEnvGraphSpec,
     *,
     background_panorama: bool = False,
-) -> tuple[list[AssetCard], list[UsdPrimRecord]]:
-    """Build per-node asset cards plus the background prim tree records.
-
-    Loads the prim tree from the background USD directly and asks the SimApp
-    server for live USD thumbnails when available.
+) -> list[AssetCard]:
+    """Build per-node asset cards with optional SimApp thumbnails.
 
     Args:
         spec: Environment graph spec to visualize.
@@ -133,7 +192,6 @@ def build_asset_cards_with_thumbnails(
 
     thumbnails: dict[str, bytes] = {}
     aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
-    prim_tree = resolve_background_prim_tree(spec)
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
@@ -156,5 +214,5 @@ def build_asset_cards_with_thumbnails(
         aabb_dimensions_m or None,
         panorama_node_ids or None,
     )
-    _store_asset_cards(spec_key, asset_cards, prim_tree)
-    return asset_cards, prim_tree
+    _store_asset_cards(spec_key, asset_cards)
+    return asset_cards

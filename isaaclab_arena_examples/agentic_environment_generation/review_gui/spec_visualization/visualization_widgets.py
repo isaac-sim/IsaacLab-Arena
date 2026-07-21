@@ -103,28 +103,31 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
     _flush_row()
 
 
-def _render_prim_tree(prim_tree: list[UsdPrimRecord]) -> None:
-    """Render the background prim tree in a collapsed, searchable, view-only box."""
-    if not prim_tree:
+def render_background_prim_tree(usd_path: str | None, prim_tree: list[UsdPrimRecord]) -> None:
+    """Render the background USD path and prim tree in a collapsed, searchable box."""
+    if not usd_path and not prim_tree:
         return
     with st.expander("Background prim tree", expanded=False):
-        st.iframe(
-            render_prim_tree_html(prim_tree),
-            height=estimate_prim_tree_height_px(prim_tree),
-        )
+        if usd_path:
+            st.markdown(f"`{usd_path}`")
+        if prim_tree:
+            st.iframe(
+                render_prim_tree_html(prim_tree),
+                height=estimate_prim_tree_height_px(prim_tree),
+            )
+        elif usd_path:
+            st.caption("Prim tree unavailable.")
 
 
 def render_visualization_widgets(
     spec: ArenaEnvGraphSpec,
     asset_cards: list[AssetCard],
-    prim_tree: list[UsdPrimRecord] | None = None,
 ) -> None:
     """Render the spec visualization (assets, spatial graph, tasks) as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
         st.caption(summary)
-    _render_prim_tree(prim_tree or [])
     if asset_cards:
         st.markdown("**Assets**")
         _render_asset_grid(asset_cards)
