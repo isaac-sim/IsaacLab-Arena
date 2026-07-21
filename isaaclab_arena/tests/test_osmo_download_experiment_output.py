@@ -75,11 +75,15 @@ def test_downloads_to_explicit_directory_without_shell_splitting(monkeypatch, tm
 
 
 @pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])
-def test_rejects_invalid_workflow_id_before_download(monkeypatch, tmp_path, workflow_id):
+def test_rejects_invalid_workflow_id_at_both_entry_points(monkeypatch, tmp_path, workflow_id):
     def fail_if_called(command):
         pytest.fail(f"Unexpected download command: {command}")
 
     monkeypatch.setattr("osmo.scripts.download_experiment_output.subprocess.run", fail_if_called)
+
+    with pytest.raises(SystemExit) as invalid_argument_exit:
+        main([workflow_id])
+    assert invalid_argument_exit.value.code == 2
 
     with pytest.raises(AssertionError, match="Invalid OSMO workflow ID"):
         download_experiment_output(workflow_id, tmp_path / "output")

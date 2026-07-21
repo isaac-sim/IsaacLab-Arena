@@ -18,9 +18,14 @@ from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 DEFAULT_OUTPUT_BASE_DIRECTORY = Path("/eval")
 
 
+def _is_safe_workflow_id(value: str) -> bool:
+    """Return whether a workflow ID is safe to use as a remote and local path component."""
+    return is_valid_workflow_id(value) and value not in {".", ".."}
+
+
 def _workflow_id_argument(value: str) -> str:
     """Parse a workflow ID that is safe to use as a remote and local path component."""
-    if not is_valid_workflow_id(value) or value in {".", ".."}:
+    if not _is_safe_workflow_id(value):
         raise argparse.ArgumentTypeError(f"invalid OSMO workflow ID: {value!r}")
     return value
 
@@ -35,10 +40,7 @@ def download_experiment_output(workflow_id: str, output_directory: Path) -> int:
     Returns:
         The ``osmo data download`` process status.
     """
-    assert is_valid_workflow_id(workflow_id) and workflow_id not in {
-        ".",
-        "..",
-    }, f"Invalid OSMO workflow ID: {workflow_id!r}"
+    assert _is_safe_workflow_id(workflow_id), f"Invalid OSMO workflow ID: {workflow_id!r}"
     output_directory = output_directory.expanduser()
     output_directory.mkdir(parents=True, exist_ok=True)
     assert not any(output_directory.iterdir()), f"Experiment output directory must be empty: '{output_directory}'"
