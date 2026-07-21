@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSMO task that builds and publishes one Arena Experiment output from Experiment Runner outputs."""
+"""OSMO task that collects Experiment Runner outputs into one published Arena Experiment output."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ def experiment_runner_output_directory_input_token(experiment_runner_task_name: 
     return "{{input:" + experiment_runner_task_name + "}}"
 
 
-class ExperimentOutputTask(BaseTask):
-    """Build and publish one Experiment output from the Experiment Runner task outputs.
+class CollectExperimentOutputsTask(BaseTask):
+    """Collect and publish one Experiment output from the Experiment Runner task outputs.
 
     For each Run, OSMO exposes its Experiment Runner task output at ``{{input:<runner-task>}}``. The embedded script
     copies ``{{input:<runner-task>}}/<run-name>/...`` to ``{{output}}/<run-name>/...`` and writes
@@ -42,15 +42,13 @@ class ExperimentOutputTask(BaseTask):
         experiment_runner_task_names_by_run_name: Mapping[str, str],
         lead: bool | None = None,
         resource: str | None = None,
+        *,
+        task_name: str,
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
-        super().__init__(lead=lead, resource=resource)
+        super().__init__(task_name=task_name, lead=lead, resource=resource)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
-
-    @staticmethod
-    def get_task_name() -> str:
-        return "build-experiment-output"
 
     def _get_image(self) -> str:
         return self.image

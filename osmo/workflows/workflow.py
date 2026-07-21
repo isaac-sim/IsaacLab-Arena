@@ -113,7 +113,13 @@ class Workflow(SubmittableWorkflow):
     """Builds, renders, and submits a single Arena OSMO workflow."""
 
     task_cls_list: list[type[BaseTask]] = []
-    """Task classes that make up this workflow, in group order. Subclasses must set this."""
+    """Task classes that make up a static workflow, in group order."""
+
+    task_names: list[str] = []
+    """OSMO names for the task instances, in the same order as ``task_cls_list``."""
+
+    constructs_groups_directly: bool = False
+    """Whether the workflow creates groups without the static task declarations above."""
 
     lead_list: list[bool] | None = None
     """Per-task lead flags; ``None`` lets a single-task workflow default its task to lead."""
@@ -124,11 +130,22 @@ class Workflow(SubmittableWorkflow):
         task_cfg: TaskCfg,
         group_name: str = "arena",
     ) -> None:
-        assert len(self.task_cls_list) > 0, "Workflow subclasses must set task_cls_list"
         super().__init__(workflow_cfg=workflow_cfg, task_cfg=task_cfg)
-        # Single-task workflows may leave lead_list unset; that task defaults to lead.
-        self.lead_flags = self.lead_list if self.lead_list is not None else [True]
-        self._assert_single_lead_task(self.lead_flags)
+        if self.task_cls_list:
+            assert len(self.task_names) == len(self.task_cls_list), "Each task class requires one explicit task name"
+            assert all(
+                isinstance(task_name, str) and task_name for task_name in self.task_names
+            ), "Task names must be non-empty strings"
+            assert len(set(self.task_names)) == len(self.task_names), "Task names must be unique within a group"
+            # Single-task workflows may leave lead_list unset; that task defaults to lead.
+            self.lead_flags = self.lead_list if self.lead_list is not None else [True]
+            self._assert_single_lead_task(self.lead_flags)
+        else:
+            # Workflows with custom group construction create and name their tasks directly.
+            assert (
+                self.constructs_groups_directly
+            ), "Workflow subclasses must declare tasks or set constructs_groups_directly=True"
+            self.lead_flags = []
         self.group_name = group_name
 
     def _assert_single_lead_task(self, lead_flags: list[bool]) -> None:
@@ -187,10 +204,11 @@ class Workflow(SubmittableWorkflow):
 
     def _get_tasks(self) -> list[BaseTask]:
         """Instantiate task objects for this workflow."""
+        assert self.task_cls_list, "Static workflows must declare task_cls_list"
         tasks = []
-        for task_cls, lead in zip(self.task_cls_list, self.lead_flags):
+        for task_cls, task_name, lead in zip(self.task_cls_list, self.task_names, self.lead_flags):
             assert issubclass(task_cls, BaseTask)
-            tasks.append(task_cls(self.task_cfg, lead=lead))
+            tasks.append(task_cls(task_name=task_name, task_cfg=self.task_cfg, lead=lead))
         return tasks
 
     def _submit_rendered_workflow(self, rendered: str) -> WorkflowSubmissionResult:

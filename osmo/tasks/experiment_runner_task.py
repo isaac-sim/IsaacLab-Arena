@@ -42,17 +42,14 @@ class ExperimentRunnerTask(BaseTask):
         task_cfg: ExperimentRunnerTaskCfg,
         experiment_cfg: ArenaExperimentCfg,
         lead: bool | None = None,
-        task_name: str | None = None,
+        *,
+        task_name: str,
         published_output_url: str | None = DATASET_SWIFT_URL,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead, task_name=task_name)
+        super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
         self.published_output_url = published_output_url
-
-    @staticmethod
-    def get_task_name() -> str:
-        return "experiment_runner"
 
     def _get_image(self) -> str:
         return self.task_cfg.image

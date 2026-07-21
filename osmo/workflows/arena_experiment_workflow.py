@@ -14,7 +14,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
-from osmo.tasks.experiment_output_task import ExperimentOutputTask
+from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
@@ -24,12 +24,10 @@ from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 class Pi0ArenaExperimentWorkflow(Workflow):
     """Run every Arena Experiment Run in its own OSMO group."""
 
-    task_cls_list = [ExperimentRunnerTask, Pi0ServerTask]
+    constructs_groups_directly = True
     task_cfg_type = ExperimentRunnerTaskCfg
     server_task_cfg_type = Pi0ServerTaskCfg
     """Configuration type used by this policy-server workflow."""
-
-    lead_list = [True, False]
 
     experiment_output_resource_name = "experiment-output"
 
@@ -56,7 +54,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         self._assert_pi0_server_compatible(pi0_policy_variants_by_run)
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
-        """Create one independently scheduled group per Run, then build one Experiment output from their results."""
+        """Create one independently scheduled group per Run, then collect their outputs into one Experiment output."""
         run_group_dicts: list[dict[str, Any]] = []
         experiment_runner_task_names_by_run_name: dict[str, str] = {}
         for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
@@ -117,7 +115,8 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         experiment_runner_task_names_by_run_name: dict[str, str],
     ) -> dict[str, Any]:
         """Collect every Experiment Runner task output into one published Experiment output."""
-        experiment_output_task = ExperimentOutputTask(
+        collect_experiment_outputs_task = CollectExperimentOutputsTask(
+            task_name="collect-experiment-outputs",
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             lead=True,
@@ -125,11 +124,11 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         )
         return {
             "name": "arena-experiment-output",
-            "tasks": [experiment_output_task.create_task_dict()],
+            "tasks": [collect_experiment_outputs_task.create_task_dict()],
         }
 
     def _create_resources_dict(self) -> dict[str, dict[str, Any]]:
-        """Use configured resources for Runs and a CPU-only resource for building the Experiment output."""
+        """Use configured resources for Runs and a CPU-only resource for collecting the Experiment output."""
         run_task_resource = self._create_resource_dict()
         experiment_output_task_resource = {**run_task_resource, "gpu": 0}
         return {

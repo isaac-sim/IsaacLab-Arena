@@ -28,12 +28,14 @@ class BaseTask(ABC):
         self,
         task_cfg: TaskCfg | None = None,
         lead: bool | None = None,
-        task_name: str | None = None,
+        *,
+        task_name: str,
         resource: str | None = None,
     ) -> None:
+        assert isinstance(task_name, str) and task_name, "Task name must be a non-empty string"
+        self.task_name = task_name
         self.task_cfg = task_cfg
         self.lead = lead
-        self.task_name = task_name or self.get_task_name()
         self.resource = resource
 
     def create_task_dict(self) -> dict[str, Any]:
@@ -79,14 +81,10 @@ class BaseTask(ABC):
         }
 
     @staticmethod
-    @abstractmethod
-    def get_task_name() -> str:
-        """Return the task name."""
-
-    @classmethod
-    def host_token(cls, task_name: str | None = None) -> str:
+    def host_token(task_name: str) -> str:
         """Return the OSMO ``{{host:<task>}}`` token that resolves to this task's runtime host/IP."""
-        return "{{host:" + (task_name or cls.get_task_name()) + "}}"
+        assert isinstance(task_name, str) and task_name, "Host token task name must be a non-empty string"
+        return "{{host:" + task_name + "}}"
 
     @abstractmethod
     def _get_image(self) -> str:

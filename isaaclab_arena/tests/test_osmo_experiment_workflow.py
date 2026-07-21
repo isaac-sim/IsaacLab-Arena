@@ -29,7 +29,7 @@ from osmo.submit_arena_experiment import (
     submit_arena_experiment,
 )
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.experiment_output_task import (
+from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
@@ -262,7 +262,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "--policy.config=pi05_droid_jointpos_polaris" in server_command
 
     experiment_output_task = groups[3]["tasks"][0]
-    assert experiment_output_task["name"] == "build-experiment-output"
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
     assert experiment_output_task["resource"] == "experiment-output"
     assert experiment_output_task["inputs"] == [
         {"task": "experiment-runner-0"},
@@ -299,6 +299,7 @@ def test_embeds_effective_experiment_yaml():
         task_cfg=ExperimentRunnerTaskCfg(image="registry.example.com/evaluator:typed-api"),
         experiment_cfg=_zero_action_experiment_cfg(),
         lead=True,
+        task_name="experiment-runner",
     )
 
     eval_task = experiment_runner_task.create_task_dict()
@@ -572,7 +573,8 @@ def test_pi0_server_quotes_configurable_shell_values():
         Pi0ServerTaskCfg(
             policy_config="config with spaces",
             policy_dir="gs://bucket/checkpoint; false",
-        )
+        ),
+        task_name="policy-server",
     )
 
     command = task._get_run_script()
