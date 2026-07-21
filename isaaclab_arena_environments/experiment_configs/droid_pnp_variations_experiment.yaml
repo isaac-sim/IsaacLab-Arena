@@ -1,0 +1,22 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  variations_demo:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_rel_joint_pos
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 10
+    # Number of times the environment is rebuilt with different variation values.
+    num_rebuilds: 5
+    # The variations to enable for this run.
+    variations:
+      light.hdr_image.enabled: true
+      light.intensity.enabled: true
+      droid_rel_joint_pos.camera_extrinsics_wrist_camera.enabled: true

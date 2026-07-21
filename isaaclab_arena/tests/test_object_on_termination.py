@@ -49,11 +49,12 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     scene = Scene(assets=[background, cracker_box, destination_location])
 
+    task = PickAndPlaceTask(cracker_box, destination_location, background)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
         embodiment=FrankaIKEmbodiment(),
         scene=scene,
-        task=PickAndPlaceTask(cracker_box, destination_location, background),
+        task=task,
     )
 
     # Compile an IsaacLab compatible arena environment configuration
@@ -69,7 +70,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         velocities_vec = []
         success_vec = []
         terminated_vec = []
-        sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
+        sensor = env.unwrapped.scene.sensors[task.contact_sensor_name]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

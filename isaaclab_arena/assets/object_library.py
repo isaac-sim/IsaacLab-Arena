@@ -867,22 +867,22 @@ class HammerHandalRobolab(LibraryObject):
 
 
 @register_asset
-class Hammer1HandalRobolab(LibraryObject):
-    name = "hammer_1_handal_robolab"
+class BlackHammerRobolab(LibraryObject):
+    name = "black_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_1.usd"
 
 
 @register_asset
-class Hammer2HandalRobolab(LibraryObject):
-    name = "hammer_2_handal_robolab"
+class WoodHammerRobolab(LibraryObject):
+    name = "wood_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_2.usd"
 
 
 @register_asset
-class Hammer3HandalRobolab(LibraryObject):
-    name = "hammer_3_handal_robolab"
+class RedHammerRobolab(LibraryObject):
+    name = "red_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_3.usd"
 
@@ -902,8 +902,8 @@ class Hammer5HandalRobolab(LibraryObject):
 
 
 @register_asset
-class Hammer6HandalRobolab(LibraryObject):
-    name = "hammer_6_handal_robolab"
+class BlueHammerRobolab(LibraryObject):
+    name = "blue_hammer_robolab"
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_6.usd"
 

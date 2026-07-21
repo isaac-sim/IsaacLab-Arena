@@ -244,6 +244,10 @@ class ObjectPlacer:
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
         unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
+        # Roll/pitch marker objects carry a fixed out-of-plane rotation the yaw pass cannot
+        # represent; enclose that rotated footprint once so overlap checks match the rotation
+        # _apply_poses writes verbatim. The yaw pass below then leaves these objects untouched.
+        base_candidate_bboxes = self._bake_marker_rotation_footprints(objects, unrotated_candidate_bboxes)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
@@ -261,9 +265,7 @@ class ObjectPlacer:
             )
 
         # Bake each candidate's yaw into a conservative enclosing bbox for overlap checks.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
+        candidate_bboxes = self._rotate_candidate_bboxes(objects, base_candidate_bboxes, orientations_per_candidate)
 
         all_positions = self._solver.solve(
             objects,
@@ -274,10 +276,8 @@ class ObjectPlacer:
             collision_objects=collision_objects,
         )
         self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
+        # FaceTo yaw is only known after solving, so rebuild from the base boxes before validation.
+        candidate_bboxes = self._rotate_candidate_bboxes(objects, base_candidate_bboxes, orientations_per_candidate)
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         all_validations = [
@@ -414,18 +414,21 @@ class ObjectPlacer:
     ) -> dict[ObjectBase, float]:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
-        Marker yaw is always included; random_yaw_init adds a sampled delta.
+        Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects
+        are omitted here so their requested rotation is applied directly.
         """
         orientations: dict[ObjectBase, float] = {}
         for obj in objects:
-            marker_yaw = self._get_yaw_from_rotate_around_solution(obj)
+            marker = self._get_relation(obj, RotateAroundSolution)
+            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
+            marker_yaw = marker.yaw_rad if marker is not None else 0.0
             if obj in anchor_objects:
-                assert marker_yaw == 0.0, (
-                    f"Anchor '{obj.name}' has a RotateAroundSolution (yaw={marker_yaw:.3f}). "
+                assert marker is None or (marker_yaw == 0.0 and not has_roll_pitch), (
+                    f"Anchor '{obj.name}' has a RotateAroundSolution. "
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif self._get_relation(obj, FaceTo) is None:
+            elif self._get_relation(obj, FaceTo) is None and not has_roll_pitch:
                 sampled_yaw = get_random_rotation(generator) if self.params.random_yaw_init else 0.0
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
                 if total_yaw != 0.0:
@@ -455,6 +458,27 @@ class ObjectPlacer:
                 if direction_is_defined:
                     orientations_per_candidate[candidate_idx][obj] = yaw.item()
 
+    def _bake_marker_rotation_footprints(
+        self,
+        objects: list[ObjectBase],
+        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        """Enclose the applied footprint of roll/pitch marker objects.
+
+        Roll/pitch marker objects are excluded from the sampled-yaw path, because the yaw-only bbox
+        pass cannot represent that out-of-plane rotation, so replace each such object's box with the AABB enclosing
+        it after the marker rotation. The subsequent yaw pass leaves these objects untouched.
+
+        Returns a shallow copy with only roll/pitch objects replaced; other boxes are shared.
+        """
+        baked = dict(candidate_bboxes)
+        for obj in objects:
+            marker = self._get_relation(obj, RotateAroundSolution)
+            if marker is None or (marker.roll_rad == 0.0 and marker.pitch_rad == 0.0):
+                continue
+            baked[obj] = candidate_bboxes[obj].enclosing_after_rotation(marker.get_rotation_xyzw())
+        return baked
+
     @staticmethod
     def _rotate_candidate_bboxes(
         objects: list[ObjectBase],
@@ -478,22 +502,6 @@ class ObjectPlacer:
                 bbox = bbox.rotated_around_z(yaw_tensor)
             rotated[obj] = bbox
         return rotated
-
-    @staticmethod
-    def _get_yaw_from_rotate_around_solution(obj: ObjectBase) -> float:
-        """Z-yaw (radians) of obj's RotateAroundSolution marker, 0.0 if none.
-
-        Rejects roll/pitch markers: a Z-rotated box can't enclose them, so they would otherwise
-        validate a silently-wrong footprint.
-        """
-        marker = ObjectPlacer._get_relation(obj, RotateAroundSolution)
-        if marker is None:
-            return 0.0
-        assert marker.roll_rad == 0.0 and marker.pitch_rad == 0.0, (
-            f"random_yaw_init cannot enclose a roll/pitch RotateAroundSolution on '{obj.name}' "
-            f"(roll={marker.roll_rad}, pitch={marker.pitch_rad}); only yaw markers are supported."
-        )
-        return marker.yaw_rad
 
     @staticmethod
     def _get_bounding_boxes_for_candidate_index(

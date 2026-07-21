@@ -5,6 +5,7 @@
 
 """Test Hydra composition of typed YAML Experiments."""
 
+import yaml
 from pathlib import Path
 from yaml.constructor import ConstructorError
 
@@ -14,7 +15,8 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -173,6 +175,24 @@ runs:
     assert list(experiment_cfg.runs) == ["first", "second"]
     assert experiment_cfg.runs["first"].environment.light_intensity == 750.0
     assert experiment_cfg.runs["second"].environment.enable_cameras is True
+
+
+def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
+    experiment_cfg = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH,
+        overrides=["runs.baseline.environment.light_intensity=750.0"],
+    )
+
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+    serialized_values = yaml.safe_load(serialized_experiment)
+    serialized_baseline = serialized_values["runs"]["baseline"]
+    assert serialized_baseline["environment"]["type"] == "pick_and_place_maple_table"
+    assert serialized_baseline["policy"]["type"] == "zero_action"
+    assert serialized_baseline["environment"]["light_intensity"] == 750.0
+    assert "name" not in serialized_baseline
+
+    serialized_path = _write_experiment(tmp_path, serialized_experiment)
+    assert _load_experiment(serialized_path) == experiment_cfg
 
 
 @pytest.mark.parametrize(
