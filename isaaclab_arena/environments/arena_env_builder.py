@@ -87,7 +87,6 @@ class ArenaEnvBuilder:
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
 
-        # The env may supply placer_params carrying its build-time check policy.
         placer_params = self.arena_env.placer_params
         if placer_params is None:
             placer_params = ObjectPlacerParams(
