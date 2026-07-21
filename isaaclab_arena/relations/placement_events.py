@@ -136,8 +136,12 @@ def solve_and_place_objects(
         placement_pool.num_envs == num_scene_envs
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-    anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotation_per_object(objects)
+    # Layout keys come from the pool's object list. EventTermCfg params are deep-copied by
+    # configclass, so the ``objects`` argument may hold different PlacementEntity instances
+    # (e.g. ObjectReference anchors) with the same names.
+    pool_objects = placement_pool.objects
+    anchor_objects_set = set(get_anchor_objects(pool_objects))
+    base_rotations = get_base_rotation_per_object(pool_objects)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]

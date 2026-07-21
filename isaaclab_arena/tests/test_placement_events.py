@@ -194,6 +194,35 @@ def test_solve_and_place_objects_writes_poses_to_sim():
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
 
 
+def test_solve_and_place_objects_ignores_deepcopied_event_objects():
+    """EventTermCfg deepcopy must not break anchor skips or base-rotation lookup."""
+    import copy
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    pool_objects = [desk, box1, box2]
+
+    env = _make_mock_env(num_envs=1)
+    env_ids = torch.tensor([0])
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PooledObjectPlacer(objects=pool_objects, placer_params=placer_params, pool_size=10)
+
+    # configclass deep-copies EventTermCfg.params, duplicating PlacementEntity instances.
+    event_objects = copy.deepcopy(pool_objects)
+    assert event_objects[0] is not pool_objects[0]
+
+    _solve_and_place_with_pool(env, env_ids, event_objects, pool)
+
+    assert "desk" not in env._assets, "Anchor should be skipped even when event params are deepcopied"
+    for name in ("box1", "box2"):
+        env._assets[name].write_root_pose_to_sim.assert_called_once()
+
+
 def test_solve_and_place_objects_uses_runtime_pool():
     """Reset params should use the runtime placement pool directly."""
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
@@ -204,6 +233,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
 
     class Pool:
         num_envs = 1
+        objects = [desk, box1]
 
         def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
             assert env_ids == [0]
