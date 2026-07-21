@@ -53,6 +53,7 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
     placement = graph_spec.placement_validators
     enabled = placement.enabled_checks if placement is not None else None
     required = placement.required_checks if placement is not None else None
+    # TODO(xinjieyao): enable auto-identification of the placer params from env relations
 
     return ObjectPlacerParams(
         enabled_checks=set(enabled) if enabled is not None else None,
