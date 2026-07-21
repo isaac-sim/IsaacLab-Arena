@@ -36,7 +36,6 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch):
     )
 
 
-@pytest.mark.with_subprocess
 def test_cli_help_states_default_output_directory():
     result = subprocess.run(
         [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", "--help"],
@@ -83,7 +82,6 @@ def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting
 
 
 @pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])
-@pytest.mark.with_subprocess
 def test_cli_rejects_invalid_workflow_id(workflow_id):
     result = subprocess.run(
         [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", workflow_id],
