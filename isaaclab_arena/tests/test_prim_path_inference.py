@@ -33,8 +33,21 @@ def test_prim_tree_catalog_nested_format():
     ]
     assert (
         _prim_tree_catalog(tree)
-        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n  corpus (rigid)\n    back (base)"
+        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n"
+        "  cab_1_main_group/corpus (rigid)\n"
+        "    cab_1_main_group/corpus/back (base)"
     )
+
+
+def test_prim_tree_catalog_shows_full_path_for_nested_floor():
+    tree = [
+        UsdPrimRecord("Kitchen", ObjectType.BASE),
+        UsdPrimRecord("Kitchen/Floor", ObjectType.BASE),
+        UsdPrimRecord("Counter_north_0", ObjectType.BASE),
+    ]
+    catalog = _prim_tree_catalog(tree)
+    assert "Kitchen/Floor (base)" in catalog
+    assert "\n  Floor (base)" not in catalog
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
