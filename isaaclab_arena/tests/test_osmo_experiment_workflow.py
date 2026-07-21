@@ -32,6 +32,9 @@ from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_output_task import (
     _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+    ExperimentOutputTaskCfg,
+    experiment_output_swift_url,
+    experiment_report_https_url,
     experiment_runner_output_directory_input_token,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
@@ -49,6 +52,7 @@ OPENPI_EXPERIMENT_CFG_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
 )
 OPENPI_RUN_NAME = "droid_pnp_srl_openpi_billiard_hall"
+TEMPORARY_REPORT_SWIFT_PATH = "AUTH_team-isaac/nvblox/reports"
 
 
 def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
@@ -152,6 +156,7 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
     assert submission_cfg.osmo.platform == "ovx-l40s"
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
     assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+    assert submission_cfg.experiment_output == ExperimentOutputTaskCfg()
     assert submission_cfg.policy_server == Pi0ServerTaskCfg()
     assert submission_cfg.policy_server.client_ping_timeout_s == Pi0ServerTaskCfg.client_ping_timeout_s
 
@@ -174,7 +179,10 @@ def test_submitter_rejects_unregistered_policy_server_type():
         submit_arena_experiment(submission_cfg)
 
 
-@pytest.mark.parametrize("config_path", ["osmo.not_a_field", "experiment_runner.not_a_field"])
+@pytest.mark.parametrize(
+    "config_path",
+    ["osmo.not_a_field", "experiment_runner.not_a_field", "experiment_output.not_a_field"],
+)
 def test_hydra_rejects_unknown_typed_config_fields(config_path):
     """Let the structured Hydra root reject fields outside their owning config."""
     with pytest.raises(ConfigCompositionException, match="not_a_field"):
@@ -337,6 +345,40 @@ def test_submission_removes_temporary_workflow(monkeypatch):
     assert not captured_workflow_path.exists()
 
 
+def test_successful_submission_prints_direct_report_url(monkeypatch, capsys):
+    """Print the browser URL corresponding to the submitted workflow's Swift output."""
+    submission_cfg = ArenaExperimentSubmissionCfg(
+        experiment_cfg=_pi0_experiment_cfg(),
+        policy_server=Pi0ServerTaskCfg(),
+        experiment_output=ExperimentOutputTaskCfg(swift_path=TEMPORARY_REPORT_SWIFT_PATH),
+    )
+
+    monkeypatch.setattr(
+        "osmo.workflows.workflow.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="Workflow ID - arena-report-123\n"),
+    )
+
+    assert submit_arena_experiment(submission_cfg) == 0
+    output = capsys.readouterr().out
+    assert (
+        "Report (available when the workflow completes): "
+        "https://pdx.s8k.io/v1/AUTH_team-isaac/nvblox/reports/arena-report-123/index.html"
+        in output
+    )
+
+
+def test_experiment_output_urls_append_workflow_identity_and_report_filename():
+    """Derive collision-free upload and browser URLs from one configured Swift path."""
+    assert (
+        experiment_output_swift_url(f"/{TEMPORARY_REPORT_SWIFT_PATH}/")
+        == "swift://pdx.s8k.io/AUTH_team-isaac/nvblox/reports/{{workflow_id}}"
+    )
+    assert (
+        experiment_report_https_url(TEMPORARY_REPORT_SWIFT_PATH, "report workflow/1")
+        == "https://pdx.s8k.io/v1/AUTH_team-isaac/nvblox/reports/report%20workflow%2F1/index.html"
+    )
+
+
 def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys):
     """Resolve typed defaults, Experiment values, then CLI overrides."""
     experiment_path = tmp_path / "experiment.yaml"
@@ -358,6 +400,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
             "osmo.dry_run=true",
             "osmo.workflow_name=overridden-experiment",
             "experiment_runner.image=registry.example.com/evaluator:branch",
+            f"experiment_output.swift_path={TEMPORARY_REPORT_SWIFT_PATH}",
             "policy_server.image=registry.example.com/openpi:overridden",
             "policy_server.policy_config=overridden-pi0-config",
             "policy_server.client_ping_timeout_s=600.0",
@@ -379,6 +422,10 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
     assert tasks[0]["image"] == "registry.example.com/evaluator:branch"
     assert tasks[1]["image"] == "registry.example.com/openpi:overridden"
+    experiment_output_task = _workflow_tasks(workflow, -1)[0]
+    assert experiment_output_task["outputs"] == [
+        {"url": "swift://pdx.s8k.io/AUTH_team-isaac/nvblox/reports/{{workflow_id}}"}
+    ]
 
     experiment = _embedded_experiment(tasks[0])
     policy = experiment["runs"]["openpi_maple_table"]["policy"]

@@ -10,16 +10,52 @@ from __future__ import annotations
 import json
 import shlex
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
-from osmo.tasks.base_task import BaseTask
+from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
-from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
+from osmo.workflows.workflow_constants import DATASETS_PATH, HTTPS_URL_PREFIX, OSMO_TASK_OUTPUT_DIR, SWIFT_URL_PREFIX
 
 _LOCAL_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "build_experiment_output.py"
 _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH = "/tmp/arena_build_experiment_output.py"
 _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH = "/tmp/arena_experiment_runner_output_directories.json"
+_OSMO_WORKFLOW_ID_TOKEN = "{{workflow_id}}"
+_EXPERIMENT_REPORT_FILENAME = "index.html"
+
+
+@dataclass
+class ExperimentOutputTaskCfg(TaskCfg):
+    """Configuration for publishing a complete Arena Experiment output."""
+
+    swift_path: str = DATASETS_PATH
+    """Swift account, container, and prefix; OSMO appends the workflow ID."""
+
+
+def _normalize_swift_path(swift_path: str) -> str:
+    """Return a non-empty Swift account/container/prefix without surrounding slashes."""
+    normalized_swift_path = swift_path.strip("/")
+    assert normalized_swift_path, "Experiment output Swift path must not be empty"
+    assert (
+        "://" not in normalized_swift_path
+    ), "Experiment output swift_path must contain only the account, container, and prefix, not a URL scheme"
+    return normalized_swift_path
+
+
+def experiment_output_swift_url(swift_path: str) -> str:
+    """Return the OSMO output URL for one workflow below ``swift_path``."""
+    normalized_swift_path = _normalize_swift_path(swift_path)
+    return f"{SWIFT_URL_PREFIX}/{normalized_swift_path}/{_OSMO_WORKFLOW_ID_TOKEN}"
+
+
+def experiment_report_https_url(swift_path: str, workflow_id: str) -> str:
+    """Return the browser URL for a workflow's uploaded Experiment report."""
+    normalized_swift_path = _normalize_swift_path(swift_path)
+    assert workflow_id, "Experiment report URL requires a workflow ID"
+    encoded_workflow_id = quote(workflow_id, safe="")
+    return f"{HTTPS_URL_PREFIX}/{normalized_swift_path}/{encoded_workflow_id}/{_EXPERIMENT_REPORT_FILENAME}"
 
 
 def experiment_runner_output_directory_input_token(experiment_runner_task_name: str) -> str:
@@ -38,13 +74,14 @@ class ExperimentOutputTask(BaseTask):
 
     def __init__(
         self,
+        task_cfg: ExperimentOutputTaskCfg,
         image: str,
         experiment_runner_task_names_by_run_name: Mapping[str, str],
         lead: bool | None = None,
         resource: str | None = None,
     ) -> None:
         assert experiment_runner_task_names_by_run_name, "Experiment output requires at least one Run task"
-        super().__init__(lead=lead, resource=resource)
+        super().__init__(task_cfg=task_cfg, lead=lead, resource=resource)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
 
@@ -64,7 +101,7 @@ class ExperimentOutputTask(BaseTask):
 
     def _get_outputs(self) -> list[dict[str, Any]]:
         """Publish the final Experiment directory, including all Runs and ``index.html``."""
-        return [{"url": DATASET_SWIFT_URL}]
+        return [{"url": experiment_output_swift_url(self.task_cfg.swift_path)}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the output-building script and its ``run-name -> Experiment Runner output`` JSON input."""
