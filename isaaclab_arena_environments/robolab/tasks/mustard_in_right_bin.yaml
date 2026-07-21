@@ -8,11 +8,11 @@ external_yaml: ../scenes/two_bin.yaml
 task:
   composition: atomic
   description: Put the mustard in the right bin
+  episode_length_s: 30.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: mustard
       destination_location: grey_bin_right
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]

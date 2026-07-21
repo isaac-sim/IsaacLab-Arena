@@ -175,6 +175,7 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     spec = CompositeTaskSpec(
         composition=TaskCompositionType.ATOMIC,
         description="pick up the cube",
+        episode_length_s=15.0,
         subtasks=[
             TaskSpec(
                 kind="PickAndPlaceTask",
@@ -184,21 +185,22 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     )
     result = conversion.build_task_from_spec(spec, {})
     assert isinstance(result, FakeTask)
-    assert built == [{"task_description": "pick up the cube"}]
+    assert built == [{"task_description": "pick up the cube", "episode_length_s": 15.0}]
 
 
 def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
     captured: dict[str, Any] = {}
 
     class FakeSequential:
-        def __init__(self, subtasks, task_description=None):
+        def __init__(self, subtasks, task_description=None, episode_length_s=None):
             captured["subtasks"] = subtasks
             captured["task_description"] = task_description
+            captured["episode_length_s"] = episode_length_s
 
     monkeypatch.setattr(
         conversion,
         "_build_atomic_task_from_spec",
-        lambda task_spec, _assets, task_description=None: task_spec.kind,
+        lambda task_spec, _assets, **kwargs: task_spec.kind,
     )
     monkeypatch.setattr(
         "isaaclab_arena.tasks.sequential_task_base.SequentialTaskBase",
@@ -210,6 +212,7 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
     spec = CompositeTaskSpec(
         composition=TaskCompositionType.SEQUENTIAL,
         description="do two things in order",
+        episode_length_s=30.0,
         subtasks=[
             TaskSpec(kind="PickAndPlaceTask", params={}),
             TaskSpec(kind="PickAndPlaceTask", params={}),
@@ -219,6 +222,39 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
     assert isinstance(result, FakeSequential)
     assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
     assert captured["task_description"] == "do two things in order"
+    assert captured["episode_length_s"] == 30.0
+
+
+def test_build_task_from_spec_parallel_passes_root_episode_length(monkeypatch):
+    captured: dict[str, Any] = {}
+
+    class FakeComposite:
+        def __init__(self, subtasks, task_description=None, episode_length_s=None):
+            captured["episode_length_s"] = episode_length_s
+
+    monkeypatch.setattr(
+        conversion,
+        "_build_atomic_task_from_spec",
+        lambda task_spec, _assets, **kwargs: task_spec.kind,
+    )
+    monkeypatch.setattr(
+        "isaaclab_arena.tasks.composite_task_base.CompositeTaskBase",
+        FakeComposite,
+    )
+
+    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
+
+    spec = CompositeTaskSpec(
+        composition=TaskCompositionType.PARALLEL,
+        description="do two things",
+        episode_length_s=120.0,
+        subtasks=[
+            TaskSpec(kind="PickAndPlaceTask", params={"episode_length_s": 20.0}),
+            TaskSpec(kind="PickAndPlaceTask", params={}),
+        ],
+    )
+    conversion.build_task_from_spec(spec, {})
+    assert captured["episode_length_s"] == 120.0
 
 
 def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):

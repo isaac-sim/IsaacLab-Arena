@@ -8,10 +8,10 @@ external_yaml: ../scenes/workdesk.yaml
 task:
   composition: atomic
   description: Put the whiteboard marker in the mug
+  episode_length_s: 40.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: marker
       destination_location: ceramic_mug
       background_scene: maple_table_robolab
-      episode_length_s: 20.0

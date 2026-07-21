@@ -8,10 +8,10 @@ external_yaml: ../scenes/bin_mug_mustard_marker_bowl.yaml
 task:
   composition: atomic
   description: Pick up the bowl and place it in the grey bin.
+  episode_length_s: 60.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bowl
       destination_location: grey_bin
       background_scene: maple_table_robolab
-      episode_length_s: 20.0

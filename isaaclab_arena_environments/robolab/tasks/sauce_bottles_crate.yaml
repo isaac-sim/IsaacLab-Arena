@@ -8,11 +8,11 @@ external_yaml: ../scenes/bottles_crate.yaml
 task:
   composition: atomic
   description: place the bbq sauce bottle into the purple crate on the table
+  episode_length_s: 40.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bbq_sauce_bottle
       destination_location: purple_crate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]
