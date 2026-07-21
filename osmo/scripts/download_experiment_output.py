@@ -28,12 +28,13 @@ def _workflow_id_argument(value: str) -> str:
     return value
 
 
-def download_experiment_output(workflow_id: str, output_directory: Path) -> int:
+def download_experiment_output(workflow_id: str, output_directory: Path, remote_base_uri: str) -> int:
     """Download one complete Experiment output and return the OSMO process status.
 
     Args:
         workflow_id: OSMO workflow ID naming the published Experiment output.
         output_directory: Exact local destination for the Experiment output.
+        remote_base_uri: Object-storage base URI containing workflow outputs.
 
     Returns:
         The ``osmo data download`` process status.
@@ -42,7 +43,7 @@ def download_experiment_output(workflow_id: str, output_directory: Path) -> int:
     output_directory = output_directory.expanduser()
     output_directory.mkdir(parents=True, exist_ok=True)
     assert not any(output_directory.iterdir()), f"Experiment output directory must be empty: '{output_directory}'"
-    remote_uri = f"{DATASETS_SWIFT_URL}/{workflow_id}/"
+    remote_uri = f"{remote_base_uri.rstrip('/')}/{workflow_id}/"
     command = ["osmo", "data", "download", remote_uri, output_directory.as_posix()]
     print(f"$ {shlex.join(command)}", flush=True)
     result = subprocess.run(command)
@@ -65,12 +66,18 @@ Examples:
 
   python3 -m osmo.scripts.download_experiment_output arena-experiment-123
   python3 -m osmo.scripts.download_experiment_output arena-experiment-123 --output-base-directory ./my-output
+  python3 -m osmo.scripts.download_experiment_output arena-experiment-123 --remote-base-uri s3://my-bucket/outputs
 """,
     )
     parser.add_argument(
         "workflow_id",
         type=_workflow_id_argument,
         help="OSMO workflow ID printed by the Arena Experiment submission command",
+    )
+    parser.add_argument(
+        "--remote-base-uri",
+        default=DATASETS_SWIFT_URL,
+        help="object-storage base URI containing workflow outputs (default: %(default)s)",
     )
     parser.add_argument(
         "--output-base-directory",
@@ -86,7 +93,7 @@ def main(cli_args: list[str] | None = None) -> int:
     """Download the Experiment output described on the command line."""
     parsed_arguments = _create_argument_parser().parse_args(cli_args)
     output_directory = parsed_arguments.output_base_directory / parsed_arguments.workflow_id
-    return download_experiment_output(parsed_arguments.workflow_id, output_directory)
+    return download_experiment_output(parsed_arguments.workflow_id, output_directory, parsed_arguments.remote_base_uri)
 
 
 if __name__ == "__main__":

@@ -17,9 +17,9 @@ from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 def test_downloads_experiment_output_to_default_directory(monkeypatch):
     captured_download = None
 
-    def capture_download(workflow_id, output_directory):
+    def capture_download(workflow_id, output_directory, remote_base_uri):
         nonlocal captured_download
-        captured_download = (workflow_id, output_directory)
+        captured_download = (workflow_id, output_directory, remote_base_uri)
         return 0
 
     monkeypatch.setattr("osmo.scripts.download_experiment_output.download_experiment_output", capture_download)
@@ -27,7 +27,11 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch):
     return_code = main(["arena-experiment-123"])
 
     assert return_code == 0
-    assert captured_download == ("arena-experiment-123", Path("/eval/arena-experiment-123"))
+    assert captured_download == (
+        "arena-experiment-123",
+        Path("/eval/arena-experiment-123"),
+        DATASETS_SWIFT_URL,
+    )
 
 
 def test_help_states_default_output_directory(capsys):
@@ -38,9 +42,10 @@ def test_help_states_default_output_directory(capsys):
     assert "/eval/<workflow-id>" in capsys.readouterr().out
 
 
-def test_downloads_to_explicit_base_directory_without_shell_splitting(monkeypatch, tmp_path):
+def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting(monkeypatch, tmp_path):
     output_base_directory = tmp_path / "experiment output"
     expected_output_directory = output_base_directory / "arena-experiment-123"
+    remote_base_uri = "s3://my-bucket/experiment-outputs/"
     captured_command = None
 
     def capture_download(command):
@@ -54,6 +59,8 @@ def test_downloads_to_explicit_base_directory_without_shell_splitting(monkeypatc
         "arena-experiment-123",
         "--output-base-directory",
         str(output_base_directory),
+        "--remote-base-uri",
+        remote_base_uri,
     ])
 
     assert return_code == 0
@@ -61,7 +68,7 @@ def test_downloads_to_explicit_base_directory_without_shell_splitting(monkeypatc
         "osmo",
         "data",
         "download",
-        f"{DATASETS_SWIFT_URL}/arena-experiment-123/",
+        "s3://my-bucket/experiment-outputs/arena-experiment-123/",
         str(expected_output_directory),
     ]
     assert expected_output_directory.is_dir()
@@ -79,7 +86,7 @@ def test_rejects_invalid_workflow_id_at_both_entry_points(monkeypatch, tmp_path,
     assert invalid_argument_exit.value.code == 2
 
     with pytest.raises(AssertionError, match="Invalid OSMO workflow ID"):
-        download_experiment_output(workflow_id, tmp_path / "output")
+        download_experiment_output(workflow_id, tmp_path / "output", DATASETS_SWIFT_URL)
 
 
 def test_rejects_nonempty_output_directory_before_download(monkeypatch, tmp_path):
@@ -93,7 +100,7 @@ def test_rejects_nonempty_output_directory_before_download(monkeypatch, tmp_path
     monkeypatch.setattr("osmo.scripts.download_experiment_output.subprocess.run", fail_if_called)
 
     with pytest.raises(AssertionError, match="Experiment output directory must be empty"):
-        download_experiment_output("arena-experiment-123", output_directory)
+        download_experiment_output("arena-experiment-123", output_directory, DATASETS_SWIFT_URL)
 
 
 def test_propagates_osmo_download_failure(monkeypatch, tmp_path):
@@ -102,6 +109,6 @@ def test_propagates_osmo_download_failure(monkeypatch, tmp_path):
         lambda command: SimpleNamespace(returncode=23),
     )
 
-    return_code = download_experiment_output("arena-experiment-123", tmp_path / "output")
+    return_code = download_experiment_output("arena-experiment-123", tmp_path / "output", DATASETS_SWIFT_URL)
 
     assert return_code == 23
