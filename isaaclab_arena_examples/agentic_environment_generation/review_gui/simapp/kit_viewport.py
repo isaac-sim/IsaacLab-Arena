@@ -91,6 +91,29 @@ def wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = CAPT
             return
 
 
+def set_viewport_camera_eye_lookat(
+    viewport,
+    eye: tuple[float, float, float] | list[float],
+    lookat: tuple[float, float, float] | list[float],
+) -> None:
+    """Point a Kit-only stage's viewport camera at ``eye`` / ``lookat``.
+
+    This mirrors ``KitVisualizer._set_viewport_camera`` for thumbnail stages
+    that do not have an Isaac Lab ``SimulationContext``.
+    """
+    from omni.kit.viewport.utility.camera_state import ViewportCameraState
+    from pxr import Gf
+
+    camera_path = viewport.get_active_camera() if viewport is not None else None
+    if not camera_path:
+        camera_path = "/OmniverseKit_Persp"
+
+    # rotate=False on position avoids a crash when centerOfInterest is unset on a fresh stage.
+    camera_state = ViewportCameraState(camera_path, viewport)
+    camera_state.set_position_world(Gf.Vec3d(float(eye[0]), float(eye[1]), float(eye[2])), False)
+    camera_state.set_target_world(Gf.Vec3d(float(lookat[0]), float(lookat[1]), float(lookat[2])), True)
+
+
 def capture_viewport_png(
     app,
     cache_path: Path,

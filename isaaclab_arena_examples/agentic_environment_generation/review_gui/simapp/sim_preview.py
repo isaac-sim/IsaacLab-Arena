@@ -96,13 +96,7 @@ def _overview_camera(
 def _apply_overview_camera(env, app, num_envs: int, env_spacing: float) -> None:
     """Point the Kit viewport at the full multi-env grid (world frame)."""
     eye, target = _overview_camera(num_envs, env_spacing)
-    unwrapped = env.unwrapped
-    vcc = getattr(unwrapped, "viewport_camera_controller", None)
-    if vcc is not None:
-        vcc.update_view_to_world()
-        vcc.update_view_location(eye=list(eye), lookat=list(target))
-    else:
-        unwrapped.sim.set_camera_view(eye, target)
+    env.unwrapped.sim.set_camera_view(eye, target)
     pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
