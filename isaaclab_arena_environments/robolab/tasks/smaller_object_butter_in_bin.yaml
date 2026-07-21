@@ -7,7 +7,7 @@ env_name: smaller_object_butter_in_bin
 external_yaml: ../scenes/butter_raisin_box_grey_bin.yaml
 task:
   composition: atomic
-  description: Pick up the butter box and place it into the grey bin on the maple table.
+  description: Place the smaller object in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

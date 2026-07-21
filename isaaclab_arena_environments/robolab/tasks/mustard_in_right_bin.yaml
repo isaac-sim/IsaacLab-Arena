@@ -7,7 +7,7 @@ env_name: mustard_in_right_bin
 external_yaml: ../scenes/two_bin.yaml
 task:
   composition: atomic
-  description: put the mustard in the right bin
+  description: Put the mustard in the right bin
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -7,7 +7,7 @@ env_name: small_pumpkin_in_bin
 external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
 task:
   composition: atomic
-  description: pick up the small pumpkin and place it into the bin
+  description: Put the small pumpkin in the bin
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -7,7 +7,7 @@ env_name: food_packing_1_cans
 external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
 task:
   composition: atomic
-  description: pick up the tomato soup can and place it into the bin
+  description: Pack canned foods into the bin
   subtasks:
   - kind: PickAndPlaceTask
     params:

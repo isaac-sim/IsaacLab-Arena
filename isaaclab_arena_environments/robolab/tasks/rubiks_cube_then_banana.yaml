@@ -7,7 +7,7 @@ env_name: rubiks_cube_then_banana
 external_yaml: ../scenes/rubiks_cube_banana_bowl.yaml
 task:
   composition: sequential
-  description: pick up the cube and place it in the bowl ; pick up the banana and place it in the bowl
+  description: Put the cube then the banana in the bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
