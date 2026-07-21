@@ -30,6 +30,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
     pump_app,
+    set_viewport_camera_eye_lookat,
     thumbnail_cache_dir,
     wait_for_stage_load,
 )
@@ -221,9 +222,8 @@ def _capture_stage_snapshot(
 
 def _apply_viewer_cfg(app, viewer_cfg) -> None:
     """Point the active viewport camera at ``viewer_cfg`` eye/lookat (world frame)."""
-    from isaacsim.core.utils.viewports import set_camera_view
-
-    set_camera_view(list(viewer_cfg.eye), list(viewer_cfg.lookat))
+    viewport = get_active_viewport()
+    set_viewport_camera_eye_lookat(viewport, viewer_cfg.eye, viewer_cfg.lookat)
     pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
