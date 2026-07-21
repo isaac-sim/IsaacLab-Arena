@@ -75,7 +75,7 @@ def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting
         "osmo",
         "data",
         "download",
-        "s3://my-bucket/experiment-outputs/arena-experiment-123/",
+        "s3://my-bucket/experiment-outputs/arena-experiment-123",
         str(expected_output_directory),
     ]
     assert expected_output_directory.is_dir()

@@ -43,7 +43,7 @@ def download_experiment_output(workflow_id: str, output_directory: Path, remote_
     output_directory = output_directory.expanduser()
     output_directory.mkdir(parents=True, exist_ok=True)
     assert not any(output_directory.iterdir()), f"Experiment output directory must be empty: '{output_directory}'"
-    remote_uri = f"{remote_base_uri.rstrip('/')}/{workflow_id}/"
+    remote_uri = f"{remote_base_uri.rstrip('/')}/{workflow_id}"
     command = ["osmo", "data", "download", remote_uri, output_directory.as_posix()]
     print(f"$ {shlex.join(command)}", flush=True)
     result = subprocess.run(command)
