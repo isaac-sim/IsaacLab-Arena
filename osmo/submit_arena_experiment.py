@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.base_task import TaskCfg
+from osmo.tasks.experiment_output_task import ExperimentOutputTaskCfg, experiment_report_https_url
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
@@ -50,6 +51,9 @@ class ArenaExperimentSubmissionCfg:
     experiment_runner: ExperimentRunnerTaskCfg = field(default_factory=ExperimentRunnerTaskCfg)
     """Configuration for the task that executes ``experiment_runner.py``."""
 
+    experiment_output: ExperimentOutputTaskCfg = field(default_factory=ExperimentOutputTaskCfg)
+    """Configuration for publishing the complete Experiment output and report."""
+
 
 def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int:
     """Build and submit the OSMO workflow described by ``submission_cfg``.
@@ -72,8 +76,16 @@ def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int
         experiment_cfg=submission_cfg.experiment_cfg,
         server_task_cfg=policy_server_task_cfg,
         task_cfg=experiment_runner_task_cfg,
+        experiment_output_task_cfg=submission_cfg.experiment_output,
     )
-    return workflow.submit_workflow().returncode
+    submission_result = workflow.submit_workflow()
+    if submission_result.returncode == 0 and submission_result.workflow_id is not None:
+        report_url = experiment_report_https_url(
+            submission_cfg.experiment_output.swift_path,
+            submission_result.workflow_id,
+        )
+        print(f"Report (available when the workflow completes): {report_url}")
+    return submission_result.returncode
 
 
 def build_arena_experiment_submission_cfg(

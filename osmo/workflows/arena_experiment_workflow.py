@@ -14,7 +14,7 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
-from osmo.tasks.experiment_output_task import ExperimentOutputTask
+from osmo.tasks.experiment_output_task import ExperimentOutputTask, ExperimentOutputTaskCfg
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
@@ -40,10 +40,12 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,
+        experiment_output_task_cfg: ExperimentOutputTaskCfg | None = None,
     ) -> None:
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
         self.pi0_server_task_cfg = server_task_cfg
+        self.experiment_output_task_cfg = experiment_output_task_cfg or ExperimentOutputTaskCfg()
         super().__init__(
             workflow_cfg=workflow_cfg,
             task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
@@ -118,6 +120,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
     ) -> dict[str, Any]:
         """Collect every Experiment Runner task output into one published Experiment output."""
         experiment_output_task = ExperimentOutputTask(
+            task_cfg=self.experiment_output_task_cfg,
             image=self.task_cfg.image,
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             lead=True,
