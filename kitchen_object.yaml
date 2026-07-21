@@ -3,21 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_kitchen_placement_only
+env_name: droid_pick_avocado_to_plate
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
-  params:
-    stand_height_m: 0.8
+  params: {}
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
   params: {}
-objects: []
+objects:
+- id: avocado
+  registry_name: avocado01_fruits_veggies_robolab
+  params: {}
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
 object_references:
 - id: right_counter_top
   parent_id: kitchen
-  prim_path: counter_right_main_group/top_geometry
+  prim_path: counter_main_main_group/top_geometry_right
   object_type: base
   params: {}
 - id: floor
@@ -27,28 +32,22 @@ object_references:
   params: {}
 relations:
 - kind: is_anchor
-  subject: floor
-  params: {}
-- kind: is_anchor
   subject: right_counter_top
   params: {}
 - kind: 'on'
-  subject: droid
-  reference: floor
-  params: {}
-- kind: next_to
-  subject: droid
+  subject: avocado
   reference: right_counter_top
-  params:
-    side: negative_y
-    distance_m: 0.01
-- kind: rotate_around_solution
-  subject: droid
-  params:
-    yaw_rad: 1.57
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: right_counter_top
+  params: {}
 task:
   composition: atomic
-  description: robot placement only
+  description: pick up the avocado and place it in the plate
   subtasks:
-  - kind: NoTask
-    params: {}
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: avocado
+      destination_location: plate
+      background_scene: kitchen
