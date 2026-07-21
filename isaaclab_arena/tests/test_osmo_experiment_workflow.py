@@ -34,6 +34,10 @@ from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
+# Composing complete Arena Experiments loads Isaac runtime modules, so these tests
+# must not share a pytest process with the persistent SimulationApp tests.
+pytestmark = pytest.mark.with_subprocess
+
 REPOSITORY_ROOT = Path(__file__).parents[2]
 OPENPI_EXPERIMENT_CFG_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
