@@ -15,10 +15,18 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
-from .joint_mapping import PANDA_ARM_JOINTS, droid_binary_gripper_action, make_droid_joint_mapping
+from .joint_mapping import (
+    DROID_FINGER_JOINT,
+    DROID_GRIPPER_CLOSED_POSITION_RAD,
+    PANDA_ARM_JOINTS,
+    droid_binary_gripper_action,
+    make_droid_joint_mapping,
+)
 
 
-def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any) -> None:
+def _configure_cap_droid_embodiment(
+    embodiment: Any, *, stand_spawn: Any, initial_gripper_closed: bool = False
+) -> None:
     # The reused Franka reset helper preserves only the final two articulation joints,
     # which are mimic joints on DROID rather than the commanded finger joint. This fixed
     # profile retains the state-writing reset event but removes its Gaussian offset.
@@ -32,6 +40,23 @@ def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any) -> Non
     arm_action.offset = 0.0
     arm_action.use_default_offset = False
     embodiment.scene_config.stand.spawn = stand_spawn
+    if initial_gripper_closed:
+        # Start the physical finger joint at the closed endpoint so a single
+        # open_gripper skill (all the CAP ROS connector exposes today) yields an
+        # unambiguous closed->open transition. The DROID reset events set the pose
+        # and override init_state, so the closed start must be written on the reset
+        # event: init_franka_arm_pose.default_pose lists the finger joint at index 7
+        # (seven arm joints precede it). init_state is patched too for consistency.
+        # The production smoke keeps the open default (open->close->open sequence).
+        embodiment.scene_config.robot.init_state.joint_pos[DROID_FINGER_JOINT] = (
+            DROID_GRIPPER_CLOSED_POSITION_RAD
+        )
+        default_pose = embodiment.event_config.init_franka_arm_pose.params["default_pose"]
+        if len(default_pose) <= 7:
+            raise RuntimeError(
+                "DROID init_franka_arm_pose.default_pose is missing the finger joint slot"
+            )
+        default_pose[7] = DROID_GRIPPER_CLOSED_POSITION_RAD
 
 
 class FrankaSimulationAdapter:
@@ -127,7 +152,9 @@ class FrankaSimulationAdapter:
         self._environment.close()
 
 
-def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAdapter:
+def make_cap_franka_environment(
+    *, device: str = "cuda:0", initial_gripper_closed: bool = False
+) -> FrankaSimulationAdapter:
     """Build the fixed arena_droid_b1 smoke profile after Kit startup."""
     import isaaclab.sim as sim_utils
 
@@ -144,7 +171,9 @@ def make_cap_franka_environment(*, device: str = "cuda:0") -> FrankaSimulationAd
     # entry because the embodiment updates its pose, but replace the unavailable
     # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
     stand_spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
-    _configure_cap_droid_embodiment(embodiment, stand_spawn=stand_spawn)
+    _configure_cap_droid_embodiment(
+        embodiment, stand_spawn=stand_spawn, initial_gripper_closed=initial_gripper_closed
+    )
 
     ground_plane = registry.get_asset_by_name("ground_plane")()
     light = registry.get_asset_by_name("light")()
