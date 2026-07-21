@@ -13,7 +13,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
-    from isaaclab_arena.relations.placement_entity import PlacementEntity
+    from isaaclab_arena.relations.placement_asset import PlacementAsset
 
 
 class RelationSolverState:
@@ -28,16 +28,16 @@ class RelationSolverState:
 
     def __init__(
         self,
-        objects: list[PlacementEntity],
-        initial_positions: list[dict[PlacementEntity, tuple[float, float, float]]],
+        objects: list[PlacementAsset],
+        initial_positions: list[dict[PlacementAsset, tuple[float, float, float]]],
         device: torch.device | None = None,
-        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox] | None = None,
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ):
         """Initialize optimization state.
 
         Args:
-            objects: Placement entities to track. Must include at least one
+            objects: Placement assets to track. Must include at least one
                 object marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Length 1 = single-env,
                 length > 1 = batched.
@@ -52,7 +52,7 @@ class RelationSolverState:
         assert len(anchor_objects) > 0, "No anchor object found in objects list."
 
         self._all_objects = objects
-        self._anchor_objects: set[PlacementEntity] = set(anchor_objects)
+        self._anchor_objects: set[PlacementAsset] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
         self._collision_objects: list[CollisionObject] = list(collision_objects) if collision_objects else []
         assert not (set(self._collision_objects) & set(objects)), (
@@ -61,7 +61,7 @@ class RelationSolverState:
         )
 
         # Build object-to-index mapping
-        self._obj_to_idx: dict[PlacementEntity, int] = {obj: i for i, obj in enumerate(objects)}
+        self._obj_to_idx: dict[PlacementAsset, int] = {obj: i for i, obj in enumerate(objects)}
 
         self._device = device or torch.device("cpu")
         self._batch_size = len(initial_positions)
@@ -110,7 +110,7 @@ class RelationSolverState:
 
         # Anchors and background collision objects are fixed, so their world bounding boxes are
         # constant during the solve. Cache them once instead of recomputing every gradient step.
-        self._fixed_obstacle_world_bboxes: dict[PlacementEntity | CollisionObject, AxisAlignedBoundingBox] = {
+        self._fixed_obstacle_world_bboxes: dict[PlacementAsset | CollisionObject, AxisAlignedBoundingBox] = {
             obj: obj.get_world_bounding_box().to(self._device)
             for obj in (*self._anchor_objects, *self._collision_objects)
         }
@@ -134,12 +134,12 @@ class RelationSolverState:
         return self._optimizable_positions
 
     @property
-    def optimizable_objects(self) -> list[PlacementEntity]:
+    def optimizable_objects(self) -> list[PlacementAsset]:
         """List of optimizable objects (excludes anchors)."""
         return self._optimizable_objects
 
     @property
-    def anchor_objects(self) -> set[PlacementEntity]:
+    def anchor_objects(self) -> set[PlacementAsset]:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
 
@@ -148,7 +148,7 @@ class RelationSolverState:
         """Copy of the collision-only fixed obstacles (constant world pose, no relation constraints)."""
         return list(self._collision_objects)
 
-    def get_position(self, obj: PlacementEntity) -> torch.Tensor:
+    def get_position(self, obj: PlacementAsset) -> torch.Tensor:
         """Get current position for an object.
 
         Args:
@@ -169,14 +169,14 @@ class RelationSolverState:
         opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
 
-    def get_fixed_obstacle_world_bbox(self, obj: PlacementEntity | CollisionObject) -> AxisAlignedBoundingBox:
+    def get_fixed_obstacle_world_bbox(self, obj: PlacementAsset | CollisionObject) -> AxisAlignedBoundingBox:
         """Return the cached constant world bounding box for an anchor or collision object."""
         assert (
             obj in self._fixed_obstacle_world_bboxes
         ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
         return self._fixed_obstacle_world_bboxes[obj]
 
-    def get_bbox(self, obj: PlacementEntity) -> AxisAlignedBoundingBox:
+    def get_bbox(self, obj: PlacementAsset) -> AxisAlignedBoundingBox:
         """Return the local bounding box for obj, moved to the state's device."""
         if self._env_bboxes is not None and obj in self._env_bboxes:
             return self._env_bboxes[obj].to(self._device)
@@ -190,7 +190,7 @@ class RelationSolverState:
         """
         return [tuple(self.get_position(obj)[0].detach().tolist()) for obj in self._all_objects]
 
-    def get_final_positions(self) -> list[dict[PlacementEntity, tuple[float, float, float]]]:
+    def get_final_positions(self) -> list[dict[PlacementAsset, tuple[float, float, float]]]:
         """Get final positions as a list of dicts, one per env.
 
         Returns:

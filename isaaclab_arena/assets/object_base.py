@@ -7,13 +7,9 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-
-if TYPE_CHECKING:
-    import trimesh
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -24,7 +20,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.placement_entity import PlacementEntity
+from isaaclab_arena.relations.placement_asset import PlacementAsset
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
@@ -36,7 +32,7 @@ __all__ = [
 ]
 
 
-class ObjectBase(PlacementEntity, ABC):
+class ObjectBase(PlacementAsset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
     def __init__(
@@ -56,9 +52,6 @@ class ObjectBase(PlacementEntity, ABC):
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
         self.event_cfg = None
-
-    def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return collision mesh, or None to fall back to AABB overlap."""
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
@@ -91,14 +84,14 @@ class ObjectBase(PlacementEntity, ABC):
         self.event_cfg = self._init_event_cfg()
 
     def set_placement_initial_pose(self, pose: Pose) -> None:
-        """Set a solved root pose without configuring an independent reset."""
+        """Set the solved spawn pose without rebuilding the object reset event."""
         self.initial_pose = pose
         if self.object_cfg is not None:
             self.object_cfg.init_state.pos = pose.position_xyz
             self.object_cfg.init_state.rot = pose.rotation_xyzw
 
     def has_pose_reset_event(self) -> bool:
-        """Return whether another reset event controls the root pose."""
+        """Return whether the asset owns a root-pose reset event."""
         return self.event_cfg is not None
 
     def set_initial_velocity(self, velocity: Velocity) -> None:

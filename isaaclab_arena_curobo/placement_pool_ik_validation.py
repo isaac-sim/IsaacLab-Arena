@@ -16,8 +16,8 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import (
-    get_base_rotation_per_object,
-    get_movable_object_names,
+    get_base_rotation_per_asset,
+    get_movable_asset_names,
     get_placement_pool,
     write_layout_to_sim,
 )
@@ -98,12 +98,12 @@ def validate_pool_ik(
 
     objects = placement_pool.objects
     anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotation_per_object(objects)
+    base_rotations = get_base_rotation_per_asset(objects)
     # TODO(xinjieyao, 2026-06-29): Expose the objects-to-reach as an interface
     # rather than checking every movable object. Default it to the task's pickup object(s)
     # then validate only those grasps. For now we batch-check all
     # movable objects.
-    movable_object_names = get_movable_object_names(objects, anchor_objects_set)
+    movable_object_names = get_movable_asset_names(objects, anchor_objects_set)
 
     layouts_per_env = placement_pool.layouts_per_env()
     num_envs = min(len(layouts_per_env), env.unwrapped.num_envs)

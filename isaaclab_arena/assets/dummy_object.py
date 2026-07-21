@@ -7,13 +7,13 @@ from __future__ import annotations
 import torch
 import trimesh
 
-from isaaclab_arena.relations.placement_entity import PlacementEntity
+from isaaclab_arena.relations.placement_asset import PlacementAsset
 from isaaclab_arena.relations.relations import RelationBase
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
-class DummyObject(PlacementEntity):
+class DummyObject(PlacementAsset):
     """Dummy object for testing purposes without Isaac Sim dependencies."""
 
     def __init__(
@@ -35,16 +35,6 @@ class DummyObject(PlacementEntity):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
         return self.bounding_box
-
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox rotated and translated).
-
-        Only 90° rotations around Z axis are supported.
-        """
-        if self.initial_pose is None:
-            return self.bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_xyzw)
-        return self.bounding_box.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
         return self.bounding_box.get_corners_at(pos)
