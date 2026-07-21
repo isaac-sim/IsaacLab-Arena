@@ -10,7 +10,6 @@ from enum import StrEnum
 
 
 class PlacementCheck(StrEnum):
-    """Standard names for the placement validation checks."""
 
     NO_OVERLAP = "no_overlap"
     """Build-time check: no two placed object bounding boxes intersect."""
@@ -46,16 +45,19 @@ class PlacementValidationResults:
     Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
     """
 
-    validation_results: dict[PlacementCheck, bool] = field(default_factory=dict)
+    validation_results: dict[str, bool] = field(default_factory=dict)
 
-    required_checks: set[PlacementCheck] = field(default_factory=set)
-    """Names of checks that must pass for the layout to be valid. Empty means every check is required."""
+    required_checks: set[str] | None = None
+    """Names of checks that must pass for the layout to be valid.
 
-    def _required(self) -> set[PlacementCheck]:
-        """Required check names, defaulting to every check when none are declared."""
-        return self.required_checks or set(PlacementCheck)
+    None means every check that ran is required (the default); an empty set means no checks.
+    """
 
-    def do_all_required_validation_checks_pass(self, required_checks: list[PlacementCheck] | None = None) -> bool:
+    def _required(self) -> set[str]:
+        """Required check names, defaulting to every check that produced a result when none are declared."""
+        return self.required_checks if self.required_checks is not None else set(self.validation_results)
+
+    def do_all_required_validation_checks_pass(self, required_checks: list[str] | None = None) -> bool:
         """Check whether all the required validation checks pass.
 
         Args:
@@ -87,7 +89,7 @@ class PlacementValidationResults:
         optional_failed = sum(1 for check in failed if check not in required)
         return (required_failed, optional_failed)
 
-    def add_validation_check(self, check: PlacementCheck, value: bool, required: bool = False) -> None:
+    def add_validation_check(self, check: str, value: bool, required: bool = False) -> None:
         """Add a validation check.
 
         Args:
@@ -98,4 +100,6 @@ class PlacementValidationResults:
         assert check not in self.validation_results, f"'{check}' already exists in validation results."
         self.validation_results[check] = value
         if required:
+            if self.required_checks is None:
+                self.required_checks = set()
             self.required_checks.add(check)

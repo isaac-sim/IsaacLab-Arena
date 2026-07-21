@@ -209,6 +209,37 @@ def _convert_to_float_tuple(value: Any, length: int, field_name: str) -> tuple[f
     return tuple(float(item) for item in value)
 
 
+class PlacementValidatorSpec(BaseModel):
+    """Per-env placement validators.
+
+    Selects which build-time geometric checks gate object placement for this env. Defaults to
+    every build-time check.
+    """
+
+    enabled_checks: list[str] | None = Field(
+        default=None,
+        description=(
+            "Build-time check names to evaluate during placement; none runs every registered build-time "
+            "check. A check not listed here is never run. Built-in names: no_overlap, on_relation, "
+            "next_to, not_next_to, face_to; externally-registered validators may add more."
+        ),
+    )
+    required_checks: list[str] | None = Field(
+        default=None,
+        description=(
+            "Enabled checks that must pass for a layout to be valid; none requires every enabled check. "
+            "Must be a subset of enabled_checks."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_required_subset(self) -> PlacementValidatorSpec:
+        if self.enabled_checks is not None and self.required_checks is not None:
+            extra = set(self.required_checks) - set(self.enabled_checks)
+            assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"
+        return self
+
+
 class CliOverrideSpec(BaseModel):
     """One CLI flag that swaps an asset's registry name, declared in the graph YAML."""
 
