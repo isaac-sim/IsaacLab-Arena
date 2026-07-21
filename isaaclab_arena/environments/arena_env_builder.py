@@ -70,7 +70,7 @@ class ArenaEnvBuilder:
         """Solve spatial relations for scene objects and the embodiment.
 
         This method:
-        1. Collects placement entities that have relations
+        1. Collects placement assets that have relations
         2. Builds a placement pool
         3. Applies solved positions either by writing fixed initial poses
            or by registering a pooled reset placement event
@@ -81,15 +81,14 @@ class ArenaEnvBuilder:
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment so per-object reset
-          events restore the same layout every time.
+        * **False** — assigns one fixed layout per environment. Object-only
+          scenes use per-object reset events; scenes with an embodiment use one
+          coordinated reset event.
         """
-        placement_entities = list(self.arena_env.scene.get_objects_with_relations())
-        scene_entity_names = {entity.name: entity.name for entity in placement_entities}
+        placement_assets = self.arena_env.scene.get_objects_with_relations()
         embodiment = self.arena_env.embodiment
         if embodiment is not None and embodiment.get_relations():
-            placement_entities.append(embodiment)
-            scene_entity_names[embodiment.name] = embodiment.get_embodiment_name_in_scene()
+            placement_assets.append(embodiment)
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
@@ -101,11 +100,10 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
         self._placement_event_cfg = solve_and_apply_relation_placement(
-            placement_entities,
+            placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
-            scene_entity_names=scene_entity_names,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:

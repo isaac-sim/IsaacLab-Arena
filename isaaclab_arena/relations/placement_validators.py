@@ -26,9 +26,9 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_asset import PlacementAsset
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -49,9 +49,9 @@ class PlacementValidator(ABC):
     @abstractmethod
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         """Return one pass/fail verdict per candidate layout.
@@ -105,17 +105,17 @@ class OnRelationValidator(PlacementValidator):
 
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
 
     def _validate(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
@@ -190,17 +190,17 @@ class NextToValidator(PlacementValidator):
 
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
 
     def _validate(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each NextTo relation: child on the requested side, facing edge within the
         relation's tolerance_m of distance_m from the parent edge. Shares next_to_violations with
@@ -242,17 +242,17 @@ class NotNextToValidator(PlacementValidator):
 
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
 
     def _validate(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
         (within the relation's tolerance_m) via either route — back over the edge or past the
@@ -303,17 +303,17 @@ class FaceToValidator(PlacementValidator):
 
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
 
     def _validate(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        orientations: dict[ObjectBase, float] | None,
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        orientations: dict[PlacementAsset, float] | None,
     ) -> bool:
         """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
@@ -350,9 +350,9 @@ class NoOverlapValidator(PlacementValidator):
 
     def validate_batch(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [
@@ -361,9 +361,9 @@ class NoOverlapValidator(PlacementValidator):
 
     def _validate(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        orientations: dict[ObjectBase, float] | None,
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
+        orientations: dict[PlacementAsset, float] | None,
         collision_objects: list[CollisionObject] | None,
     ) -> bool:
         """AABB overlap check, falling through to mesh penetration for mesh-collision objects."""
@@ -380,7 +380,7 @@ class NoOverlapValidator(PlacementValidator):
 
     def _should_validate_mesh(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
         collision_objects: list[CollisionObject] | None,
     ) -> bool:
         """Return True when any object in this validation uses mesh collision."""
@@ -392,7 +392,7 @@ class NoOverlapValidator(PlacementValidator):
 
     @staticmethod
     def _collect_skip_pairs(
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
     ) -> tuple[set[tuple], set[int]]:
         """Build On-pair skip set and anchor ID set from positioned objects.
 
@@ -413,9 +413,9 @@ class NoOverlapValidator(PlacementValidator):
 
     def _non_skip_pairs(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
         skip_mesh_pairs: bool = False,
-    ) -> Iterator[tuple[ObjectBase, ObjectBase]]:
+    ) -> Iterator[tuple[PlacementAsset, PlacementAsset]]:
         """Yield non-relation object pairs, optionally skipping pairs handled by mesh collision."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -443,8 +443,8 @@ class NoOverlapValidator(PlacementValidator):
 
     def _validate_no_overlap(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
         collision_objects: list[CollisionObject] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> bool:
@@ -495,9 +495,9 @@ class NoOverlapValidator(PlacementValidator):
 
     def _validate_no_overlap_mesh(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        orientations: dict[ObjectBase, float] | None = None,
+        positions: dict[PlacementAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlacementAsset, AxisAlignedBoundingBox],
+        orientations: dict[PlacementAsset, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
         """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
@@ -615,19 +615,19 @@ class NoOverlapValidator(PlacementValidator):
 
     def _spheres_penetrate_mesh(
         self,
-        source: ObjectBase,
+        source: PlacementAsset,
         source_mesh: trimesh.Trimesh,
-        source_sphere_cache_obj: ObjectBase | None,
+        source_sphere_cache_obj: PlacementAsset | None,
         source_applies_yaw: bool,
         source_uses_pose_yaw: bool,
         source_pos: torch.Tensor,
-        target: ObjectBase | CollisionObject,
+        target: PlacementAsset | CollisionObject,
         target_mesh: trimesh.Trimesh,
         target_pos: torch.Tensor,
         target_uses_pose_yaw: bool,
         mesh_manager: WarpMeshAndSphereCache,
         tolerance: float,
-        orientations: dict[ObjectBase, float] | None,
+        orientations: dict[PlacementAsset, float] | None,
     ) -> bool:
         """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel.
 
@@ -659,13 +659,13 @@ class NoOverlapValidator(PlacementValidator):
 
     @staticmethod
     def _effective_yaw(
-        obj: ObjectBase | CollisionObject,
-        orientations: dict[ObjectBase, float] | None,
+        obj: PlacementAsset | CollisionObject,
+        orientations: dict[PlacementAsset, float] | None,
         use_pose_yaw: bool,
     ) -> float:
         """Resolve effective Z-yaw from sampled orientations or, when allowed, fixed initial pose."""
         if orientations is not None and obj in orientations:
-            return orientations[cast("ObjectBase", obj)]
+            return orientations[cast("PlacementAsset", obj)]
         if not use_pose_yaw:
             return 0.0
         pose = obj.get_initial_pose()
@@ -695,11 +695,11 @@ class NoOverlapValidator(PlacementValidator):
     @staticmethod
     def _centers_in_target_frame(
         centers_local: torch.Tensor,
-        source_obj: ObjectBase,
-        target_obj: ObjectBase | CollisionObject,
+        source_obj: PlacementAsset,
+        target_obj: PlacementAsset | CollisionObject,
         source_pos: torch.Tensor,
         target_pos: torch.Tensor,
-        orientations: dict[ObjectBase, float] | None,
+        orientations: dict[PlacementAsset, float] | None,
         source_applies_yaw: bool = True,
         source_uses_pose_yaw: bool = True,
         target_uses_pose_yaw: bool = True,
