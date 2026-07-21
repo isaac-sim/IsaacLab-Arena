@@ -68,7 +68,8 @@ class ObjectPlacerParams:
 
     reachability_validator: Callable[[PlacementResult], bool] | None = None
     """Optional per-layout reachability predicate supplied by an extension (e.g. the cuRobo IK check
-    from isaaclab_arena_curobo). When set, the IK_REACHABLE placement validator wraps it and runs on
-    every geometry-valid candidate, so unreachable layouts fail like any other required check. Typed as
-    a plain Callable so core never imports the validator's dependencies. Usually left unset and filled
-    by the builder when a run passes --validate_reachability; set it directly only for a custom gate."""
+    from isaaclab_arena_curobo). When the IK_REACHABLE check is enabled, its placement validator wraps
+    this and runs on every geometry-valid candidate, so unreachable layouts fail like any other required
+    check. Typed as a plain Callable so core never imports the validator's dependencies. Usually left
+    unset and filled by the builder when ``ik_reachable`` is in enabled_checks; set it directly only for
+    a custom gate."""

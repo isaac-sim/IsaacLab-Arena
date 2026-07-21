@@ -734,8 +734,9 @@ class ReachabilityValidator(PlacementValidator):
 
     Wraps the per-layout reachability predicate an extension supplies via
     ObjectPlacerParams.reachability_validator (e.g. the cuRobo IK check from isaaclab_arena_curobo), so
-    core stays vendor-agnostic. Opt-in: it runs only when that predicate is set, and (being gated) only
-    on candidates that already pass the geometry checks, since IK is expensive.
+    core stays vendor-agnostic. Off by default: enable it by listing IK_REACHABLE in enabled_checks (and
+    required_checks to gate validity), like any other build-time check. Being gated, it runs only on
+    candidates that already pass the geometry checks, since IK is expensive.
     """
 
     check = PlacementCheck.IK_REACHABLE
@@ -745,14 +746,14 @@ class ReachabilityValidator(PlacementValidator):
         super().__init__(params)
         assert params.reachability_validator is not None, (
             "ReachabilityValidator requires ObjectPlacerParams.reachability_validator to be set "
-            "(e.g. by passing --validate_reachability)."
+            "(the builder fills it when 'ik_reachable' is in enabled_checks and the cuRobo extension is enabled)."
         )
         self._predicate = params.reachability_validator
 
     @classmethod
     def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
-        """Only run when a reachability predicate has been provisioned (opt-in via --validate_reachability)."""
-        return params.reachability_validator is not None
+        """Off by default; opt in by listing IK_REACHABLE in enabled_checks."""
+        return False
 
     def validate_batch(
         self,

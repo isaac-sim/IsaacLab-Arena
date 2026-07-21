@@ -8,8 +8,8 @@
 Lets a run gate pooled placement on reachability from config, without core importing the validator\'s
 dependencies. An enabled extension (e.g. ``isaaclab_arena_curobo``) exports a
 ``make_reachability_validator(embodiment, **kwargs)`` entry point; ``resolve_reachability_validator``
-imports the extension by name and calls it into the pool\'s solve loop when a run sets
-``ArenaEnvBuilderCfg.validate_reachability``. Core stays vendor-agnostic: the module names
+imports the extension by name and wires its predicate into the pool\'s solve loop when the
+``ik_reachable`` placement check is enabled. Core stays vendor-agnostic: the module names
 come from config and the entry point is discovered by name, so no cuRobo import appears in core.
 """
 

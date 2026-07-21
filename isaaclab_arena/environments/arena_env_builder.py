@@ -99,23 +99,22 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # Gate pooled placement on reachability on demand: pull the per-layout predicate exported by an
-        # enabled extension and hand it to the IK_REACHABLE build-time validator. resolve_* imports the
+        # Reachability is opt-in through the placement check lists (declared in the env graph): when
+        # IK_REACHABLE is enabled and no predicate was set directly, pull the per-layout predicate exported
+        # by an enabled extension and hand it to the IK_REACHABLE build-time validator. resolve_* imports the
         # extension by name, so no cuRobo import appears in core.
-        if self.cfg.validate_reachability and placer_params.reachability_validator is None:
+        enabled_checks = placer_params.enabled_checks
+        if (
+            enabled_checks is not None
+            and PlacementCheck.IK_REACHABLE in enabled_checks
+            and placer_params.reachability_validator is None
+        ):
             embodiment = self.arena_env.embodiment
-            assert embodiment is not None, "--validate_reachability requires an environment with a robot embodiment."
+            assert embodiment is not None, "the 'ik_reachable' placement check requires a robot embodiment."
             # The framework stamps IK_REACHABLE from the validator's verdict, so the predicate need not.
-            validator_kwargs = {"stamp_results": False, **self.cfg.reachability_validator_kwargs}
             placer_params.reachability_validator = resolve_reachability_validator(
-                embodiment, ["isaaclab_arena_curobo"], **validator_kwargs
+                embodiment, ["isaaclab_arena_curobo"], stamp_results=False
             )
-            # With the default (None) check policies reachability is already enabled and required; when the
-            # env pins an explicit policy, make sure the reachability check still runs and gates validity.
-            if placer_params.enabled_checks is not None:
-                placer_params.enabled_checks = set(placer_params.enabled_checks) | {PlacementCheck.IK_REACHABLE}
-            if placer_params.required_checks is not None:
-                placer_params.required_checks = set(placer_params.required_checks) | {PlacementCheck.IK_REACHABLE}
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,
