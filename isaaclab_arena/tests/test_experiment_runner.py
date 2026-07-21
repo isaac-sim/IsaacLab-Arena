@@ -62,13 +62,27 @@ def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp
     assert exact_output_arguments.experiment_output_directory == exact_experiment_output_directory
     assert exact_output_experiment_overrides == []
 
-    with pytest.raises(SystemExit):
-        parse_experiment_runner_args([
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_rejects_timestamped_base_with_exact_output_directory(tmp_path):
+    """Reject mutually exclusive output directory flags in a fresh process."""
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
             "--output_base_dir",
-            str(tmp_path / "timestamped-outputs"),
+            str(tmp_path / "timestamped-experiment-outputs"),
             "--experiment_output_directory",
-            str(exact_experiment_output_directory),
-        ])
+            str(tmp_path / "exact-experiment-output"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode != 0
+    assert "argument --experiment_output_directory: not allowed with argument --output_base_dir" in result.stderr
 
 
 @pytest.mark.with_subprocess
