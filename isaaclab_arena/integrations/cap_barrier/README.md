@@ -198,3 +198,30 @@ and remote process-group death attestations from the canonical supervisor.
   gripper endpoint is already finite and discrete at this producer boundary.
 - The production control plane owns reset admission and fence closure; the Kit producer remains
   ROS-free and observes only the CR-05 shared-memory contract.
+
+## Perception producer (Phase 3)
+
+`perception_producer.py` is the ROS-free Kit side of CAP perception. `extract_camera_frame`
+reads the `exterior_cam` RGB-D output, intrinsics, and world pose from an already-stepped
+environment (RTX rendering is triggered by that data access, so the barrier pays no render
+cost until a frame is wanted). `PerceptionFrameProducer` owns a background gRPC
+client-streaming thread with a single-slot latest-frame mailbox: `offer` never blocks the
+physics loop and drops the previous unsent frame rather than back-pressuring lockstep. The
+thread reconnects and restarts the stream on failure, requeues the latest real frame across a
+restart, and never fabricates a frame. The frozen transport is `CapPerception.PublishFrames`
+from the ROS module's `cap_perception.proto`.
+
+The pinned Arena `.venv` carries `grpcio`/`protobuf` at runtime but intentionally not
+`grpcio-tools`. Generate the stubs once into the git-ignored `_generated/` tree without
+mutating the venv or `uv.lock`:
+
+```bash
+isaaclab_arena/integrations/cap_barrier/generate_perception_stubs.sh
+```
+
+The Kit + GPU smoke (not run in CI) streams to a running `cap_perception_bridge` node:
+
+```bash
+./dev_run.sh isaaclab_arena/scripts/run_cap_barrier_perception_stream.py \
+    --headless --enable_cameras --device cuda:0
+```

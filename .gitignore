@@ -96,3 +96,7 @@ core.*
 
 # uv venv (Arena native install)
 .venv*/
+
+# CAP perception producer generated gRPC stubs (built from the frozen proto;
+# regenerate with isaaclab_arena/integrations/cap_barrier/generate_perception_stubs.sh)
+isaaclab_arena/integrations/cap_barrier/_generated/
