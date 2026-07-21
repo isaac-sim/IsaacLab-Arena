@@ -8,6 +8,7 @@ external_yaml: ../scenes/butter_raisin_box_grey_bin.yaml
 task:
   composition: atomic
   description: Pick up the red raisin box and place it into the grey bin on the maple table.
+  episode_length_s: 30.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
@@ -15,4 +16,3 @@ task:
       destination_location: grey_bin
       background_scene: maple_table_robolab
       max_separation: [0.1, 0.1, 0.1]
-      episode_length_s: 20.0

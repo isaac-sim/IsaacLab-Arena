@@ -8,18 +8,17 @@ external_yaml: ../scenes/workdesk_snacks.yaml
 task:
   composition: parallel
   description: Put the apple and yogurt in the bowl
+  episode_length_s: 120.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: apple
       destination_location: wooden_bowl
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]
   - kind: PickAndPlaceTask
     params:
       pick_up_object: yogurt_cup
       destination_location: wooden_bowl
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]

@@ -43,6 +43,7 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
     assert arena_env.task.subtasks[1].pick_up_object.name == "mug_ycb_robolab"
     assert all(subtask.destination_location.name == "bowl_ycb_robolab" for subtask in arena_env.task.subtasks)
     assert all(subtask.background_scene.name == "maple_table_robolab" for subtask in arena_env.task.subtasks)
+    assert arena_env.task.get_episode_length_s() == 20.0
 
     return True
 

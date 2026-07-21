@@ -8,11 +8,11 @@ external_yaml: ../scenes/butter_raisin_box_grey_bin.yaml
 task:
   composition: atomic
   description: Place the smaller object in the grey bin.
+  episode_length_s: 30.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: butter
       destination_location: grey_bin
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]

@@ -8,10 +8,10 @@ external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.
+  episode_length_s: 40.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: banana
       destination_location: plate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
