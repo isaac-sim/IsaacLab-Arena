@@ -320,16 +320,28 @@ def test_random_yaw_init_composes_marker_yaw():
     assert abs(wrap_angle_to_pi(applied - result.orientations[box1])) < 1e-5
 
 
-def test_random_yaw_init_rejects_roll_pitch_marker():
-    """A roll/pitch marker cannot be enclosed by a Z-rotated bbox, so placement must fail loudly."""
+def test_roll_pitch_marker_applied_verbatim_without_random_yaw():
+    """A roll/pitch marker is excluded from random-yaw sampling and applied verbatim.
+
+    A Z-rotated footprint can't enclose a tilted box, so the object keeps its requested rotation
+    and receives no sampled yaw even when random_yaw_init is on.
+    """
+    pitch_rad = math.pi / 2
     solver_params = RelationSolverParams(max_iters=5, verbose=False)
     desk, box1, box2 = _create_test_objects()
-    box1.add_relation(RotateAroundSolution(roll_rad=0.3))
+    box1.add_relation(RotateAroundSolution(pitch_rad=pitch_rad))
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=True)
     )
-    with pytest.raises(AssertionError):
-        placer.place([desk, box1, box2], num_envs=1)
+    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
+    assert box1 not in orientations, "roll/pitch marker object must not receive a sampled yaw"
+
+    placer.place([desk, box1, box2], num_envs=1)
+    applied = box1.get_initial_pose().rotation_xyzw
+    expected = RotateAroundSolution(pitch_rad=pitch_rad).get_rotation_xyzw()
+    assert all(
+        abs(a - e) < 1e-5 for a, e in zip(applied, expected)
+    ), f"marker pitch must be applied verbatim; expected {expected}, got {applied}"
 
 
 def test_marker_yaw_applied_without_random_yaw_init():

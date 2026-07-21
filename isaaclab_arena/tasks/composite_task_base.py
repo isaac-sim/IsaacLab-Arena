@@ -12,6 +12,7 @@ from dataclasses import MISSING
 from functools import partial
 from typing import Any
 
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
@@ -141,6 +142,10 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""
+        return self.subtasks[0].get_viewer_cfg()
 
     @staticmethod
     def _add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:

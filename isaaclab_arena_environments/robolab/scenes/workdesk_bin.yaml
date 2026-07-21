@@ -21,6 +21,9 @@ objects:
 - id: ceramic_mug
   registry_name: ceramic_mug_hot3d_robolab
   params: {}
+- id: keyboard
+  registry_name: keyboard_hot3d_robolab
+  params: {}
 - id: glasses
   registry_name: glasses_hot3d_robolab
   params: {}
@@ -67,6 +70,10 @@ relations:
   params: {}
 - kind: 'on'
   subject: ceramic_mug
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: keyboard
   reference: maple_table_robolab
   params: {}
 - kind: 'on'

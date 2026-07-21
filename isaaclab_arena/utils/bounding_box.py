@@ -218,6 +218,42 @@ class AxisAlignedBoundingBox:
                 max_point=torch.stack([max_y, -min_x, max_z], dim=1),
             )
 
+    def enclosing_after_rotation(
+        self, rotation_xyzw: tuple[float, float, float, float] | torch.Tensor
+    ) -> "AxisAlignedBoundingBox":
+        """Refit to the axis-aligned box enclosing this box under an arbitrary rotation.
+
+        Rotates the eight corners about the object origin by ``rotation_xyzw`` and returns the
+        tightest AABB containing them. Conservative (larger than the true rotated box) for any
+        non-axis-aligned rotation. Unlike :meth:`rotated_around_z`, roll and pitch tilt the box
+        out of plane, so the Z extent may grow as well.
+
+        Args:
+            rotation_xyzw: Quaternion ``(x, y, z, w)`` applied about the object origin. A single
+                quaternion rotates every stacked box equally.
+
+        Returns:
+            New AxisAlignedBoundingBox enclosing the rotated corners.
+        """
+        device = self._min_point.device
+        quat = torch.as_tensor(rotation_xyzw, dtype=torch.float32, device=device).reshape(-1)
+        assert quat.shape == (
+            4,
+        ), f"enclosing_after_rotation expects a single (x, y, z, w) quaternion, got {tuple(quat.shape)}."
+        qx, qy, qz, qw = quat.unbind(0)
+        # Rotation matrix from the (x, y, z, w) quaternion.
+        rot = torch.stack([
+            torch.stack([1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)]),
+            torch.stack([2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)]),
+            torch.stack([2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)]),
+        ])  # (3, 3)
+        corners = self.get_corners_at()  # (N, 8, 3)
+        rotated = corners @ rot.transpose(0, 1)  # (N, 8, 3): each corner mapped by rot
+        return AxisAlignedBoundingBox(
+            min_point=rotated.min(dim=1).values,
+            max_point=rotated.max(dim=1).values,
+        )
+
     def rotated_around_z(self, angle_rad: float | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Refit to the axis-aligned box enclosing this box rotated by angle_rad around Z.
 
@@ -268,6 +304,34 @@ class AxisAlignedBoundingBox:
             min_point=torch.stack([new_min_x, new_min_y, min_z], dim=1),
             max_point=torch.stack([new_max_x, new_max_y, max_z], dim=1),
         )
+
+    def rotated_by_quat(
+        self, rotation_xyzw: tuple[float, float, float, float] | torch.Tensor
+    ) -> "AxisAlignedBoundingBox":
+        """Refit to the axis-aligned box enclosing this box rotated about its origin by a quaternion.
+
+        Args:
+            rotation_xyzw: Rotation quaternion as (x, y, z, w). A single quaternion rotates every box
+                equally; a (M, 4) tensor gives per-box quaternions (or, for a single box, one box per
+                quaternion), matching rotated_around_z's batching.
+        """
+        corners = self.get_corners_at()  # (N, 8, 3)
+        quats = torch.as_tensor(rotation_xyzw, dtype=corners.dtype, device=corners.device).reshape(-1, 4)  # (M, 4)
+
+        num_boxes, num_quats = corners.shape[0], quats.shape[0]
+        assert (
+            num_boxes == 1 or num_quats == 1 or num_boxes == num_quats
+        ), f"rotated_by_quat requires one box, one quat, or equal counts; got {num_boxes} boxes and {num_quats} quats."
+        out_len = max(num_boxes, num_quats)
+        if num_boxes == 1 and out_len > 1:
+            corners = corners.expand(out_len, 8, 3)
+
+        # Rotate the 8 object-frame corners by the quaternion (v + 2w(a×v) + 2a×(a×v)), then min/max.
+        axis = quats[:, :3].view(num_quats, 1, 3).expand(out_len, 8, 3)  # (L, 8, 3)
+        qw = quats[:, 3].view(num_quats, 1, 1).expand(out_len, 1, 1)  # (L, 1, 1)
+        axis_cross = torch.linalg.cross(axis, corners, dim=-1)
+        rotated = corners + 2.0 * qw * axis_cross + 2.0 * torch.linalg.cross(axis, axis_cross, dim=-1)
+        return AxisAlignedBoundingBox(min_point=rotated.amin(dim=1), max_point=rotated.amax(dim=1))
 
 
 def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:

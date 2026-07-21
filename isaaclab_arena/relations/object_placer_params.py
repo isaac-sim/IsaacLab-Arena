@@ -49,3 +49,11 @@ class ObjectPlacerParams:
 
     allow_best_loss_fallbacks: bool = True
     """Whether pooled placement may use best-loss layouts when no valid layout is found."""
+
+    enabled_checks: set[str] | None = None
+    """Check names to evaluate during placement. None runs every registered build-time check.
+    Built-in names are PlacementCheck constants; externally-registered validators may add more."""
+
+    required_checks: set[str] | None = None
+    """Check names that must pass for a layout to count as valid (gates rejection/refill in the pool).
+    None requires every enabled check; otherwise should be a subset of enabled_checks."""

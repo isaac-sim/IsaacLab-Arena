@@ -14,11 +14,6 @@ background:
 objects:
 - id: pumpkin_large
   registry_name: pumpkinlarge_vomp_robolab
-  params:
-    scale:
-    - 1.25
-    - 1.25
-    - 1.25
 - id: pumpkin_small
   registry_name: pumpkinsmall_vomp_robolab
   params: {}
@@ -55,9 +50,16 @@ objects:
 - id: serving_bowl
   registry_name: serving_bowl_vomp_robolab
   params: {}
-- id: utilityjug
-  registry_name: utilityjug_a01_vomp_robolab
+- id: milk_jug
+  registry_name: milkjug_a01_vomp_robolab
   params: {}
+- id: utilityjug
+  registry_name: utilityjug_a03_vomp_robolab
+  params:
+    scale:
+    - 0.4
+    - 0.4
+    - 0.4
 - id: red_onion
   registry_name: red_onion_fruits_veggies_robolab
   params: {}
@@ -119,6 +121,10 @@ relations:
   params: {}
 - kind: 'on'
   subject: serving_bowl
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: milk_jug
   reference: maple_table_robolab
   params: {}
 - kind: 'on'

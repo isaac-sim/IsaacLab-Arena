@@ -41,12 +41,16 @@ class BaseTask(ABC):
             "credentials": self._get_credentials(),
             "downloadType": "download",
             "environment": self._get_environment(),
-            "files": [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}],
+            "files": self._get_files_to_create(),
             "image": self._get_image(),
             "inputs": self._get_inputs(),
             "outputs": self._get_outputs(),
             "lead": self.lead,
         }
+
+    def _get_files_to_create(self) -> list[dict[str, Any]]:
+        """Return files OSMO creates in the task container before starting it."""
+        return [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}]
 
     def _get_environment(self) -> dict[str, str]:
         """Return environment variables for the task."""

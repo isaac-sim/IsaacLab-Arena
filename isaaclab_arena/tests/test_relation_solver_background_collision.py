@@ -333,7 +333,8 @@ def test_relation_solver_state_rejects_object_as_collision_object():
 
 def test_validate_no_overlap_rejects_background_overlap():
     """ObjectPlacer validation flags a placed object overlapping a fixed background obstacle."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
     from isaaclab_arena.relations.relations import On
 
     desk = _make_desk()
@@ -341,14 +342,14 @@ def test_validate_no_overlap_rejects_background_overlap():
     box.add_relation(On(desk))
     background = _make_background()
 
-    placer = ObjectPlacer()
+    validator = NoOverlapValidator(ObjectPlacerParams())
     env_bboxes = {desk: desk.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}
-    assert not placer._validate_no_overlap(overlapping, env_bboxes, [background])
+    assert not validator._validate_no_overlap(overlapping, env_bboxes, [background])
 
     clear = {desk: (0.0, 0.0, 0.0), box: (1.5, 0.3, 0.1)}
-    assert placer._validate_no_overlap(clear, env_bboxes, [background])
+    assert validator._validate_no_overlap(clear, env_bboxes, [background])
 
 
 def _test_get_passive_collision_objects_filters(simulation_app) -> bool:

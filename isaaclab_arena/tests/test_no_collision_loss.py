@@ -317,8 +317,8 @@ def test_negative_clearance_m_raises():
 
 def test_validation_accepts_on_parent_overlap():
     """Non-anchor sitting On(anchor) should pass validation (On pairs are skipped)."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
@@ -332,14 +332,14 @@ def test_validation_accepts_on_parent_overlap():
     positions = {table: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.11)}
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
-    placer = ObjectPlacer(ObjectPlacerParams())
-    assert placer._validate_no_overlap(positions, env_bboxes)
+    validator = NoOverlapValidator(ObjectPlacerParams())
+    assert validator._validate_no_overlap(positions, env_bboxes)
 
 
 def test_validation_rejects_non_anchor_overlap():
     """Two overlapping non-anchor boxes should fail validation."""
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
@@ -353,8 +353,8 @@ def test_validation_rejects_non_anchor_overlap():
     positions = {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.35, 0.35, 0.11)}
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
-    placer = ObjectPlacer(ObjectPlacerParams())
-    assert not placer._validate_no_overlap(positions, env_bboxes)
+    validator = NoOverlapValidator(ObjectPlacerParams())
+    assert not validator._validate_no_overlap(positions, env_bboxes)
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():

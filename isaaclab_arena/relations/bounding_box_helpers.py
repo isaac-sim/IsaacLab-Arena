@@ -122,6 +122,10 @@ class PerEnvBoundingBoxes:
 
 
 def build_per_env_bounding_boxes(objects: list[ObjectBase], num_envs: int) -> PerEnvBoundingBoxes:
-    """Build per-env bboxes for each placement object."""
+    """Build per-env base bboxes for each placement object.
+
+    Object orientation (marker roll/pitch/yaw plus sampled and FaceTo yaw) is applied later per
+    candidate in ObjectPlacer._rotate_candidate_bboxes, so these boxes carry object geometry only.
+    """
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)
