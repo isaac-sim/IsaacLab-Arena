@@ -12,7 +12,9 @@ bare ``--no-deps --editable`` install in the native uv job.
 """
 
 import importlib.util
+import tomllib
 from importlib import metadata
+from pathlib import Path
 
 PACKAGE_ROOTS = (
     "isaaclab_arena",
@@ -30,6 +32,8 @@ DISCOVERABLE_MODULES = (
     "isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task",
 )
 
+REPOSITORY_ROOT = Path(__file__).parents[2]
+
 
 def test_package_roots_importable():
     for package_root in PACKAGE_ROOTS:
@@ -43,3 +47,16 @@ def test_modules_discoverable():
 
 def test_package_version_resolves():
     assert metadata.version("isaaclab_arena")
+
+
+def test_native_openpi_client_matches_server_commit():
+    """Keep the native OpenPI client wire-compatible with the separately built server."""
+    pyproject_config = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    openpi_client_source = pyproject_config["tool"]["uv"]["sources"]["openpi-client"]
+    openpi_server_commit = (
+        (REPOSITORY_ROOT / "isaaclab_arena_openpi" / "docker" / "OPENPI_COMMIT").read_text(encoding="utf-8").strip()
+    )
+
+    assert pyproject_config["dependency-groups"]["openpi"] == ["openpi-client"]
+    assert "openpi" in pyproject_config["tool"]["uv"]["default-groups"]
+    assert openpi_client_source["rev"] == openpi_server_commit

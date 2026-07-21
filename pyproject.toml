@@ -57,12 +57,15 @@ isaacsim = [
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
 ]
+openpi = [
+    "openpi-client",
+]
 
 [tool.uv]
 # Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
-# Install the sim stack (isaaclab/isaacsim wheels) on a bare `uv sync`.
-default-groups = ["isaacsim"]
+# Install the sim stack and remote OpenPI client on a bare `uv sync`.
+default-groups = ["isaacsim", "openpi"]
 # Isaac Lab is explicitly pinned to a beta, while Isaac Sim requires a
 # transitive tinyobjloader release candidate. The exact constraint below makes
 # that RC explicit without allowing unrelated packages to float to prereleases.
@@ -114,6 +117,11 @@ mujoco-usd-converter = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
+
+[tool.uv.sources.openpi-client]
+git = "https://github.com/Physical-Intelligence/openpi"
+rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79"
+subdirectory = "packages/openpi-client"
 
 [tool.setuptools.packages.find]
 where = ["."]
