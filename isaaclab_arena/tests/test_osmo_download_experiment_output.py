@@ -5,11 +5,13 @@
 
 """Verify downloading complete Arena Experiment outputs from OSMO object storage."""
 
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.scripts.download_experiment_output import download_experiment_output, main
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
@@ -34,12 +36,18 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch):
     )
 
 
-def test_help_states_default_output_directory(capsys):
-    with pytest.raises(SystemExit) as help_exit:
-        main(["--help"])
+@pytest.mark.with_subprocess
+def test_cli_help_states_default_output_directory():
+    result = subprocess.run(
+        [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
 
-    assert help_exit.value.code == 0
-    assert "/eval/<workflow-id>" in capsys.readouterr().out
+    assert result.returncode == 0
+    assert "/eval/<workflow-id>" in result.stdout
 
 
 def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting(monkeypatch, tmp_path):
@@ -75,15 +83,26 @@ def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting
 
 
 @pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])
-def test_rejects_invalid_workflow_id_at_both_entry_points(monkeypatch, tmp_path, workflow_id):
+@pytest.mark.with_subprocess
+def test_cli_rejects_invalid_workflow_id(workflow_id):
+    result = subprocess.run(
+        [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", workflow_id],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode == 2
+    assert "invalid OSMO workflow ID" in result.stderr
+
+
+@pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])
+def test_download_rejects_invalid_workflow_id(monkeypatch, tmp_path, workflow_id):
     def fail_if_called(command):
         pytest.fail(f"Unexpected download command: {command}")
 
     monkeypatch.setattr("osmo.scripts.download_experiment_output.subprocess.run", fail_if_called)
-
-    with pytest.raises(SystemExit) as invalid_argument_exit:
-        main([workflow_id])
-    assert invalid_argument_exit.value.code == 2
 
     with pytest.raises(AssertionError, match="Invalid OSMO workflow ID"):
         download_experiment_output(workflow_id, tmp_path / "output", DATASETS_SWIFT_URL)
