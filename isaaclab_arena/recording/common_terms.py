@@ -203,12 +203,25 @@ def record_gap_provenance(env, env_id: int, provenance: dict[str, Any] | None = 
 
     Static scene details come from the environment factory. Runtime and placement seeds come from the
     compiled manager configuration so typed and legacy experiment frontends record the same values.
+
+    Also stamps ``perf_knobs``: the complete, canonical resolved value of every pinned performance
+    knob, resolved from this WORKER process environment by the Isaac-cap contract authority.  The
+    resolver fails closed on an illegal gate value or an unregistered performance-knob env var, and
+    the stamped object is re-validated here, so this term never publishes provenance its own
+    validator would reject (producer-never-publishes-an-artifact-its-validator-rejects).
     """
     if not provenance:
         return {}
+    # Import from the Isaac-cap contract authority (single source of truth, also
+    # consumed by the offline gate) rather than re-declaring the registry here.
+    from isaac_cap.eval_contract import resolve_perf_knobs, validate_perf_knobs
+
     resolved = dict(provenance)
     resolved["placement_seed"] = getattr(env.cfg, "placement_seed", None)
     resolved["seed"] = env.cfg.seed
+    perf_knobs = resolve_perf_knobs()
+    validate_perf_knobs(perf_knobs)
+    resolved["perf_knobs"] = perf_knobs
     return {"gap_provenance": resolved}
 
 
