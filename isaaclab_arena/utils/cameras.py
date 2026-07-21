@@ -41,11 +41,15 @@ class ArenaCameraCfg:
         self._use_tiled_camera = use_tiled_camera
 
     def set_use_tiled_camera(self, use_tiled_camera: bool) -> None:
-        """Select whether :meth:`get_cfg` returns tiled cameras."""
+        """Select whether get_cfg returns tiled cameras."""
         self._use_tiled_camera = use_tiled_camera
 
+    def camera_names(self) -> list[str]:
+        """Return the field name of every camera in this rig."""
+        return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
+
     def get_cfg(self) -> Any:
-        """Return a copy of this rig, tiled or untiled per :attr:`use_tiled_camera`.
+        """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
 
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
         """

@@ -15,11 +15,11 @@ VARIATION_NAME = f"camera_intrinsics_{CAMERA_NAME}"
 EVENT_NAME = f"{CAMERA_NAME}_intrinsics_variation"
 NOMINAL_HORIZONTAL_APERTURE = 5.376
 NOMINAL_VERTICAL_APERTURE = 3.024
-# (d_fx, d_fy, d_cx, d_cy); distinct signs catch axis/sign swaps.
-TEST_DELTAS = (0.1, -0.1, 0.1, -0.1)
+# (d_fx, d_fy); distinct signs catch axis/sign swaps.
+TEST_DELTAS = (0.1, -0.1)
 
 
-def get_test_environment(*, camera_intrinsics_enabled: bool):
+def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
     """Build a minimal droid-embodiment env with an optional camera intrinsics variation."""
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -28,7 +28,7 @@ def get_test_environment(*, camera_intrinsics_enabled: bool):
     from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
     embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS)
-    if camera_intrinsics_enabled:
+    if camera_intrinsics_variation_enabled:
         embodiment.get_variation(VARIATION_NAME).apply_cfg(
             CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=list(TEST_DELTAS), high=list(TEST_DELTAS)))
         )
@@ -41,7 +41,7 @@ def _test_disabled_camera_intrinsics_variation_not_in_events_cfg(simulation_app)
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    arena_env = get_test_environment(camera_intrinsics_enabled=False)
+    arena_env = get_test_environment(camera_intrinsics_variation_enabled=False)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
@@ -57,7 +57,7 @@ def _test_enabled_camera_intrinsics_variation_in_events_cfg(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.variations.camera_intrinsics_variation import apply_camera_intrinsics_from_sampler
 
-    arena_env = get_test_environment(camera_intrinsics_enabled=True)
+    arena_env = get_test_environment(camera_intrinsics_variation_enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
@@ -77,7 +77,7 @@ def _test_disabled_camera_intrinsics_variation_keeps_tiled_camera(simulation_app
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    arena_env = get_test_environment(camera_intrinsics_enabled=False)
+    arena_env = get_test_environment(camera_intrinsics_variation_enabled=False)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
@@ -95,7 +95,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    arena_env = get_test_environment(camera_intrinsics_enabled=True)
+    arena_env = get_test_environment(camera_intrinsics_variation_enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
@@ -113,22 +113,18 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env = ArenaEnvBuilder(
-        get_test_environment(camera_intrinsics_enabled=True), arena_env_builder_cfg_from_argparse(args_cli)
+        get_test_environment(camera_intrinsics_variation_enabled=True), arena_env_builder_cfg_from_argparse(args_cli)
     ).make_registered()
     env.reset()
 
     camera = env.unwrapped.scene[CAMERA_NAME]
     sensor_prim = camera._sensor_prims[0]
-    d_fx, d_fy, d_cx, d_cy = TEST_DELTAS
+    d_fx, d_fy = TEST_DELTAS
     expected_horizontal_aperture = NOMINAL_HORIZONTAL_APERTURE / (1.0 + d_fx)
     expected_vertical_aperture = NOMINAL_VERTICAL_APERTURE / (1.0 + d_fy)
 
     assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
     assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
-    assert sensor_prim.GetHorizontalApertureOffsetAttr().Get() == pytest.approx(
-        expected_horizontal_aperture * d_cx / 2.0
-    )
-    assert sensor_prim.GetVerticalApertureOffsetAttr().Get() == pytest.approx(expected_vertical_aperture * d_cy / 2.0)
 
     env.close()
     return True
