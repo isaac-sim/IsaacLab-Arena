@@ -169,7 +169,7 @@ def test_enclosing_after_rotation_pitch_swaps_extents():
     torch.testing.assert_close(rotated.min_point, torch.tensor([[-0.3, -0.05, -0.05]]), atol=1e-6, rtol=0)
 
 
-def test_bake_marker_rotation_footprints_encloses_pitched_object():
+def test_rotate_candidate_bboxes_encloses_pitched_object():
     """A tall box pitched 90° sweeps into a neighbor that its unrotated footprint clears."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_long_box("a", half_x=0.05, half_y=0.05, half_z=0.3)  # tall in Z
@@ -179,21 +179,11 @@ def test_bake_marker_rotation_footprints_encloses_pitched_object():
 
     # Unrotated, a's 0.05 half-X clears b at x=0.25: overlap check passes (the latent bug).
     axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
-    assert placer._validate_placement(positions, axis_aligned).do_all_required_validation_checks_pass() is True
+    assert _validate_one(placer, positions, axis_aligned).do_all_required_validation_checks_pass() is True
 
-    # Baking the applied pitch grows a's X extent to 0.3, so it now overlaps b and is rejected.
-    baked = placer._bake_marker_rotation_footprints([a, b], axis_aligned)
-    assert placer._validate_placement(positions, baked).do_all_required_validation_checks_pass() is False
-
-
-def test_bake_marker_rotation_footprints_skips_yaw_only_marker():
-    """Yaw-only markers stay on the yaw path and are left unchanged by the roll/pitch baking."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    box = _make_long_box("box")
-    box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
-    bboxes = {box: box.get_bounding_box()}
-    baked = placer._bake_marker_rotation_footprints([box], bboxes)
-    assert baked[box] is bboxes[box]
+    # Composing the applied pitch grows a's X extent to 0.3, so it now overlaps b and is rejected.
+    rotated = ObjectPlacer._rotate_candidate_bboxes([a, b], axis_aligned, [{}])
+    assert _validate_one(placer, positions, rotated).do_all_required_validation_checks_pass() is False
 
 
 def test_on_relation_containment_uses_rotated_bbox():
