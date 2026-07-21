@@ -7,7 +7,8 @@ env_name: droid_pick_mustard_to_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
-  params: {}
+  params:
+    stand_height_m: 0.8
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
@@ -32,8 +33,25 @@ object_references:
   params: {}
 relations:
 - kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
   subject: right_counter_top
   params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: right_counter_top
+  params:
+    side: negative_y
+    distance_m: 0.01
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
 - kind: 'on'
   subject: mustard_bottle
   reference: right_counter_top
