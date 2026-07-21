@@ -15,8 +15,6 @@ from pathlib import Path
 from osmo.workflows.utils.workflow_id import is_valid_workflow_id
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
-DEFAULT_OUTPUT_BASE_DIRECTORY = Path("/eval")
-
 
 def _is_safe_workflow_id(value: str) -> bool:
     """Return whether a workflow ID is safe to use as a remote and local path component."""
@@ -77,8 +75,8 @@ Examples:
     parser.add_argument(
         "--output-base-directory",
         type=Path,
-        default=DEFAULT_OUTPUT_BASE_DIRECTORY,
-        help=f"local base directory (default destination: {DEFAULT_OUTPUT_BASE_DIRECTORY}/<workflow-id>)",
+        default=Path("/eval"),
+        help="local base directory (default destination: %(default)s/<workflow-id>)",
     )
     parser.allow_abbrev = False
     return parser

@@ -10,38 +10,24 @@ from types import SimpleNamespace
 
 import pytest
 
-from osmo.scripts.download_experiment_output import DEFAULT_OUTPUT_BASE_DIRECTORY, download_experiment_output, main
+from osmo.scripts.download_experiment_output import download_experiment_output, main
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
 
-def test_downloads_experiment_output_to_default_directory(monkeypatch, tmp_path):
-    assert DEFAULT_OUTPUT_BASE_DIRECTORY == Path("/eval")
-    test_output_base_directory = tmp_path / "eval"
-    monkeypatch.setattr(
-        "osmo.scripts.download_experiment_output.DEFAULT_OUTPUT_BASE_DIRECTORY",
-        test_output_base_directory,
-    )
-    captured_command = None
+def test_downloads_experiment_output_to_default_directory(monkeypatch):
+    captured_download = None
 
-    def capture_download(command):
-        nonlocal captured_command
-        captured_command = command
-        return SimpleNamespace(returncode=0)
+    def capture_download(workflow_id, output_directory):
+        nonlocal captured_download
+        captured_download = (workflow_id, output_directory)
+        return 0
 
-    monkeypatch.setattr("osmo.scripts.download_experiment_output.subprocess.run", capture_download)
+    monkeypatch.setattr("osmo.scripts.download_experiment_output.download_experiment_output", capture_download)
 
     return_code = main(["arena-experiment-123"])
 
-    expected_output_directory = test_output_base_directory / "arena-experiment-123"
     assert return_code == 0
-    assert captured_command == [
-        "osmo",
-        "data",
-        "download",
-        f"{DATASETS_SWIFT_URL}/arena-experiment-123/",
-        expected_output_directory.as_posix(),
-    ]
-    assert expected_output_directory.is_dir()
+    assert captured_download == ("arena-experiment-123", Path("/eval/arena-experiment-123"))
 
 
 def test_help_states_default_output_directory(capsys):
@@ -71,7 +57,13 @@ def test_downloads_to_explicit_base_directory_without_shell_splitting(monkeypatc
     ])
 
     assert return_code == 0
-    assert captured_command[-1] == str(expected_output_directory)
+    assert captured_command == [
+        "osmo",
+        "data",
+        "download",
+        f"{DATASETS_SWIFT_URL}/arena-experiment-123/",
+        str(expected_output_directory),
+    ]
     assert expected_output_directory.is_dir()
 
 
