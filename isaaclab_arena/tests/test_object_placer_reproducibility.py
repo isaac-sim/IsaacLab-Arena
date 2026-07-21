@@ -323,8 +323,8 @@ def test_random_yaw_init_composes_marker_yaw():
 def test_roll_pitch_marker_applied_verbatim_without_random_yaw():
     """A roll/pitch marker is excluded from random-yaw sampling and applied verbatim.
 
-    A Z-rotated footprint bbox can't enclose a pitched object, so the object keeps its requested
-    marker rotation and is not given a sampled yaw even when random_yaw_init is on.
+    A Z-rotated footprint can't enclose a tilted box, so the object keeps its requested rotation
+    and receives no sampled yaw even when random_yaw_init is on.
     """
     pitch_rad = math.pi / 2
     solver_params = RelationSolverParams(max_iters=5, verbose=False)

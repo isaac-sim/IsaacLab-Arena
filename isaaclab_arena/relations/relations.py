@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab.utils.math import euler_xyz_from_quat
 
@@ -16,6 +16,8 @@ from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_po
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+
+RelationT = TypeVar("RelationT", bound="RelationBase")
 
 # Default inward inset (meters) from each X/Y edge of an ``On`` support surface, keeping
 # the placed object's footprint off the rim.
@@ -528,3 +530,8 @@ def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
         List of anchor objects (may be empty if no anchors found).
     """
     return [obj for obj in objects if any(isinstance(r, IsAnchor) for r in obj.get_relations())]
+
+
+def get_relation(obj: ObjectBase, relation_type: type[RelationT]) -> RelationT | None:
+    """Return obj's first relation of the given type, or None if it has none."""
+    return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)
