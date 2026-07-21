@@ -54,7 +54,7 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
 
     Tiled cameras share one USD sensor across envs, so a per-env intrinsic edit would leak
     across all tiles. This variation forces ``camera_rig`` untiled at build time (via
-    :meth:`_prepare_at_build_time`) so the per-env perturbation takes effect.
+    _prepare_at_build_time) so the per-env perturbation takes effect.
 
     Args:
         camera_name: Scene-entity name of the target camera.
