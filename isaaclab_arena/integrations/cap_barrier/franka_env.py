@@ -153,9 +153,19 @@ class FrankaSimulationAdapter:
 
 
 def make_cap_franka_environment(
-    *, device: str = "cuda:0", initial_gripper_closed: bool = False
+    *,
+    device: str = "cuda:0",
+    initial_gripper_closed: bool = False,
+    enable_cameras: bool = False,
 ) -> FrankaSimulationAdapter:
-    """Build the fixed arena_droid_b1 smoke profile after Kit startup."""
+    """Build the fixed arena_droid_b1 smoke profile after Kit startup.
+
+    ``enable_cameras`` attaches the perception ``exterior_cam`` (rgb + depth) so the
+    get_image ROS path can render on demand. It requires the SimulationApp to be
+    launched with ``--enable_cameras``; the barrier itself never reads the camera
+    per step (rendering is triggered by data access, so the 200 Hz loop pays no
+    render cost until a frame is explicitly requested).
+    """
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -166,7 +176,15 @@ def make_cap_franka_environment(
     from isaaclab_arena.tasks.no_task import NoTask
 
     registry = AssetRegistry()
-    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")()
+    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")(
+        enable_cameras=enable_cameras
+    )
+    if enable_cameras:
+        from isaaclab_arena_environments.libero_cameras import (
+            LiberoDroidPerceptionCameraCfg,
+        )
+
+        embodiment.camera_config = LiberoDroidPerceptionCameraCfg()
     # The DROID stand is not hosted on the public S3 Nucleus. Retain its scene
     # entry because the embodiment updates its pose, but replace the unavailable
     # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
