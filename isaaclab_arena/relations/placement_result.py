@@ -9,19 +9,19 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placement_entity import PlacementEntity
+    from isaaclab_arena.relations.placement_asset import PlacementAsset
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
 @dataclass
 class PlacementResult:
-    """Solved entity layout for one environment."""
+    """Solved asset layout for one environment."""
 
     validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
 
-    positions: dict[PlacementEntity, tuple[float, float, float]]
-    """Final positions for each entity."""
+    positions: dict[PlacementAsset, tuple[float, float, float]]
+    """Final ``(x, y, z)`` positions in metres in the environment-local frame."""
 
     final_loss: float
     """Loss value of the final placement."""
@@ -29,13 +29,10 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-    orientations: dict[PlacementEntity, float] = field(default_factory=dict)
-    """Placement-computed world Z-yaws. Omitted entities retain their marker orientation."""
+    orientations: dict[PlacementAsset, float] = field(default_factory=dict)
+    """Sparse map of world yaw angles ``theta_z`` in radians; omitted assets retain marker orientation."""
 
     @property
     def success(self) -> bool:
-        """True when all required validation checks pass.
-
-        place() returns a best-loss fallback even on failure; check this to tell validated from fallback.
-        """
+        """Whether all required validation checks passed."""
         return self.validation_results.do_all_required_validation_checks_pass()
