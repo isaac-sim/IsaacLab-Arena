@@ -47,3 +47,7 @@ class Asset:
     def get_variations(self) -> list[VariationBase]:
         """Return every variation attached to this asset, enabled or not."""
         return list(self.variations.values())
+
+    def get_scene_name(self) -> str:
+        """Return the Isaac Lab scene key for the asset."""
+        return self.name

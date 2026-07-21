@@ -42,11 +42,7 @@ def _make_box(name: str = "box"):
 
 
 def _make_background():
-    """Tall obstacle on the desk's left strip (x in [0, 0.5]).
-
-    Narrower than the desk so a straddling box has a non-zero escape gradient: the
-    overlap-volume loss is flat when one box is fully enclosed by the other.
-    """
+    """Return an obstacle narrower than the desk to preserve a non-zero escape gradient."""
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
@@ -553,14 +549,12 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        scene_entity_names=None,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
         calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
-        calls["scene_entity_names"] = scene_entity_names
         return "placement_event"
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
@@ -575,7 +569,6 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     assert calls["placer_params"] is placer_params
     assert calls["scene_assets"] == [background_collision]
     assert calls["collision_objects"] is None
-    assert calls["scene_entity_names"]["object"] == "object"
     assert builder._placement_event_cfg == "placement_event"
 
 
@@ -601,12 +594,10 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        scene_entity_names=None,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
-        calls["scene_entity_names"] = scene_entity_names
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=None)
@@ -617,7 +608,6 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     assert calls["objects"] == []
     assert calls["scene_assets"] == []
     assert calls["collision_objects"] is None
-    assert calls["scene_entity_names"] == {}
 
 
 def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
@@ -641,9 +631,6 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         def get_relations(self):
             return [object()]
 
-        def get_embodiment_name_in_scene(self):
-            return "robot"
-
     def fake_solve_and_apply_relation_placement(*args, **kwargs):
         calls.update(kwargs)
         calls["objects"] = args[0]
@@ -655,7 +642,6 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
     ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
 
     assert calls["objects"] == [embodiment]
-    assert calls["scene_entity_names"] == {"droid": "robot"}
 
 
 def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):

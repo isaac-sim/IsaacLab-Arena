@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared model for entities whose poses are relation-solved."""
+"""Shared model for assets whose poses are relation-solved."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementEntity(Asset, ABC):
+class PlacementAsset(Asset, ABC):
     """Asset whose root pose can be constrained by spatial relations."""
 
     def __init__(self, name: str, tags: list[str] | None = None, **kwargs) -> None:
@@ -30,15 +31,15 @@ class PlacementEntity(Asset, ABC):
         self.relations: list[RelationBase] = []
         # None delegates collision-mode selection to the solver.
         self.collision_mode: CollisionMode | None = None
-        # Mesh collision uses a convex hull when source geometry is not watertight.
+        # Whether to replace a non-watertight collision mesh with its convex hull.
         self.repair_collision_mesh_non_watertight = True
 
     def add_relation(self, relation: RelationBase) -> None:
-        """Attach a relation to the entity."""
+        """Attach a relation to the asset."""
         self.relations.append(relation)
 
     def get_relations(self) -> list[RelationBase]:
-        """Return all relations attached to the entity."""
+        """Return all relations attached to the asset."""
         return self.relations
 
     def get_spatial_relations(self) -> list[RelationBase]:
@@ -47,7 +48,7 @@ class PlacementEntity(Asset, ABC):
 
     @property
     def is_anchor(self) -> bool:
-        """Return whether the entity is fixed during relation solving."""
+        """Return whether the asset is fixed during relation solving."""
         return any(isinstance(relation, IsAnchor) for relation in self.relations)
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
@@ -55,15 +56,19 @@ class PlacementEntity(Asset, ABC):
         return self.initial_pose
 
     def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Set the configured root pose."""
+        """Set the configured root pose.
+
+        ``PoseRange`` and ``PosePerEnv`` support is subclass-specific. Callers
+        assigning ``PosePerEnv`` must first check ``supports_per_env_initial_pose()``.
+        """
         self.initial_pose = pose
 
     def set_placement_initial_pose(self, pose: Pose) -> None:
-        """Set a solved root pose without changing reset ownership."""
+        """Set the solved spawn pose without changing reset ownership."""
         self.set_initial_pose(pose)
 
     def has_pose_reset_event(self) -> bool:
-        """Return whether the entity owns a root-pose reset event."""
+        """Return whether the asset owns a root-pose reset event."""
         return False
 
     def supports_per_env_initial_pose(self) -> bool:
@@ -74,10 +79,17 @@ class PlacementEntity(Asset, ABC):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
 
-    @abstractmethod
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return axis-aligned bounds transformed by the root pose."""
+        """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
 
-    @abstractmethod
+        Unset, ranged, and per-environment poses leave the root-relative bounds unchanged.
+        """
+        bounding_box = self.get_bounding_box()
+        initial_pose = self.get_initial_pose()
+        if not isinstance(initial_pose, Pose):
+            return bounding_box
+        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
+        return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
+
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return a root-relative collision mesh when available."""
+        """Return this asset's collision mesh, or ``None`` if it has none."""

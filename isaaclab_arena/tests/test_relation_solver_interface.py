@@ -62,18 +62,26 @@ def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result
     assert placement_event_cfg is None
 
 
-def test_solve_and_apply_relation_placement_requires_unique_entity_names():
+def test_solve_and_apply_relation_placement_requires_unique_asset_names():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
     with pytest.raises(AssertionError, match="names must be unique"):
         solve_and_apply_relation_placement([_make_box(), _make_box()], num_envs=1)
 
 
-def test_solve_and_apply_relation_placement_requires_complete_scene_name_map():
+def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    with pytest.raises(AssertionError, match="must contain every placement entity"):
-        solve_and_apply_relation_placement([_make_desk()], num_envs=1, scene_entity_names={})
+    embodiment = DummyEmbodiment(
+        name="droid",
+        scene_name="robot",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+    )
+
+    with pytest.raises(AssertionError, match="duplicate scene keys"):
+        solve_and_apply_relation_placement([_make_box("robot"), embodiment], num_envs=1)
 
 
 def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():
@@ -121,16 +129,15 @@ def test_dynamic_spawn_pose_rejects_layout_missing_non_anchor():
     box = _make_box()
     placement_pool = _FakePlacementPool([_fallback_layout(positions={})])
 
-    with pytest.raises(AssertionError, match="missing non-anchor entity 'box'"):
+    with pytest.raises(AssertionError, match="missing non-anchor asset 'box'"):
         _apply_dynamic_spawn_pose(
-            objects=[desk, box],
+            assets=[desk, box],
             placement_pool=placement_pool,
-            anchor_objects_set={desk},
-            scene_entity_names={"desk": "desk", "box": "box"},
+            anchor_assets={desk},
         )
 
 
-def test_dynamic_spawn_pose_event_params_use_runtime_objects():
+def test_dynamic_spawn_pose_event_params_use_runtime_assets():
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
 
     desk = _make_desk()
@@ -138,21 +145,19 @@ def test_dynamic_spawn_pose_event_params_use_runtime_objects():
     placement_pool = _FakePlacementPool([_fallback_layout(positions={box: (0.1, 0.2, 0.3)})])
 
     event_cfg = _apply_dynamic_spawn_pose(
-        objects=[desk, box],
+        assets=[desk, box],
         placement_pool=placement_pool,
-        anchor_objects_set={desk},
-        scene_entity_names={"desk": "desk", "box": "box"},
+        anchor_assets={desk},
     )
 
-    assert [obj.name for obj in event_cfg.params["objects"]] == ["desk", "box"]
+    assert [asset.name for asset in event_cfg.params["assets"]] == ["desk", "box"]
     assert "placement_pool" in event_cfg.params
-    assert event_cfg.params["scene_entity_names"]["box"] == "box"
 
 
 def test_static_embodiment_placement_uses_coordinated_reset():
-    from isaaclab_arena.assets.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -170,18 +175,17 @@ def test_static_embodiment_placement_uses_coordinated_reset():
     ]
 
     event_cfg = _apply_relation_placement_result(
-        objects=[desk, robot],
+        assets=[desk, robot],
         placer_params=ObjectPlacerParams(resolve_on_reset=False),
         placement_pool=_FakePlacementPool(layouts),
         num_envs=2,
-        scene_entity_names={"desk": "desk", "robot": "robot"},
     )
 
     initial_pose = robot.get_initial_pose()
     assert isinstance(initial_pose, Pose)
     assert initial_pose.position_xyz == (0.1, 0.2, 0.0)
     assert event_cfg is not None
-    runtime_robot = event_cfg.params["objects"][1]
+    runtime_robot = event_cfg.params["assets"][1]
     assert runtime_robot in event_cfg.params["layouts"][0].positions
     assert event_cfg.params["layouts"][1].positions[runtime_robot] == (0.3, 0.4, 0.0)
 
@@ -197,10 +201,10 @@ def test_static_initial_poses_reject_layout_missing_non_anchor():
         _fallback_layout(positions={placed_box: (0.2, 0.0, 0.2)}),
     ])
 
-    with pytest.raises(AssertionError, match="missing non-anchor entity 'missing_box'"):
+    with pytest.raises(AssertionError, match="missing non-anchor asset 'missing_box'"):
         _apply_static_initial_poses(
-            objects=[desk, missing_box, placed_box],
+            assets=[desk, missing_box, placed_box],
             placement_pool=placement_pool,
-            anchor_objects_set={desk},
+            anchor_assets={desk},
             num_envs=2,
         )
