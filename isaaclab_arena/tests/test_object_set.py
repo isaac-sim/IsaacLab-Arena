@@ -275,13 +275,14 @@ def _test_single_object_in_one_object_set(simulation_app):
     obj_set = RigidObjectSet(name="single_object_set", objects=[cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH)
     obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, obj_set])
+    task = PickAndPlaceTask(
+        pick_up_object=obj_set, destination_location=destination_location, background_scene=background
+    )
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="single_object_set_test",
         embodiment=embodiment,
         scene=scene,
-        task=PickAndPlaceTask(
-            pick_up_object=obj_set, destination_location=destination_location, background_scene=background
-        ),
+        task=task,
         teleop_device=None,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -303,10 +304,7 @@ def _test_single_object_in_one_object_set(simulation_app):
 
         assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
         assert (
-            env.unwrapped.scene.sensors[
-                PickAndPlaceTask.contact_sensor_name_for_pick_up_object(obj_set)
-            ].data.force_matrix_w
-            is not None
+            env.unwrapped.scene.sensors[task.contact_sensor_name].data.force_matrix_w is not None
         ), "Contact sensor data is None"
     except Exception as e:
         print(f"Error: {e}")
@@ -344,13 +342,14 @@ def _test_multi_objects_in_one_object_set(simulation_app):
         name="multi_object_sets", objects=[cracker_box, sugar_box], prim_path=OBJECT_SET_2_PRIM_PATH
     )
     scene = Scene(assets=[background, obj_set])
+    task = PickAndPlaceTask(
+        pick_up_object=obj_set, destination_location=destination_location, background_scene=background
+    )
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="multi_objects_in_one_object_set_test",
         embodiment=embodiment,
         scene=scene,
-        task=PickAndPlaceTask(
-            pick_up_object=obj_set, destination_location=destination_location, background_scene=background
-        ),
+        task=task,
         teleop_device=None,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -362,10 +361,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 
     assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
     assert (
-        env.unwrapped.scene.sensors[
-            PickAndPlaceTask.contact_sensor_name_for_pick_up_object(obj_set)
-        ].data.force_matrix_w
-        is not None
+        env.unwrapped.scene.sensors[task.contact_sensor_name].data.force_matrix_w is not None
     ), "Contact sensor data is None"
 
     # replace * in OBJECT_SET_PRIM_PATH with env_index

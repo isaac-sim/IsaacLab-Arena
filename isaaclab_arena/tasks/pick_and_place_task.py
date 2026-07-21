@@ -70,8 +70,8 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.contact_sensor_name = self.contact_sensor_name_for_pick_up_object(pick_up_object)
-        self.scene_config = self._make_scene_cfg()
+        self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
+        self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
         if max_separation is not None:
@@ -86,13 +86,7 @@ class PickAndPlaceTask(TaskBase):
             else task_description
         )
 
-    @classmethod
-    def contact_sensor_name_for_pick_up_object(cls, pick_up_object: Asset | str) -> str:
-        """Return the scene sensor name for a pick-up object's destination contact check."""
-        object_name = pick_up_object.name if isinstance(pick_up_object, Asset) else pick_up_object
-        return f"contact_sensor_{object_name}"
-
-    def _make_scene_cfg(self):
+    def make_scene_cfg(self):
         contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
             contact_against_object=self.destination_location,
         )
