@@ -63,7 +63,6 @@ def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp
     assert exact_output_experiment_overrides == []
 
 
-@pytest.mark.with_subprocess
 def test_experiment_runner_rejects_timestamped_base_with_exact_output_directory(tmp_path):
     """Reject mutually exclusive output directory flags in a fresh process."""
     result = subprocess.run(
