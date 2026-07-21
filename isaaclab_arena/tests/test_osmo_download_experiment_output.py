@@ -6,12 +6,12 @@
 """Verify downloading complete Arena Experiment outputs from OSMO object storage."""
 
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.scripts.download_experiment_output import download_experiment_output, main
 from osmo.workflows.workflow_constants import DATASETS_SWIFT_URL
 
@@ -38,7 +38,7 @@ def test_downloads_experiment_output_to_default_directory(monkeypatch):
 
 def test_cli_help_states_default_output_directory():
     result = subprocess.run(
-        [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", "--help"],
+        [sys.executable, "-m", "osmo.scripts.download_experiment_output", "--help"],
         capture_output=True,
         text=True,
         check=False,
@@ -84,7 +84,7 @@ def test_downloads_from_explicit_remote_and_output_bases_without_shell_splitting
 @pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])
 def test_cli_rejects_invalid_workflow_id(workflow_id):
     result = subprocess.run(
-        [TestConstants.python_path, "-m", "osmo.scripts.download_experiment_output", workflow_id],
+        [sys.executable, "-m", "osmo.scripts.download_experiment_output", workflow_id],
         capture_output=True,
         text=True,
         check=False,
