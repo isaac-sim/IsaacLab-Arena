@@ -787,19 +787,15 @@ def _make_validated_pool(
 ):
     """Build a small valid pool over the desk/box fixtures with an optional reachability validator."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import get_build_time_checks
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     objects = list(_create_test_objects())
-    # Reachability is off by default; opt in by enabling every registered check (which includes ik_reachable).
-    enabled_checks = set(get_build_time_checks()) if reachability_validator is not None else None
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
         apply_positions_to_objects=False,
         min_unique_layouts_per_env=min_layouts_per_env,
         placement_seed=7,
-        enabled_checks=enabled_checks,
         reachability_validator=reachability_validator,
         allow_best_loss_fallbacks=allow_best_loss_fallbacks,
     )

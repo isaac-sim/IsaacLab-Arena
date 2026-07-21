@@ -39,8 +39,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_validation import PlacementCheck
-from isaaclab_arena.relations.reachability_validator_registry import resolve_reachability_validator
+from isaaclab_arena.relations.placement_validators import ReachabilityValidator
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -99,22 +98,9 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # Reachability is opt-in through the placement check lists (declared in the env graph): when
-        # IK_REACHABLE is enabled and no predicate was set directly, pull the per-layout predicate exported
-        # by an enabled extension and hand it to the IK_REACHABLE build-time validator. resolve_* imports the
-        # extension by name, so no cuRobo import appears in core.
-        enabled_checks = placer_params.enabled_checks
-        if (
-            enabled_checks is not None
-            and PlacementCheck.IK_REACHABLE in enabled_checks
-            and placer_params.reachability_validator is None
-        ):
-            embodiment = self.arena_env.embodiment
-            assert embodiment is not None, "the 'ik_reachable' placement check requires a robot embodiment."
-            # The framework stamps IK_REACHABLE from the validator's verdict, so the predicate need not.
-            placer_params.reachability_validator = resolve_reachability_validator(
-                embodiment, ["isaaclab_arena_curobo"], stamp_results=False
-            )
+        # Reachability validator takes an extra step here: build the per-layout check from an enabled
+        # extension, or drop/require it if the extension can't be loaded.
+        ReachabilityValidator.build_reachability_check(placer_params, self.arena_env.embodiment)
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import importlib
 import torch
 import trimesh
 from abc import ABC, abstractmethod
@@ -27,11 +28,16 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    ReachabilityPredicate = Callable[[PlacementResult], bool]
 
 
 class PlacementValidator(ABC):
@@ -97,8 +103,7 @@ def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
         )
         checks = tuple(check for check in checks if check in enabled_checks)
     else:
-        # Default policy: run every registered check except opt-in ones (e.g. IK reachability, which
-        # only runs once a reachability predicate has been provisioned).
+        # Default: run every registered check that opts in thru enabled_by_default for this params.
         checks = tuple(check for check in checks if registry.get_validator_by_name(check).enabled_by_default(params))
 
     required_checks = params.required_checks
@@ -732,28 +737,87 @@ class NoOverlapValidator(PlacementValidator):
 class ReachabilityValidator(PlacementValidator):
     """Gate each candidate on whether the robot can reach a top-down grasp at every movable object.
 
-    Wraps the per-layout reachability predicate an extension supplies via
-    ObjectPlacerParams.reachability_validator (e.g. the cuRobo IK check from isaaclab_arena_curobo), so
-    core stays vendor-agnostic. Off by default: enable it by listing IK_REACHABLE in enabled_checks (and
-    required_checks to gate validity), like any other build-time check. Being gated, it runs only on
-    candidates that already pass the geometry checks, since IK is expensive.
+    If the implementation is not available, the check is disabled. Else (curobo deps exists and embodiment
+    curobo cfg is provided), it is enabled by default and runs only on candidates that already pass the geometry checks.
     """
 
     check = PlacementCheck.IK_REACHABLE
     gated = True
 
+    _FACTORY_ATTR: ClassVar[str] = "make_reachability_validator"
+    """Entry point an extension exports to provide the build-time reachability gate."""
+
+    _DEFAULT_EXTENSIONS: ClassVar[tuple[str, ...]] = ("isaaclab_arena_curobo",)
+    """Extensions searched for the reachability predicate when the caller does not name one explicitly."""
+
     def __init__(self, params: ObjectPlacerParams) -> None:
         super().__init__(params)
         assert params.reachability_validator is not None, (
-            "ReachabilityValidator requires ObjectPlacerParams.reachability_validator to be set "
-            "(the builder fills it when 'ik_reachable' is in enabled_checks and the cuRobo extension is enabled)."
+            "ReachabilityValidator requires ObjectPlacerParams.reachability_validator to be set."
         )
         self._predicate = params.reachability_validator
 
     @classmethod
     def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
-        """Off by default; opt in by listing IK_REACHABLE in enabled_checks."""
-        return False
+        """On by default once the reachability function has been built; off when it couldn't be loaded."""
+        return params.reachability_validator is not None
+
+    @classmethod
+    def build_reachability_check(
+        cls,
+        placer_params: ObjectPlacerParams,
+        embodiment: EmbodimentBase | None,
+        module_names: list[str] | None = None,
+    ) -> None:
+        """Build the reachability function and store it on placer_params, or drop the check if it can't load.
+
+        Args:
+            placer_params: Placement params; reachability_validator (and possibly enabled_checks) are set here.
+            embodiment: Robot embodiment the reachability predicate is built for, or None.
+            module_names: Enabled extension modules to search; defaults to the cuRobo extension.
+        """
+        enabled_checks = placer_params.enabled_checks
+        # Default to True if the reachability check is not explicitly disabled.
+        reachability_requested = cls.check in enabled_checks if enabled_checks is not None else True
+        if not reachability_requested or placer_params.reachability_validator is not None:
+            return
+        required_checks = placer_params.required_checks or set()
+        try:
+            assert embodiment is not None, "the 'ik_reachable' placement check requires a robot embodiment."
+            placer_params.reachability_validator = cls._resolve_predicate(
+                embodiment, module_names or list(cls._DEFAULT_EXTENSIONS), stamp_results=False
+            )
+        except (ImportError, AssertionError) as exc:
+            # The reachability deps (the extension / a robot embodiment) could not be loaded.
+            assert cls.check not in required_checks, (
+                f"required placement check 'ik_reachable' cannot run: {exc}. Enable the cuRobo extension "
+                "(and provide a robot embodiment), or drop 'ik_reachable' from required_checks."
+            )
+            print(
+                f"[placement] Skipping optional 'ik_reachable' check: reachability deps unavailable ({exc}). "
+                "Enable the cuRobo extension (and a robot embodiment) to run it."
+            )
+            # Remove the reachability check from the enabled checks if it is not available.
+            if enabled_checks is not None:
+                placer_params.enabled_checks = enabled_checks - {cls.check}
+
+    @classmethod
+    def _resolve_predicate(cls, embodiment: EmbodimentBase, module_names: list[str], **kwargs) -> ReachabilityPredicate:
+        """Build the reachability predicate exported by the first enabled extension that provides one.
+
+        Args:
+            embodiment: Embodiment the predicate is built for.
+            module_names: Enabled extension modules to search.
+            kwargs: Extra tuning forwarded verbatim to the entry point (e.g. IK thresholds).
+        """
+        for module_name in module_names:
+            factory = getattr(importlib.import_module(module_name), cls._FACTORY_ATTR, None)
+            if factory is not None:
+                return factory(embodiment, **kwargs)
+        raise AssertionError(
+            f"No enabled extension exports {cls._FACTORY_ATTR}(); "
+            "enable one that provides the build-time reachability gate (e.g. 'isaaclab_arena_curobo')."
+        )
 
     def validate_batch(
         self,

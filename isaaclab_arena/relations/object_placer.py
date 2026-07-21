@@ -584,9 +584,7 @@ class ObjectPlacer:
         """Run every enabled validator over all candidates and collect per-candidate results.
 
         Each validator reports one verdict per candidate; the verdicts are transposed into one
-        PlacementValidationResults per candidate, gated by the configured required_checks. Gated
-        validators (e.g. IK reachability) run only on candidates that already pass the required
-        non-gated checks, so an expensive check never runs on a layout rejected on cheaper geometry.
+        PlacementValidationResults per candidate, gated by the configured required_checks.
 
         Args:
             positions: Solved (x, y, z) per object, one dict per candidate.
@@ -596,15 +594,21 @@ class ObjectPlacer:
         """
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
-        verdicts_by_check: dict[str, list[bool]] = {
-            validator.check: validator.validate_batch(positions, orientations, bboxes, collision_objects)
-            for validator in self._validators
-            if not validator.gated
-        }
+        num_candidates = len(positions)
+        # Per-check count of layouts evaluated by that check: all candidates for non-gated checks, only the
+        # geometry-passing subset for gated ones (they skip candidates already rejected on cheaper checks).
+        evaluated_by_check: dict[str, int] = {}
+        verdicts_by_check: dict[str, list[bool]] = {}
+        for validator in self._validators:
+            if not validator.gated:
+                verdicts_by_check[validator.check] = validator.validate_batch(
+                    positions, orientations, bboxes, collision_objects
+                )
+                evaluated_by_check[validator.check] = num_candidates
         for validator in self._validators:
             if validator.gated:
                 kept = [
-                    i for i in range(len(positions)) if self._passes_required_checks(verdicts_by_check, required, i)
+                    i for i in range(num_candidates) if self._passes_required_checks(verdicts_by_check, required, i)
                 ]
                 sub_verdicts = validator.validate_batch(
                     [positions[i] for i in kept],
@@ -612,10 +616,16 @@ class ObjectPlacer:
                     [bboxes[i] for i in kept],
                     collision_objects,
                 )
-                verdicts = [False] * len(positions)
+                verdicts = [False] * num_candidates
                 for sub_idx, cand_idx in enumerate(kept):
                     verdicts[cand_idx] = sub_verdicts[sub_idx]
                 verdicts_by_check[validator.check] = verdicts
+                evaluated_by_check[validator.check] = len(kept)
+        if verdicts_by_check:
+            summary = ", ".join(
+                f"{check}={sum(verdicts)}/{evaluated_by_check[check]}" for check, verdicts in verdicts_by_check.items()
+            )
+            print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
         return [
             PlacementValidationResults(
                 validation_results={check: verdicts[candidate_idx] for check, verdicts in verdicts_by_check.items()},

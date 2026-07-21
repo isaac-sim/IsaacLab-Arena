@@ -37,6 +37,16 @@ def register_curobo_cfg(embodiment_name: str, cfg: CuroboEmbodimentCfg) -> None:
     _CUROBO_EMBODIMENT_CFGS[embodiment_name] = cfg
 
 
+def get_curobo_cfg_by_name(embodiment_name: str) -> CuroboEmbodimentCfg:
+    """Return the cuRobo config registered under an exact embodiment name."""
+    cfg = _CUROBO_EMBODIMENT_CFGS.get(embodiment_name)
+    assert cfg is not None, (
+        f"No cuRobo config registered for '{embodiment_name}'. Register one via register_curobo_cfg(...). "
+        f"Known: {sorted(_CUROBO_EMBODIMENT_CFGS)}."
+    )
+    return cfg
+
+
 def get_curobo_cfg_for(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg:
     """Return the cuRobo config registered for an embodiment's robot family.
 
