@@ -52,8 +52,9 @@ def test_help_states_default_output_directory(capsys):
     assert "/eval/<workflow-id>" in capsys.readouterr().out
 
 
-def test_downloads_to_explicit_directory_without_shell_splitting(monkeypatch, tmp_path):
-    output_directory = tmp_path / "experiment output"
+def test_downloads_to_explicit_base_directory_without_shell_splitting(monkeypatch, tmp_path):
+    output_base_directory = tmp_path / "experiment output"
+    expected_output_directory = output_base_directory / "arena-experiment-123"
     captured_command = None
 
     def capture_download(command):
@@ -65,13 +66,13 @@ def test_downloads_to_explicit_directory_without_shell_splitting(monkeypatch, tm
 
     return_code = main([
         "arena-experiment-123",
-        "--output-directory",
-        str(output_directory),
+        "--output-base-directory",
+        str(output_base_directory),
     ])
 
     assert return_code == 0
-    assert captured_command[-1] == str(output_directory)
-    assert output_directory.is_dir()
+    assert captured_command[-1] == str(expected_output_directory)
+    assert expected_output_directory.is_dir()
 
 
 @pytest.mark.parametrize("workflow_id", ["", ".", "..", "workflow/name", "workflow name"])

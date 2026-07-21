@@ -66,7 +66,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
 Examples:
 
   python3 -m osmo.scripts.download_experiment_output arena-experiment-123
-  python3 -m osmo.scripts.download_experiment_output arena-experiment-123 --output-directory ./my-output
+  python3 -m osmo.scripts.download_experiment_output arena-experiment-123 --output-base-directory ./my-output
 """,
     )
     parser.add_argument(
@@ -75,9 +75,10 @@ Examples:
         help="OSMO workflow ID printed by the Arena Experiment submission command",
     )
     parser.add_argument(
-        "--output-directory",
+        "--output-base-directory",
         type=Path,
-        help="exact local destination (default: /eval/<workflow-id>)",
+        default=DEFAULT_OUTPUT_BASE_DIRECTORY,
+        help=f"local base directory (default destination: {DEFAULT_OUTPUT_BASE_DIRECTORY}/<workflow-id>)",
     )
     parser.allow_abbrev = False
     return parser
@@ -86,9 +87,7 @@ Examples:
 def main(cli_args: list[str] | None = None) -> int:
     """Download the Experiment output described on the command line."""
     parsed_arguments = _create_argument_parser().parse_args(cli_args)
-    output_directory = parsed_arguments.output_directory
-    if output_directory is None:
-        output_directory = DEFAULT_OUTPUT_BASE_DIRECTORY / parsed_arguments.workflow_id
+    output_directory = parsed_arguments.output_base_directory / parsed_arguments.workflow_id
     return download_experiment_output(parsed_arguments.workflow_id, output_directory)
 
 
