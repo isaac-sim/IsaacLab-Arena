@@ -181,9 +181,10 @@ def _apply_dynamic_spawn_pose(
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
-    # For env-indexed pools this seeds from env 0; the first reset overwrites with per-env layouts.
-    layout = placement_pool.sample_with_replacement(1)[0]
-    _set_placement_initial_poses(assets, anchor_assets, layout)
+    # Scene assets need a valid construction pose before reset events can run.
+    # This non-consuming env-0 sample is bootstrap-only; reset draws independently per env.
+    [construction_layout] = placement_pool.sample_with_replacement(1)
+    _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
 
     return EventTermCfg(
         func=solve_and_place_objects,
@@ -205,7 +206,10 @@ def _apply_static_spawn_pose(
     from isaaclab.managers import EventTermCfg
 
     layouts = placement_pool.sample_with_replacement(num_envs)
-    _set_placement_initial_poses(assets, anchor_assets, layouts[0])
+    # Scene configs hold one pose per asset, so construction uses one valid layout.
+    # The reset event installs layouts[env_id] before the first environment step.
+    construction_layout = layouts[0]
+    _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
     return EventTermCfg(
         func=place_assets_from_layouts,
         mode="reset",
@@ -216,17 +220,17 @@ def _apply_static_spawn_pose(
     )
 
 
-def _set_placement_initial_poses(
+def _seed_spawn_config_from_layout(
     assets: list[PlacementAsset],
     anchor_assets: set[PlacementAsset],
     layout: PlacementResult,
 ) -> None:
-    """Seed the spawn pose while preserving coordinated reset ownership."""
+    """Write one solved layout into the single-pose scene configuration."""
     for asset in assets:
         if asset in anchor_assets:
             continue
         pose = get_pose_from_layout(asset, layout)
-        asset.set_placement_initial_pose(pose)
+        asset.set_spawn_pose(pose)
 
 
 def _apply_static_initial_poses(
