@@ -75,7 +75,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
         self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
         # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
-        self._robot_base_offset = (0.0, 0.0, stand_height_m - _DEFAULT_STAND_HEIGHT_M)
+        self._robot_base_z_offset = stand_height_m - _DEFAULT_STAND_HEIGHT_M
         if self.initial_pose is None:
             # No explicit base pose: lift the default robot and stand init states so the robot sits atop
             # the lifted stand.
@@ -106,7 +106,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     def _lift_by_base_offset(self, target: tuple[float, float, float] | Pose) -> tuple[float, float, float] | Pose:
         """Shift ``target`` up by the stand-height offset, so the base sits atop the (re)scaled stand."""
-        return translate_by_xyz_offset(target, self._robot_base_offset)
+        return translate_by_xyz_offset(target, (0.0, 0.0, self._robot_base_z_offset))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
