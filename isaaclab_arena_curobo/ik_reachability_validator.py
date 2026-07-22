@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_object
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.collision_object import CollisionObject
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams, ReachabilityConfig
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -130,17 +131,40 @@ def embodiment_curobo_cfg(embodiment: EmbodimentBase):
     return get_curobo_cfg_for(embodiment)
 
 
+@register_validator
 class ReachabilityValidator(PlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
 
-    Built via ``build_reachability_validator`` aninjected through ``ObjectPlacerParams.extra_validators``.
+    Gate the registration via importing this module. When no embodiment with a registered cuRobo
+    config is set on the params, the validator is delisted.
     """
 
     check = PlacementCheck.IK_REACHABLE
     run_after_inexpensive_checks = True
 
-    def __init__(self, predicate: Callable[[PlacementResult], bool]) -> None:
-        self._predicate = predicate
+    def __init__(self, params: ObjectPlacerParams) -> None:
+        super().__init__(params)
+        config = params.reachability_config
+        self._validator_fn = make_ik_reachability_validator(
+            config.embodiment,
+            grasp_z_offset=config.grasp_z_offset_m,
+            ik_pos_threshold=config.ik_position_threshold_m,
+            ik_rot_threshold=config.ik_rotation_threshold_rad,
+            stamp_results=False,
+        )
+
+    @classmethod
+    def is_available(cls, params: ObjectPlacerParams) -> bool:
+        """True when an IK solver can be built for the reachability embodiment (set, with a cuRobo config)."""
+        embodiment = params.reachability_config.embodiment
+        if embodiment is None:
+            return False
+        try:
+            embodiment_curobo_cfg(embodiment)
+        except AssertionError:
+            # The embodiment has no registered cuRobo config -- treat reachability as unavailable.
+            return False
+        return True
 
     def validate_batch(
         self,
@@ -156,7 +180,7 @@ class ReachabilityValidator(PlacementValidator):
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
     ) -> bool:
-        """Run the wrapped predicate over a single candidate's solved poses."""
+        """Run the wrapped validator function over a single candidate's solved poses."""
         candidate = PlacementResult(
             validation_results=PlacementValidationResults(),
             positions=positions,
@@ -164,49 +188,4 @@ class ReachabilityValidator(PlacementValidator):
             attempts=0,
             orientations=orientations,
         )
-        return bool(self._predicate(candidate))
-
-
-def build_reachability_validator(
-    embodiment: EmbodimentBase, config: ReachabilityConfig | None = None
-) -> ReachabilityValidator:
-    """Build the cuRobo IK-reachability placement validator for an embodiment.
-
-    Raises when cuRobo or the embodiment's registered cuRobo config is unavailable.
-
-    Args:
-        embodiment: Embodiment that has a registered CuroboEmbodimentCfg.
-        config: Reachability tuning; defaults are used when omitted.
-    """
-    from isaaclab_arena.relations.object_placer_params import ReachabilityConfig
-
-    config = config or ReachabilityConfig()
-    predicate = make_ik_reachability_validator(
-        embodiment,
-        grasp_z_offset=config.grasp_z_offset_m,
-        ik_pos_threshold=config.ik_position_threshold_m,
-        ik_rot_threshold=config.ik_rotation_threshold_rad,
-        stamp_results=False,
-    )
-    return ReachabilityValidator(predicate)
-
-
-def configure_reachability_validator(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
-    """Install the cuRobo IK-reachability validator on placer_params.extra_validators and report whether it could run.
-
-    Args:
-        placer_params: Placement params to receive the validator; its reachability_config tunes the gate.
-        embodiment: Robot embodiment the grasps must be reachable by.
-    """
-    if embodiment is None:
-        return False
-    try:
-        validator = build_reachability_validator(embodiment, placer_params.reachability_config)
-    except AssertionError:
-        # The embodiment has no registered cuRobo config -- treat reachability as unavailable.
-        return False
-    kept = [v for v in placer_params.extra_validators if v.check != PlacementCheck.IK_REACHABLE]
-    # Reachability requires both embodiment curobo cfg and the solver deps to be importable.
-    # If both exists, the validator implementation is added to placer_params.extra_validators.
-    placer_params.extra_validators = [*kept, validator]
-    return True
+        return bool(self._validator_fn(candidate))

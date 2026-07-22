@@ -8,12 +8,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
 if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.placement_validators import PlacementValidator
-
-__all__ = ["CollisionMode", "ObjectPlacerParams", "ReachabilityConfig"]
 
 
 @dataclass
@@ -22,6 +21,9 @@ class ReachabilityConfig:
 
     Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
     """
+
+    embodiment: EmbodimentBase | None = None
+    """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
 
     grasp_z_offset_m: float = 0.02
     """Height above each object's root for the top-down grasp pose the check tests."""

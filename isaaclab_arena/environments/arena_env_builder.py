@@ -18,6 +18,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
+import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -47,7 +48,6 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
-from isaaclab_arena_curobo import configure_reachability_validator
 
 
 class ArenaEnvBuilder:
@@ -98,8 +98,9 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # No-ops unless the embodiment has a registered cuRobo config and the solver deps are importable.
-        configure_reachability_validator(placer_params, self.arena_env.embodiment)
+        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
+        placer_params.reachability_config.embodiment = self.arena_env.embodiment
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,
