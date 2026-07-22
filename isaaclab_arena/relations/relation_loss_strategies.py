@@ -561,7 +561,10 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for PositionLimits relations.
 
     Per constrained axis: band loss when both bounds are set, single-boundary
-    loss when only one bound is set. Unconstrained axes contribute zero loss.
+    loss when only one bound is set. Optional radial bounds apply the same
+    losses to the object's world-XY distance from their center. Axis and radial
+    losses are added, so they define an intersection. Unconstrained dimensions
+    contribute zero loss.
     """
 
     def __init__(self, slope: float = 100.0):
@@ -617,5 +620,44 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
                 )
             # Neither bound set: axis is unconstrained, no loss
 
+        if relation.radius_min is not None or relation.radius_max is not None:
+            center_xy = child_pos.new_tensor((relation.center_x, relation.center_y))
+            radial_delta = child_pos[:, :2] - center_xy
+            radius = torch.linalg.vector_norm(radial_delta, dim=1)
+            if relation.radius_min is not None and relation.radius_max is not None:
+                total_loss = total_loss + linear_band_loss(
+                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    relation.radius_min,
+                    relation.radius_max,
+                    slope=self.slope,
+                )
+            elif relation.radius_min is not None:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    relation.radius_min,
+                    slope=self.slope,
+                    penalty_side="less",
+                )
+            else:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    radius, relation.radius_max, slope=self.slope, penalty_side="greater"
+                )
+
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+    @staticmethod
+    def _radius_with_lower_bound_symmetry_breaker(radial_delta: torch.Tensor, radius: torch.Tensor) -> torch.Tensor:
+        """Return radius with a deterministic descent direction at the exact radial center.
+
+        A lower radial bound has no direction at exactly zero displacement. For only
+        that point, use an epsilon positive-X offset and subtract it back so the
+        scalar radius remains zero while autograd receives a deterministic direction.
+        All non-center points retain the ordinary Euclidean norm.
+        """
+        at_center = torch.all(radial_delta == 0, dim=1)
+        epsilon = torch.finfo(radial_delta.dtype).eps
+        positive_x_epsilon = torch.zeros_like(radial_delta)
+        positive_x_epsilon[:, 0] = epsilon
+        center_radius = torch.linalg.vector_norm(radial_delta + positive_x_epsilon, dim=1) - epsilon
+        return torch.where(at_center, center_radius, radius)
