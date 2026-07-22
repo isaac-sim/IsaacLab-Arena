@@ -46,7 +46,7 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-) -> EventTermCfg | None:
+) -> tuple[EventTermCfg | None, PooledObjectPlacer | None]:
     """Solve relation placement and apply the result to asset reset/static state.
 
     Args:
@@ -60,13 +60,13 @@ def solve_and_apply_relation_placement(
             when collision_objects is not supplied.
 
     Returns:
-        Reset event config to attach to the environment when placement should be
-        resolved on reset. Returns ``None`` when no reset event is needed.
+        The reset event config and its runtime placement pool. The pool is
+        returned separately because mesh caches cannot be deep-copied by configclass.
     """
     assets = list(assets)
     if not assets:
         print("No assets with relations found in scene. Skipping relation solving.")
-        return None
+        return None, None
     asset_names = {asset.name for asset in assets}
     assert len(asset_names) == len(assets), "Placement asset names must be unique"
     scene_keys = [asset.get_scene_name() for asset in assets]
@@ -130,7 +130,7 @@ def _apply_relation_placement_result(
     placer_params: ObjectPlacerParams,
     placement_pool: PooledObjectPlacer,
     num_envs: int,
-) -> EventTermCfg | None:
+) -> tuple[EventTermCfg | None, PooledObjectPlacer | None]:
     """Apply selected layouts to asset spawn state and build reset event config."""
     anchor_assets = set(get_anchor_objects(assets))
     # Prevent external pose-reset events from conflicting with relation-solved assets.
@@ -138,14 +138,15 @@ def _apply_relation_placement_result(
 
     # Anchor assets do not move, so no need to apply reset event.
     if anchor_assets == set(assets):
-        return None
+        return None, None
 
     if placer_params.resolve_on_reset:
-        return _apply_dynamic_spawn_pose(
+        event_cfg = _apply_dynamic_spawn_pose(
             assets=assets,
             placement_pool=placement_pool,
             anchor_assets=anchor_assets,
         )
+        return event_cfg, placement_pool
 
     # Objects can store PosePerEnv, so their reset events restore fixed per-env
     # poses. Scenes containing any asset without per-env pose support use one
@@ -157,13 +158,14 @@ def _apply_relation_placement_result(
             anchor_assets=anchor_assets,
             num_envs=num_envs,
         )
-        return None
-    return _apply_static_spawn_pose(
+        return None, None
+    event_cfg = _apply_static_spawn_pose(
         assets=assets,
         placement_pool=placement_pool,
         anchor_assets=anchor_assets,
         num_envs=num_envs,
     )
+    return event_cfg, None
 
 
 def _apply_dynamic_spawn_pose(
@@ -184,7 +186,6 @@ def _apply_dynamic_spawn_pose(
         mode="reset",
         params={
             "assets": assets,
-            "placement_pool": placement_pool,
         },
     )
 

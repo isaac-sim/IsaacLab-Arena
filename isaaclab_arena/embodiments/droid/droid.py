@@ -41,6 +41,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
+from isaaclab_arena.utils.embodiment_placement import PlacementUsdSource
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
@@ -105,6 +106,31 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         scene_config.stand.init_state.rot = pose.rotation_xyzw
 
         return scene_config
+
+    def get_placement_usd_sources(self) -> list[PlacementUsdSource]:
+        """Union the robot and stand USD footprints for relation solving."""
+        sources = super().get_placement_usd_sources()
+        scene_config = self.scene_config
+        assert scene_config is not None and hasattr(scene_config, "stand")
+        stand = scene_config.stand
+        stand_spawn = stand.spawn
+        stand_scale = getattr(stand_spawn, "scale", None) or (1.0, 1.0, 1.0)
+        if not isinstance(stand_scale, tuple):
+            stand_scale = tuple(stand_scale)
+        stand_pos = stand.init_state.pos
+        stand_rot = stand.init_state.rot
+        if not isinstance(stand_pos, tuple):
+            stand_pos = tuple(stand_pos)
+        if not isinstance(stand_rot, tuple):
+            stand_rot = tuple(stand_rot)
+        sources.append(
+            PlacementUsdSource(
+                usd_path=stand_spawn.usd_path,
+                scale=stand_scale,
+                offset_pose=Pose(position_xyz=stand_pos, rotation_xyzw=stand_rot),
+            )
+        )
+        return sources
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose

@@ -1,0 +1,71 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_pick_avocado_to_plate
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height: 1.3
+background:
+  id: kitchen
+  registry_name: lightwheel_robocasa_kitchen
+  params: {}
+objects:
+- id: avocado
+  registry_name: avocado01_fruits_veggies_robolab
+  params: {}
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+object_references:
+- id: right_counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: right_counter_top
+  params:
+    side: negative_y
+    distance_m: 0.01
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: is_anchor
+  subject: right_counter_top
+  params: {}
+- kind: 'on'
+  subject: avocado
+  reference: right_counter_top
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: right_counter_top
+  params: {}
+task:
+  composition: atomic
+  description: pick up the avocado and place it in the plate
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: avocado
+      destination_location: plate
+      background_scene: kitchen

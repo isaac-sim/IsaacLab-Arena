@@ -555,7 +555,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
-        return "placement_event"
+        return "placement_event", None
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
@@ -598,6 +598,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
+        return None, None
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=None)

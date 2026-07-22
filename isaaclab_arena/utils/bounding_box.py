@@ -372,6 +372,14 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
     return quarters
 
 
+def union_bounding_boxes(*boxes: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+    """Return the axis-aligned union of one or more local bounding boxes."""
+    assert boxes, "At least one bounding box is required"
+    min_point = torch.min(torch.stack([box.min_point for box in boxes], dim=0), dim=0).values
+    max_point = torch.max(torch.stack([box.max_point for box in boxes], dim=0), dim=0).values
+    return AxisAlignedBoundingBox(min_point=min_point, max_point=max_point)
+
+
 def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:
     """Generate a random pose (position and identity rotation) with position uniformly
        sampled within a bounding box.

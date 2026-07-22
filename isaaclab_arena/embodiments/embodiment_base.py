@@ -16,6 +16,7 @@ from isaaclab_arena.relations.placement_asset import PlacementAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.embodiment_placement import PlacementUsdSource, compute_embodiment_placement_bbox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 
@@ -52,12 +53,10 @@ class EmbodimentBase(PlacementAsset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+        self._placement_bounding_box: AxisAlignedBoundingBox | None = None
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return root-relative bounds computed from the articulation's USD geometry."""
-        # Import locally because USD/pxr is available only after simulation initialization.
-        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
-
+    def get_placement_usd_sources(self) -> list[PlacementUsdSource]:
+        """Return USD assets that define this embodiment's placement footprint."""
         assert self.scene_config is not None, "scene_config must be populated before placement"
         robot = self.scene_config.robot
         assert robot is not None, "scene_config.robot must be populated before placement"
@@ -65,7 +64,13 @@ class EmbodimentBase(PlacementAsset):
         assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
         scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
         # TODO(zihaox): Account for configured initial joint positions in bounds and collision meshes.
-        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+        return [PlacementUsdSource(usd_path=spawn.usd_path, scale=scale)]
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return the USD-derived local placement footprint relative to the robot origin."""
+        if self._placement_bounding_box is None:
+            self._placement_bounding_box = compute_embodiment_placement_bbox(self.get_placement_usd_sources())
+        return self._placement_bounding_box
 
     def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set the embodiment root pose."""

@@ -27,14 +27,17 @@ PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
-    """Return the pooled placer stored on the env reset event, or ``None`` when absent.
+    """Return the pooled placer for relation placement resets, or ``None`` when absent.
 
-    Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
-    without holding the builder. The pool is reached through the env's event manager.
+    The pool is stored on the env because mesh collision caches contain handles
+    that cannot be deep-copied by configclass.
 
     Args:
         env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
     """
+    pool = getattr(env.unwrapped, "_arena_placement_pool", None)
+    if pool is not None:
+        return pool
     try:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
@@ -101,6 +104,10 @@ def write_layout_to_sim(
     for asset in result.positions:
         if asset in anchor_assets:
             continue
+        # Embodiments are placed once at spawn. Rewriting only the robot root
+        # would detach it from static accessories such as the droid stand.
+        if not asset.supports_per_env_initial_pose():
+            continue
         scene_asset = env.scene[asset.get_scene_name()]
         pose = get_pose_from_layout(asset, result)
         pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
@@ -113,7 +120,7 @@ def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
     assets: list[PlacementAsset],
-    placement_pool: PooledObjectPlacer,
+    placement_pool: PooledObjectPlacer | None = None,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -125,18 +132,25 @@ def solve_and_place_objects(
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
         assets: Assets participating in relation solving.
-        placement_pool: Runtime pool of solved placement layouts.
+        placement_pool: Runtime pool of solved placement layouts. When omitted,
+            read it from the environment.
     """
     if env_ids is None or len(env_ids) == 0:
         return
+    if placement_pool is None:
+        placement_pool = get_placement_pool(env)
+    assert placement_pool is not None, "Relation placement reset requires a placement pool on the env."
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
         placement_pool.num_envs == num_scene_envs
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-    anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
+    # Layout keys come from the pool's asset list. EventTermCfg params are
+    # deep-copied, so ``assets`` may contain distinct instances with the same names.
+    pool_assets = placement_pool.objects
+    anchor_assets = set(get_anchor_objects(pool_assets))
+    base_rotations = get_base_rotation_per_asset(pool_assets)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]

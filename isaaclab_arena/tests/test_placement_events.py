@@ -186,6 +186,35 @@ def test_solve_and_place_objects_writes_poses_to_sim():
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
 
 
+def test_solve_and_place_objects_ignores_deepcopied_event_objects():
+    """EventTermCfg deepcopy must not break anchor skips or base-rotation lookup."""
+    import copy
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    pool_objects = [desk, box1, box2]
+
+    env = _make_mock_env(num_envs=1)
+    env_ids = torch.tensor([0])
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PooledObjectPlacer(objects=pool_objects, placer_params=placer_params, pool_size=10)
+
+    # configclass deep-copies EventTermCfg.params, duplicating PlacementEntity instances.
+    event_objects = copy.deepcopy(pool_objects)
+    assert event_objects[0] is not pool_objects[0]
+
+    _solve_and_place_with_pool(env, env_ids, event_objects, pool)
+
+    assert "desk" not in env._assets, "Anchor should be skipped even when event params are deepcopied"
+    for name in ("box1", "box2"):
+        env._assets[name].write_root_pose_to_sim.assert_called_once()
+
+
 def test_solve_and_place_objects_uses_runtime_pool():
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
@@ -202,6 +231,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
 
     class Pool:
         num_envs = 1
+        objects = [desk, robot]
 
         def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
             assert env_ids == [0]
@@ -223,10 +253,10 @@ def test_solve_and_place_objects_uses_runtime_pool():
 
     assert "desk" not in env._assets
     assert "droid" not in env._assets
-    env._assets["robot"].write_root_pose_to_sim.assert_called_once()
+    assert "robot" not in env._assets
 
 
-def test_static_layout_event_writes_embodiment_to_configured_scene_asset():
+def test_static_layout_event_does_not_rewrite_embodiment_root():
     from isaaclab_arena.relations.placement_events import place_assets_from_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
@@ -261,8 +291,7 @@ def test_static_layout_event_writes_embodiment_to_configured_scene_asset():
     )
 
     assert "droid" not in env._assets
-    pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
-    assert torch.allclose(pose[0, :3], torch.tensor([0.4, 0.5, 0.0]))
+    assert "robot" not in env._assets
 
     with pytest.raises(AssertionError, match="Static layouts must match"):
         place_assets_from_layouts(
@@ -291,6 +320,7 @@ def test_static_layout_event_rejects_missing_non_anchor_assets():
 
 
 def test_get_placement_pool_returns_runtime_pool():
+    """get_placement_pool reads the pool stored on the env."""
     from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
@@ -298,6 +328,20 @@ def test_get_placement_pool_returns_runtime_pool():
 
     pool = Pool()
     env = MagicMock()
+    env.unwrapped._arena_placement_pool = pool
+    assert get_placement_pool(env) is pool
+
+
+def test_get_placement_pool_falls_back_to_event_params():
+    """get_placement_pool falls back to legacy event params when the env has no pool attribute."""
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+
+    class Pool:
+        pass
+
+    pool = Pool()
+    env = MagicMock()
+    env.unwrapped._arena_placement_pool = None
     env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
     assert get_placement_pool(env) is pool
 
@@ -436,6 +480,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
 
     class InvalidPool:
         num_envs = 1
+        objects = [desk, box1, box2]
 
         def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
             assert env_ids == [0]
@@ -468,6 +513,7 @@ def test_solve_and_place_objects_partial_reset_applies_absolute_env_origin():
     class EnvIndexedPool:
         num_envs = 4
         requested_env_ids = None
+        objects = [desk, box1, box2]
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
             raise AssertionError(f"partial reset should not consume a full env round, got count={count}")
