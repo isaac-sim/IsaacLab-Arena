@@ -36,6 +36,62 @@ _SERVE_TIMEOUT_S = 600.0
 _SERVE_SETTLE_FRAMES = 40
 # One ResetEpisode (gen 1 -> 2) is expected before open_gripper; allow a small margin.
 _MAX_GENERATIONS_FOLLOWED = 4
+# 200 Hz base / 20 = ~10 Hz camera sampling, matching the standalone stream default.
+_PERCEPTION_SAMPLE_EVERY_FRAMES = 20
+
+
+class _PerceptionStreamSink:
+    """Co-resident, nonblocking perception producer driven from the serve loop.
+
+    The barrier is served by exactly ONE Kit process; when a perception endpoint is
+    configured, this samples the exterior_cam right after a physics step (on the
+    main/Kit thread, so the render is thread-safe) at a decimated rate and offers it
+    to the latest-frame gRPC producer. The offer never blocks the 200 Hz loop and
+    drops rather than stalls; a sampling error is logged once and never propagates
+    into the barrier serve loop.
+    """
+
+    def __init__(self, adapter, endpoint: str, marker_sink) -> None:
+        from isaaclab_arena.integrations.cap_barrier.perception_producer import (
+            PerceptionFrameProducer,
+        )
+
+        self._adapter = adapter
+        self._marker_sink = marker_sink
+        self._producer = PerceptionFrameProducer(endpoint=endpoint)
+        self._frame_index = 0
+        self._sample_calls = 0
+        self._failed = False
+        self._producer.start()
+        marker_sink(f"CAP_SERVE_KIT_PERCEPTION_STREAM_STARTED endpoint={endpoint}")
+
+    def on_physics_frame(self, _frame: int) -> None:
+        self._sample_calls += 1
+        if self._sample_calls % _PERCEPTION_SAMPLE_EVERY_FRAMES != 0:
+            return
+        try:
+            from isaaclab_arena.integrations.cap_barrier.perception_producer import (
+                extract_camera_frame,
+            )
+
+            frame = extract_camera_frame(
+                self._adapter._environment, frame_index=self._frame_index
+            )
+            self._producer.offer(frame)
+            self._frame_index += 1
+        except Exception as error:  # noqa: BLE001 - never break the serve loop
+            if not self._failed:
+                self._failed = True
+                self._marker_sink(f"CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED detail={error!r}")
+
+    def close(self) -> None:
+        stats = self._producer.stats
+        self._producer.close()
+        self._marker_sink(
+            "CAP_SERVE_KIT_PERCEPTION_STREAM_TRACE "
+            f"offered={stats['offered']} sent={stats['sent']} "
+            f"dropped={stats['dropped']} stream_starts={stats['stream_starts']}"
+        )
 
 
 def _max_delta(lhs, rhs) -> float:
@@ -58,7 +114,7 @@ def _paced_bootstrap_fences(manager, adapter, count: int):
     return results
 
 
-def _run_serve(device: str) -> None:
+def _run_serve(device: str, *, perception_stream: str | None = None) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
     from isaaclab_arena.integrations.cap_barrier.production_smoke import (
@@ -78,7 +134,11 @@ def _run_serve(device: str) -> None:
         ControllerTimingSpec("robotiq_gripper_controller", 1),
     )
     adapter, client, startup_deadline = open_production_startup_rendezvous(
-        lambda: make_cap_franka_environment(device=device, initial_gripper_closed=True),
+        lambda: make_cap_franka_environment(
+            device=device,
+            initial_gripper_closed=True,
+            enable_cameras=perception_stream is not None,
+        ),
         lambda deadline: ArenaBarrierClient(
             _SHM_NAME,
             open_timeout_s=CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
@@ -86,6 +146,13 @@ def _run_serve(device: str) -> None:
         ),
         marker_sink=lambda marker: print(marker, flush=True),
     )
+    perception: _PerceptionStreamSink | None = None
+    on_physics_frame = None
+    if perception_stream is not None:
+        perception = _PerceptionStreamSink(
+            adapter, perception_stream, lambda marker: print(marker, flush=True)
+        )
+        on_physics_frame = perception.on_physics_frame
     try:
         manager = ArenaLockstepManager(
             client=client,
@@ -126,6 +193,7 @@ def _run_serve(device: str) -> None:
                 settle_frames=_SERVE_SETTLE_FRAMES,
                 declare_open_success=followed_any_reset,
                 marker_sink=lambda marker: print(marker, flush=True),
+                on_physics_frame=on_physics_frame,
             )
             # A ResetEpisode surfaces to the producer as either a generation advance
             # or a BarrierInterrupted from the sidecar's reset-phase deactivation
@@ -176,15 +244,27 @@ def _run_serve(device: str) -> None:
             )
         print("CAP_SERVE_KIT_DONE", flush=True)
     finally:
+        if perception is not None:
+            perception.close()
         client.close()
         adapter.close()
 
 
 def main() -> None:
     parser = get_isaaclab_arena_cli_parser()
+    parser.add_argument(
+        "--perception-stream",
+        default=None,
+        metavar="HOST:PORT",
+        help=(
+            "Also stream exterior_cam RGB-D to a cap_perception_bridge at this "
+            "endpoint from THIS serving process (e.g. 127.0.0.1:50061). Enables "
+            "cameras on the barrier env; the barrier is served by one Kit process."
+        ),
+    )
     args_cli = parser.parse_args()
     with SimulationAppContext(args_cli):
-        _run_serve(args_cli.device)
+        _run_serve(args_cli.device, perception_stream=args_cli.perception_stream)
 
 
 if __name__ == "__main__":

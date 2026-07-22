@@ -231,3 +231,21 @@ The stream runs for a bounded window (`--stream-seconds`, default 20 s) at
 absent producer, arm the ROS-side `cap_get_image_check` as an in-container poll
 loop (~1 s cadence) **before** starting this producer rather than one docker-exec
 attempt per check, or raise `--stream-seconds`.
+
+This standalone script steps its own env locally and does NOT serve the CONTROL
+barrier, so it is only for the Phase-3 `cap_get_image_check` path (bridge +
+producer, no control plane). The GaP `get_observation` path bootstraps with
+`ResetEpisode` and therefore needs a producer attached to the CONTROL barrier: use
+the serve producer's `--perception-stream` flag so ONE Kit process both serves the
+barrier and streams the camera (two simultaneous Kit processes is not supported):
+
+```bash
+isaaclab_arena/integrations/cap_barrier/generate_perception_stubs.sh
+./dev_run.sh isaaclab_arena/scripts/run_cap_barrier_open_gripper_serve.py \
+    --viz none --device cuda:0 --perception-stream 127.0.0.1:50061
+```
+
+The serve loop samples the camera on the main/Kit thread right after each physics
+step at ~10 Hz (decimated from the 200 Hz base) and offers frames to the same
+nonblocking latest-frame producer; sampling never blocks or breaks the barrier
+serve loop.

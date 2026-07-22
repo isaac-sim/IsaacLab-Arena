@@ -79,6 +79,7 @@ def serve_generation_watching_gripper(
     marker_sink: Callable[[str], None],
     declare_open_success: bool = True,
     gripper_endpoint_tolerance_rad: float = DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+    on_physics_frame: Callable[[int], None] | None = None,
 ) -> GripperServeObservation:
     """Serve one generation's PHYSICS frames, watching for an open_gripper actuation.
 
@@ -134,6 +135,13 @@ def serve_generation_watching_gripper(
         except BarrierInterrupted:
             exit_reason = ServeExit.BARRIER_INTERRUPTED
             break
+
+        # Optional per-frame observer for a co-resident perception producer. It
+        # runs on this (main/Kit) thread right after the physics step, so a camera
+        # render/sample stays thread-safe; it must be nonblocking and must never
+        # raise, so it can never stall or break the barrier serve loop.
+        if on_physics_frame is not None:
+            on_physics_frame(frames)
 
         commanded = float(result.commanded_positions[_GRIPPER_ABI_INDEX])
         physical = float(gripper_position())
