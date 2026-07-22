@@ -215,7 +215,7 @@ class PooledObjectPlacer:
                     self._had_fallbacks = True
 
         if fallback_envs:
-            print(f"Placement pool falling back to best-loss layouts for envs: {fallback_envs}")
+            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
 
     # ------------------------------------------------------------------
     # Public API

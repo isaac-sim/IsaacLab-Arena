@@ -735,7 +735,8 @@ def test_pooled_placer_only_falls_back_on_final_batch(capsys):
     captured = capsys.readouterr()
 
     assert pool.had_fallbacks
-    assert captured.out.count("Placement pool solved") == 2
+    # Fallback is accepted only on the final batch, so the warning prints exactly once.
+    assert captured.out.count("Falling back to best-loss layouts") == 1
     assert not pool.sample_without_replacement(1)[0].success
 
 
