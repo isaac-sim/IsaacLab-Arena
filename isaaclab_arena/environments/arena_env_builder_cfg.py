@@ -27,11 +27,11 @@ class ArenaEnvBuilderCfg:
     presets: str | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
-    relation_collision_mode: Literal["bbox", "mesh"] = "bbox"
-    """Default collision mode for relation placement. ``"mesh"`` enables sphere-to-SDF checks against
-    actual geometry and pulls the whole-scene background in as a collision obstacle; ``"bbox"`` (default)
-    uses fast axis-aligned box overlap and ignores the background mesh. Applied only when the environment
-    does not supply its own placement parameters."""
+    relation_collision_mode: Literal["bbox", "mesh"] | None = None
+    """Optional collision-mode override for relation placement. ``"mesh"`` enables sphere-to-SDF checks
+    against actual geometry and pulls the whole-scene background in as a collision obstacle; ``"bbox"``
+    uses fast axis-aligned box overlap and ignores the background mesh. When omitted, the environment's
+    placement parameters apply, falling back to BBOX when the environment does not provide them."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

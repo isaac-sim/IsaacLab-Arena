@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.asset import Asset
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlacementAsset
@@ -33,11 +34,16 @@ if TYPE_CHECKING:
 def _get_passive_collision_objects(
     assets: Iterable[Asset | RigidObjectSet],
     include_background: bool = False,
+    background_exclusions: Iterable[ObjectReference] = (),
 ) -> list[CollisionObject]:
     """Load passive collision discovery only when relation placement needs it."""
     from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
 
-    return get_passive_collision_objects(assets, include_background=include_background)
+    return get_passive_collision_objects(
+        assets,
+        include_background=include_background,
+        background_exclusions=background_exclusions,
+    )
 
 
 def solve_and_apply_relation_placement(
@@ -78,17 +84,24 @@ def solve_and_apply_relation_placement(
         placer_params = copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
     if collision_objects is None and scene_assets is not None:
+        from isaaclab_arena.assets.object_reference import ObjectReference
+
         scene_assets = list(scene_assets)
+        background_exclusions = [asset for asset in get_anchor_objects(assets) if isinstance(asset, ObjectReference)]
         collision_objects = _get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
                 assets, scene_assets, placer_params.solver_params.collision_mode
             ),
+            background_exclusions=background_exclusions,
         )
+    pool_size = num_envs
+    if placer_params.resolve_on_reset:
+        pool_size *= placer_params.min_unique_layouts_per_env
     placement_pool = PooledObjectPlacer(
         objects=assets,
         placer_params=placer_params,
-        pool_size=num_envs * placer_params.min_unique_layouts_per_env,
+        pool_size=pool_size,
         num_envs=num_envs,
         collision_objects=collision_objects,
     )
@@ -147,6 +160,11 @@ def _apply_relation_placement_result(
             anchor_assets=anchor_assets,
         )
         return event_cfg, placement_pool
+
+    if num_envs == 1:
+        [layout] = placement_pool.sample_with_replacement(1)
+        _seed_spawn_config_from_layout(assets, anchor_assets, layout)
+        return None, None
 
     # Objects can store PosePerEnv, so their reset events restore fixed per-env
     # poses. Scenes containing any asset without per-env pose support use one

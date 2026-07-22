@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+from dataclasses import replace
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -93,15 +94,20 @@ class ArenaEnvBuilder:
         if embodiment is not None and embodiment.get_relations():
             placement_assets.append(embodiment)
 
-        placer_params = self.arena_env.placer_params
-        if placer_params is None:
-            placer_params = ObjectPlacerParams(
+        source_placer_params = self.arena_env.placer_params
+        if source_placer_params is None:
+            source_placer_params = ObjectPlacerParams(
                 solver_params=RelationSolverParams(
                     verbose=False,
                     save_position_history=False,
-                    collision_mode=CollisionMode(self.cfg.relation_collision_mode),
                 ),
             )
+        placer_params = replace(
+            source_placer_params,
+            solver_params=replace(source_placer_params.solver_params),
+        )
+        if self.cfg.relation_collision_mode is not None:
+            placer_params.solver_params.collision_mode = CollisionMode(self.cfg.relation_collision_mode)
         if self.cfg.placement_seed is not None:
             placer_params.placement_seed = self.cfg.placement_seed
         if self.cfg.resolve_on_reset is not None:

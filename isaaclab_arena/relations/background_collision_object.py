@@ -67,15 +67,23 @@ class FixedCollisionObject:
         return self._mesh
 
 
-def make_fixed_collision_objects(objects: Sequence[CollisionObject]) -> list[CollisionObject]:
+def make_fixed_collision_objects(
+    objects: Sequence[CollisionObject],
+    excluded_prim_paths_by_object: dict[CollisionObject, Sequence[str]] | None = None,
+) -> list[CollisionObject]:
     """Combine the objects' collision meshes into one FixedCollisionObject.
 
     Objects in BBOX mode or without an extractable mesh are returned unchanged;
     a whole-scene Background that cannot aggregate is an error.
+
+    Args:
+        objects: Fixed collision objects to aggregate.
+        excluded_prim_paths_by_object: USD prim subtrees omitted from individual objects'
+            extracted meshes, keyed by source object.
     """
     from isaaclab_arena.assets.background import Background
 
-    mesh, skipped_objects = _combine_fixed_meshes(objects)
+    mesh, skipped_objects = _combine_fixed_meshes(objects, excluded_prim_paths_by_object)
     collision_objects: list[CollisionObject] = []
     if mesh is not None:
         collision_objects.append(FixedCollisionObject(mesh))
@@ -104,18 +112,23 @@ def make_fixed_collision_objects(objects: Sequence[CollisionObject]) -> list[Col
     return collision_objects
 
 
-def _combine_fixed_meshes(objects: Sequence[CollisionObject]) -> tuple[trimesh.Trimesh | None, list[CollisionObject]]:
+def _combine_fixed_meshes(
+    objects: Sequence[CollisionObject],
+    excluded_prim_paths_by_object: dict[CollisionObject, Sequence[str]] | None = None,
+) -> tuple[trimesh.Trimesh | None, list[CollisionObject]]:
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
     manager = WarpMeshAndSphereCache(device="cpu")
+    excluded_prim_paths_by_object = excluded_prim_paths_by_object or {}
     meshes = []
     skipped_objects = []
     for obj in objects:
         if obj.collision_mode == CollisionMode.BBOX:
             skipped_objects.append(obj)
             continue
-        mesh = manager.get_collision_mesh(obj)
+        exclusions = excluded_prim_paths_by_object.get(obj, ())
+        mesh = manager.get_collision_mesh(obj, excluded_prim_paths=exclusions)
         if mesh is None:
             skipped_objects.append(obj)
             continue

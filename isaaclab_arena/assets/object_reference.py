@@ -3,7 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import torch
 import trimesh
+from typing import TYPE_CHECKING
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -22,6 +24,9 @@ from isaaclab_arena.utils.usd_helpers import (
     open_stage,
 )
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
+
+if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedEnv
 
 
 class ObjectReference(ObjectBase):
@@ -73,9 +78,7 @@ class ObjectReference(ObjectBase):
         """
         if self._bounding_box is None:
             with open_stage(self.parent_asset.usd_path) as parent_stage:
-                prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
-                    self.prim_path, self.parent_asset, parent_stage
-                )
+                prim_path_in_usd = self.get_prim_path_in_parent_usd(parent_stage)
                 raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
                 # Apply parent's scale (no centering - solver is origin-agnostic)
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
@@ -95,6 +98,30 @@ class ObjectReference(ObjectBase):
         quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
         return box.rotated_90_around_z(quarters).translated(world_position)
 
+    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Return a static BASE reference pose without requiring a separate scene entity."""
+        if self.object_type != ObjectType.BASE:
+            return super().get_object_pose(env, is_relative)
+        scene = env.unwrapped.scene
+        object_pose = self.get_initial_pose().to_tensor(device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+        if not is_relative:
+            object_pose[:, :3] += scene.env_origins
+        return object_pose
+
+    def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
+        """Set a non-BASE reference pose."""
+        assert (
+            self.object_type != ObjectType.BASE
+        ), "A BASE ObjectReference is part of its parent asset and cannot be moved independently."
+        super().set_object_pose(env, pose, env_ids)
+
+    def get_prim_path_in_parent_usd(self, stage: Usd.Stage | None = None) -> str:
+        """Return the referenced prim's absolute path in its parent USD stage."""
+        if stage is None:
+            with open_stage(self.parent_asset.usd_path) as parent_stage:
+                return self.get_prim_path_in_parent_usd(parent_stage)
+        return self.isaaclab_prim_path_to_original_prim_path(self.prim_path, self.parent_asset, stage)
+
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
         if not self._collision_mesh_loaded:
@@ -113,9 +140,7 @@ class ObjectReference(ObjectBase):
     def _extract_collision_mesh(self) -> trimesh.Trimesh:
         """Extract the referenced prim mesh from the parent asset USD."""
         with open_stage(self.parent_asset.usd_path) as parent_stage:
-            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
-                self.prim_path, self.parent_asset, parent_stage
-            )
+            prim_path_in_usd = self.get_prim_path_in_parent_usd(parent_stage)
             if not parent_stage.GetPrimAtPath(prim_path_in_usd):
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
             return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)

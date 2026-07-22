@@ -52,6 +52,14 @@ _DEFAULT_STAND_HEIGHT_M: float = 1.35
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
 
 
+def _resolve_stand_height_m(stand_height_m: float, stand_height: float | None) -> float:
+    """Resolve the legacy graph-spec ``stand_height`` alias in metres."""
+    if stand_height is None:
+        return stand_height_m
+    assert stand_height_m == _DEFAULT_STAND_HEIGHT_M, "Specify only one of stand_height or stand_height_m."
+    return stand_height
+
+
 class DroidEmbodimentBase(EmbodimentBase, ABC):
     """Abstract base class for DROID embodiments (https://droid-dataset.github.io/droid/docs/hardware-setup).
 
@@ -70,7 +78,9 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height: float | None = None,
     ):
+        stand_height_m = _resolve_stand_height_m(stand_height_m, stand_height)
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
         # ``stand_height_m`` is an absolute height in meters; convert it to the z-scale the USD needs.
@@ -80,6 +90,13 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self._robot_base_z_offset = stand_height_m - _DEFAULT_STAND_HEIGHT_M
         self.scene_config.robot.init_state.pos = self._lift_z(self.scene_config.robot.init_state.pos)
         self.scene_config.stand.init_state.pos = self._lift_z(self.scene_config.stand.init_state.pos)
+        robot_pos = tuple(self.scene_config.robot.init_state.pos)
+        stand_pos = tuple(self.scene_config.stand.init_state.pos)
+        stand_rot = tuple(self.scene_config.stand.init_state.rot)
+        self._stand_offset_pose = Pose(
+            position_xyz=tuple(stand_pos[i] - robot_pos[i] for i in range(3)),
+            rotation_xyzw=stand_rot,
+        )
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -101,9 +118,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.robot.init_state.pos = self._lift_z(pose.position_xyz)
-        scene_config.stand.init_state.pos = self._lift_z(pose.position_xyz)
-        scene_config.stand.init_state.rot = pose.rotation_xyzw
+        robot_pose = Pose(position_xyz=self._lift_z(pose.position_xyz), rotation_xyzw=pose.rotation_xyzw)
+        stand_pose = robot_pose.multiply(self._stand_offset_pose)
+        scene_config.robot.init_state.pos = robot_pose.position_xyz
+        scene_config.stand.init_state.pos = stand_pose.position_xyz
+        scene_config.stand.init_state.rot = stand_pose.rotation_xyzw
 
         return scene_config
 
@@ -117,17 +136,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         stand_scale = getattr(stand_spawn, "scale", None) or (1.0, 1.0, 1.0)
         if not isinstance(stand_scale, tuple):
             stand_scale = tuple(stand_scale)
-        stand_pos = stand.init_state.pos
-        stand_rot = stand.init_state.rot
-        if not isinstance(stand_pos, tuple):
-            stand_pos = tuple(stand_pos)
-        if not isinstance(stand_rot, tuple):
-            stand_rot = tuple(stand_rot)
         sources.append(
             PlacementUsdSource(
                 usd_path=stand_spawn.usd_path,
                 scale=stand_scale,
-                offset_pose=Pose(position_xyz=stand_pos, rotation_xyzw=stand_rot),
+                offset_pose=self._stand_offset_pose,
             )
         )
         return sources
@@ -157,14 +170,16 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height: float | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            stand_height=stand_height,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
 
@@ -184,14 +199,16 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height: float | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            stand_height=stand_height,
         )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
@@ -212,14 +229,16 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height: float | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            stand_height=stand_height,
         )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 

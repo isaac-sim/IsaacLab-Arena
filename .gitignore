@@ -81,6 +81,7 @@ TAGS
 
 # Datasets
 *datasets/
+/Replicator/
 
 # Training logs and outputs
 *wandb/

@@ -55,6 +55,7 @@ def _test_droid_stand_height(simulation_app) -> bool:
         scene_cfg = posed_emb.get_scene_cfg()
         assert abs(scene_cfg.robot.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
         assert abs(scene_cfg.stand.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
+        assert abs(scene_cfg.stand.init_state.pos[0] - 0.25) < 1e-6
 
         # The YAML-spec path instantiates the embodiment via asset_class(**params); a scalar
         # stand_height_m from YAML applies just the same.

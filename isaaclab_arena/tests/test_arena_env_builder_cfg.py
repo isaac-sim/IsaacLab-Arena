@@ -46,6 +46,8 @@ def test_argparse_adapter_maps_builder_configuration():
         "cpu",
         "--language_instruction",
         "pick up the cube",
+        "--relation_collision_mode",
+        "mesh",
     ])
 
     cfg = arena_env_builder_cfg_from_argparse(args_cli)
@@ -62,6 +64,7 @@ def test_argparse_adapter_maps_builder_configuration():
         presets="newton",
         device="cpu",
         language_instruction="pick up the cube",
+        relation_collision_mode="mesh",
     )
 
 

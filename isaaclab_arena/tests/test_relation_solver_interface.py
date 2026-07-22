@@ -63,6 +63,38 @@ def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result
     assert placement_pool is None
 
 
+@pytest.mark.parametrize(
+    ("resolve_on_reset", "expected_pool_size"),
+    [(True, 15), (False, 3)],
+)
+def test_placement_pool_size_matches_reset_mode(monkeypatch, resolve_on_reset, expected_pool_size):
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    pool_sizes = []
+
+    class FakePooledObjectPlacer:
+        had_fallbacks = False
+
+        def __init__(self, **kwargs):
+            pool_sizes.append(kwargs["pool_size"])
+
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
+    monkeypatch.setattr(interface_module, "_apply_relation_placement_result", lambda **kwargs: (None, None))
+
+    params = ObjectPlacerParams(
+        resolve_on_reset=resolve_on_reset,
+        min_unique_layouts_per_env=5,
+    )
+    interface_module.solve_and_apply_relation_placement(
+        [_make_desk()],
+        num_envs=3,
+        placer_params=params,
+    )
+
+    assert pool_sizes == [expected_pool_size]
+
+
 def test_solve_and_apply_relation_placement_requires_unique_asset_names():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 

@@ -207,7 +207,7 @@ def _discover_replicator_kitchen_usda_paths() -> dict[str, Path]:
     paths: dict[str, Path] = {}
     if not _REPLICATOR_ROOT.is_dir():
         return paths
-    for usda_path in sorted(_REPLICATOR_ROOT.glob("seed_*/*.usda")):
+    for usda_path in sorted(_REPLICATOR_ROOT.glob("**/seed_*/*.usda")):
         match = re.match(r"seed_(\d+)_", usda_path.parent.name)
         if match is None:
             continue

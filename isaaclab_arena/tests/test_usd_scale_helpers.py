@@ -19,6 +19,42 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 HEADLESS = True
 
 
+def _test_extract_trimesh_from_usd_excludes_prim_subtrees(simulation_app):
+    """Excluded anchor prims are omitted while unrelated background geometry remains."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/Kitchen", "Xform")
+    stage.SetDefaultPrim(root)
+
+    for name, x in (("counter", 0.0), ("wall", 10.0)):
+        xform = UsdGeom.Xform.Define(stage, f"/Kitchen/{name}")
+        xform.AddTranslateOp().Set(Gf.Vec3d(x, 0.0, 0.0))
+        mesh = UsdGeom.Mesh.Define(stage, f"/Kitchen/{name}/mesh")
+        mesh.GetPointsAttr().Set([
+            Gf.Vec3f(0.0, 0.0, 0.0),
+            Gf.Vec3f(1.0, 0.0, 0.0),
+            Gf.Vec3f(0.0, 1.0, 0.0),
+        ])
+        mesh.GetFaceVertexCountsAttr().Set([3])
+        mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2])
+
+    with tempfile.NamedTemporaryFile(suffix=".usda", delete=False) as file:
+        usd_path = file.name
+    stage.Export(usd_path)
+
+    combined = extract_trimesh_from_usd(usd_path)
+    filtered = extract_trimesh_from_usd(usd_path, excluded_prim_paths=["/Kitchen/counter"])
+
+    assert len(combined.faces) == 2
+    assert len(filtered.faces) == 1
+    assert np.isclose(filtered.vertices[:, 0].min(), 10.0)
+    assert np.isclose(filtered.vertices[:, 0].max(), 11.0)
+    return True
+
+
 def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
     """extract_trimesh_from_usd must scale in local frame, not world frame.
 
@@ -102,7 +138,7 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
 
 
 def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
-    """extract_trimesh_from_prim applies parent scale in the referenced prim frame."""
+    """Root and explicit parent scales are baked without baking the root pose."""
     from pxr import Gf, Usd, UsdGeom
 
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
@@ -111,6 +147,7 @@ def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
     root_xform = UsdGeom.Xform.Define(stage, "/root")
     root_xform.AddTranslateOp().Set(Gf.Vec3d(10.0, 0.0, 0.0))
     root_xform.AddRotateZOp().Set(90.0)
+    root_xform.AddScaleOp().Set(Gf.Vec3f(0.5, 2.0, 1.0))
     root = root_xform.GetPrim()
     stage.SetDefaultPrim(root)
 
@@ -162,11 +199,12 @@ def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
     tri = extract_trimesh_from_prim(stage, "/root", scale=(2.0, 1.0, 1.0))
     verts = tri.vertices
 
-    # Root-frame scale: child center x=1 scales to x=2, so cube x bounds become [1, 3].
-    assert np.isclose(verts[:, 0].min(), 1.0, atol=1e-5), f"got {verts[:, 0].min():.4f}"
-    assert np.isclose(verts[:, 0].max(), 3.0, atol=1e-5), f"got {verts[:, 0].max():.4f}"
-    assert np.isclose(verts[:, 1].min(), -0.5, atol=1e-5)
-    assert np.isclose(verts[:, 1].max(), 0.5, atol=1e-5)
+    # Child X center stays at 1: root translation/rotation are excluded, while root X scale
+    # (0.5) and explicit X scale (2.0) cancel. The root's Y scale remains 2.0.
+    assert np.isclose(verts[:, 0].min(), 0.5, atol=1e-5), f"got {verts[:, 0].min():.4f}"
+    assert np.isclose(verts[:, 0].max(), 1.5, atol=1e-5), f"got {verts[:, 0].max():.4f}"
+    assert np.isclose(verts[:, 1].min(), -1.0, atol=1e-5)
+    assert np.isclose(verts[:, 1].max(), 1.0, atol=1e-5)
 
     return True
 
@@ -429,6 +467,14 @@ def _test_both_paths_agree_origin_prim(simulation_app):
 
 def test_extract_trimesh_translated_child_nonuniform_scale():
     result = run_simulation_app_function(_test_extract_trimesh_translated_child_nonuniform_scale, headless=HEADLESS)
+    assert result
+
+
+def test_extract_trimesh_from_usd_excludes_prim_subtrees():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_usd_excludes_prim_subtrees,
+        headless=HEADLESS,
+    )
     assert result
 
 

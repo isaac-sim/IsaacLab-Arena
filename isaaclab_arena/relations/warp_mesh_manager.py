@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import trimesh
 from collections import defaultdict
+from collections.abc import Sequence
 from heapq import heappop, heappush
 from typing import TYPE_CHECKING
 
@@ -143,20 +144,28 @@ class WarpMeshAndSphereCache:
                 "(no mesh face found). Collision detection may be incomplete for these points."
             )
 
-    def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
+    def get_collision_mesh(
+        self, obj: CollisionObject, excluded_prim_paths: Sequence[str] = ()
+    ) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
         from isaaclab_arena.assets.object import Object
 
         if not isinstance(obj, Object) or obj.usd_path is None:
+            assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
             return obj.get_collision_mesh()
         usd_path = obj.usd_path
         scale = tuple(obj.scale)
-        key = (usd_path, scale)
+        exclusions = tuple(sorted(excluded_prim_paths))
+        key = (usd_path, scale, exclusions)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
-                self._trimesh_cache[key] = extract_trimesh_from_usd(usd_path, scale)
+                if exclusions:
+                    mesh = extract_trimesh_from_usd(usd_path, scale, excluded_prim_paths=exclusions)
+                else:
+                    mesh = extract_trimesh_from_usd(usd_path, scale)
+                self._trimesh_cache[key] = mesh
             except ValueError as e:
                 # Permanent: bad USD content, cache None to avoid re-parsing.
                 print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")

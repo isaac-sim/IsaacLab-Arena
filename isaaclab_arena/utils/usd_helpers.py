@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import trimesh
+from collections.abc import Sequence
 from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
@@ -264,6 +265,7 @@ def compute_local_bounding_box_from_prim(
 def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    excluded_prim_paths: Sequence[str] = (),
 ) -> trimesh.Trimesh:
     """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
 
@@ -274,6 +276,7 @@ def extract_trimesh_from_usd(
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
         scale: (sx, sy, sz) per-axis scale factors applied in local frame.
+        excluded_prim_paths: Absolute USD prim paths whose complete subtrees are omitted.
 
     Returns:
         Combined trimesh with per-prim world transforms baked in.
@@ -281,6 +284,10 @@ def extract_trimesh_from_usd(
     assert all(
         s > 0 for s in scale
     ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
+    excluded_paths = tuple(path.rstrip("/") for path in excluded_prim_paths)
+    assert all(
+        path.startswith("/") for path in excluded_paths
+    ), f"excluded_prim_paths must be absolute USD paths, got {excluded_paths}"
 
     stage = Usd.Stage.Open(usd_path)
     if stage is None:
@@ -292,6 +299,9 @@ def extract_trimesh_from_usd(
     offset = 0
 
     for prim in stage.Traverse():
+        prim_path = str(prim.GetPath())
+        if any(prim_path == path or prim_path.startswith(f"{path}/") for path in excluded_paths):
+            continue
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
@@ -341,9 +351,11 @@ def extract_trimesh_from_prim(
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
+    """Extract UsdGeom.Mesh geometry under a prim into its translation/rotation frame.
 
-    Other Gprim geometry is rejected, not silently dropped.
+    The root prim's scale is baked into the vertices because ObjectReference poses
+    restore only translation and rotation. Other Gprim geometry is rejected, not
+    silently dropped.
     """
     assert all(
         s > 0 for s in scale
@@ -355,9 +367,11 @@ def extract_trimesh_from_prim(
     if not root_prim.IsA(UsdGeom.Xformable):
         raise ValueError(f"Prim at path {prim_path} is not Xformable")
 
-    root_world_tf = np.array(UsdGeom.Xformable(root_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-    root_world_tf_inv = np.linalg.inv(root_world_tf)
-    scale_np = np.asarray(scale, dtype=np.float64)
+    root_to_world = UsdGeom.Xformable(root_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    world_to_root = np.linalg.inv(np.asarray(root_to_world))
+    root_scale = np.asarray(Gf.Transform(root_to_world).GetScale(), dtype=np.float64)
+    assert np.all(root_scale > 0), f"Referenced prim {prim_path} must have positive scale, got {tuple(root_scale)}"
+    scale_np = root_scale * np.asarray(scale, dtype=np.float64)
 
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
@@ -376,11 +390,11 @@ def extract_trimesh_from_prim(
         if points is None or face_vertex_counts is None or face_vertex_indices is None:
             continue
 
-        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-        prim_to_root_tf = prim_world_tf @ root_world_tf_inv
+        prim_to_world = np.asarray(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        prim_to_root = prim_to_world @ world_to_root
         verts = np.asarray(points, dtype=np.float64)
         verts_h = np.hstack([verts, np.ones((len(verts), 1))])
-        verts_root = (verts_h @ prim_to_root_tf)[:, :3] * scale_np
+        verts_root = (verts_h @ prim_to_root)[:, :3] * scale_np
 
         idx = 0
         for count in face_vertex_counts:

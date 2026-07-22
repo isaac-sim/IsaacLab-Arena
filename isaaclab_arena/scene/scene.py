@@ -70,6 +70,8 @@ class Scene:
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
+            if isinstance(asset, ObjectReference) and asset.object_type == ObjectType.BASE:
+                continue
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
         SceneCfg = make_configclass("SceneCfg", fields)
