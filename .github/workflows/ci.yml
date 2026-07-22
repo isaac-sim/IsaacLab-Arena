@@ -162,23 +162,23 @@ jobs:
       - name: Run in-process Newton tests
         run: |
           uv run pytest -sv --durations=0 -m with_newton \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
           uv run pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
           uv run pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           uv run pytest -sv --durations=0 -m with_subprocess \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
   test:
     name: Run tests
@@ -240,12 +240,12 @@ jobs:
       - name: Run in-process Newton tests
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
       - name: Run GR00T policy/data tests (lightweight gr00t deps only)
         run: |
@@ -285,7 +285,7 @@ jobs:
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
-            isaaclab_arena/tests/
+            isaaclab_arena/tests/ isaaclab_arena_examples/tests/
 
 
   test_gr00t_closedloop_e2e:

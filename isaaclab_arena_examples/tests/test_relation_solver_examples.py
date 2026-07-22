@@ -10,6 +10,8 @@ These tests simply verify the examples run without crashing.
 
 import matplotlib
 
+import pytest
+
 # Use non-interactive backend so plt.show() is a no-op
 matplotlib.use("Agg")
 
@@ -28,6 +30,7 @@ def test_dummy_object_placer_notebook_runs():
     run_dummy_object_placer_demo()
 
 
+@pytest.mark.with_subprocess
 def test_isaac_sim_object_placer_smoke():
     """Smoke test: verify the Isaac Sim object placer notebook runs without errors."""
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -37,6 +40,7 @@ def test_isaac_sim_object_placer_smoke():
     assert result, "Isaac Sim object placer smoke test failed"
 
 
+@pytest.mark.with_subprocess
 def test_isaac_sim_no_collision_smoke():
     """Smoke test: verify the Isaac Sim no-overlap notebook runs without errors."""
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -46,6 +50,7 @@ def test_isaac_sim_no_collision_smoke():
     assert result, "Isaac Sim no-overlap smoke test failed"
 
 
+@pytest.mark.with_subprocess
 def test_isaac_sim_kitchen_background_collision_smoke():
     """Smoke test: verify the kitchen background-collision notebook runs without errors."""
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
