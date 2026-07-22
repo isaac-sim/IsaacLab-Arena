@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 
 import isaaclab.utils.math as math_utils
 from curobo.geom.types import Cuboid, WorldConfig
+from curobo.types.base import TensorDeviceType
+from curobo.types.math import Pose as CuroboPose
+from curobo.util.logger import setup_curobo_logger
+from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
@@ -25,6 +29,7 @@ from isaaclab_arena_curobo.curobo_frame_utils import (
     top_down_grasp_matrix,
     world_pose_to_robot_frame,
 )
+from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
 
 
 @dataclass
@@ -144,11 +149,6 @@ class SimFreeIKSolver:
             collision_cache_size: Collision cache sizes; defaults to ``{"obb": 150, "mesh": 150}``.
             debug: Enable cuRobo/planner debug logging.
         """
-        from curobo.geom.types import WorldConfig
-        from curobo.types.base import TensorDeviceType
-        from curobo.util.logger import setup_curobo_logger
-        from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
-
         self.logger = logging.getLogger("SimFreeIKSolver")
         if not self.logger.handlers:
             self.logger.addHandler(logging.StreamHandler())
@@ -183,8 +183,6 @@ class SimFreeIKSolver:
         Convenience wrapper for callers that already hold an embodiment (importing the embodiment may
         pull in heavier Isaac Lab modules than passing a ``CuroboEmbodimentCfg`` directly).
         """
-        from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
-
         return cls(get_curobo_cfg_for(embodiment), **kwargs)
 
     def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -197,14 +195,12 @@ class SimFreeIKSolver:
         quaternion: torch.Tensor,
         *,
         quat_is_xyzw: bool = True,
-    ):
-        """Create a cuRobo ``Pose`` on the cuRobo device, converting xyzw->wxyz when needed."""
-        from curobo.types.math import Pose
-
+    ) -> CuroboPose:
+        """Create a cuRobo ``Pose`` on the cuRobo device, converting xyzw->wxyz for cuRobo."""
         position = self._to_curobo_device(position)
         quaternion = self._to_curobo_device(quaternion)
         quaternion_wxyz = torch.roll(quaternion, shifts=1, dims=-1) if quat_is_xyzw else quaternion
-        return Pose(position=position, quaternion=quaternion_wxyz)
+        return CuroboPose(position=position, quaternion=quaternion_wxyz)
 
     def update_world(
         self,
