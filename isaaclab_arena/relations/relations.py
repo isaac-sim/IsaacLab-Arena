@@ -439,11 +439,11 @@ class PositionLimits(UnaryRelation):
         y_max: float | None = None,
         z_min: float | None = None,
         z_max: float | None = None,
+        relation_loss_weight: float = 1.0,
         center_x: float | None = None,
         center_y: float | None = None,
         radius_min: float | None = None,
         radius_max: float | None = None,
-        relation_loss_weight: float = 1.0,
     ):
         has_axis_bound = any(bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max))
         has_radial_bound = radius_min is not None or radius_max is not None
@@ -470,11 +470,11 @@ class PositionLimits(UnaryRelation):
         self.y_max = y_max
         self.z_min = z_min
         self.z_max = z_max
+        self.relation_loss_weight = relation_loss_weight
         self.center_x = center_x
         self.center_y = center_y
         self.radius_min = radius_min
         self.radius_max = radius_max
-        self.relation_loss_weight = relation_loss_weight
 
 
 def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:

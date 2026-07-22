@@ -44,6 +44,17 @@ def test_position_limits_allows_single_bound():
     assert relation.x_max is None
 
 
+def test_position_limits_preserves_original_positional_weight_argument():
+    """The seventh positional argument remains the relation loss weight."""
+
+    relation = PositionLimits(-1.0, 1.0, -2.0, 2.0, -3.0, 3.0, 2.0)
+    assert relation.relation_loss_weight == 2.0
+    assert relation.center_x is None
+    assert relation.center_y is None
+    assert relation.radius_min is None
+    assert relation.radius_max is None
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -211,6 +222,19 @@ def test_position_limits_radius_min_only_loss():
     )
 
 
+def test_position_limits_lower_radius_at_center_has_correct_loss_and_nonzero_gradient():
+    """A lower radial bound at its center keeps its loss and has a deterministic gradient."""
+
+    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
+    child_pos = torch.tensor([0.0, 0.0, 0.0], requires_grad=True)
+    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
+    loss.backward()
+
+    assert torch.isclose(loss, torch.tensor(5.0), atol=1e-6)
+    assert child_pos.grad is not None
+    assert torch.allclose(child_pos.grad, torch.tensor([-10.0, 0.0, 0.0]))
+
+
 def test_position_limits_radial_and_axis_losses_compose():
     relation = PositionLimits(x_max=0.5, center_x=0.0, center_y=0.0, radius_max=0.5)
     loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, torch.tensor([1.0, 0.0, 0.0]), _DUMMY_BBOX)
@@ -272,3 +296,24 @@ def test_solver_respects_radial_position_limits():
     )
     x, y, _ = result[0][box]
     assert ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5 <= 0.251
+
+
+def test_solver_escapes_exact_radial_center_for_lower_radius_limit():
+    """The solver escapes the radial center when a lower radius requires it."""
+
+    table = DummyObject(
+        name="table",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
+    )
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
+    box.add_relation(On(table, clearance_m=0.01))
+    box.add_relation(PositionLimits(center_x=0.5, center_y=0.5, radius_min=0.25))
+
+    result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
+        objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)}]
+    )
+
+    x, y, _ = result[0][box]
+    assert ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5 >= 0.249

@@ -614,14 +614,21 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
         if relation.radius_min is not None or relation.radius_max is not None:
             center_xy = child_pos.new_tensor((relation.center_x, relation.center_y))
-            radius = torch.linalg.vector_norm(child_pos[:, :2] - center_xy, dim=1)
+            radial_delta = child_pos[:, :2] - center_xy
+            radius = torch.linalg.vector_norm(radial_delta, dim=1)
             if relation.radius_min is not None and relation.radius_max is not None:
                 total_loss = total_loss + linear_band_loss(
-                    radius, relation.radius_min, relation.radius_max, slope=self.slope
+                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    relation.radius_min,
+                    relation.radius_max,
+                    slope=self.slope,
                 )
             elif relation.radius_min is not None:
                 total_loss = total_loss + single_boundary_linear_loss(
-                    radius, relation.radius_min, slope=self.slope, penalty_side="less"
+                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    relation.radius_min,
+                    slope=self.slope,
+                    penalty_side="less",
                 )
             else:
                 total_loss = total_loss + single_boundary_linear_loss(
@@ -630,3 +637,22 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+    @staticmethod
+    def _radius_with_lower_bound_symmetry_breaker(radial_delta: torch.Tensor, radius: torch.Tensor) -> torch.Tensor:
+        """Return radius with a deterministic descent direction at the exact radial center.
+
+        A lower radial bound has no direction at exactly zero displacement. For only
+        that point, use an epsilon positive-X offset and subtract it back so the
+        scalar radius remains zero while autograd receives a deterministic direction.
+        All non-center points retain the ordinary Euclidean norm.
+        """
+        at_center = torch.all(radial_delta == 0, dim=1)
+        if not torch.any(at_center):
+            return radius
+
+        epsilon = torch.finfo(radial_delta.dtype).eps
+        positive_x_epsilon = torch.zeros_like(radial_delta)
+        positive_x_epsilon[:, 0] = epsilon
+        center_radius = torch.linalg.vector_norm(radial_delta + positive_x_epsilon, dim=1) - epsilon
+        return torch.where(at_center, center_radius, radius)
