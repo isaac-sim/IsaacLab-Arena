@@ -14,7 +14,7 @@ from __future__ import annotations
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
@@ -54,8 +54,10 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     remote_api_token: str | None = None
     """Optional policy-server API token."""
 
-    scheduler: Literal["chunk", "synced_batch"] = "chunk"
-    """Action scheduler used to consume inference chunks."""
+    # A plain str (not Literal) so the config composes as a Hydra structured config in
+    # typed YAML Experiments; the policy constructor validates the value.
+    scheduler: str = "chunk"
+    """Action scheduler used to consume inference chunks: "chunk" or "synced_batch"."""
 
 
 @register_policy
