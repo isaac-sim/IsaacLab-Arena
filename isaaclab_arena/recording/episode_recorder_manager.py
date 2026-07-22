@@ -102,6 +102,21 @@ class EpisodeRecorderManager(ManagerBase):
                 record.update(fields)
             self._append_record(record)
 
+    def record_post_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
+        """Notify stateful recorder terms after environments have been reset.
+
+        Plain function terms require no lifecycle notification and are skipped. Callable term objects
+        may implement ``record_post_reset(env_ids)`` to capture state that only exists after reset.
+
+        Args:
+            env_ids: The env ids that were reset (tensor, sequence, or ``None`` for all envs).
+        """
+        normalized_env_ids = self._normalize_env_ids(env_ids)
+        for term_cfg in self._term_cfgs:
+            record_post_reset = getattr(term_cfg.func, "record_post_reset", None)
+            if record_post_reset is not None:
+                record_post_reset(normalized_env_ids)
+
     def _append_record(self, record: dict[str, Any]) -> None:
         """Append one record to the output JSONL (one object per line); no-op if no path was set."""
         if self._output_path is None:
