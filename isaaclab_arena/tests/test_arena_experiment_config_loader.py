@@ -92,6 +92,7 @@ runs:
       type: zero_action
     environment_builder:
       num_envs: 2
+      language_instruction: Pick up the banana.
     rollout_limit:
       num_episodes: 4
 """,
@@ -102,6 +103,8 @@ runs:
     run = experiment_cfg.runs["graph_run"]
 
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
+    # language_instruction and device reach the argparse path through the typed builder
+    # config, not as CLI tokens.
     assert run.environment.arena_env_args == [
         "--num_envs",
         "2",
@@ -113,6 +116,7 @@ runs:
     ]
     assert run.environment_builder.num_envs == 2
     assert run.environment_builder.device == "cuda:1"
+    assert run.environment_builder.language_instruction == "Pick up the banana."
     assert run.rollout_limit.num_episodes == 4
 
 
