@@ -609,5 +609,21 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
                 )
             # Neither bound set: axis is unconstrained, no loss
 
+        if relation.radius_min is not None or relation.radius_max is not None:
+            center_xy = child_pos.new_tensor((relation.center_x, relation.center_y))
+            radius = torch.linalg.vector_norm(child_pos[:, :2] - center_xy, dim=1)
+            if relation.radius_min is not None and relation.radius_max is not None:
+                total_loss = total_loss + linear_band_loss(
+                    radius, relation.radius_min, relation.radius_max, slope=self.slope
+                )
+            elif relation.radius_min is not None:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    radius, relation.radius_min, slope=self.slope, penalty_side="less"
+                )
+            else:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    radius, relation.radius_max, slope=self.slope, penalty_side="greater"
+                )
+
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
