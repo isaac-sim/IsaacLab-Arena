@@ -42,7 +42,7 @@ def load_arena_experiment_from_yaml(
     *,
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
-    graph_environment_cfg_factory: Callable[[str, dict[str, Any], dict[str, Any]], ArenaEnvironmentCfg] | None = None,
+    graph_environment_cfg_factory: Callable[[str, dict[str, Any]], ArenaEnvironmentCfg] | None = None,
     overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
@@ -58,8 +58,7 @@ def load_arena_experiment_from_yaml(
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
         graph_environment_cfg_factory: Function building an environment config when
             environment.type is a graph-spec YAML path instead of a selector name. It
-            receives the path, the remaining environment values, and the Run's
-            environment_builder values.
+            receives the path and the remaining environment values.
         overrides: Hydra field overrides for Runs already declared in YAML.
 
     Returns:
@@ -157,7 +156,7 @@ def _build_arena_run_cfg_from_yaml_values(
     run_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
-    graph_environment_cfg_factory: Callable[[str, dict[str, Any], dict[str, Any]], ArenaEnvironmentCfg] | None,
+    graph_environment_cfg_factory: Callable[[str, dict[str, Any]], ArenaEnvironmentCfg] | None,
 ) -> ArenaRunCfg:
     """Build one typed Arena Run from its unresolved YAML values.
 
@@ -191,15 +190,7 @@ def _build_arena_run_cfg_from_yaml_values(
         environment_values_without_selector = {
             field_name: value for field_name, value in environment_values.items() if field_name != "type"
         }
-        environment_builder_values = remaining_values.get("environment_builder") or {}
-        assert isinstance(
-            environment_builder_values, dict
-        ), f"Run '{run_name}' must define 'environment_builder' as a mapping"
-        environment = graph_environment_cfg_factory(
-            graph_spec_yaml,
-            environment_values_without_selector,
-            environment_builder_values,
-        )
+        environment = graph_environment_cfg_factory(graph_spec_yaml, environment_values_without_selector)
     else:
         environment = _compose_typed_config_from_yaml_selector(
             config_store,

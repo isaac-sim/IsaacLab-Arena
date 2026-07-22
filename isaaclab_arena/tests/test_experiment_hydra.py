@@ -215,8 +215,8 @@ def test_graph_spec_yaml_environment_uses_injected_factory(tmp_path):
     config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
     factory_calls = []
 
-    def graph_environment_cfg_factory(graph_spec_yaml, environment_values, environment_builder_values):
-        factory_calls.append((graph_spec_yaml, environment_values, environment_builder_values))
+    def graph_environment_cfg_factory(graph_spec_yaml, environment_values):
+        factory_calls.append((graph_spec_yaml, environment_values))
         return LegacyGraphEnvironmentCfg(arena_env_args=["--env_graph_spec_yaml", graph_spec_yaml])
 
     experiment_cfg = load_arena_experiment_from_yaml(
@@ -227,7 +227,7 @@ def test_graph_spec_yaml_environment_uses_injected_factory(tmp_path):
     )
     run = experiment_cfg.runs["graph_run"]
 
-    assert factory_calls == [("robolab/tasks/banana_in_bowl.yaml", {"pick_up_object": "banana"}, {"num_envs": 2})]
+    assert factory_calls == [("robolab/tasks/banana_in_bowl.yaml", {"pick_up_object": "banana"})]
     assert run.environment == LegacyGraphEnvironmentCfg(
         arena_env_args=["--env_graph_spec_yaml", "robolab/tasks/banana_in_bowl.yaml"]
     )

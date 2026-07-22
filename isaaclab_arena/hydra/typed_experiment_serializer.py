@@ -15,6 +15,7 @@ from omegaconf import OmegaConf
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 
 
 def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> str:
@@ -43,15 +44,31 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
         assert isinstance(run_values, dict)
         assert run_values.pop("name") == run_name
 
-        environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
+        run_values["environment"] = _environment_yaml_values(environment_registry, run_cfg, run_values["environment"])
         policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
-        run_values["environment"] = {"type": environment_type.name, **run_values["environment"]}
         policy_selector = policy_type.name
         if not policy_type.__module__.startswith("isaaclab_arena.policy."):
             policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
         run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
         run_values_by_name[run_name] = _to_yaml_values(run_values)
     return yaml.safe_dump({"runs": run_values_by_name}, sort_keys=False)
+
+
+def _environment_yaml_values(
+    environment_registry: EnvironmentRegistry,
+    run_cfg: ArenaRunCfg,
+    dumped_environment_values: dict[str, Any],
+) -> dict[str, Any]:
+    """Return one Run's environment section with the type selector the loader expects."""
+    if isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
+        # Graph-YAML environments serialize from their original source values; the derived
+        # arena_env_args tokens are an execution detail the loader rebuilds on reload.
+        assert (
+            run_cfg.environment.env_graph_spec_yaml
+        ), "Graph-YAML environment cannot be serialized because it does not record its graph-spec YAML path"
+        return {"type": run_cfg.environment.env_graph_spec_yaml, **run_cfg.environment.environment_values}
+    environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
+    return {"type": environment_type.name, **dumped_environment_values}
 
 
 def _to_yaml_values(value: Any) -> Any:
