@@ -48,13 +48,16 @@ def _test_droid_stand_height(simulation_app) -> bool:
         assert abs(custom_emb.scene_config.robot.init_state.pos[2] - expected_offset) < 1e-6
         assert abs(custom_emb.scene_config.stand.init_state.pos[2] - expected_offset) < 1e-6
 
-        # The lift is re-applied on top of an explicit initial_pose (which the base class would
-        # otherwise overwrite): the requested z plus the stand-height offset.
+        # An explicit initial_pose is lifted at ingestion (set_initial_pose), so the stored override
+        # already equals the spawned base: the requested z plus the stand-height offset.
         posed_emb = DroidAbsoluteJointPositionEmbodiment(stand_height_m=_CUSTOM_STAND_HEIGHT_M)
         posed_emb.set_initial_pose(Pose(position_xyz=(0.3, 0.0, 0.5), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        assert abs(posed_emb.initial_pose.position_xyz[2] - (0.5 + expected_offset)) < 1e-6
         scene_cfg = posed_emb.get_scene_cfg()
         assert abs(scene_cfg.robot.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
         assert abs(scene_cfg.stand.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
+        # initial_pose is the single source of truth: it matches the spawned robot base exactly.
+        assert tuple(posed_emb.initial_pose.position_xyz) == tuple(scene_cfg.robot.init_state.pos)
 
         # The YAML-spec path instantiates the embodiment via asset_class(**params); a scalar
         # stand_height_m from YAML applies just the same.
