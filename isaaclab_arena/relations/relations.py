@@ -420,9 +420,9 @@ class AtPosition(UnaryRelation):
 
 @register_object_relation
 class PositionLimits(UnaryRelation):
-    """Constrains object position to a world-coordinate axis-aligned box.
+    """Constrains object position to axis-aligned and optional radial world-coordinate limits.
 
-    Each axis is independently optional (None = unconstrained).
+    Each axis and radial bound is independently optional (None = unconstrained).
 
     Usage:
         mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
