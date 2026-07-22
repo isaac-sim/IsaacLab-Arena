@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import yaml
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -103,21 +105,62 @@ runs:
     run = experiment_cfg.runs["graph_run"]
 
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
-    # language_instruction and device reach the argparse path through the typed builder
-    # config, not as CLI tokens.
+    # Only environment values become CLI tokens; the environment_builder section stays
+    # typed and reaches the argparse path directly at execution.
     assert run.environment.arena_env_args == [
-        "--num_envs",
-        "2",
         "--enable_cameras",
         "--env_graph_spec_yaml",
         "robolab/tasks/banana_in_bowl.yaml",
         "--pick_up_object",
         "banana",
     ]
+    assert run.environment.env_graph_spec_yaml == "robolab/tasks/banana_in_bowl.yaml"
+    assert run.environment.environment_values == {"enable_cameras": True, "pick_up_object": "banana"}
     assert run.environment_builder.num_envs == 2
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Pick up the banana."
     assert run.rollout_limit.num_episodes == 4
+
+
+def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
+    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_episodes: 4
+""",
+        encoding="utf-8",
+    )
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:1")
+
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+    serialized_values = yaml.safe_load(serialized_experiment)
+    serialized_environment = serialized_values["runs"]["graph_run"]["environment"]
+    assert serialized_environment == {
+        "type": "robolab/tasks/banana_in_bowl.yaml",
+        "enable_cameras": True,
+        "pick_up_object": "banana",
+    }
+
+    serialized_path = tmp_path / "serialized_experiment.yaml"
+    serialized_path.write_text(serialized_experiment, encoding="utf-8")
+    assert load_arena_experiment_from_config_file(serialized_path, device="cuda:1") == experiment_cfg
 
 
 def test_typed_graph_camera_run_requires_prelaunch_camera_flag():

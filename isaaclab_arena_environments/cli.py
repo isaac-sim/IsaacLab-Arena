@@ -217,7 +217,7 @@ def get_arena_builder_from_cli(
 
     # Either env graph spec yaml OR example env name
     arena_env = (
-        _arena_env_from_graph_spec(env_graph_spec_yaml, args_cli)
+        arena_env_from_graph_spec(env_graph_spec_yaml, args_cli)
         if env_graph_spec_yaml is not None
         else _arena_env_from_example_name(example_environment, args_cli)
     )
@@ -225,7 +225,7 @@ def get_arena_builder_from_cli(
     return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 
 
-def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+def arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
     spec.apply_cli_override_args(args_cli)

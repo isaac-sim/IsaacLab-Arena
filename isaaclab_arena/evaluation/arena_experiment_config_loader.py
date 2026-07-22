@@ -89,29 +89,19 @@ def load_arena_experiment_from_config_file(
 def _graph_environment_cfg_from_yaml_values(
     env_graph_spec_yaml: str,
     environment_values: dict[str, Any],
-    environment_builder_values: dict[str, Any],
 ) -> LegacyGraphEnvironmentCfg:
     """Create the temporary graph-YAML compatibility config from typed YAML Run values.
 
-    The environment and environment_builder values are rendered as CLI tokens for the
-    existing graph-environment argparse path, mirroring the legacy JSON frontend. The
-    environment_builder section additionally composes into the Run's typed builder
-    config as usual.
+    The environment values are rendered as CLI tokens for the existing graph-environment
+    argparse path; the Run's environment_builder section stays typed and is applied
+    directly at execution (see build_arena_builder_from_legacy_graph).
     """
-    # device and language_instruction are not rendered as tokens: language_instruction is
-    # not a parser flag, and both are injected from the Run's typed builder config after
-    # parsing (see build_arena_builder_from_legacy_graph), matching the JSON frontend.
-    builder_cli_values = {
-        field_name: value
-        for field_name, value in environment_builder_values.items()
-        if field_name not in ("device", "language_instruction")
-    }
-    arena_env_args: dict[str, Any] = {
-        "environment": env_graph_spec_yaml,
-        **builder_cli_values,
-        **environment_values,
-    }
-    return LegacyGraphEnvironmentCfg(arena_env_args=legacy_environment_args_to_cli_args(arena_env_args))
+    arena_env_args: dict[str, Any] = {"environment": env_graph_spec_yaml, **environment_values}
+    return LegacyGraphEnvironmentCfg(
+        arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
+        env_graph_spec_yaml=env_graph_spec_yaml,
+        environment_values=dict(environment_values),
+    )
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

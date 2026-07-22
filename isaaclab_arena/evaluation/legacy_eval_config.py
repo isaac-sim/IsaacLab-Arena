@@ -158,6 +158,10 @@ def _graph_environment_cfg_from_legacy_args(
     """Create the temporary graph-YAML compatibility config from legacy arguments."""
     return LegacyGraphEnvironmentCfg(
         arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
+        env_graph_spec_yaml=str(arena_env_args["environment"]),
+        environment_values={
+            field_name: value for field_name, value in arena_env_args.items() if field_name != "environment"
+        },
     )
 
 
