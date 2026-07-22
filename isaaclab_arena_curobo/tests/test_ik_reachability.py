@@ -203,12 +203,12 @@ def _run_sync_pose_check(args_cli) -> bool:
 
 def _run_reachability_check(args_cli) -> bool:
     """Place one object in-reach and one out-of-reach; return True iff IK agrees with that split."""
-    from isaaclab_arena_curobo.curobo_ik_utils import check_ik_feasibility
     from isaaclab_arena_curobo.curobo_planner_utils import (
         make_curobo_planner,
         sync_object_poses_in_robot_base_frame,
         top_down_grasp_pose_from_env,
     )
+    from isaaclab_arena_curobo.ik_solver_utils import check_ik_feasibility
 
     env, embodiment = _build_droid_two_object_env(args_cli)
     planner = make_curobo_planner(env, embodiment, env_id=0)

@@ -599,33 +599,23 @@ class ObjectPlacer:
         num_layouts_evaluated_by_check: dict[str, int] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
-        for validator in self._validators:
-            # in-expensive checks are run on all candidates
-            if not validator.run_after_inexpensive_checks:
-                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
-                    positions, orientations, bboxes, collision_objects
-                )
-                num_layouts_evaluated_by_check[validator.check] = num_candidates
-
-        for validator in self._validators:
-            # expensive checks are run on only the candidates that passed the in-expensive checks
-            if validator.run_after_inexpensive_checks:
-                kept = [
-                    i
-                    for i in range(num_candidates)
-                    if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
-                ]
-                sub_verdicts = validator.validate_batch(
-                    [positions[i] for i in kept],
-                    [orientations[i] for i in kept],
-                    [bboxes[i] for i in kept],
-                    collision_objects,
-                )
-                verdicts = [False] * num_candidates
-                for sub_idx, cand_idx in enumerate(kept):
-                    verdicts[cand_idx] = sub_verdicts[sub_idx]
-                layout_pass_verdicts_by_check[validator.check] = verdicts
-                num_layouts_evaluated_by_check[validator.check] = len(kept)
+        self._run_inexpensive_checks(
+            positions,
+            orientations,
+            bboxes,
+            collision_objects,
+            layout_pass_verdicts_by_check,
+            num_layouts_evaluated_by_check,
+        )
+        self._run_expensive_checks(
+            positions,
+            orientations,
+            bboxes,
+            collision_objects,
+            required,
+            layout_pass_verdicts_by_check,
+            num_layouts_evaluated_by_check,
+        )
         if layout_pass_verdicts_by_check:
             summary = ", ".join(
                 f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
@@ -641,6 +631,56 @@ class ObjectPlacer:
             )
             for candidate_idx in range(len(positions))
         ]
+
+    def _run_inexpensive_checks(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        num_layouts_evaluated_by_check: dict[str, int],
+    ) -> None:
+        """Run every inexpensive validator on all candidates, recording verdicts and evaluated counts."""
+        num_candidates = len(positions)
+        for validator in self._validators:
+            if not validator.run_after_inexpensive_checks:
+                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
+                    positions, orientations, bboxes, collision_objects
+                )
+                num_layouts_evaluated_by_check[validator.check] = num_candidates
+
+    def _run_expensive_checks(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+        required: set[str] | None,
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        num_layouts_evaluated_by_check: dict[str, int],
+    ) -> None:
+        """Run each expensive validator only on candidates that passed the required inexpensive checks."""
+        num_candidates = len(positions)
+        for validator in self._validators:
+            if validator.run_after_inexpensive_checks:
+                passed_layout_indices = [
+                    i
+                    for i in range(num_candidates)
+                    if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
+                ]
+                # only passed layouts are validated
+                verdicts_over_passed_layout = validator.validate_batch(
+                    [positions[i] for i in passed_layout_indices],
+                    [orientations[i] for i in passed_layout_indices],
+                    [bboxes[i] for i in passed_layout_indices],
+                    collision_objects,
+                )
+                verdicts = [False] * num_candidates
+                for sub_idx, cand_idx in enumerate(passed_layout_indices):
+                    verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
+                layout_pass_verdicts_by_check[validator.check] = verdicts
+                num_layouts_evaluated_by_check[validator.check] = len(passed_layout_indices)
 
     @staticmethod
     def _passes_required_checks(

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import torch
 import yaml
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
 from isaaclab.utils.assets import retrieve_file_path
@@ -18,36 +18,7 @@ from isaaclab.utils.assets import retrieve_file_path
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
-    import logging
-
-    from curobo.types.math import Pose as CuroboPose
-    from curobo.wrap.reacher.ik_solver import IKSolver
-
     from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
-
-
-class IKSolverContext(Protocol):
-    """The host that owns a cuRobo IK solver plus the device/pose plumbing to drive it."""
-
-    logger: logging.Logger
-
-    def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Move a tensor onto the cuRobo device/dtype."""
-
-    def _make_pose(self, position: torch.Tensor, quaternion: torch.Tensor, *, quat_is_xyzw: bool = True) -> CuroboPose:
-        """Build a cuRobo ``Pose`` on the cuRobo device."""
-
-
-def resolve_ik_solver(ik_solver_context: IKSolverContext) -> IKSolver:
-    """Get the cuRobo ``IKSolver`` from a host, whichever way it exposes it.
-
-    ``CuroboIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
-    holds it as ``motion_gen.ik_solver``. Centralizing the lookup lets the solve take just the host.
-    """
-    ik_solver = getattr(ik_solver_context, "ik_solver", None)
-    if ik_solver is None:
-        ik_solver = ik_solver_context.motion_gen.ik_solver
-    return ik_solver
 
 
 # cuRobo captures a CUDA graph on the IK solver's first solve and, by default, errors when a later
@@ -124,66 +95,3 @@ def top_down_grasp_matrix(
     q_grasp_xyzw = math_utils.quat_from_matrix(R_grasp.unsqueeze(0))[0]
     pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(q_grasp_xyzw.tolist()))
     return pose.to_transform_matrix(device)
-
-
-def solve_ik_feasibility(
-    ik_solver_context: IKSolverContext,
-    target_poses: torch.Tensor,
-    seed_config: torch.Tensor | None = None,
-    position_threshold: float = 0.01,
-    rotation_threshold: float = 0.1,
-    require_collision_free: bool = False,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver. Shared between sim-free and env-coupled paths.
-    Runs a single ``solve_batch`` for one layout.
-
-    Args:
-        ik_solver_context: The host that owns the solver and supplies device/pose plumbing -- a ``CuroboPlanner`` (env-coupled) or a ``CuroboIKSolver``.
-        target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
-        seed_config: Optional joint seed tensor.
-        position_threshold: Max position error (m) to count as feasible.
-        rotation_threshold: Max rotation error (rad) to count as feasible.
-        require_collision_free: Also require a collision-free joint solution (cuRobo ``success``), not
-            just pose convergence. The caller must first exclude the grasped object's own contact --
-            e.g. disable the hand-link spheres -- or the gripper over its target reads as a collision.
-
-    Returns:
-        ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
-        errors are the best-seed values per pose.
-    """
-    ik_solver = resolve_ik_solver(ik_solver_context)
-    target_poses = ik_solver_context._to_curobo_device(target_poses)
-    positions, rotations = math_utils.unmake_pose(target_poses)
-    goal_pose = ik_solver_context._make_pose(
-        position=positions,
-        quaternion=math_utils.quat_from_matrix(rotations),  # xyzw
-        quat_is_xyzw=True,
-    )
-
-    ik_seed = None
-    if seed_config is not None:
-        ik_seed = ik_solver_context._to_curobo_device(seed_config)
-        while ik_seed.dim() < 3:
-            ik_seed = ik_seed.unsqueeze(0)
-
-    ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
-
-    num_poses = positions.shape[0]
-    pos_err = ik_result.position_error.view(num_poses, -1)
-    rot_err = ik_result.rotation_error.view(num_poses, -1)
-
-    ok = (pos_err < position_threshold) & (rot_err < rotation_threshold)
-    # TODO(xinjieyao, 2026-07-15): Support collision-free IK by disabling the hand-link spheres during collision checking
-    assert require_collision_free is False, "Collision-free IK is not supported yet. Needs extra machinery."
-    if require_collision_free:
-        # cuRobo folds collision-free-ness into ``success`` (success = converged AND feasible).
-        ok = ok & ik_result.success.view(num_poses, -1).bool()
-    feasible = ok.any(dim=1)
-
-    # Best-seed errors, reported for logging/return only (not part of the accept decision).
-    best_idx = pos_err.argmin(dim=1, keepdim=True)
-    best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
-    best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
-
-    ik_solver_context.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
-    return feasible, best_pos_err, best_rot_err
