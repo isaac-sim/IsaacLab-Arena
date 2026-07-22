@@ -63,8 +63,8 @@ class PlacementAsset(Asset, ABC):
         """
         self.initial_pose = pose
 
-    def set_placement_initial_pose(self, pose: Pose) -> None:
-        """Set the solved spawn pose without changing reset ownership."""
+    def set_spawn_pose(self, pose: Pose) -> None:
+        """Set the root pose used when constructing the scene."""
         self.set_initial_pose(pose)
 
     def has_pose_reset_event(self) -> bool:
