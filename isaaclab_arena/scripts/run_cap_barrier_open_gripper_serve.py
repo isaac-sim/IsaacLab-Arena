@@ -19,6 +19,8 @@ unambiguous closed->open transition.
 
 from __future__ import annotations
 
+import math
+import os
 import time
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -114,7 +116,12 @@ def _paced_bootstrap_fences(manager, adapter, count: int):
     return results
 
 
-def _run_serve(device: str, *, perception_stream: str | None = None) -> None:
+def _run_serve(
+    device: str,
+    *,
+    perception_stream: str | None = None,
+    serve_seconds: float = _SERVE_TIMEOUT_S,
+) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
     from isaaclab_arena.integrations.cap_barrier.production_smoke import (
@@ -182,7 +189,7 @@ def _run_serve(device: str, *, perception_stream: str | None = None) -> None:
         # reset into the post-reset generation and serve again. The gripper resets
         # to its closed init pose on each reset, so the closed->open actuation lands
         # on the generation GaP opens on. Bound the number of resets we follow.
-        deadline = time.monotonic() + _SERVE_TIMEOUT_S
+        deadline = time.monotonic() + serve_seconds
         observation = None
         followed_any_reset = False
         for _ in range(_MAX_GENERATIONS_FOLLOWED):
@@ -262,13 +269,28 @@ def main() -> None:
             "cameras on the barrier env; the barrier is served by one Kit process."
         ),
     )
+    parser.add_argument(
+        "--serve-seconds",
+        type=float,
+        default=float(os.environ.get("CAP_SERVE_SECONDS", _SERVE_TIMEOUT_S)),
+        help=(
+            "Bounded serve window in seconds (default 600, env CAP_SERVE_SECONDS). "
+            "Raise it when a cold GaP load would otherwise eat most of the window."
+        ),
+    )
     args_cli = parser.parse_args()
+    if not math.isfinite(args_cli.serve_seconds) or args_cli.serve_seconds <= 0.0:
+        parser.error("--serve-seconds must be finite and positive")
     if args_cli.perception_stream is not None:
         # The exterior_cam RTX spawn requires AppLauncher cameras; imply the flag
         # so --perception-stream can never be run without it.
         args_cli.enable_cameras = True
     with SimulationAppContext(args_cli):
-        _run_serve(args_cli.device, perception_stream=args_cli.perception_stream)
+        _run_serve(
+            args_cli.device,
+            perception_stream=args_cli.perception_stream,
+            serve_seconds=args_cli.serve_seconds,
+        )
 
 
 if __name__ == "__main__":
