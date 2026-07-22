@@ -40,7 +40,8 @@ def _requirement_name(requirement: str) -> str:
 def _arena_pin(package: str) -> str:
     """Return the version Arena pins ``package`` to in the isaaclab-from-wheel dependency group."""
     groups = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-wheel"]
-    matches = [re.fullmatch(rf"{package}==(.+)", requirement) for requirement in groups]
+    # Skip non-string entries such as PEP 735 include-group tables.
+    matches = [re.fullmatch(rf"{package}==(.+)", requirement) for requirement in groups if isinstance(requirement, str)]
     versions = [match.group(1) for match in matches if match]
     assert len(versions) == 1, f"expected exactly one {package} pin in the isaaclab-from-wheel group, found {versions}"
     return versions[0]
@@ -88,7 +89,12 @@ def test_isaaclab_from_source_group_covers_submodule_packages():
     upstream = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
     upstream_packages = {_requirement_name(req) for req in upstream if _requirement_name(req).startswith("isaaclab")}
     group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-source"]
-    group_packages = {_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")}
+    # Skip non-string entries such as PEP 735 include-group tables.
+    group_packages = {
+        _requirement_name(req)
+        for req in group
+        if isinstance(req, str) and _requirement_name(req).startswith("isaaclab")
+    }
     missing = upstream_packages - group_packages
     assert not missing, f"isaaclab-from-source group is missing submodule packages: {sorted(missing)}"
 
@@ -103,7 +109,11 @@ def test_isaaclab_from_source_group_entries_have_path_sources():
     pyproject = tomllib.loads(_ARENA_PYPROJECT.read_text())
     group = pyproject["dependency-groups"]["isaaclab-from-source"]
     sources = pyproject["tool"]["uv"]["sources"]
-    for package in sorted(_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")):
+    for package in sorted(
+        _requirement_name(req)
+        for req in group
+        if isinstance(req, str) and _requirement_name(req).startswith("isaaclab")
+    ):
         assert package in sources, f"no [tool.uv.sources] entry for {package}"
         entries = [entry for entry in sources[package] if entry.get("group") == "isaaclab-from-source"]
         assert len(entries) == 1, f"expected one isaaclab-from-source-gated source for {package}, found {entries}"

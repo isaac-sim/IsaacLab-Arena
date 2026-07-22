@@ -59,6 +59,9 @@ isaaclab-from-wheel = [
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
+    # Each install flavor is self-sufficient: the remote OpenPI client comes
+    # along without a separate --group openpi flag.
+    { include-group = "openpi" },
 ]
 # isaaclab-from-source: Isaac Lab installed editable from the
 # submodules/IsaacLab source checkout instead of the published wheel. The
@@ -94,14 +97,20 @@ isaaclab-from-source = [
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
+    # Each install flavor is self-sufficient: the remote OpenPI client comes
+    # along without a separate --group openpi flag.
+    { include-group = "openpi" },
+]
+openpi = [
+    "openpi-client",
 ]
 
 [tool.uv]
 # Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 # Install the source-based sim stack (Isaac Lab editable from the submodule)
-# on a bare `uv sync`.
-default-groups = ["isaaclab-from-source"]
+# and the remote OpenPI client on a bare `uv sync`.
+default-groups = ["isaaclab-from-source", "openpi"]
 # The two sim-stack flavors resolve isaaclab (and possibly torch/isaacsim) to
 # different versions and sources; uv forks the resolution per flavor and
 # refuses to activate both groups at once.
@@ -202,6 +211,11 @@ isaaclab-tasks = [{ path = "submodules/IsaacLab/source/isaaclab_tasks", editable
 isaaclab-tasks-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_tasks_experimental", editable = true, group = "isaaclab-from-source" }]
 isaaclab-teleop = [{ path = "submodules/IsaacLab/source/isaaclab_teleop", editable = true, group = "isaaclab-from-source" }]
 isaaclab-visualizers = [{ path = "submodules/IsaacLab/source/isaaclab_visualizers", editable = true, group = "isaaclab-from-source" }]
+
+[tool.uv.sources.openpi-client]
+git = "https://github.com/Physical-Intelligence/openpi"
+rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79"
+subdirectory = "packages/openpi-client"
 
 [tool.setuptools.packages.find]
 where = ["."]

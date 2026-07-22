@@ -1157,6 +1157,24 @@ wheels = [
 ]
 
 [[package]]
+name = "dm-tree"
+version = "0.1.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "attrs", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "numpy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "wrapt", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/66/a3ec619d22b6baffa5ab853e8dc6ec9d0c837127948af59bb15b988d7312/dm_tree-0.1.10.tar.gz", hash = "sha256:22f37b599e01cc3402a17f79c257a802aebd8d326de05b54657650845956208a", size = 35748, upload-time = "2026-03-31T17:35:39.03Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/a1/17e0d68eec978c483db4712b14d083ee01484381b29ea85edb2b20210bd0/dm_tree-0.1.10-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:94af18e4fd22ce69eccae89eeed8ed498b6b4cc4957f4ed10b4160e59f620e1d", size = 315976, upload-time = "2026-03-31T17:35:15.21Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/6f/ed603715fbc29c887a8985252e2cfe0d449497aea96bac51010159771617/dm_tree-0.1.10-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b442a0c1e9d0960e0314a2e4af81fd328a87921b6d6db6dc41bfa420536884d6", size = 184053, upload-time = "2026-03-31T17:35:16.512Z" },
+    { url = "https://files.pythonhosted.org/packages/83/eb/1d55c679cee9a54e552480d308535753c72e2250cf720d7aa777bff2a4fe/dm_tree-0.1.10-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:012c2b376e88d3685c73a4b5c23be41fe933e14e380dcd90172971690b0e02d2", size = 186506, upload-time = "2026-03-31T17:35:17.593Z" },
+    { url = "https://files.pythonhosted.org/packages/89/2d/adef6924f8dc7f1665eea4ce066387820c14a629d0e1005568892d56ea6a/dm_tree-0.1.10-cp312-cp312-win_amd64.whl", hash = "sha256:da8d5b8995bea1b6bb93f457e0dad5d16e6e2344a6488ced55320e7f3fd50f56", size = 112708, upload-time = "2026-03-31T17:35:18.699Z" },
+]
+
+[[package]]
 name = "dotvar"
 version = "0.1.12"
 source = { registry = "https://pypi.org/simple" }
@@ -2068,6 +2086,7 @@ isaaclab-from-source = [
     { name = "isaaclab-tasks-experimental", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-teleop", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-visualizers", extra = ["newton", "rerun"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "openpi-client", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torchaudio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2075,10 +2094,14 @@ isaaclab-from-source = [
 isaaclab-from-wheel = [
     { name = "daqp", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab", version = "3.0.0b2", source = { registry = "https://pypi.nvidia.com/" }, extra = ["all", "isaacsim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "openpi-client", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "rsl-rl-lib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torchaudio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+openpi = [
+    { name = "openpi-client", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
 ]
 
 [package.metadata]
@@ -2119,6 +2142,7 @@ isaaclab-from-source = [
     { name = "isaaclab-tasks-experimental", editable = "submodules/IsaacLab/source/isaaclab_tasks_experimental" },
     { name = "isaaclab-teleop", editable = "submodules/IsaacLab/source/isaaclab_teleop" },
     { name = "isaaclab-visualizers", extras = ["newton", "rerun"], editable = "submodules/IsaacLab/source/isaaclab_visualizers" },
+    { name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" },
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchaudio", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu128" },
@@ -2126,11 +2150,13 @@ isaaclab-from-source = [
 isaaclab-from-wheel = [
     { name = "daqp", specifier = "==0.8.5" },
     { name = "isaaclab", extras = ["isaacsim", "all"], specifier = "==3.0.0b2" },
+    { name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" },
     { name = "rsl-rl-lib", specifier = "==5.0.1" },
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchaudio", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu128" },
 ]
+openpi = [{ name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" }]
 
 [[package]]
 name = "isaaclab-assets"
@@ -4873,6 +4899,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/81/a1/facfe2801a861b424c4221d66e1281cf19735c00e07f063a337a208c11b5/opencv_python_headless-4.13.0.90-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:f46b17ea0aa7e4124ca6ad71143f89233ae9557f61d2326bcdb34329a1ddf9bd", size = 62535926, upload-time = "2026-01-18T09:12:47.229Z" },
     { url = "https://files.pythonhosted.org/packages/06/d2/5e9ee7512306c1caa518be929d1f44bb1c189f342f538f73bea6fb94919f/opencv_python_headless-4.13.0.90-cp37-abi3-win32.whl", hash = "sha256:96060fc57a1abb1144b0b8129e2ff3bfcdd0ccd8e8bd05bd85256ff4ed587d3b", size = 30811665, upload-time = "2026-01-18T09:13:44.517Z" },
     { url = "https://files.pythonhosted.org/packages/a0/09/0a4d832448dccd03b2b1bdee70b9fc2e02c147cc7e06975e9cd729569d90/opencv_python_headless-4.13.0.90-cp37-abi3-win_amd64.whl", hash = "sha256:0e0c8c9f620802fddc4fa7f471a1d263c7b0dca16cd9e7e2f996bb8bd2128c0c", size = 40070035, upload-time = "2026-01-18T09:15:14.652Z" },
+]
+
+[[package]]
+name = "openpi-client"
+version = "0.1.0"
+source = { git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79#c23745b5ad24e98f66967ea795a07b2588ed6c79" }
+dependencies = [
+    { name = "dm-tree", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "msgpack", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "numpy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "pillow", version = "12.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "pillow", version = "12.2.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-14-isaaclab-arena-isaaclab-from-wheel') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "websockets", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
 ]
 
 [[package]]
