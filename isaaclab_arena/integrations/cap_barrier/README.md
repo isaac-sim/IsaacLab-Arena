@@ -225,3 +225,9 @@ The Kit + GPU smoke (not run in CI) streams to a running `cap_perception_bridge`
 ./dev_run.sh isaaclab_arena/scripts/run_cap_barrier_perception_stream.py \
     --headless --enable_cameras --device cuda:0
 ```
+
+The stream runs for a bounded window (`--stream-seconds`, default 20 s) at
+`--stream-hz` (default 10 Hz). Because the bridge fails closed on a stale or
+absent producer, arm the ROS-side `cap_get_image_check` as an in-container poll
+loop (~1 s cadence) **before** starting this producer rather than one docker-exec
+attempt per check, or raise `--stream-seconds`.

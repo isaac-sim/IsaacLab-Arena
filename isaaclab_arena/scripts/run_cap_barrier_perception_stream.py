@@ -19,10 +19,17 @@ Then, with the ROS bridge already listening on 127.0.0.1:50061:
 
     ./dev_run.sh isaaclab_arena/scripts/run_cap_barrier_perception_stream.py \
         --headless --enable_cameras --device cuda:0
+
+Verification note: the bridge fails closed on a stale/absent producer, so a
+one-shot ``cap_get_image_check`` can race this bounded stream window if it is
+launched per-attempt. The reliable recipe is an in-container poll loop (about a
+1 s cadence) armed BEFORE this producer starts, and/or a longer window via
+``--stream-seconds``.
 """
 
 from __future__ import annotations
 
+import math
 import time
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -33,7 +40,7 @@ _STREAM_SECONDS = 20.0
 _ENDPOINT = "127.0.0.1:50061"
 
 
-def _stream(device: str) -> None:
+def _stream(device: str, *, stream_seconds: float, stream_hz: float) -> None:
     import torch
 
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
@@ -49,8 +56,8 @@ def _stream(device: str) -> None:
         unwrapped = adapter._unwrapped
         environment.reset()
         producer.start()
-        period_s = 1.0 / _STREAM_HZ
-        deadline = time.monotonic() + _STREAM_SECONDS
+        period_s = 1.0 / stream_hz
+        deadline = time.monotonic() + stream_seconds
         next_tick = time.monotonic()
         frame_index = 0
         hold = torch.zeros((1, unwrapped.action_manager.total_action_dim), device=unwrapped.device)
@@ -83,9 +90,30 @@ def _stream(device: str) -> None:
 
 def main() -> None:
     parser = get_isaaclab_arena_cli_parser()
+    cap_group = parser.add_argument_group("CAP perception stream")
+    cap_group.add_argument(
+        "--stream-seconds",
+        type=float,
+        default=_STREAM_SECONDS,
+        help="How long to stream exterior_cam frames before exiting.",
+    )
+    cap_group.add_argument(
+        "--stream-hz",
+        type=float,
+        default=_STREAM_HZ,
+        help="Frame sampling rate for the nonblocking producer.",
+    )
     args_cli = parser.parse_args()
+    if not math.isfinite(args_cli.stream_seconds) or args_cli.stream_seconds <= 0.0:
+        parser.error("--stream-seconds must be finite and positive")
+    if not math.isfinite(args_cli.stream_hz) or args_cli.stream_hz <= 0.0:
+        parser.error("--stream-hz must be finite and positive")
     with SimulationAppContext(args_cli):
-        _stream(args_cli.device)
+        _stream(
+            args_cli.device,
+            stream_seconds=args_cli.stream_seconds,
+            stream_hz=args_cli.stream_hz,
+        )
 
 
 if __name__ == "__main__":
