@@ -10,7 +10,8 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job).
+    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job;
+    # PRs run that job only when uv-managed dependency files change).
     - cron: '0 6 * * *'
   workflow_dispatch:
 
@@ -98,13 +99,40 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
+  uv_changes:
+    name: Detect uv-related changes
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 5
+    # Only meaningful on PRs; other events always run the uv tests.
+    if: github.event_name == 'pull_request'
+    outputs:
+      uv: ${{ steps.filter.outputs.uv }}
+    steps:
+      # Queries the PR's changed files via the GitHub API; no checkout needed.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            uv:
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'submodules/IsaacLab'
+              - 'submodules/IsaacLab/**'
+
   uv_test:
     name: Run tests (native uv, ${{ matrix.variant }})
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
-    needs: [pre_commit]
-    # Excluded from pre-merge (pull requests); still runs nightly, on push to main, and on manual dispatch.
-    if: github.event_name != 'pull_request'
+    needs: [pre_commit, uv_changes]
+    # Runs nightly, on push to main, and on manual dispatch; on pull requests
+    # only when the PR touches the uv-managed dependency files
+    # (pyproject.toml, uv.lock, or the IsaacLab submodule). The !cancelled()
+    # guard keeps the job alive when uv_changes is skipped on non-PR events.
+    if: >-
+      !cancelled() &&
+      needs.pre_commit.result == 'success' &&
+      (github.event_name != 'pull_request' ||
+       needs.uv_changes.outputs.uv == 'true')
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
