@@ -17,7 +17,9 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_object
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.curobo_ik_utils import (
@@ -32,7 +34,9 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams, ReachabilityConfig
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 def get_object_world_pose_from_layout(
@@ -53,7 +57,7 @@ def get_object_world_pose_from_layout(
     return pos_w, tuple(quat_w_xyzw)
 
 
-def make_standalone_ik_layout_validator(
+def make_ik_reachability_validator(
     embodiment: EmbodimentBase,
     grasp_z_offset: float = 0.02,
     ik_pos_threshold: float = 0.01,
@@ -78,7 +82,8 @@ def make_standalone_ik_layout_validator(
         position_threshold=ik_pos_threshold,
         rotation_threshold=ik_rot_threshold,
     )
-    base_pos, base_quat_xyzw = embodiment.get_base_pose()
+    base_pose = embodiment.get_base_pose()
+    base_pos, base_quat_xyzw = base_pose.position_xyz, base_pose.rotation_xyzw
 
     def validator(result: PlacementResult) -> bool:
         objects = list(result.positions.keys())
@@ -124,3 +129,87 @@ def embodiment_curobo_cfg(embodiment: EmbodimentBase):
     from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
 
     return get_curobo_cfg_for(embodiment)
+
+
+class ReachabilityValidator(PlacementValidator):
+    """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
+
+    Wraps the reachability predicate as a gated ``PlacementValidator`` so the placer runs it only on
+    candidates that already pass the cheaper geometry checks. Built via ``build_reachability_validator`` and
+    injected through ``ObjectPlacerParams.extra_validators``; core placement never imports cuRobo itself.
+    """
+
+    check = PlacementCheck.IK_REACHABLE
+    gated = True
+
+    def __init__(self, predicate: Callable[[PlacementResult], bool]) -> None:
+        self._predicate = predicate
+
+    def validate_batch(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+    ) -> list[bool]:
+        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+
+    def _validate(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        orientations: dict[ObjectBase, float],
+    ) -> bool:
+        """Run the wrapped predicate over a single candidate's solved poses."""
+        candidate = PlacementResult(
+            validation_results=PlacementValidationResults(),
+            positions=positions,
+            final_loss=0.0,
+            attempts=0,
+            orientations=orientations,
+        )
+        return bool(self._predicate(candidate))
+
+
+def build_reachability_validator(
+    embodiment: EmbodimentBase, config: ReachabilityConfig | None = None
+) -> ReachabilityValidator:
+    """Build the cuRobo IK-reachability placement validator for an embodiment.
+
+    Raises when cuRobo or the embodiment's registered cuRobo config is unavailable.
+
+    Args:
+        embodiment: Embodiment that has a registered CuroboEmbodimentCfg.
+        config: Reachability tuning; defaults are used when omitted.
+    """
+    from isaaclab_arena.relations.object_placer_params import ReachabilityConfig
+
+    config = config or ReachabilityConfig()
+    predicate = make_ik_reachability_validator(
+        embodiment,
+        grasp_z_offset=config.grasp_z_offset_m,
+        ik_pos_threshold=config.ik_position_threshold_m,
+        ik_rot_threshold=config.ik_rotation_threshold_rad,
+        stamp_results=False,
+    )
+    return ReachabilityValidator(predicate)
+
+
+def configure_reachability_gate(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
+    """Install the cuRobo IK-reachability gate on placer_params.extra_validators and report whether it could run.
+
+    Args:
+        placer_params: Placement params to receive the validator; its reachability_config tunes the gate.
+        embodiment: Robot embodiment the grasps must be reachable by.
+    """
+    if embodiment is None:
+        return False
+    try:
+        validator = build_reachability_validator(embodiment, placer_params.reachability_config)
+    except AssertionError:
+        # The embodiment has no registered cuRobo config -- treat reachability as unavailable.
+        return False
+    kept = [v for v in placer_params.extra_validators if v.check != PlacementCheck.IK_REACHABLE]
+    # Reachability requires both embodiment curobo cfg and the solver deps to be importable.
+    # If both exists, the validator implementation is added to placer_params.extra_validators.
+    placer_params.extra_validators = [*kept, validator]
+    return True

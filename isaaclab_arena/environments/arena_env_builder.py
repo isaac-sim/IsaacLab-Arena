@@ -39,7 +39,6 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_validators import ReachabilityValidator
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -48,6 +47,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena_curobo import configure_reachability_gate
 
 
 class ArenaEnvBuilder:
@@ -98,9 +98,10 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # Reachability validator takes an extra step here: build the per-layout check from an enabled
-        # extension, or drop/require it if the extension can't be loaded.
-        ReachabilityValidator.build_reachability_check(placer_params, self.arena_env.embodiment)
+        # cuRobo IK reachability is an optional build-time gate installed here, where the embodiment lives.
+        # It no-ops unless the embodiment has a registered cuRobo config and the solver deps are importable,
+        # so a base image or a config-less embodiment simply skips the check.
+        configure_reachability_gate(placer_params, self.arena_env.embodiment)
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,

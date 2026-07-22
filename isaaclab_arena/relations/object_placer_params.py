@@ -11,11 +11,26 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from isaaclab_arena.relations.placement_validators import PlacementValidator
 
-    from isaaclab_arena.relations.placement_result import PlacementResult
+__all__ = ["CollisionMode", "ObjectPlacerParams", "ReachabilityConfig"]
 
-__all__ = ["CollisionMode", "ObjectPlacerParams"]
+
+@dataclass
+class ReachabilityConfig:
+    """Declarative tuning for the optional build-time IK-reachability check.
+
+    Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
+    """
+
+    grasp_z_offset_m: float = 0.02
+    """Height above each object's root for the top-down grasp pose the check tests."""
+
+    ik_position_threshold_m: float = 0.01
+    """Max IK position error (m) for a grasp to count as reachable."""
+
+    ik_rotation_threshold_rad: float = 0.1
+    """Max IK rotation error (rad) for a grasp to count as reachable."""
 
 
 @dataclass
@@ -66,6 +81,8 @@ class ObjectPlacerParams:
     """Check names that must pass for a layout to count as valid (gates rejection/refill in the pool).
     None requires every enabled check; otherwise should be a subset of enabled_checks."""
 
-    reachability_validator: Callable[[PlacementResult], bool] | None = None
-    """A function that answers "can the robot reach objects given this layout?" Typed as a plain
-    Callable so core never imports the extension (i.e. Curobo IK). If set, the IK_REACHABLE check is enabled in placement validation."""
+    reachability_config: ReachabilityConfig = field(default_factory=ReachabilityConfig)
+    """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
+
+    extra_validators: list[PlacementValidator] | None = None
+    """Pre-built validators to run alongside the registered ones, in case they need to be injected by integration code."""

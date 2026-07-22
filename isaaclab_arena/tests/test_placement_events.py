@@ -779,25 +779,61 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
         PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
 
 
+def _make_stub_reachability_validator(predicate):
+    """Gated validator wrapping a plain predicate, standing in for the cuRobo reachability gate in tests.
+
+    Injected via ObjectPlacerParams.extra_validators so the pooled placer exercises the same gated
+    reject-&-refill path the real cuRobo validator drives, without cuRobo, an embodiment, or a GPU.
+    """
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+    from isaaclab_arena.relations.placement_validators import PlacementValidator
+
+    class _StubReachabilityValidator(PlacementValidator):
+        check = PlacementCheck.IK_REACHABLE
+        gated = True
+
+        def __init__(self):
+            self._predicate = predicate
+
+        def validate_batch(self, positions, orientations, bboxes, collision_objects):
+            candidates = [
+                PlacementResult(
+                    validation_results=PlacementValidationResults(),
+                    positions=positions[i],
+                    final_loss=0.0,
+                    attempts=0,
+                    orientations=orientations[i],
+                )
+                for i in range(len(positions))
+            ]
+            return [bool(self._predicate(candidate)) for candidate in candidates]
+
+    return _StubReachabilityValidator()
+
+
 def _make_validated_pool(
     num_envs: int,
     min_layouts_per_env: int,
-    reachability_validator=None,
+    reachability_predicate=None,
     allow_best_loss_fallbacks: bool = True,
 ):
-    """Build a small valid pool over the desk/box fixtures with an optional reachability validator."""
+    """Build a small valid pool over the desk/box fixtures, optionally gating on a fake reachability predicate."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     objects = list(_create_test_objects())
+    extra_validators = (
+        [_make_stub_reachability_validator(reachability_predicate)] if reachability_predicate is not None else []
+    )
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
         apply_positions_to_objects=False,
         min_unique_layouts_per_env=min_layouts_per_env,
         placement_seed=7,
-        reachability_validator=reachability_validator,
         allow_best_loss_fallbacks=allow_best_loss_fallbacks,
+        extra_validators=extra_validators,
     )
     return PooledObjectPlacer(
         objects=objects,
@@ -823,7 +859,7 @@ def test_reachability_validator_gates_and_refills():
         calls["n"] += 1
         return index >= reject_first
 
-    pool = _make_validated_pool(num_envs=num_envs, min_layouts_per_env=target, reachability_validator=validator)
+    pool = _make_validated_pool(num_envs=num_envs, min_layouts_per_env=target, reachability_predicate=validator)
 
     # Every stored layout passed the reachability check...
     for env_layouts in pool.layouts_per_env():
@@ -840,6 +876,6 @@ def test_reachability_validator_reject_all_raises_without_fallback():
         _make_validated_pool(
             num_envs=2,
             min_layouts_per_env=2,
-            reachability_validator=lambda result: False,
+            reachability_predicate=lambda result: False,
             allow_best_loss_fallbacks=False,
         )

@@ -33,7 +33,7 @@ ARENA_CUROBO_MODULES = [
     "isaaclab_arena_curobo.curobo_ik_utils",
     "isaaclab_arena_curobo.curobo_planner_utils",
     "isaaclab_arena_curobo.placement_pool_ik_validation",
-    "isaaclab_arena_curobo.standalone_ik_layout_validator",
+    "isaaclab_arena_curobo.ik_reachability_validator",
 ]
 
 

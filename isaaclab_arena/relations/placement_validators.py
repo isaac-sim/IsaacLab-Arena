@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import importlib
 import torch
 import trimesh
 from abc import ABC, abstractmethod
@@ -13,8 +12,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -28,16 +26,11 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-
-    ReachabilityPredicate = Callable[[PlacementResult], bool]
 
 
 class PlacementValidator(ABC):
@@ -89,31 +82,46 @@ def get_build_time_checks() -> tuple[str, ...]:
 def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
     """Construct the enabled build-time validators in canonical order.
 
+    Runs the registered validators plus any params.extra_validators.
+
     Args:
-        params: Placement params injected into each validator.
+        params: Placement params injected into each registered validator.
     """
     registry = PlacementValidatorRegistry()
-    checks = get_build_time_checks()
+    registered = get_build_time_checks()
+    extra_by_check = {validator.check: validator for validator in params.extra_validators}
+    known = set(registered) | set(extra_by_check)
+
     enabled_checks = params.enabled_checks
     if enabled_checks is not None:
-        unknown = set(enabled_checks) - set(checks)
+        unknown = set(enabled_checks) - known
         assert not unknown, (
             f"enabled_checks names unknown build-time check(s): {sorted(unknown)}. "
-            f"Registered build-time checks: {sorted(checks)}."
+            f"Known build-time checks: {sorted(known)}."
         )
-        checks = tuple(check for check in checks if check in enabled_checks)
+        registered_checks = tuple(check for check in registered if check in enabled_checks)
+        extra_validators = [v for v in params.extra_validators if v.check in enabled_checks]
     else:
-        # Default: run every registered check that opts in thru enabled_by_default for this params.
-        checks = tuple(check for check in checks if registry.get_validator_by_name(check).enabled_by_default(params))
+        # Default: run every registered check that opts in thru enabled_by_default, plus every params.extra_validators.
+        registered_checks = tuple(
+            check for check in registered if registry.get_validator_by_name(check).enabled_by_default(params)
+        )
+        extra_validators = list(params.extra_validators)
 
     required_checks = params.required_checks
     if required_checks is not None:
-        not_running = set(required_checks) - set(checks)
+        running = set(registered_checks) | {v.check for v in extra_validators}
+        not_running = set(required_checks) - running
         assert not not_running, (
             f"required_checks names check(s) that will not run: {sorted(not_running)}. "
-            f"Checks that will run: {sorted(checks)}."
+            f"Checks that will run: {sorted(running)}."
         )
-    return [registry.get_validator_by_name(check)(params) for check in checks]
+
+    validators: list[PlacementValidator] = [
+        registry.get_validator_by_name(check)(params) for check in registered_checks
+    ]
+    validators.extend(extra_validators)
+    return validators
 
 
 @register_validator
@@ -731,114 +739,3 @@ class NoOverlapValidator(PlacementValidator):
         )
         tgt_yaw = NoOverlapValidator._effective_yaw(target_obj, orientations, target_uses_pose_yaw)
         return centers_in_target_frame(centers_local, src_yaw, tgt_yaw, source_pos - target_pos)
-
-
-@register_validator
-class ReachabilityValidator(PlacementValidator):
-    """Gate each candidate on whether the robot can reach a top-down grasp at every movable object.
-
-    If the implementation is not available, the check is disabled. Else (curobo deps exists and embodiment
-    curobo cfg is provided), it is enabled by default and runs only on candidates that already pass the geometry checks.
-    """
-
-    check = PlacementCheck.IK_REACHABLE
-    gated = True
-
-    _FACTORY_ATTR: ClassVar[str] = "make_reachability_validator"
-    """Entry point an extension exports to provide the build-time reachability gate."""
-
-    _DEFAULT_EXTENSIONS: ClassVar[tuple[str, ...]] = ("isaaclab_arena_curobo",)
-    """Extensions searched for the reachability predicate when the caller does not name one explicitly."""
-
-    def __init__(self, params: ObjectPlacerParams) -> None:
-        super().__init__(params)
-        assert params.reachability_validator is not None, (
-            "ReachabilityValidator requires ObjectPlacerParams.reachability_validator to be set."
-        )
-        self._predicate = params.reachability_validator
-
-    @classmethod
-    def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
-        """On by default once the reachability function has been built; off when it couldn't be loaded."""
-        return params.reachability_validator is not None
-
-    @classmethod
-    def build_reachability_check(
-        cls,
-        placer_params: ObjectPlacerParams,
-        embodiment: EmbodimentBase | None,
-        module_names: list[str] | None = None,
-    ) -> None:
-        """Build the reachability function and store it on placer_params, or drop the check if it can't load.
-
-        Args:
-            placer_params: Placement params; reachability_validator (and possibly enabled_checks) are set here.
-            embodiment: Robot embodiment the reachability predicate is built for, or None.
-            module_names: Enabled extension modules to search; defaults to the cuRobo extension.
-        """
-        enabled_checks = placer_params.enabled_checks
-        # Default to True if the reachability check is not explicitly disabled.
-        reachability_requested = cls.check in enabled_checks if enabled_checks is not None else True
-        if not reachability_requested or placer_params.reachability_validator is not None:
-            return
-        required_checks = placer_params.required_checks or set()
-        try:
-            assert embodiment is not None, "the 'ik_reachable' placement check requires a robot embodiment."
-            placer_params.reachability_validator = cls._resolve_predicate(
-                embodiment, module_names or list(cls._DEFAULT_EXTENSIONS), stamp_results=False
-            )
-        except (ImportError, AssertionError) as exc:
-            # The reachability deps (the extension / a robot embodiment) could not be loaded.
-            assert cls.check not in required_checks, (
-                f"required placement check 'ik_reachable' cannot run: {exc}. Enable the cuRobo extension "
-                "(and provide a robot embodiment), or drop 'ik_reachable' from required_checks."
-            )
-            print(
-                f"[placement] Skipping optional 'ik_reachable' check: reachability deps unavailable ({exc}). "
-                "Enable the cuRobo extension (and a robot embodiment) to run it."
-            )
-            # Remove the reachability check from the enabled checks if it is not available.
-            if enabled_checks is not None:
-                placer_params.enabled_checks = enabled_checks - {cls.check}
-
-    @classmethod
-    def _resolve_predicate(cls, embodiment: EmbodimentBase, module_names: list[str], **kwargs) -> ReachabilityPredicate:
-        """Build the reachability predicate exported by the first enabled extension that provides one.
-
-        Args:
-            embodiment: Embodiment the predicate is built for.
-            module_names: Enabled extension modules to search.
-            kwargs: Extra tuning forwarded verbatim to the entry point (e.g. IK thresholds).
-        """
-        for module_name in module_names:
-            factory = getattr(importlib.import_module(module_name), cls._FACTORY_ATTR, None)
-            if factory is not None:
-                return factory(embodiment, **kwargs)
-        raise AssertionError(
-            f"No enabled extension exports {cls._FACTORY_ATTR}(); "
-            "enable one that provides the build-time reachability gate (e.g. 'isaaclab_arena_curobo')."
-        )
-
-    def validate_batch(
-        self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
-
-    def _validate(
-        self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        orientations: dict[ObjectBase, float],
-    ) -> bool:
-        """Run the wrapped predicate over a single candidate's solved poses."""
-        candidate = PlacementResult(
-            validation_results=PlacementValidationResults(),
-            positions=positions,
-            final_loss=0.0,
-            attempts=0,
-            orientations=orientations,
-        )
-        return bool(self._predicate(candidate))

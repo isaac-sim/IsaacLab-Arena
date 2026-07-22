@@ -10,14 +10,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
 
-def make_reachability_validator(embodiment: EmbodimentBase, **kwargs) -> Callable[[PlacementResult], bool]:
-    """Build the cuRobo IK-reachability layout validator (imports the solver on first use)."""
-    from isaaclab_arena_curobo.standalone_ik_layout_validator import make_standalone_ik_layout_validator
+def configure_reachability_gate(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
+    """Install the cuRobo IK-reachability gate on ``placer_params`` (imports the solver on first use).
 
-    return make_standalone_ik_layout_validator(embodiment, **kwargs)
+    Returns True when the gate was installed, False when it cannot run and is skipped -- either because the
+    solver deps (torch, cuRobo) are absent (e.g. a base image), or the embodiment is None or lacks a
+    registered cuRobo config. The env builder calls this unconditionally; all skip decisions live here.
+    """
+    try:
+        from isaaclab_arena_curobo.ik_reachability_validator import configure_reachability_gate as _configure
+    except ImportError:
+        # Base image without torch/cuRobo -- reachability is simply not enforced.
+        return False
+
+    return _configure(placer_params, embodiment)
