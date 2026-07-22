@@ -39,6 +39,8 @@ dev = [
 # build does not want. `uv sync` installs these by default, but pip (used by the
 # Docker build) ignores PEP 735 groups -- so Docker keeps getting Isaac Lab and
 # Isaac Sim from its base image and submodule, undisturbed by these pins.
+# (This comment exercises the pre-merge uv CI gate added in this PR: it makes
+# the PR touch pyproject.toml so the native-uv tests must run. Safe to drop.)
 [dependency-groups]
 isaacsim = [
     "isaaclab[isaacsim,all]==3.0.0b2",
