@@ -70,11 +70,20 @@ class SimAppClient:
                 pass
             self._close_handles()
 
-    def render_spec(self, spec: ArenaEnvGraphSpec) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
+    def render_spec(
+        self,
+        spec: ArenaEnvGraphSpec,
+        *,
+        background_panorama: bool = False,
+    ) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
         """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
         with self._lock:
-            response = self._request({"cmd": "render_spec", "yaml_text": yaml_text})
+            response = self._request({
+                "cmd": "render_spec",
+                "yaml_text": yaml_text,
+                "background_panorama": background_panorama,
+            })
 
         if not response.get("ok"):
             raise SimAppError(

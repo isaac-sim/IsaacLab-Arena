@@ -55,6 +55,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+    resolve_background_preview,
     resolve_background_prim_tree,
 )
 
@@ -161,6 +162,24 @@ class TestBackgroundPrimTree:
         )
         prim_tree = resolve_background_prim_tree(spec)
         assert any(record.relative_path == "fridge_main_group" for record in prim_tree)
+
+    def test_resolve_background_preview_from_invalid_spec_with_valid_background(self, monkeypatch):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict, kitchen_prim_tree
+
+        spec_dict = kitchen_pass1_dict()
+        spec_dict["relations"] = [{"bad": "relation"}]
+        broken_yaml = yaml.safe_dump(spec_dict, sort_keys=False)
+        monkeypatch.setattr(
+            "isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path",
+            lambda self, *_args, **_kwargs: "/tmp/scene.usd",
+        )
+        monkeypatch.setattr(
+            "isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree",
+            lambda *_args, **_kwargs: kitchen_prim_tree(),
+        )
+        preview = resolve_background_preview(broken_yaml)
+        assert preview.usd_path == "/tmp/scene.usd"
+        assert any(record.relative_path == "fridge_main_group" for record in preview.prim_tree)
 
 
 class TestValidateYamlText:

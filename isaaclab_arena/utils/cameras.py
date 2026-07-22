@@ -18,7 +18,7 @@ from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
-from isaaclab_arena.utils.pose import PoseRange
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 
 class ArenaCameraCfg:
@@ -136,6 +136,23 @@ def make_camera_observation_cfg(
     return WrappedCameraObsCfg()
 
 
+def _resolve_lookat_pose(lookat_object: Asset) -> Pose | None:
+    """Return a single world-frame pose for viewer targeting."""
+    initial_pose = lookat_object.get_initial_pose()
+    if initial_pose is None:
+        object_cfg = getattr(lookat_object, "object_cfg", None)
+        if object_cfg is not None and hasattr(object_cfg, "init_state"):
+            pos = getattr(object_cfg.init_state, "pos", None)
+            if pos is not None:
+                return Pose(position_xyz=tuple(float(x) for x in pos))
+        return None
+    if isinstance(initial_pose, PosePerEnv):
+        return initial_pose.poses[0] if initial_pose.poses else None
+    if isinstance(initial_pose, PoseRange):
+        return initial_pose.get_midpoint()
+    return initial_pose
+
+
 def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> ViewerCfg:
     """Create a viewer configuration that looks at a specific object with an offset.
 
@@ -154,13 +171,10 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
         ViewerCfg configured with the camera position and target.
         Default ViewerCfg with standard positioning if the object has no initial pose set.
     """
-    initial_pose = lookat_object.get_initial_pose()
+    initial_pose = _resolve_lookat_pose(lookat_object)
     if initial_pose is None:
         print(f"{lookat_object.name} has no initial pose set. Using default ViewerCfg.")
         return ViewerCfg()
-
-    if isinstance(initial_pose, PoseRange):
-        initial_pose = initial_pose.get_midpoint()
 
     # TODO(cvolk): Add float coercion to Pose.__post_init__ so this conversion is unnecessary.
     # Ensure we only pass primitive Python floats (not NumPy scalars) into ViewerCfg,

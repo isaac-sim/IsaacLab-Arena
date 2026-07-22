@@ -63,6 +63,8 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state.setdefault("sim_preview_num_envs", NUM_ENVS)
     st.session_state.setdefault("sim_preview_num_steps", NUM_STEPS)
     st.session_state.setdefault("sim_preview_env_spacing", ENV_SPACING_M)
+    st.session_state.setdefault("background_panorama", False)
+    st.session_state.setdefault("last_rendered_panorama", False)
     st.session_state["out_dir"] = str(out_dir.resolve())
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)

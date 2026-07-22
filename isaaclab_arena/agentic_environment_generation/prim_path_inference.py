@@ -87,9 +87,9 @@ class PrimPathInference:
 You resolve object_reference prim_path values for an ArenaEnvGraphSpec.
 
 GUIDANCE:
-- BACKGROUND PRIM TREE lists prims in nested form: each indented line shows a path suffix
-  under its parent; join ancestor suffixes with '/' to form the full relative_path for prim_path.
-- Pick prim_path only from those full relative_path values.
+- BACKGROUND PRIM TREE lists each prim on its own line as ``<relative_path> (<object_type> ...)``.
+  The ``relative_path`` before the parenthesis is the exact prim_path to return.
+- Pick prim_path only from those relative_path values (copy verbatim; do not shorten to leaf names).
 - prim_path must be a relative suffix under the parent background — never include
   {ENV_REGEX_NS} or the background registry name.
 - Respect each input object_reference object_type: pick a prim_path whose object_type in
@@ -108,19 +108,18 @@ GUIDANCE:
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
     """Format the background USD prim tree for the user message.
 
-    Each line shows a parent-relative path suffix, indented under its nearest
-    retained ancestor, followed by ``object_type`` and optional joint names.
-    Join ancestor suffixes with ``/`` to recover the full ``relative_path`` for
-    ``prim_path``. Example output::
+    Each line shows the full default-prim-relative ``relative_path`` (the prim_path
+    to return), indented under ancestors for readability, followed by ``object_type``
+    and optional joint names. Example output::
 
         BACKGROUND PRIM TREE:
         counter_right_main_group/top_geometry (base)
         fridge_main_group (articulation fridge_door_joint)
         cab_1_main_group (articulation right_door_joint)
-          corpus (rigid)
-            top (base)
-            shelf_1 (base)
-          right_door (rigid)
+          cab_1_main_group/corpus (rigid)
+            cab_1_main_group/corpus/top (base)
+            cab_1_main_group/corpus/shelf_1 (base)
+          cab_1_main_group/right_door (rigid)
     """
     records = sorted(prim_tree, key=lambda record: record.relative_path)
     lines = ["BACKGROUND PRIM TREE:"]
@@ -129,13 +128,11 @@ def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
         path = record.relative_path
         while stack and not path.startswith(stack[-1] + "/"):
             stack.pop()
-        parent = stack[-1] if stack else ""
-        suffix = path[len(parent) + 1 :] if parent else path
         indent = "  " * len(stack)
         tag = record.object_type.value
         if record.joint_names:
             tag += " " + ",".join(record.joint_names)
-        lines.append(f"{indent}{suffix} ({tag})")
+        lines.append(f"{indent}{path} ({tag})")
         stack.append(path)
     return "\n".join(lines)
 

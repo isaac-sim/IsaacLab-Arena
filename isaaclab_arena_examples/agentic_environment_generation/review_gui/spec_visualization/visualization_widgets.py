@@ -63,6 +63,8 @@ def _render_asset_card(card: AssetCard) -> None:
     with st.container(border=True):
         if card.thumbnail_bytes is not None:
             st.image(card.thumbnail_bytes, width="stretch")
+            if card.is_panorama:
+                st.caption("360° panorama")
         elif is_reference and spec.prim_path is None:
             st.caption("⛔ Resolve prim_path to enable collision-mesh snapshot")
         else:
@@ -79,36 +81,53 @@ def _render_asset_card(card: AssetCard) -> None:
 
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:
-    """Lay out asset cards in a grid."""
-    for start in range(0, len(cards), _ASSET_GRID_COLS):
-        columns = st.columns(_ASSET_GRID_COLS)
-        for column, card in zip(columns, cards[start : start + _ASSET_GRID_COLS]):
+    """Lay out asset cards in a grid; panorama cards span the full width on their own row."""
+    row: list[AssetCard] = []
+
+    def _flush_row() -> None:
+        if not row:
+            return
+        for column, card in zip(st.columns(_ASSET_GRID_COLS), row):
             with column:
                 _render_asset_card(card)
+        row.clear()
+
+    for card in cards:
+        if card.is_panorama:
+            _flush_row()
+            _render_asset_card(card)
+        else:
+            row.append(card)
+            if len(row) == _ASSET_GRID_COLS:
+                _flush_row()
+    _flush_row()
 
 
-def _render_prim_tree(prim_tree: list[UsdPrimRecord]) -> None:
-    """Render the background prim tree in a collapsed, searchable, view-only box."""
-    if not prim_tree:
+def render_background_prim_tree(usd_path: str | None, prim_tree: list[UsdPrimRecord]) -> None:
+    """Render the background USD path and prim tree in a collapsed, searchable box."""
+    if not usd_path and not prim_tree:
         return
     with st.expander("Background prim tree", expanded=False):
-        st.iframe(
-            render_prim_tree_html(prim_tree),
-            height=estimate_prim_tree_height_px(prim_tree),
-        )
+        if usd_path:
+            st.markdown(f"`{usd_path}`")
+        if prim_tree:
+            st.iframe(
+                render_prim_tree_html(prim_tree),
+                height=estimate_prim_tree_height_px(prim_tree),
+            )
+        elif usd_path:
+            st.caption("Prim tree unavailable.")
 
 
 def render_visualization_widgets(
     spec: ArenaEnvGraphSpec,
     asset_cards: list[AssetCard],
-    prim_tree: list[UsdPrimRecord] | None = None,
 ) -> None:
     """Render the spec visualization (assets, spatial graph, tasks) as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
         st.caption(summary)
-    _render_prim_tree(prim_tree or [])
     if asset_cards:
         st.markdown("**Assets**")
         _render_asset_grid(asset_cards)

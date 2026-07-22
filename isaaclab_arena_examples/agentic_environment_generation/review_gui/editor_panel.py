@@ -130,6 +130,8 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
     """Render the ACE YAML editor; the visualization panel refreshes in its fragment."""
+    background_slot = st.empty()
+
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")
@@ -156,6 +158,20 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
         st.session_state["edited_text"] = new_text
 
     validation = validate_yaml_text(st.session_state["edited_text"])
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.visualization_widgets import (
+        render_background_prim_tree,
+    )
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+        resolve_background_preview,
+    )
+
+    background_preview = resolve_background_preview(
+        st.session_state["edited_text"],
+        spec=validation.spec if validation.is_valid else None,
+    )
+    with background_slot.container():
+        render_background_prim_tree(background_preview.usd_path, background_preview.prim_tree)
+
     render_validation_badge(validation)
     sync_save_path_from_spec(validation)
 

@@ -26,16 +26,27 @@ def reset_viz_render_state() -> None:
 def render_visualization_panel(validation: SpecParseResult) -> None:
     """Render the visualization panel in the right column as native Streamlit widgets."""
     st.subheader("Visualization")
-
-    if st.button(
-        "Clear cache & rerender",
-        help="Delete cached snapshot PNGs on disk and render this spec again.",
-    ):
-        removed = clear_snapshot_render_caches()
-        clear_asset_cards_cache()
-        st.session_state["last_rendered_text"] = ""
-        st.toast(f"Cleared {removed} cached snapshot(s).", icon="🗑️")
-        st.rerun()
+    st.session_state.setdefault("background_panorama", False)
+    controls_col, actions_col = st.columns([3, 1])
+    with controls_col:
+        background_panorama = st.checkbox(
+            "Background 360° panorama",
+            value=st.session_state["background_panorama"],
+            help="Render the background asset as a raw fisheyeSpherical panorama (cached separately).",
+        )
+        st.session_state["background_panorama"] = background_panorama
+    with actions_col:
+        if st.button(
+            "Clear cache & rerender",
+            help="Delete cached snapshot PNGs on disk and render this spec again.",
+            width="stretch",
+        ):
+            removed = clear_snapshot_render_caches()
+            clear_asset_cards_cache()
+            st.session_state["last_rendered_text"] = ""
+            st.session_state["last_rendered_panorama"] = not background_panorama
+            st.toast(f"Cleared {removed} cached snapshot(s).", icon="🗑️")
+            st.rerun()
 
     edited_text = st.session_state.get("edited_text", "").strip()
     if not edited_text:
@@ -47,19 +58,25 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
         if pending:
             st.session_state["rendered_visualization"] = None
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
+            st.session_state["last_rendered_panorama"] = background_panorama
         st.caption("Fix YAML errors to see the visualization.")
         return
 
-    pending = st.session_state["edited_text"] != st.session_state.get("last_rendered_text", "")
+    pending = st.session_state["edited_text"] != st.session_state.get(
+        "last_rendered_text", ""
+    ) or background_panorama != st.session_state.get("last_rendered_panorama", False)
     if pending:
         if st.session_state.get("_defer_viz_render"):
             st.caption("Rendering visualization…")
         else:
             with st.spinner("Rendering node snapshots…"):
-                asset_cards, prim_tree = build_asset_cards_with_thumbnails(validation.spec)
+                asset_cards = build_asset_cards_with_thumbnails(
+                    validation.spec,
+                    background_panorama=background_panorama,
+                )
             st.session_state["rendered_visualization"] = asset_cards
-            st.session_state["rendered_prim_tree"] = prim_tree
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
+            st.session_state["last_rendered_panorama"] = background_panorama
             st.toast("Visualization updated.", icon="🔄")
 
     asset_cards = st.session_state.get("rendered_visualization")
@@ -68,7 +85,6 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
         render_visualization_widgets(
             validation.spec,
             asset_cards,
-            st.session_state.get("rendered_prim_tree", []),
         )
     elif not st.session_state.get("_defer_viz_render"):
         st.caption("Rendering visualization…")

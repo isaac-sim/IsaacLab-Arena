@@ -145,7 +145,8 @@ def _handle_render_spec(
         return {"ok": False, "error": f"spec parse failed: {exc}", "traceback": traceback.format_exc()}
 
     try:
-        paths, aabb_dimensions_m = render_fn(app, spec)
+        background_panorama = bool(req.get("background_panorama", False))
+        paths, aabb_dimensions_m = render_fn(app, spec, background_panorama=background_panorama)
     except Exception as exc:
         return {"ok": False, "error": f"render failed: {exc}", "traceback": traceback.format_exc()}
 
