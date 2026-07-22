@@ -21,6 +21,66 @@ def test_cli_defaults_match_builder_configuration():
     assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
 
 
+def test_builder_configuration_defaults_to_no_reset_rerenders():
+    """Keep the typed builder's reset rendering behavior backward-compatible."""
+    assert ArenaEnvBuilderCfg().num_rerenders_on_reset == 0
+
+
+def test_native_reset_executes_configured_rerenders_before_observation():
+    """Protect the Isaac Lab runtime contract that Arena's builder config relies on."""
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab.envs import ManagerBasedEnv
+
+    events = []
+
+    class Recorder:
+        def record_pre_reset(self, env_ids):
+            events.append(("pre_reset", env_ids.tolist()))
+
+        def record_post_reset(self, env_ids):
+            events.append(("post_reset", env_ids.tolist()))
+
+    env = SimpleNamespace(
+        num_envs=1,
+        device=torch.device("cpu"),
+        recorder_manager=Recorder(),
+        seed=lambda _seed: None,
+        _reset_idx=lambda env_ids: events.append(("reset", env_ids.tolist())),
+        scene=SimpleNamespace(
+            write_data_to_sim=lambda: events.append(("write", None)),
+        ),
+        sim=SimpleNamespace(
+            forward=lambda: events.append(("forward", None)),
+            render=lambda: events.append(("render", None)),
+        ),
+        has_rtx_sensors=True,
+        cfg=SimpleNamespace(num_rerenders_on_reset=5, wait_for_textures=False),
+        observation_manager=SimpleNamespace(
+            compute=lambda **_kwargs: events.append(("observe", None)) or {},
+        ),
+        obs_buf=None,
+        extras={},
+    )
+
+    ManagerBasedEnv.reset(env)
+
+    assert [name for name, _ in events] == [
+        "pre_reset",
+        "reset",
+        "write",
+        "forward",
+        "render",
+        "render",
+        "render",
+        "render",
+        "render",
+        "post_reset",
+        "observe",
+    ]
+
+
 def test_argparse_adapter_maps_builder_configuration():
     """Translate only builder-owned command-line values into the typed config."""
     parser = get_isaaclab_arena_cli_parser()
@@ -32,11 +92,15 @@ def test_argparse_adapter_maps_builder_configuration():
         "3",
         "--env_spacing",
         "2.5",
+        "--num_rerenders_on_reset",
+        "5",
         "--seed",
         "7",
         "--no_solve_relations",
         "--placement_seed",
         "11",
+        "--placement_clearance_m",
+        "0.0005",
         "--no-resolve_on_reset",
         "--disable_fabric",
         "--mimic",
@@ -53,9 +117,11 @@ def test_argparse_adapter_maps_builder_configuration():
     assert cfg == ArenaEnvBuilderCfg(
         num_envs=3,
         env_spacing=2.5,
+        num_rerenders_on_reset=5,
         seed=7,
         solve_relations=False,
         placement_seed=11,
+        placement_clearance_m=0.0005,
         resolve_on_reset=False,
         disable_fabric=True,
         mimic=True,
@@ -69,3 +135,70 @@ def test_builder_configuration_requires_positive_num_envs():
     """Reject configurations that cannot build any environment instances."""
     with pytest.raises(AssertionError, match="num_envs must be greater than zero"):
         ArenaEnvBuilderCfg(num_envs=0)
+
+
+def test_builder_configuration_rejects_negative_reset_rerenders():
+    """Reject reset rendering counts that cannot describe a number of steps."""
+    with pytest.raises(ValueError, match="num_rerenders_on_reset must be non-negative"):
+        ArenaEnvBuilderCfg(num_rerenders_on_reset=-1)
+
+
+@pytest.mark.parametrize("value", [True, 1.5])
+def test_builder_configuration_requires_integral_reset_rerenders(value):
+    """Reject booleans and fractional reset rendering counts."""
+    with pytest.raises(TypeError, match="num_rerenders_on_reset must be an integer"):
+        ArenaEnvBuilderCfg(num_rerenders_on_reset=value)
+
+
+@pytest.mark.parametrize("value", [-0.1, float("inf"), float("nan")])
+def test_builder_configuration_rejects_invalid_placement_clearance(value):
+    """Reject relation-solver clearances that cannot describe a physical distance."""
+    with pytest.raises(ValueError, match="placement_clearance_m"):
+        ArenaEnvBuilderCfg(placement_clearance_m=value)
+
+
+# ArenaEnvBuilder transitively imports pxr. Run this assertion only after
+# run_simulation_app_function has initialized Kit, regardless of pytest's test order.
+def _test_compose_manager_cfg_preserves_runtime_builder_values(_simulation_app):
+    """Expose effective builder inputs on the runtime configuration."""
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+    scene = SimpleNamespace(
+        assets={},
+        get_asset_variations=lambda: {},
+        get_scene_cfg=lambda: None,
+        get_observation_cfg=lambda: None,
+        get_events_cfg=lambda: None,
+        get_termination_cfg=lambda: None,
+        get_rewards_cfg=lambda: None,
+        get_curriculum_cfg=lambda: None,
+        get_commands_cfg=lambda: None,
+    )
+    builder = ArenaEnvBuilder(
+        IsaacLabArenaEnvironment(name="placement_provenance", scene=scene),
+        ArenaEnvBuilderCfg(
+            solve_relations=False,
+            num_rerenders_on_reset=5,
+            placement_seed=71,
+            placement_clearance_m=0.0005,
+        ),
+    )
+
+    env_cfg, _ = builder.compose_manager_cfg()
+
+    assert env_cfg.num_rerenders_on_reset == builder.cfg.num_rerenders_on_reset
+    assert env_cfg.placement_seed == builder.cfg.placement_seed
+    assert env_cfg.placement_clearance_m == builder.cfg.placement_clearance_m
+    return True
+
+
+def test_compose_manager_cfg_preserves_runtime_builder_values():
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    assert run_simulation_app_function(
+        _test_compose_manager_cfg_preserves_runtime_builder_values,
+        headless=True,
+    ), "runtime builder value composition test failed"

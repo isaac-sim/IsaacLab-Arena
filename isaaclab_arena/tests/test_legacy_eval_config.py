@@ -27,12 +27,14 @@ def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
         "num_envs": 4,
         "headless": True,
         "enable_cameras": False,
+        "resolve_on_reset": False,
     })
 
     assert args[:3] == ["--num_envs", "4", "test_env"]
     assert args[args.index("--object") + 1] == "box"
     assert "--headless" in args
     assert "--enable_cameras" not in args
+    assert "--no-resolve_on_reset" in args
 
 
 def test_legacy_jobs_become_concrete_run_configs():
@@ -45,6 +47,7 @@ def test_legacy_jobs_become_concrete_run_configs():
                 "pick_up_object": "mustard_bottle_hot3d_robolab",
                 "num_envs": 4,
                 "env_spacing": 2.5,
+                "num_rerenders_on_reset": 5,
                 "enable_cameras": True,
             },
             "policy_type": "zero_action",
@@ -65,6 +68,7 @@ def test_legacy_jobs_become_concrete_run_configs():
     )
     assert run.environment_builder.num_envs == 4
     assert run.environment_builder.env_spacing == 2.5
+    assert run.environment_builder.num_rerenders_on_reset == 5
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Move the bottle."
     assert run.policy == ZeroActionPolicyCfg()
@@ -81,6 +85,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
                 "environment": str(graph_path),
                 "enable_cameras": True,
                 "object": "dex_cube",
+                "num_rerenders_on_reset": 5,
             },
             "policy_type": "zero_action",
             "num_steps": 2,
@@ -93,6 +98,9 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     assert run.environment.arena_env_args == legacy_environment_args_to_cli_args(
         legacy_config["jobs"][0]["arena_env_args"]
     )
+    assert run.environment_builder.num_rerenders_on_reset == 5
+    flag_index = run.environment.arena_env_args.index("--num_rerenders_on_reset")
+    assert run.environment.arena_env_args[flag_index + 1] == "5"
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
