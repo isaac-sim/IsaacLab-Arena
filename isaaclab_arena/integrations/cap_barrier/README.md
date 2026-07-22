@@ -245,6 +245,11 @@ isaaclab_arena/integrations/cap_barrier/generate_perception_stubs.sh
     --viz none --device cuda:0 --perception-stream 127.0.0.1:50061
 ```
 
+`--perception-stream` implies `--enable_cameras` (the exterior_cam RTX spawn needs
+it). Bringup ORDER matters: start this producer and wait for
+`CAP_PRODUCTION_KIT_ENV_READY` BEFORE bringing up the CAP control plane; a control
+plane started against no fresh producer will not go ACTIVE.
+
 The serve loop samples the camera on the main/Kit thread right after each physics
 step at ~10 Hz (decimated from the 200 Hz base) and offers frames to the same
 nonblocking latest-frame producer; sampling never blocks or breaks the barrier

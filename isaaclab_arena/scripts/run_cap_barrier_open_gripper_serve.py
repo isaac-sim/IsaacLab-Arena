@@ -263,6 +263,10 @@ def main() -> None:
         ),
     )
     args_cli = parser.parse_args()
+    if args_cli.perception_stream is not None:
+        # The exterior_cam RTX spawn requires AppLauncher cameras; imply the flag
+        # so --perception-stream can never be run without it.
+        args_cli.enable_cameras = True
     with SimulationAppContext(args_cli):
         _run_serve(args_cli.device, perception_stream=args_cli.perception_stream)
 
