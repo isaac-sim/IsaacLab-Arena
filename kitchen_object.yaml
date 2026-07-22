@@ -1,0 +1,53 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_pick_mustard_to_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: kitchen
+  registry_name: lightwheel_robocasa_kitchen
+  params: {}
+objects:
+- id: mustard_bottle
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: right_counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: right_counter_top
+  params: {}
+- kind: 'on'
+  subject: mustard_bottle
+  reference: right_counter_top
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: right_counter_top
+  params: {}
+task:
+  composition: atomic
+  description: pick up the mustard bottle and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mustard_bottle
+      destination_location: bowl
+      background_scene: kitchen

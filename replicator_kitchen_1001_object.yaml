@@ -1,0 +1,57 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_ranch_bottle_to_bowl_kitchen
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_1001
+  params: {}
+objects:
+- id: ranch_dressing_bottle
+  registry_name: ranch_dressing_hope_robolab
+  params: {}
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: north_counter_top
+  parent_id: kitchen
+  prim_path: Counter_north_0
+  object_type: base
+  params: {}
+- id: floor
+  parent_id: kitchen
+  prim_path: Kitchen/Floor
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: north_counter_top
+  params: {}
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: 'on'
+  subject: ranch_dressing_bottle
+  reference: north_counter_top
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: north_counter_top
+  params: {}
+task:
+  composition: atomic
+  description: pick up ranch dressing bottle from counter top and place it in a bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: ranch_dressing_bottle
+      destination_location: bowl
+      background_scene: kitchen
