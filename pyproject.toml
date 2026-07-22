@@ -70,10 +70,9 @@ isaacsim = [
 # (submodules/IsaacLab/pyproject.toml) plus isaaclab-mimic, isaaclab-teleop,
 # and the visualizers extras, to match what the published wheel's `all` extra
 # ships. One deliberate deviation from the source `all` extra: no visualizers
-# `viser` extra (not in the wheel env; viser needs websockets>=13 while
-# isaacsim-kernel pins ==12.0). daqp and rsl-rl-lib are not repeated here:
-# unlike the published wheel, the source setup.py files already pin them on
-# Linux x86_64.
+# `viser` extra, for parity with the wheel env, which does not ship viser.
+# daqp and rsl-rl-lib are not repeated here: unlike the published wheel, the
+# source setup.py files already pin them on Linux x86_64.
 isaacsim-source = [
     "isaaclab[isaacsim]",
     "isaaclab-assets",
@@ -128,16 +127,16 @@ index-strategy = "first-index"
 # unresolvable against isaacsim in the isaacsim-source flavor; the wheel
 # flavor already locks 7.4.4 / 26.0 (the published isaaclab wheels do not
 # carry these pins).
-# isaacteleop is removed outright (the impossible marker drops the
-# requirement): isaaclab-teleop declares it in the isaacsim-source flavor,
-# but isaacteleop[cloudxr] needs websockets>=14 while isaacsim-kernel pins
-# ==12.0. This matches the wheel env, which ships the isaaclab_teleop module
-# (lazy imports throughout) without isaacteleop.
+# Pin websockets to the version the Docker environment validates:
+# isaacsim-kernel's ==12.0 pin is over-strict (the Docker build runs Isaac
+# Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
+# and isaacteleop[cloudxr] -- needed for teleop sessions in the
+# isaacsim-source flavor -- requires websockets>=14.
 override-dependencies = [
     "numpy==2.3.1",
     "coverage==7.4.4",
     "packaging==26.0",
-    "isaacteleop ; sys_platform == 'never'",
+    "websockets==16.1.1",
 ]
 # Isaac Lab 3.0 Beta 2 does not correctly pin its dependencies: the published
 # wheel declares these transitive deps too broadly, so we constrain them to
@@ -174,7 +173,12 @@ explicit = true
 # platform, see `environments` above).
 # mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
 # prereleases, so route it to PyPI.
+# isaacteleop (pulled by isaaclab-teleop in the isaacsim-source flavor): the
+# NVIDIA index carries only an incompatible 1.4 prerelease, so route it to
+# PyPI, which has the required stable 1.3.x (the same version the Docker
+# build installs).
 mujoco-usd-converter = { index = "pypi" }
+isaacteleop = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
