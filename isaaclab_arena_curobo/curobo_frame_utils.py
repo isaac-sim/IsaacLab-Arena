@@ -41,7 +41,7 @@ class IKSolverContext(Protocol):
 def resolve_ik_solver(ik_solver_context: IKSolverContext) -> IKSolver:
     """Get the cuRobo ``IKSolver`` from a host, whichever way it exposes it.
 
-    ``SimFreeIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
+    ``CuroboIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
     holds it as ``motion_gen.ik_solver``. Centralizing the lookup lets the solve take just the host.
     """
     ik_solver = getattr(ik_solver_context, "ik_solver", None)
@@ -138,7 +138,7 @@ def solve_ik_feasibility(
     Runs a single ``solve_batch`` for one layout.
 
     Args:
-        ik_solver_context: The host that owns the solver and supplies device/pose plumbing -- a ``CuroboPlanner`` (env-coupled) or a ``SimFreeIKSolver``.
+        ik_solver_context: The host that owns the solver and supplies device/pose plumbing -- a ``CuroboPlanner`` (env-coupled) or a ``CuroboIKSolver``.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.

@@ -43,9 +43,10 @@ class PlacementValidator(ABC):
     """The check name this validator reports; its registry key and result key. Built-ins use a
     PlacementCheck constant; external validators may use any unique string."""
 
-    gated: ClassVar[bool] = False
-    """If True, run this validator only on candidates that already pass every required non-gated check,
-    so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper geometry."""
+    run_after_inexpensive_checks: bool = False
+    """If True, run this validator only on candidates that already pass every required check that does not
+    set this flag, so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper
+    geometry."""
 
     def __init__(self, params: ObjectPlacerParams) -> None:
         self._params = params

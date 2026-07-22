@@ -59,24 +59,18 @@ class EmbodimentBase(Asset):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_joint_initial_pos`.")
         self.scene_config.robot.init_state.joint_pos.update(joint_pos)
 
-    def get_base_pose(self) -> Pose:
-        """Env-local robot base pose, preferring ``initial_pose``, then the robot's init_state, then identity."""
-        # initial_pose if set
+    def get_initial_pose(self) -> Pose:
+        """Env-local robot base pose, resolved in order: the explicit ``initial_pose`` override if set,
+        otherwise the ``scene_config`` robot ``init_state`` default."""
         if self.initial_pose is not None:
             return self.initial_pose
-        # otherwise use the robot's init_state
-        init_state = getattr(getattr(self.scene_config, "robot", None), "init_state", None)
-        if (
-            init_state is not None
-            and getattr(init_state, "pos", None) is not None
-            and getattr(init_state, "rot", None) is not None
-        ):
-            return Pose(
-                position_xyz=tuple(float(v) for v in init_state.pos),
-                rotation_xyzw=tuple(float(v) for v in init_state.rot),
-            )
-        # default to origin and identity
-        return Pose.identity()
+
+        assert hasattr(self.scene_config, "robot"), "scene_config must be populated with a `robot`."
+        init_state = self.scene_config.robot.init_state
+        return Pose(
+            position_xyz=tuple(float(v) for v in init_state.pos),
+            rotation_xyzw=tuple(float(v) for v in init_state.rot),
+        )
 
     def get_scene_cfg(self) -> Any:
         if self.initial_pose is not None:

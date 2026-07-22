@@ -781,10 +781,11 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
 
 
 def _make_stub_reachability_validator(predicate):
-    """Gated validator wrapping a plain predicate, standing in for the cuRobo reachability gate in tests.
+    """Deferred validator wrapping a plain predicate, standing in for the cuRobo reachability gate in tests.
 
-    Injected via ObjectPlacerParams.extra_validators so the pooled placer exercises the same gated
-    reject-&-refill path the real cuRobo validator drives, without cuRobo, an embodiment, or a GPU.
+    Injected via ObjectPlacerParams.extra_validators so the pooled placer exercises the same
+    run-after-inexpensive-checks reject-&-refill path the real cuRobo validator drives, without cuRobo,
+    an embodiment, or a GPU.
     """
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
@@ -792,7 +793,7 @@ def _make_stub_reachability_validator(predicate):
 
     class _StubReachabilityValidator(PlacementValidator):
         check = PlacementCheck.IK_REACHABLE
-        gated = True
+        run_after_inexpensive_checks = True
 
         def __init__(self):
             self._predicate = predicate

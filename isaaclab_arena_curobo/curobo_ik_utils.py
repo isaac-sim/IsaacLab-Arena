@@ -117,7 +117,7 @@ def top_down_grasp_pose_from_world_poses(
     return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)
 
 
-class SimFreeIKSolver:
+class CuroboIKSolver:
     """Sim-free cuRobo IK-reachability oracle with no Isaac Sim / Isaac Lab env.
 
     Constructs a cuRobo solver from an embodiment's registered cuRobo config on an explicit CUDA
@@ -149,7 +149,7 @@ class SimFreeIKSolver:
             collision_cache_size: Collision cache sizes; defaults to ``{"obb": 150, "mesh": 150}``.
             debug: Enable cuRobo/planner debug logging.
         """
-        self.logger = logging.getLogger("SimFreeIKSolver")
+        self.logger = logging.getLogger("CuroboIKSolver")
         if not self.logger.handlers:
             self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -177,7 +177,7 @@ class SimFreeIKSolver:
         self.ik_solver = IKSolver(ik_config)
 
     @classmethod
-    def from_embodiment(cls, embodiment, **kwargs) -> SimFreeIKSolver:
+    def from_embodiment(cls, embodiment, **kwargs) -> CuroboIKSolver:
         """Build from an embodiment by looking up its registered cuRobo config.
 
         Convenience wrapper for callers that already hold an embodiment (importing the embodiment may
@@ -230,11 +230,11 @@ def check_ik_feasibility(
     """Batched IK feasibility of all ``target_poses`` against a context's cuRobo IK solver.
 
     Serves both paths with the same math and thresholds; the only difference is where the solver comes
-    from. Pass a ``SimFreeIKSolver`` (build-time, exposes ``ik_solver``) or a ``CuroboPlanner``
+    from. Pass a ``CuroboIKSolver`` (build-time, exposes ``ik_solver``) or a ``CuroboPlanner``
     (env-coupled, exposes ``motion_gen.ik_solver``).
 
     Args:
-        ik_solver_context: A ``SimFreeIKSolver`` or ``CuroboPlanner`` supplying the pose plumbing and IK solver.
+        ik_solver_context: A ``CuroboIKSolver`` or ``CuroboPlanner`` supplying the pose plumbing and IK solver.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.

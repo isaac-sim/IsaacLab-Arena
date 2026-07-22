@@ -21,7 +21,7 @@ from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.curobo_ik_utils import (
-    SimFreeIKSolver,
+    CuroboIKSolver,
     check_ik_feasibility,
     get_aabb_collision_cuboid_for_object,
     top_down_grasp_pose_from_world_poses,
@@ -74,13 +74,14 @@ def make_ik_reachability_validator(
         stamp_results: Record the verdict as a required ``PlacementCheck.IK_REACHABLE`` check on each
             layout, so it shows up in the audit report and gates that layout's ``.success``.
     """
-    solver = SimFreeIKSolver(
+    solver = CuroboIKSolver(
         embodiment_curobo_cfg(embodiment),
         device=device,
         position_threshold=ik_pos_threshold,
         rotation_threshold=ik_rot_threshold,
     )
-    base_pose = embodiment.get_base_pose()
+    # TODO(xinjieyao, 2026-07-22): Switch to solved pose of the robot base
+    base_pose = embodiment.get_initial_pose()
     base_pos, base_quat_xyzw = base_pose.position_xyz, base_pose.rotation_xyzw
 
     def validator(result: PlacementResult) -> bool:
@@ -136,7 +137,7 @@ class ReachabilityValidator(PlacementValidator):
     """
 
     check = PlacementCheck.IK_REACHABLE
-    gated = True
+    run_after_inexpensive_checks = True
 
     def __init__(self, predicate: Callable[[PlacementResult], bool]) -> None:
         self._predicate = predicate

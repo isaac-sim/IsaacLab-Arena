@@ -595,20 +595,25 @@ class ObjectPlacer:
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
         num_candidates = len(positions)
-        # Per-check count of layouts evaluated by that check: all candidates for non-gated checks, only the
-        # geometry-passing subset for gated ones (they skip candidates already rejected on cheaper checks).
-        evaluated_by_check: dict[str, int] = {}
-        verdicts_by_check: dict[str, list[bool]] = {}
+        # Per-check count of layouts evaluated by that check
+        num_layouts_evaluated_by_check: dict[str, int] = {}
+        layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
+
         for validator in self._validators:
-            if not validator.gated:
-                verdicts_by_check[validator.check] = validator.validate_batch(
+            # in-expensive checks are run on all candidates
+            if not validator.run_after_inexpensive_checks:
+                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
-                evaluated_by_check[validator.check] = num_candidates
+                num_layouts_evaluated_by_check[validator.check] = num_candidates
+
         for validator in self._validators:
-            if validator.gated:
+            # expensive checks are run on only the candidates that passed the in-expensive checks
+            if validator.run_after_inexpensive_checks:
                 kept = [
-                    i for i in range(num_candidates) if self._passes_required_checks(verdicts_by_check, required, i)
+                    i
+                    for i in range(num_candidates)
+                    if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
                 sub_verdicts = validator.validate_batch(
                     [positions[i] for i in kept],
@@ -619,16 +624,19 @@ class ObjectPlacer:
                 verdicts = [False] * num_candidates
                 for sub_idx, cand_idx in enumerate(kept):
                     verdicts[cand_idx] = sub_verdicts[sub_idx]
-                verdicts_by_check[validator.check] = verdicts
-                evaluated_by_check[validator.check] = len(kept)
-        if verdicts_by_check:
+                layout_pass_verdicts_by_check[validator.check] = verdicts
+                num_layouts_evaluated_by_check[validator.check] = len(kept)
+        if layout_pass_verdicts_by_check:
             summary = ", ".join(
-                f"{check}={sum(verdicts)}/{evaluated_by_check[check]}" for check, verdicts in verdicts_by_check.items()
+                f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
+                for check, verdicts in layout_pass_verdicts_by_check.items()
             )
             print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
         return [
             PlacementValidationResults(
-                validation_results={check: verdicts[candidate_idx] for check, verdicts in verdicts_by_check.items()},
+                validation_results={
+                    check: verdicts[candidate_idx] for check, verdicts in layout_pass_verdicts_by_check.items()
+                },
                 required_checks=set(required) if required is not None else None,
             )
             for candidate_idx in range(len(positions))
@@ -636,7 +644,7 @@ class ObjectPlacer:
 
     @staticmethod
     def _passes_required_checks(
-        verdicts_by_check: dict[str, list[bool]],
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
         required_checks: set[str] | None,
         candidate_idx: int,
     ) -> bool:
@@ -644,7 +652,7 @@ class ObjectPlacer:
 
         required_checks=None means every computed check is required; an explicit set gates only its members.
         """
-        for check, verdicts in verdicts_by_check.items():
+        for check, verdicts in layout_pass_verdicts_by_check.items():
             is_required = required_checks is None or check in required_checks
             if is_required and not verdicts[candidate_idx]:
                 return False

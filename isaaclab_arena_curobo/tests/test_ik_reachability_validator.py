@@ -83,7 +83,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
         captured["num_grasps"] = num
         return feasible, torch.zeros(num), torch.zeros(num)
 
-    monkeypatch.setattr(mod, "SimFreeIKSolver", _make_solver)
+    monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
     monkeypatch.setattr(mod, "check_ik_feasibility", _fake_ik)
     monkeypatch.setattr(mod, "embodiment_curobo_cfg", lambda embodiment: None)
     return captured
@@ -94,7 +94,7 @@ def _fake_embodiment():
     from isaaclab_arena.utils.pose import Pose
 
     embodiment = MagicMock()
-    embodiment.get_base_pose.return_value = Pose.identity()
+    embodiment.get_initial_pose.return_value = Pose.identity()
     return embodiment
 
 
