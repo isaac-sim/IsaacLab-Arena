@@ -35,10 +35,13 @@ dev = [
     "streamlit-ace>=0.1.1",
 ]
 
-# PEP 735 dependency group for the native uv install: the sim wheels the Docker
-# build does not want. `uv sync` installs these by default, but pip (used by the
-# Docker build) ignores PEP 735 groups -- so Docker keeps getting Isaac Lab and
-# Isaac Sim from its base image and submodule, undisturbed by these pins.
+# PEP 735 dependency groups for the native uv install: the sim stack the
+# Docker build does not want. pip (used by the Docker build) ignores PEP 735
+# groups -- so Docker keeps getting Isaac Lab and Isaac Sim from its base
+# image and submodule, undisturbed by these pins.
+#
+# isaacsim: Isaac Lab from its published wheel. Select it with:
+#   uv sync --no-default-groups --group isaacsim
 [dependency-groups]
 isaacsim = [
     "isaaclab[isaacsim,all]==3.0.0b2",
@@ -57,22 +60,17 @@ isaacsim = [
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
 ]
-# Alternate sim-stack flavor: Isaac Lab installed editable from the
-# submodules/IsaacLab source checkout instead of the published wheel. The
-# published isaaclab wheel omits the RL / imitation-learning scripts
-# (scripts/reinforcement_learning, scripts/imitation_learning), so this group
-# is required for RL/IL workflows. Isaac Sim still comes from wheels in both
-# flavors (via isaaclab[isaacsim]); only Isaac Lab's origin changes. Mutually
-# exclusive with the `isaacsim` group above (see `conflicts` in [tool.uv]);
-# select it with:
-#   uv sync --no-default-groups --group isaacsim-source
+# isaacsim-source: Isaac Lab installed editable from the submodules/IsaacLab
+# source checkout instead of the published wheel. The published isaaclab
+# wheel omits the RL / imitation-learning scripts. Installed by a bare
+# `uv sync` (the default flavor, see default-groups below).
 # The package set mirrors upstream's isaaclab-dev project
 # (submodules/IsaacLab/pyproject.toml) plus isaaclab-mimic, isaaclab-teleop,
 # and the visualizers extras, to match what the published wheel's `all` extra
 # ships. One deliberate deviation from the source `all` extra: no visualizers
 # `viser` extra, for parity with the wheel env, which does not ship viser.
-# daqp and rsl-rl-lib are not repeated here: unlike the published wheel, the
-# source setup.py files already pin them on Linux x86_64.
+# TODO(alexmillane, 2026.07.22): Remove these two flavors of installation once
+# Isaac Lab's artifact distributes their scripts.
 isaacsim-source = [
     "isaaclab[isaacsim]",
     "isaaclab-assets",
@@ -100,8 +98,9 @@ isaacsim-source = [
 [tool.uv]
 # Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
-# Install the sim stack (isaaclab/isaacsim wheels) on a bare `uv sync`.
-default-groups = ["isaacsim"]
+# Install the source-based sim stack (Isaac Lab editable from the submodule)
+# on a bare `uv sync`.
+default-groups = ["isaacsim-source"]
 # The two sim-stack flavors resolve isaaclab (and possibly torch/isaacsim) to
 # different versions and sources; uv forks the resolution per flavor and
 # refuses to activate both groups at once.

@@ -20,25 +20,23 @@ Isaac Lab Arena can be installed natively with `uv <https://docs.astral.sh/uv/>`
 the committed lockfile pins the complete environment. Two flavors are
 available, differing only in where Isaac Lab comes from:
 
-- **Wheel flavor (default):** Isaac Lab is installed from the published wheel.
-- **Source flavor:** Isaac Lab is installed editable from the
-  ``submodules/IsaacLab`` checkout. Use this for reinforcement-learning and
-  imitation-learning workflows — the published Isaac Lab wheel does not
-  include the RL/IL scripts.
+- **Source flavor (default):** Isaac Lab is installed editable from the
+  ``submodules/IsaacLab`` checkout, including Isaac Lab's
+  reinforcement-learning, imitation-learning, and teleoperation support.
+- **Wheel flavor:** Isaac Lab is installed from the published wheel, which
+  does not include Isaac Lab's RL/IL scripts.
 
 Both flavors follow the same workflow — clone, sync, activate, run; only the
 ``uv sync`` line differs.
 
-Clone the repository and initialize the Isaac Lab submodule (the lockfile
-references the submodule, so it must be present for both flavors):
+Clone the repository:
 
 .. code-block:: bash
 
-    git clone https://github.com/isaac-sim/IsaacLab-Arena.git
+    git clone --recurse-submodules https://github.com/isaac-sim/IsaacLab-Arena.git
     cd IsaacLab-Arena
-    git submodule update --init submodules/IsaacLab
 
-Install the default (wheel) flavor and activate the environment:
+Install the default (source) flavor and activate the environment:
 
 .. code-block:: bash
 
@@ -46,9 +44,14 @@ Install the default (wheel) flavor and activate the environment:
     source .venv/bin/activate
 
 ``uv sync`` creates a Python virtual environment in ``.venv/`` (pinned by
-``.python-version``), installs Isaac Lab Arena, and pulls Isaac Lab together
-with the matching Isaac Sim, PyTorch, and Newton wheels at the versions pinned
-by the committed lockfile.
+``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
+``submodules/IsaacLab``), and pulls the matching Isaac Sim, PyTorch, and
+Newton wheels at the versions pinned by the committed lockfile. Isaac Lab's
+scripts are then available directly from the submodule, e.g.:
+
+.. code-block:: bash
+
+    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py --help
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -84,31 +87,25 @@ the Docker workflow runs below):
 With ``isaaclab_arena`` installed you're ready to build your first environment;
 see :doc:`first_arena_env`.
 
-Installing Isaac Lab from source (RL/IL workflows)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installing Isaac Lab from its published wheel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The published Isaac Lab wheel omits Isaac Lab's reinforcement-learning and
-imitation-learning scripts (``scripts/reinforcement_learning``,
-``scripts/imitation_learning``). The source flavor instead installs Isaac Lab
-editable from the ``submodules/IsaacLab`` checkout, which provides them:
+The wheel flavor installs Isaac Lab from the published wheel instead of the
+submodule checkout:
 
 .. code-block:: bash
 
-    uv sync --no-default-groups --group isaacsim-source
+    uv sync --no-default-groups --group isaacsim
     source .venv/bin/activate
 
-Everything after activation works exactly as in the wheel flavor; in addition,
-the Isaac Lab scripts are available:
-
-.. code-block:: bash
-
-    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py --help
+Everything after activation works exactly as in the source flavor, except
+that Isaac Lab's RL/IL scripts and teleoperation support are not available.
 
 .. note::
    The two flavors are mutually exclusive within the single ``.venv``: syncing
-   one replaces the other. In the source flavor, run ``python``/``pytest`` in
+   one replaces the other. In the wheel flavor, run ``python``/``pytest`` in
    the activated environment rather than through ``uv run`` — a bare
-   ``uv run`` re-syncs the environment back to the default wheel flavor.
+   ``uv run`` re-syncs the environment back to the default source flavor.
 
 
 Installation via Docker

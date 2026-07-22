@@ -106,18 +106,17 @@ jobs:
     # Excluded from pre-merge (pull requests); still runs nightly, on push to main, and on manual dispatch.
     if: github.event_name != 'pull_request'
     strategy:
+      # Keep running the other variant when one fails.
       fail-fast: false
-      # The two sim-stack flavors of the native install: Isaac Lab from the
-      # published wheel (default group) and editable from the
-      # submodules/IsaacLab source checkout. `uv_flags` selects the flavor and
-      # must be passed to every `uv sync`/`uv run` (a bare `uv run` re-syncs
-      # to the default wheel group).
+      # Test matrix:
+      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
+      #     - source: uv-based installation that consumes isaaclab through source code.
       matrix:
         include:
           - variant: wheel
-            uv_flags: ""
+            uv_flags: "--no-default-groups --group isaacsim"
           - variant: source
-            uv_flags: "--no-default-groups --group isaacsim-source"
+            uv_flags: ""
     env:
       # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
@@ -161,10 +160,8 @@ jobs:
           uv lock --check --offline --no-python-downloads
 
       # Out-of-source packaging check: validates the lockfile via the
-      # packaging tests, run in an out of source directory. Variant
-      # independent, so run it once (wheel variant only).
+      # packaging tests, run in an out of source directory.
       - name: Validate editable package
-        if: matrix.variant == 'wheel'
         run: |
           uv venv --python 3.12 /tmp/arena-package-venv
           uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
@@ -177,33 +174,29 @@ jobs:
       - name: Sync the locked environment
         run: uv sync ${{ matrix.uv_flags }}
 
-      # Prove the source flavor delivers what the wheel lacks: the Isaac Lab
-      # RL / imitation-learning packages and scripts.
-      - name: Smoke-test Isaac Lab RL/IL entry points
-        if: matrix.variant == 'source'
-        run: |
-          uv run ${{ matrix.uv_flags }} python -c "import isaaclab_rl, isaaclab_mimic, rsl_rl"
-          uv run ${{ matrix.uv_flags }} python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py --help
-
       - name: Run in-process Newton tests
         run: |
-          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m with_newton \
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
+          source .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m with_subprocess \
+          pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
   test:

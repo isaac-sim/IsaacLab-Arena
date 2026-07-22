@@ -74,12 +74,11 @@ Arena solves this by making environment variation a first-class concept. Swap an
 **Native developer setup with uv:**
 
 ```bash
-# 1. Clone the repository and initialize the Isaac Lab submodule
-git clone git@github.com:isaac-sim/IsaacLab-Arena.git
+# 1. Clone the repository
+git clone --recurse-submodules git@github.com:isaac-sim/IsaacLab-Arena.git
 cd IsaacLab-Arena
-git submodule update --init submodules/IsaacLab
 
-# 2. Create the locked environment (Isaac Lab, Isaac Sim, PyTorch, and Newton wheels)
+# 2. Create the locked environment (Isaac Lab from source, plus the Isaac Sim, PyTorch, and Newton wheels)
 uv sync
 
 # 3. Activate the environment and accept the Isaac Sim EULA
@@ -95,10 +94,11 @@ python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 
-> **Note:** For RL and imitation-learning workflows, install Isaac Lab from
-> source instead — the published Isaac Lab wheel does not include the RL/IL
-> scripts. Replace step 2 with
-> `uv sync --no-default-groups --group isaacsim-source`; see the
+> **Note:** By default Isaac Lab is installed editable from the
+> `submodules/IsaacLab` checkout, so its RL/IL scripts and teleoperation
+> support are included. To consume Isaac Lab through its published wheel
+> instead, replace step 2 with `uv sync --no-default-groups --group isaacsim`;
+> see the
 > [Installation Guide](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html)
 > for details.
 
