@@ -81,6 +81,23 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_xyzw=tuple(q_C_A.tolist()))
 
 
+def translate_by_xyz_offset(
+    target: tuple[float, float, float] | Pose, xyz_offset: tuple[float, float, float]
+) -> tuple[float, float, float] | Pose:
+    """Return ``target`` shifted by ``xyz_offset`` (rotation, if any, unchanged).
+
+    Args:
+        target: The position tuple or Pose to shift.
+        xyz_offset: The (x, y, z) translation to add.
+    """
+    if isinstance(target, Pose):
+        return Pose(
+            position_xyz=translate_by_xyz_offset(target.position_xyz, xyz_offset),
+            rotation_xyzw=target.rotation_xyzw,
+        )
+    return (target[0] + xyz_offset[0], target[1] + xyz_offset[1], target[2] + xyz_offset[2])
+
+
 @dataclass
 class PosePerEnv:
     """Per-environment poses (one Pose per env, used for batched placement)."""
