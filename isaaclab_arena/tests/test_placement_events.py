@@ -630,7 +630,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         def set_initial_pose(self, pose):
             raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
 
-        def set_placement_initial_pose(self, pose):
+        def set_spawn_pose(self, pose):
             self.object_cfg.init_state.pos = pose.position_xyz
             self.object_cfg.init_state.rot = pose.rotation_xyzw
 
@@ -648,7 +648,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
                     final_loss=0.0,
                     attempts=1,
                 )
-                for env_id in range(self.num_envs)
+                for env_id in range(count)
             ]
 
     anchor = MinimalObject("desk")

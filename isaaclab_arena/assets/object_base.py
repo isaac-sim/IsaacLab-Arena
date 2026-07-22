@@ -76,19 +76,21 @@ class ObjectBase(PlacementAsset, ABC):
             pose: A fixed ``Pose``, a ``PoseRange`` (randomised on reset),
                 or a ``PosePerEnv`` (distinct pose per environment).
         """
+        self._set_pose_state(pose)
+        self.event_cfg = self._init_event_cfg()
+
+    def _set_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Update the stored pose and materialized object configuration."""
         self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
             self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
-        self.event_cfg = self._init_event_cfg()
 
-    def set_placement_initial_pose(self, pose: Pose) -> None:
-        """Set the solved spawn pose without rebuilding the object reset event."""
-        self.initial_pose = pose
-        if self.object_cfg is not None:
-            self.object_cfg.init_state.pos = pose.position_xyz
-            self.object_cfg.init_state.rot = pose.rotation_xyzw
+    def set_spawn_pose(self, pose: Pose) -> None:
+        """Set the scene-construction pose without rebuilding the reset event."""
+        assert self.object_cfg is not None, "object_cfg must be initialized before setting the spawn pose"
+        self._set_pose_state(pose)
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
