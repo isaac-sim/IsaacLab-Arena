@@ -115,6 +115,15 @@ class EmbodimentBase(Asset):
         ), f"Expected camera_config to inherit from ArenaCameraCfg; got {type(self.camera_config).__name__}."
         return self.camera_config.get_cfg()
 
+    def add_camera_variations(self, camera_rig: ArenaCameraCfg) -> None:
+        """Register extrinsics and intrinsics variations for every camera in ``camera_rig``."""
+        from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+        from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
+
+        for camera_name in camera_rig.camera_names():
+            self.add_variation(CameraExtrinsicsVariation(camera_name=camera_name))
+            self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
+
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")

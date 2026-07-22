@@ -42,7 +42,6 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
@@ -87,7 +86,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = None
         self.mimic_env = None
-        self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
+        self.add_camera_variations(self.camera_config)
 
     def _lift_z(self, pos: tuple[float, float, float]) -> tuple[float, float, float]:
         """Return ``pos`` shifted up by the stand-height-driven robot base offset."""
