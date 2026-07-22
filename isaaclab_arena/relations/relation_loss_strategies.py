@@ -648,9 +648,6 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
         All non-center points retain the ordinary Euclidean norm.
         """
         at_center = torch.all(radial_delta == 0, dim=1)
-        if not torch.any(at_center):
-            return radius
-
         epsilon = torch.finfo(radial_delta.dtype).eps
         positive_x_epsilon = torch.zeros_like(radial_delta)
         positive_x_epsilon[:, 0] = epsilon

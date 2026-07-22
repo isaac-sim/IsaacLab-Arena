@@ -235,6 +235,19 @@ def test_position_limits_lower_radius_at_center_has_correct_loss_and_nonzero_gra
     assert torch.allclose(child_pos.grad, torch.tensor([-10.0, 0.0, 0.0]))
 
 
+def test_position_limits_lower_radius_symmetry_breaker_preserves_mixed_batch_behavior():
+    """Exact-center entries get a descent direction without changing other batch entries."""
+
+    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
+    child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.25, 0.0, 0.0]], requires_grad=True)
+    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
+    loss.sum().backward()
+
+    assert torch.allclose(loss, torch.tensor([5.0, 2.5]), atol=1e-6)
+    assert child_pos.grad is not None
+    assert torch.allclose(child_pos.grad, torch.tensor([[-10.0, 0.0, 0.0], [-10.0, 0.0, 0.0]]))
+
+
 def test_position_limits_radial_and_axis_losses_compose():
     relation = PositionLimits(x_max=0.5, center_x=0.0, center_y=0.0, radius_max=0.5)
     loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, torch.tensor([1.0, 0.0, 0.0]), _DUMMY_BBOX)
