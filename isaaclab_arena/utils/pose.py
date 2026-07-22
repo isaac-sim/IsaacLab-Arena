@@ -5,6 +5,7 @@
 
 import torch
 from dataclasses import dataclass
+from typing import overload
 
 
 @dataclass
@@ -79,6 +80,16 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     # Compose the translations
     t_C_A = R_C_B @ torch.tensor(T_B_A.position_xyz) + torch.tensor(T_C_B.position_xyz)
     return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_xyzw=tuple(q_C_A.tolist()))
+
+
+@overload
+def translate_by_xyz_offset(target: Pose, xyz_offset: tuple[float, float, float]) -> Pose: ...
+
+
+@overload
+def translate_by_xyz_offset(
+    target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
+) -> tuple[float, float, float]: ...
 
 
 def translate_by_xyz_offset(

@@ -8,7 +8,7 @@ import functools
 import torch
 import warnings
 from abc import ABC
-from typing import Any
+from typing import Any, overload
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -79,17 +79,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         if self.initial_pose is None:
             # No explicit base pose: lift the default robot and stand init states so the robot sits atop
             # the lifted stand.
-            self.scene_config.robot.init_state.pos = translate_by_xyz_offset(
-                self.scene_config.robot.init_state.pos, self._robot_base_offset
-            )
-            self.scene_config.stand.init_state.pos = translate_by_xyz_offset(
-                self.scene_config.stand.init_state.pos, self._robot_base_offset
-            )
+            self.scene_config.robot.init_state.pos = self._lift_by_base_offset(self.scene_config.robot.init_state.pos)
+            self.scene_config.stand.init_state.pos = self._lift_by_base_offset(self.scene_config.stand.init_state.pos)
         else:
-            # Explicit base pose: lift it and make it the scene robot init state
-            self.initial_pose = translate_by_xyz_offset(self.initial_pose, self._robot_base_offset)
-            self.scene_config.robot.init_state.pos = self.initial_pose.position_xyz
-            self.scene_config.robot.init_state.rot = self.initial_pose.rotation_xyzw
+            # Explicit base pose: lift it via set_initial_pose; get_scene_cfg writes the scene config later.
+            self.set_initial_pose(self.initial_pose)
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -102,7 +96,17 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     def set_initial_pose(self, pose: Pose) -> None:
         """Store the requested base pose, lifted by the stand-height offset to match the spawned base."""
-        super().set_initial_pose(translate_by_xyz_offset(pose, self._robot_base_offset))
+        super().set_initial_pose(self._lift_by_base_offset(pose))
+
+    @overload
+    def _lift_by_base_offset(self, target: Pose) -> Pose: ...
+
+    @overload
+    def _lift_by_base_offset(self, target: tuple[float, float, float]) -> tuple[float, float, float]: ...
+
+    def _lift_by_base_offset(self, target: tuple[float, float, float] | Pose) -> tuple[float, float, float] | Pose:
+        """Shift ``target`` up by the stand-height offset, so the base sits atop the (re)scaled stand."""
+        return translate_by_xyz_offset(target, self._robot_base_offset)
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
