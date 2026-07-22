@@ -49,6 +49,8 @@ def test_position_limits_allows_single_bound():
     [
         {"radius_max": 0.2},
         {"center_x": 0.0, "radius_max": -0.2},
+        {"center_x": 0.0, "center_y": 0.0, "radius_min": -0.2},
+        {"center_x": 0.0, "center_y": 0.0, "radius_max": -0.2},
         {"center_x": 0.0, "center_y": 0.0, "radius_min": 0.3, "radius_max": 0.3},
     ],
 )
