@@ -145,6 +145,11 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
         assert self._nominal_vertical_aperture is not None
 
         sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        # Apertures scale by 1 / (1 + d); deltas <= -1 would divide by zero or flip sign.
+        assert bool((sample > -1.0).all()), (
+            "apply_camera_intrinsics_from_sampler expects focal-length deltas > -1.0 so apertures stay "
+            "positive; got a value <= -1.0. Check your sampler_cfg bounds."
+        )
         env_id_list = env_ids.tolist()
         for env_id, (d_fx, d_fy) in zip(env_id_list, sample.tolist()):
             # ``focal_length`` is held fixed, so focal-length scaling is realised through aperture size.

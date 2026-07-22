@@ -13,8 +13,6 @@ ENABLE_CAMERAS = True
 CAMERA_NAME = "wrist_camera"
 VARIATION_NAME = f"camera_intrinsics_{CAMERA_NAME}"
 EVENT_NAME = f"{CAMERA_NAME}_intrinsics_variation"
-NOMINAL_HORIZONTAL_APERTURE = 5.376
-NOMINAL_VERTICAL_APERTURE = 3.024
 # (d_fx, d_fy); distinct signs catch axis/sign swaps.
 TEST_DELTAS = (0.1, -0.1)
 
@@ -109,6 +107,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
 
 def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
@@ -119,9 +118,11 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
 
     camera = env.unwrapped.scene[CAMERA_NAME]
     sensor_prim = camera._sensor_prims[0]
+    # Read nominal apertures from the rig config so the test tracks its source of truth.
+    nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
     d_fx, d_fy = TEST_DELTAS
-    expected_horizontal_aperture = NOMINAL_HORIZONTAL_APERTURE / (1.0 + d_fx)
-    expected_vertical_aperture = NOMINAL_VERTICAL_APERTURE / (1.0 + d_fy)
+    expected_horizontal_aperture = nominal_spawn.horizontal_aperture / (1.0 + d_fx)
+    expected_vertical_aperture = nominal_spawn.vertical_aperture / (1.0 + d_fy)
 
     assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
     assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
