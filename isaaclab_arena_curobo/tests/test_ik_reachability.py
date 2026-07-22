@@ -208,7 +208,7 @@ def _run_reachability_check(args_cli) -> bool:
         sync_object_poses_in_robot_base_frame,
         top_down_grasp_pose_from_env,
     )
-    from isaaclab_arena_curobo.ik_solver_utils import check_ik_feasibility
+    from isaaclab_arena_curobo.ik_solver_utils import solve_ik_feasibility
 
     env, embodiment = _build_droid_two_object_env(args_cli)
     planner = make_curobo_planner(env, embodiment, env_id=0)
@@ -230,7 +230,7 @@ def _run_reachability_check(args_cli) -> bool:
         top_down_grasp_pose_from_env(env, OBSTACLE_OBJECT, GRASP_Z_OFFSET),
         top_down_grasp_pose_from_env(env, NON_OBSTACLE_OBJECT, GRASP_Z_OFFSET),
     ])
-    feasible, pos_err, rot_err = check_ik_feasibility(planner, grasp_poses)
+    feasible, pos_err, rot_err = solve_ik_feasibility(planner, grasp_poses)
     print(
         f"reach: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad",
         flush=True,

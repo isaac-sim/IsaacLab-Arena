@@ -23,8 +23,8 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.ik_solver_utils import (
-    check_ik_feasibility,
     get_aabb_collision_cuboid_for_object,
+    solve_ik_feasibility,
     top_down_grasp_pose_from_world_poses,
 )
 
@@ -109,7 +109,7 @@ def make_ik_reachability_validator(
                 )
                 for obj in movable
             ])
-            feasible, _, _ = check_ik_feasibility(
+            feasible, _, _ = solve_ik_feasibility(
                 solver,
                 grasp_poses,
                 position_threshold=ik_pos_threshold,

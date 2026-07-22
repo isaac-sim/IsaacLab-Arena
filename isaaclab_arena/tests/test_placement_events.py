@@ -5,10 +5,14 @@
 
 """Tests for placement-on-reset event: fresh layouts on successive resets."""
 
+import contextlib
 import torch
 from unittest.mock import MagicMock
 
 import pytest
+
+from isaaclab_arena.relations.placement_validator_registry import register_validator
+from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
 def _checklist(passed: bool):
@@ -780,38 +784,53 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
         PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
 
 
-def _make_stub_reachability_validator(predicate):
-    """Deferred validator wrapping a plain predicate, standing in for the cuRobo reachability gate in tests.
+_STUB_REACHABILITY_CHECK = "stub_reachability"
 
-    Injected via ObjectPlacerParams.extra_validators so the pooled placer exercises the same
-    run-after-inexpensive-checks reject-&-refill path the real cuRobo validator drives, without cuRobo,
-    an embodiment, or a GPU.
+
+@register_validator
+class _StubReachabilityValidator(PlacementValidator):
+    """Test double for a run-after-inexpensive reachability gate, registered under a unique check name.
+
+    Stands in for the cuRobo IK gate without cuRobo, an embodiment, or a GPU, so the pooled placer
+    exercises the same reject-&-refill path the real validator drives. Delisted (``is_available`` False)
+    unless a test installs a predicate via ``_stub_reachability()``, so it never affects placer tests
+    that do not opt in.
     """
-    from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
 
-    class _StubReachabilityValidator(PlacementValidator):
-        check = PlacementCheck.IK_REACHABLE
-        run_after_inexpensive_checks = True
+    check = _STUB_REACHABILITY_CHECK
+    run_after_inexpensive_checks = True
+    predicate = None
+    """Per-test callable ``(PlacementResult) -> bool``; None delists the validator."""
 
-        def __init__(self):
-            self._predicate = predicate
+    @classmethod
+    def is_available(cls, params) -> bool:
+        return cls.predicate is not None
 
-        def validate_batch(self, positions, orientations, bboxes, collision_objects):
-            candidates = [
-                PlacementResult(
-                    validation_results=PlacementValidationResults(),
-                    positions=positions[i],
-                    final_loss=0.0,
-                    attempts=0,
-                    orientations=orientations[i],
-                )
-                for i in range(len(positions))
-            ]
-            return [bool(self._predicate(candidate)) for candidate in candidates]
+    def validate_batch(self, positions, orientations, bboxes, collision_objects):
+        from isaaclab_arena.relations.placement_result import PlacementResult
+        from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
-    return _StubReachabilityValidator()
+        candidates = [
+            PlacementResult(
+                validation_results=PlacementValidationResults(),
+                positions=positions[i],
+                final_loss=0.0,
+                attempts=0,
+                orientations=orientations[i],
+            )
+            for i in range(len(positions))
+        ]
+        return [bool(type(self).predicate(candidate)) for candidate in candidates]
+
+
+@contextlib.contextmanager
+def _stub_reachability(predicate):
+    """Install a predicate on the stub reachability validator for the duration of the block."""
+    _StubReachabilityValidator.predicate = predicate
+    try:
+        yield
+    finally:
+        _StubReachabilityValidator.predicate = None
 
 
 def _make_validated_pool(
@@ -826,30 +845,26 @@ def _make_validated_pool(
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     objects = list(_create_test_objects())
-    extra_validators = (
-        [_make_stub_reachability_validator(reachability_predicate)] if reachability_predicate is not None else []
-    )
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
         apply_positions_to_objects=False,
         min_unique_layouts_per_env=min_layouts_per_env,
         placement_seed=7,
         allow_best_loss_fallbacks=allow_best_loss_fallbacks,
-        extra_validators=extra_validators,
     )
-    return PooledObjectPlacer(
-        objects=objects,
-        placer_params=params,
-        pool_size=num_envs * min_layouts_per_env,
-        num_envs=num_envs,
-    )
+    # The predicate is only consulted while the pool solves (in this constructor), so scope it here.
+    with _stub_reachability(reachability_predicate):
+        return PooledObjectPlacer(
+            objects=objects,
+            placer_params=params,
+            pool_size=num_envs * min_layouts_per_env,
+            num_envs=num_envs,
+        )
 
 
 def test_reachability_validator_gates_and_refills():
-    """A reachability predicate is registered as the IK_REACHABLE validator; rejected candidates are not
-    stored and the pool solve loop refills until every env meets its target."""
-    from isaaclab_arena.relations.placement_validation import PlacementCheck
-
+    """A reachability predicate gates the stub run-after-inexpensive validator; rejected candidates are
+    not stored and the pool solve loop refills until every env meets its target."""
     num_envs, target = 2, 2
     # Reject the first num_envs*target candidates the validator sees, accept every one after, forcing at
     # least one refill batch before the pool can reach the target.
@@ -866,7 +881,7 @@ def test_reachability_validator_gates_and_refills():
     # Every stored layout passed the reachability check...
     for env_layouts in pool.layouts_per_env():
         for layout in env_layouts:
-            assert layout.validation_results.validation_results.get(PlacementCheck.IK_REACHABLE) is True
+            assert layout.validation_results.validation_results.get(_STUB_REACHABILITY_CHECK) is True
     assert all(len(env_layouts) >= target for env_layouts in pool.layouts_per_env())
     # ...and more candidates were validated than the initial fill, i.e. a refill actually happened.
     assert calls["n"] > reject_first

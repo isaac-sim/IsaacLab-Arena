@@ -84,7 +84,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
         return feasible, torch.zeros(num), torch.zeros(num)
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
-    monkeypatch.setattr(mod, "check_ik_feasibility", _fake_ik)
+    monkeypatch.setattr(mod, "solve_ik_feasibility", _fake_ik)
     monkeypatch.setattr(mod, "embodiment_curobo_cfg", lambda embodiment: None)
     return captured
 

@@ -27,7 +27,7 @@ from isaaclab_arena_curobo.curobo_planner_utils import (
     sync_object_poses_in_robot_base_frame,
     top_down_grasp_pose_from_env,
 )
-from isaaclab_arena_curobo.ik_solver_utils import check_ik_feasibility
+from isaaclab_arena_curobo.ik_solver_utils import solve_ik_feasibility
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -59,7 +59,7 @@ def _layout_is_ik_reachable(
     grasp_poses = torch.stack(
         [top_down_grasp_pose_from_env(env, name, grasp_z_offset, env_id) for name in movable_object_names]
     )
-    feasible, _, _ = check_ik_feasibility(
+    feasible, _, _ = solve_ik_feasibility(
         planner,
         grasp_poses,
         position_threshold=ik_pos_threshold,

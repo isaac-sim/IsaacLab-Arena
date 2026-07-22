@@ -195,38 +195,3 @@ def solve_ik_feasibility(
 
     ik_solver_context.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
     return feasible, best_pos_err, best_rot_err
-
-
-def check_ik_feasibility(
-    ik_solver_context: IKSolverContext,
-    target_poses: torch.Tensor,
-    seed_config: torch.Tensor | None = None,
-    position_threshold: float = 0.01,
-    rotation_threshold: float = 0.1,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Batched IK feasibility of all ``target_poses`` against a context's cuRobo IK solver.
-
-    Serves both paths with the same math and thresholds; the only difference is where the solver comes
-    from. Pass a ``CuroboIKSolver`` (build-time, exposes ``ik_solver``) or a ``CuroboPlanner``
-    (env-coupled, exposes ``motion_gen.ik_solver``).
-
-    Args:
-        ik_solver_context: A ``CuroboIKSolver`` or ``CuroboPlanner`` supplying the pose plumbing and IK solver.
-        target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
-        seed_config: Optional joint seed tensor.
-        position_threshold: Max position error (m) to count as feasible.
-        rotation_threshold: Max rotation error (rad) to count as feasible.
-
-    Returns:
-        ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
-        errors are the best-seed values per pose.
-    """
-    return solve_ik_feasibility(
-        ik_solver_context,
-        target_poses,
-        seed_config=seed_config,
-        position_threshold=position_threshold,
-        rotation_threshold=rotation_threshold,
-        # TODO(xinjieyao, 2026-07-21): Support collision-free IK by disabling the hand-link spheres during collision checking
-        require_collision_free=getattr(ik_solver_context, "require_collision_free", False),
-    )

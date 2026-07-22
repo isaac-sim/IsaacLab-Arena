@@ -52,8 +52,11 @@ class PlacementValidator(ABC):
         self._params = params
 
     @classmethod
-    def enabled_by_default(cls, params: ObjectPlacerParams) -> bool:
-        """Whether this validator runs when enabled_checks is None. Override for opt-in validators."""
+    def is_available(cls, params: ObjectPlacerParams) -> bool:
+        """Whether this validator can run for these params at build time; unavailable ones are delisted.
+
+        build_validators drops any registered validator that returns False. Defaults to True.
+        """
         return True
 
     @abstractmethod
@@ -81,47 +84,27 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 
 def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
-    """Construct the enabled build-time validators in canonical order.
+    """Construct the enabled build-time validators in registration order.
 
-    Runs the registered validators plus any params.extra_validators.
+    A registered check whose is_available() returns False is delisted; a check named in
+    enabled_checks/required_checks that is not registered is likewise dropped rather than
+    raising.
 
     Args:
         params: Placement params injected into each registered validator.
     """
     registry = PlacementValidatorRegistry()
-    registered = get_build_time_checks()
-    extra_by_check = {validator.check: validator for validator in params.extra_validators}
-    known = set(registered) | set(extra_by_check)
+    registered_checks = get_build_time_checks()
 
     enabled_checks = params.enabled_checks
     if enabled_checks is not None:
-        unknown = set(enabled_checks) - known
-        assert not unknown, (
-            f"enabled_checks names unknown build-time check(s): {sorted(unknown)}. "
-            f"Known build-time checks: {sorted(known)}."
-        )
-        registered_checks = tuple(check for check in registered if check in enabled_checks)
-        extra_validators = [v for v in params.extra_validators if v.check in enabled_checks]
-    else:
-        # Default: run every registered check that opts in thru enabled_by_default, plus every params.extra_validators.
-        registered_checks = tuple(
-            check for check in registered if registry.get_validator_by_name(check).enabled_by_default(params)
-        )
-        extra_validators = list(params.extra_validators)
+        registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    required_checks = params.required_checks
-    if required_checks is not None:
-        running = set(registered_checks) | {v.check for v in extra_validators}
-        not_running = set(required_checks) - running
-        assert not not_running, (
-            f"required_checks names check(s) that will not run: {sorted(not_running)}. "
-            f"Checks that will run: {sorted(running)}."
-        )
-
-    validators: list[PlacementValidator] = [
-        registry.get_validator_by_name(check)(params) for check in registered_checks
-    ]
-    validators.extend(extra_validators)
+    validators: list[PlacementValidator] = []
+    for check in registered_checks:
+        validator_cls = registry.get_validator_by_name(check)
+        if validator_cls.is_available(params):
+            validators.append(validator_cls(params))
     return validators
 
 

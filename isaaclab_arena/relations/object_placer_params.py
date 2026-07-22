@@ -12,7 +12,6 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
 @dataclass
@@ -85,6 +84,3 @@ class ObjectPlacerParams:
 
     reachability_config: ReachabilityConfig = field(default_factory=ReachabilityConfig)
     """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
-
-    extra_validators: list[PlacementValidator] = field(default_factory=list)
-    """Pre-built validators to run alongside the registered ones, in case they need to be injected by integration code."""
