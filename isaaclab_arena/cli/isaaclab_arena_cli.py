@@ -52,6 +52,12 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
+    isaac_lab_group.add_argument(
+        "--num_rerenders_on_reset",
+        type=int,
+        default=0,
+        help="Number of extra render steps after reset so sensor observations reflect reset state.",
+    )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
 
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Move --distributed into a typed runner or simulation-app
@@ -85,6 +91,15 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=None,
         help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+    )
+    arena_group.add_argument(
+        "--placement_clearance_m",
+        type=float,
+        default=None,
+        help=(
+            "Override the default relation-solver collision clearance in metres. "
+            "When omitted, RelationSolverParams keeps its 0.01 m default."
+        ),
     )
     arena_group.add_argument(
         "--presets",

@@ -9,6 +9,7 @@ import torch
 import tqdm
 from dataclasses import field
 from pathlib import Path
+from types import SimpleNamespace
 
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
@@ -248,6 +249,106 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
     return True
 
 
+def _test_post_reset_recorder_hook(_simulation_app):
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
+
+    events = []
+
+    class LifecycleRecorderTerm:
+        def __call__(self, _env, _env_id):
+            return {}
+
+        def record_post_reset(self, env_ids):
+            events.append(("term_post_reset", list(env_ids)))
+
+    manager = object.__new__(EpisodeRecorderManager)
+    manager._env = SimpleNamespace(num_envs=3)
+    manager._resolve_terms_handle = None
+    manager._term_cfgs = [
+        SimpleNamespace(func=LifecycleRecorderTerm()),
+        SimpleNamespace(func=record_step_bucket),
+    ]
+
+    manager.record_post_reset(torch.tensor([2, 0]))
+    manager.record_post_reset(None)
+    assert events == [
+        ("term_post_reset", [2, 0]),
+        ("term_post_reset", [0, 1, 2]),
+    ]
+
+    class Recorder:
+        def record_pre_reset(self, env_ids):
+            events.append(("manager_pre_reset", env_ids.tolist()))
+
+        def record_post_reset(self, env_ids):
+            events.append(("manager_post_reset", env_ids.tolist()))
+
+    reset_env = object.__new__(IsaacLabArenaManagerBasedRLEnv)
+    reset_env._is_closed = True
+    reset_env._first_reset = False
+    reset_env._episode_counts = {}
+    reset_env._external_policy_termination_buf = torch.tensor([True, True])
+    reset_env.episode_recorder_manager = Recorder()
+
+    original_reset = IsaacLabArenaManagerBasedRLEnv.__mro__[1]._reset_idx
+    try:
+        IsaacLabArenaManagerBasedRLEnv.__mro__[1]._reset_idx = lambda _self, env_ids: events.append(
+            ("base_reset", env_ids.tolist())
+        )
+        IsaacLabArenaManagerBasedRLEnv._reset_idx(reset_env, torch.tensor([0]))
+
+        reset_env._first_reset = True
+        IsaacLabArenaManagerBasedRLEnv._reset_idx(reset_env, torch.tensor([0, 1]))
+    finally:
+        IsaacLabArenaManagerBasedRLEnv.__mro__[1]._reset_idx = original_reset
+
+    assert events[2:] == [
+        ("manager_pre_reset", [0]),
+        ("base_reset", [0]),
+        ("manager_post_reset", [0]),
+        ("base_reset", [0, 1]),
+        ("manager_post_reset", [0, 1]),
+    ]
+    return True
+
+
+def test_builder_merges_environment_and_task_episode_recorder_terms():
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    environment_term = object()
+    task_term = object()
+    arena_env = SimpleNamespace(episode_recorder_terms={"environment": environment_term})
+    task = SimpleNamespace(
+        get_episode_recorder_terms=lambda received: ({"task": task_term} if received is arena_env else {})
+    )
+    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
+    builder.arena_env = arena_env
+
+    assert builder._collect_episode_recorder_terms(task) == {
+        "environment": environment_term,
+        "task": task_term,
+    }
+
+
+def test_builder_rejects_duplicate_environment_and_task_recorder_names():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_env = SimpleNamespace(episode_recorder_terms={"poses": object()})
+    task = SimpleNamespace(get_episode_recorder_terms=lambda _: {"poses": object()})
+    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
+    builder.arena_env = arena_env
+
+    with pytest.raises(ValueError, match="duplicate episode recorder term 'poses'"):
+        builder._collect_episode_recorder_terms(task)
+
+
 def test_core_terms(tmp_path):
     assert run_simulation_app_function(
         _test_core_terms, headless=HEADLESS, output_dir=tmp_path
@@ -266,8 +367,15 @@ def test_custom_term(tmp_path):
     ), "custom recorder term test failed"
 
 
+def test_post_reset_recorder_hook():
+    assert run_simulation_app_function(
+        _test_post_reset_recorder_hook, headless=HEADLESS
+    ), "post-reset recorder hook test failed"
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="episode_recorder_") as _tmp_dir:
         test_core_terms(Path(_tmp_dir))
         test_variations_recorded(Path(_tmp_dir))
         test_custom_term(Path(_tmp_dir))
+        test_post_reset_recorder_hook()

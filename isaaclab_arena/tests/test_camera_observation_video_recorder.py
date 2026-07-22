@@ -5,14 +5,15 @@
 
 """Unit tests for CameraObsVideoRecorder.
 
-No Isaac Sim or GPU required. The moviepy encoder is mocked so tests run
-fast and on CPU-only machines.
+No Isaac Sim or GPU required. The incremental ffmpeg writer is mocked so tests
+run fast and on CPU-only machines.
 """
 
 import gymnasium as gym
 import os
 import shutil
 import torch
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import pytest
@@ -72,6 +73,45 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
     env._step_return = (obs, None, terminated, truncated, None)
 
 
+class _FakeWriter:
+    def __init__(self, path: str):
+        self.path = path
+        self.frame_count = 0
+        self.closed = False
+
+    def send(self, frame):
+        if frame is not None:
+            self.frame_count += 1
+
+    def close(self):
+        self.closed = True
+        with open(self.path, "wb") as stream:
+            stream.write(b"fake-mp4")
+
+
+class _FakeWriterFactory:
+    def __init__(self):
+        self.writers: list[_FakeWriter] = []
+
+    def __call__(self, path, *args, **kwargs):
+        writer = _FakeWriter(path)
+        self.writers.append(writer)
+        return writer
+
+
+def _mock_streaming_writers():
+    factory = _FakeWriterFactory()
+    stack = ExitStack()
+    stack.enter_context(
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder.imageio_ffmpeg.write_frames",
+            side_effect=factory,
+        )
+    )
+    stack.enter_context(patch("isaaclab_arena.video.camera_observation_video_recorder._validate_encoded_video"))
+    return factory, stack
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -80,7 +120,8 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
 def test_video_files_written_on_termination(tmp_path):
     """A file per camera is written when an env terminates."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    factory, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -89,16 +130,17 @@ def test_video_files_written_on_termination(tmp_path):
         _configure_step(env, done_envs=[0])
         recorder.step(None)  # env 0 terminates → flush
 
-        written_paths = [c.args[0] for c in mock_clip_cls.return_value.write_videofile.call_args_list]
-        assert len(written_paths) == len(CAMERAS)
+        assert len(factory.writers) == 2 * len(CAMERAS)
         for cam in CAMERAS:
-            assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-0.mp4") in written_paths
+            path = os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-0.mp4")
+            assert os.path.isfile(path)
 
 
 def test_episode_counter_increments_per_env(tmp_path):
     """Each env tracks its own episode count independently via the env's centralized index."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
+    _, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -123,10 +165,8 @@ def test_episode_counter_increments_per_env(tmp_path):
 def test_multiple_episodes_produce_sequential_filenames(tmp_path):
     """Consecutive episodes for an env are named episode-0, episode-1, ..."""
     env = _make_env()
-    written_paths = []
-
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
-        mock_clip_cls.return_value.write_videofile.side_effect = lambda path, **_: written_paths.append(path)
+    _, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         for _ in range(3):
@@ -137,13 +177,14 @@ def test_multiple_episodes_produce_sequential_filenames(tmp_path):
 
     for episode in range(3):
         for cam in CAMERAS:
-            assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-{episode}.mp4") in written_paths
+            assert os.path.isfile(os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-{episode}.mp4"))
 
 
 def test_partial_episode_dropped_on_close(tmp_path):
     """Frames accumulated without termination are silently discarded on close()."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    factory, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -151,13 +192,15 @@ def test_partial_episode_dropped_on_close(tmp_path):
 
         recorder.close()
 
-        mock_clip_cls.return_value.write_videofile.assert_not_called()
+        assert factory.writers and all(writer.closed for writer in factory.writers)
+        assert list(tmp_path.iterdir()) == []
 
 
 def test_no_video_written_for_empty_episode(tmp_path):
     """An env terminating with no buffered frames writes no video; its episode index still advances."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    factory, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         # Terminate on the very first step — no prior frames were recorded.
@@ -166,14 +209,16 @@ def test_no_video_written_for_empty_episode(tmp_path):
 
         # No video for the empty episode, but the env's centralized index still advanced past it
         # (so a later episode's video number stays in lockstep with the per-episode results record).
-        mock_clip_cls.return_value.write_videofile.assert_not_called()
+        assert len(factory.writers) == len(CAMERAS)
+        assert not list(tmp_path.glob("robot-cam-env0-*.mp4"))
         assert env.get_episode_index(0) == 1
 
 
 def test_post_reset_frame_not_appended(tmp_path):
     """The obs on a terminal step (post-reset) is not buffered for the next episode."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
+    factory, mocked = _mock_streaming_writers()
+    with mocked:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -182,13 +227,82 @@ def test_post_reset_frame_not_appended(tmp_path):
         _configure_step(env, done_envs=[0])
         recorder.step(None)  # env 0 terminates; post-reset frame discarded
 
-        # env 0's buffer is empty (flushed and post-reset frame discarded)
+        # env 0's writers were finalized; its post-reset frame was discarded.
         for cam in CAMERAS:
-            assert recorder.buffers[cam][0] == []
+            assert (cam, 0) not in recorder._writers
 
-        # env 1 accumulated 2 frames (neither step was terminal for it)
+        # env 1 streamed two frames (neither step was terminal for it).
         for cam in CAMERAS:
-            assert len(recorder.buffers[cam][1]) == 2
+            active = recorder._writers[(cam, 1)]
+            assert active.writer.frame_count == 2
+
+        assert sum(writer.frame_count for writer in factory.writers) == 6
+
+
+def test_long_episode_streams_without_buffering_frames(tmp_path):
+    """Recorder memory must not grow with episode length."""
+    env = _make_env()
+    factory, mocked = _mock_streaming_writers()
+    with mocked:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        for _ in range(10_000):
+            _configure_step(env, n_envs=1)
+            recorder.step(None)
+
+        assert not hasattr(recorder, "buffers")
+        assert len(recorder._writers) == len(CAMERAS)
+        assert [writer.frame_count for writer in factory.writers] == [10_000, 10_000]
+
+        recorder.close()
+        assert list(tmp_path.iterdir()) == []
+
+
+def test_frame_shape_change_discards_partial_video(tmp_path):
+    env = _make_env()
+    _, mocked = _mock_streaming_writers()
+    with mocked:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        env._step_return = (
+            {CAMERA_OBS_GROUP_KEY: {cam: torch.zeros(1, H + 2, W, C, dtype=torch.uint8) for cam in CAMERAS}},
+            None,
+            torch.zeros(1, dtype=torch.bool),
+            torch.zeros(1, dtype=torch.bool),
+            None,
+        )
+
+        with pytest.raises(ValueError, match="changed frame shape"):
+            recorder.step(None)
+
+        recorder.close()
+        assert list(tmp_path.iterdir()) == []
+
+
+def test_failed_completion_validation_never_publishes(tmp_path):
+    env = _make_env()
+    factory = _FakeWriterFactory()
+    with (
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder.imageio_ffmpeg.write_frames",
+            side_effect=factory,
+        ),
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder._validate_encoded_video",
+            side_effect=RuntimeError("truncated stream"),
+        ),
+    ):
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        _configure_step(env, done_envs=[0], n_envs=1)
+        with pytest.raises(RuntimeError, match="truncated stream"):
+            recorder.step(None)
+
+        assert not recorder._writers
+
+    assert not list(tmp_path.glob("*.mp4"))
+    assert not list(tmp_path.glob("*.part"))
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not available")

@@ -37,6 +37,8 @@ def _test_episode_length_defaults(simulation_app) -> bool:
     assert _StubTask().get_episode_length_s() == 20.0
     assert _StubTask(episode_length_s=None).get_episode_length_s() == 20.0
     assert _StubTask(episode_length_s=5.0).get_episode_length_s() == 5.0
+    arena_env = object()
+    assert _StubTask().get_episode_recorder_terms(arena_env) == {}
     return True
 
 
