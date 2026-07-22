@@ -98,9 +98,17 @@ def _graph_environment_cfg_from_yaml_values(
     environment_builder section additionally composes into the Run's typed builder
     config as usual.
     """
+    # device and language_instruction are not rendered as tokens: language_instruction is
+    # not a parser flag, and both are injected from the Run's typed builder config after
+    # parsing (see build_arena_builder_from_legacy_graph), matching the JSON frontend.
+    builder_cli_values = {
+        field_name: value
+        for field_name, value in environment_builder_values.items()
+        if field_name not in ("device", "language_instruction")
+    }
     arena_env_args: dict[str, Any] = {
         "environment": env_graph_spec_yaml,
-        **environment_builder_values,
+        **builder_cli_values,
         **environment_values,
     }
     return LegacyGraphEnvironmentCfg(arena_env_args=legacy_environment_args_to_cli_args(arena_env_args))
