@@ -27,6 +27,14 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ARENA_PYPROJECT = _REPO_ROOT / "pyproject.toml"
 _ISAACLAB_SETUP = _REPO_ROOT / "submodules/IsaacLab/source/isaaclab/setup.py"
+_ISAACLAB_PYPROJECT = _REPO_ROOT / "submodules/IsaacLab/pyproject.toml"
+
+
+def _requirement_name(requirement: str) -> str:
+    """Return the normalized package name of a PEP 508 requirement (extras and version dropped)."""
+    match = re.match(r"[A-Za-z0-9._-]+", requirement)
+    assert match is not None, f"cannot parse requirement {requirement!r}"
+    return match.group(0).lower().replace("_", "-")
 
 
 def _arena_pin(package: str) -> str:
@@ -66,3 +74,45 @@ def test_pyglet_constraint_matches_isaaclab_submodule():
     match = re.search(r"\"pyglet[^\"]*?(<[\d.]+)\"", _ISAACLAB_SETUP.read_text())
     assert match is not None, f"no pyglet upper bound found in {_ISAACLAB_SETUP}"
     assert _arena_constraint("pyglet") == f"pyglet{match.group(1)}"
+
+
+def test_isaacsim_source_group_covers_submodule_packages():
+    """The isaacsim-source group tracks the submodule's own uv dev project.
+
+    Every isaaclab package upstream's isaaclab-dev project depends on must
+    appear in Arena's isaacsim-source dependency group, so a submodule bump
+    that adds or renames a source package fails loudly. Arena may declare a
+    superset (e.g. isaaclab-mimic and isaaclab-teleop, which the published
+    wheel bundles but upstream's dev project omits).
+    """
+    upstream = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
+    upstream_packages = {_requirement_name(req) for req in upstream if _requirement_name(req).startswith("isaaclab")}
+    group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaacsim-source"]
+    group_packages = {_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")}
+    missing = upstream_packages - group_packages
+    assert not missing, f"isaacsim-source group is missing submodule packages: {sorted(missing)}"
+
+
+def test_isaacsim_source_group_entries_have_path_sources():
+    """Every isaaclab package in the isaacsim-source group maps to an editable path source.
+
+    The source must be gated on the isaacsim-source group and point at an
+    existing directory in the Isaac Lab submodule; otherwise the package
+    silently falls back to the published wheel.
+    """
+    pyproject = tomllib.loads(_ARENA_PYPROJECT.read_text())
+    group = pyproject["dependency-groups"]["isaacsim-source"]
+    sources = pyproject["tool"]["uv"]["sources"]
+    for package in sorted(_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")):
+        assert package in sources, f"no [tool.uv.sources] entry for {package}"
+        entries = [entry for entry in sources[package] if entry.get("group") == "isaacsim-source"]
+        assert len(entries) == 1, f"expected one isaacsim-source-gated source for {package}, found {entries}"
+        (entry,) = entries
+        assert entry.get("editable") is True, f"{package} source is not editable"
+        path = Path(entry["path"])
+        assert path.parts[:3] == (
+            "submodules",
+            "IsaacLab",
+            "source",
+        ), f"{package} source path {path} escapes the submodule"
+        assert (_REPO_ROOT / path / "setup.py").is_file(), f"{package} source path {path} has no setup.py"

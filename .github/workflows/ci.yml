@@ -10,7 +10,7 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job;
+    # Nightly at 06:00 UTC — runs the full suite (including the native-uv job).
     - cron: '0 6 * * *'
   workflow_dispatch:
 
@@ -98,40 +98,26 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
-  uv_changes:
-    name: Detect uv-related changes
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 5
-    # Only meaningful on PRs; other events always run the uv tests.
-    if: github.event_name == 'pull_request'
-    outputs:
-      uv: ${{ steps.filter.outputs.uv }}
-    steps:
-      # Queries the PR's changed files via the GitHub API; no checkout needed.
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            uv:
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - 'submodules/IsaacLab'
-              - 'submodules/IsaacLab/**'
-
   uv_test:
-    name: Run tests (native uv)
+    name: Run tests (native uv, ${{ matrix.variant }})
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
-    needs: [pre_commit, uv_changes]
-    # Runs nightly, on push to main, and on manual dispatch; on pull requests
-    # only when the PR touches the uv-managed dependency files
-    # (pyproject.toml, uv.lock, or the IsaacLab submodule). The !cancelled()
-    # guard keeps the job alive when uv_changes is skipped on non-PR events.
-    if: >-
-      !cancelled() &&
-      needs.pre_commit.result == 'success' &&
-      (github.event_name != 'pull_request' ||
-       needs.uv_changes.outputs.uv == 'true')
+    needs: [pre_commit]
+    # Excluded from pre-merge (pull requests); still runs nightly, on push to main, and on manual dispatch.
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      # The two sim-stack flavors of the native install: Isaac Lab from the
+      # published wheel (default group) and editable from the
+      # submodules/IsaacLab source checkout. `uv_flags` selects the flavor and
+      # must be passed to every `uv sync`/`uv run` (a bare `uv run` re-syncs
+      # to the default wheel group).
+      matrix:
+        include:
+          - variant: wheel
+            uv_flags: ""
+          - variant: source
+            uv_flags: "--no-default-groups --group isaacsim-source"
     env:
       # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
@@ -169,12 +155,17 @@ jobs:
           curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      # Out-of-source packaging check: validates the lockfile via the
-      # packaging tests, run in an out of source directory.
-      - name: Validate uv lock and editable package
+      - name: Validate uv lock
         run: |
           uv python install 3.12
           uv lock --check --offline --no-python-downloads
+
+      # Out-of-source packaging check: validates the lockfile via the
+      # packaging tests, run in an out of source directory. Variant
+      # independent, so run it once (wheel variant only).
+      - name: Validate editable package
+        if: matrix.variant == 'wheel'
+        run: |
           uv venv --python 3.12 /tmp/arena-package-venv
           uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
           uv pip install --python /tmp/arena-package-venv/bin/python pytest
@@ -184,27 +175,35 @@ jobs:
 
       # In-source full environment: sync the locked deps and run the sim suite.
       - name: Sync the locked environment
-        run: uv sync
+        run: uv sync ${{ matrix.uv_flags }}
+
+      # Prove the source flavor delivers what the wheel lacks: the Isaac Lab
+      # RL / imitation-learning packages and scripts.
+      - name: Smoke-test Isaac Lab RL/IL entry points
+        if: matrix.variant == 'source'
+        run: |
+          uv run ${{ matrix.uv_flags }} python -c "import isaaclab_rl, isaaclab_mimic, rsl_rl"
+          uv run ${{ matrix.uv_flags }} python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py --help
 
       - name: Run in-process Newton tests
         run: |
-          uv run pytest -sv --durations=0 -m with_newton \
+          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          uv run pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          uv run pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          uv run pytest -sv --durations=0 -m with_subprocess \
+          uv run ${{ matrix.uv_flags }} pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
   test:
@@ -382,7 +381,7 @@ jobs:
 
   test_curobo_deps:
     name: cuRobo deps check
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -482,7 +481,7 @@ jobs:
 
   build_and_push_curobo_image_post_merge:
     name: Build & push cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     # Separate from the base image so a cuRobo test/build failure never blocks the base :latest push.
     needs: [test, test_curobo_deps]
