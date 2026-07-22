@@ -94,11 +94,8 @@ python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 
-> **Note:** By default Isaac Lab is installed editable from the
-> `submodules/IsaacLab` checkout, so its RL/IL scripts and teleoperation
-> support are included. To consume Isaac Lab through its published wheel
-> instead, replace step 2 with `uv sync --no-default-groups --group isaacsim`;
-> see the
+> **Note:** We also offer installation methods that consume IsaacLab through
+> its published wheel. See the
 > [Installation Guide](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html)
 > for details.
 

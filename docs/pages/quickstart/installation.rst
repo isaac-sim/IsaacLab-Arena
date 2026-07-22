@@ -4,6 +4,26 @@ Installation
 This page describes how to install Isaac Lab Arena, either natively with ``uv``
 or from source inside a Docker container.
 
+.. list-table:: Supported workflows by installation method
+   :header-rows: 1
+
+   * - Installation method
+     - Evaluation
+     - Imitation learning
+     - Reinforcement learning
+   * - Docker
+     - ✓
+     - ✓
+     - ✓
+   * - uv (Isaac Lab from wheel)
+     - ✓
+     - ✗
+     - ✗
+   * - uv (Isaac Lab from source)
+     - ✓
+     - ✓
+     - ✓
+
 Supported Systems
 -----------------
 
@@ -21,8 +41,7 @@ the committed lockfile pins the complete environment. Two flavors are
 available, differing only in where Isaac Lab comes from:
 
 - **Source flavor (default):** Isaac Lab is installed editable from the
-  ``submodules/IsaacLab`` checkout, including Isaac Lab's
-  reinforcement-learning, imitation-learning, and teleoperation support.
+  ``submodules/IsaacLab`` checkout.
 - **Wheel flavor:** Isaac Lab is installed from the published wheel, which
   does not include Isaac Lab's RL/IL scripts.
 
@@ -46,12 +65,7 @@ Install the default (source) flavor and activate the environment:
 ``uv sync`` creates a Python virtual environment in ``.venv/`` (pinned by
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
 ``submodules/IsaacLab``), and pulls the matching Isaac Sim, PyTorch, and
-Newton wheels at the versions pinned by the committed lockfile. Isaac Lab's
-scripts are then available directly from the submodule, e.g.:
-
-.. code-block:: bash
-
-    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py --help
+Newton wheels at the versions pinned by the committed lockfile.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -95,11 +109,16 @@ submodule checkout:
 
 .. code-block:: bash
 
-    uv sync --no-default-groups --group isaacsim
+    uv sync --no-default-groups --group isaaclab-from-wheel
     source .venv/bin/activate
 
-Everything after activation works exactly as in the source flavor, except
-that Isaac Lab's RL/IL scripts and teleoperation support are not available.
+.. note::
+   The wheel flavor does not support the
+   :doc:`imitation learning </pages/example_workflows/imitation_learning/index>`
+   and
+   :doc:`reinforcement learning </pages/example_workflows/reinforcement_learning_workflows/index>`
+   workflows: the published Isaac Lab wheel does not include the scripts they
+   rely on. Use the default source flavor for those workflows.
 
 .. note::
    The two flavors are mutually exclusive within the single ``.venv``: syncing

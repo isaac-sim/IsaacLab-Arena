@@ -38,11 +38,11 @@ def _requirement_name(requirement: str) -> str:
 
 
 def _arena_pin(package: str) -> str:
-    """Return the version Arena pins ``package`` to in the isaacsim dependency group."""
-    groups = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaacsim"]
+    """Return the version Arena pins ``package`` to in the isaaclab-from-wheel dependency group."""
+    groups = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-wheel"]
     matches = [re.fullmatch(rf"{package}==(.+)", requirement) for requirement in groups]
     versions = [match.group(1) for match in matches if match]
-    assert len(versions) == 1, f"expected exactly one {package} pin in the isaacsim group, found {versions}"
+    assert len(versions) == 1, f"expected exactly one {package} pin in the isaaclab-from-wheel group, found {versions}"
     return versions[0]
 
 
@@ -76,37 +76,37 @@ def test_pyglet_constraint_matches_isaaclab_submodule():
     assert _arena_constraint("pyglet") == f"pyglet{match.group(1)}"
 
 
-def test_isaacsim_source_group_covers_submodule_packages():
-    """The isaacsim-source group tracks the submodule's own uv dev project.
+def test_isaaclab_from_source_group_covers_submodule_packages():
+    """The isaaclab-from-source group tracks the submodule's own uv dev project.
 
     Every isaaclab package upstream's isaaclab-dev project depends on must
-    appear in Arena's isaacsim-source dependency group, so a submodule bump
+    appear in Arena's isaaclab-from-source dependency group, so a submodule bump
     that adds or renames a source package fails loudly. Arena may declare a
     superset (e.g. isaaclab-mimic and isaaclab-teleop, which the published
     wheel bundles but upstream's dev project omits).
     """
     upstream = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
     upstream_packages = {_requirement_name(req) for req in upstream if _requirement_name(req).startswith("isaaclab")}
-    group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaacsim-source"]
+    group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-source"]
     group_packages = {_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")}
     missing = upstream_packages - group_packages
-    assert not missing, f"isaacsim-source group is missing submodule packages: {sorted(missing)}"
+    assert not missing, f"isaaclab-from-source group is missing submodule packages: {sorted(missing)}"
 
 
-def test_isaacsim_source_group_entries_have_path_sources():
-    """Every isaaclab package in the isaacsim-source group maps to an editable path source.
+def test_isaaclab_from_source_group_entries_have_path_sources():
+    """Every isaaclab package in the isaaclab-from-source group maps to an editable path source.
 
-    The source must be gated on the isaacsim-source group and point at an
+    The source must be gated on the isaaclab-from-source group and point at an
     existing directory in the Isaac Lab submodule; otherwise the package
     silently falls back to the published wheel.
     """
     pyproject = tomllib.loads(_ARENA_PYPROJECT.read_text())
-    group = pyproject["dependency-groups"]["isaacsim-source"]
+    group = pyproject["dependency-groups"]["isaaclab-from-source"]
     sources = pyproject["tool"]["uv"]["sources"]
     for package in sorted(_requirement_name(req) for req in group if _requirement_name(req).startswith("isaaclab")):
         assert package in sources, f"no [tool.uv.sources] entry for {package}"
-        entries = [entry for entry in sources[package] if entry.get("group") == "isaacsim-source"]
-        assert len(entries) == 1, f"expected one isaacsim-source-gated source for {package}, found {entries}"
+        entries = [entry for entry in sources[package] if entry.get("group") == "isaaclab-from-source"]
+        assert len(entries) == 1, f"expected one isaaclab-from-source-gated source for {package}, found {entries}"
         (entry,) = entries
         assert entry.get("editable") is True, f"{package} source is not editable"
         path = Path(entry["path"])

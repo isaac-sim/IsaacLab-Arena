@@ -114,7 +114,7 @@ jobs:
       matrix:
         include:
           - variant: wheel
-            uv_flags: "--no-default-groups --group isaacsim"
+            uv_flags: "--no-default-groups --group isaaclab-from-wheel"
           - variant: source
             uv_flags: ""
     env:

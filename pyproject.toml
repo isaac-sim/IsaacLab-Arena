@@ -40,10 +40,10 @@ dev = [
 # groups -- so Docker keeps getting Isaac Lab and Isaac Sim from its base
 # image and submodule, undisturbed by these pins.
 #
-# isaacsim: Isaac Lab from its published wheel. Select it with:
-#   uv sync --no-default-groups --group isaacsim
+# isaaclab-from-wheel: Isaac Lab from its published wheel. Select it with:
+#   uv sync --no-default-groups --group isaaclab-from-wheel
 [dependency-groups]
-isaacsim = [
+isaaclab-from-wheel = [
     "isaaclab[isaacsim,all]==3.0.0b2",
     "rsl-rl-lib==5.0.1",
     # QP solver for the Pink IK stack (whole-body control). The isaaclab wheel
@@ -60,10 +60,11 @@ isaacsim = [
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
 ]
-# isaacsim-source: Isaac Lab installed editable from the submodules/IsaacLab
-# source checkout instead of the published wheel. The published isaaclab
-# wheel omits the RL / imitation-learning scripts. Installed by a bare
-# `uv sync` (the default flavor, see default-groups below).
+# isaaclab-from-source: Isaac Lab installed editable from the
+# submodules/IsaacLab source checkout instead of the published wheel. The
+# published isaaclab wheel omits the RL / imitation-learning scripts.
+# Installed by a bare `uv sync` (the default flavor, see default-groups
+# below).
 # The package set mirrors upstream's isaaclab-dev project
 # (submodules/IsaacLab/pyproject.toml) plus isaaclab-mimic, isaaclab-teleop,
 # and the visualizers extras, to match what the published wheel's `all` extra
@@ -71,7 +72,7 @@ isaacsim = [
 # `viser` extra, for parity with the wheel env, which does not ship viser.
 # TODO(alexmillane, 2026.07.22): Remove these two flavors of installation once
 # Isaac Lab's artifact distributes their scripts.
-isaacsim-source = [
+isaaclab-from-source = [
     "isaaclab[isaacsim]",
     "isaaclab-assets",
     "isaaclab-contrib",
@@ -88,8 +89,8 @@ isaacsim-source = [
     "isaaclab-teleop",
     "isaaclab-visualizers[newton,rerun]",
     # Direct torch deps so [tool.uv.sources] routes them to the cu128 index
-    # (as in the `isaacsim` group above). Pinned to the versions the source
-    # resolution forces via isaaclab's isaacsim extra.
+    # (as in the `isaaclab-from-wheel` group above). Pinned to the versions
+    # the source resolution forces via isaaclab's isaacsim extra.
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
@@ -100,14 +101,14 @@ isaacsim-source = [
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 # Install the source-based sim stack (Isaac Lab editable from the submodule)
 # on a bare `uv sync`.
-default-groups = ["isaacsim-source"]
+default-groups = ["isaaclab-from-source"]
 # The two sim-stack flavors resolve isaaclab (and possibly torch/isaacsim) to
 # different versions and sources; uv forks the resolution per flavor and
 # refuses to activate both groups at once.
 conflicts = [
     [
-        { group = "isaacsim" },
-        { group = "isaacsim-source" },
+        { group = "isaaclab-from-wheel" },
+        { group = "isaaclab-from-source" },
     ],
 ]
 # Isaac Lab is explicitly pinned to a beta, while Isaac Sim requires a
@@ -123,14 +124,14 @@ index-strategy = "first-index"
 # beat a transitive constraint that would otherwise pull numpy<2.
 # Pin coverage and packaging to the versions isaacsim hard-pins: the isaaclab
 # source checkout pins coverage==7.6.1 and packaging<24, which are
-# unresolvable against isaacsim in the isaacsim-source flavor; the wheel
+# unresolvable against isaacsim in the isaaclab-from-source flavor; the wheel
 # flavor already locks 7.4.4 / 26.0 (the published isaaclab wheels do not
 # carry these pins).
 # Pin websockets to the version the Docker environment validates:
 # isaacsim-kernel's ==12.0 pin is over-strict (the Docker build runs Isaac
 # Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
 # and isaacteleop[cloudxr] -- needed for teleop sessions in the
-# isaacsim-source flavor -- requires websockets>=14.
+# isaaclab-from-source flavor -- requires websockets>=14.
 override-dependencies = [
     "numpy==2.3.1",
     "coverage==7.4.4",
@@ -172,7 +173,7 @@ explicit = true
 # platform, see `environments` above).
 # mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
 # prereleases, so route it to PyPI.
-# isaacteleop (pulled by isaaclab-teleop in the isaacsim-source flavor): the
+# isaacteleop (pulled by isaaclab-teleop in the isaaclab-from-source flavor): the
 # NVIDIA index carries only an incompatible 1.4 prerelease, so route it to
 # PyPI, which has the required stable 1.3.x (the same version the Docker
 # build installs).
@@ -181,26 +182,26 @@ isaacteleop = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
-# In the isaacsim-source flavor the Isaac Lab packages come editable from the
+# In the isaaclab-from-source flavor the Isaac Lab packages come editable from the
 # submodule checkout (one entry per source/isaaclab* package, mirroring
 # submodules/IsaacLab/pyproject.toml). When the group is inactive these
 # entries do not apply and isaaclab falls back to the wheel on the NVIDIA
-# index (the `isaacsim` group's pin).
-isaaclab = [{ path = "submodules/IsaacLab/source/isaaclab", editable = true, group = "isaacsim-source" }]
-isaaclab-assets = [{ path = "submodules/IsaacLab/source/isaaclab_assets", editable = true, group = "isaacsim-source" }]
-isaaclab-contrib = [{ path = "submodules/IsaacLab/source/isaaclab_contrib", editable = true, group = "isaacsim-source" }]
-isaaclab-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_experimental", editable = true, group = "isaacsim-source" }]
-isaaclab-mimic = [{ path = "submodules/IsaacLab/source/isaaclab_mimic", editable = true, group = "isaacsim-source" }]
-isaaclab-newton = [{ path = "submodules/IsaacLab/source/isaaclab_newton", editable = true, group = "isaacsim-source" }]
-isaaclab-ov = [{ path = "submodules/IsaacLab/source/isaaclab_ov", editable = true, group = "isaacsim-source" }]
-isaaclab-ovphysx = [{ path = "submodules/IsaacLab/source/isaaclab_ovphysx", editable = true, group = "isaacsim-source" }]
-isaaclab-physx = [{ path = "submodules/IsaacLab/source/isaaclab_physx", editable = true, group = "isaacsim-source" }]
-isaaclab-ppisp = [{ path = "submodules/IsaacLab/source/isaaclab_ppisp", editable = true, group = "isaacsim-source" }]
-isaaclab-rl = [{ path = "submodules/IsaacLab/source/isaaclab_rl", editable = true, group = "isaacsim-source" }]
-isaaclab-tasks = [{ path = "submodules/IsaacLab/source/isaaclab_tasks", editable = true, group = "isaacsim-source" }]
-isaaclab-tasks-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_tasks_experimental", editable = true, group = "isaacsim-source" }]
-isaaclab-teleop = [{ path = "submodules/IsaacLab/source/isaaclab_teleop", editable = true, group = "isaacsim-source" }]
-isaaclab-visualizers = [{ path = "submodules/IsaacLab/source/isaaclab_visualizers", editable = true, group = "isaacsim-source" }]
+# index (the `isaaclab-from-wheel` group's pin).
+isaaclab = [{ path = "submodules/IsaacLab/source/isaaclab", editable = true, group = "isaaclab-from-source" }]
+isaaclab-assets = [{ path = "submodules/IsaacLab/source/isaaclab_assets", editable = true, group = "isaaclab-from-source" }]
+isaaclab-contrib = [{ path = "submodules/IsaacLab/source/isaaclab_contrib", editable = true, group = "isaaclab-from-source" }]
+isaaclab-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_experimental", editable = true, group = "isaaclab-from-source" }]
+isaaclab-mimic = [{ path = "submodules/IsaacLab/source/isaaclab_mimic", editable = true, group = "isaaclab-from-source" }]
+isaaclab-newton = [{ path = "submodules/IsaacLab/source/isaaclab_newton", editable = true, group = "isaaclab-from-source" }]
+isaaclab-ov = [{ path = "submodules/IsaacLab/source/isaaclab_ov", editable = true, group = "isaaclab-from-source" }]
+isaaclab-ovphysx = [{ path = "submodules/IsaacLab/source/isaaclab_ovphysx", editable = true, group = "isaaclab-from-source" }]
+isaaclab-physx = [{ path = "submodules/IsaacLab/source/isaaclab_physx", editable = true, group = "isaaclab-from-source" }]
+isaaclab-ppisp = [{ path = "submodules/IsaacLab/source/isaaclab_ppisp", editable = true, group = "isaaclab-from-source" }]
+isaaclab-rl = [{ path = "submodules/IsaacLab/source/isaaclab_rl", editable = true, group = "isaaclab-from-source" }]
+isaaclab-tasks = [{ path = "submodules/IsaacLab/source/isaaclab_tasks", editable = true, group = "isaaclab-from-source" }]
+isaaclab-tasks-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_tasks_experimental", editable = true, group = "isaaclab-from-source" }]
+isaaclab-teleop = [{ path = "submodules/IsaacLab/source/isaaclab_teleop", editable = true, group = "isaaclab-from-source" }]
+isaaclab-visualizers = [{ path = "submodules/IsaacLab/source/isaaclab_visualizers", editable = true, group = "isaaclab-from-source" }]
 
 [tool.setuptools.packages.find]
 where = ["."]
