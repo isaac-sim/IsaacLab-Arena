@@ -292,8 +292,8 @@ def test_solver_respects_position_limits():
     assert 0.2 <= pos[1] <= 0.5, f"y={pos[1]} should be within [0.2, 0.5]"
 
 
-def test_solver_respects_radial_position_limits():
-    """Solver moves an object inside a radial PositionLimits region."""
+def test_solver_respects_annular_position_limits():
+    """Solver moves an object from an annulus center into its allowed radial band."""
     table = DummyObject(
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
@@ -302,31 +302,44 @@ def test_solver_respects_radial_position_limits():
     table.add_relation(IsAnchor())
     box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(PositionLimits(center_x=0.5, center_y=0.5, radius_max=0.25))
-
-    result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
-        objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}]
-    )
-    x, y, _ = result[0][box]
-    assert ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5 <= 0.251
-
-
-def test_solver_escapes_exact_radial_center_for_lower_radius_limit():
-    """The solver escapes the radial center when a lower radius requires it."""
-
-    table = DummyObject(
-        name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
-    )
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-    table.add_relation(IsAnchor())
-    box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
-    box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(PositionLimits(center_x=0.5, center_y=0.5, radius_min=0.25))
+    box.add_relation(PositionLimits(center_x=0.5, center_y=0.5, radius_min=0.25, radius_max=0.5))
 
     result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
         objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)}]
     )
-
     x, y, _ = result[0][box]
-    assert ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5 >= 0.249
+    radius = ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5
+    assert 0.249 <= radius <= 0.501
+
+
+def test_solver_respects_box_constrained_annular_position_limits():
+    """Solver satisfies intersecting axial-box and annular radial constraints."""
+    table = DummyObject(
+        name="table",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
+    )
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
+    box.add_relation(On(table, clearance_m=0.01))
+    box.add_relation(
+        PositionLimits(
+            x_min=0.1,
+            x_max=0.4,
+            y_min=0.2,
+            y_max=0.8,
+            center_x=0.5,
+            center_y=0.5,
+            radius_min=0.2,
+            radius_max=0.4,
+        )
+    )
+
+    result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
+        objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (1.5, 0.5, 0.11)}]
+    )
+    x, y, _ = result[0][box]
+    radius = ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5
+    assert 0.1 <= x <= 0.4
+    assert 0.2 <= y <= 0.8
+    assert 0.199 <= radius <= 0.401
