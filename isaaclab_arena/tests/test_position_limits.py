@@ -44,7 +44,14 @@ def test_position_limits_allows_single_bound():
     assert relation.x_max is None
 
 
-@pytest.mark.parametrize("kwargs", [{"radius_max": 0.2}, {"center_x": 0.0, "radius_max": -0.2}, {"center_x": 0.0, "center_y": 0.0, "radius_min": 0.3, "radius_max": 0.3}])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"radius_max": 0.2},
+        {"center_x": 0.0, "radius_max": -0.2},
+        {"center_x": 0.0, "center_y": 0.0, "radius_min": 0.3, "radius_max": 0.3},
+    ],
+)
 def test_position_limits_rejects_invalid_radial_bounds(kwargs):
     with pytest.raises(AssertionError):
         PositionLimits(**kwargs)
@@ -160,14 +167,22 @@ def test_position_limits_unconstrained_axes_ignored():
 def test_position_limits_radial_annulus_loss():
     relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5, radius_max=1.0)
     strategy = PositionLimitsLossStrategy(slope=10.0)
-    assert torch.isclose(strategy.compute_loss(relation, torch.tensor([0.75, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(0.0))
-    assert torch.isclose(strategy.compute_loss(relation, torch.tensor([0.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5))
-    assert torch.isclose(strategy.compute_loss(relation, torch.tensor([1.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5))
+    assert torch.isclose(
+        strategy.compute_loss(relation, torch.tensor([0.75, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(0.0)
+    )
+    assert torch.isclose(
+        strategy.compute_loss(relation, torch.tensor([0.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5)
+    )
+    assert torch.isclose(
+        strategy.compute_loss(relation, torch.tensor([1.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5)
+    )
 
 
 def test_position_limits_radial_bounds_preserve_batch_shape():
     relation = PositionLimits(center_x=0.0, center_y=0.0, radius_max=1.0)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, torch.tensor([[0.5, 0.0, 0.0], [1.5, 0.0, 0.0]]), _DUMMY_BBOX)
+    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(
+        relation, torch.tensor([[0.5, 0.0, 0.0], [1.5, 0.0, 0.0]]), _DUMMY_BBOX
+    )
     assert loss.shape == (2,)
     assert torch.allclose(loss, torch.tensor([0.0, 5.0]))
 
@@ -186,15 +201,17 @@ def test_position_limits_radial_loss_scales_with_weight():
 def test_position_limits_radius_min_only_loss():
     relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
     strategy = PositionLimitsLossStrategy(slope=10.0)
-    assert torch.isclose(strategy.compute_loss(relation, torch.tensor([0.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5))
-    assert torch.isclose(strategy.compute_loss(relation, torch.tensor([0.75, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(0.0))
+    assert torch.isclose(
+        strategy.compute_loss(relation, torch.tensor([0.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5)
+    )
+    assert torch.isclose(
+        strategy.compute_loss(relation, torch.tensor([0.75, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(0.0)
+    )
 
 
 def test_position_limits_radial_and_axis_losses_compose():
     relation = PositionLimits(x_max=0.5, center_x=0.0, center_y=0.0, radius_max=0.5)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(
-        relation, torch.tensor([1.0, 0.0, 0.0]), _DUMMY_BBOX
-    )
+    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, torch.tensor([1.0, 0.0, 0.0]), _DUMMY_BBOX)
     assert torch.isclose(loss, torch.tensor(10.0))
 
 

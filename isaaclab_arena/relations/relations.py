@@ -447,15 +447,17 @@ class PositionLimits(UnaryRelation):
     ):
         has_axis_bound = any(bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max))
         has_radial_bound = radius_min is not None or radius_max is not None
-        assert has_axis_bound or has_radial_bound, "At least one axis or radial bound must be specified for PositionLimits"
-        assert not has_radial_bound or (center_x is not None and center_y is not None), (
-            "center_x and center_y are required when setting a radial bound"
-        )
+        assert (
+            has_axis_bound or has_radial_bound
+        ), "At least one axis or radial bound must be specified for PositionLimits"
+        assert not has_radial_bound or (
+            center_x is not None and center_y is not None
+        ), "center_x and center_y are required when setting a radial bound"
         assert radius_min is None or radius_min >= 0.0, "radius_min must be non-negative"
         assert radius_max is None or radius_max >= 0.0, "radius_max must be non-negative"
-        assert radius_min is None or radius_max is None or radius_min < radius_max, (
-            "radius_min must be less than radius_max"
-        )
+        assert (
+            radius_min is None or radius_max is None or radius_min < radius_max
+        ), "radius_min must be less than radius_max"
         if x_min is not None and x_max is not None:
             assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
         if y_min is not None and y_max is not None:

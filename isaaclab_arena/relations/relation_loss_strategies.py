@@ -553,7 +553,10 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for PositionLimits relations.
 
     Per constrained axis: band loss when both bounds are set, single-boundary
-    loss when only one bound is set. Unconstrained axes contribute zero loss.
+    loss when only one bound is set. Optional radial bounds apply the same
+    losses to the object's world-XY distance from their center. Axis and radial
+    losses are added, so they define an intersection. Unconstrained dimensions
+    contribute zero loss.
     """
 
     def __init__(self, slope: float = 100.0):

@@ -180,6 +180,53 @@ Parameters:
 - ``x``, ``y``, ``z``: Target world coordinates (any can be ``None`` to leave unconstrained)
 - ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
 
+**PositionLimits**
+
+Constrains an object's world-frame placement origin to an axis-aligned box, a disk or
+annulus in the world XY plane, or their intersection. Rectangular bounds use
+``x_min``/``x_max``, ``y_min``/``y_max``, and ``z_min``/``z_max``. Radial bounds
+measure the object's placement origin from ``(center_x, center_y)``: ``radius_max``
+creates a disk, ``radius_min`` excludes its interior, and using both creates an
+annulus. These limits constrain the origin only; they do not account for the object's
+bounding-box footprint.
+
+For example, this keeps the object's origin within 0.25 m of a world-XY point while
+``On`` determines its height:
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.relations import On, PositionLimits
+
+   object.add_relation(On(table_reference))
+   object.add_relation(
+       PositionLimits(center_x=0.4, center_y=-0.2, radius_max=0.25)
+   )
+
+The equivalent YAML relation is:
+
+.. code-block:: yaml
+
+   relations:
+     - kind: position_limits
+       subject: object
+       params:
+         center_x: 0.4
+         center_y: -0.2
+         radius_max: 0.25
+
+All specified bounds are enforced together: radial limits intersect with any
+rectangular limits, rather than replacing them. At least one rectangular or radial
+bound is required. When either radial bound is specified, both ``center_x`` and
+``center_y`` are required; radii must be nonnegative; and when both radial bounds are
+present, ``radius_min`` must be strictly less than ``radius_max``.
+
+Parameters:
+
+- ``x_min``, ``x_max``, ``y_min``, ``y_max``, ``z_min``, ``z_max``: Optional world-coordinate rectangular bounds
+- ``center_x``, ``center_y``: Required world-XY disk or annulus center when a radial bound is specified
+- ``radius_min``, ``radius_max``: Optional nonnegative radial bounds in meters
+- ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
+
 Anchors
 ~~~~~~~
 
@@ -275,6 +322,7 @@ Each relation type contributes a differentiable loss component:
 - **On**: Band loss on X/Y (child footprint within parent), point loss on Z (child bottom at parent top)
 - **NextTo**: Half-plane loss (correct side), band loss (perpendicular alignment), distance loss (target gap)
 - **AtPosition**: Point loss on each constrained axis
+- **PositionLimits**: Band or one-sided loss for each rectangular bound and optional world-XY radial bound
 
 Losses use linear ReLU-style functions (zero inside the valid region, linearly growing outside),
 which provide constant gradients that work well with the Adam optimizer.
