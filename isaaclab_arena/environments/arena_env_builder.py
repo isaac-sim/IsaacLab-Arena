@@ -47,7 +47,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
-from isaaclab_arena_curobo import configure_reachability_gate
+from isaaclab_arena_curobo import configure_reachability_validator
 
 
 class ArenaEnvBuilder:
@@ -99,7 +99,7 @@ class ArenaEnvBuilder:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
         # No-ops unless the embodiment has a registered cuRobo config and the solver deps are importable.
-        configure_reachability_gate(placer_params, self.arena_env.embodiment)
+        configure_reachability_validator(placer_params, self.arena_env.embodiment)
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,

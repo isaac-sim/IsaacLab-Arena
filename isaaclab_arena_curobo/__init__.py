@@ -14,17 +14,16 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
 
-def configure_reachability_gate(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
-    """Install the cuRobo IK-reachability gate on ``placer_params`` (imports the solver on first use).
+def configure_reachability_validator(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
+    """Install the cuRobo IK-reachability validator on placer_params.extra_validators (imports the solver on first use).
 
-    Returns True when the gate was installed, False when it cannot run and is skipped -- either because the
-    solver deps (torch, cuRobo) are absent (e.g. a base image), or the embodiment is None or lacks a
-    registered cuRobo config. The env builder calls this unconditionally; all skip decisions live here.
+    Returns True when the reachability check implementation was installed, False when it cannot run and is skipped -- either because the
+    solver deps (torch, cuRobo) are absent, or the embodiment has no registered cuRobo config.
     """
     try:
-        from isaaclab_arena_curobo.ik_reachability_validator import configure_reachability_gate as _configure
+        from isaaclab_arena_curobo.ik_reachability_validator import configure_reachability_validator as _configure
     except ImportError:
-        # Base image without torch/cuRobo -- reachability is simply not enforced.
+        #  Dev environment without cuRobo deps
         return False
 
     return _configure(placer_params, embodiment)

@@ -132,9 +132,7 @@ def embodiment_curobo_cfg(embodiment: EmbodimentBase):
 class ReachabilityValidator(PlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
 
-    Wraps the reachability predicate as a gated ``PlacementValidator`` so the placer runs it only on
-    candidates that already pass the cheaper geometry checks. Built via ``build_reachability_validator`` and
-    injected through ``ObjectPlacerParams.extra_validators``; core placement never imports cuRobo itself.
+    Built via ``build_reachability_validator`` aninjected through ``ObjectPlacerParams.extra_validators``.
     """
 
     check = PlacementCheck.IK_REACHABLE
@@ -192,8 +190,8 @@ def build_reachability_validator(
     return ReachabilityValidator(predicate)
 
 
-def configure_reachability_gate(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
-    """Install the cuRobo IK-reachability gate on placer_params.extra_validators and report whether it could run.
+def configure_reachability_validator(placer_params: ObjectPlacerParams, embodiment: EmbodimentBase | None) -> bool:
+    """Install the cuRobo IK-reachability validator on placer_params.extra_validators and report whether it could run.
 
     Args:
         placer_params: Placement params to receive the validator; its reachability_config tunes the gate.
