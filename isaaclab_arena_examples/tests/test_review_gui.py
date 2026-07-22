@@ -36,11 +36,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     parse_sim_preview_params,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
-    ENV_SPACING_M,
-    NUM_ENVS,
-    NUM_STEPS,
-)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import NUM_ENVS, NUM_STEPS
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     build_asset_cards,
     object_set_member_key,
@@ -88,11 +84,11 @@ class TestSimPreviewParams:
             parse_sim_preview_params({})
 
     def test_parse_sim_preview_params_custom(self):
-        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
+        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3}) == (8, 3)
 
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
-            parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
+            parse_sim_preview_params({"num_envs": 0, "num_steps": 10})
 
 
 class TestBuildAssetCards:
@@ -279,7 +275,6 @@ class TestInitializeState:
         assert session_state["editor_version"] == 0
         assert session_state["sim_preview_num_envs"] == NUM_ENVS
         assert session_state["sim_preview_num_steps"] == NUM_STEPS
-        assert session_state["sim_preview_env_spacing"] == ENV_SPACING_M
 
     def test_loads_yaml_from_disk(self, session_state, valid_spec_yaml: str, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -545,17 +540,17 @@ class TestSimAppSimPreview:
             response = client.run_sim_preview(
                 yaml_text,
                 num_envs=1,
-                num_steps=0,
-                env_spacing=1.5,
+                num_steps=1,
             )
             assert response["ok"] is True
 
-            first_frame = Path(response["first_frame"])
-            last_frame = Path(response["last_frame"])
-            assert first_frame.is_file() and first_frame.stat().st_size > 0
-            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            viewport_video = Path(response["viewport_video"])
+            assert viewport_video.is_file() and viewport_video.stat().st_size > 0
+            assert response["camera_videos"]
+            assert all(Path(video["path"]).is_file() for video in response["camera_videos"])
             assert response["num_envs"] == 1
-            assert response["num_steps"] == 0
+            assert response["num_steps"] == 1
+            assert response["env_spacing"] > 0.5
 
             client.shutdown()
         finally:

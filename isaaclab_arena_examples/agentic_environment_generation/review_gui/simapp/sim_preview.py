@@ -7,14 +7,12 @@
 
 from __future__ import annotations
 
-import math
 import sys
 import time
 import uuid
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import nullcontext, suppress
+from pathlib import Path
 from typing import Any
-
-from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -22,50 +20,33 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
     teardown_simulation_app,
 )
+from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     CAPTURE_DONE_TAIL_UPDATES,
-    PRE_CAPTURE_UPDATES,
-    capture_viewport_png,
     pump_app,
     sim_preview_cache_dir,
 )
 
 # Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
 _PREVIEW_LAYOUTS_PER_ENV = 2
+_ENV_SPACING_BUFFER_M = 0.5
 
 
-def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
+def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int]:
     """Read required sim-preview rollout settings from a JSON-RPC request."""
-    missing = [key for key in ("num_envs", "num_steps", "env_spacing") if key not in req]
+    missing = [key for key in ("num_envs", "num_steps") if key not in req]
     if missing:
         raise ValueError(f"missing required sim preview params: {', '.join(missing)}")
     num_envs = int(req["num_envs"])
     num_steps = int(req["num_steps"])
-    env_spacing = float(req["env_spacing"])
     assert num_envs >= 1, f"num_envs must be >= 1, got {num_envs}"
-    assert num_steps >= 0, f"num_steps must be >= 0, got {num_steps}"
-    assert env_spacing > 0, f"env_spacing must be > 0, got {env_spacing}"
-    return num_envs, num_steps, env_spacing
+    assert num_steps >= 1, f"num_steps must be >= 1, got {num_steps}"
+    return num_envs, num_steps
 
 
 def _preview_log(started_at: float, message: str) -> None:
     elapsed = time.monotonic() - started_at
     print(f"[sim_preview] +{elapsed:.1f}s {message}", file=sys.stderr, flush=True)
-
-
-@contextmanager
-def _skip_task_viewer_cfg(arena_env):
-    """Stub task viewer cfg during compose; preview replaces it with the overview camera."""
-    task = arena_env.task
-    if task is None:
-        yield
-        return
-    original_get_viewer_cfg = task.get_viewer_cfg
-    task.get_viewer_cfg = lambda: ViewerCfg()
-    try:
-        yield
-    finally:
-        task.get_viewer_cfg = original_get_viewer_cfg
 
 
 def _preview_cfg(*, num_envs: int, env_spacing: float) -> ArenaEnvBuilderCfg:
@@ -76,28 +57,33 @@ def _preview_cfg(*, num_envs: int, env_spacing: float) -> ArenaEnvBuilderCfg:
     )
 
 
-def _overview_camera(
-    num_envs: int, env_spacing: float
-) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """World-frame overview camera for the env grid."""
-    cols = int(math.ceil(math.sqrt(num_envs)))
-    rows = int(math.ceil(num_envs / cols))
-    max_x = max((cols - 1) * env_spacing, 0.0)
-    max_y = max((rows - 1) * env_spacing, 0.0)
-    span = max(max_x, max_y) + env_spacing
-    target = (0.0, 0.0, 0.0)
-    height = span * 0.8 + target[2]
-    back = span * 1.1
-    side = span * 1.1
-    eye = (side, back, height)
-    return eye, target
+def _compute_env_spacing(arena_env) -> float:
+    """Return the largest background XY dimension plus a safety buffer."""
+    from isaaclab_arena.assets.background import Background
+
+    backgrounds = [asset for asset in arena_env.scene.assets.values() if isinstance(asset, Background)]
+    assert backgrounds, "Sim preview requires a background asset to compute environment spacing"
+    max_dimension_m = max(float(background.get_bounding_box().size[0, :2].max()) for background in backgrounds)
+    return max_dimension_m + _ENV_SPACING_BUFFER_M
 
 
-def _apply_overview_camera(env, app, num_envs: int, env_spacing: float) -> None:
-    """Point the Kit viewport at the full multi-env grid (world frame)."""
-    eye, target = _overview_camera(num_envs, env_spacing)
-    env.unwrapped.sim.set_camera_view(eye, target)
-    pump_app(app, count=PRE_CAPTURE_UPDATES)
+def _collect_recorded_videos(video_dir: Path) -> tuple[Path, list[dict[str, Any]]]:
+    """Return the viewport video and parsed per-env camera videos."""
+    viewport_videos: list[Path] = []
+    camera_videos: list[dict[str, Any]] = []
+    for path in sorted(video_dir.glob("*.mp4")):
+        parsed = parse_episode_video_filename(path.name)
+        if parsed is None:
+            viewport_videos.append(path)
+            continue
+        camera_videos.append({
+            "path": str(path),
+            "env_id": parsed.env_index,
+            "camera_name": parsed.camera_name,
+        })
+
+    assert viewport_videos, f"Viewport recorder produced no mp4 in {video_dir}"
+    return viewport_videos[0], camera_videos
 
 
 def _close_env_and_reset_sim(
@@ -128,14 +114,15 @@ def run_sim_preview(
     *,
     num_envs: int,
     num_steps: int,
-    env_spacing: float,
 ) -> dict[str, Any]:
-    """Run relation-solver preview and capture viewport frames."""
+    """Run a zero-action rollout and record viewport and embodiment-camera videos."""
     import gymnasium as gym
     import yaml
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.evaluation.policy_runner import rollout_policy
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
+    from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
@@ -148,64 +135,56 @@ def run_sim_preview(
         raise ValueError(f"expected mapping, got {type(raw).__name__}")
 
     graph_spec = ArenaEnvGraphSpec.model_validate(raw)
-    arena_env = graph_spec.to_arena_env()
+    arena_env = graph_spec.to_arena_env(enable_cameras=True)
     preview_name = f"{arena_env.name}_preview_{uuid.uuid4().hex[:8]}"
     arena_env.name = preview_name
     _preview_log(started_at, f"validated spec → arena env ({preview_name})")
 
+    env_spacing = _compute_env_spacing(arena_env)
     builder_cfg = _preview_cfg(num_envs=num_envs, env_spacing=env_spacing)
     builder = ArenaEnvBuilder(arena_env, builder_cfg)
     policy = ZeroActionPolicy(ZeroActionPolicyCfg())
 
-    cache_dir = sim_preview_cache_dir()
     stamp = int(time.time() * 1000)
-    first_path = cache_dir / f"{preview_name}_{stamp}_first.png"
-    last_path = cache_dir / f"{preview_name}_{stamp}_last.png"
+    video_dir = sim_preview_cache_dir() / f"{preview_name}_{stamp}"
+    video_cfg = VideoRecordingCfg(
+        record_viewport_video=True,
+        record_camera_video=True,
+        video_base_dir=str(video_dir),
+        flush_partial_camera_videos=True,
+    )
 
     pool_layouts = builder_cfg.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
     try:
-        eye, target = _overview_camera(builder_cfg.num_envs, builder_cfg.env_spacing)
         _preview_log(
             started_at,
             f"solving spatial relations ({builder_cfg.num_envs} envs, {pool_layouts} layout pool)…",
         )
         t_relations = time.monotonic()
-        with _skip_task_viewer_cfg(arena_env):
-            env_cfg, env_kwargs = builder.compose_manager_cfg()
+        env_cfg, env_kwargs = builder.compose_manager_cfg()
         _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
 
-        env_cfg.viewer = ViewerCfg(eye=eye, lookat=target, origin_type="world")
         _preview_log(started_at, "spawning sim scene (gym.make)…")
         t_spawn = time.monotonic()
-        env = builder.make_registered(env_cfg, env_kwargs)
+        env = builder.make_registered(env_cfg, env_kwargs, render_mode=video_cfg.render_mode)
+        env = wrap_env_for_video(env, video_cfg, num_steps=num_steps, num_episodes=None)
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
-        obs, _ = env.reset()
-        _apply_overview_camera(env, app, builder_cfg.num_envs, builder_cfg.env_spacing)
-
-        if capture_viewport_png(app, first_path) is None:
-            raise RuntimeError("failed to capture first-frame viewport screenshot")
-
-        for _ in range(num_steps):
-            action = policy.get_action(env, obs)
-            obs, _, _, _, _ = env.step(action)
-
-        _apply_overview_camera(env, app, builder_cfg.num_envs, builder_cfg.env_spacing)
-
-        if capture_viewport_png(app, last_path) is None:
-            raise RuntimeError("failed to capture last-frame viewport screenshot")
+        rollout_policy(env, policy, num_steps=num_steps, num_episodes=None)
+        env.close()
+        viewport_video, camera_videos = _collect_recorded_videos(video_dir)
 
         print(
-            f"[sim_preview] captured {num_envs} envs @ {env_spacing}m spacing, {num_steps} zero-action steps "
+            f"[sim_preview] recorded {num_envs} envs @ {env_spacing}m spacing, {num_steps} zero-action steps "
             f"(total {time.monotonic() - started_at:.1f}s)",
             file=sys.stderr,
             flush=True,
         )
         return {
             "ok": True,
-            "first_frame": str(first_path),
-            "last_frame": str(last_path),
+            "viewport_video": str(viewport_video),
+            "camera_videos": camera_videos,
             "env_name": preview_name,
             "num_envs": num_envs,
             "env_spacing": env_spacing,

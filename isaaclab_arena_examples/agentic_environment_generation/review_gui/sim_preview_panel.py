@@ -12,14 +12,14 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 
 
 def render_sim_preview_panel(validation: SpecParseResult) -> None:
-    """Sim-preview controls and viewport frame display in the right column."""
+    """Render full-width sim-preview controls and recorded videos."""
     st.subheader("Sim preview")
     st.caption(
-        "Runs to_arena_env → relation solver, then zero-action steps. "
-        "Viewport captures use a world-frame overview of the full env grid."
+        "Runs a zero-action policy with viewport and embodiment-camera recording. "
+        "Environment spacing is the background's largest XY dimension plus 0.5 m."
     )
 
-    preview_cols = st.columns(3)
+    preview_cols = st.columns(2)
     with preview_cols[0]:
         num_envs = st.number_input(
             "Parallel envs",
@@ -32,21 +32,11 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
     with preview_cols[1]:
         num_steps = st.number_input(
             "Zero-action steps",
-            min_value=0,
+            min_value=1,
             max_value=1000,
             step=1,
             key="sim_preview_num_steps",
-            help="Number of zero-action policy steps after reset before the second capture.",
-        )
-    with preview_cols[2]:
-        env_spacing = st.number_input(
-            "Env spacing (m)",
-            min_value=0.1,
-            max_value=50.0,
-            step=0.1,
-            format="%.1f",
-            key="sim_preview_env_spacing",
-            help="Spacing between cloned environments in the preview grid.",
+            help="Number of zero-action policy steps to record.",
         )
 
     if st.button(
@@ -56,15 +46,12 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         disabled=not validation.is_valid,
         help="Requires valid YAML and a healthy SimApp. This may take several minutes.",
     ):
-        with st.spinner(
-            f"Building env, solving relations, and rolling out {num_steps} steps ({num_envs} envs @ {env_spacing} m)…"
-        ):
+        with st.spinner(f"Building env, solving relations, and recording {num_steps} steps ({num_envs} envs)…"):
             ok, message = run_sim_preview_pipeline(
                 st.session_state["edited_text"],
                 validation=validation,
                 num_envs=int(num_envs),
                 num_steps=int(num_steps),
-                env_spacing=float(env_spacing),
             )
         if ok:
             st.success(message, icon="✅")
@@ -72,15 +59,22 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         else:
             st.error(f"Sim preview failed\n\n```\n{message}\n```", icon="🛑")
 
-    first_frame = st.session_state.get("sim_preview_first")
-    last_frame = st.session_state.get("sim_preview_last")
+    viewport_video = st.session_state.get("sim_preview_viewport_video")
+    camera_videos = st.session_state.get("sim_preview_camera_videos") or []
     run_params = st.session_state.get("sim_preview_run_params") or {}
-    displayed_steps = int(run_params.get("num_steps", num_steps))
-    if first_frame and last_frame:
-        frame_cols = st.columns(2)
-        with frame_cols[0]:
-            st.caption("Viewport — frame 1 (after reset)")
-            st.image(first_frame, width="stretch")
-        with frame_cols[1]:
-            st.caption(f"Viewport — frame 2 (after {displayed_steps} zero-action steps)")
-            st.image(last_frame, width="stretch")
+    if viewport_video:
+        st.caption(
+            f"Viewport — {run_params.get('num_steps', num_steps)} steps, "
+            f"{run_params.get('env_spacing', '?')} m auto spacing"
+        )
+        st.video(viewport_video)
+
+    if camera_videos:
+        st.caption("Embodiment cameras (per environment)")
+        video_columns = st.columns(2)
+        for index, camera_video in enumerate(
+            sorted(camera_videos, key=lambda video: (video["env_id"], video["camera_name"]))
+        ):
+            with video_columns[index % len(video_columns)]:
+                st.caption(f"Env {camera_video['env_id']} — {camera_video['camera_name']}")
+                st.video(camera_video["video"])

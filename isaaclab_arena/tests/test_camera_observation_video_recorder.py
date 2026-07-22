@@ -211,6 +211,24 @@ def test_partial_episode_dropped_on_close(tmp_path):
         assert list(tmp_path.iterdir()) == []
 
 
+def test_partial_episode_written_on_close_when_enabled(tmp_path):
+    """Preview callers can opt into writing an unfinished episode on close()."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path), flush_partial_on_close=True)
+
+        _configure_step(env)
+        recorder.step(None)
+        recorder.close()
+
+        assert writers and all(writer.closed for writer in writers)
+        written_paths = [writer.filename for writer in writers]
+        for env_id in range(2):
+            for camera in CAMERAS:
+                expected = os.path.join(str(tmp_path), f"robot-cam-env{env_id}-{camera}-episode-0.mp4")
+                assert expected in written_paths
+
+
 def test_no_video_written_for_empty_episode(tmp_path):
     """An env terminating with no recorded frames writes no video; its episode index still advances."""
     env = _make_env()

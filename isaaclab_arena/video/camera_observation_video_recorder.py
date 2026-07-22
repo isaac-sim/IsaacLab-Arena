@@ -8,7 +8,7 @@
 Each frame is streamed straight to a per-(env, camera) ffmpeg encoder as it arrives, and
 the file is finalised when that environment resets (terminated or truncated), so each
 output file corresponds to exactly one complete episode. Partial episodes cut off by
-``num_steps`` are deleted on ``close()``.
+``num_steps`` are deleted on ``close()`` unless ``flush_partial_on_close`` is enabled.
 
 Output filename: ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``
 
@@ -115,12 +115,14 @@ class CameraObsVideoRecorder(gym.Wrapper):
         video_folder: str,
         name_prefix: str = "robot-cam",
         fps: int | None = None,
+        flush_partial_on_close: bool = False,
     ):
         super().__init__(env)
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
+        self.flush_partial_on_close = flush_partial_on_close
 
         # camera_name -> one entry per env, holding that env's open encoder for its current
         # episode, or None while no episode is in progress.
@@ -189,14 +191,13 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 env_writers[env_idx] = None
 
     def close(self) -> None:
-        # Partial episodes (cut off by num_steps rather than a real reset) are discarded: the
-        # encoder is shut down and the incomplete file it was writing is removed.
+        # Partial episodes cut off by num_steps are finalised only when explicitly requested.
         for env_writers in self.writers.values():
             for env_idx, episode_writer in enumerate(env_writers):
                 if episode_writer is None:
                     continue
                 episode_writer.writer.close()
-                if os.path.exists(episode_writer.path):
+                if not self.flush_partial_on_close and os.path.exists(episode_writer.path):
                     os.remove(episode_writer.path)
                 env_writers[env_idx] = None
         self.env.close()

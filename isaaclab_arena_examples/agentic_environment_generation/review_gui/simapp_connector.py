@@ -21,8 +21,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     simapp_socket_from_env,
 )
 
-NUM_ENVS = 9
-ENV_SPACING_M = 1.5
+NUM_ENVS = 4
 NUM_STEPS = 10
 
 _SIMAPP_CLIENT_SESSION_KEY = "_simapp_client"
@@ -75,9 +74,8 @@ def run_sim_preview_pipeline(
     validation: SpecParseResult | None = None,
     num_envs: int = NUM_ENVS,
     num_steps: int = NUM_STEPS,
-    env_spacing: float = ENV_SPACING_M,
 ) -> tuple[bool, str]:
-    """Run sim preview via SimApp and store frames in session."""
+    """Run sim preview via SimApp and store recorded videos in session."""
     if validation is None or not validation.is_valid:
         validation = validate_yaml_text(yaml_text)
         if not validation.is_valid:
@@ -95,34 +93,39 @@ def run_sim_preview_pipeline(
             yaml_text,
             num_envs=num_envs,
             num_steps=num_steps,
-            env_spacing=env_spacing,
         )
     except SimAppError as exc:
-        st.session_state.pop("sim_preview_first", None)
-        st.session_state.pop("sim_preview_last", None)
+        st.session_state.pop("sim_preview_viewport_video", None)
+        st.session_state.pop("sim_preview_camera_videos", None)
         st.session_state.pop("sim_preview_run_params", None)
         return False, str(exc)
     finally:
         clear_simapp_client()
 
     try:
-        first_path = Path(response["first_frame"])
-        last_path = Path(response["last_frame"])
-        st.session_state["sim_preview_first"] = first_path.read_bytes()
-        st.session_state["sim_preview_last"] = last_path.read_bytes()
+        viewport_path = Path(response["viewport_video"])
+        st.session_state["sim_preview_viewport_video"] = viewport_path.read_bytes()
+        st.session_state["sim_preview_camera_videos"] = [
+            {
+                "video": Path(camera_video["path"]).read_bytes(),
+                "env_id": int(camera_video["env_id"]),
+                "camera_name": str(camera_video["camera_name"]),
+            }
+            for camera_video in response.get("camera_videos", [])
+        ]
         st.session_state["sim_preview_run_params"] = {
             "num_envs": response.get("num_envs", num_envs),
             "num_steps": response.get("num_steps", num_steps),
-            "env_spacing": response.get("env_spacing", env_spacing),
+            "env_spacing": response["env_spacing"],
         }
-    except OSError as exc:
-        return False, f"Failed to read preview frames: {exc}"
+    except (KeyError, OSError) as exc:
+        return False, f"Failed to read preview videos: {exc}"
 
     return (
         True,
         (
             f"Sim preview complete — {response.get('num_envs', num_envs)} envs, "
-            f"{response.get('env_spacing', env_spacing)} m spacing, "
+            f"{response['env_spacing']} m spacing, "
             f"{response.get('num_steps', num_steps)} steps."
         ),
     )
