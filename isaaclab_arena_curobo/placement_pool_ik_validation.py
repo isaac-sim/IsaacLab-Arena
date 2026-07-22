@@ -23,11 +23,11 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena_curobo.curobo_planner_utils import (
+from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+from isaaclab_arena_curobo.utils.planner_utils import (
     sync_object_poses_in_robot_base_frame,
     top_down_grasp_pose_from_env,
 )
-from isaaclab_arena_curobo.ik_solver_utils import solve_ik_feasibility
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv

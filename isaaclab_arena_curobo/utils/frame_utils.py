@@ -3,23 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Import-light cuRobo frame, config, and IK helpers shared across the env-coupled and sim-free paths."""
+"""Import-light cuRobo frame and grasp-pose helpers shared across the env-coupled and sim-free paths."""
 
 from __future__ import annotations
 
 import os
 import torch
-import yaml
-from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from isaaclab.utils.assets import retrieve_file_path
 
+from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
-
-if TYPE_CHECKING:
-    from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
-
 
 # cuRobo captures a CUDA graph on the IK solver's first solve and, by default, errors when a later
 # solve changes the "goal type" (warmup runs a single-goal solve, then we issue a batched
@@ -29,16 +23,6 @@ os.environ.setdefault("CUROBO_TORCH_CUDA_GRAPH_RESET", "1")
 
 # Top-down grasp orientation (gripper approach axis pointing -Z) in the robot base frame, (x, y, z, w).
 DOWN_FACING_QUAT_XYZW = (0.0, 1.0, 0.0, 0.0)
-
-
-def load_patched_robot_yaml(curobo_cfg: CuroboEmbodimentCfg) -> dict:
-    """Load an embodiment's cuRobo robot yaml and splice in its downloaded URDF path."""
-    robot_cfg_path = retrieve_file_path(curobo_cfg.robot_cfg_template)
-    robot_urdf_path = retrieve_file_path(curobo_cfg.robot_urdf)
-    with open(robot_cfg_path) as f:
-        robot_yaml = yaml.safe_load(f)
-    robot_yaml["robot_cfg"]["kinematics"]["urdf_path"] = robot_urdf_path
-    return robot_yaml
 
 
 def world_pose_to_robot_frame(
@@ -95,3 +79,24 @@ def top_down_grasp_matrix(
     q_grasp_xyzw = math_utils.quat_from_matrix(R_grasp.unsqueeze(0))[0]
     pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(q_grasp_xyzw.tolist()))
     return pose.to_transform_matrix(device)
+
+
+def top_down_grasp_pose_from_world_poses(
+    object_pos_w: tuple[float, float, float],
+    object_quat_w_xyzw: tuple[float, float, float, float],
+    robot_base_pos_w: tuple[float, float, float],
+    robot_base_quat_w_xyzw: tuple[float, float, float, float],
+    grasp_z_offset: float = 0.02,
+    align_yaw_to_object: bool = True,
+    device: str | torch.device | None = None,
+) -> torch.Tensor:
+    """Top-down grasp pose at an object's center, in the robot base frame, as a 4x4 transform."""
+    dev = resolve_cuda_device(device)
+    # Pure-math computation of the object pose in the robot base frame
+    t_W_O = torch.tensor(object_pos_w, dtype=torch.float32, device=dev)
+    q_W_O_xyzw = torch.tensor(object_quat_w_xyzw, dtype=torch.float32, device=dev)
+    t_W_R = torch.tensor(robot_base_pos_w, dtype=torch.float32, device=dev)
+    q_W_R_xyzw = torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float32, device=dev)
+
+    t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(t_W_O, q_W_O_xyzw, t_W_R, q_W_R_xyzw)
+    return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)

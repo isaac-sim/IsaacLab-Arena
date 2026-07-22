@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import torch
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
 from curobo.geom.types import Cuboid, WorldConfig
@@ -17,28 +17,16 @@ from curobo.geom.types import Cuboid, WorldConfig
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena_curobo.curobo_frame_utils import top_down_grasp_matrix, world_pose_to_robot_frame
+from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
-    import logging
-
-    from curobo.types.math import Pose as CuroboPose
     from curobo.wrap.reacher.ik_solver import IKSolver
+    from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
+
+    from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
 
-class IKSolverContext(Protocol):
-    """The host that owns a cuRobo IK solver plus the device/pose plumbing to drive it."""
-
-    logger: logging.Logger
-
-    def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Move a tensor onto the cuRobo device/dtype."""
-
-    def _make_pose(self, position: torch.Tensor, quaternion: torch.Tensor, *, quat_is_xyzw: bool = True) -> CuroboPose:
-        """Build a cuRobo ``Pose`` on the cuRobo device."""
-
-
-def resolve_ik_solver(ik_solver_context: IKSolverContext) -> IKSolver:
+def resolve_ik_solver(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> IKSolver:
     """Get the cuRobo ``IKSolver`` from a host, whichever way it exposes it.
 
     ``CuroboIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
@@ -113,29 +101,8 @@ def world_config_from_cuboids(
     return WorldConfig(cuboid=curobo_cuboids)
 
 
-def top_down_grasp_pose_from_world_poses(
-    object_pos_w: tuple[float, float, float],
-    object_quat_w_xyzw: tuple[float, float, float, float],
-    robot_base_pos_w: tuple[float, float, float],
-    robot_base_quat_w_xyzw: tuple[float, float, float, float],
-    grasp_z_offset: float = 0.02,
-    align_yaw_to_object: bool = True,
-    device: str | torch.device | None = None,
-) -> torch.Tensor:
-    """Top-down grasp pose at an object's center, in the robot base frame, as a 4x4 transform."""
-    dev = resolve_cuda_device(device)
-    # Pure-math computation of the object pose in the robot base frame
-    t_W_O = torch.tensor(object_pos_w, dtype=torch.float32, device=dev)
-    q_W_O_xyzw = torch.tensor(object_quat_w_xyzw, dtype=torch.float32, device=dev)
-    t_W_R = torch.tensor(robot_base_pos_w, dtype=torch.float32, device=dev)
-    q_W_R_xyzw = torch.tensor(robot_base_quat_w_xyzw, dtype=torch.float32, device=dev)
-
-    t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(t_W_O, q_W_O_xyzw, t_W_R, q_W_R_xyzw)
-    return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)
-
-
 def solve_ik_feasibility(
-    ik_solver_context: IKSolverContext,
+    ik_solver_context: CuroboIKSolver | CuroboPlanner,
     target_poses: torch.Tensor,
     seed_config: torch.Tensor | None = None,
     position_threshold: float = 0.01,
