@@ -98,9 +98,7 @@ class ArenaEnvBuilder:
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
-        # cuRobo IK reachability is an optional build-time gate installed here, where the embodiment lives.
-        # It no-ops unless the embodiment has a registered cuRobo config and the solver deps are importable,
-        # so a base image or a config-less embodiment simply skips the check.
+        # No-ops unless the embodiment has a registered cuRobo config and the solver deps are importable.
         configure_reachability_gate(placer_params, self.arena_env.embodiment)
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,

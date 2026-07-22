@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Import-light cuRobo frame, config, and IK helpers shared across the env-coupled and standalone paths."""
+"""Import-light cuRobo frame, config, and IK helpers shared across the env-coupled and sim-free paths."""
 
 from __future__ import annotations
 
 import os
 import torch
 import yaml
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import isaaclab.utils.math as math_utils
 from isaaclab.utils.assets import retrieve_file_path
@@ -18,7 +18,37 @@ from isaaclab.utils.assets import retrieve_file_path
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
+    import logging
+
+    from curobo.types.math import Pose as CuroboPose
+    from curobo.wrap.reacher.ik_solver import IKSolver
+
     from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
+
+
+class IKSolverContext(Protocol):
+    """The host that owns a cuRobo IK solver plus the device/pose plumbing to drive it."""
+
+    logger: logging.Logger
+
+    def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Move a tensor onto the cuRobo device/dtype."""
+
+    def _make_pose(self, position: torch.Tensor, quaternion: torch.Tensor, *, quat_is_xyzw: bool = True) -> CuroboPose:
+        """Build a cuRobo ``Pose`` on the cuRobo device."""
+
+
+def resolve_ik_solver(ik_context: IKSolverContext) -> IKSolver:
+    """Get the cuRobo ``IKSolver`` from a host, whichever way it exposes it.
+
+    ``SimFreeIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
+    holds it as ``motion_gen.ik_solver``. Centralizing the lookup lets the solve take just the host.
+    """
+    ik_solver = getattr(ik_context, "ik_solver", None)
+    if ik_solver is None:
+        ik_solver = ik_context.motion_gen.ik_solver
+    return ik_solver
+
 
 # cuRobo captures a CUDA graph on the IK solver's first solve and, by default, errors when a later
 # solve changes the "goal type" (warmup runs a single-goal solve, then we issue a batched
@@ -97,20 +127,18 @@ def top_down_grasp_matrix(
 
 
 def solve_ik_feasibility(
-    pose_ctx,
-    ik_solver,
+    ik_context: IKSolverContext,
     target_poses: torch.Tensor,
     seed_config: torch.Tensor | None = None,
     position_threshold: float = 0.01,
     rotation_threshold: float = 0.1,
     require_collision_free: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver. Shared between standalone and env-coupled paths.
+    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver. Shared between sim-free and env-coupled paths.
     Runs a single ``solve_batch`` for one layout.
 
     Args:
-        pose_ctx: Object providing ``_to_curobo_device``, ``_make_pose`` and ``logger``. A ``CuroboPlanner`` or a ``StandaloneIKReachability``.
-        ik_solver: cuRobo ``IKSolver`` exposing ``solve_batch``.
+        ik_context: The host that owns the solver and supplies device/pose plumbing -- a ``CuroboPlanner`` (env-coupled) or a ``SimFreeIKSolver``.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.
@@ -123,9 +151,10 @@ def solve_ik_feasibility(
         ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
         errors are the best-seed values per pose.
     """
-    target_poses = pose_ctx._to_curobo_device(target_poses)
+    ik_solver = resolve_ik_solver(ik_context)
+    target_poses = ik_context._to_curobo_device(target_poses)
     positions, rotations = math_utils.unmake_pose(target_poses)
-    goal_pose = pose_ctx._make_pose(
+    goal_pose = ik_context._make_pose(
         position=positions,
         quaternion=math_utils.quat_from_matrix(rotations),  # xyzw
         quat_is_xyzw=True,
@@ -133,7 +162,7 @@ def solve_ik_feasibility(
 
     ik_seed = None
     if seed_config is not None:
-        ik_seed = pose_ctx._to_curobo_device(seed_config)
+        ik_seed = ik_context._to_curobo_device(seed_config)
         while ik_seed.dim() < 3:
             ik_seed = ik_seed.unsqueeze(0)
 
@@ -156,5 +185,5 @@ def solve_ik_feasibility(
     best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
     best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
 
-    pose_ctx.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
+    ik_context.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
     return feasible, best_pos_err, best_rot_err

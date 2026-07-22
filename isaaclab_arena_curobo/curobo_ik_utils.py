@@ -3,27 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Standalone IK feasibility utilities that operate on a CuroboPlanner instance.
-
-Kept outside the IsaacLab submodule so changes can be committed directly
-to IsaacLab-Arena without forking the upstream planner. The batched-solve core lives in
-``curobo_frame_utils.solve_ik_feasibility`` and is shared with the standalone path; importing it also
-sets the CUDA-graph-reset env var before any solve.
-"""
+"""Sim-free IK feasibility utilities that operate on a CuroboPlanner instance."""
 
 from __future__ import annotations
 
 import logging
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import isaaclab.utils.math as math_utils
 from curobo.geom.types import Cuboid, WorldConfig
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.curobo_frame_utils import (
+    IKSolverContext,
     load_patched_robot_yaml,
     solve_ik_feasibility,
     top_down_grasp_matrix,
@@ -35,14 +31,13 @@ from isaaclab_arena_curobo.curobo_frame_utils import (
 class AABBCollisionCuboid:
     """A collision obstacle described by an axis-aligned bounding box in the world frame.
 
-    ``dims_xyz`` are full extents (edge lengths), matching cuRobo's ``Cuboid.dims``. ``quat_wxyz`` is
-    the box orientation in the world frame; for an axis-aligned box built from a layout it is identity.
+    ``dims_xyz`` are full extents (edge lengths), matching cuRobo's ``Cuboid.dims``. ``pose`` is the
+    box pose (center + orientation) in the world frame.
     """
 
     name: str
-    center_xyz: tuple[float, float, float]
     dims_xyz: tuple[float, float, float]
-    quat_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    pose: Pose = field(default_factory=Pose.identity)
 
 
 def get_aabb_collision_cuboid_for_object(
@@ -59,12 +54,13 @@ def get_aabb_collision_cuboid_for_object(
     quat_t = torch.tensor(quat_w_xyzw, dtype=torch.float32)
     rotation = math_utils.matrix_from_quat(quat_t.unsqueeze(0))[0]
     center_world = torch.tensor(pos_w, dtype=torch.float32) + rotation @ bbox.center[0].to(torch.float32)
-    quat_wxyz = tuple(float(v) for v in math_utils.convert_quat(quat_t, to="wxyz").tolist())
     return AABBCollisionCuboid(
         name=obj.name,
-        center_xyz=tuple(float(v) for v in center_world.tolist()),
         dims_xyz=dims,
-        quat_wxyz=quat_wxyz,
+        pose=Pose(
+            position_xyz=tuple(float(v) for v in center_world.tolist()),
+            rotation_xyzw=tuple(float(v) for v in quat_w_xyzw),
+        ),
     )
 
 
@@ -85,9 +81,8 @@ def world_config_from_cuboids(
 
     curobo_cuboids = []
     for c in cuboids:
-        pos_w = torch.tensor(c.center_xyz, dtype=torch.float32, device=dev)
-        # AABBCollisionCuboid holds a wxyz world quat; the transform math works in xyzw.
-        quat_w_xyzw = math_utils.convert_quat(torch.tensor(c.quat_wxyz, dtype=torch.float32, device=dev), to="xyzw")
+        pos_w = torch.tensor(c.pose.position_xyz, dtype=torch.float32, device=dev)
+        quat_w_xyzw = torch.tensor(c.pose.rotation_xyzw, dtype=torch.float32, device=dev)
         t_R_O, q_R_O_xyzw = world_pose_to_robot_frame(pos_w, quat_w_xyzw, robot_pos, robot_quat)
         q_R_O_wxyz = math_utils.convert_quat(q_R_O_xyzw, to="wxyz")
         # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
@@ -117,8 +112,8 @@ def top_down_grasp_pose_from_world_poses(
     return top_down_grasp_matrix(t_R_O, q_R_O_xyzw, grasp_z_offset, align_yaw_to_object)
 
 
-class StandaloneIKReachability:
-    """Standalone cuRobo IK-reachability oracle with no Isaac Sim / Isaac Lab env.
+class SimFreeIKSolver:
+    """Sim-free cuRobo IK-reachability oracle with no Isaac Sim / Isaac Lab env.
 
     Constructs a cuRobo solver from an embodiment's registered cuRobo config on an explicit CUDA
     device, holds a bounding-box collision world, and answers per-pose IK feasibility via a single
@@ -137,7 +132,7 @@ class StandaloneIKReachability:
         collision_cache_size: dict[str, int] | None = None,
         debug: bool = False,
     ) -> None:
-        """Build and warm up the solver from a cuRobo embodiment config, standalone.
+        """Build and warm up the solver from a cuRobo embodiment config, sim-free.
 
         Args:
             curobo_cfg: The embodiment's registered ``CuroboEmbodimentCfg`` (robot yaml + URDF paths).
@@ -154,7 +149,7 @@ class StandaloneIKReachability:
         from curobo.util.logger import setup_curobo_logger
         from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
 
-        self.logger = logging.getLogger("StandaloneIKReachability")
+        self.logger = logging.getLogger("SimFreeIKSolver")
         if not self.logger.handlers:
             self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -182,7 +177,7 @@ class StandaloneIKReachability:
         self.ik_solver = IKSolver(ik_config)
 
     @classmethod
-    def from_embodiment(cls, embodiment, **kwargs) -> StandaloneIKReachability:
+    def from_embodiment(cls, embodiment, **kwargs) -> SimFreeIKSolver:
         """Build from an embodiment by looking up its registered cuRobo config.
 
         Convenience wrapper for callers that already hold an embodiment (importing the embodiment may
@@ -230,7 +225,7 @@ class StandaloneIKReachability:
 
 
 def check_ik_feasibility(
-    pose_ctx,
+    ik_solver_context: IKSolverContext,
     target_poses: torch.Tensor,
     seed_config: torch.Tensor | None = None,
     position_threshold: float = 0.01,
@@ -239,11 +234,11 @@ def check_ik_feasibility(
     """Batched IK feasibility of all ``target_poses`` against a context's cuRobo IK solver.
 
     Serves both paths with the same math and thresholds; the only difference is where the solver comes
-    from. Pass a ``StandaloneIKReachability`` (build-time, exposes ``ik_solver``) or a ``CuroboPlanner``
+    from. Pass a ``SimFreeIKSolver`` (build-time, exposes ``ik_solver``) or a ``CuroboPlanner``
     (env-coupled, exposes ``motion_gen.ik_solver``).
 
     Args:
-        pose_ctx: A ``StandaloneIKReachability`` or ``CuroboPlanner`` supplying the pose plumbing and IK solver.
+        ik_solver_context: A ``SimFreeIKSolver`` or ``CuroboPlanner`` supplying the pose plumbing and IK solver.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.
@@ -253,17 +248,12 @@ def check_ik_feasibility(
         ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
         errors are the best-seed values per pose.
     """
-    ik_solver = getattr(pose_ctx, "ik_solver", None)
-    if ik_solver is None:
-        ik_solver = pose_ctx.motion_gen.ik_solver
     return solve_ik_feasibility(
-        pose_ctx,
-        ik_solver,
+        ik_solver_context,
         target_poses,
         seed_config=seed_config,
         position_threshold=position_threshold,
         rotation_threshold=rotation_threshold,
-        # Future hook: a context may opt into the (not-yet-supported) collision-free check by exposing
-        # ``require_collision_free``; no current context does, so this stays False.
-        require_collision_free=getattr(pose_ctx, "require_collision_free", False),
+        # TODO(xinjieyao, 2026-07-21): Support collision-free IK by disabling the hand-link spheres during collision checking
+        require_collision_free=getattr(ik_solver_context, "require_collision_free", False),
     )

@@ -3,12 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build-time cuRobo IK-reachability gate for pooled placement, standalone from SimApp.
+"""Build-time cuRobo IK-reachability gate for pooled placement, sim-free (no SimApp).
 
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
 top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
-
-Requires a CUDA GPU.
 """
 
 from __future__ import annotations
@@ -23,7 +21,7 @@ from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.curobo_ik_utils import (
-    StandaloneIKReachability,
+    SimFreeIKSolver,
     check_ik_feasibility,
     get_aabb_collision_cuboid_for_object,
     top_down_grasp_pose_from_world_poses,
@@ -76,7 +74,7 @@ def make_ik_reachability_validator(
         stamp_results: Record the verdict as a required ``PlacementCheck.IK_REACHABLE`` check on each
             layout, so it shows up in the audit report and gates that layout's ``.success``.
     """
-    solver = StandaloneIKReachability(
+    solver = SimFreeIKSolver(
         embodiment_curobo_cfg(embodiment),
         device=device,
         position_threshold=ik_pos_threshold,
