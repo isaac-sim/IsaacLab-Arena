@@ -18,6 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -69,6 +70,66 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
+    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_episodes: 4
+""",
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:1")
+    run = experiment_cfg.runs["graph_run"]
+
+    assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
+    assert run.environment.arena_env_args == [
+        "--num_envs",
+        "2",
+        "--enable_cameras",
+        "--env_graph_spec_yaml",
+        "robolab/tasks/banana_in_bowl.yaml",
+        "--pick_up_object",
+        "banana",
+    ]
+    assert run.environment_builder.num_envs == 2
+    assert run.environment_builder.device == "cuda:1"
+    assert run.rollout_limit.num_episodes == 4
+
+
+def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
+    run_cfg = ArenaRunCfg(
+        name="graph_run",
+        environment=LegacyGraphEnvironmentCfg(
+            arena_env_args=["--enable_cameras", "--env_graph_spec_yaml", "robolab/tasks/banana_in_bowl.yaml"]
+        ),
+        policy=ZeroActionPolicyCfg(),
+    )
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+
+    with pytest.raises(AssertionError, match="Pass --enable_cameras"):
+        _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)
+
+    _assert_camera_support_enabled(experiment_cfg, enable_cameras=True)
 
 
 def test_policy_config_type_resolves_from_dotted_class_path():

@@ -15,6 +15,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -193,6 +194,53 @@ def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
 
     serialized_path = _write_experiment(tmp_path, serialized_experiment)
     assert _load_experiment(serialized_path) == experiment_cfg
+
+
+GRAPH_SPEC_EXPERIMENT_CONTENTS = """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_steps: 5
+"""
+
+
+def test_graph_spec_yaml_environment_uses_injected_factory(tmp_path):
+    config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
+    factory_calls = []
+
+    def graph_environment_cfg_factory(graph_spec_yaml, environment_values, environment_builder_values):
+        factory_calls.append((graph_spec_yaml, environment_values, environment_builder_values))
+        return LegacyGraphEnvironmentCfg(arena_env_args=["--env_graph_spec_yaml", graph_spec_yaml])
+
+    experiment_cfg = load_arena_experiment_from_yaml(
+        config_path,
+        environment_cfg_types={},
+        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
+        graph_environment_cfg_factory=graph_environment_cfg_factory,
+    )
+    run = experiment_cfg.runs["graph_run"]
+
+    assert factory_calls == [("robolab/tasks/banana_in_bowl.yaml", {"pick_up_object": "banana"}, {"num_envs": 2})]
+    assert run.environment == LegacyGraphEnvironmentCfg(
+        arena_env_args=["--env_graph_spec_yaml", "robolab/tasks/banana_in_bowl.yaml"]
+    )
+    assert run.policy == ZeroActionPolicyCfg()
+    assert run.environment_builder.num_envs == 2
+    assert run.rollout_limit.num_steps == 5
+
+
+def test_graph_spec_yaml_environment_requires_factory(tmp_path):
+    config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
+
+    with pytest.raises(AssertionError, match="not given graph-YAML environment support"):
+        _load_experiment(config_path)
 
 
 @pytest.mark.parametrize(
