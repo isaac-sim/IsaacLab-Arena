@@ -42,7 +42,7 @@ If you don't accept all the terms and conditions below, do not use the Software.
 
 9. Term and Termination.
 
-9.1 Term and Termination for Convenience. This license ends by July 31, 2026 or earlier at your choice if you finished using the Software for the Purpose. Either party may terminate this Agreement at any time with thirty (30) days' advance written notice to the other party.
+9.1 Term and Termination for Convenience. This license ends by July 31, 2027 or earlier at your choice if you finished using the Software for the Purpose. Either party may terminate this Agreement at any time with thirty (30) days' advance written notice to the other party.
 
 9.2 Termination for Cause. If you commence or participate in any legal proceeding against NVIDIA with respect to the Software, this Agreement will terminate immediately without notice. Either party may terminate this Agreement for cause if:
 
