@@ -12,7 +12,7 @@ from typing import Any
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -22,6 +22,7 @@ from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env import external_policy_termination
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
@@ -41,6 +42,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -92,6 +94,10 @@ class ArenaEnvBuilder:
             placer_params = ObjectPlacerParams(
                 solver_params=RelationSolverParams(verbose=False, save_position_history=False),
             )
+        # ObjectPlacer injects these shared parameters into every registered placement validator,
+        # so one override governs both solver losses and the pluggable validation gate.
+        if self.cfg.placement_clearance_m is not None:
+            placer_params.solver_params.clearance_m = self.cfg.placement_clearance_m
         if self.cfg.placement_seed is not None:
             placer_params.placement_seed = self.cfg.placement_seed
         if self.cfg.resolve_on_reset is not None:
@@ -172,6 +178,19 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
+    def _collect_episode_recorder_terms(
+        self,
+        task: TaskBase,
+    ) -> dict[str, EpisodeRecorderTermCfg]:
+        terms = dict(self.arena_env.episode_recorder_terms)
+        for name, term_cfg in task.get_episode_recorder_terms(self.arena_env).items():
+            if name in terms:
+                raise ValueError(
+                    f"duplicate episode recorder term {name!r} contributed by both the environment and task"
+                )
+            terms[name] = term_cfg
+        return terms
+
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
@@ -184,11 +203,8 @@ class ArenaEnvBuilder:
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
-            assert name not in (
-                "core",
-                "variations",
-                "progress",
-            ), f"Episode recorder term name '{name}' collides with a built-in term."
+            if name in {"core", "variations", "progress"}:
+                raise ValueError(f"episode recorder term name {name!r} collides with a built-in term")
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
@@ -254,11 +270,22 @@ class ArenaEnvBuilder:
             variations_event_cfg,
             progress_tracking_events_cfg,
         )
+        external_policy_termination_cfg = None
+        if not self.cfg.mimic:
+            external_policy_termination_cfg = make_configclass(
+                "ExternalPolicyTerminationCfg",
+                [(
+                    "external_policy_termination",
+                    TerminationTermCfg,
+                    TerminationTermCfg(func=external_policy_termination, time_out=False),
+                )],
+            )()
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
             embodiment.get_termination_cfg(),
+            external_policy_termination_cfg,
         )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
@@ -310,7 +337,7 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self._collect_episode_recorder_terms(task))
 
         viewer_cfg = task.get_viewer_cfg()
 
@@ -368,6 +395,10 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
+
+        env_cfg.num_rerenders_on_reset = self.cfg.num_rerenders_on_reset
+        env_cfg.placement_seed = self.cfg.placement_seed
+        env_cfg.placement_clearance_m = self.cfg.placement_clearance_m
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.

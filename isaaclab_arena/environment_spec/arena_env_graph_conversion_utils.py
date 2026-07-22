@@ -96,11 +96,11 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     return False
 
 
-def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
-    """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
+def _prim_path_for_relative(parent_prim_path: str, prim_path: str) -> str:
+    """Expand a relative prim suffix below its parent asset's runtime path."""
     if prim_path.startswith("{ENV_REGEX_NS}/"):
         return prim_path
-    return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
+    return f"{parent_prim_path.rstrip('/')}/{prim_path.lstrip('/')}"
 
 
 def instantiate_assets_from_spec(
@@ -129,11 +129,12 @@ def instantiate_assets_from_spec(
         assert ref.prim_path is not None, "Object reference must have a prim path"
         ref_params = dict(ref.params)
         openable_joint_name = ref_params.pop("openable_joint_name", None)
-        prim_path = _prim_path_for_relative(graph_spec.background.registry_name, ref.prim_path)
+        parent_asset = assets_by_node_id[ref.parent_id]
+        prim_path = _prim_path_for_relative(parent_asset.get_prim_path(), ref.prim_path)
         common_kwargs = {
             "name": ref.id,
             "prim_path": prim_path,
-            "parent_asset": assets_by_node_id[ref.parent_id],
+            "parent_asset": parent_asset,
             "object_type": ref.object_type,
             **ref_params,
         }

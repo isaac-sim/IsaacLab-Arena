@@ -1404,6 +1404,7 @@ name = "isaaclab-arena"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "imageio-ffmpeg", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "lightwheel-sdk", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "matplotlib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "onnxruntime", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1441,6 +1442,7 @@ openpi = [
 
 [package.metadata]
 requires-dist = [
+    { name = "imageio-ffmpeg", specifier = ">=0.6,<0.7" },
     { name = "debugpy", marker = "extra == 'dev'" },
     { name = "jupyter", marker = "extra == 'dev'" },
     { name = "lightwheel-sdk" },

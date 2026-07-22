@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -13,6 +15,10 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_transition import TaskTransition
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
 class TaskBase(ABC):
@@ -60,6 +66,13 @@ class TaskBase(ABC):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()
+
+    def get_episode_recorder_terms(
+        self,
+        arena_env: IsaacLabArenaEnvironment,
+    ) -> dict[str, EpisodeRecorderTermCfg]:
+        del arena_env
+        return {}
 
     def get_episode_length_s(self) -> float:
         return self.episode_length_s

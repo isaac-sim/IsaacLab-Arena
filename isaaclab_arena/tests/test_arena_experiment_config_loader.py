@@ -104,6 +104,7 @@ def test_empty_legacy_json_experiment_is_rejected(tmp_path):
 
 
 def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
+    runtime_is_initialized = False
     simulation_is_running = False
 
     class _SimulationAppContext:
@@ -118,8 +119,14 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
             nonlocal simulation_is_running
             simulation_is_running = False
 
+    def initialize_runtime():
+        nonlocal runtime_is_initialized
+        assert simulation_is_running
+        runtime_is_initialized = True
+
     def load_experiment_after_startup(*_args, **_kwargs):
         assert simulation_is_running
+        assert runtime_is_initialized
         return _experiment_cfg()
 
     monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
@@ -135,7 +142,71 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
         ],
     )
 
-    experiment_runner.main()
+    experiment_runner.main(runtime_initializer=initialize_runtime)
+
+    assert runtime_is_initialized
+
+
+def test_experiment_runner_initializes_runtime_after_creating_exact_output(monkeypatch, tmp_path):
+    simulation_is_running = False
+    runtime_is_initialized = False
+    exact_output = tmp_path / "exact-experiment-output"
+    experiment_cfg = _experiment_cfg()
+
+    class _SimulationAppContext:
+        def __init__(self, _args_cli):
+            pass
+
+        def __enter__(self):
+            nonlocal simulation_is_running
+            simulation_is_running = True
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            nonlocal simulation_is_running
+            simulation_is_running = False
+
+    def initialize_runtime():
+        nonlocal runtime_is_initialized
+        assert simulation_is_running
+        assert exact_output.is_dir()
+        runtime_is_initialized = True
+
+    def load_experiment_after_startup(*_args, **_kwargs):
+        assert simulation_is_running
+        assert runtime_is_initialized
+        return experiment_cfg
+
+    def execute_experiment(received_cfg, *, output_dir, **_kwargs):
+        assert received_cfg is experiment_cfg
+        assert output_dir == exact_output
+        return []
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup)
+    monkeypatch.setattr(experiment_runner, "execute_experiment", execute_experiment)
+    monkeypatch.setattr(experiment_runner, "build_runs_info_table", lambda *_args: "")
+    monkeypatch.setattr(experiment_runner, "build_report", lambda output_dir: output_dir / "report.html")
+    monkeypatch.setattr(
+        experiment_runner,
+        "MetricsLogger",
+        lambda: type(
+            "_MetricsLogger", (), {"append_job_metrics": lambda *_args: None, "print_metrics": lambda *_: None}
+        )(),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_YAML_PATH),
+            "--experiment_output_directory",
+            str(exact_output),
+        ],
+    )
+
+    experiment_runner.main(runtime_initializer=initialize_runtime)
+
+    assert runtime_is_initialized
 
 
 def test_typed_camera_run_requires_prelaunch_camera_flag():
@@ -167,6 +238,25 @@ def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monk
 
     with pytest.raises(AssertionError, match="only legacy JSON Experiments"):
         experiment_runner.main()
+
+
+def test_experiment_runner_rejects_runtime_initializer_with_chunking(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_JSON_PATH),
+            "--chunk_size",
+            "1",
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="runtime_initializer.*chunk_size",
+    ):
+        experiment_runner.main(runtime_initializer=lambda: None)
 
 
 def test_experiment_runner_rejects_exact_output_for_multiple_legacy_chunks(monkeypatch, tmp_path):

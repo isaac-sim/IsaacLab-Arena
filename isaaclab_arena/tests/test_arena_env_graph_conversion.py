@@ -13,6 +13,8 @@ launch cleanly before any ``pxr`` import.
 """
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -53,6 +55,86 @@ def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
     result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_sequential_pick_and_place_task)
+    assert result
+
+
+def _test_relative_reference_uses_parent_runtime_prim_path(simulation_app):
+    from isaaclab_arena.environment_spec import arena_env_graph_conversion_utils
+
+    class FakeRegistry:
+        @staticmethod
+        def get_asset_by_name(registry_name):
+            if registry_name == "downstream_background_alias":
+                return lambda **_kwargs: SimpleNamespace(get_prim_path=lambda: "{ENV_REGEX_NS}/stable_background_name")
+            if registry_name == "downstream_object_alias":
+                return lambda **_kwargs: SimpleNamespace(get_prim_path=lambda: "{ENV_REGEX_NS}/stable_object_name")
+            return lambda **_kwargs: SimpleNamespace()
+
+    graph_spec = SimpleNamespace(
+        embodiment=SimpleNamespace(
+            id="robot",
+            registry_name="robot",
+            params={},
+        ),
+        background=SimpleNamespace(
+            id="background",
+            registry_name="downstream_background_alias",
+            params={},
+        ),
+        objects=[
+            SimpleNamespace(
+                id="cabinet",
+                registry_name="downstream_object_alias",
+                params={},
+            )
+        ],
+        object_references=[
+            SimpleNamespace(
+                id="tabletop",
+                parent_id="background",
+                prim_path="table/top",
+                object_type="base",
+                params={},
+            ),
+            SimpleNamespace(
+                id="cabinet_shelf",
+                parent_id="cabinet",
+                prim_path="shelf",
+                object_type="base",
+                params={},
+            ),
+            SimpleNamespace(
+                id="qualified_reference",
+                parent_id="background",
+                prim_path="{ENV_REGEX_NS}/already/resolved",
+                object_type="base",
+                params={},
+            ),
+        ],
+    )
+
+    with patch.object(
+        arena_env_graph_conversion_utils,
+        "ObjectReference",
+        side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+    ):
+        assets = arena_env_graph_conversion_utils.instantiate_assets_from_spec(
+            graph_spec,
+            FakeRegistry(),
+        )
+
+    assert assets["tabletop"].prim_path == "{ENV_REGEX_NS}/stable_background_name/table/top"
+    assert assets["cabinet_shelf"].prim_path == "{ENV_REGEX_NS}/stable_object_name/shelf"
+    assert assets["qualified_reference"].prim_path == "{ENV_REGEX_NS}/already/resolved"
+    return True
+
+
+def test_relative_reference_uses_parent_runtime_prim_path():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_relative_reference_uses_parent_runtime_prim_path)
     assert result
 
 

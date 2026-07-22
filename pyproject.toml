@@ -17,6 +17,8 @@ dependencies = [
     "pytest",
     "pydantic>=2.0",
     "openai>=2.0",
+    # Incremental camera-video encoding keeps memory bounded for long episodes.
+    "imageio-ffmpeg>=0.6,<0.7",
     # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
     "sbi",
     "scipy",

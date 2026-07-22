@@ -47,6 +47,10 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         """
         pass
 
+    def get_episode_termination_mask(self) -> torch.Tensor | None:
+        """Return a boolean mask of environments the policy requests to terminate."""
+        pass
+
     def close(self) -> None:
         """Release resources held by the policy."""
         pass
