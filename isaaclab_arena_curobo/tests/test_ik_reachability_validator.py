@@ -3,12 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Closure-logic tests for make_ik_reachability_validator, with cuRobo mocked out.
+"""Logic tests for ReachabilityValidator, with cuRobo mocked out.
 
 Exercises what the validator does around cuRobo -- reconstruct object poses from a layout, build one
-collision cuboid per object, IK-check one grasp per movable (non-anchor) object, and stamp the verdict
--- against a real geometry-solved layout. The cuRobo solver build and the batched IK solve are patched,
-so no GPU or cuRobo install is needed; the pure-math grasp reconstruction runs for real on CPU.
+collision cuboid per object, and IK-check one grasp per movable (non-anchor) object -- against a real
+geometry-solved layout, asserting the per-layout ``validate_batch`` verdict. The cuRobo solver build
+and the batched IK solve are patched, so no GPU or cuRobo install is needed; the pure-math grasp
+reconstruction runs for real on CPU.
 """
 
 from __future__ import annotations
@@ -85,7 +86,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
     monkeypatch.setattr(mod, "solve_ik_feasibility", _fake_ik)
-    monkeypatch.setattr(mod, "embodiment_curobo_cfg", lambda embodiment: None)
+    monkeypatch.setattr(mod, "get_embodiment_curobo_cfg", lambda embodiment: None)
     return captured
 
 
@@ -98,18 +99,24 @@ def _fake_embodiment():
     return embodiment
 
 
+def _make_reachability_validator(embodiment):
+    """Construct the registered ReachabilityValidator with ``embodiment`` set on its params."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
+
+    params = ObjectPlacerParams()
+    params.reachability_config.embodiment = embodiment
+    return ReachabilityValidator(params)
+
+
 @pytest.mark.curobo_deps
 def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
-    """A layout is accepted (and stamped reachable) when every movable-object grasp is feasible."""
-    from isaaclab_arena.relations.placement_validation import PlacementCheck
-    from isaaclab_arena_curobo.ik_reachability_validator import make_ik_reachability_validator
-
+    """A layout passes when every movable-object grasp is feasible."""
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
-    validator = make_ik_reachability_validator(_fake_embodiment())
+    validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
-    assert validator(layout) is True
-    assert layout.validation_results.validation_results[PlacementCheck.IK_REACHABLE] is True
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
     # One collision cuboid per object (desk + box); one grasp per movable object (box only, desk is anchor).
     assert len(captured["solver"].world_cuboids) == 2
     assert captured["num_grasps"] == 1
@@ -117,13 +124,9 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
 
 @pytest.mark.curobo_deps
 def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
-    """A layout is rejected (and stamped unreachable) when any movable-object grasp is infeasible."""
-    from isaaclab_arena.relations.placement_validation import PlacementCheck
-    from isaaclab_arena_curobo.ik_reachability_validator import make_ik_reachability_validator
-
+    """A layout fails when any movable-object grasp is infeasible."""
     _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
-    validator = make_ik_reachability_validator(_fake_embodiment())
+    validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
-    assert validator(layout) is False
-    assert layout.validation_results.validation_results[PlacementCheck.IK_REACHABLE] is False
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]

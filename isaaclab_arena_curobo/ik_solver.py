@@ -18,7 +18,7 @@ from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
-from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
+from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, world_config_from_cuboids
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
 
@@ -89,7 +89,7 @@ class CuroboIKSolver:
         Convenience wrapper for callers that already hold an embodiment (importing the embodiment may
         pull in heavier Isaac Lab modules than passing a ``CuroboEmbodimentCfg`` directly).
         """
-        return cls(get_curobo_cfg_for(embodiment), **kwargs)
+        return cls(get_embodiment_curobo_cfg(embodiment), **kwargs)
 
     def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
         """Move a tensor onto the cuRobo CUDA device / dtype (device isolation)."""

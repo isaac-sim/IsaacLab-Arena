@@ -15,125 +15,47 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_object
-from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
+from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import get_aabb_collision_cuboid_for_object, solve_ik_feasibility
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 def get_object_world_pose_from_layout(
-    result: PlacementResult,
+    positions: dict[ObjectBase, tuple[float, float, float]],
+    orientations: dict[ObjectBase, float],
     obj: ObjectBase,
     base_rotations: dict,
-) -> tuple[tuple[float, float, float], tuple[float, ...]]:
-    """Env-local world pose (position, xyzw quat) an object gets under a layout.
-
-    Reconstructs the same root pose ``write_layout_to_sim`` would write: the layout position plus the
-    object's marker rotation spun by its placement yaw.
-    """
-    pos_w = result.positions[obj]
+) -> Pose:
+    """Return the world pose an object gets under a layout."""
+    pos_w = positions[obj]
     base_quat_xyzw = base_rotations[obj]
     marker_yaw = yaw_from_quat_xyzw(base_quat_xyzw)
-    total_yaw = result.orientations.get(obj, marker_yaw)
+    total_yaw = orientations.get(obj, marker_yaw)
     quat_w_xyzw = rotate_quat_by_yaw(base_quat_xyzw, total_yaw - marker_yaw)
-    return pos_w, tuple(quat_w_xyzw)
-
-
-def make_ik_reachability_validator(
-    embodiment: EmbodimentBase,
-    grasp_z_offset: float = 0.02,
-    ik_pos_threshold: float = 0.01,
-    ik_rot_threshold: float = 0.1,
-    device: str | torch.device | None = None,
-    stamp_results: bool = True,
-) -> Callable[[PlacementResult], bool]:
-    """Return a ``validator`` callable gating each layout on cuRobo top-down-grasp IK reachability.
-
-    Args:
-        embodiment: Embodiment who has a registered CuroboEmbodimentCfg.
-        grasp_z_offset: Height (m) above each object's root for the top-down grasp pose.
-        ik_pos_threshold: Max IK position error (m) for a grasp to count as reachable.
-        ik_rot_threshold: Max IK rotation error (rad) for a grasp to count as reachable.
-        device: Explicit CUDA device (e.g. ``"cuda:0"``); defaults to the current device.
-        stamp_results: Record the verdict as a required ``PlacementCheck.IK_REACHABLE`` check on each
-            layout, so it shows up in the audit report and gates that layout's ``.success``.
-    """
-    solver = CuroboIKSolver(
-        embodiment_curobo_cfg(embodiment),
-        device=device,
-        position_threshold=ik_pos_threshold,
-        rotation_threshold=ik_rot_threshold,
+    return Pose(
+        position_xyz=tuple(float(v) for v in pos_w),
+        rotation_xyzw=tuple(float(v) for v in quat_w_xyzw),
     )
-    # TODO(xinjieyao, 2026-07-22): Switch to solved pose of the robot base
-    base_pose = embodiment.get_initial_pose()
-    base_pos, base_quat_xyzw = base_pose.position_xyz, base_pose.rotation_xyzw
-
-    def validator(result: PlacementResult) -> bool:
-        objects = list(result.positions.keys())
-        anchors = set(get_anchor_objects(objects))
-        base_rotations = get_base_rotation_per_object(objects)
-
-        world_poses = {obj: get_object_world_pose_from_layout(result, obj, base_rotations) for obj in objects}
-        cuboids = [get_aabb_collision_cuboid_for_object(obj, *world_poses[obj]) for obj in objects]
-        solver.update_world(cuboids, base_pos, base_quat_xyzw)
-
-        movable = [obj for obj in objects if obj not in anchors]
-        if not movable:
-            reachable = True
-        else:
-            grasp_poses = torch.stack([
-                top_down_grasp_pose_from_world_poses(
-                    world_poses[obj][0],
-                    world_poses[obj][1],
-                    base_pos,
-                    base_quat_xyzw,
-                    grasp_z_offset,
-                    device=solver.device,
-                )
-                for obj in movable
-            ])
-            feasible, _, _ = solve_ik_feasibility(
-                solver,
-                grasp_poses,
-                position_threshold=ik_pos_threshold,
-                rotation_threshold=ik_rot_threshold,
-            )
-            reachable = bool(feasible.all().item())
-
-        if stamp_results:
-            result.validation_results.add_validation_check(PlacementCheck.IK_REACHABLE, reachable, required=True)
-        return reachable
-
-    return validator
-
-
-def embodiment_curobo_cfg(embodiment: EmbodimentBase):
-    """Look up the embodiment's registered cuRobo config (raises if none is registered)."""
-    from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
-
-    return get_curobo_cfg_for(embodiment)
 
 
 @register_validator
 class ReachabilityValidator(PlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
 
-    Gate the registration via importing this module. When no embodiment with a registered cuRobo
-    config is set on the params, the validator is delisted.
+    Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
 
     check = PlacementCheck.IK_REACHABLE
@@ -142,13 +64,18 @@ class ReachabilityValidator(PlacementValidator):
     def __init__(self, params: ObjectPlacerParams) -> None:
         super().__init__(params)
         config = params.reachability_config
-        self._validator_fn = make_ik_reachability_validator(
-            config.embodiment,
-            grasp_z_offset=config.grasp_z_offset_m,
-            ik_pos_threshold=config.ik_position_threshold_m,
-            ik_rot_threshold=config.ik_rotation_threshold_rad,
-            stamp_results=False,
+        self._grasp_z_offset = config.grasp_z_offset_m
+        self._ik_pos_threshold = config.ik_position_threshold_m
+        self._ik_rot_threshold = config.ik_rotation_threshold_rad
+        self._solver = CuroboIKSolver(
+            get_embodiment_curobo_cfg(config.embodiment),
+            position_threshold=self._ik_pos_threshold,
+            rotation_threshold=self._ik_rot_threshold,
         )
+        # TODO(xinjieyao, 2026-07-22): Switch to solved pose of the robot base
+        base_pose = config.embodiment.get_initial_pose()
+        self._base_pos = base_pose.position_xyz
+        self._base_quat_xyzw = base_pose.rotation_xyzw
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -157,7 +84,7 @@ class ReachabilityValidator(PlacementValidator):
         if embodiment is None:
             return False
         try:
-            embodiment_curobo_cfg(embodiment)
+            get_embodiment_curobo_cfg(embodiment)
         except AssertionError:
             # The embodiment has no registered cuRobo config -- treat reachability as unavailable.
             return False
@@ -177,12 +104,44 @@ class ReachabilityValidator(PlacementValidator):
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
     ) -> bool:
-        """Run the wrapped validator function over a single candidate's solved poses."""
-        candidate = PlacementResult(
-            validation_results=PlacementValidationResults(),
-            positions=positions,
-            final_loss=0.0,
-            attempts=0,
-            orientations=orientations,
+        """Whether the robot can reach a top-down grasp at every movable object in one candidate layout.
+
+        Rebuilds each object's world pose and a per-object collision cuboid, syncs them into the solver's
+        world, then batches a single IK solve over the movable objects' top-down grasps. An anchor-only
+        layout (nothing to grasp) is trivially reachable.
+        """
+        objects = list(positions.keys())
+        anchors = set(get_anchor_objects(objects))
+        base_rotations = get_base_rotation_per_object(objects)
+
+        world_poses = {
+            obj: get_object_world_pose_from_layout(positions, orientations, obj, base_rotations) for obj in objects
+        }
+        cuboids = [
+            get_aabb_collision_cuboid_for_object(obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw)
+            for obj in objects
+        ]
+        self._solver.update_world(cuboids, self._base_pos, self._base_quat_xyzw)
+
+        movable = [obj for obj in objects if obj not in anchors]
+        if not movable:
+            return True
+
+        grasp_poses = torch.stack([
+            top_down_grasp_pose_from_world_poses(
+                world_poses[obj].position_xyz,
+                world_poses[obj].rotation_xyzw,
+                self._base_pos,
+                self._base_quat_xyzw,
+                self._grasp_z_offset,
+                device=self._solver.device,
+            )
+            for obj in movable
+        ])
+        feasible, _, _ = solve_ik_feasibility(
+            self._solver,
+            grasp_poses,
+            position_threshold=self._ik_pos_threshold,
+            rotation_threshold=self._ik_rot_threshold,
         )
-        return bool(self._validator_fn(candidate))
+        return bool(feasible.all().item())
