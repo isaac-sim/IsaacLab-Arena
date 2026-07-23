@@ -99,10 +99,10 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         super().set_initial_pose(self._lift_by_base_offset(pose))
 
     @overload
-    def _lift_by_base_offset(self, target: Pose) -> Pose: ...
+    def _lift_by_base_offset(self, target: Pose) -> Pose: ...  # noqa: E704
 
     @overload
-    def _lift_by_base_offset(self, target: tuple[float, float, float]) -> tuple[float, float, float]: ...
+    def _lift_by_base_offset(self, target: tuple[float, float, float]) -> tuple[float, float, float]: ...  # noqa: E704
 
     def _lift_by_base_offset(self, target: tuple[float, float, float] | Pose) -> tuple[float, float, float] | Pose:
         """Shift ``target`` up by the stand-height offset, so the base sits atop the rescaled stand."""

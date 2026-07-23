@@ -83,13 +83,13 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
 
 
 @overload
-def translate_by_xyz_offset(target: Pose, xyz_offset: tuple[float, float, float]) -> Pose: ...
+def translate_by_xyz_offset(target: Pose, xyz_offset: tuple[float, float, float]) -> Pose: ...  # noqa: E704
 
 
 @overload
 def translate_by_xyz_offset(
     target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
-) -> tuple[float, float, float]: ...
+) -> tuple[float, float, float]: ...  # noqa: E704
 
 
 def translate_by_xyz_offset(
