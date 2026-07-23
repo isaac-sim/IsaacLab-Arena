@@ -27,6 +27,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview_panel import _group_camera_videos
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -89,6 +90,18 @@ class TestSimPreviewParams:
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
             parse_sim_preview_params({"num_envs": 0, "num_steps": 10})
+
+    def test_groups_camera_videos_by_camera_and_env(self):
+        videos = [
+            {"camera_name": "wrist", "env_id": 1, "video": b"wrist-1"},
+            {"camera_name": "front", "env_id": 0, "video": b"front-0"},
+            {"camera_name": "wrist", "env_id": 0, "video": b"wrist-0"},
+        ]
+
+        assert _group_camera_videos(videos) == {
+            "front": {0: b"front-0"},
+            "wrist": {0: b"wrist-0", 1: b"wrist-1"},
+        }
 
 
 class TestBuildAssetCards:

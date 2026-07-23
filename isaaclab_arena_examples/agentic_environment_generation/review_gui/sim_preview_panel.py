@@ -10,6 +10,16 @@ import streamlit as st
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import run_sim_preview_pipeline
 
+_CAMERA_VIDEO_WIDTH_PX = 250
+
+
+def _group_camera_videos(camera_videos: list[dict]) -> dict[str, dict[int, bytes]]:
+    """Group recorded camera videos by camera name and environment."""
+    grouped: dict[str, dict[int, bytes]] = {}
+    for video in camera_videos:
+        grouped.setdefault(str(video["camera_name"]), {})[int(video["env_id"])] = video["video"]
+    return grouped
+
 
 def render_sim_preview_panel(validation: SpecParseResult) -> None:
     """Render full-width sim-preview controls and recorded videos."""
@@ -71,10 +81,35 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
 
     if camera_videos:
         st.caption("Embodiment cameras (per environment)")
-        video_columns = st.columns(2)
-        for index, camera_video in enumerate(
-            sorted(camera_videos, key=lambda video: (video["env_id"], video["camera_name"]))
-        ):
-            with video_columns[index % len(video_columns)]:
-                st.caption(f"Env {camera_video['env_id']} — {camera_video['camera_name']}")
-                st.video(camera_video["video"])
+        st.html(f"""
+            <style>
+            div[class*="st-key-sim-preview-camera-row-"] {{
+                display: flex;
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                align-items: flex-start;
+                padding-bottom: 0.5rem;
+            }}
+            div[class*="st-key-sim-preview-camera-row-"] > div {{
+                flex: 0 0 {_CAMERA_VIDEO_WIDTH_PX}px !important;
+                min-width: {_CAMERA_VIDEO_WIDTH_PX}px !important;
+            }}
+            </style>
+            """)
+        videos_by_camera = _group_camera_videos(camera_videos)
+        recorded_num_envs = int(run_params.get("num_envs", 0))
+        for row_index, (camera_name, videos_by_env) in enumerate(sorted(videos_by_camera.items())):
+            st.markdown(f"**{camera_name}**")
+            with st.container(
+                key=f"sim-preview-camera-row-{row_index}",
+                horizontal=True,
+                gap="small",
+            ):
+                for env_id in range(recorded_num_envs):
+                    with st.container(width=_CAMERA_VIDEO_WIDTH_PX, border=True):
+                        st.caption(f"Env {env_id}")
+                        video = videos_by_env.get(env_id)
+                        if video is None:
+                            st.caption("No recording")
+                        else:
+                            st.video(video, width="stretch")
