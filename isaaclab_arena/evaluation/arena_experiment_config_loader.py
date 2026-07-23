@@ -11,12 +11,15 @@ import json
 from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
@@ -63,6 +66,7 @@ def load_arena_experiment_from_config_file(
         path,
         environment_cfg_types=_registered_environment_cfg_types(),
         policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
+        graph_environment_cfg_factory=_graph_environment_cfg_from_yaml_values,
         overrides=overrides,
     )
 
@@ -78,6 +82,26 @@ def load_arena_experiment_from_config_file(
         )
         runs_with_process_device[run_name] = run_config_with_process_device
     return ArenaExperimentCfg(runs=runs_with_process_device)
+
+
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
+# environments have a typed configuration and no longer use the argparse compatibility path.
+def _graph_environment_cfg_from_yaml_values(
+    env_graph_spec_yaml: str,
+    environment_values: dict[str, Any],
+) -> LegacyGraphEnvironmentCfg:
+    """Create the temporary graph-YAML compatibility config from typed YAML Run values.
+
+    The environment values are rendered as CLI tokens for the existing graph-environment
+    argparse path; the Run's environment_builder section stays typed and is applied
+    directly at execution (see build_arena_builder_from_legacy_graph).
+    """
+    arena_env_args: dict[str, Any] = {"environment": env_graph_spec_yaml, **environment_values}
+    return LegacyGraphEnvironmentCfg(
+        arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
+        env_graph_spec_yaml=env_graph_spec_yaml,
+        environment_values=dict(environment_values),
+    )
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

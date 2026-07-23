@@ -16,6 +16,7 @@ from hydra.errors import ConfigCompositionException
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
@@ -419,6 +420,58 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
         assert run_cfg.policy.remote_host == Pi0ServerTask.host_token(f"policy-server-{index}")
         assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
         assert run_cfg.policy.ping_timeout == Pi0ServerTaskCfg.client_ping_timeout_s
+
+
+def test_embedded_graph_environment_experiment_composes_through_experiment_runner_loader(tmp_path):
+    """Embed graph-YAML environment Runs and keep the handoff loadable by the runner."""
+    experiment_path = tmp_path / "graph_experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+  graph_run:
+    environment:
+      type: isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
+      enable_cameras: true
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_episodes: 3
+""",
+        encoding="utf-8",
+    )
+    submission_cfg = _compose_submission(
+        ["experiment_cfg.runs.graph_run.environment_builder.num_envs=4"],
+        experiment_path,
+    )
+    workflow = Pi0ArenaExperimentWorkflow(
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        server_task_cfg=submission_cfg.policy_server,
+        task_cfg=submission_cfg.experiment_runner,
+    )
+    rendered_workflow = workflow.generate_workflow()
+    experiment_runner_task = _workflow_tasks(rendered_workflow)[0]
+    embedded_run = _embedded_experiment(experiment_runner_task)["runs"]["graph_run"]
+    assert embedded_run["environment"] == {
+        "type": "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml",
+        "enable_cameras": True,
+    }
+    # The post-load Hydra override must land in the typed builder the runner executes with.
+    assert embedded_run["environment_builder"]["num_envs"] == 4
+
+    embedded_path = tmp_path / "embedded_experiment.yaml"
+    embedded_path.write_text(_task_file(experiment_runner_task, REMOTE_EXPERIMENT_PATH)["contents"], encoding="utf-8")
+    experiment_cfg = load_arena_experiment_from_config_file(embedded_path, device="cuda:0")
+    run_cfg = experiment_cfg.runs["graph_run"]
+    assert isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg)
+    assert run_cfg.environment.arena_env_args == [
+        "--enable_cameras",
+        "--env_graph_spec_yaml",
+        "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml",
+    ]
+    assert run_cfg.environment_builder.num_envs == 4
+    assert run_cfg.policy.remote_host == Pi0ServerTask.host_token("policy-server-0")
 
 
 def test_submission_overrides_osmo_resources(monkeypatch):
