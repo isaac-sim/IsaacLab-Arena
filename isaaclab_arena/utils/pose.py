@@ -5,7 +5,6 @@
 
 import torch
 from dataclasses import dataclass
-from typing import overload
 
 
 @dataclass
@@ -52,6 +51,13 @@ class Pose:
     def multiply(self, other: "Pose") -> "Pose":
         return compose_poses(self, other)
 
+    def translate(self, xyz_offset: tuple[float, float, float]) -> "Pose":
+        """Return this pose shifted by ``xyz_offset`` (rotation unchanged)."""
+        return Pose(
+            position_xyz=translate_by_xyz_offset(self.position_xyz, xyz_offset),
+            rotation_xyzw=self.rotation_xyzw,
+        )
+
     def to_transform_matrix(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a 4x4 homogeneous transform matrix."""
         import isaaclab.utils.math as math_utils
@@ -82,30 +88,15 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_xyzw=tuple(q_C_A.tolist()))
 
 
-@overload
-def translate_by_xyz_offset(target: Pose, xyz_offset: tuple[float, float, float]) -> Pose: ...  # noqa: E704
-
-
-@overload
-def translate_by_xyz_offset(  # noqa: E704
-    target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
-) -> tuple[float, float, float]: ...
-
-
 def translate_by_xyz_offset(
-    target: tuple[float, float, float] | Pose, xyz_offset: tuple[float, float, float]
-) -> tuple[float, float, float] | Pose:
-    """Return ``target`` shifted by ``xyz_offset`` (rotation, if any, unchanged).
+    target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
+) -> tuple[float, float, float]:
+    """Return ``target`` shifted by ``xyz_offset``.
 
     Args:
-        target: The position tuple or Pose to shift.
+        target: The (x, y, z) position to shift.
         xyz_offset: The (x, y, z) translation to add.
     """
-    if isinstance(target, Pose):
-        return Pose(
-            position_xyz=translate_by_xyz_offset(target.position_xyz, xyz_offset),
-            rotation_xyzw=target.rotation_xyzw,
-        )
     return (target[0] + xyz_offset[0], target[1] + xyz_offset[1], target[2] + xyz_offset[2])
 
 
