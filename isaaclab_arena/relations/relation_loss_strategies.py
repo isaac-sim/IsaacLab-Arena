@@ -626,14 +626,14 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
             radius = torch.linalg.vector_norm(radial_delta, dim=1)
             if relation.radius_min is not None and relation.radius_max is not None:
                 total_loss = total_loss + linear_band_loss(
-                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    self._radius_with_lower_bound_escape_direction(relation, radial_delta, radius),
                     relation.radius_min,
                     relation.radius_max,
                     slope=self.slope,
                 )
             elif relation.radius_min is not None:
                 total_loss = total_loss + single_boundary_linear_loss(
-                    self._radius_with_lower_bound_symmetry_breaker(radial_delta, radius),
+                    self._radius_with_lower_bound_escape_direction(relation, radial_delta, radius),
                     relation.radius_min,
                     slope=self.slope,
                     penalty_side="less",
@@ -647,14 +647,41 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
         return result.squeeze(0) if single_input else result
 
     @staticmethod
-    def _radius_with_lower_bound_symmetry_breaker(radial_delta: torch.Tensor, radius: torch.Tensor) -> torch.Tensor:
-        """Return radius with a deterministic descent direction at the exact radial center.
+    def _radius_with_lower_bound_escape_direction(
+        relation: PositionLimits, radial_delta: torch.Tensor, radius: torch.Tensor
+    ) -> torch.Tensor:
+        """Return radius with a feasible descent direction inside its lower bound.
 
-        A lower radial bound has no direction at exactly zero displacement. For only
-        that point, use an epsilon positive-X offset and subtract it back so the
-        scalar radius remains zero while autograd receives a deterministic direction.
-        All non-center points retain the ordinary Euclidean norm.
+        When the radial center lies outside an axial XY bound, ordinary radial
+        descent can oppose the axial loss and create a nonzero stationary point.
+        Inside the excluded inner disk, preserve the Euclidean radius value while
+        directing its gradient toward the closest point in the axial region.
+
+        With no such axial direction, only the exact center needs symmetry
+        breaking; use positive X deterministically as before.
         """
+        assert relation.radius_min is not None
+        assert relation.center_x is not None and relation.center_y is not None
+        escape_components: list[float] = []
+        for center, lower_bound, upper_bound in (
+            (relation.center_x, relation.x_min, relation.x_max),
+            (relation.center_y, relation.y_min, relation.y_max),
+        ):
+            if lower_bound is not None and center < lower_bound:
+                escape_components.append(lower_bound - center)
+            elif upper_bound is not None and center > upper_bound:
+                escape_components.append(upper_bound - center)
+            else:
+                escape_components.append(0.0)
+
+        if any(component != 0.0 for component in escape_components):
+            escape_direction = radial_delta.new_tensor(escape_components)
+            escape_direction = escape_direction / torch.linalg.vector_norm(escape_direction)
+            directional_radius = torch.sum(radial_delta * escape_direction, dim=1)
+            feasibility_steered_radius = radius.detach() + directional_radius - directional_radius.detach()
+            inside_lower_bound = radius < relation.radius_min
+            return torch.where(inside_lower_bound, feasibility_steered_radius, radius)
+
         at_center = torch.all(radial_delta == 0, dim=1)
         epsilon = torch.finfo(radial_delta.dtype).eps
         positive_x_epsilon = torch.zeros_like(radial_delta)
