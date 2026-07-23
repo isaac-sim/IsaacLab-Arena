@@ -87,9 +87,9 @@ def translate_by_xyz_offset(target: Pose, xyz_offset: tuple[float, float, float]
 
 
 @overload
-def translate_by_xyz_offset(
+def translate_by_xyz_offset(  # noqa: E704
     target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
-) -> tuple[float, float, float]: ...  # noqa: E704
+) -> tuple[float, float, float]: ...
 
 
 def translate_by_xyz_offset(
