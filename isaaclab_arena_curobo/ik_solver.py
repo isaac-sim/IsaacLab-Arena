@@ -36,7 +36,7 @@ class CuroboIKSolver:
     # scans through every object's instance dict (__dict__) with no cycle guard.
     # Curobo's IKSolver has a deep reference trees with circular deps and raw CUDA/C++ handles, so
     # it results in an infinite loop traversing Curobo's cyclic objects.
-    # By defining __slots__, python suppresses the creation of __dict__ and stop before traversing into Curobo's objects.
+    # By defining __slots__, python suppresses the creation of __dict__ and stops before traversing into Curobo's objects.
     # Args:
     #     logger: The logger for the solver.
     #     device: The cuda device for the solver.
