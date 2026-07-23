@@ -211,6 +211,9 @@ def test_union_broadcasts_single_box_over_batch():
     single = AxisAlignedBoundingBox(min_point=(-1.0, -1.0, -1.0), max_point=(0.0, 0.0, 0.0))
     result = AxisAlignedBoundingBox.union([batched, single])
     assert result.num_envs == 2
+    # The single box broadcasts into both rows, so check each independently.
+    torch.testing.assert_close(result.min_point[0], torch.tensor([-1.0, -1.0, -1.0]))
+    torch.testing.assert_close(result.max_point[0], torch.tensor([1.0, 1.0, 1.0]))
     torch.testing.assert_close(result.min_point[1], torch.tensor([-1.0, -1.0, -1.0]))
     torch.testing.assert_close(result.max_point[1], torch.tensor([6.0, 6.0, 1.0]))
 
