@@ -86,12 +86,14 @@ def _write_scene_root_pose_to_sim(
     pose_tensor = sim_pose.to_tensor(device=env.device).unsqueeze(0)
     pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
 
+    # Articulations and rigid objects use write_root_pose_to_sim (ArticulationCfg/RigidObjectSetCfg)
     write_root_pose = getattr(scene_asset, "write_root_pose_to_sim", None)
     if write_root_pose is not None:
         write_root_pose(pose_tensor, env_ids=env_id_tensor)
         scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
         return
 
+    # AssetBase extras (e.g. Droid stand) use set_world_poses (AssetBaseCfg).
     set_world_poses = getattr(scene_asset, "set_world_poses", None)
     if set_world_poses is not None:
         set_world_poses(
@@ -147,8 +149,8 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    assets: list[PlacementAsset],
     placement_pool: PooledObjectPlacer,
+    assets: list[PlacementAsset] | None = None,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -159,11 +161,13 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        assets: Assets participating in relation solving.
         placement_pool: Runtime pool of solved placement layouts.
+        assets: Assets participating in relation solving. Defaults to
+            ``placement_pool.objects`` when omitted so event params stay small.
     """
     if env_ids is None or len(env_ids) == 0:
         return
+    assets = placement_pool.objects if assets is None else assets
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (

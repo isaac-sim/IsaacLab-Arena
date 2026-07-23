@@ -34,11 +34,20 @@ def _make_box(name: str = "box"):
 
 
 class _FakePlacementPool:
-    def __init__(self, layouts) -> None:
+    def __init__(self, layouts, objects=None) -> None:
         self._layouts = layouts
+        self._objects = objects or []
+        self.released_mesh_resources = False
+
+    @property
+    def objects(self):
+        return self._objects
 
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
+
+    def release_mesh_collision_resources(self) -> None:
+        self.released_mesh_resources = True
 
 
 def _fallback_layout(positions):
@@ -142,7 +151,10 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
 
     desk = _make_desk()
     box = _make_box()
-    placement_pool = _FakePlacementPool([_fallback_layout(positions={box: (0.1, 0.2, 0.3)})])
+    placement_pool = _FakePlacementPool(
+        [_fallback_layout(positions={box: (0.1, 0.2, 0.3)})],
+        objects=[desk, box],
+    )
 
     event_cfg = _apply_dynamic_spawn_pose(
         assets=[desk, box],
@@ -150,8 +162,40 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
         anchor_assets={desk},
     )
 
-    assert [asset.name for asset in event_cfg.params["assets"]] == ["desk", "box"]
     assert "placement_pool" in event_cfg.params
+    assert placement_pool.released_mesh_resources
+    assert [asset.name for asset in event_cfg.params["placement_pool"].objects] == ["desk", "box"]
+
+
+def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
+    """EventTermCfg deep-copies params; mesh caches must be released before storing the pool."""
+    import copy
+    import trimesh
+
+    from isaaclab.managers import EventTermCfg
+
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk, clearance_m=0.01))
+    box.collision_mode = CollisionMode.MESH
+    box._collision_mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
+
+    params = ObjectPlacerParams(
+        placement_seed=17,
+        resolve_on_reset=True,
+        min_unique_layouts_per_env=1,
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=50),
+    )
+    event_cfg = solve_and_apply_relation_placement([desk, box], num_envs=1, placer_params=params)
+
+    assert event_cfg is not None
+    assert isinstance(event_cfg, EventTermCfg)
+    copy.deepcopy(event_cfg)
 
 
 def test_static_embodiment_placement_stores_per_env_poses():
