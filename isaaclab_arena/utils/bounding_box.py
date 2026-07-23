@@ -13,6 +13,7 @@ This module provides functions for:
 """
 
 import torch
+from collections.abc import Sequence
 
 from isaaclab_arena.utils.pose import Pose
 
@@ -44,6 +45,27 @@ class AxisAlignedBoundingBox:
         return AxisAlignedBoundingBox(
             min_point=self._min_point[idx : idx + 1], max_point=self._max_point[idx : idx + 1]
         )
+
+    @staticmethod
+    def union(boxes: Sequence["AxisAlignedBoundingBox"]) -> "AxisAlignedBoundingBox":
+        """Return the tightest box enclosing every box in a common frame (component-wise min/max).
+
+        Args:
+            boxes: Non-empty sequence of boxes sharing num_envs, except N=1 boxes which broadcast.
+
+        Returns:
+            A box with num_envs = max over inputs, enclosing the union of all inputs.
+        """
+        assert len(boxes) > 0, "union requires at least one bounding box."
+        num_envs = max(box.num_envs for box in boxes)
+        for box in boxes:
+            assert box.num_envs in (
+                1,
+                num_envs,
+            ), f"union requires boxes with matching num_envs or N=1; got {box.num_envs} vs {num_envs}."
+        mins = torch.stack([box._min_point.expand(num_envs, 3) for box in boxes], dim=0)
+        maxs = torch.stack([box._max_point.expand(num_envs, 3) for box in boxes], dim=0)
+        return AxisAlignedBoundingBox(min_point=mins.amin(dim=0), max_point=maxs.amax(dim=0))
 
     @staticmethod
     def _to_batched_tensor(value: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:

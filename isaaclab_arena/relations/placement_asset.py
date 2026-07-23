@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.collision_object import CollisionComponent
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -146,3 +147,18 @@ class PlaceableAsset(Asset, ABC):
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """
+
+    def get_relation_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return the root-relative bounds a solver constrains against; subclasses may narrow the plain bounding box."""
+        return self.get_bounding_box()
+
+    def get_collision_components(self) -> list[CollisionComponent]:
+        """Return the asset's collision sub-volumes; a simple asset yields one identity-posed component."""
+        return [
+            CollisionComponent(
+                name=self.name,
+                local_pose=Pose.identity(),
+                bounding_box=self.get_bounding_box(),
+                mesh=self.get_collision_mesh(),
+            )
+        ]
