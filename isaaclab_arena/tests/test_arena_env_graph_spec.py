@@ -10,18 +10,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _attach_spatial_relations_to_assets
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import (
-    CliOverrideSpec,
-    SpatialRelationSpec,
-    TaskCompositionType,
-)
+from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
@@ -84,27 +77,25 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
-def test_spatial_relation_conversion_attaches_radial_position_limits():
-    """Generic graph conversion attaches radial PositionLimits to its subject asset."""
+def test_graph_spec_parses_radial_position_limits():
+    """Graph specs preserve radial PositionLimits parameters for relation construction."""
 
-    tool = DummyObject(
-        name="tool",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
-    )
-    relation_spec = SpatialRelationSpec(
-        kind="position_limits",
-        subject="tool",
-        params={"center_x": 0.5, "center_y": -0.25, "radius_min": 0.1, "radius_max": 0.3},
-    )
+    data = _minimal_env_graph_data()
+    data["relations"] = [{
+        "kind": "position_limits",
+        "subject": "cube",
+        "params": {"center_x": 0.5, "center_y": -0.25, "radius_min": 0.1, "radius_max": 0.3},
+    }]
 
-    _attach_spatial_relations_to_assets([relation_spec], {"tool": tool})
+    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
+    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
+    relation = relation_class(**relation_spec.params)
 
-    (attached_relation,) = tool.get_spatial_relations()
-    assert isinstance(attached_relation, PositionLimits)
-    assert attached_relation.center_x == 0.5
-    assert attached_relation.center_y == -0.25
-    assert attached_relation.radius_min == 0.1
-    assert attached_relation.radius_max == 0.3
+    assert isinstance(relation, PositionLimits)
+    assert relation.center_x == 0.5
+    assert relation.center_y == -0.25
+    assert relation.radius_min == 0.1
+    assert relation.radius_max == 0.3
 
 
 def test_graph_spec_parses_at_position():
