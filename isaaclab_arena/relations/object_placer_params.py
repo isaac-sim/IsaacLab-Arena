@@ -24,6 +24,10 @@ class ReachabilityConfig:
     embodiment: EmbodimentBase | None = None
     """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
 
+    target_object_ids: tuple[str, ...] | None = None
+    """Object ``name``s (graph node ids) the reachability check must cover. None checks every movable
+    object; a set focuses the check on task-relevant objects (e.g. the pick object and place destination)."""
+
     grasp_z_offset_m: float = 0.02
     """Height above each object's root for the top-down grasp pose the check tests."""
 

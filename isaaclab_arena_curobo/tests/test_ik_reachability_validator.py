@@ -56,6 +56,45 @@ def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
     )
 
 
+def _make_desk_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
+    """Build a desk (anchor) + two boxes (each On desk) pool; two movable objects to filter between."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+    boxes = []
+    for box_name in ("box_a", "box_b"):
+        box = DummyObject(
+            name=box_name,
+            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        )
+        box.add_relation(On(desk, clearance_m=0.01))
+        boxes.append(box)
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=5,
+    )
+    return PooledObjectPlacer(
+        objects=[desk, *boxes],
+        placer_params=params,
+        pool_size=num_envs * min_layouts_per_env,
+        num_envs=num_envs,
+    )
+
+
 def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
@@ -99,13 +138,14 @@ def _fake_embodiment():
     return embodiment
 
 
-def _make_reachability_validator(embodiment):
-    """Construct the registered ReachabilityValidator with ``embodiment`` set on its params."""
+def _make_reachability_validator(embodiment, target_object_ids=None):
+    """Construct the registered ReachabilityValidator with ``embodiment`` (and optional target ids) on its params."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
 
     params = ObjectPlacerParams()
     params.reachability_config.embodiment = embodiment
+    params.reachability_config.target_object_ids = target_object_ids
     return ReachabilityValidator(params)
 
 
@@ -130,3 +170,26 @@ def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+
+
+@pytest.mark.curobo_deps
+def test_validator_checks_only_configured_target_objects(monkeypatch):
+    """With a task constraint set, only the named target object is IK-checked, not every movable object."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment(), target_object_ids=("box_a",))
+
+    layout = _make_desk_two_box_pool().layouts_per_env()[0][0]
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+    # Two movable boxes exist, but only the single configured target contributes a grasp.
+    assert captured["num_grasps"] == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_checks_all_configured_targets(monkeypatch):
+    """Every configured target (pick object + place destination) is IK-checked."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment(), target_object_ids=("box_a", "box_b"))
+
+    layout = _make_desk_two_box_pool().layouts_per_env()[0][0]
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+    assert captured["num_grasps"] == 2

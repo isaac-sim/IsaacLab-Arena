@@ -147,6 +147,32 @@ class CompositeTaskSpec(BaseModel):
         return self
 
 
+class TaskConstraintSpec(BaseModel):
+    """Task-relevant objects the build-time reachability gate focuses on.
+
+    Names the object the robot picks and, when the place target is itself a scene object, where it
+    places it. Lets the ``ik_reachable`` check test only these instead of every movable object.
+    """
+
+    pick_object: str = Field(
+        min_length=1,
+        description="Graph node id of the object the robot picks up; always a reachability target.",
+    )
+    place_destination: str | None = Field(
+        default=None,
+        description=(
+            "Graph node id of the place target when it is a scene object, added as a reachability "
+            "target. Omit when the destination is a bare location rather than an object."
+        ),
+    )
+
+    def target_object_ids(self) -> tuple[str, ...]:
+        """Node ids the reachability check must cover: the pick object, plus the destination if it is an object."""
+        if self.place_destination is None:
+            return (self.pick_object,)
+        return (self.pick_object, self.place_destination)
+
+
 class SpatialRelationSpec(BaseModel):
     """Spatial relation in an environment graph."""
 
