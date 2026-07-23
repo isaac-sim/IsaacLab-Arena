@@ -40,6 +40,7 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
 
@@ -108,6 +109,24 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     def set_spawn_pose(self, pose: Pose) -> None:
         """Set the scene-construction base pose, lifted by the stand-height offset like ``set_initial_pose``."""
         super().set_spawn_pose(pose.translate(self._robot_base_offset))
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds from the stand geometry (robot root is the placement origin).
+
+        The relation solver supplies unlifted poses; ``set_initial_pose`` then applies
+        ``_robot_base_z_offset``. Shift the stand footprint by the configured stand
+        offset plus that z lift so ``On`` placement stays aligned with the spawned base.
+        """
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        assert self.scene_config is not None, "scene_config must be populated before placement"
+        stand = self.scene_config.stand
+        spawn = stand.spawn
+        assert spawn.usd_path is not None, "scene_config.stand must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        stand_bbox = compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+
+        return stand_bbox.translated((0.0, 0.0, self._robot_base_z_offset))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
