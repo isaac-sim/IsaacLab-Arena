@@ -58,6 +58,19 @@ def test_position_limits_preserves_original_positional_weight_argument():
 @pytest.mark.parametrize(
     "kwargs",
     [
+        {"x_min": -1.0, "center_x": 0.0},
+        {"x_min": -1.0, "center_y": 0.0},
+        {"x_min": -1.0, "center_x": 0.0, "center_y": 0.0},
+    ],
+)
+def test_position_limits_rejects_radial_center_without_radial_bound(kwargs):
+    with pytest.raises(AssertionError, match="only be set when setting a radial bound"):
+        PositionLimits(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
         {"radius_max": 0.2},
         {"center_x": 0.0, "radius_max": -0.2},
         {"center_x": 0.0, "center_y": 0.0, "radius_min": -0.2},
@@ -246,6 +259,48 @@ def test_position_limits_lower_radius_symmetry_breaker_preserves_mixed_batch_beh
     assert torch.allclose(loss, torch.tensor([5.0, 2.5]), atol=1e-6)
     assert child_pos.grad is not None
     assert torch.allclose(child_pos.grad, torch.tensor([[-10.0, 0.0, 0.0], [-10.0, 0.0, 0.0]]))
+
+
+def test_position_limits_lower_radius_escape_gradient_points_into_axial_box():
+    """The excluded-center escape gradient follows the shortest direction into the axial box."""
+
+    relation = PositionLimits(
+        x_max=0.4,
+        y_min=0.2,
+        center_x=0.5,
+        center_y=0.5,
+        radius_min=0.2,
+    )
+    radial_delta = torch.zeros((1, 2), requires_grad=True)
+    radius = torch.linalg.vector_norm(radial_delta, dim=1)
+
+    steered_radius = PositionLimitsLossStrategy._radius_with_lower_bound_escape_direction(
+        relation, radial_delta, radius
+    )
+    steered_radius.sum().backward()
+
+    assert radial_delta.grad is not None
+    assert torch.allclose(radial_delta.grad, torch.tensor([[-1.0, 0.0]]))
+
+
+def test_position_limits_center_radius_clamps_rounding_underflow(monkeypatch):
+    """The symmetry-breaker radius remains non-negative if a norm rounds below epsilon."""
+
+    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
+    radial_delta = torch.zeros((1, 2))
+    radius = torch.zeros(1)
+    epsilon = torch.finfo(radial_delta.dtype).eps
+    monkeypatch.setattr(
+        torch.linalg,
+        "vector_norm",
+        lambda tensor, dim: tensor.new_full((tensor.shape[0],), epsilon / 2),
+    )
+
+    steered_radius = PositionLimitsLossStrategy._radius_with_lower_bound_escape_direction(
+        relation, radial_delta, radius
+    )
+
+    assert torch.equal(steered_radius, torch.zeros_like(steered_radius))
 
 
 def test_position_limits_radial_and_axis_losses_compose():

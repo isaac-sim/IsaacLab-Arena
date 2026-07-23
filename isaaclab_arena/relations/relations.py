@@ -506,6 +506,9 @@ class PositionLimits(UnaryRelation):
         assert not has_radial_bound or (
             center_x is not None and center_y is not None
         ), "center_x and center_y are required when setting a radial bound"
+        assert has_radial_bound or (
+            center_x is None and center_y is None
+        ), "center_x and center_y may only be set when setting a radial bound"
         assert radius_min is None or radius_min >= 0.0, "radius_min must be non-negative"
         assert radius_max is None or radius_max >= 0.0, "radius_max must be non-negative"
         assert (

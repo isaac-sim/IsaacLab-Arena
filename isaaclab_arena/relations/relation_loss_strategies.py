@@ -686,5 +686,5 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
         epsilon = torch.finfo(radial_delta.dtype).eps
         positive_x_epsilon = torch.zeros_like(radial_delta)
         positive_x_epsilon[:, 0] = epsilon
-        center_radius = torch.linalg.vector_norm(radial_delta + positive_x_epsilon, dim=1) - epsilon
+        center_radius = (torch.linalg.vector_norm(radial_delta + positive_x_epsilon, dim=1) - epsilon).clamp_min(0.0)
         return torch.where(at_center, center_radius, radius)
