@@ -17,7 +17,7 @@ import warp as wp
 from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
 
-from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
+from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_matrix, world_pose_to_robot_frame
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
 
@@ -43,7 +43,7 @@ def make_planner_cfg(
             ``embodiment_curobo_registry``).
         debug_planner: Enable cuRobo planner debug output.
     """
-    curobo_cfg = get_curobo_cfg_for(embodiment)
+    curobo_cfg = get_embodiment_curobo_cfg(embodiment)
 
     # cuRobo reads real on-disk files, so pull + patch the robot config (URDF spliced in) from the
     # asset server, then re-dump it to a temp file CuroboPlannerCfg can point at.
