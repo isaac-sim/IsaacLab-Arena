@@ -183,9 +183,11 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate uv lock
+        # No --offline: verifying the lock builds metadata for the editable
+        # Isaac Lab source package, which needs its build backend from the network.
         run: |
           uv python install 3.12
-          uv lock --check --offline --no-python-downloads
+          uv lock --check --no-python-downloads
 
       # Out-of-source packaging check: validates the lockfile via the
       # packaging tests, run in an out of source directory.
