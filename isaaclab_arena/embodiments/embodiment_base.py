@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -17,6 +17,9 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+if TYPE_CHECKING:
+    import trimesh
 
 
 class EmbodimentBase(PlacementAsset):
@@ -52,6 +55,8 @@ class EmbodimentBase(PlacementAsset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+        self._collision_mesh: trimesh.Trimesh | None = None
+        """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative bounds computed from the articulation's USD geometry."""
@@ -66,6 +71,28 @@ class EmbodimentBase(PlacementAsset):
         scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
         # TODO(zihaox): Account for configured initial joint positions in bounds and collision meshes.
         return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the robot's collision mesh from its USD default prim, in the default joint pose."""
+        if self._collision_mesh is None:
+            # Import locally because USD/pxr is available only after simulation initialization.
+            from pxr import Usd
+
+            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+            assert self.scene_config is not None, "scene_config must be populated before placement"
+            robot = self.scene_config.robot
+            assert robot is not None, "scene_config.robot must be populated before placement"
+            spawn = robot.spawn
+            assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+            scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+            stage = Usd.Stage.Open(spawn.usd_path)
+            assert stage is not None, f"could not open robot USD: {spawn.usd_path}"
+            default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+            # The default prim scopes extraction to the robot, excluding sibling scene props
+            # (ground planes, stray objects) baked into some flattened articulation USDs.
+            self._collision_mesh = extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+        return self._collision_mesh
 
     def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set the embodiment root pose."""
