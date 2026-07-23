@@ -254,3 +254,54 @@ The serve loop samples the camera on the main/Kit thread right after each physic
 step at ~10 Hz (decimated from the 200 Hz base) and offers frames to the same
 nonblocking latest-frame producer; sampling never blocks or breaks the barrier
 serve loop.
+
+### Grocery-to-bin producer
+
+The live GaP grocery walking skeleton uses a scene-specialized version of the same
+external-policy serve loop:
+
+```bash
+isaaclab_arena/integrations/cap_barrier/generate_perception_stubs.sh
+OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE=1 \
+PYTHONPATH="$PWD" \
+/home/rafael/Projects/Isaac-cap/external/IsaacLab-Arena/.venv/bin/python \
+  -m isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin \
+  --viz none --device cuda:0 --perception-stream 127.0.0.1:50061
+```
+
+The fixed B=1 scene contains:
+
+- `alphabet_soup_can_hope_robolab`, a dynamic graspable grocery;
+- `grey_bin_robolab`, the calibrated packing destination;
+- a local kinematic `procedural_table` collision support; and
+- the RGB-D `exterior_cam`.
+
+The object and bin poses are pinned from the successful DROID
+`single_object_uv_rebase_seed71` rollout. The DROID base remains at world
+identity, matching the `arena_droid_b1` base calibration used by the
+camera-to-base, GraspGen, and MoveToPose frame chain. The producer emits
+`CAP_GROCERY_TO_BIN_SCENE_READY` after the generation-1 bootstrap fence; the
+marker names the exact object, bin, camera, and camera profile.
+
+The default `--camera libero` uses the existing top-down CAP camera.
+`--camera oblique` selects the existing Maple DROID agent-view camera as the
+open-vocabulary fallback without changing the scene or base calibration. Both
+publish the camera's live world pose; the ROS adapter derives `T_base_cam` from
+that pose and the pinned identity `T_world_base`.
+
+The live GPU acceptance is non-vacuous only when all of the following hold:
+
+- Kit emits `CAP_PRODUCTION_KIT_ENV_READY`,
+  `CAP_SERVE_KIT_GENERATION_1_ATTACHED`,
+  `CAP_SERVE_KIT_BOOTSTRAP_FENCE_OK`, and the exact
+  `CAP_GROCERY_TO_BIN_SCENE_READY` marker.
+- Kit emits no `CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED`; its terminal
+  `CAP_SERVE_KIT_PERCEPTION_STREAM_TRACE` reports both `offered > 0` and
+  `sent > 0`.
+- The real DINO/SAM path returns a nonempty mask and OBB for the grocery object.
+- The grocery graph reaches its successful terminal and all producer, control
+  plane, and client processes shut down cleanly.
+
+A scene-ready or `CAP_SERVE_KIT_DONE` marker alone is not a pass. Failure to
+detect the grocery is terminal for the smoke and never fabricates an object pose.

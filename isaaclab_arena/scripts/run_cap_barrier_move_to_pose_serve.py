@@ -35,6 +35,8 @@ from __future__ import annotations
 import math
 import os
 import time
+from collections.abc import Callable
+from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -64,9 +66,7 @@ class _PerceptionStreamSink:
     """
 
     def __init__(self, adapter, endpoint: str, marker_sink) -> None:
-        from isaaclab_arena.integrations.cap_barrier.perception_producer import (
-            PerceptionFrameProducer,
-        )
+        from isaaclab_arena.integrations.cap_barrier.perception_producer import PerceptionFrameProducer
 
         self._adapter = adapter
         self._marker_sink = marker_sink
@@ -82,13 +82,9 @@ class _PerceptionStreamSink:
         if self._sample_calls % _PERCEPTION_SAMPLE_EVERY_FRAMES != 0:
             return
         try:
-            from isaaclab_arena.integrations.cap_barrier.perception_producer import (
-                extract_camera_frame,
-            )
+            from isaaclab_arena.integrations.cap_barrier.perception_producer import extract_camera_frame
 
-            frame = extract_camera_frame(
-                self._adapter._environment, frame_index=self._frame_index
-            )
+            frame = extract_camera_frame(self._adapter._environment, frame_index=self._frame_index)
             self._producer.offer(frame)
             self._frame_index += 1
         except Exception as error:  # noqa: BLE001 - never break the serve loop
@@ -131,6 +127,9 @@ def _run_serve(
     *,
     perception_stream: str | None = None,
     serve_seconds: float = _SERVE_TIMEOUT_S,
+    environment_factory: Callable[..., Any] | None = None,
+    initial_gripper_closed: bool = True,
+    ready_marker: str = "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE",
 ) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
@@ -139,11 +138,11 @@ def _run_serve(
         open_production_startup_rendezvous,
     )
     from isaaclab_arena.integrations.cap_barrier.protocol import ControllerTimingSpec
-    from isaaclab_arena.integrations.cap_barrier.serve import (
-        ServeExit,
-        serve_generation_watching_gripper,
-    )
+    from isaaclab_arena.integrations.cap_barrier.serve import ServeExit, serve_generation_watching_gripper
     from isaaclab_arena.integrations.cap_barrier.shared_memory import ArenaBarrierClient
+
+    if environment_factory is None:
+        environment_factory = make_cap_franka_environment
 
     # The arm motion is applied through joint_streaming; hold keeps the arm still
     # between commands; the gripper controller stays available so a mixed skill
@@ -154,9 +153,9 @@ def _run_serve(
         ControllerTimingSpec("robotiq_gripper_controller", 1),
     )
     adapter, client, startup_deadline = open_production_startup_rendezvous(
-        lambda: make_cap_franka_environment(
+        lambda: environment_factory(
             device=device,
-            initial_gripper_closed=True,
+            initial_gripper_closed=initial_gripper_closed,
             enable_cameras=perception_stream is not None,
         ),
         lambda deadline: ArenaBarrierClient(
@@ -169,9 +168,7 @@ def _run_serve(
     perception: _PerceptionStreamSink | None = None
     on_physics_frame = None
     if perception_stream is not None:
-        perception = _PerceptionStreamSink(
-            adapter, perception_stream, lambda marker: print(marker, flush=True)
-        )
+        perception = _PerceptionStreamSink(adapter, perception_stream, lambda marker: print(marker, flush=True))
         on_physics_frame = perception.on_physics_frame
     try:
         manager = ArenaLockstepManager(
@@ -186,9 +183,7 @@ def _run_serve(
             startup_deadline_monotonic_s=startup_deadline,
         )
         if generation_1 != 1:
-            raise RuntimeError(
-                f"serve producer must bootstrap at generation 1, got {generation_1}"
-            )
+            raise RuntimeError(f"serve producer must bootstrap at generation 1, got {generation_1}")
         print("CAP_SERVE_KIT_GENERATION_1_ATTACHED", flush=True)
 
         bootstrap_fences = _paced_bootstrap_fences(manager, adapter, _BOOTSTRAP_FENCE_FRAMES)
@@ -199,7 +194,7 @@ def _run_serve(
             f"arm0_rad={adapter.arm_positions()[0]:.6f}",
             flush=True,
         )
-        print("CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE", flush=True)
+        print(ready_marker, flush=True)
 
         # Serve like a real episode for an external ARM policy, reusing the SAME
         # proven serve+reset-follow primitive as the open_gripper serve
@@ -214,7 +209,7 @@ def _run_serve(
         # so the arm lease's controller switch completes and joint_states flows.
         deadline = time.monotonic() + serve_seconds
         generations_served = 0
-        for _ in range(_MAX_GENERATIONS_FOLLOWED):
+        for generations_served in range(1, _MAX_GENERATIONS_FOLLOWED + 1):
             observation = serve_generation_watching_gripper(
                 manager,
                 adapter.gripper_position,
@@ -224,7 +219,6 @@ def _run_serve(
                 marker_sink=lambda marker: print(marker, flush=True),
                 on_physics_frame=on_physics_frame,
             )
-            generations_served += 1
             print(
                 "CAP_SERVE_KIT_GENERATION_SERVED "
                 f"exit={observation.exit_reason} frames={observation.physics_frames} "
@@ -243,8 +237,7 @@ def _run_serve(
                 followed_generation = manager.attach_next_generation(timeout_s=30.0)
             except Exception as error:  # noqa: BLE001 - report and stop cleanly
                 print(
-                    f"CAP_SERVE_KIT_FOLLOW_RESET_FAILED detail={error!r} "
-                    f"after={observation.exit_reason}",
+                    f"CAP_SERVE_KIT_FOLLOW_RESET_FAILED detail={error!r} after={observation.exit_reason}",
                     flush=True,
                 )
                 break

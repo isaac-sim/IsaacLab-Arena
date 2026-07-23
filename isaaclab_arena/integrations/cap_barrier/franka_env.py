@@ -15,6 +15,17 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+from .grocery_scene_spec import (
+    CAP_GROCERY_BIN_ASSET,
+    CAP_GROCERY_BIN_POSE,
+    CAP_GROCERY_CAMERA_PROFILES,
+    CAP_GROCERY_DROID_HOME,
+    CAP_GROCERY_OBJECT_ASSET,
+    CAP_GROCERY_OBJECT_POSE,
+    CAP_GROCERY_SUPPORT_ASSET,
+    CAP_GROCERY_SUPPORT_POSE,
+    CAP_GROCERY_SUPPORT_SIZE,
+)
 from .joint_mapping import (
     DROID_FINGER_JOINT,
     DROID_GRIPPER_CLOSED_POSITION_RAD,
@@ -24,9 +35,7 @@ from .joint_mapping import (
 )
 
 
-def _configure_cap_droid_embodiment(
-    embodiment: Any, *, stand_spawn: Any, initial_gripper_closed: bool = False
-) -> None:
+def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any, initial_gripper_closed: bool = False) -> None:
     # The reused Franka reset helper preserves only the final two articulation joints,
     # which are mimic joints on DROID rather than the commanded finger joint. This fixed
     # profile retains the state-writing reset event but removes its Gaussian offset.
@@ -48,14 +57,10 @@ def _configure_cap_droid_embodiment(
         # event: init_franka_arm_pose.default_pose lists the finger joint at index 7
         # (seven arm joints precede it). init_state is patched too for consistency.
         # The production smoke keeps the open default (open->close->open sequence).
-        embodiment.scene_config.robot.init_state.joint_pos[DROID_FINGER_JOINT] = (
-            DROID_GRIPPER_CLOSED_POSITION_RAD
-        )
+        embodiment.scene_config.robot.init_state.joint_pos[DROID_FINGER_JOINT] = DROID_GRIPPER_CLOSED_POSITION_RAD
         default_pose = embodiment.event_config.init_franka_arm_pose.params["default_pose"]
         if len(default_pose) <= 7:
-            raise RuntimeError(
-                "DROID init_franka_arm_pose.default_pose is missing the finger joint slot"
-            )
+            raise RuntimeError("DROID init_franka_arm_pose.default_pose is missing the finger joint slot")
         default_pose[7] = DROID_GRIPPER_CLOSED_POSITION_RAD
 
 
@@ -152,20 +157,102 @@ class FrankaSimulationAdapter:
         self._environment.close()
 
 
-def make_cap_franka_environment(
-    *,
-    device: str = "cuda:0",
-    initial_gripper_closed: bool = False,
-    enable_cameras: bool = False,
-) -> FrankaSimulationAdapter:
-    """Build the fixed arena_droid_b1 smoke profile after Kit startup.
+def _configure_cap_camera(embodiment: Any, camera_profile: str) -> None:
+    if camera_profile == "libero":
+        from isaaclab_arena_environments.libero_cameras import LiberoDroidPerceptionCameraCfg
 
-    ``enable_cameras`` attaches the perception ``exterior_cam`` (rgb + depth) so the
-    get_image ROS path can render on demand. It requires the SimulationApp to be
-    launched with ``--enable_cameras``; the barrier itself never reads the camera
-    per step (rendering is triggered by data access, so the 200 Hz loop pays no
-    render cost until a frame is explicitly requested).
-    """
+        camera_config = LiberoDroidPerceptionCameraCfg()
+    elif camera_profile == "oblique":
+        from isaaclab_arena_environments.maple_cameras import MapleDroidPerceptionCameraCfg
+
+        camera_config = MapleDroidPerceptionCameraCfg()
+    else:
+        raise ValueError(
+            f"unsupported CAP grocery camera profile {camera_profile!r}; expected one of {CAP_GROCERY_CAMERA_PROFILES}"
+        )
+    # The perception bridge serializes this sensor's current world pose. Keep
+    # pose updates enabled for both profiles so a future camera variation cannot
+    # silently leave RGB-D paired with initialization-time extrinsics.
+    camera_config.exterior_cam.update_latest_camera_pose = True
+    embodiment.camera_config = camera_config
+
+
+def _configure_cap_grocery_embodiment(embodiment: Any) -> None:
+    """Pin the proven grocery home while preserving the calibrated base pose."""
+    robot_init = embodiment.scene_config.robot.init_state
+    if tuple(robot_init.pos) != (0.0, 0.0, 0.0) or tuple(robot_init.rot) != (
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ):
+        raise RuntimeError("CAP grocery scene requires the identity DROID base pinned by arena_droid_b1 calibration")
+    embodiment.set_initial_joint_pose(initial_joint_pose=list(CAP_GROCERY_DROID_HOME))
+
+
+def _make_cap_grocery_assets(registry: Any, sim_utils: Any) -> list[Any]:
+    """Build the deterministic grocery assets without requiring a live USD stage."""
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    ground_plane = registry.get_asset_by_name("ground_plane")()
+    light = registry.get_asset_by_name("light")()
+    light.set_intensity(1500.0)
+
+    support = registry.get_asset_by_name(CAP_GROCERY_SUPPORT_ASSET)()
+    support.set_initial_pose(Pose(*CAP_GROCERY_SUPPORT_POSE))
+    half_x = CAP_GROCERY_SUPPORT_SIZE[0] * 0.5
+    half_y = CAP_GROCERY_SUPPORT_SIZE[1] * 0.5
+    half_z = CAP_GROCERY_SUPPORT_SIZE[2] * 0.5
+    support.bounding_box = AxisAlignedBoundingBox(
+        (-half_x, -half_y, -half_z),
+        (half_x, half_y, half_z),
+    )
+    # Keep the support invisible so the open-vocabulary detector cannot suppress
+    # the grocery as a child of a large table detection. Collision remains active.
+    support.object_cfg.spawn = sim_utils.CuboidCfg(
+        size=CAP_GROCERY_SUPPORT_SIZE,
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+        visible=False,
+    )
+
+    grocery = registry.get_asset_by_name(CAP_GROCERY_OBJECT_ASSET)()
+    if grocery.object_type != ObjectType.RIGID or not {
+        "object",
+        "graspable",
+        "food",
+    }.issubset(grocery.tags):
+        raise RuntimeError(f"{CAP_GROCERY_OBJECT_ASSET} must remain a dynamic graspable food object")
+    grocery.set_initial_pose(Pose(*CAP_GROCERY_OBJECT_POSE))
+
+    destination = registry.get_asset_by_name(CAP_GROCERY_BIN_ASSET)()
+    if destination.object_type != ObjectType.RIGID or not {
+        "object",
+        "container",
+    }.issubset(destination.tags):
+        raise RuntimeError(f"{CAP_GROCERY_BIN_ASSET} must remain a dynamic container")
+    destination.set_initial_pose(Pose(*CAP_GROCERY_BIN_POSE))
+
+    return [ground_plane, light, support, destination, grocery]
+
+
+def _make_cap_grocery_scene(registry: Any, sim_utils: Any):
+    """Build the deterministic grocery scene description."""
+    from isaaclab_arena.scene.scene import Scene
+
+    return Scene(assets=_make_cap_grocery_assets(registry, sim_utils))
+
+
+def _make_cap_environment(
+    *,
+    device: str,
+    initial_gripper_closed: bool,
+    enable_cameras: bool,
+    grocery_scene: bool,
+    camera_profile: str,
+) -> FrankaSimulationAdapter:
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -176,26 +263,29 @@ def make_cap_franka_environment(
     from isaaclab_arena.tasks.no_task import NoTask
 
     registry = AssetRegistry()
-    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")(
-        enable_cameras=enable_cameras
-    )
+    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")(enable_cameras=enable_cameras)
     if enable_cameras:
-        from isaaclab_arena_environments.libero_cameras import (
-            LiberoDroidPerceptionCameraCfg,
+        _configure_cap_camera(embodiment, camera_profile)
+    elif camera_profile not in CAP_GROCERY_CAMERA_PROFILES:
+        raise ValueError(
+            f"unsupported CAP camera profile {camera_profile!r}; expected one of {CAP_GROCERY_CAMERA_PROFILES}"
         )
-
-        embodiment.camera_config = LiberoDroidPerceptionCameraCfg()
     # The DROID stand is not hosted on the public S3 Nucleus. Retain its scene
     # entry because the embodiment updates its pose, but replace the unavailable
     # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
     stand_spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
-    _configure_cap_droid_embodiment(
-        embodiment, stand_spawn=stand_spawn, initial_gripper_closed=initial_gripper_closed
-    )
+    if grocery_scene:
+        _configure_cap_grocery_embodiment(embodiment)
+    _configure_cap_droid_embodiment(embodiment, stand_spawn=stand_spawn, initial_gripper_closed=initial_gripper_closed)
 
-    ground_plane = registry.get_asset_by_name("ground_plane")()
-    light = registry.get_asset_by_name("light")()
-    scene = Scene(assets=[ground_plane, light])
+    if grocery_scene:
+        scene = _make_cap_grocery_scene(registry, sim_utils)
+        environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
+    else:
+        ground_plane = registry.get_asset_by_name("ground_plane")()
+        light = registry.get_asset_by_name("light")()
+        scene = Scene(assets=[ground_plane, light])
+        environment_name = "CAP-Barrier-DROID-B1-v0"
 
     def configure_profile(cfg):
         cfg.sim.dt = 0.005
@@ -203,7 +293,7 @@ def make_cap_franka_environment(
         return cfg
 
     description = IsaacLabArenaEnvironment(
-        name="CAP-Barrier-DROID-B1-v0",
+        name=environment_name,
         scene=scene,
         embodiment=embodiment,
         task=NoTask(),
@@ -218,3 +308,41 @@ def make_cap_franka_environment(
         environment.close()
         raise RuntimeError(f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}")
     return FrankaSimulationAdapter(environment)
+
+
+def make_cap_franka_environment(
+    *,
+    device: str = "cuda:0",
+    initial_gripper_closed: bool = False,
+    enable_cameras: bool = False,
+) -> FrankaSimulationAdapter:
+    """Build the fixed, bare arena_droid_b1 smoke profile after Kit startup."""
+    return _make_cap_environment(
+        device=device,
+        initial_gripper_closed=initial_gripper_closed,
+        enable_cameras=enable_cameras,
+        grocery_scene=False,
+        camera_profile="libero",
+    )
+
+
+def make_cap_grocery_to_bin_environment(
+    *,
+    device: str = "cuda:0",
+    initial_gripper_closed: bool = False,
+    enable_cameras: bool = True,
+    camera_profile: str = "libero",
+) -> FrankaSimulationAdapter:
+    """Build the calibrated grocery-to-bin scene on the arena_droid_b1 profile.
+
+    The DROID base remains at identity to match the pinned CAP base calibration.
+    Both camera profiles publish their live world pose, so switching the camera
+    changes no static world-to-base calibration.
+    """
+    return _make_cap_environment(
+        device=device,
+        initial_gripper_closed=initial_gripper_closed,
+        enable_cameras=enable_cameras,
+        grocery_scene=True,
+        camera_profile=camera_profile,
+    )
