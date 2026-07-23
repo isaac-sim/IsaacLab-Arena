@@ -105,7 +105,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     def _lift_by_base_offset(self, target: tuple[float, float, float]) -> tuple[float, float, float]: ...
 
     def _lift_by_base_offset(self, target: tuple[float, float, float] | Pose) -> tuple[float, float, float] | Pose:
-        """Shift ``target`` up by the stand-height offset, so the base sits atop the (re)scaled stand."""
+        """Shift ``target`` up by the stand-height offset, so the base sits atop the rescaled stand."""
         return translate_by_xyz_offset(target, (0.0, 0.0, self._robot_base_z_offset))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
