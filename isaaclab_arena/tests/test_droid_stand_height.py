@@ -55,9 +55,21 @@ def _test_droid_stand_height(simulation_app) -> bool:
         assert abs(posed_emb.initial_pose.position_xyz[2] - (0.5 + expected_offset)) < 1e-6
         scene_cfg = posed_emb.get_scene_cfg()
         assert abs(scene_cfg.robot.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
+        assert abs(scene_cfg.stand.init_state.pos[0] - (0.3 - 0.05)) < 1e-6
         assert abs(scene_cfg.stand.init_state.pos[2] - (0.5 + expected_offset)) < 1e-6
         # initial_pose is the single source of truth: it matches the spawned robot base exactly.
         assert tuple(posed_emb.initial_pose.position_xyz) == tuple(scene_cfg.robot.init_state.pos)
+
+        layout_pose = Pose(position_xyz=(0.3, 0.0, 0.5), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+        scene_writes = posed_emb.layout_pose_to_scene_writes(layout_pose)
+        assert len(scene_writes) == 2
+        robot_scene_name, robot_write_pose = scene_writes[0]
+        stand_scene_name, stand_write_pose = scene_writes[1]
+        assert robot_scene_name == "robot"
+        assert stand_scene_name == "stand"
+        assert abs(robot_write_pose.position_xyz[2] - (0.5 + expected_offset)) < 1e-6
+        assert abs(stand_write_pose.position_xyz[0] - (0.3 - 0.05)) < 1e-6
+        assert abs(stand_write_pose.position_xyz[2] - robot_write_pose.position_xyz[2]) < 1e-6
 
         # The YAML-spec path instantiates the embodiment via asset_class(**params); a scalar
         # stand_height_m from YAML applies just the same.

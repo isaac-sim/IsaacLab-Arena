@@ -42,10 +42,13 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, compose_poses, translate_by_xyz_offset
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
+# Stand root offset in the robot base frame (matches ``DroidSceneCfg.stand`` default init_state).
+_STAND_ROOT_OFFSET_IN_ROBOT_FRAME: tuple[float, float, float] = (-0.05, 0.0, 0.0)
+_STAND_SCENE_NAME: str = "stand"
 # The default stand height.
 _DEFAULT_STAND_HEIGHT_M: float = 1.35
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
@@ -114,8 +117,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         """Return root-relative bounds from the stand geometry (robot root is the placement origin).
 
         The relation solver supplies unlifted poses; ``set_initial_pose`` then applies
-        ``_robot_base_z_offset``. Shift the stand footprint by the configured stand
-        offset plus that z lift so ``On`` placement stays aligned with the spawned base.
+        ``_robot_base_offset``. Shift the stand footprint by that z lift so ``On``
+        placement stays aligned with the spawned base.
         """
         from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
@@ -126,14 +129,30 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
         stand_bbox = compute_local_bounding_box_from_usd(spawn.usd_path, scale)
 
-        return stand_bbox.translated((0.0, 0.0, self._robot_base_z_offset))
+        return stand_bbox.translated((0.0, 0.0, self._robot_base_offset[2]))
+
+    def _stand_pose_from_robot_pose(self, robot_pose: Pose) -> Pose:
+        """Return the stand root pose for a lifted robot base pose."""
+        return compose_poses(
+            robot_pose,
+            Pose(position_xyz=_STAND_ROOT_OFFSET_IN_ROBOT_FRAME, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        )
+
+    def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
+        """Write the robot and stand roots, lifting the solver layout pose for sim spawn."""
+        robot_pose = layout_pose.translate(self._robot_base_offset)
+        stand_pose = self._stand_pose_from_robot_pose(robot_pose)
+        return [
+            (self.get_scene_name(), robot_pose),
+            (_STAND_SCENE_NAME, stand_pose),
+        ]
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
-        # base implementation sets the robot base as-is; we only add the stand placement here.
+        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose).
         scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_xyzw
+        stand_pose = self._stand_pose_from_robot_pose(pose)
+        scene_config.stand.init_state.pos = stand_pose.position_xyz
+        scene_config.stand.init_state.rot = stand_pose.rotation_xyzw
         return scene_config
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:

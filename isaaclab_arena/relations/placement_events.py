@@ -73,6 +73,37 @@ def get_movable_asset_names(
     return [asset.get_scene_name() for asset in assets if asset not in anchor_assets]
 
 
+def _write_scene_root_pose_to_sim(
+    env: ManagerBasedEnv,
+    scene_name: str,
+    sim_pose: Pose,
+    env_id: int,
+    env_id_tensor: torch.Tensor,
+    zero_velocity: torch.Tensor,
+) -> None:
+    """Write one scene root pose for a single environment instance."""
+    scene_asset = env.scene[scene_name]
+    pose_tensor = sim_pose.to_tensor(device=env.device).unsqueeze(0)
+    pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
+
+    write_root_pose = getattr(scene_asset, "write_root_pose_to_sim", None)
+    if write_root_pose is not None:
+        write_root_pose(pose_tensor, env_ids=env_id_tensor)
+        scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        return
+
+    set_world_poses = getattr(scene_asset, "set_world_poses", None)
+    if set_world_poses is not None:
+        set_world_poses(
+            positions=pose_tensor[:, :3],
+            orientations=pose_tensor[:, 3:7],
+            indices=env_id_tensor.detach().cpu(),
+        )
+        return
+
+    assert False, f"Scene asset '{scene_name}' does not support root pose writes"
+
+
 def write_layout_to_sim(
     env: ManagerBasedEnv,
     env_id: int,
@@ -102,12 +133,15 @@ def write_layout_to_sim(
         if asset in anchor_assets:
             continue
         layout_pose = get_pose_from_layout(asset, result)
-        for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
-            scene_asset = env.scene[scene_name]
-            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
-            pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
-            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_id_tensor)
-            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        for scene_name, sim_pose in asset.layout_pose_to_scene_writes(layout_pose):
+            _write_scene_root_pose_to_sim(
+                env,
+                scene_name,
+                sim_pose,
+                env_id,
+                env_id_tensor,
+                zero_velocity,
+            )
 
 
 def solve_and_place_objects(

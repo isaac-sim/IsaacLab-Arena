@@ -24,7 +24,7 @@ def _test_droid_placement_bbox_uses_stand(simulation_app) -> bool:
 
         stand = embodiment.scene_config.stand
         stand_bbox = compute_local_bounding_box_from_usd(stand.spawn.usd_path, tuple(stand.spawn.scale))
-        stand_offset = (0.0, 0.0, embodiment._robot_base_z_offset)
+        stand_offset = embodiment._robot_base_offset
         expected = stand_bbox.translated(stand_offset)
 
         assert bbox.min_point.shape == expected.min_point.shape

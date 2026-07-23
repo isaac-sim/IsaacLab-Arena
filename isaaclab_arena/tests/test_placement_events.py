@@ -255,6 +255,104 @@ def test_reset_placement_asset_pose_writes_compound_prims_with_env_origins():
         assert torch.count_nonzero(velocity) == 0
 
 
+def test_write_layout_to_sim_writes_companion_scene_assets():
+    from isaaclab_arena.relations.placement_events import write_layout_to_sim
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    class CompanionEmbodiment(DummyEmbodiment):
+        def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
+            companion_pose = Pose(
+                position_xyz=(
+                    layout_pose.position_xyz[0] + 1.0,
+                    layout_pose.position_xyz[1],
+                    layout_pose.position_xyz[2],
+                ),
+                rotation_xyzw=layout_pose.rotation_xyzw,
+            )
+            return [
+                (self.get_scene_name(), layout_pose),
+                ("companion", companion_pose),
+            ]
+
+    robot = CompanionEmbodiment(
+        name="droid",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+        scene_name="robot",
+    )
+    env = _make_mock_env(num_envs=1)
+    layout = PlacementResult(
+        validation_results=_checklist(True),
+        positions={robot: (0.2, 0.3, 0.4)},
+        final_loss=0.0,
+        attempts=1,
+    )
+
+    write_layout_to_sim(env, 0, layout, anchor_assets=set(), base_rotations={robot: (0.0, 0.0, 0.0, 1.0)})
+
+    robot_pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
+    companion_pose = env._assets["companion"].write_root_pose_to_sim.call_args.args[0]
+    assert torch.allclose(robot_pose[0, :3], torch.tensor([0.2, 0.3, 0.4]))
+    assert torch.allclose(companion_pose[0, :3], torch.tensor([1.2, 0.3, 0.4]))
+
+
+def test_solve_and_place_objects_writes_droid_robot_and_stand():
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, _, _ = _create_test_objects()
+    droid = DroidAbsoluteJointPositionEmbodiment(stand_height_m=0.8)
+    expected_offset = 0.8 - 1.35
+    env = _make_mock_env(num_envs=1)
+
+    class Pool:
+        num_envs = 1
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            return {
+                0: PlacementResult(
+                    validation_results=_checklist(True),
+                    positions={droid: (0.2, 0.3, 1.36)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            }
+
+    solve_and_place_objects(
+        env,
+        torch.tensor([0]),
+        assets=[desk, droid],
+        placement_pool=Pool(),
+    )
+
+    robot_pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
+    stand_pose = env._assets["stand"].write_root_pose_to_sim.call_args.args[0]
+    expected_robot_z = 1.36 + expected_offset
+    assert abs(robot_pose[0, 2].item() - expected_robot_z) < 1e-5
+    assert abs(stand_pose[0, 2].item() - expected_robot_z) < 1e-5
+    assert abs(stand_pose[0, 0].item() - (0.2 - 0.05)) < 1e-5
+
+
+def test_write_layout_to_sim_rejects_missing_non_anchor_assets():
+    from isaaclab_arena.relations.placement_events import write_layout_to_sim
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    _, box1, _ = _create_test_objects()
+    env = _make_mock_env(num_envs=1)
+    layout = PlacementResult(
+        validation_results=_checklist(True),
+        positions={},
+        final_loss=0.0,
+        attempts=1,
+    )
+
+    with pytest.raises(AssertionError, match="missing non-anchor assets.*box1"):
+        write_layout_to_sim(env, 0, layout, anchor_assets=set(), base_rotations={box1: (0.0, 0.0, 0.0, 1.0)})
+
+
 def test_reset_placement_asset_pose_per_env_indexes_by_absolute_env():
     """A partial reset must apply write_pose_list[env_id], not the first layout."""
     from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
