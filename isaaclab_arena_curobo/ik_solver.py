@@ -32,6 +32,19 @@ class CuroboIKSolver:
     collision-free check is not wired up yet (see ``solve_ik_feasibility``'s ``require_collision_free``).
     """
 
+    # Note(xinjieyao, 2026-07-23): When validating params like EventTermCfg.params, Isaac Lab's configclass recursively
+    # scans through every object's instance dict (__dict__) with no cycle guard.
+    # Curobo's IKSolver has a deep reference trees with ciruclar deps and raw CUDA/C++ handles, so
+    # it results in an infinite loop tranversing Curobo's cyclic objects.
+    # By defining __slots__, python suppresses the creation of __dict__ and stop before traversing into Curobo's objects.
+    # Args:
+    #     logger: The logger for the solver.
+    #     device: The cuda device for the solver.
+    #     tensor_args: The tensor arguments for the solver.
+    #     robot_cfg: The curobo robot configuration for the solver.
+    #     ik_solver: The IK solver for the solver.
+    __slots__ = ("logger", "device", "tensor_args", "robot_cfg", "ik_solver")
+
     def __init__(
         self,
         curobo_cfg: CuroboEmbodimentCfg,
@@ -81,6 +94,20 @@ class CuroboIKSolver:
             use_cuda_graph=False,
         )
         self.ik_solver = IKSolver(ik_config)
+
+    def __deepcopy__(self, memory_map: dict[int, object]) -> CuroboIKSolver:
+        """Return the live solver for ``copy.deepcopy`` instead of duplicating it.
+
+        Isaac Lab's configclass deep-copies the ``EventTermCfg.params`` this solver rides in, but cuRobo's
+        ``IKSolver`` holds un-copyable CUDA/ctypes handles and is a shared, effectively-immutable oracle,
+        so the copy can only be the same instance.
+
+        Args:
+            memory_map: ``copy.deepcopy``'s ``id(original) -> copy`` cache; registering ``self`` in it makes every
+                other reference to this solver resolve to the same shared instance.
+        """
+        memory_map[id(self)] = self
+        return self
 
     @classmethod
     def from_embodiment(cls, embodiment, **kwargs) -> CuroboIKSolver:
