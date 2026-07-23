@@ -104,7 +104,7 @@ def render_save_button(validation: SpecParseResult) -> None:
     if st.button(
         save_label,
         disabled=not can_save,
-        use_container_width=True,
+        width="stretch",
         help=f"Writes the validated spec to {out_dir}/<env_name>.yaml.",
     ):
         path, error = try_save_env_graph_spec(validation.spec, out_dir)
