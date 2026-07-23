@@ -149,9 +149,7 @@ class ReachabilityValidator(PlacementValidator):
         )
         return bool(feasible.all().item())
 
-    def _select_reachability_targets(
-        self, objects: list[ObjectBase], anchors: set[ObjectBase]
-    ) -> list[ObjectBase]:
+    def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Objects whose top-down grasp must be reachable: the configured task targets, else every movable object."""
         if self._target_object_ids is None:
             return [obj for obj in objects if obj not in anchors]
