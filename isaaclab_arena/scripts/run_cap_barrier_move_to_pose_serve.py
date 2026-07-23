@@ -15,9 +15,12 @@ It then serves the barrier like a real episode for an EXTERNAL ARM policy: it
 keeps ticking PHYSICS at the 200 Hz base and applies whatever arm command the
 control plane streams each frame (the guarded joint_trajectory command the
 server-side robot.move_to_pose skill executes under its arm lease), publishing
-joint_states continuously. Unlike the open_gripper serve it does NOT watch for a
-gripper transition, and unlike the production smoke it does NOT choreograph its
-own arm+reset sequence -- it just serves frames so the arm can be commanded and
+joint_states continuously. It reuses the SAME proven serve+reset-follow primitive
+as the open_gripper serve (serve_generation_watching_gripper) so the ResetEpisode
+fence is followed identically, but ignores the gripper verdict
+(declare_open_success=False) -- the gripper watch is purely observational here and
+the arm is driven externally; unlike the production smoke it does NOT choreograph
+its own arm+reset sequence. It just serves frames so the arm can be commanded and
 the hold->joint_trajectory controller switch can complete inside update().
 
 This is the producer the move_to_pose smoke needs: without continuous physics
@@ -74,7 +77,7 @@ class _PerceptionStreamSink:
         self._producer.start()
         marker_sink(f"CAP_SERVE_KIT_PERCEPTION_STREAM_STARTED endpoint={endpoint}")
 
-    def on_frame(self, _result) -> None:
+    def on_physics_frame(self, _frame: int) -> None:
         self._sample_calls += 1
         if self._sample_calls % _PERCEPTION_SAMPLE_EVERY_FRAMES != 0:
             return
@@ -134,9 +137,12 @@ def _run_serve(
     from isaaclab_arena.integrations.cap_barrier.production_smoke import (
         CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
         open_production_startup_rendezvous,
-        run_physics_until_generation_transition,
     )
     from isaaclab_arena.integrations.cap_barrier.protocol import ControllerTimingSpec
+    from isaaclab_arena.integrations.cap_barrier.serve import (
+        ServeExit,
+        serve_generation_watching_gripper,
+    )
     from isaaclab_arena.integrations.cap_barrier.shared_memory import ArenaBarrierClient
 
     # The arm motion is applied through joint_streaming; hold keeps the arm still
@@ -161,12 +167,12 @@ def _run_serve(
         marker_sink=lambda marker: print(marker, flush=True),
     )
     perception: _PerceptionStreamSink | None = None
-    on_frame = None
+    on_physics_frame = None
     if perception_stream is not None:
         perception = _PerceptionStreamSink(
             adapter, perception_stream, lambda marker: print(marker, flush=True)
         )
-        on_frame = perception.on_frame
+        on_physics_frame = perception.on_physics_frame
     try:
         manager = ArenaLockstepManager(
             client=client,
@@ -195,36 +201,50 @@ def _run_serve(
         )
         print("CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE", flush=True)
 
-        # Serve like a real episode: keep ticking PHYSICS and apply whatever arm
-        # command the control plane streams, following any ResetEpisode into the
-        # next generation and re-bootstrapping. No gripper/arm choreography here --
-        # the external move_to_pose skill drives the arm.
-        deadline_wall = time.monotonic() + serve_seconds
-        total_frames = 0
+        # Serve like a real episode for an external ARM policy, reusing the SAME
+        # proven serve+reset-follow primitive as the open_gripper serve
+        # (serve_generation_watching_gripper): it ticks PHYSICS at the 200 Hz base
+        # every frame -- applying whatever arm command the control plane streams
+        # (the guarded joint_trajectory the move_to_pose skill executes under its
+        # lease) and publishing joint_states -- and returns on the reset fence
+        # (GENERATION_ADVANCED / BARRIER_INTERRUPTED). We ignore the gripper verdict
+        # (declare_open_success=False): the gripper watch is purely observational
+        # here; the arm is driven externally. Following the ResetEpisode this way is
+        # what advances to the accepting-goals generation AND keeps physics ticking
+        # so the arm lease's controller switch completes and joint_states flows.
+        deadline = time.monotonic() + serve_seconds
         generations_served = 0
-        while time.monotonic() < deadline_wall:
-            remaining_s = deadline_wall - time.monotonic()
-            if remaining_s <= 0:
-                break
-            observation = run_physics_until_generation_transition(
+        for _ in range(_MAX_GENERATIONS_FOLLOWED):
+            observation = serve_generation_watching_gripper(
                 manager,
-                timeout_s=remaining_s,
-                on_frame=on_frame,
+                adapter.gripper_position,
+                deadline_monotonic_s=deadline,
+                settle_frames=0,
+                declare_open_success=False,
+                marker_sink=lambda marker: print(marker, flush=True),
+                on_physics_frame=on_physics_frame,
             )
-            total_frames += observation.physics_frames
             generations_served += 1
             print(
-                f"CAP_SERVE_KIT_GENERATION_SERVED generation={observation.previous_generation} "
-                f"frames={observation.physics_frames} arm0_rad={adapter.arm_positions()[0]:.6f}",
+                "CAP_SERVE_KIT_GENERATION_SERVED "
+                f"exit={observation.exit_reason} frames={observation.physics_frames} "
+                f"arm0_rad={adapter.arm_positions()[0]:.6f}",
                 flush=True,
             )
-            if generations_served >= _MAX_GENERATIONS_FOLLOWED:
+            # A ResetEpisode surfaces as a generation advance or a BarrierInterrupted
+            # (sidecar reset-phase deactivation race); follow both. Anything else
+            # (timeout / open-transition) means the window is done -- stop serving.
+            if observation.exit_reason not in (
+                ServeExit.GENERATION_ADVANCED,
+                ServeExit.BARRIER_INTERRUPTED,
+            ):
                 break
             try:
                 followed_generation = manager.attach_next_generation(timeout_s=30.0)
             except Exception as error:  # noqa: BLE001 - report and stop cleanly
                 print(
-                    f"CAP_SERVE_KIT_FOLLOW_RESET_FAILED detail={error!r}",
+                    f"CAP_SERVE_KIT_FOLLOW_RESET_FAILED detail={error!r} "
+                    f"after={observation.exit_reason}",
                     flush=True,
                 )
                 break
@@ -235,7 +255,7 @@ def _run_serve(
                 flush=True,
             )
         print(
-            f"CAP_SERVE_KIT_TRACE generations={generations_served} frames={total_frames}",
+            f"CAP_SERVE_KIT_TRACE generations={generations_served}",
             flush=True,
         )
         print("CAP_SERVE_KIT_DONE", flush=True)
