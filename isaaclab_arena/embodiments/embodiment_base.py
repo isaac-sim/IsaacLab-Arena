@@ -202,12 +202,9 @@ class EmbodimentBase(PlacementAsset):
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
 
-    def get_embodiment_name_in_scene(self) -> str:
-        return "robot"
-
     def get_scene_name(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
-        return self.get_embodiment_name_in_scene()
+        return "robot"
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
