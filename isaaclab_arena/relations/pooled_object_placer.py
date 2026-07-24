@@ -199,7 +199,6 @@ class PooledObjectPlacer:
         An env that has at least one valid layout never falls back to best-loss,
         even if it has fewer valid layouts than target_num_layouts_per_env.
         """
-        total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
@@ -207,11 +206,7 @@ class PooledObjectPlacer:
             missing = target_num_layouts_per_env - self._env_pools[cur_env].available
             if valid_results:
                 if missing > 0:
-                    enqueued = valid_results[:missing]
-                    total_valid += len(enqueued)
-                    self._env_pools[cur_env].extend(enqueued)
-                else:
-                    total_valid += len(valid_results)
+                    self._env_pools[cur_env].extend(valid_results[:missing])
             elif allow_fallback and missing > 0:
                 fallback = env_results[:missing]
                 if fallback:
@@ -219,15 +214,8 @@ class PooledObjectPlacer:
                     fallback_envs.append(cur_env)
                     self._had_fallbacks = True
 
-        total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
-        if total_valid < total_solved or fallback_envs:
-            msg = (
-                f"Placement pool solved {total_solved} candidates,"
-                f" {total_valid} valid, {total_solved - total_valid} failed validation"
-            )
-            if fallback_envs:
-                msg += f". Falling back to best-loss layouts for envs: {fallback_envs}"
-            print(msg)
+        if fallback_envs:
+            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
 
     # ------------------------------------------------------------------
     # Public API
