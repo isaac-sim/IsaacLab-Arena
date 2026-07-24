@@ -150,8 +150,7 @@ jobs:
       # Accept the Isaac Sim EULA so the first launch is non-interactive.
       OMNI_KIT_ACCEPT_EULA: "YES"
       ACCEPT_EULA: "Y"
-      # Large CUDA wheels (e.g. nvidia-cublas-cu12) exceed uv's 30s default and
-      # intermittently time out; give downloads more headroom.
+      # Large CUDA wheels (e.g. nvidia-cublas-cu12) can exceed uv's 30s default.
       UV_HTTP_TIMEOUT: "300"
 
     # Validates the native workflow in a clean ubuntu:24.04 container.
@@ -172,9 +171,6 @@ jobs:
       - *git_lfs_step
 
       - name: Install graphics loader and build tools
-        # cmake + a C/C++ toolchain build sdist-only deps from source (e.g.
-        # egl-probe, via isaaclab-mimic -> robomimic); bash lets the test steps
-        # below use `source` (the base image ships only sh).
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
@@ -189,8 +185,6 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate uv lock
-        # No --offline: verifying the lock builds metadata for the editable
-        # Isaac Lab source package, which needs its build backend from the network.
         run: |
           uv python install 3.12
           uv lock --check --no-python-downloads
