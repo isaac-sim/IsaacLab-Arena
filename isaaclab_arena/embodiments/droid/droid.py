@@ -98,16 +98,25 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
-    def set_initial_pose(self, pose: Pose | PosePerEnv) -> None:
-        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base."""
+    def _translate_pose(self, pose: Pose | PosePerEnv) -> Pose | PosePerEnv:
+        """Lift a base pose (or per-env poses) by the stand-height offset to match the spawned base."""
         if isinstance(pose, PosePerEnv):
-            super().set_initial_pose(PosePerEnv(poses=[p.translate(self._robot_base_offset) for p in pose.poses]))
-        else:
-            super().set_initial_pose(pose.translate(self._robot_base_offset))
+            return PosePerEnv(poses=[p.translate(self._robot_base_offset) for p in pose.poses])
+        return pose.translate(self._robot_base_offset)
 
-    def set_spawn_pose(self, pose: Pose) -> None:
-        """Set the scene-construction base pose, lifted by the stand-height offset like ``set_initial_pose``."""
-        super().set_spawn_pose(pose.translate(self._robot_base_offset))
+    def set_initial_pose(self, pose: Pose | PosePerEnv, create_reset_event: bool = True) -> None:
+        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base.
+
+        Overriding here (rather than ``set_spawn_pose``) means the base ``set_spawn_pose`` routes back
+        through this polymorphic method, so the stand lift is applied on the construction path too.
+        """
+        super().set_initial_pose(self._translate_pose(pose), create_reset_event=create_reset_event)
+
+    def has_unplaced_auxiliary_prims(self) -> bool:
+        # Droid spawns a static stand prim that per-env reset does not yet reposition, so flag it and
+        # let the relation-placement guard reject a movable Droid rather than orphan the stand at env 0.
+        # TODO(zihaox): emit the stand write from layout_pose_to_scene_writes and drop this override.
+        return True
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the

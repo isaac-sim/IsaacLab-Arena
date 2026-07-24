@@ -20,7 +20,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.placement_asset import PlacementAsset
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 
-class ObjectBase(PlacementAsset, ABC):
+class ObjectBase(PlaceableAsset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
     def __init__(
@@ -51,50 +51,14 @@ class ObjectBase(PlacementAsset, ABC):
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
-        self.event_cfg = None
 
-    def _get_initial_pose_as_pose(self) -> Pose | None:
-        """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
-
-        If the initial pose is a ``PoseRange``, its midpoint is returned.
-        If the initial pose is a ``PosePerEnv``, the first environment's pose is returned.
-        If the initial pose is ``None``, ``None`` is returned.
-        """
-        initial_pose = self.get_initial_pose()
-        if initial_pose is None:
-            return None
-        if isinstance(initial_pose, PosePerEnv):
-            return initial_pose.poses[0]
-        if isinstance(initial_pose, PoseRange):
-            return initial_pose.get_midpoint()
-        return initial_pose
-
-    def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Set / override the initial pose and rebuild derived configs.
-
-        Args:
-            pose: A fixed ``Pose``, a ``PoseRange`` (randomised on reset),
-                or a ``PosePerEnv`` (distinct pose per environment).
-        """
-        self._set_pose_state(pose)
-        self.event_cfg = self._init_event_cfg()
-
-    def _set_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Update the stored pose and materialized object configuration."""
+    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the pose and write its construction values into the materialized object config."""
         self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
             self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
-
-    def set_spawn_pose(self, pose: Pose) -> None:
-        """Set the scene-construction pose without rebuilding the reset event."""
-        assert self.object_cfg is not None, "object_cfg must be initialized before setting the spawn pose"
-        self._set_pose_state(pose)
-
-    def has_pose_reset_event(self) -> bool:
-        """Return whether the asset owns a root-pose reset event."""
-        return self.event_cfg is not None
 
     def set_initial_velocity(self, velocity: Velocity) -> None:
         """Set / override the initial velocity and rebuild derived configs.
@@ -112,7 +76,7 @@ class ObjectBase(PlacementAsset, ABC):
             self.object_cfg.init_state.lin_vel = velocity.linear_xyz
         if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "ang_vel"):
             self.object_cfg.init_state.ang_vel = velocity.angular_xyz
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def _requires_reset_pose_event(self) -> bool:
         """Whether a reset-event for the initial pose should be generated.
@@ -124,7 +88,7 @@ class ObjectBase(PlacementAsset, ABC):
             ObjectType.ARTICULATION,
         )
 
-    def _init_event_cfg(self) -> EventTermCfg | None:
+    def _build_reset_event(self) -> EventTermCfg | None:
         """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
         if not self._requires_reset_pose_event():
             return None
@@ -169,7 +133,7 @@ class ObjectBase(PlacementAsset, ABC):
         return self.name, self.object_cfg
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self.event_cfg
+        return self.name, self._pose_event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:

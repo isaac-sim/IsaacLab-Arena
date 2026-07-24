@@ -7,6 +7,9 @@
 
 import pytest
 
+from isaaclab_arena.tests.dummy_object import DummyObject
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
 
 def _make_desk():
     from isaaclab_arena.relations.relations import IsAnchor
@@ -207,3 +210,60 @@ def test_static_initial_poses_reject_layout_missing_non_anchor():
             anchor_assets={desk},
             num_envs=2,
         )
+
+
+class _CompoundObject(DummyObject):
+    """A DummyObject that reports an auxiliary prim its per-env reset cannot reposition (like Droid's stand)."""
+
+    def has_unplaced_auxiliary_prims(self) -> bool:
+        return True
+
+
+def test_relation_placement_rejects_movable_asset_with_unplaced_auxiliary_prims():
+    """A non-anchor compound asset (e.g. Droid's stand) must fail loudly, not orphan its aux prims."""
+    from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _CompoundObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    with pytest.raises(AssertionError, match="auxiliary scene prims"):
+        _apply_relation_placement_result(
+            assets=[desk, box],
+            placer_params=ObjectPlacerParams(resolve_on_reset=False),
+            placement_pool=_FakePlacementPool([_fallback_layout(positions={box: (0.1, 0.0, 0.2)})]),
+            num_envs=1,
+        )
+
+
+def test_anchor_asset_with_unplaced_auxiliary_prims_is_allowed():
+    """An anchor compound asset does not move, so the auxiliary-prim guard must not fire."""
+    from isaaclab_arena.environments.relation_solver_interface import _validate_no_unplaced_auxiliary_prims
+    from isaaclab_arena.relations.relations import IsAnchor
+
+    anchor = _CompoundObject(
+        name="anchored_stand",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    anchor.add_relation(IsAnchor())
+    # Anchors are excluded from the guard; this must not raise.
+    _validate_no_unplaced_auxiliary_prims([anchor], {anchor})
+
+
+def test_set_spawn_pose_does_not_build_reset_event_but_set_initial_pose_does():
+    """set_spawn_pose sets construction pose only; set_initial_pose also registers the reset event."""
+    from isaaclab_arena.utils.pose import Pose
+
+    box = _make_box()
+    assert not box.has_pose_reset_event()
+
+    box.set_spawn_pose(Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    assert not box.has_pose_reset_event()
+
+    box.set_initial_pose(Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    assert box.has_pose_reset_event()
