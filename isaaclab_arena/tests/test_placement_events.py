@@ -255,50 +255,8 @@ def test_reset_placement_asset_pose_writes_compound_prims_with_env_origins():
         assert torch.count_nonzero(velocity) == 0
 
 
-def test_write_layout_to_sim_writes_companion_scene_assets():
-    from isaaclab_arena.relations.placement_events import write_layout_to_sim
-    from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
-    class CompanionEmbodiment(DummyEmbodiment):
-        def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
-            companion_pose = Pose(
-                position_xyz=(
-                    layout_pose.position_xyz[0] + 1.0,
-                    layout_pose.position_xyz[1],
-                    layout_pose.position_xyz[2],
-                ),
-                rotation_xyzw=layout_pose.rotation_xyzw,
-            )
-            return [
-                (self.get_scene_name(), layout_pose),
-                ("companion", companion_pose),
-            ]
-
-    robot = CompanionEmbodiment(
-        name="droid",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
-        scene_name="robot",
-    )
-    env = _make_mock_env(num_envs=1)
-    layout = PlacementResult(
-        validation_results=_checklist(True),
-        positions={robot: (0.2, 0.3, 0.4)},
-        final_loss=0.0,
-        attempts=1,
-    )
-
-    write_layout_to_sim(env, 0, layout, anchor_assets=set(), base_rotations={robot: (0.0, 0.0, 0.0, 1.0)})
-
-    robot_pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
-    companion_pose = env._assets["companion"].write_root_pose_to_sim.call_args.args[0]
-    assert torch.allclose(robot_pose[0, :3], torch.tensor([0.2, 0.3, 0.4]))
-    assert torch.allclose(companion_pose[0, :3], torch.tensor([1.2, 0.3, 0.4]))
-
-
 def test_solve_and_place_objects_writes_droid_robot_and_stand():
+    """write_layout_to_sim writes every entry from layout_pose_to_scene_writes (robot + stand)."""
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
