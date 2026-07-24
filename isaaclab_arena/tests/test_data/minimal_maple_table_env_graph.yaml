@@ -7,6 +7,8 @@ env_name: llm_gen_maple_table_robolab_PickAndPlaceTask
 embodiment:
   id: franka_ik
   registry_name: franka_ik
+  params:
+    stand_height_m: 0.8
 background:
   id: maple_table_robolab
   registry_name: maple_table_robolab

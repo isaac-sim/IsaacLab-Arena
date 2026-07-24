@@ -46,13 +46,24 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw
 # The reason to use our internal panda USD is to combine the panda and the stand within one USD.
 # This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
 # TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
+_FRANKA_ON_STAND_USD_PATH = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 _FRANKA_IK_REL_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-_FRANKA_IK_REL_CFG.spawn.usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+_FRANKA_IK_REL_CFG.spawn.usd_path = _FRANKA_ON_STAND_USD_PATH
 
 # Standard-PD Franka for joint-position control.
 # Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
 _FRANKA_JOINT_POS_CFG = FRANKA_PANDA_CFG.copy()
-_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_IK_REL_CFG.spawn.usd_path
+_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_ON_STAND_USD_PATH
+
+
+def _robot_cfg_with_stand_height(robot_cfg: ArticulationCfg, stand_height_m: float | None) -> ArticulationCfg:
+    """Copy ``robot_cfg`` onto ``{ENV_REGEX_NS}/Robot``, optionally baking a stand-height USD."""
+    cfg = robot_cfg.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    if stand_height_m is not None:
+        from isaaclab_arena.embodiments.franka.franka_stand_usd import ensure_franka_stand_height_usd
+
+        cfg.spawn.usd_path = ensure_franka_stand_height_usd(_FRANKA_ON_STAND_USD_PATH, stand_height_m)
+    return cfg
 
 
 class FrankaEmbodimentBase(EmbodimentBase):
@@ -71,8 +82,10 @@ class FrankaEmbodimentBase(EmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.stand_height_m = stand_height_m
         self.event_config = FrankaEventCfg()
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
@@ -105,6 +118,7 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
@@ -112,8 +126,9 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
             initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
         )
-        self.scene_config.robot = _FRANKA_IK_REL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene_config.robot = _robot_cfg_with_stand_height(_FRANKA_IK_REL_CFG, stand_height_m)
         self.action_config = FrankaIKActionCfg()
 
     def get_command_body_name(self) -> str:
@@ -158,6 +173,7 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
@@ -165,9 +181,10 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
             initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
         )
         self.action_config = FrankaJointPosActionsCfg()
-        self.scene_config.robot = _FRANKA_JOINT_POS_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene_config.robot = _robot_cfg_with_stand_height(_FRANKA_JOINT_POS_CFG, stand_height_m)
 
     def get_command_body_name(self) -> str:
         return "panda_hand"
