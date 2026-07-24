@@ -107,8 +107,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     def set_initial_pose(self, pose: Pose | PosePerEnv, create_reset_event: bool = True) -> None:
         """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base.
 
-        Overriding here (rather than ``set_spawn_pose``) means the base ``set_spawn_pose`` routes back
-        through this polymorphic method, so the stand lift is applied on the construction path too.
+        Both the reset path and the construction path (``create_reset_event=False``) route through here,
+        so the stand lift is applied consistently in either case.
         """
         super().set_initial_pose(self._translate_pose(pose), create_reset_event=create_reset_event)
 

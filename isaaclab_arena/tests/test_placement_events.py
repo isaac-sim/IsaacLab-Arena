@@ -628,10 +628,8 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         def get_relations(self):
             return []
 
-        def set_initial_pose(self, pose):
-            raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
-
-        def set_spawn_pose(self, pose):
+        def set_initial_pose(self, pose, create_reset_event: bool = True):
+            assert not create_reset_event, "resolve_on_reset init seeding must not register per-object reset events"
             self.object_cfg.init_state.pos = pose.position_xyz
             self.object_cfg.init_state.rot = pose.rotation_xyzw
 

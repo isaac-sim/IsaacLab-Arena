@@ -202,7 +202,7 @@ def _seed_spawn_config_from_layout(
         if asset in anchor_assets:
             continue
         pose = get_pose_from_layout(asset, layout)
-        asset.set_spawn_pose(pose)
+        asset.set_initial_pose(pose, create_reset_event=False)
 
 
 def _apply_static_initial_poses(

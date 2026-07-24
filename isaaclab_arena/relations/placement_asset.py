@@ -69,15 +69,11 @@ class PlaceableAsset(Asset, ABC):
             pose: The root pose(s) to store.
             create_reset_event: When True (default), rebuild the reset event that restores this
                 pose on every environment reset. Pass False to set only the scene-construction
-                pose (see ``set_spawn_pose``).
+                pose (e.g. when relation solving seeds a fixed per-environment layout).
         """
         self._materialize_pose_state(pose)
         if create_reset_event:
             self._pose_event_cfg = self._build_reset_event()
-
-    def set_spawn_pose(self, pose: Pose) -> None:
-        """Set the scene-construction pose without registering a reset event."""
-        self.set_initial_pose(pose, create_reset_event=False)
 
     def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; subclasses also materialize any derived construction config."""
