@@ -11,7 +11,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
-from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec, TaskConstraintSpec, TaskConstraintType
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import RequiresReachability
@@ -39,7 +39,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
-    _attach_task_constraints_to_assets(graph_spec.task_constraints, assets_by_node_id)
+    _attach_reachability_relations_to_assets(graph_spec.get_reachability_target_object_ids(), assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
@@ -63,13 +63,12 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
     )
 
 
-def _attach_task_constraints_to_assets(
-    task_constraints: list[TaskConstraintSpec] | None, assets_by_node_id: dict[str, type[Asset]]
+def _attach_reachability_relations_to_assets(
+    target_object_ids: tuple[str, ...], assets_by_node_id: dict[str, type[Asset]]
 ) -> None:
-    """Attach a RequiresReachability marker to each 'reachable' constraint's subject so the IK check targets it."""
-    for constraint in task_constraints or []:
-        if constraint.type is TaskConstraintType.REACHABLE:
-            assets_by_node_id[constraint.subject].add_relation(RequiresReachability())
+    """Attach a RequiresReachability relation on each reachability-target asset so the IK check targets it."""
+    for node_id in target_object_ids:
+        assets_by_node_id[node_id].add_relation(RequiresReachability())
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:

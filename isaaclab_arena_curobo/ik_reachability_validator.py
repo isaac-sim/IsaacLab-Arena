@@ -147,8 +147,6 @@ class ReachabilityValidator(PlacementValidator):
         )
         return bool(feasible.all().item())
 
-    def _select_reachability_targets(
-        self, objects: list[ObjectBase], anchors: set[ObjectBase]
-    ) -> list[ObjectBase]:
+    def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects stamped by a 'reachable' task constraint (RequiresReachability)."""
         return [obj for obj in objects if obj not in anchors and obj.requires_reachability]

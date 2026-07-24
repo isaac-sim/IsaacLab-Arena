@@ -156,9 +156,7 @@ class TaskConstraintType(str, Enum):
 class TaskConstraintSpec(BaseModel):
     """One task constraint: a requirement of ``type`` on the object named by ``subject``."""
 
-    type: TaskConstraintType = Field(
-        description="Constraint kind; must match TaskConstraintType exactly."
-    )
+    type: TaskConstraintType = Field(description="Constraint kind; must match TaskConstraintType exactly.")
     subject: str = Field(
         min_length=1,
         description="Graph node id of the object the constraint applies to. Must match an object id exactly.",
