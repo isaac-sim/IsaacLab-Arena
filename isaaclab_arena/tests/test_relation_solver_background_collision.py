@@ -16,8 +16,8 @@ HEADLESS = True
 
 def _make_desk():
     """Anchor desk, 2m x 1m wide so a box has room to relocate along X away from the obstacle."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -32,7 +32,7 @@ def _make_desk():
 
 def _make_box(name: str = "box"):
     """A 0.3m cube to place On the desk (smaller than each desk half so a valid spot exists)."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     return DummyObject(
@@ -42,12 +42,8 @@ def _make_box(name: str = "box"):
 
 
 def _make_background():
-    """Tall obstacle on the desk's left strip (x in [0, 0.5]).
-
-    Narrower than the desk so a straddling box has a non-zero escape gradient: the
-    overlap-volume loss is flat when one box is fully enclosed by the other.
-    """
-    from isaaclab_arena.assets.dummy_object import DummyObject
+    """Return an obstacle narrower than the desk to preserve a non-zero escape gradient."""
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -63,7 +59,7 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
     """Dummy object with a box collision mesh and fixed pose."""
     import trimesh
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -537,7 +533,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 
-    objects_with_relations = [object()]
+    objects_with_relations = [SimpleNamespace(name="object")]
     background_collision = object()
     calls = {}
 
@@ -548,7 +544,11 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
             return objects_with_relations
 
     def fake_solve_and_apply_relation_placement(
-        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+        objects,
+        num_envs,
+        placer_params,
+        collision_objects=None,
+        scene_assets=None,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
@@ -559,7 +559,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params, embodiment=None)
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=placer_params)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
     builder._solve_relations()
@@ -589,14 +589,18 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
             return []
 
     def fake_solve_and_apply_relation_placement(
-        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+        objects,
+        num_envs,
+        placer_params,
+        collision_objects=None,
+        scene_assets=None,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=None, embodiment=None)
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=None, placer_params=None)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
     builder._solve_relations()
@@ -606,14 +610,48 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     assert calls["collision_objects"] is None
 
 
+def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    calls = {}
+
+    class Scene:
+        assets = {}
+
+        def get_objects_with_relations(self):
+            return []
+
+    class Embodiment:
+        name = "droid"
+
+        def get_relations(self):
+            return [object()]
+
+    def fake_solve_and_apply_relation_placement(*args, **kwargs):
+        calls.update(kwargs)
+        calls["objects"] = args[0]
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    embodiment = Embodiment()
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None)
+
+    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
+
+    assert calls["objects"] == [embodiment]
+
+
 def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):
     """Object-level MESH override enables aggregate background meshes."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     mesh_object = DummyObject(
@@ -652,11 +690,11 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     """A passive Background can opt into mesh collision when the solver default is BBOX."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     background = Background.__new__(Background)
@@ -698,11 +736,11 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     """Default BBOX mode uses individual passive objects, not aggregate whole-scene meshes."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     background = Background.__new__(Background)

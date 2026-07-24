@@ -16,7 +16,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
@@ -42,64 +42,78 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     return term_cfg.params.get("placement_pool")
 
 
-def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
-    """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
-    rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
+def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
+    """Return the RotateAroundSolution rotation for an asset, or identity if none."""
+    rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-def get_base_rotation_per_object(objects: list[ObjectBase]) -> dict[ObjectBase, tuple[float, float, float, float]]:
-    """Return the base rotation for each object."""
-    return {obj: get_rotation_xyzw(obj) for obj in objects}
+def get_base_rotation_per_asset(
+    assets: list[PlaceableAsset],
+) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
+    """Return the base rotation for each asset."""
+    return {asset: get_rotation_xyzw(asset) for asset in assets}
 
 
-def get_movable_object_names(
-    objects: list[ObjectBase],
-    anchor_objects_set: set[ObjectBase],
+def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
+    """Return an asset pose from a solved layout."""
+    assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
+    base_rotation = get_rotation_xyzw(asset)
+    marker_yaw = yaw_from_quat_xyzw(base_rotation)
+    total_yaw = layout.orientations.get(asset, marker_yaw)
+    rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+    return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
+
+
+def get_movable_asset_names(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
 ) -> list[str]:
-    """Return the names of non-anchor objects."""
-    return [obj.name for obj in objects if obj not in anchor_objects_set]
+    """Return scene names for non-anchor placement assets."""
+    return [asset.get_scene_key() for asset in assets if asset not in anchor_assets]
 
 
 def write_layout_to_sim(
     env: ManagerBasedEnv,
     env_id: int,
     result: PlacementResult,
-    anchor_objects_set: set[ObjectBase],
-    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
+    anchor_assets: set[PlaceableAsset],
+    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
 ) -> None:
     """Write one env's solved layout into the sim.
 
     Even writing zero velocity, the sim will still apply gravity and other forces from collisions,
-    so collided objects will still be subject to move.
+    so collided assets will still be subject to move.
 
     Args:
         env: The Isaac Lab ManagerBasedEnv environment.
         env_id: The environment index.
         result: The placement result to write to the sim.
-        anchor_objects_set: The set of anchor objects.
-        base_rotations: The base rotations for all objects.
+        anchor_assets: The set of anchor assets.
+        base_rotations: The base rotations for all assets.
     """
     env_id_tensor = torch.tensor([env_id], device=env.device)
     zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
-    for obj, pos in result.positions.items():
-        if obj in anchor_objects_set:
+    missing_assets = [
+        asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
+    ]
+    assert not missing_assets, f"Placement layout is missing non-anchor assets: {missing_assets}"
+    for asset in result.positions:
+        if asset in anchor_assets:
             continue
-        asset = env.scene[obj.name]
-        marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
-        total_yaw = result.orientations.get(obj, marker_yaw)
-        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
-        pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
-        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
-        pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
-        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
-        asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        layout_pose = get_pose_from_layout(asset, result)
+        for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
+            scene_asset = env.scene[scene_name]
+            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
+            pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
+            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_id_tensor)
+            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
 
 
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     placement_pool: PooledObjectPlacer,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
@@ -111,7 +125,7 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        objects: Objects participating in relation solving.
+        assets: Assets participating in relation solving.
         placement_pool: Runtime pool of solved placement layouts.
     """
     if env_ids is None or len(env_ids) == 0:
@@ -122,8 +136,8 @@ def solve_and_place_objects(
         placement_pool.num_envs == num_scene_envs
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-    anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotation_per_object(objects)
+    anchor_assets = set(get_anchor_objects(assets))
+    base_rotations = get_base_rotation_per_asset(assets)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
@@ -132,5 +146,5 @@ def solve_and_place_objects(
                 "Warning: Writing best-loss fallback placement for "
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
-        # only write the non-anchor objects to the sim
-        write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
+        # Only write non-anchor assets to the sim.
+        write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)

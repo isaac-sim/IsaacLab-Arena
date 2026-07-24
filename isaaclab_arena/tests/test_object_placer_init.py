@@ -5,11 +5,11 @@
 
 """Tests for On-relation-guided initialization in ObjectPlacer."""
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 

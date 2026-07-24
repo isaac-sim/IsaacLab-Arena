@@ -11,19 +11,19 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
+from isaaclab_arena.utils.pose import PosePerEnv
 
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.relations.placement_result import PlacementResult
 
 
 def _get_passive_collision_objects(
@@ -37,16 +37,16 @@ def _get_passive_collision_objects(
 
 
 def solve_and_apply_relation_placement(
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
 ) -> EventTermCfg | None:
-    """Solve relation placement and apply the result to object reset/static state.
+    """Solve relation placement and apply the result to asset reset/static state.
 
     Args:
-        objects: Objects with spatial predicates that should be relation-solved.
+        assets: Assets with spatial predicates that should be relation-solved.
         num_envs: Number of environments to prepare placements for.
         placer_params: Optional placement parameters. A shallow copy is used so
             this function can force pooled placement without mutating the caller's instance.
@@ -59,10 +59,13 @@ def solve_and_apply_relation_placement(
         Reset event config to attach to the environment when placement should be
         resolved on reset. Returns ``None`` when no reset event is needed.
     """
-    objects = list(objects)
-    if not objects:
-        print("No objects with relations found in scene. Skipping relation solving.")
+    if not assets:
+        print("No assets with relations found in scene. Skipping relation solving.")
         return None
+    asset_names = {asset.name for asset in assets}
+    assert len(asset_names) == len(assets), "Placement asset names must be unique"
+    scene_keys = [asset.get_scene_key() for asset in assets]
+    assert len(set(scene_keys)) == len(scene_keys), "Placement assets map to duplicate scene keys"
 
     if placer_params is None:
         placer_params = ObjectPlacerParams()
@@ -78,13 +81,11 @@ def solve_and_apply_relation_placement(
         collision_objects = _get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
-                objects, scene_assets, placer_params.solver_params.collision_mode
+                assets, scene_assets, placer_params.solver_params.collision_mode
             ),
         )
-    # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
-    # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
-        objects=objects,
+        objects=assets,
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
@@ -101,7 +102,7 @@ def solve_and_apply_relation_placement(
         )
 
     return _apply_relation_placement_result(
-        objects=objects,
+        assets=assets,
         placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
@@ -109,16 +110,16 @@ def solve_and_apply_relation_placement(
 
 
 def _should_include_background_mesh(
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     scene_assets: Iterable[Asset | RigidObjectSet],
     default_collision_mode: CollisionMode,
 ) -> bool:
-    """Return True when the default mode or any object/Background override resolves to MESH."""
+    """Return True when the default mode or any relevant asset override resolves to MESH."""
     from isaaclab_arena.assets.background import Background
 
     if default_collision_mode == CollisionMode.MESH:
         return True
-    if any(get_object_collision_mode(obj, default_collision_mode) == CollisionMode.MESH for obj in objects):
+    if any(get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH for asset in assets):
         return True
     return any(
         isinstance(asset, Background) and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
@@ -127,111 +128,126 @@ def _should_include_background_mesh(
 
 
 def _apply_relation_placement_result(
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     placer_params: ObjectPlacerParams,
     placement_pool: PooledObjectPlacer,
     num_envs: int,
 ) -> EventTermCfg | None:
-    """Apply selected layouts to object spawn state and build reset event config."""
-    anchor_objects_set = set(get_anchor_objects(objects))
-    # Prevent external pose-reset events from conflicting with relation-solved objects.
-    _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
+    """Apply selected layouts to asset spawn state and build reset event config."""
+    anchor_assets = set(get_anchor_objects(assets))
+    # Prevent external pose-reset events from conflicting with relation-solved assets.
+    _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
+    # Reject movable compound assets whose auxiliary prims a per-env reset cannot yet reposition.
+    _validate_no_unplaced_auxiliary_prims(assets, anchor_assets)
 
-    # Anchor objects do not move, so no need to apply reset event.
-    if anchor_objects_set == set(objects):
+    # Anchor assets do not move, so no need to apply reset event.
+    if anchor_assets == set(assets):
         return None
 
     if placer_params.resolve_on_reset:
         return _apply_dynamic_spawn_pose(
-            objects=objects,
+            assets=assets,
             placement_pool=placement_pool,
-            anchor_objects_set=anchor_objects_set,
+            anchor_assets=anchor_assets,
         )
 
+    # Every placement asset (objects and embodiments) stores its solved pose as a PosePerEnv and
+    # owns a per-asset reset event, so static layouts need no coordinated place-from-layouts event.
     _apply_static_initial_poses(
-        objects=objects,
+        assets=assets,
         placement_pool=placement_pool,
-        anchor_objects_set=anchor_objects_set,
+        anchor_assets=anchor_assets,
         num_envs=num_envs,
     )
+    for asset in assets:
+        if asset in anchor_assets:
+            continue
+        assert asset.has_pose_reset_event(), (
+            f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
+            "owns no reset event, so its solved layout would be silently discarded on every reset."
+        )
     return None
 
 
 def _apply_dynamic_spawn_pose(
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     placement_pool: PooledObjectPlacer,
-    anchor_objects_set: set[ObjectBase],
+    anchor_assets: set[PlaceableAsset],
 ) -> EventTermCfg:
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
-    # For env-indexed pools this seeds from env 0; the first reset overwrites with per-env layouts.
-    layout = placement_pool.sample_with_replacement(1)[0]
-    for obj in objects:
-        if obj in anchor_objects_set:
-            continue
-        pos = layout.positions.get(obj)
-        if pos is None:
-            continue
-        base_rot = get_rotation_xyzw(obj)
-        marker_yaw = yaw_from_quat_xyzw(base_rot)
-        total_yaw = layout.orientations.get(obj, marker_yaw)
-        rot = rotate_quat_by_yaw(base_rot, total_yaw - marker_yaw)
-        object_cfg = getattr(obj, "object_cfg", None)
-        assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
-        object_cfg.init_state.pos = pos
-        object_cfg.init_state.rot = rot
+    # Scene assets need a valid construction pose before reset events can run.
+    # This non-consuming env-0 sample is bootstrap-only; reset draws independently per env.
+    [construction_layout] = placement_pool.sample_with_replacement(1)
+    _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
 
     return EventTermCfg(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "objects": objects,
+            "assets": assets,
             "placement_pool": placement_pool,
         },
     )
 
 
+def _seed_spawn_config_from_layout(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+    layout: PlacementResult,
+) -> None:
+    """Write one solved layout into the single-pose scene configuration."""
+    for asset in assets:
+        if asset in anchor_assets:
+            continue
+        pose = get_pose_from_layout(asset, layout)
+        asset.set_initial_pose(pose, create_reset_event=False)
+
+
 def _apply_static_initial_poses(
-    objects: list[ObjectBase],
+    assets: list[PlaceableAsset],
     placement_pool: PooledObjectPlacer,
-    anchor_objects_set: set[ObjectBase],
+    anchor_assets: set[PlaceableAsset],
     num_envs: int,
 ) -> None:
     """Apply fixed per-environment poses for ``resolve_on_reset=False``."""
     layouts = placement_pool.sample_with_replacement(num_envs)
-    for obj in objects:
-        if obj in anchor_objects_set:
+    for asset in assets:
+        if asset in anchor_assets:
             continue
-        base_rotation_xyzw = get_rotation_xyzw(obj)
-        poses = []
-        missing_envs: list[int] = []
-        for env_idx in range(num_envs):
-            pos = layouts[env_idx].positions.get(obj)
-            if pos is None:
-                missing_envs.append(env_idx)
-            else:
-                marker_yaw = yaw_from_quat_xyzw(base_rotation_xyzw)
-                total_yaw = layouts[env_idx].orientations.get(obj, marker_yaw)
-                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, total_yaw - marker_yaw)
-                poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
-        if missing_envs:
-            print(
-                f"Warning: Object '{obj.name}' is missing positions in {len(missing_envs)} env(s) "
-                f"(env ids: {missing_envs}); skipping set_initial_pose for this object."
-            )
-        else:
-            obj.set_initial_pose(PosePerEnv(poses=poses))
+        poses = [get_pose_from_layout(asset, layouts[env_idx]) for env_idx in range(num_envs)]
+        asset.set_initial_pose(PosePerEnv(poses=poses))
 
 
 def _validate_no_conflicting_pose_reset_events(
-    objects: list[ObjectBase],
-    anchor_objects_set: set[ObjectBase],
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
 ) -> None:
-    """Reject conflicting explicit pose-reset events on relation-solved objects."""
-    for obj in objects:
-        assert not (obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None), (
-            f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
+    """Reject conflicting explicit pose-reset events on relation-solved assets."""
+    for asset in assets:
+        assert not (asset not in anchor_assets and asset.has_pose_reset_event()), (
+            f"Non-anchor asset '{asset.name}' has an explicit pose-reset event. "
             "Relational solving should not be combined with explicit setting of "
-            "poses on non-anchor objects."
+            "poses on non-anchor assets."
+        )
+
+
+def _validate_no_unplaced_auxiliary_prims(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+) -> None:
+    """Reject movable compound assets whose auxiliary prims a per-env reset cannot reposition.
+
+    A per-env reset repositions only the prims a compound asset emits from
+    ``layout_pose_to_scene_writes``; any auxiliary prim it omits (e.g. Droid's static stand) would
+    stay at its env-0 spot. Fail loudly here rather than silently orphaning those prims.
+    """
+    for asset in assets:
+        if asset in anchor_assets:
+            continue
+        assert not asset.has_unplaced_auxiliary_prims(), (
+            f"Non-anchor asset '{asset.name}' owns auxiliary scene prims that a per-environment reset "
+            "does not reposition, so relation placement would orphan them (e.g. Droid's static stand). "
+            "Make it an anchor, or implement layout_pose_to_scene_writes for its auxiliary prims."
         )

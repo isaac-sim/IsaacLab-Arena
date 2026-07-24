@@ -3,20 +3,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+if TYPE_CHECKING:
+    import trimesh
 
 
-class EmbodimentBase(Asset):
+class EmbodimentBase(PlaceableAsset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
@@ -49,17 +56,76 @@ class EmbodimentBase(Asset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+        self._collision_mesh: trimesh.Trimesh | None = None
+        """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds computed from the articulation's USD geometry."""
+        # Import locally because USD/pxr is available only after simulation initialization.
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        assert self.scene_config is not None, "scene_config must be populated before placement"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before placement"
+        spawn = robot.spawn
+        assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        # TODO(zihaox): Account for configured initial joint positions in bounds and collision meshes.
+        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the robot's collision mesh from its USD default prim, in the default joint pose."""
+        if self._collision_mesh is None:
+            # Import locally because USD/pxr is available only after simulation initialization.
+            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_path
+
+            assert self.scene_config is not None, "scene_config must be populated before placement"
+            robot = self.scene_config.robot
+            assert robot is not None, "scene_config.robot must be populated before placement"
+            spawn = robot.spawn
+            assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+            scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+            self._collision_mesh = extract_trimesh_from_usd_path(spawn.usd_path, scale)
+        return self._collision_mesh
+
+    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the configured pose; the construction pose is materialized in ``get_scene_cfg``."""
+        assert isinstance(pose, (Pose, PosePerEnv)), "Embodiments support a fixed Pose or PosePerEnv only"
         self.initial_pose = pose
+
+    def _get_initial_pose_as_pose(self) -> Pose | None:
+        # Read the explicit override, not get_initial_pose()'s scene_config fallback: an unset pose must
+        # collapse to None so get_scene_cfg leaves the init-configured robot/stand states untouched.
+        return self._collapse_pose_to_single(self.initial_pose)
+
+    def _build_reset_event(self) -> EventTermCfg | None:
+        """Build the reset event that restores this embodiment's root pose (and auxiliary prims)."""
+        from isaaclab_arena.terms.events import reset_placement_asset_pose, reset_placement_asset_pose_per_env
+
+        initial_pose = self.initial_pose
+        if initial_pose is None:
+            return None
+        if isinstance(initial_pose, PosePerEnv):
+            return EventTermCfg(
+                func=reset_placement_asset_pose_per_env,
+                mode="reset",
+                params={"write_pose_list": [self.layout_pose_to_scene_writes(pose) for pose in initial_pose.poses]},
+            )
+        assert isinstance(initial_pose, Pose), "Embodiments support a fixed Pose or PosePerEnv only"
+        return EventTermCfg(
+            func=reset_placement_asset_pose,
+            mode="reset",
+            params={"scene_writes": self.layout_pose_to_scene_writes(initial_pose)},
+        )
 
     def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
         """Update the robot's initial joint positions by joint name."""
-        if self.scene_config is None or not hasattr(self.scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_joint_initial_pos`.")
-        self.scene_config.robot.init_state.joint_pos.update(joint_pos)
+        assert self.scene_config is not None, "scene_config must be populated before setting joint positions"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting joint positions"
+        robot.init_state.joint_pos.update(joint_pos)
 
-    def get_initial_pose(self) -> Pose:
+    def get_initial_pose(self) -> Pose | PosePerEnv:
         """Env-local robot base pose, resolved in order: the explicit ``initial_pose`` override if set,
         otherwise the ``scene_config`` robot ``init_state`` default."""
         if self.initial_pose is not None:
@@ -73,8 +139,9 @@ class EmbodimentBase(Asset):
         )
 
     def get_scene_cfg(self) -> Any:
-        if self.initial_pose is not None:
-            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
+        construction_pose = self._get_initial_pose_as_pose()
+        if construction_pose is not None:
+            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, construction_pose)
         if self.enable_cameras:
             if self.camera_config is not None:
                 return combine_configclass_instances(
@@ -108,7 +175,16 @@ class EmbodimentBase(Asset):
         return self.command_config
 
     def get_events_cfg(self) -> Any:
-        return self.event_config
+        if self._pose_event_cfg is None:
+            return self.event_config
+        from isaaclab_arena.utils.configclass import make_configclass
+
+        pose_reset_cfg = make_configclass(
+            "EmbodimentPoseResetCfg",
+            [("robot_reset_pose", EventTermCfg, self._pose_event_cfg)],
+        )()
+        # Merge the pose reset last so it runs after joint/root resets in ``event_config``.
+        return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
         return self.mimic_env
@@ -138,10 +214,11 @@ class EmbodimentBase(Asset):
             self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.robot.init_state.pos = pose.position_xyz
-        scene_config.robot.init_state.rot = pose.rotation_xyzw
+        assert scene_config is not None, "scene_config must be populated before setting the root pose"
+        robot = scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting the root pose"
+        robot.init_state.pos = pose.position_xyz
+        robot.init_state.rot = pose.rotation_xyzw
         return scene_config
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
@@ -150,7 +227,8 @@ class EmbodimentBase(Asset):
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
 
-    def get_embodiment_name_in_scene(self) -> str:
+    def get_scene_key(self) -> str:
+        """Return the embodiment's Isaac Lab scene key."""
         return "robot"
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:

@@ -15,7 +15,7 @@ from isaaclab_arena.assets.register import register_object_relation
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
 
@@ -41,7 +41,7 @@ class RelationBase:
     in its relations list.
     """
 
-    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Validate this relation for placement among the participating objects."""
 
 
@@ -66,7 +66,7 @@ class Relation(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: PlaceableAsset, relation_loss_weight: float = 1.0):
         """
         Args:
             parent: The parent asset in the relationship.
@@ -86,7 +86,7 @@ class FaceTo(RelationBase):
 
     name = "face_to"
 
-    def __init__(self, parent: ObjectBase):
+    def __init__(self, parent: PlaceableAsset):
         """
         Args:
             parent: Target object that defines the facing direction.
@@ -98,7 +98,7 @@ class FaceTo(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Validate the facing relation for its subject and target."""
         face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
         assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."
@@ -140,7 +140,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side | str = Side.POSITIVE_X,
@@ -190,7 +190,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
         edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
@@ -229,7 +229,7 @@ class NotNextTo(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         side: Side | str = Side.POSITIVE_X,
         tolerance_m: float = 1e-2,
@@ -517,7 +517,7 @@ class PositionLimits(UnaryRelation):
         self.relation_loss_weight = relation_loss_weight
 
 
-def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
+def get_anchor_objects(objects: list[PlaceableAsset]) -> list[PlaceableAsset]:
     """Get all anchor objects from a list of objects.
 
     Anchor objects are marked with IsAnchor() relation and serve as
@@ -532,6 +532,6 @@ def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
     return [obj for obj in objects if any(isinstance(r, IsAnchor) for r in obj.get_relations())]
 
 
-def get_relation(obj: ObjectBase, relation_type: type[RelationT]) -> RelationT | None:
+def get_relation(obj: PlaceableAsset, relation_type: type[RelationT]) -> RelationT | None:
     """Return obj's first relation of the given type, or None if it has none."""
     return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)

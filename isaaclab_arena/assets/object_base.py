@@ -7,29 +7,21 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-
-if TYPE_CHECKING:
-    import trimesh
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
-
-from isaaclab_arena.assets.asset import Asset
 
 # Re-export ObjectType from the lightweight module so existing
 # `from isaaclab_arena.assets.object_base import ObjectType` consumers keep working,
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
@@ -40,7 +32,7 @@ __all__ = [
 ]
 
 
-class ObjectBase(Asset, ABC):
+class ObjectBase(PlaceableAsset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
     def __init__(
@@ -57,66 +49,16 @@ class ObjectBase(Asset, ABC):
         self.object_type = object_type
         if self.object_type == ObjectType.RIGID:
             self.add_variation(ObjectMassVariation(self.name))
-        self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
-        self.event_cfg = None
-        self.relations: list[RelationBase] = []
-        # None means use the solver's default collision mode for this object.
-        self.collision_mode: CollisionMode | None = None
-        # If True, mesh collision replaces non-watertight meshes with their convex hull.
-        self.repair_collision_mesh_non_watertight = True
 
-    def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
-        """Return the current initial pose of this object.
-
-        Subclasses may override to derive the pose from other sources
-        (e.g. a parent asset), falling back to ``self.initial_pose``.
-        """
-        return self.initial_pose
-
-    @abstractmethod
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box (relative to object origin)."""
-        ...
-
-    @abstractmethod
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox rotated and translated)."""
-        ...
-
-    def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return collision mesh, or None to fall back to AABB overlap."""
-
-    def _get_initial_pose_as_pose(self) -> Pose | None:
-        """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
-
-        If the initial pose is a ``PoseRange``, its midpoint is returned.
-        If the initial pose is a ``PosePerEnv``, the first environment's pose is returned.
-        If the initial pose is ``None``, ``None`` is returned.
-        """
-        initial_pose = self.get_initial_pose()
-        if initial_pose is None:
-            return None
-        if isinstance(initial_pose, PosePerEnv):
-            return initial_pose.poses[0]
-        if isinstance(initial_pose, PoseRange):
-            return initial_pose.get_midpoint()
-        return initial_pose
-
-    def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Set / override the initial pose and rebuild derived configs.
-
-        Args:
-            pose: A fixed ``Pose``, a ``PoseRange`` (randomised on reset),
-                or a ``PosePerEnv`` (distinct pose per environment).
-        """
+    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the pose and write its construction values into the materialized object config."""
         self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
             self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
-        self.event_cfg = self._init_event_cfg()
 
     def set_initial_velocity(self, velocity: Velocity) -> None:
         """Set / override the initial velocity and rebuild derived configs.
@@ -134,7 +76,7 @@ class ObjectBase(Asset, ABC):
             self.object_cfg.init_state.lin_vel = velocity.linear_xyz
         if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "ang_vel"):
             self.object_cfg.init_state.ang_vel = velocity.angular_xyz
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def _requires_reset_pose_event(self) -> bool:
         """Whether a reset-event for the initial pose should be generated.
@@ -146,7 +88,7 @@ class ObjectBase(Asset, ABC):
             ObjectType.ARTICULATION,
         )
 
-    def _init_event_cfg(self) -> EventTermCfg | None:
+    def _build_reset_event(self) -> EventTermCfg | None:
         """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
         if not self._requires_reset_pose_event():
             return None
@@ -181,19 +123,6 @@ class ObjectBase(Asset, ABC):
                 },
             )
 
-    def get_relations(self) -> list[RelationBase]:
-        """Get all relations for this object."""
-        return self.relations
-
-    @property
-    def is_anchor(self) -> bool:
-        """True if this object has an IsAnchor relation."""
-        return any(isinstance(r, IsAnchor) for r in self.relations)
-
-    def get_spatial_relations(self) -> list[RelationBase]:
-        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
-
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
 
@@ -204,7 +133,7 @@ class ObjectBase(Asset, ABC):
         return self.name, self.object_cfg
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self.event_cfg
+        return self.name, self._pose_event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:

@@ -41,7 +41,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose, translate_by_xyz_offset
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
@@ -98,9 +98,27 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
-    def set_initial_pose(self, pose: Pose) -> None:
-        """Store the requested base pose, lifted by the stand-height offset to match the spawned base."""
-        super().set_initial_pose(pose.translate(self._robot_base_offset))
+    def _translate_pose(self, pose: Pose | PosePerEnv) -> Pose | PosePerEnv:
+        """Lift a base pose (or per-env poses) by the stand-height offset to match the spawned base."""
+        if isinstance(pose, PosePerEnv):
+            return PosePerEnv(poses=[p.translate(self._robot_base_offset) for p in pose.poses])
+        return pose.translate(self._robot_base_offset)
+
+    def set_initial_pose(self, pose: Pose | PosePerEnv, create_reset_event: bool = True) -> None:
+        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base.
+
+        Both the reset path and the construction path (``create_reset_event=False``) route through here,
+        so the stand lift is applied consistently in either case.
+        """
+        super().set_initial_pose(self._translate_pose(pose), create_reset_event=create_reset_event)
+
+    def has_unplaced_auxiliary_prims(self) -> bool:
+        # Droid spawns a static stand prim that per-env reset does not yet reposition, so flag it and
+        # let the relation-placement guard reject a movable Droid rather than orphan the stand at env 0.
+        # TODO(zihaox): make the stand move with the base on reset, then drop this override. We can
+        # either override layout_pose_to_scene_writes to also write the stand's pose, or bake the stand
+        # into the robot USD so it moves with the base.
+        return True
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
