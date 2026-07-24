@@ -255,14 +255,16 @@ def test_anchor_asset_with_unplaced_auxiliary_prims_is_allowed():
     _validate_no_unplaced_auxiliary_prims([anchor], {anchor})
 
 
-def test_set_spawn_pose_does_not_build_reset_event_but_set_initial_pose_does():
-    """set_spawn_pose sets construction pose only; set_initial_pose also registers the reset event."""
+def test_set_initial_pose_create_reset_event_flag_controls_reset_event():
+    """create_reset_event=False sets the construction pose only; the default also registers the reset event."""
     from isaaclab_arena.utils.pose import Pose
 
     box = _make_box()
     assert not box.has_pose_reset_event()
 
-    box.set_spawn_pose(Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    box.set_initial_pose(
+        Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)), create_reset_event=False
+    )
     assert not box.has_pose_reset_event()
 
     box.set_initial_pose(Pose(position_xyz=(0.1, 0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
