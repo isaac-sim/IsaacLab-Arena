@@ -10,42 +10,10 @@ from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
 from isaaclab.utils.configclass import configclass
 
-# Import from the package root so this resolves whether MJWarpSolverCfg lives in
-# newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
-from isaaclab_physx.physics import PhysxCfg
-from isaaclab_tasks.utils import PresetCfg
-
-
-@configclass
-class ArenaPhysicsCfg(PresetCfg):
-    """Physics backend presets available to all Arena environments.
-
-    ``default`` / ``physx`` use the stock PhysX backend.
-    ``newton`` uses MuJoCo-Warp via Newton with solver parameters tuned
-    for dexterous manipulation (matches ``KukaAllegroPhysicsCfg.newton``).
-    """
-
-    physx = PhysxCfg()
-    newton = NewtonCfg(
-        solver_cfg=MJWarpSolverCfg(
-            solver="newton",
-            integrator="implicitfast",
-            njmax=300,
-            nconmax=400,
-            impratio=10.0,
-            cone="elliptic",
-            update_data_interval=2,
-            iterations=100,
-            ls_iterations=15,
-            ls_parallel=False,
-            use_mujoco_contacts=False,
-            ccd_iterations=15000,
-        ),
-        num_substeps=2,
-        debug_mode=False,
-    )
-    default = physx
+# Physics presets are defined once in ``physics_presets`` (the single source of truth). Re-exported
+# here so existing ``from ...isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg`` importers
+# keep working.
+from isaaclab_arena.environments.physics_presets import ArenaPhysicsCfg, DeformableNewtonCfg  # noqa: F401
 
 
 @configclass
