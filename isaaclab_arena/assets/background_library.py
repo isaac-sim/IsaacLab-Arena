@@ -205,6 +205,13 @@ class MapleTableRobolab(LibraryBackground):
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
     object_min_z = -0.05
+    # The maple table's USD authors its top as a (non-kinematic) rigid body resting on a ground plane.
+    # PhysX keeps a resting free body in place, but the Newton/MJWarp solver lets it slide, so objects
+    # placed on it drift away. A furniture table is meant to be fixed: mark it kinematic so it is static
+    # on both backends (same pattern as OfficeTableBackground).
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    }
 
     def __init__(self):
         super().__init__()

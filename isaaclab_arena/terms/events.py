@@ -13,6 +13,61 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
 
 
+def _deformable_nodal_state_for_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    nodal_state = asset.data.default_nodal_state_w.torch[env_ids].clone()
+    target_pos_w = torch.tensor(pose.position_xyz, device=env.device).repeat(len(env_ids), 1)
+    target_pos_w += env.scene.env_origins[env_ids]
+    centroid_w = nodal_state[..., :3].mean(dim=1)
+    nodal_state[..., :3] += (target_pos_w - centroid_w).unsqueeze(1)
+
+    if velocity is not None:
+        nodal_state[..., 3:] = torch.tensor(velocity.linear_xyz, device=env.device)
+    else:
+        nodal_state[..., 3:] = 0.0
+    return nodal_state
+
+
+def set_deformable_object_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> None:
+    """Reset a deformable object's nodal state so its centroid is at ``pose``."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    nodal_state = _deformable_nodal_state_for_pose(env, env_ids, asset_cfg, pose, velocity)
+    asset.write_nodal_state_to_sim_index(nodal_state, env_ids=env_ids)
+    asset.reset(env_ids=env_ids)
+
+
+def set_deformable_object_pose_per_env(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose_list: list[Pose],
+) -> None:
+    """Reset a deformable object's nodal state from a per-environment pose list."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    assert env_ids.ndim == 1
+    for cur_env in env_ids.tolist():
+        cur_env_ids = torch.tensor([cur_env], device=env.device)
+        nodal_state = _deformable_nodal_state_for_pose(env, cur_env_ids, asset_cfg, pose_list[cur_env])
+        asset.write_nodal_state_to_sim_index(nodal_state, env_ids=cur_env_ids)
+    asset.reset(env_ids=env_ids)
+
+
 def set_object_pose(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,

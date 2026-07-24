@@ -6,9 +6,10 @@
 import pathlib
 from typing import Any, Union
 
-from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets import AssetBaseCfg, DeformableObjectCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab_tasks.utils import PresetCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
@@ -20,7 +21,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.variations.variation_base import VariationBase
 
-AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
+AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, DeformableObjectCfg, PresetCfg, ContactSensorCfg]
 
 
 class Scene:

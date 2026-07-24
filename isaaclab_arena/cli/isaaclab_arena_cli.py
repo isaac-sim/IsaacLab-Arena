@@ -91,7 +91,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         help=(
-            "Physics backend preset: 'physx' or 'newton'. "
+            "Physics backend preset: 'physx', 'newton', or 'newton_mjwarp_vbd'. "
             "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
             "When not set, each environment uses its own default."
         ),
