@@ -163,3 +163,62 @@ def test_default_light_is_injected_when_scene_has_none():
 
     result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)
     assert result
+
+
+def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(simulation_app):
+    # A pick-and-place spec with NO explicit task_constraints: the pick-up object and its object destination are
+    # auto-derived from the task's reachability_target_objects and must end up carrying a RequiresReachability
+    # marker after conversion -- the exact property (obj.requires_reachability) the cuRobo ReachabilityValidator
+    # filters on to pick which movable objects to IK-check. A bystander object stays unmarked.
+    spec = ArenaEnvGraphSpec(
+        env_name="reachability_marker_test",
+        embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
+        background=AssetSpec(id="background", registry_name="maple_table_robolab"),
+        objects=[
+            AssetSpec(id="cube", registry_name="rubiks_cube_hot3d_robolab"),
+            AssetSpec(id="bowl", registry_name="bowl_ycb_robolab"),
+            AssetSpec(id="bystander", registry_name="mug_ycb_robolab"),
+        ],
+        task=CompositeTaskSpec(
+            composition=TaskCompositionType.ATOMIC,
+            description="pick the cube and place it in the bowl",
+            subtasks=[
+                TaskSpec(
+                    kind="PickAndPlaceTask",
+                    params={
+                        "pick_up_object": "cube",
+                        "destination_location": "bowl",
+                        "background_scene": "background",
+                    },
+                )
+            ],
+        ),
+    )
+
+    arena_env = spec.to_arena_env()
+
+    subtask = arena_env.task.subtasks[0]
+    assert subtask.pick_up_object.requires_reachability
+    assert subtask.destination_location.requires_reachability
+
+    # Every other object (the bystander mug, the background) stays unmarked -- non-empty guards against a
+    # vacuous pass if the bystander somehow dropped out of the scene.
+    target_ids = {id(subtask.pick_up_object), id(subtask.destination_location)}
+    others = [
+        asset
+        for asset in arena_env.scene.assets.values()
+        if id(asset) not in target_ids and hasattr(asset, "requires_reachability")
+    ]
+    assert others
+    assert all(not asset.requires_reachability for asset in others)
+
+    return True
+
+
+def test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets)
+    assert result

@@ -19,6 +19,9 @@ class TaskBase(ABC):
 
     DEFAULT_EPISODE_LENGTH_S: float = 20.0
 
+    reachability_target_objects: tuple[str, ...] = ()
+    """Assets the robot must be able to reach in this task."""
+
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
         self.episode_length_s = episode_length_s if episode_length_s is not None else self.DEFAULT_EPISODE_LENGTH_S
         self.task_description = task_description

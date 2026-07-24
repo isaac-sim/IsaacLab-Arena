@@ -29,11 +29,6 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-# Registered task kind whose pick-up object and object destination are auto-added as reachability targets.
-_PICK_AND_PLACE_TASK_KIND = "PickAndPlaceTask"
-# Pick-and-place params naming the objects the robot must reach (pick and, when it names an object, place).
-_PICK_AND_PLACE_REACHABLE_PARAMS = ("pick_up_object", "destination_location")
-
 
 class ArenaEnvGraphSpec(BaseModel):
     """Environment graph spec — the single source of truth for scene layout and tasks."""
@@ -97,16 +92,22 @@ class ArenaEnvGraphSpec(BaseModel):
         return tuple(
             dict.fromkeys((
                 *(c.subject for c in (self.task_constraints or []) if c.type is TaskConstraintType.REACHABLE),
-                *self._select_reachable_subjects_from_pick_and_place_tasks(object_ids),
+                *self._select_task_declared_reachable_subjects(object_ids),
             ))
         )
 
-    def _select_reachable_subjects_from_pick_and_place_tasks(self, object_ids: set[str]) -> list[str]:
-        """Pick-up object and object destination of each pick-and-place subtask, in subtask order."""
+    def _select_task_declared_reachable_subjects(self, object_ids: set[str]) -> list[str]:
+        """Subjects each subtask declares as reachability targets via its task class's reachability_target_objects."""
+        # Lazy import: reading task-class metadata pulls the task library.
+        from isaaclab_arena.assets.registries import TaskRegistry
+
+        registry = TaskRegistry()
         subjects: list[str] = []
         for task in self.task.subtasks:
-            if task.kind == _PICK_AND_PLACE_TASK_KIND:
-                for param in _PICK_AND_PLACE_REACHABLE_PARAMS:
+            task_cls = registry.get_task_by_name(task.kind)
+            # If the task class declares reachability targets, add them to the list.
+            if task_cls.reachability_target_objects:
+                for param in task_cls.reachability_target_objects:
                     value = task.params.get(param)
                     if isinstance(value, str) and value in object_ids:
                         subjects.append(value)
