@@ -211,24 +211,28 @@ jobs:
           uv sync ${{ matrix.uv_flags }}
 
       - name: Run in-process Newton tests
+        shell: bash
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
+        shell: bash
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
+        shell: bash
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
+        shell: bash
         run: |
           source .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
