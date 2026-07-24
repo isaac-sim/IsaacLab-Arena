@@ -166,10 +166,12 @@ def test_default_light_is_injected_when_scene_has_none():
 
 
 def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(simulation_app):
-    # A pick-and-place spec with NO explicit task_constraints: the pick-up object and its object destination are
-    # auto-derived from the task's reachability_target_objects and must end up carrying a RequiresReachability
-    # marker after conversion -- the exact property (obj.requires_reachability) the cuRobo ReachabilityValidator
-    # filters on to pick which movable objects to IK-check. A bystander object stays unmarked.
+    # A pick-and-place spec: the pick-up object and its object destination are auto-derived from the task's
+    # reachability_target_objects and must end up carrying a RequiresReachability marker after conversion --
+    # the exact relation (obj.has_relation(RequiresReachability)) the cuRobo ReachabilityValidator filters on to
+    # pick which movable objects to IK-check. A bystander object stays unmarked.
+    from isaaclab_arena.relations.relations import RequiresReachability
+
     spec = ArenaEnvGraphSpec(
         env_name="reachability_marker_test",
         embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
@@ -199,8 +201,8 @@ def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(sim
 
     # A single ATOMIC subtask converts to the PickAndPlaceTask itself, not a container with .subtasks.
     subtask = getattr(arena_env.task, "subtasks", [arena_env.task])[0]
-    assert subtask.pick_up_object.requires_reachability
-    assert subtask.destination_location.requires_reachability
+    assert subtask.pick_up_object.has_relation(RequiresReachability)
+    assert subtask.destination_location.has_relation(RequiresReachability)
 
     # Every other object (the bystander mug, the background) stays unmarked -- non-empty guards against a
     # vacuous pass if the bystander somehow dropped out of the scene.
@@ -208,10 +210,10 @@ def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(sim
     others = [
         asset
         for asset in arena_env.scene.assets.values()
-        if id(asset) not in target_ids and hasattr(asset, "requires_reachability")
+        if id(asset) not in target_ids and hasattr(asset, "has_relation")
     ]
     assert others
-    assert all(not asset.requires_reachability for asset in others)
+    assert all(not asset.has_relation(RequiresReachability) for asset in others)
 
     return True
 
