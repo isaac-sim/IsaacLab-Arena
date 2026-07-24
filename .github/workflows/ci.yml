@@ -168,11 +168,14 @@ jobs:
       - *checkout_step
       - *git_lfs_step
 
-      - name: Install graphics loader libraries
+      - name: Install graphics loader and build tools
+        # cmake + a C/C++ toolchain are needed to build sdist-only deps from
+        # source (e.g. egl-probe, pulled in via isaaclab-mimic -> robomimic).
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1
+            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1 \
+            cmake build-essential
 
       - name: Install uv
         run: |
@@ -212,25 +215,25 @@ jobs:
 
       - name: Run in-process Newton tests
         run: |
-          source .venv/bin/activate
+          . .venv/bin/activate
           pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          source .venv/bin/activate
+          . .venv/bin/activate
           pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          source .venv/bin/activate
+          . .venv/bin/activate
           pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
-          source .venv/bin/activate
+          . .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
