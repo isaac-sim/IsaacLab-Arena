@@ -115,7 +115,9 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     def has_unplaced_auxiliary_prims(self) -> bool:
         # Droid spawns a static stand prim that per-env reset does not yet reposition, so flag it and
         # let the relation-placement guard reject a movable Droid rather than orphan the stand at env 0.
-        # TODO(zihaox): emit the stand write from layout_pose_to_scene_writes and drop this override.
+        # TODO(zihaox): make the stand move with the base on reset, then drop this override. We can
+        # either override layout_pose_to_scene_writes to also write the stand's pose, or bake the stand
+        # into the robot USD so it moves with the base.
         return True
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
