@@ -263,6 +263,30 @@ def test_validate_rejects_task_constraint_referencing_unknown_subject():
         ArenaEnvGraphSpec.from_dict(data)
 
 
+def test_reachable_constraint_attaches_marker_to_only_its_subjects():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _attach_task_constraints_to_assets
+    from isaaclab_arena.environment_spec.arena_env_graph_types import TaskConstraintSpec
+    from isaaclab_arena.relations.relations import RequiresReachability
+
+    class _FakeAsset:
+        def __init__(self):
+            self.relations = []
+
+        def add_relation(self, relation):
+            self.relations.append(relation)
+
+    assets = {name: _FakeAsset() for name in ("cube", "plate", "distractor")}
+    constraints = [
+        TaskConstraintSpec(type="reachable", subject="cube"),
+        TaskConstraintSpec(type="reachable", subject="plate"),
+    ]
+    _attach_task_constraints_to_assets(constraints, assets)
+
+    assert any(isinstance(r, RequiresReachability) for r in assets["cube"].relations)
+    assert any(isinstance(r, RequiresReachability) for r in assets["plate"].relations)
+    assert assets["distractor"].relations == []
+
+
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",
