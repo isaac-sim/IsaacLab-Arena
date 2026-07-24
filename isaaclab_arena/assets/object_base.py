@@ -192,7 +192,7 @@ class ObjectBase(Asset, ABC):
 
     @property
     def requires_reachability(self) -> bool:
-        """True if this object has a RequiresReachability marker (from a 'reachable' task constraint)."""
+        """True if this object has a RequiresReachability relation."""
         return any(isinstance(r, RequiresReachability) for r in self.relations)
 
     def get_spatial_relations(self) -> list[RelationBase]:

@@ -50,7 +50,7 @@ class ArenaEnvGraphSpec(BaseModel):
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     task_constraints: list[TaskConstraintSpec] | None = Field(
         default=None,
-        description="Optional per-object task constraints .",
+        description="Optional per-object task constraints.",
     )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
@@ -72,14 +72,19 @@ class ArenaEnvGraphSpec(BaseModel):
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.task.subtasks, known_ids)
-        object_ids = {*(obj.id for obj in self.objects), *(ref.id for ref in (self.object_references or []))}
-        self._assert_task_constraint_subject_is_valid(self.task_constraints or [], object_ids)
+        # Reachability targets must be placed movable objects; object references are static scene parts the
+        # IK gate never checks, so they are not valid subjects.
+        self._assert_task_constraint_subject_is_valid(self.task_constraints or [], self._placed_object_ids())
         self._validate_cli_override_specs()
         return self
 
+    def _placed_object_ids(self) -> set[str]:
+        """Ids of placed movable objects -- the only valid reachability subjects (excludes references and scene)."""
+        return {obj.id for obj in self.objects}
+
     @staticmethod
     def _assert_task_constraint_subject_is_valid(constraints: list[TaskConstraintSpec], object_ids: set[str]) -> None:
-        """Ensure each task constraint's subject names an object or object-reference id."""
+        """Ensure each task constraint's subject names a placed object id."""
         for constraint in constraints:
             assert (
                 constraint.subject in object_ids
@@ -87,8 +92,9 @@ class ArenaEnvGraphSpec(BaseModel):
 
     def get_reachability_target_object_ids(self) -> tuple[str, ...]:
         """Object ids the robot shall be able to reach."""
-        object_ids = {*(obj.id for obj in self.objects), *(ref.id for ref in (self.object_references or []))}
-        # dict.fromkeys de-duplicates while preserving order: explicit 'reachable' constraints first, then auto-targets.
+        object_ids = self._placed_object_ids()
+        # dict.fromkeys de-duplicates repeated object ids.
+        # It also preserves order esp for composite tasks for consistency, or if the user adds explicit 'reachable' constraints.
         return tuple(
             dict.fromkeys((
                 *(c.subject for c in (self.task_constraints or []) if c.type is TaskConstraintType.REACHABLE),
@@ -97,7 +103,7 @@ class ArenaEnvGraphSpec(BaseModel):
         )
 
     def _select_task_declared_reachable_subjects(self, object_ids: set[str]) -> list[str]:
-        """Subjects each subtask declares as reachability targets via its task class's reachability_target_objects."""
+        """Each subtask declares candidates for reachability targets via its task class's reachability_target_objects."""
         # Lazy import: reading task-class metadata pulls the task library.
         from isaaclab_arena.assets.registries import TaskRegistry
 

@@ -279,7 +279,8 @@ class IsAnchor(RelationBase):
 class RequiresReachability(RelationBase):
     """Marker indicating the robot shall be able to reach this object.
 
-    Stamped onto an object from a 'reachable' task constraint. It does not constrain placement geometry.
+    Stamped onto an object from a 'reachable' task constraint. It does not affect placement geometry
+    during optimization, but rejects unreachable placements.
 
     Usage:
         banana.add_relation(RequiresReachability())  # IK-check reachability of the banana

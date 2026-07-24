@@ -271,11 +271,13 @@ def test_validate_rejects_task_constraint_referencing_non_object_subject():
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_task_constraint_accepts_object_reference_subject():
+def test_validate_rejects_task_constraint_referencing_object_reference_subject():
+    # 'table' is an object reference (a static scene part), not a placed movable object. The IK gate only
+    # checks placed objects, so an object reference is not a valid reachability subject.
     data = _minimal_env_graph_data()
     data["task_constraints"] = [{"type": "reachable", "subject": "table"}]
-    spec = ArenaEnvGraphSpec.from_dict(data)
-    assert "table" in spec.get_reachability_target_object_ids()
+    with pytest.raises(ValidationError, match="references unknown subject 'table'"):
+        ArenaEnvGraphSpec.from_dict(data)
 
 
 def test_reachability_markers_attached_to_only_target_assets():
