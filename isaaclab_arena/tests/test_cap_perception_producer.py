@@ -13,22 +13,20 @@ generate_perception_stubs.sh first (skipped otherwise).
 
 from __future__ import annotations
 
-from concurrent import futures
+import numpy as np
 import socket
 import struct
 import threading
 import time
+from concurrent import futures
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
 grpc = pytest.importorskip("grpc")
 
 try:
-    from isaaclab_arena.integrations.cap_barrier._generated.cap_perception_proto import (
-        cap_perception_pb2 as pb2,
-    )
+    from isaaclab_arena.integrations.cap_barrier._generated.cap_perception_proto import cap_perception_pb2 as pb2
     from isaaclab_arena.integrations.cap_barrier._generated.cap_perception_proto import (
         cap_perception_pb2_grpc as pb2_grpc,
     )
@@ -45,7 +43,12 @@ from isaaclab_arena.integrations.cap_barrier.perception_producer import (
 )
 
 
-def _fake_environment(width: int = 4, height: int = 3):
+def _fake_environment(
+    width: int = 4,
+    height: int = 3,
+    *,
+    quat_xyzw: tuple[float, float, float, float] = (0.1, 0.2, 0.3, 0.9),
+):
     import torch
 
     rgb = torch.arange(height * width * 4, dtype=torch.uint8).reshape(1, height, width, 4)
@@ -56,7 +59,9 @@ def _fake_environment(width: int = 4, height: int = 3):
             output={"rgb": rgb, "distance_to_image_plane": depth},
             intrinsic_matrices=intrinsics,
             pos_w=torch.tensor([[1.0, 2.0, 3.0]]),
-            quat_w_ros=torch.tensor([[1.0, 0.0, 0.0, 0.0]]),
+            # CameraData.quat_w_ros is xyzw. Use four distinct values so the
+            # producer's frozen wxyz transport conversion cannot pass vacuously.
+            quat_w_ros=torch.tensor([quat_xyzw]),
         )
     )
 
@@ -80,13 +85,44 @@ def test_extract_camera_frame_detaches_rgbd_pose_and_intrinsics() -> None:
     assert frame.camera_name == "exterior_cam"
     assert (frame.width, frame.height) == (width, height)
     assert len(frame.rgb) == width * height * 3
-    assert frame.rgb == bytes((np.arange(height * width * 4).reshape(height, width, 4)[..., :3]).astype(np.uint8).reshape(-1))
+    assert frame.rgb == bytes(
+        (np.arange(height * width * 4).reshape(height, width, 4)[..., :3]).astype(np.uint8).reshape(-1)
+    )
     depth = struct.unpack(f"<{width * height}f", frame.depth)
     assert all(value == pytest.approx(0.75) for value in depth)
     assert frame.intrinsic_matrix == pytest.approx((200.0, 0.0, 2.0, 0.0, 201.0, 1.5, 0.0, 0.0, 1.0))
-    assert frame.camera_pose == pytest.approx((1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0))
+    assert frame.camera_pose == pytest.approx((1.0, 2.0, 3.0, 0.9, 0.1, 0.2, 0.3))
     assert frame.frame_index == 5
     assert frame.capture_monotonic_ns == 4242
+
+
+def test_maple_oblique_pose_survives_cap_wxyz_transport() -> None:
+    import torch
+
+    from isaaclab.utils.math import matrix_from_quat
+
+    from isaaclab_arena_environments.maple_cameras import _CAM_EYE, _CAM_TARGET, _agentview_ros_quat_xyzw
+
+    camera_xyzw = _agentview_ros_quat_xyzw(_CAM_EYE, _CAM_TARGET)
+    env, _, _ = _fake_environment(quat_xyzw=camera_xyzw)
+
+    frame = extract_camera_frame(env, frame_index=0)
+
+    # CAP transports xyz + wxyz. Convert back to Isaac Lab's xyzw at the
+    # consumer edge and prove the actual oblique optical axis is unchanged.
+    transport_wxyz = frame.camera_pose[3:]
+    assert transport_wxyz == pytest.approx((camera_xyzw[3], camera_xyzw[0], camera_xyzw[1], camera_xyzw[2]))
+    consumer_xyzw = torch.tensor(
+        [[transport_wxyz[1], transport_wxyz[2], transport_wxyz[3], transport_wxyz[0]]],
+        dtype=torch.float32,
+    )
+    camera_forward = matrix_from_quat(consumer_xyzw)[0, :, 2]
+    expected_forward = torch.tensor(_CAM_TARGET, dtype=torch.float32) - torch.tensor(_CAM_EYE, dtype=torch.float32)
+    expected_forward /= torch.linalg.norm(expected_forward)
+    assert float(camera_forward @ expected_forward) > 0.999
+    # arena_droid_b1 pins T_world_base to identity, so this world translation is
+    # also the planner-base camera translation.
+    assert frame.camera_pose[:3] == pytest.approx((1.0, 2.0, 3.0))
 
 
 def _sample_frame(frame_index: int, capture_ns: int) -> PerceptionFrame:
@@ -126,9 +162,8 @@ class _RecordingServicer(pb2_grpc.CapPerceptionServicer):
     def PublishFrames(self, request_iterator, context):
         self.streams += 1
         count = 0
-        for frame in request_iterator:
+        for count, frame in enumerate(request_iterator, start=1):
             self.frames.append(frame)
-            count += 1
             self.event.set()
         return pb2.PublishAck(frames_received=count)
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -99,7 +100,9 @@ def extract_camera_frame(
 
     intrinsics = camera.data.intrinsic_matrices[0].detach().cpu().numpy().astype(np.float64)
     pos = camera.data.pos_w[0].detach().cpu().numpy().astype(np.float64)
-    quat_wxyz = camera.data.quat_w_ros[0].detach().cpu().numpy().astype(np.float64)
+    # Isaac Lab exposes camera quaternions in xyzw order. The CAP perception
+    # transport is frozen as xyz + wxyz, so convert exactly once at this boundary.
+    quat_xyzw = camera.data.quat_w_ros[0].detach().cpu().numpy().astype(np.float64)
 
     return PerceptionFrame(
         camera_name=camera_name,
@@ -109,9 +112,13 @@ def extract_camera_frame(
         depth=depth_bytes,
         intrinsic_matrix=tuple(float(v) for v in intrinsics.reshape(-1)),
         camera_pose=(
-            float(pos[0]), float(pos[1]), float(pos[2]),
-            float(quat_wxyz[0]), float(quat_wxyz[1]),
-            float(quat_wxyz[2]), float(quat_wxyz[3]),
+            float(pos[0]),
+            float(pos[1]),
+            float(pos[2]),
+            float(quat_xyzw[3]),
+            float(quat_xyzw[0]),
+            float(quat_xyzw[1]),
+            float(quat_xyzw[2]),
         ),
         frame_index=frame_index,
         capture_monotonic_ns=monotonic_ns(),
@@ -250,10 +257,8 @@ class PerceptionFrameProducer:
                     break
                 self._sleep(self._reconnect_backoff_s)
             finally:
-                try:
+                with suppress(Exception):
                     channel.unsubscribe(_on_state)
-                except Exception:
-                    pass
                 channel.close()
                 self._requeue_inflight()
 
