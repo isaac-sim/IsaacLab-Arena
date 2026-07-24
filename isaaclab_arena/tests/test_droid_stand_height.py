@@ -156,7 +156,7 @@ def _test_droid_kitchen_reset_alignment(simulation_app) -> bool:
         env.reset()
 
         robot_z = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, 2].item()
-        stand_z = env.unwrapped.scene["stand"].get_world_poses()[0].torch[0, 2].item()
+        stand_z = env.unwrapped.scene["stand"].get_world_poses()[0][0, 2].item()
         assert abs(robot_z - stand_z) < _Z_MATCH_EPS, f"robot z {robot_z} != stand z {stand_z} after reset"
 
         env.close()
