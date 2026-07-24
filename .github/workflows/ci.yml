@@ -98,115 +98,6 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
-  uv_changes:
-    name: Detect uv-related changes
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 5
-    # Only meaningful on PRs; other events always run the uv tests.
-    if: github.event_name == 'pull_request'
-    outputs:
-      uv: ${{ steps.filter.outputs.uv }}
-    steps:
-      # Queries the PR's changed files via the GitHub API; no checkout needed.
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            uv:
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - 'submodules/IsaacLab'
-              - 'submodules/IsaacLab/**'
-
-  uv_test:
-    name: Run tests (native uv)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    needs: [pre_commit, uv_changes]
-    # Runs nightly, on push to main, and on manual dispatch; on pull requests
-    # only when the PR touches the uv-managed dependency files
-    # (pyproject.toml, uv.lock, or the IsaacLab submodule). The !cancelled()
-    # guard keeps the job alive when uv_changes is skipped on non-PR events.
-    if: >-
-      !cancelled() &&
-      needs.pre_commit.result == 'success' &&
-      (github.event_name != 'pull_request' ||
-       needs.uv_changes.outputs.uv == 'true')
-    env:
-      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
-      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
-      # Accept the Isaac Sim EULA so the first launch is non-interactive.
-      OMNI_KIT_ACCEPT_EULA: "YES"
-      ACCEPT_EULA: "Y"
-
-    # Validates the native workflow in a clean ubuntu:24.04 container.
-    container:
-      image: nvidia/cuda:12.8.2-base-ubuntu24.04
-      env:
-        # Needed to give the container access to the driver's graphics libraries.
-        NVIDIA_DRIVER_CAPABILITIES: all
-
-    steps:
-      - name: nvidia-smi
-        run: nvidia-smi
-
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-
-      - name: Install graphics loader libraries
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1
-
-      - name: Install uv
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends curl ca-certificates
-          curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      # Out-of-source packaging check: validates the lockfile via the
-      # packaging tests, run in an out of source directory.
-      - name: Validate uv lock and editable package
-        run: |
-          uv python install 3.12
-          uv lock --check --offline --no-python-downloads
-          uv venv --python 3.12 /tmp/arena-package-venv
-          uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
-          uv pip install --python /tmp/arena-package-venv/bin/python pytest
-          REPO_DIR="$PWD"
-          cd /tmp
-          /tmp/arena-package-venv/bin/python -m pytest -v "${REPO_DIR}/isaaclab_arena/tests/test_packaging.py"
-
-      # In-source full environment: sync the locked deps and run the sim suite.
-      - name: Sync the locked environment
-        run: uv sync
-
-      - name: Run in-process Newton tests
-        run: |
-          uv run pytest -sv --durations=0 -m with_newton \
-            isaaclab_arena/tests/
-
-      - name: Run in-process PhysX tests without cameras
-        run: |
-          uv run pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
-
-      - name: Run in-process PhysX tests with cameras
-        run: |
-          uv run pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
-
-      - name: Run subprocess-spawning PhysX tests
-        run: |
-          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          uv run pytest -sv --durations=0 -m with_subprocess \
-            isaaclab_arena/tests/
-
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
@@ -272,6 +163,11 @@ jobs:
       - name: Run in-process PhysX tests without cameras
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests with cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run GR00T policy/data tests (lightweight gr00t deps only)
@@ -434,6 +330,114 @@ jobs:
           pip3 install -r requirements.txt
           make SPHINXOPTS=-W html
 
+  uv_changes:
+    name: Detect uv-related changes
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 5
+    # Only meaningful on PRs; other events always run the uv tests.
+    if: github.event_name == 'pull_request'
+    outputs:
+      uv: ${{ steps.filter.outputs.uv }}
+    steps:
+      # Queries the PR's changed files via the GitHub API; no checkout needed.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            uv:
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'submodules/IsaacLab'
+              - 'submodules/IsaacLab/**'
+
+  uv_test:
+    name: Run tests (native uv)
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [pre_commit, uv_changes]
+    # Runs nightly, on push to main, and on manual dispatch; on pull requests
+    # only when the PR touches the uv-managed dependency files
+    # (pyproject.toml, uv.lock, or the IsaacLab submodule). The !cancelled()
+    # guard keeps the job alive when uv_changes is skipped on non-PR events.
+    if: >-
+      !cancelled() &&
+      needs.pre_commit.result == 'success' &&
+      (github.event_name != 'pull_request' ||
+       needs.uv_changes.outputs.uv == 'true')
+    env:
+      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
+      # Accept the Isaac Sim EULA so the first launch is non-interactive.
+      OMNI_KIT_ACCEPT_EULA: "YES"
+      ACCEPT_EULA: "Y"
+
+    # Validates the native workflow in a clean ubuntu:24.04 container.
+    container:
+      image: nvidia/cuda:12.8.2-base-ubuntu24.04
+      env:
+        # Needed to give the container access to the driver's graphics libraries.
+        NVIDIA_DRIVER_CAPABILITIES: all
+
+    steps:
+      - name: nvidia-smi
+        run: nvidia-smi
+
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+
+      - name: Install graphics loader libraries
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1
+
+      - name: Install uv
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates
+          curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # Out-of-source packaging check: validates the lockfile via the
+      # packaging tests, run in an out of source directory.
+      - name: Validate uv lock and editable package
+        run: |
+          uv python install 3.12
+          uv lock --check --offline --no-python-downloads
+          uv venv --python 3.12 /tmp/arena-package-venv
+          uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
+          uv pip install --python /tmp/arena-package-venv/bin/python pytest
+          REPO_DIR="$PWD"
+          cd /tmp
+          /tmp/arena-package-venv/bin/python -m pytest -v "${REPO_DIR}/isaaclab_arena/tests/test_packaging.py"
+
+      # In-source full environment: sync the locked deps and run the sim suite.
+      - name: Sync the locked environment
+        run: uv sync
+
+      - name: Run in-process Newton tests
+        run: |
+          uv run pytest -sv --durations=0 -m with_newton \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests without cameras
+        run: |
+          uv run pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests with cameras
+        run: |
+          uv run pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+            isaaclab_arena/tests/
+
+      - name: Run subprocess-spawning PhysX tests
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          uv run pytest -sv --durations=0 -m with_subprocess \
+            isaaclab_arena/tests/
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
