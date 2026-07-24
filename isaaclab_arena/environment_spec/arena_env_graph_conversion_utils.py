@@ -12,7 +12,7 @@ from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObje
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams, ReachabilityConfig
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
@@ -54,14 +54,11 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
     enabled = placement.enabled_checks if placement is not None else None
     required = placement.required_checks if placement is not None else None
     # TODO(xinjieyao): enable auto-identification of the placer params from env relations
-    constraint = graph_spec.task_constraint
-    target_object_ids = constraint.target_object_ids() if constraint is not None else None
 
     return ObjectPlacerParams(
         enabled_checks=set(enabled) if enabled is not None else None,
         required_checks=set(required) if required is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
-        reachability_config=ReachabilityConfig(target_object_ids=target_object_ids),
     )
 
 

@@ -18,7 +18,6 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     ObjectReferenceSpec,
     PlacementValidatorSpec,
     SpatialRelationSpec,
-    TaskConstraintSpec,
     TaskSpec,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
@@ -47,10 +46,6 @@ class ArenaEnvGraphSpec(BaseModel):
         description="Per-env placement validators; none runs all build-time checks.",
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
-    task_constraint: TaskConstraintSpec | None = Field(
-        default=None,
-        description="Optional pick object and place destination that focus the build-time reachability check.",
-    )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
@@ -71,21 +66,8 @@ class ArenaEnvGraphSpec(BaseModel):
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.task.subtasks, known_ids)
-        if self.task_constraint is not None:
-            self._assert_task_constraint_references(self.task_constraint, known_ids)
         self._validate_cli_override_specs()
         return self
-
-    @staticmethod
-    def _assert_task_constraint_references(constraint: TaskConstraintSpec, known_ids: set[str]) -> None:
-        """Ensure the task constraint's pick object and place destination name known asset ids."""
-        assert (
-            constraint.pick_object in known_ids
-        ), f"task_constraint pick_object references unknown node '{constraint.pick_object}'"
-        if constraint.place_destination is not None:
-            assert (
-                constraint.place_destination in known_ids
-            ), f"task_constraint place_destination references unknown node '{constraint.place_destination}'"
 
     def _assert_asset_ids_unique(self) -> set[str]:
         """Ensure every asset and object-reference id in this spec is unique, returning the id set."""

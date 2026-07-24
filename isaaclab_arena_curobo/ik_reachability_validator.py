@@ -53,10 +53,8 @@ def get_object_world_pose_from_layout(
 
 @register_validator
 class ReachabilityValidator(PlacementValidator):
-    """Build-time placement gate: the robot can reach a top-down grasp at the task-relevant objects (cuRobo IK).
+    """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
 
-    Checks the pick object and place destination named by the env's task constraint
-    (``ReachabilityConfig.target_object_ids``); with none set it falls back to every movable object.
     Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
 
@@ -69,7 +67,6 @@ class ReachabilityValidator(PlacementValidator):
         self._grasp_z_offset = config.grasp_z_offset_m
         self._ik_pos_threshold = config.ik_position_threshold_m
         self._ik_rot_threshold = config.ik_rotation_threshold_rad
-        self._target_object_ids = config.target_object_ids
         self._solver = CuroboIKSolver(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
@@ -107,11 +104,11 @@ class ReachabilityValidator(PlacementValidator):
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
     ) -> bool:
-        """Whether the robot can reach a top-down grasp at the task-relevant objects in one candidate layout.
+        """Whether the robot can reach a top-down grasp at every movable object in one candidate layout.
 
         Rebuilds each object's world pose and a per-object collision cuboid, syncs them into the solver's
-        world, then batches a single IK solve over the target objects' top-down grasps. A layout with
-        nothing to grasp (anchor-only, or no target present) is trivially reachable.
+        world, then batches a single IK solve over the movable objects' top-down grasps. An anchor-only
+        layout (nothing to grasp) is trivially reachable.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
@@ -126,8 +123,8 @@ class ReachabilityValidator(PlacementValidator):
         ]
         self._solver.update_world(cuboids, self._base_pos, self._base_quat_xyzw)
 
-        targets = self._select_reachability_targets(objects, anchors)
-        if not targets:
+        movable = [obj for obj in objects if obj not in anchors]
+        if not movable:
             return True
 
         grasp_poses = torch.stack([
@@ -139,7 +136,7 @@ class ReachabilityValidator(PlacementValidator):
                 self._grasp_z_offset,
                 device=self._solver.device,
             )
-            for obj in targets
+            for obj in movable
         ])
         feasible, _, _ = solve_ik_feasibility(
             self._solver,
@@ -148,10 +145,3 @@ class ReachabilityValidator(PlacementValidator):
             rotation_threshold=self._ik_rot_threshold,
         )
         return bool(feasible.all().item())
-
-    def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
-        """Objects whose top-down grasp must be reachable: the configured task targets, else every movable object."""
-        if self._target_object_ids is None:
-            return [obj for obj in objects if obj not in anchors]
-        wanted = set(self._target_object_ids)
-        return [obj for obj in objects if obj.name in wanted]

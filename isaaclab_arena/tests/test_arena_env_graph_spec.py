@@ -245,64 +245,6 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
-def test_task_constraint_parsed_and_extracts_targets():
-    data = _minimal_env_graph_data()
-    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
-    data["task_constraint"] = {"pick_object": "cube", "place_destination": "plate"}
-    spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.task_constraint.pick_object == "cube"
-    assert spec.task_constraint.place_destination == "plate"
-    assert spec.task_constraint.target_object_ids() == ("cube", "plate")
-
-
-def test_task_constraint_without_destination_extracts_pick_object_only():
-    data = _minimal_env_graph_data()
-    data["task_constraint"] = {"pick_object": "cube"}
-    spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.task_constraint.place_destination is None
-    assert spec.task_constraint.target_object_ids() == ("cube",)
-
-
-def test_task_constraint_wires_target_object_ids_into_placer_params():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    data = _minimal_env_graph_data()
-    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
-    data["task_constraint"] = {"pick_object": "cube", "place_destination": "plate"}
-    spec = ArenaEnvGraphSpec.from_dict(data)
-
-    placer_params = build_checks_for_placer_params(spec)
-    assert placer_params.reachability_config.target_object_ids == ("cube", "plate")
-
-
-def test_no_task_constraint_leaves_reachability_targets_unset():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
-    placer_params = build_checks_for_placer_params(spec)
-    assert placer_params.reachability_config.target_object_ids is None
-
-
-def test_task_constraint_defaults_to_none_and_is_omitted_from_dict():
-    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
-    assert spec.task_constraint is None
-    assert "task_constraint" not in spec.to_dict()
-
-
-def test_validate_rejects_task_constraint_referencing_unknown_pick_object():
-    data = _minimal_env_graph_data()
-    data["task_constraint"] = {"pick_object": "missing_node"}
-    with pytest.raises(ValidationError, match="pick_object references unknown node 'missing_node'"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
-def test_validate_rejects_task_constraint_referencing_unknown_place_destination():
-    data = _minimal_env_graph_data()
-    data["task_constraint"] = {"pick_object": "cube", "place_destination": "missing_node"}
-    with pytest.raises(ValidationError, match="place_destination references unknown node 'missing_node'"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",
