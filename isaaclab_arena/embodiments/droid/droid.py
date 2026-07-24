@@ -41,7 +41,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose, translate_by_xyz_offset
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
@@ -98,9 +98,16 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
-    def set_initial_pose(self, pose: Pose) -> None:
-        """Store the requested base pose, lifted by the stand-height offset to match the spawned base."""
-        super().set_initial_pose(pose.translate(self._robot_base_offset))
+    def set_initial_pose(self, pose: Pose | PosePerEnv) -> None:
+        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base."""
+        if isinstance(pose, PosePerEnv):
+            super().set_initial_pose(PosePerEnv(poses=[p.translate(self._robot_base_offset) for p in pose.poses]))
+        else:
+            super().set_initial_pose(pose.translate(self._robot_base_offset))
+
+    def set_spawn_pose(self, pose: Pose) -> None:
+        """Set the scene-construction base pose, lifted by the stand-height offset like ``set_initial_pose``."""
+        super().set_spawn_pose(pose.translate(self._robot_base_offset))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the

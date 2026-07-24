@@ -101,12 +101,13 @@ def write_layout_to_sim(
     for asset in result.positions:
         if asset in anchor_assets:
             continue
-        scene_asset = env.scene[asset.get_scene_name()]
-        pose = get_pose_from_layout(asset, result)
-        pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
-        pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
-        scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_id_tensor)
-        scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        layout_pose = get_pose_from_layout(asset, result)
+        for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
+            scene_asset = env.scene[scene_name]
+            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
+            pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
+            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_id_tensor)
+            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
 
 
 def solve_and_place_objects(
@@ -147,32 +148,3 @@ def solve_and_place_objects(
             )
         # Only write non-anchor assets to the sim.
         write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
-
-
-def place_assets_from_layouts(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    assets: list[PlacementAsset],
-    layouts: list[PlacementResult],
-) -> None:
-    """Restore one fixed placement layout per environment.
-
-    Args:
-        env: The Isaac Lab environment.
-        env_ids: Environment indices to restore.
-        assets: Assets participating in relation solving.
-        layouts: Fixed layout indexed by environment.
-    """
-    if env_ids is None or len(env_ids) == 0:
-        return
-    assert len(layouts) == env.scene.env_origins.shape[0], "Static layouts must match the scene environment count"
-    anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
-    for env_id in env_ids.tolist():
-        write_layout_to_sim(
-            env,
-            env_id,
-            layouts[env_id],
-            anchor_assets,
-            base_rotations,
-        )

@@ -731,10 +731,6 @@ class ObjectPlacer:
                 else:
                     obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
             else:
-                assert obj.supports_per_env_initial_pose(), (
-                    f"Placement entity '{obj.name}' cannot store per-environment poses. "
-                    "Set apply_positions_to_objects=False and apply the results at reset."
-                )
                 poses = [
                     Pose(
                         position_xyz=positions_per_env[env_idx][obj],
