@@ -9,11 +9,11 @@ import torch
 
 import pytest
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, NotNextToLossStrategy, OnLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, NotNextTo, On, Side
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 

@@ -9,8 +9,8 @@ import pytest
 
 
 def _make_desk():
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -24,7 +24,7 @@ def _make_desk():
 
 
 def _make_box(name: str = "box"):
-    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     return DummyObject(

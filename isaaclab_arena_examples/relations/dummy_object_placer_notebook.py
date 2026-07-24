@@ -4,13 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # pyright: reportArgumentType=false
-# ^^^ Suppress type errors for DummyObject → Object (duck typing works at runtime)
+# ^^^ Suppress type errors for ExampleObject → Object (duck typing works at runtime)
 
 """Example notebook demonstrating the ObjectPlacer class without IsaacSim dependencies."""
 
 # %%
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -18,6 +17,7 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena_examples.relations.example_object import ExampleObject
 from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
 
 
@@ -25,31 +25,31 @@ from isaaclab_arena_examples.relations.relation_solver_visualizer import Relatio
 def run_dummy_object_placer_demo():
     """Run the ObjectPlacer demo with dummy objects and a single anchor."""
     # Create objects with bounding boxes
-    desk = DummyObject(
+    desk = ExampleObject(
         name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
     )
 
     # Central object on the desk
-    center_box = DummyObject(
+    center_box = ExampleObject(
         name="center_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
     )
 
     # Objects placed on each side of center_box
-    right_box = DummyObject(
+    right_box = ExampleObject(
         name="right_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
     )
-    left_box = DummyObject(
+    left_box = ExampleObject(
         name="left_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
     )
-    front_box = DummyObject(
+    front_box = ExampleObject(
         name="front_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
     )
-    back_box = DummyObject(
+    back_box = ExampleObject(
         name="back_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
     )
 
     # Box on top of center_box
-    top_box = DummyObject(
+    top_box = ExampleObject(
         name="top_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.08))
     )
 
@@ -105,23 +105,23 @@ def run_dummy_object_placer_demo():
 def run_dummy_multi_anchor_demo():
     """Demonstrate multiple anchors: objects placed relative to different fixed references."""
     # Create anchor objects (fixed positions)
-    table = DummyObject(
+    table = ExampleObject(
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 0.6, 0.75)),
     )
-    chair = DummyObject(
+    chair = ExampleObject(
         name="chair",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.45)),
     )
-    mug = DummyObject(
+    mug = ExampleObject(
         name="mug",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.1)),
     )
-    book = DummyObject(
+    book = ExampleObject(
         name="book",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.03)),
     )
-    bin_obj = DummyObject(
+    bin_obj = ExampleObject(
         name="bin",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.4)),
     )
@@ -167,22 +167,22 @@ def run_dummy_multi_anchor_demo():
 def run_dummy_no_collision_demo():
     """Run RelationSolver with three boxes starting overlapping; animation shows them separate."""
     # Create table (anchor) and three boxes
-    table = DummyObject(
+    table = ExampleObject(
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
     )
     table.add_relation(IsAnchor())
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    box_a = DummyObject(
+    box_a = ExampleObject(
         name="box_a",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
     )
-    box_b = DummyObject(
+    box_b = ExampleObject(
         name="box_b",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
     )
-    box_c = DummyObject(
+    box_c = ExampleObject(
         name="box_c",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.1, 0.06)),
     )

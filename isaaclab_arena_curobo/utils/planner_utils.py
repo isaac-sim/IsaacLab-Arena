@@ -141,7 +141,7 @@ def make_curobo_planner(
         debug_planner: Enable cuRobo planner debug output.
     """
     if robot_scene_name is None:
-        robot_scene_name = embodiment.get_embodiment_name_in_scene()
+        robot_scene_name = embodiment.get_scene_name()
     planner_cfg = make_planner_cfg(embodiment, debug_planner=debug_planner)
     # cuRobo-Lab's MotionGen/collision world is single-env only for now.
     planner = CuroboPlanner(env=env, robot=env.scene[robot_scene_name], config=planner_cfg, env_id=env_id)

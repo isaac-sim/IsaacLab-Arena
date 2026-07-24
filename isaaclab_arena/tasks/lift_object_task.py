@@ -192,10 +192,10 @@ class LiftObjectTaskRL(LiftObjectTask):
 
         self.embodiment = embodiment
         self.observation_cfg = LiftObjectObservationsCfg(
-            lift_object=self.lift_object, robot_name=self.embodiment.get_embodiment_name_in_scene()
+            lift_object=self.lift_object, robot_name=self.embodiment.get_scene_name()
         )
         self.commands_cfg = LiftObjectCommandsCfg(
-            asset_name=self.embodiment.get_embodiment_name_in_scene(),
+            asset_name=self.embodiment.get_scene_name(),
             body_name=self.embodiment.get_command_body_name(),
             lift_object=self.lift_object,
             target_x_range=self.target_x_range,
@@ -205,7 +205,7 @@ class LiftObjectTaskRL(LiftObjectTask):
         self.rewards_cfg = LiftObjectRewardCfg(
             lift_object=self.lift_object,
             minimum_height_to_lift=self.minimum_height_to_lift,
-            robot_name=self.embodiment.get_embodiment_name_in_scene(),
+            robot_name=self.embodiment.get_scene_name(),
             ee_frame_name=self.embodiment.get_ee_frame_name(self.embodiment.get_arm_mode()),
         )
 
@@ -227,7 +227,7 @@ class LiftObjectTaskRL(LiftObjectTask):
             func=lift_object_rl_success,
             params={
                 "object_cfg": SceneEntityCfg(self.lift_object.name),
-                "robot_cfg": SceneEntityCfg(self.embodiment.get_embodiment_name_in_scene()),
+                "robot_cfg": SceneEntityCfg(self.embodiment.get_scene_name()),
                 "rl_training": self.rl_training_mode,
                 "command_name": "object_pose",
                 "position_tolerance": self.goal_position_tolerance,

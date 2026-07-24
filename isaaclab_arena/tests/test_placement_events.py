@@ -25,8 +25,8 @@ def _checklist(passed: bool):
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -669,10 +669,10 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
 
 def test_env_indexed_static_poses_apply_per_env_positions():
     """Static initial poses should apply per-env positions from env-indexed layouts."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
@@ -722,11 +722,11 @@ def test_env_indexed_static_poses_apply_per_env_positions():
 def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     """PooledObjectPlacer should keep best-loss fallback layouts when validation rejects all candidates."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -764,11 +764,11 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
 def test_pooled_placer_only_falls_back_on_final_batch(capsys):
     """Fallbacks should only be accepted on the last configured solve batch."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -800,11 +800,11 @@ def test_pooled_placer_only_falls_back_on_final_batch(capsys):
 def test_pooled_placer_can_reject_best_loss_fallbacks():
     """PooledObjectPlacer should fail loudly when fallback layouts are disabled."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
