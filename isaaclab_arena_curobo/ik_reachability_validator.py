@@ -18,7 +18,7 @@ from isaaclab_arena.relations.placement_events import get_base_rotation_per_obje
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
-from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
@@ -76,8 +76,8 @@ class ReachabilityValidator(PlacementValidator):
         base_pose = config.embodiment.get_initial_pose()
         self._base_pos = base_pose.position_xyz
         self._base_quat_xyzw = base_pose.rotation_xyzw
+        # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
-        """Guards the zero-target warning so it fires once per validator, not once per candidate layout."""
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -158,5 +158,5 @@ class ReachabilityValidator(PlacementValidator):
         return bool(feasible.all().item())
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
-        """Movable objects stamped by a 'reachable' task constraint (RequiresReachability)."""
-        return [obj for obj in objects if obj not in anchors and obj.requires_reachability]
+        """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
+        return [obj for obj in objects if obj not in anchors and obj.has_relation(RequiresReachability)]

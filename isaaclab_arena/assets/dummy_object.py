@@ -8,7 +8,7 @@ import torch
 import trimesh
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
@@ -75,9 +75,9 @@ class DummyObject:
     def is_anchor(self) -> bool:
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
-    @property
-    def requires_reachability(self) -> bool:
-        return any(isinstance(r, RequiresReachability) for r in self.relations)
+    def has_relation(self, relation_type: type[RelationBase]) -> bool:
+        """True if this object carries a relation of the given type."""
+        return any(isinstance(r, relation_type) for r in self.relations)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""

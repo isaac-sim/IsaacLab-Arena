@@ -5,11 +5,6 @@
 
 env_name: banana_on_plate
 external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
-task_constraints:
-- type: reachable
-  subject: banana
-- type: reachable
-  subject: plate
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.

@@ -53,7 +53,7 @@ class PickAndPlaceTask(TaskBase):
     """
 
     reachability_target_objects = ("pick_up_object", "destination_location")
-    """The robot must reach the object it picks up and the it places onto.
+    """The robot must reach the object it picks up and the location it places onto.
 
     An object reference or the background scene (a static location, not a placed object) is skipped
     for reachability checks during layout validation.

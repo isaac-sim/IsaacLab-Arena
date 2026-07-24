@@ -27,7 +27,7 @@ from isaaclab_arena.assets.asset import Asset
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -190,10 +190,9 @@ class ObjectBase(Asset, ABC):
         """True if this object has an IsAnchor relation."""
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
-    @property
-    def requires_reachability(self) -> bool:
-        """True if this object has a RequiresReachability relation."""
-        return any(isinstance(r, RequiresReachability) for r in self.relations)
+    def has_relation(self, relation_type: type[RelationBase]) -> bool:
+        """True if this object carries a relation of the given type."""
+        return any(isinstance(r, relation_type) for r in self.relations)
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
