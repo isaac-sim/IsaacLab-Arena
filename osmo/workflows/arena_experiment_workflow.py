@@ -3,64 +3,79 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSMO workflows for evaluating complete Arena Experiments."""
+"""OSMO workflow for evaluating complete Arena Experiments."""
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from copy import deepcopy
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
-from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.tasks.base_task import BaseTask
 from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
-from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
-from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.workflows.server_bindings import REMOTE_POLICY_SERVERS, ServerBinding, ServersCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
-from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 class ArenaExperimentWorkflow(Workflow):
-    """Run every Arena Experiment Run in its own OSMO group, backed by a co-scheduled policy server.
+    """Run every Arena Experiment Run in its own OSMO group, co-scheduling each Run's server.
 
-    Subclasses bind one policy server: the remote-policy config a Run must use to receive a
-    dedicated server task, the server task scheduled alongside it, and how that Run's policy
-    connects to the server. Runs whose policy is not the recognized remote-policy type run
-    without a server (e.g. a local zero-action baseline).
+    The server for a Run is derived from its client policy config type via
+    ``REMOTE_POLICY_SERVERS``: a matching Run gets a dedicated server task wired to it, and a
+    Run whose policy has no registered server (e.g. a local zero-action policy) runs standalone.
+    Its per-type server deployment config comes from ``servers.<name>``.
     """
 
     constructs_groups_directly = True
     task_cfg_type = ExperimentRunnerTaskCfg
     experiment_output_resource_name = "experiment-output"
 
-    server_task_cfg_type: type[TaskCfg]
-    """Config type used by this policy-server workflow."""
-
-    remote_policy_cfg_type: type[PolicyCfg]
-    """Remote-policy config a Run must use to receive a dedicated server task."""
-
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
         experiment_cfg: ArenaExperimentCfg,
-        server_task_cfg: TaskCfg,
+        servers: ServersCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
-        self.server_task_cfg = server_task_cfg
+        self.servers = servers
         super().__init__(
             workflow_cfg=workflow_cfg,
             task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
             group_name=group_name,
         )
-        self._assert_server_has_required_runs()
+        self._assert_servers_share_one_pool()
+        self._run_server_checks()
+
+    def _server_cfg_for(self, binding: ServerBinding) -> Any:
+        """Return the deployment config for a server type from the ``servers`` map."""
+        return getattr(self.servers, binding.name)
+
+    def _runs_by_binding(self) -> dict[ServerBinding, list[ArenaRunCfg]]:
+        """Group the Runs that need a server by the server binding that serves them."""
+        runs_by_binding: dict[ServerBinding, list[ArenaRunCfg]] = {}
+        for run_cfg in self.experiment_cfg.runs.values():
+            binding = REMOTE_POLICY_SERVERS.get(type(run_cfg.policy))
+            if binding is not None:
+                runs_by_binding.setdefault(binding, []).append(run_cfg)
+        return runs_by_binding
+
+    def _assert_servers_share_one_pool(self) -> None:
+        """Require every server the Experiment needs to run on one resource (one submission = one pool)."""
+        required_resources = {(binding.pool, binding.platform) for binding in self._runs_by_binding()}
+        assert len(required_resources) <= 1, (
+            f"Experiment needs servers on different resources {sorted(required_resources)}; a submission runs on"
+            " a single pool. Run the incompatible policies as separate submissions."
+        )
+
+    def _run_server_checks(self) -> None:
+        """Run each server type's compatibility check against the Runs it serves."""
+        for binding, runs_using_binding in self._runs_by_binding().items():
+            binding.check(runs_using_binding, self._server_cfg_for(binding))
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
         """Create one independently scheduled group per Run, then collect their outputs into one Experiment output."""
@@ -86,16 +101,18 @@ class ArenaExperimentWorkflow(Workflow):
         run_name: str,
         run_config: ArenaRunCfg,
     ) -> tuple[dict[str, Any], str]:
-        """Create one OSMO group that executes a single-Run Arena Experiment."""
+        """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
         single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
 
         policy_server_tasks: list[BaseTask] = []
         run_policy_config = single_run_experiment_config.runs[run_name].policy
-        if isinstance(run_policy_config, self.remote_policy_cfg_type):
-            policy_server_task_name = f"policy-server-{run_index}"
-            self._configure_remote_policy_for_server(run_policy_config, policy_server_task_name)
-            policy_server_tasks.append(self._create_server_task(policy_server_task_name))
+        binding = REMOTE_POLICY_SERVERS.get(type(run_policy_config))
+        if binding is not None:
+            server_task_name = f"policy-server-{run_index}"
+            server_cfg = self._server_cfg_for(binding)
+            binding.configure_client(run_policy_config, server_task_name, server_cfg)
+            policy_server_tasks.append(binding.server_task_cls(server_cfg, lead=False, task_name=server_task_name))
 
         # Construct this after connecting the policy because the task snapshots the Experiment.
         experiment_runner_task = ExperimentRunnerTask(
@@ -138,72 +155,3 @@ class ArenaExperimentWorkflow(Workflow):
             "default": run_task_resource,
             self.experiment_output_resource_name: experiment_output_task_resource,
         }
-
-    def _runs_using_remote_policy(self) -> list[str]:
-        """Return the names of Runs whose policy is served by this workflow's policy server."""
-        return [
-            run_name
-            for run_name, run_config in self.experiment_cfg.runs.items()
-            if isinstance(run_config.policy, self.remote_policy_cfg_type)
-        ]
-
-    def _assert_server_has_required_runs(self) -> None:
-        """Require at least one Run served by this workflow's policy server."""
-        assert self._runs_using_remote_policy(), (
-            f"{self.server_task_cfg_type.__name__} requires at least one Run using "
-            f"{self.remote_policy_cfg_type.__name__}"
-        )
-
-    @abstractmethod
-    def _create_server_task(self, policy_server_task_name: str) -> BaseTask:
-        """Create the policy-server task a matching Run connects to."""
-
-    @abstractmethod
-    def _configure_remote_policy_for_server(self, run_policy_config: PolicyCfg, policy_server_task_name: str) -> None:
-        """Point a Run's remote policy at its dedicated OSMO server task."""
-
-
-class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
-    """Arena Experiment workflow served by pi0 (openpi) inference servers."""
-
-    server_task_cfg_type = Pi0ServerTaskCfg
-    remote_policy_cfg_type = Pi0RemotePolicyCfg
-
-    def _create_server_task(self, policy_server_task_name: str) -> BaseTask:
-        return Pi0ServerTask(self.server_task_cfg, lead=False, task_name=policy_server_task_name)
-
-    def _configure_remote_policy_for_server(self, run_policy_config: PolicyCfg, policy_server_task_name: str) -> None:
-        assert isinstance(run_policy_config, Pi0RemotePolicyCfg)
-        run_policy_config.remote_host = Pi0ServerTask.host_token(policy_server_task_name)
-        run_policy_config.remote_port = POLICY_SERVER_PORT
-        # The first OSMO inference may compile longer than the policy's normal
-        # keepalive timeout. Use the timeout owned by this server deployment.
-        run_policy_config.ping_timeout = self.server_task_cfg.client_ping_timeout_s
-
-    def _assert_server_has_required_runs(self) -> None:
-        """Additionally require every pi0 Run's variant to match the deployed server."""
-        super()._assert_server_has_required_runs()
-        incompatible_policy_variants_by_run = {
-            run_name: self.experiment_cfg.runs[run_name].policy.policy_variant
-            for run_name in self._runs_using_remote_policy()
-            if self.experiment_cfg.runs[run_name].policy.policy_variant != self.server_task_cfg.policy_variant
-        }
-        assert not incompatible_policy_variants_by_run, (
-            f"pi0_remote Runs require variants {incompatible_policy_variants_by_run}, but the pi0 server is configured"
-            f" for '{self.server_task_cfg.policy_variant}'"
-        )
-
-
-class Gr00tArenaExperimentWorkflow(ArenaExperimentWorkflow):
-    """Arena Experiment workflow served by GR00T inference servers."""
-
-    server_task_cfg_type = Gr00tServerTaskCfg
-    remote_policy_cfg_type = Gr00tRemoteClosedloopPolicyCfg
-
-    def _create_server_task(self, policy_server_task_name: str) -> BaseTask:
-        return Gr00tServerTask(self.server_task_cfg, lead=False, task_name=policy_server_task_name)
-
-    def _configure_remote_policy_for_server(self, run_policy_config: PolicyCfg, policy_server_task_name: str) -> None:
-        assert isinstance(run_policy_config, Gr00tRemoteClosedloopPolicyCfg)
-        run_policy_config.remote_host = Gr00tServerTask.host_token(policy_server_task_name)
-        run_policy_config.remote_port = POLICY_SERVER_PORT
