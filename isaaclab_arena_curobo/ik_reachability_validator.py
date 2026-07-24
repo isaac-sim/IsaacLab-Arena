@@ -14,7 +14,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_events import get_base_rotation_per_object
+from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
@@ -112,7 +112,7 @@ class ReachabilityValidator(PlacementValidator):
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
-        base_rotations = get_base_rotation_per_object(objects)
+        base_rotations = get_base_rotation_per_asset(objects)
 
         world_poses = {
             obj: get_object_world_pose_from_layout(positions, orientations, obj, base_rotations) for obj in objects
