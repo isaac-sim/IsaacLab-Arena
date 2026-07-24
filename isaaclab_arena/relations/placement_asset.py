@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -50,10 +50,19 @@ class PlaceableAsset(Asset, ABC):
         """Return spatial constraints, excluding placement markers."""
         return [relation for relation in self.relations if isinstance(relation, (Relation, UnaryRelation))]
 
+    def has_relation(self, relation_type: type[RelationBase]) -> bool:
+        """Return whether the asset carries a relation of the given type."""
+        return any(isinstance(relation, relation_type) for relation in self.relations)
+
     @property
     def is_anchor(self) -> bool:
         """Return whether the asset is fixed during relation solving."""
         return any(isinstance(relation, IsAnchor) for relation in self.relations)
+
+    @property
+    def requires_reachability(self) -> bool:
+        """Return whether the asset carries a RequiresReachability marker (from a 'reachable' task constraint)."""
+        return any(isinstance(relation, RequiresReachability) for relation in self.relations)
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the configured root pose."""
