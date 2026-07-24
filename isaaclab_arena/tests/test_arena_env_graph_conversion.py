@@ -197,7 +197,8 @@ def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(sim
 
     arena_env = spec.to_arena_env()
 
-    subtask = arena_env.task.subtasks[0]
+    # A single ATOMIC subtask converts to the PickAndPlaceTask itself, not a container with .subtasks.
+    subtask = getattr(arena_env.task, "subtasks", [arena_env.task])[0]
     assert subtask.pick_up_object.requires_reachability
     assert subtask.destination_location.requires_reachability
 
