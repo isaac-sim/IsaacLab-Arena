@@ -149,6 +149,11 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
     return env
 
 
+def _configure_asset_base_mock(asset_mock: MagicMock) -> None:
+    """Make a mock scene asset behave like AssetBase (``set_world_poses`` only)."""
+    asset_mock.write_root_pose_to_sim = None
+
+
 def _solve_and_place_with_pool(env, env_ids, objects, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
@@ -265,6 +270,7 @@ def test_solve_and_place_objects_writes_droid_robot_and_stand():
     droid = DroidAbsoluteJointPositionEmbodiment(stand_height_m=0.8)
     expected_offset = 0.8 - 1.35
     env = _make_mock_env(num_envs=1)
+    _configure_asset_base_mock(env.scene["stand"])
 
     class Pool:
         num_envs = 1
@@ -287,11 +293,12 @@ def test_solve_and_place_objects_writes_droid_robot_and_stand():
     )
 
     robot_pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
-    stand_pose = env._assets["stand"].write_root_pose_to_sim.call_args.args[0]
+    stand_call = env._assets["stand"].set_world_poses.call_args
+    stand_positions = stand_call.kwargs["positions"]
     expected_robot_z = 1.36 + expected_offset
     assert abs(robot_pose[0, 2].item() - expected_robot_z) < 1e-5
-    assert abs(stand_pose[0, 2].item() - expected_robot_z) < 1e-5
-    assert abs(stand_pose[0, 0].item() - (0.2 - 0.05)) < 1e-5
+    assert abs(stand_positions[0, 2].item() - expected_robot_z) < 1e-5
+    assert abs(stand_positions[0, 0].item() - (0.2 - 0.05)) < 1e-5
 
 
 def test_write_layout_to_sim_rejects_missing_non_anchor_assets():
@@ -330,6 +337,7 @@ def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
     from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
 
     env = _make_mock_env(num_envs=2)
+    _configure_asset_base_mock(env.scene["stand"])
     write_pose_list = [
         [("robot", _identity_pose((x, 0.0, 0.5))), ("stand", _identity_pose((x, 0.0, 0.0)))] for x in (0.0, 1.0)
     ]
@@ -337,7 +345,7 @@ def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
     reset_placement_asset_pose_per_env(env, torch.tensor([0, 1]), write_pose_list=write_pose_list)
 
     assert env._assets["robot"].write_root_pose_to_sim.call_count == 2
-    assert env._assets["stand"].write_root_pose_to_sim.call_count == 2
+    assert env._assets["stand"].set_world_poses.call_count == 2
 
 
 def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
