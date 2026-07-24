@@ -634,9 +634,9 @@ class ObjectPlacer:
 
     def _run_inexpensive_checks(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         num_layouts_evaluated_by_check: dict[str, int],
@@ -652,9 +652,9 @@ class ObjectPlacer:
 
     def _run_expensive_checks(
         self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        positions: list[dict[PlacementAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlacementAsset, float]],
+        bboxes: list[dict[PlacementAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
