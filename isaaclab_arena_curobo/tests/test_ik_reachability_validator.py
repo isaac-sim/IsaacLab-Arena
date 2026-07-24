@@ -22,11 +22,11 @@ import pytest
 
 def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
     """Build a small valid desk (anchor) + box (On desk) pool and return it."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
