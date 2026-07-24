@@ -15,6 +15,7 @@ _KITCHEN_YAML = (
     Path(__file__).resolve().parents[2] / "isaaclab_arena_environments" / "droid_pick_and_place_lightwheel_kitchen.yaml"
 )
 _Z_MATCH_EPS = 1e-3
+_QUAT_MATCH_EPS = 1e-3
 
 
 def _test_droid_stand_height(simulation_app) -> bool:
@@ -155,9 +156,21 @@ def _test_droid_kitchen_reset_alignment(simulation_app) -> bool:
         env = builder.make_registered()
         env.reset()
 
-        robot_z = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, 2].item()
-        stand_z = env.unwrapped.scene["stand"].get_world_poses()[0][0, 2].item()
+        robot_pose = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0]
+        robot_z = robot_pose[2].item()
+        robot_quat = robot_pose[3:7]
+
+        stand_positions, stand_orientations = env.unwrapped.scene["stand"].get_world_poses()
+        stand_z = stand_positions[0, 2].item()
+        stand_quat = stand_orientations[0]
+
         assert abs(robot_z - stand_z) < _Z_MATCH_EPS, f"robot z {robot_z} != stand z {stand_z} after reset"
+        assert torch.allclose(
+            robot_quat.cpu(),
+            stand_quat.cpu(),
+            atol=_QUAT_MATCH_EPS,
+            rtol=0.0,
+        ), f"robot quat {robot_quat.tolist()} != stand quat {stand_quat.tolist()} after reset"
 
         env.close()
     except Exception as exc:
