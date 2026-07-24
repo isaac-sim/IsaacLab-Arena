@@ -86,12 +86,14 @@ def _write_scene_root_pose_to_sim(
     pose_tensor = sim_pose.to_tensor(device=env.device).unsqueeze(0)
     pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
 
+    # Articulations and rigid objects use write_root_pose_to_sim (ArticulationCfg/RigidObjectSetCfg)
     write_root_pose = getattr(scene_asset, "write_root_pose_to_sim", None)
     if write_root_pose is not None:
         write_root_pose(pose_tensor, env_ids=env_id_tensor)
         scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
         return
 
+    # AssetBase extras (e.g. Droid stand) use set_world_poses (AssetBaseCfg).
     set_world_poses = getattr(scene_asset, "set_world_poses", None)
     if set_world_poses is not None:
         set_world_poses(
