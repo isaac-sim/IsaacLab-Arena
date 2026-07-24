@@ -59,6 +59,19 @@ class EmbodimentBase(Asset):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_joint_initial_pos`.")
         self.scene_config.robot.init_state.joint_pos.update(joint_pos)
 
+    def get_initial_pose(self) -> Pose:
+        """Env-local robot base pose, resolved in order: the explicit ``initial_pose`` override if set,
+        otherwise the ``scene_config`` robot ``init_state`` default."""
+        if self.initial_pose is not None:
+            return self.initial_pose
+
+        assert hasattr(self.scene_config, "robot"), "scene_config must be populated with a `robot`."
+        init_state = self.scene_config.robot.init_state
+        return Pose(
+            position_xyz=tuple(float(v) for v in init_state.pos),
+            rotation_xyzw=tuple(float(v) for v in init_state.rot),
+        )
+
     def get_scene_cfg(self) -> Any:
         if self.initial_pose is not None:
             self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
@@ -114,6 +127,15 @@ class EmbodimentBase(Asset):
             self.camera_config, ArenaCameraCfg
         ), f"Expected camera_config to inherit from ArenaCameraCfg; got {type(self.camera_config).__name__}."
         return self.camera_config.get_cfg()
+
+    def add_camera_variations(self, camera_rig: ArenaCameraCfg) -> None:
+        """Register extrinsics and intrinsics variations for every camera in ``camera_rig``."""
+        from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+        from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
+
+        for camera_name in camera_rig.camera_names():
+            self.add_variation(CameraExtrinsicsVariation(camera_name=camera_name))
+            self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         if scene_config is None or not hasattr(scene_config, "robot"):
