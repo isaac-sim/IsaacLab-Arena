@@ -26,13 +26,22 @@ def get_rigid_object(env, name: str) -> RigidObject:
 
 
 def get_root_pos_w(env, name: str) -> torch.Tensor:
-    """Get the root position of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_pos_w)
+    """Get the root (or deformable centroid) position in the world frame.
+
+    ``root_pos_w`` is exposed identically by rigid and deformable object data, so this works for both.
+    """
+    return wp.to_torch(get_env(env).scene[name].data.root_pos_w)
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root linear velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
+    """Get the root (or deformable centroid) linear velocity in the world frame.
+
+    Rigid objects expose ``root_lin_vel_w``; deformable objects expose the (linear) ``root_vel_w``.
+    Dispatch is on which attribute the entity's data provides, so it holds across physics backends.
+    """
+    data = get_env(env).scene[name].data
+    velocity = data.root_lin_vel_w if hasattr(data, "root_lin_vel_w") else data.root_vel_w
+    return wp.to_torch(velocity)
 
 
 def get_root_ang_vel_w(env, name: str) -> torch.Tensor:

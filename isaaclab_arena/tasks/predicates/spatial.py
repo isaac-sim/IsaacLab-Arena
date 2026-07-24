@@ -70,19 +70,18 @@ def objects_in_proximity(
     max_y_separation: float,
     max_x_separation: float,
     max_z_separation: float,
+    velocity_threshold: float | None = None,
 ) -> torch.Tensor:
     """Determine if two objects are within a certain proximity of each other.
 
-    Returns True when the object is within a certain proximity of the target object.
+    Works for both rigid and deformable objects (positions come from the shared ``root_pos_w`` /
+    centroid accessor). Returns True when the object is within axis-aligned proximity of the target
+    object and, when ``velocity_threshold`` is set, also moving below that linear speed.
     """
 
-    # Get object entities from the scene
-    object: RigidObject = env.scene[object_cfg.name]
-    target_object: RigidObject = env.scene[target_object_cfg.name]
-
-    # Get positions relative to environment origin
-    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    # Get positions relative to environment origin (works for rigid roots and deformable centroids)
+    object_pos = get_root_pos_w(env, object_cfg.name) - env.scene.env_origins
+    target_object_pos = get_root_pos_w(env, target_object_cfg.name) - env.scene.env_origins
 
     # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
@@ -93,7 +92,24 @@ def objects_in_proximity(
     done = torch.logical_and(done, y_separation < max_y_separation)
     done = torch.logical_and(done, z_separation < max_z_separation)
 
+    if velocity_threshold is not None:
+        speed = torch.linalg.vector_norm(get_root_lin_vel_w(env, object_cfg.name), dim=-1)
+        done = torch.logical_and(done, speed < velocity_threshold)
+
     return done
+
+
+def object_is_below_height(
+    env: ManagerBasedRLEnv,
+    object_name: str,
+    minimum_height: float,
+) -> torch.Tensor:
+    """Return True when an object's world-frame height (root/centroid z) is below ``minimum_height``.
+
+    Works for both rigid and deformable objects. Height is checked in the world frame (no env-origin
+    subtraction) because envs are tiled in XY with a zero z-origin.
+    """
+    return get_root_pos_w(env, object_name)[:, 2] < minimum_height
 
 
 def object_on_destination(
