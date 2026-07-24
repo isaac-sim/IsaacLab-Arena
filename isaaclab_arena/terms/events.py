@@ -10,6 +10,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.scene_pose_writes import write_scene_root_poses_to_sim
 from isaaclab_arena.utils.velocity import Velocity
 
 
@@ -69,8 +70,7 @@ def _write_scene_pose(env: ManagerBasedEnv, scene_name: str, pose: Pose, env_ids
     num_envs = len(env_ids)
     pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).repeat(num_envs, 1)
     pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
-    asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-    asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
+    write_scene_root_poses_to_sim(asset, scene_name, pose_t_xyz_q_xyzw, env_ids, env.device)
 
 
 def reset_placement_asset_pose(

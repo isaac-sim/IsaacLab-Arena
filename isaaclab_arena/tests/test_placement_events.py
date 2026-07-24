@@ -149,6 +149,11 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
     return env
 
 
+def _configure_asset_base_mock(asset_mock: MagicMock) -> None:
+    """Make a mock scene asset behave like AssetBase (``set_world_poses`` only)."""
+    asset_mock.write_root_pose_to_sim = None
+
+
 def _solve_and_place_with_pool(env, env_ids, objects, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
@@ -255,6 +260,64 @@ def test_reset_placement_asset_pose_writes_compound_prims_with_env_origins():
         assert torch.count_nonzero(velocity) == 0
 
 
+def test_solve_and_place_objects_writes_droid_robot_and_stand():
+    """write_layout_to_sim writes every entry from layout_pose_to_scene_writes (robot + stand)."""
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, _, _ = _create_test_objects()
+    droid = DroidAbsoluteJointPositionEmbodiment(stand_height_m=0.8)
+    expected_offset = 0.8 - 1.35
+    env = _make_mock_env(num_envs=1)
+    _configure_asset_base_mock(env.scene["stand"])
+
+    class Pool:
+        num_envs = 1
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            return {
+                0: PlacementResult(
+                    validation_results=_checklist(True),
+                    positions={droid: (0.2, 0.3, 1.36)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            }
+
+    solve_and_place_objects(
+        env,
+        torch.tensor([0]),
+        assets=[desk, droid],
+        placement_pool=Pool(),
+    )
+
+    robot_pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
+    stand_call = env._assets["stand"].set_world_poses.call_args
+    stand_positions = stand_call.kwargs["positions"]
+    expected_robot_z = 1.36 + expected_offset
+    assert abs(robot_pose[0, 2].item() - expected_robot_z) < 1e-5
+    assert abs(stand_positions[0, 2].item() - expected_robot_z) < 1e-5
+    assert abs(stand_positions[0, 0].item() - (0.2 - 0.05)) < 1e-5
+
+
+def test_write_layout_to_sim_rejects_missing_non_anchor_assets():
+    from isaaclab_arena.relations.placement_events import write_layout_to_sim
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    _, box1, _ = _create_test_objects()
+    env = _make_mock_env(num_envs=1)
+    layout = PlacementResult(
+        validation_results=_checklist(True),
+        positions={},
+        final_loss=0.0,
+        attempts=1,
+    )
+
+    with pytest.raises(AssertionError, match="missing non-anchor assets.*box1"):
+        write_layout_to_sim(env, 0, layout, anchor_assets=set(), base_rotations={box1: (0.0, 0.0, 0.0, 1.0)})
+
+
 def test_reset_placement_asset_pose_per_env_indexes_by_absolute_env():
     """A partial reset must apply write_pose_list[env_id], not the first layout."""
     from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
@@ -274,6 +337,7 @@ def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
     from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
 
     env = _make_mock_env(num_envs=2)
+    _configure_asset_base_mock(env.scene["stand"])
     write_pose_list = [
         [("robot", _identity_pose((x, 0.0, 0.5))), ("stand", _identity_pose((x, 0.0, 0.0)))] for x in (0.0, 1.0)
     ]
@@ -281,7 +345,7 @@ def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
     reset_placement_asset_pose_per_env(env, torch.tensor([0, 1]), write_pose_list=write_pose_list)
 
     assert env._assets["robot"].write_root_pose_to_sim.call_count == 2
-    assert env._assets["stand"].write_root_pose_to_sim.call_count == 2
+    assert env._assets["stand"].set_world_poses.call_count == 2
 
 
 def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():

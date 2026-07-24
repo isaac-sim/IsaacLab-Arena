@@ -40,11 +40,14 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, compose_poses, translate_by_xyz_offset
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
+# Stand root offset in the robot base frame (matches ``DroidSceneCfg.stand`` default init_state).
+_STAND_ROOT_OFFSET_IN_ROBOT_FRAME: tuple[float, float, float] = (-0.05, 0.0, 0.0)
 # The default stand height.
 _DEFAULT_STAND_HEIGHT_M: float = 1.35
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
@@ -109,12 +112,44 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         """Set the scene-construction base pose, lifted by the stand-height offset like ``set_initial_pose``."""
         super().set_spawn_pose(pose.translate(self._robot_base_offset))
 
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return stand bounding box as proxy for the robot bounding box.
+
+        TODO(qianl): Hack to place the robot close to surfaces using only the stand bbox.
+        Remove after switching the embodiment to mesh collision mode.
+        """
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        assert self.scene_config is not None, "scene_config must be populated before placement"
+        spawn = self.scene_config.stand.spawn
+        assert spawn.usd_path is not None, "scene_config.stand must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        stand_bbox = compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+        stand_offset = translate_by_xyz_offset(_STAND_ROOT_OFFSET_IN_ROBOT_FRAME, self._robot_base_offset)
+        return stand_bbox.translated(stand_offset)
+
+    def _stand_pose_from_robot_pose(self, robot_pose: Pose) -> Pose:
+        """Return the stand root pose for a lifted robot base pose."""
+        return compose_poses(
+            robot_pose,
+            Pose(position_xyz=_STAND_ROOT_OFFSET_IN_ROBOT_FRAME, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        )
+
+    def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
+        """Write the robot and stand roots, lifting the solver layout pose for sim spawn."""
+        robot_pose = layout_pose.translate(self._robot_base_offset)
+        stand_pose = self._stand_pose_from_robot_pose(robot_pose)
+        return [
+            (self.get_scene_name(), robot_pose),
+            ("stand", stand_pose),
+        ]
+
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
-        # base implementation sets the robot base as-is; we only add the stand placement here.
+        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose).
         scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_xyzw
+        stand_pose = self._stand_pose_from_robot_pose(pose)
+        scene_config.stand.init_state.pos = stand_pose.position_xyz
+        scene_config.stand.init_state.rot = stand_pose.rotation_xyzw
         return scene_config
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
@@ -274,7 +309,7 @@ class DroidSceneCfg:
     # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
     stand: AssetBaseCfg = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=_STAND_ROOT_OFFSET_IN_ROBOT_FRAME, rot=[0.0, 0.0, 0.0, 1.0]),
         spawn=UsdFileCfg(
             usd_path=(
                 f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
