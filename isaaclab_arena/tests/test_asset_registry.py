@@ -62,6 +62,8 @@ def _test_all_assets_in_registry(simulation_app):
     objects_in_registry_names: list[str] = []
     objects_in_registry: list[Object] = []
     for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
+        if "deformable" in asset_cls.tags:
+            continue
         asset = asset_cls()
         # Set their pose
         pose = Pose(

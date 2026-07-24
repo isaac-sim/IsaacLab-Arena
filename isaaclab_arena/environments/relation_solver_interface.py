@@ -177,10 +177,7 @@ def _apply_dynamic_spawn_pose(
         marker_yaw = yaw_from_quat_xyzw(base_rot)
         total_yaw = layout.orientations.get(obj, marker_yaw)
         rot = rotate_quat_by_yaw(base_rot, total_yaw - marker_yaw)
-        object_cfg = getattr(obj, "object_cfg", None)
-        assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
-        object_cfg.init_state.pos = pos
-        object_cfg.init_state.rot = rot
+        _set_initial_pose_without_reset_event(obj, Pose(position_xyz=pos, rotation_xyzw=rot))
 
     return EventTermCfg(
         func=solve_and_place_objects,
@@ -190,6 +187,20 @@ def _apply_dynamic_spawn_pose(
             "placement_pool": placement_pool,
         },
     )
+
+
+def _set_initial_pose_without_reset_event(obj: ObjectBase, pose: Pose) -> None:
+    """Seed an object's spawn pose while leaving reset placement as the only reset owner."""
+    obj.set_initial_pose(pose)
+    if getattr(obj, "event_cfg", None) is None:
+        return
+    if hasattr(obj, "disable_reset_pose"):
+        obj.disable_reset_pose()
+    else:
+        obj.event_cfg = None
+    assert (
+        getattr(obj, "event_cfg", None) is None
+    ), f"Object '{obj.name}' registered a pose-reset event during relation-placement seeding."
 
 
 def _apply_static_initial_poses(

@@ -5,6 +5,7 @@
 
 
 from abc import ABC
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -20,6 +21,8 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
+from isaaclab_arena.assets.deformable_object import DeformableObject
+from isaaclab_arena.assets.deformable_spawn import DeformableMaterial, NewtonDeformableTuning, PhysxDeformableTuning
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
@@ -30,7 +33,14 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+# Pre-tetrahedralized deformable meshes live next to this module (see usd/generate_deformable_tet_meshes.py).
+# Spawning a deformable from these UsdGeom.TetMesh assets avoids the runtime pytetwild/pyvista dependency.
+_LOCAL_ASSET_DIR = Path(__file__).resolve().parent / "usd"
+_DEFORMABLE_SPHERE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_sphere_tet.usda")
+_DEFORMABLE_CUBE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cube_tet.usda")
 
 
 class LibraryObject(Object):
@@ -365,6 +375,91 @@ class Sphere(LibraryObject):
             initial_pose=initial_pose,
             scale=scale,
             spawner_cfg=spawner_cfg,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_SPHERE_RADIUS = 0.03
+
+# Young's modulus sets stiffness: the sphere is soft enough to visibly squash under the gripper; the
+# cube below is stiffer (2e5) so it holds its edges. Poisson's ratio 0.4 is near-incompressible rubber.
+# density ~ lightweight foam (Newton); particle_radius is the VBD collision radius, kept below the tet
+# edge length so neighboring particles collide against the gripper rather than tunnel through.
+_PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL = DeformableMaterial(
+    youngs_modulus=1.0e5,
+    poissons_ratio=0.4,
+    density=300.0,
+    physx=PhysxDeformableTuning(
+        rest_offset=0.0, contact_offset=0.002, solver_position_iteration_count=16, linear_damping=0.01
+    ),
+    newton=NewtonDeformableTuning(particle_radius=0.008),
+)
+
+
+@register_asset
+class ProceduralDeformableSphere(DeformableObject):
+    """Small FEM soft sphere for deformable-object smoke tests."""
+
+    name = "procedural_deformable_sphere"
+    tags = ["object", "procedural", "deformable"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        radius = _PROCEDURAL_DEFORMABLE_SPHERE_RADIUS
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_SPHERE_TET_USD,
+            material=_PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.9, 0.25, 0.2)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-radius, -radius, -radius),
+                max_point=(radius, radius, radius),
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_CUBE_SIZE = (0.06, 0.06, 0.06)
+_PROCEDURAL_DEFORMABLE_CUBE_MATERIAL = DeformableMaterial(
+    youngs_modulus=2.0e5,
+    poissons_ratio=0.4,
+    density=300.0,
+    physx=PhysxDeformableTuning(
+        rest_offset=0.0, contact_offset=0.001, solver_position_iteration_count=24, linear_damping=0.02
+    ),
+    newton=NewtonDeformableTuning(particle_radius=0.006),
+)
+
+
+@register_asset
+class ProceduralDeformableCube(DeformableObject):
+    """Small FEM soft cube for maple-table deformable pick-and-place tests."""
+
+    name = "procedural_deformable_cube"
+    tags = ["object", "procedural", "deformable"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_CUBE_SIZE)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_CUBE_TET_USD,
+            material=_PROCEDURAL_DEFORMABLE_CUBE_MATERIAL,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.12, 0.28, 0.85)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=tuple(-extent for extent in half_extents),
+                max_point=half_extents,
+            ),
+            initial_pose=initial_pose,
         )
 
 

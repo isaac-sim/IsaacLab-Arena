@@ -131,6 +131,47 @@ def test_dynamic_spawn_pose_event_params_use_runtime_objects():
     assert "placement_pool" in event_cfg.params
 
 
+def test_dynamic_spawn_pose_uses_object_pose_api_without_reset_event():
+    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+
+    class PresetBackedObject:
+        def __init__(self, name: str):
+            self.name = name
+            self.event_cfg = None
+            self.initial_pose = None
+            self.object_cfg = object()
+            self.reset_pose_disabled = False
+
+        def get_relations(self):
+            return []
+
+        def get_initial_pose(self):
+            return self.initial_pose
+
+        def set_initial_pose(self, pose):
+            self.initial_pose = pose
+            self.event_cfg = object()
+
+        def disable_reset_pose(self):
+            self.reset_pose_disabled = True
+            self.event_cfg = None
+
+    anchor = PresetBackedObject("desk")
+    box = PresetBackedObject("box")
+    placement_pool = _FakePlacementPool([_fallback_layout(positions={box: (0.1, 0.2, 0.3)})])
+
+    _apply_dynamic_spawn_pose(
+        objects=[anchor, box],
+        placement_pool=placement_pool,
+        anchor_objects_set={anchor},
+    )
+
+    assert anchor.get_initial_pose() is None
+    assert box.get_initial_pose().position_xyz == (0.1, 0.2, 0.3)
+    assert box.event_cfg is None
+    assert box.reset_pose_disabled is True
+
+
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
     from isaaclab_arena.utils.pose import PosePerEnv

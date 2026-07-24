@@ -231,6 +231,55 @@ def test_solve_and_place_objects_uses_runtime_pool():
     env._assets["box1"].write_root_pose_to_sim.assert_called_once()
 
 
+def test_solve_and_place_objects_delegates_to_object_pose_api():
+    """Runtime placement should use object-specific pose writers when available."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, _, _ = _create_test_objects()
+
+    class PoseRecordingObject:
+        def __init__(self, name: str):
+            self.name = name
+            self.pose_writes = []
+
+        def get_relations(self):
+            return []
+
+        def set_object_pose(self, env, pose, env_ids=None):
+            self.pose_writes.append((pose, env_ids.clone()))
+
+    box = PoseRecordingObject("box")
+    env = _make_mock_env(num_envs=1)
+
+    class Pool:
+        num_envs = 1
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            assert env_ids == [0]
+            return {
+                0: PlacementResult(
+                    validation_results=_checklist(True),
+                    positions={box: (0.2, 0.3, 0.4)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            }
+
+    solve_and_place_objects(
+        env,
+        torch.tensor([0]),
+        objects=[desk, box],
+        placement_pool=Pool(),
+    )
+
+    assert len(box.pose_writes) == 1
+    pose, env_ids = box.pose_writes[0]
+    assert pose.position_xyz == (0.2, 0.3, 0.4)
+    assert env_ids.tolist() == [0]
+    assert "box" not in env._assets
+
+
 def test_get_placement_pool_returns_runtime_pool():
     """Pool validation can retrieve the runtime placement pool from the reset event."""
     from isaaclab_arena.relations.placement_events import get_placement_pool
@@ -562,10 +611,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
-    """Env-indexed resolve-on-reset path should seed non-anchor initial poses."""
-    from types import SimpleNamespace
-
+def test_env_indexed_pool_seeds_initial_pose_before_reset_without_event():
+    """Env-indexed resolve-on-reset path should seed non-anchor initial poses through object APIs."""
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
     from isaaclab_arena.relations.placement_result import PlacementResult
 
@@ -573,13 +620,23 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         def __init__(self, name: str):
             self.name = name
             self.event_cfg = None
-            self.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
+            self.initial_pose = None
+            self.object_cfg = object()
+            self.reset_pose_disabled = False
 
         def get_relations(self):
             return []
 
+        def get_initial_pose(self):
+            return self.initial_pose
+
         def set_initial_pose(self, pose):
-            raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
+            self.initial_pose = pose
+            self.event_cfg = object()
+
+        def disable_reset_pose(self):
+            self.reset_pose_disabled = True
+            self.event_cfg = None
 
     class EnvIndexedPool:
         num_envs = 3
@@ -609,9 +666,10 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
     )
 
     assert pool.sample_count == 1
-    assert anchor.object_cfg.init_state.pos == (0.0, 0.0, 0.0)
-    assert box.object_cfg.init_state.pos == (0.0, 0.0, 0.1)
+    assert anchor.get_initial_pose() is None
+    assert box.get_initial_pose().position_xyz == (0.0, 0.0, 0.1)
     assert box.event_cfg is None
+    assert box.reset_pose_disabled is True
 
 
 def test_env_indexed_static_poses_apply_per_env_positions():
