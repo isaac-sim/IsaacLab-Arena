@@ -29,6 +29,11 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
+# Registered task kind whose pick-up object and object destination are auto-added as reachability targets.
+_PICK_AND_PLACE_TASK_KIND = "PickAndPlaceTask"
+# Pick-and-place params naming the objects the robot must reach (pick and, when it names an object, place).
+_PICK_AND_PLACE_REACHABLE_PARAMS = ("pick_up_object", "destination_location")
+
 
 class ArenaEnvGraphSpec(BaseModel):
     """Environment graph spec — the single source of truth for scene layout and tasks."""
@@ -72,23 +77,40 @@ class ArenaEnvGraphSpec(BaseModel):
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.task.subtasks, known_ids)
-        self._assert_task_constraint_references(self.task_constraints or [], known_ids)
+        object_ids = {*(obj.id for obj in self.objects), *(ref.id for ref in (self.object_references or []))}
+        self._assert_task_constraint_subject_is_valid(self.task_constraints or [], object_ids)
         self._validate_cli_override_specs()
         return self
 
     @staticmethod
-    def _assert_task_constraint_references(constraints: list[TaskConstraintSpec], known_ids: set[str]) -> None:
-        """Ensure each task constraint's subject names a known asset id."""
+    def _assert_task_constraint_subject_is_valid(constraints: list[TaskConstraintSpec], object_ids: set[str]) -> None:
+        """Ensure each task constraint's subject names an object or object-reference id."""
         for constraint in constraints:
             assert (
-                constraint.subject in known_ids
+                constraint.subject in object_ids
             ), f"task_constraint '{constraint.type.value}' references unknown subject '{constraint.subject}'"
 
-    def reachable_object_ids(self) -> tuple[str, ...]:
-        """Object ids named by 'reachable' task constraints — the build-time reachability targets."""
+    def get_reachability_target_object_ids(self) -> tuple[str, ...]:
+        """Object ids the robot shall be able to reach."""
+        object_ids = {*(obj.id for obj in self.objects), *(ref.id for ref in (self.object_references or []))}
+        # dict.fromkeys de-duplicates while preserving order: explicit 'reachable' constraints first, then auto-targets.
         return tuple(
-            c.subject for c in (self.task_constraints or []) if c.type is TaskConstraintType.REACHABLE
+            dict.fromkeys((
+                *(c.subject for c in (self.task_constraints or []) if c.type is TaskConstraintType.REACHABLE),
+                *self._select_reachable_subjects_from_pick_and_place_tasks(object_ids),
+            ))
         )
+
+    def _select_reachable_subjects_from_pick_and_place_tasks(self, object_ids: set[str]) -> list[str]:
+        """Pick-up object and object destination of each pick-and-place subtask, in subtask order."""
+        subjects: list[str] = []
+        for task in self.task.subtasks:
+            if task.kind == _PICK_AND_PLACE_TASK_KIND:
+                for param in _PICK_AND_PLACE_REACHABLE_PARAMS:
+                    value = task.params.get(param)
+                    if isinstance(value, str) and value in object_ids:
+                        subjects.append(value)
+        return subjects
 
     def _assert_asset_ids_unique(self) -> set[str]:
         """Ensure every asset and object-reference id in this spec is unique, returning the id set."""

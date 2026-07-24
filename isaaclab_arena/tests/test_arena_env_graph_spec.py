@@ -253,7 +253,7 @@ def test_task_constraints_parsed_and_expose_reachable_ids():
         {"type": "reachable", "subject": "plate"},
     ]
     spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.reachable_object_ids() == ("cube", "plate")
+    assert spec.get_reachability_target_object_ids() == ("cube", "plate")
 
 
 def test_validate_rejects_task_constraint_referencing_unknown_subject():
@@ -263,9 +263,23 @@ def test_validate_rejects_task_constraint_referencing_unknown_subject():
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_reachable_constraint_attaches_marker_to_only_its_subjects():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _attach_task_constraints_to_assets
-    from isaaclab_arena.environment_spec.arena_env_graph_types import TaskConstraintSpec
+def test_validate_rejects_task_constraint_referencing_non_object_subject():
+    # The embodiment id is a known asset but not an object or object reference, so it is not a valid subject.
+    data = _minimal_env_graph_data()
+    data["task_constraints"] = [{"type": "reachable", "subject": "robot"}]
+    with pytest.raises(ValidationError, match="references unknown subject 'robot'"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_task_constraint_accepts_object_reference_subject():
+    data = _minimal_env_graph_data()
+    data["task_constraints"] = [{"type": "reachable", "subject": "table"}]
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert "table" in spec.get_reachability_target_object_ids()
+
+
+def test_reachability_markers_attached_to_only_target_assets():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _attach_reachability_markers_to_assets
     from isaaclab_arena.relations.relations import RequiresReachability
 
     class _FakeAsset:
@@ -276,15 +290,41 @@ def test_reachable_constraint_attaches_marker_to_only_its_subjects():
             self.relations.append(relation)
 
     assets = {name: _FakeAsset() for name in ("cube", "plate", "distractor")}
-    constraints = [
-        TaskConstraintSpec(type="reachable", subject="cube"),
-        TaskConstraintSpec(type="reachable", subject="plate"),
-    ]
-    _attach_task_constraints_to_assets(constraints, assets)
+    _attach_reachability_markers_to_assets(("cube", "plate"), assets)
 
     assert any(isinstance(r, RequiresReachability) for r in assets["cube"].relations)
     assert any(isinstance(r, RequiresReachability) for r in assets["plate"].relations)
     assert assets["distractor"].relations == []
+
+
+def test_pick_and_place_task_auto_populates_reachable_ids():
+    # No explicit task_constraints: pick-up object and object destination become reachability targets.
+    data = _minimal_env_graph_data()
+    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "cube"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "plate"
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.get_reachability_target_object_ids() == ("cube", "plate")
+
+
+def test_pick_and_place_non_object_destination_is_not_auto_reachable():
+    # A destination naming the background (a location, not an object) is not an auto reachability target.
+    data = _minimal_env_graph_data()
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "cube"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.get_reachability_target_object_ids() == ("cube",)
+
+
+def test_explicit_and_auto_reachable_ids_are_unioned_without_duplicates():
+    data = _minimal_env_graph_data()
+    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "cube"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "plate"
+    data["task_constraints"] = [{"type": "reachable", "subject": "plate"}]
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    # 'plate' declared explicitly, 'cube'/'plate' auto-derived; deduped, explicit first.
+    assert spec.get_reachability_target_object_ids() == ("plate", "cube")
 
 
 def _minimal_env_graph_data():
