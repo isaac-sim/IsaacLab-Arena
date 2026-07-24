@@ -245,6 +245,24 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
+def test_task_constraints_parsed_and_expose_reachable_ids():
+    data = _minimal_env_graph_data()
+    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
+    data["task_constraints"] = [
+        {"type": "reachable", "subject": "cube"},
+        {"type": "reachable", "subject": "plate"},
+    ]
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.reachable_object_ids() == ("cube", "plate")
+
+
+def test_validate_rejects_task_constraint_referencing_unknown_subject():
+    data = _minimal_env_graph_data()
+    data["task_constraints"] = [{"type": "reachable", "subject": "missing_node"}]
+    with pytest.raises(ValidationError, match="references unknown subject 'missing_node'"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",

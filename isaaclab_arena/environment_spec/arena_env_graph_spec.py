@@ -18,6 +18,8 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     ObjectReferenceSpec,
     PlacementValidatorSpec,
     SpatialRelationSpec,
+    TaskConstraintSpec,
+    TaskConstraintType,
     TaskSpec,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
@@ -46,11 +48,15 @@ class ArenaEnvGraphSpec(BaseModel):
         description="Per-env placement validators; none runs all build-time checks.",
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
+    task_constraints: list[TaskConstraintSpec] | None = Field(
+        default=None,
+        description="Optional per-object task constraints .",
+    )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
 
-    @field_validator("object_references", "cli_override_specs", mode="before")
+    @field_validator("object_references", "cli_override_specs", "task_constraints", mode="before")
     @classmethod
     def _none_if_empty_list(cls, value: Any) -> Any:
         if value == []:
@@ -66,8 +72,23 @@ class ArenaEnvGraphSpec(BaseModel):
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.task.subtasks, known_ids)
+        self._assert_task_constraint_references(self.task_constraints or [], known_ids)
         self._validate_cli_override_specs()
         return self
+
+    @staticmethod
+    def _assert_task_constraint_references(constraints: list[TaskConstraintSpec], known_ids: set[str]) -> None:
+        """Ensure each task constraint's subject names a known asset id."""
+        for constraint in constraints:
+            assert (
+                constraint.subject in known_ids
+            ), f"task_constraint '{constraint.type.value}' references unknown subject '{constraint.subject}'"
+
+    def reachable_object_ids(self) -> tuple[str, ...]:
+        """Object ids named by 'reachable' task constraints — the build-time reachability targets."""
+        return tuple(
+            c.subject for c in (self.task_constraints or []) if c.type is TaskConstraintType.REACHABLE
+        )
 
     def _assert_asset_ids_unique(self) -> set[str]:
         """Ensure every asset and object-reference id in this spec is unique, returning the id set."""
