@@ -169,13 +169,14 @@ jobs:
       - *git_lfs_step
 
       - name: Install graphics loader and build tools
-        # cmake + a C/C++ toolchain are needed to build sdist-only deps from
-        # source (e.g. egl-probe, pulled in via isaaclab-mimic -> robomimic).
+        # cmake + a C/C++ toolchain build sdist-only deps from source (e.g.
+        # egl-probe, via isaaclab-mimic -> robomimic); bash lets the test steps
+        # below use `source` (the base image ships only sh).
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1 \
-            cmake build-essential
+            cmake build-essential bash
 
       - name: Install uv
         run: |
@@ -204,36 +205,32 @@ jobs:
 
       # In-source full environment: sync the locked deps and run the sim suite.
       - name: Sync the locked environment
-        # `openpi-client` is a git dependency whose repo carries its own
-        # submodules. uv checks it out under $HOME/.cache/uv and runs
-        # `git submodule update` there; git aborts with "dubious ownership"
-        # because the cache checkout is owned by a different uid. Trust all
-        # paths so the submodule fetch inside the build succeeds.
         run: |
+          # Fix dubious ownership issues in cache
           git config --global --add safe.directory '*'
           uv sync ${{ matrix.uv_flags }}
 
       - name: Run in-process Newton tests
         run: |
-          . .venv/bin/activate
+          source .venv/bin/activate
           pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          . .venv/bin/activate
+          source .venv/bin/activate
           pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          . .venv/bin/activate
+          source .venv/bin/activate
           pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
-          . .venv/bin/activate
+          source .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
