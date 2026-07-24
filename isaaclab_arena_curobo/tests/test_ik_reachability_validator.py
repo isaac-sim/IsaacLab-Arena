@@ -26,7 +26,7 @@ def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.relations.relations import IsAnchor, On, RequiresReachability
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -41,6 +41,7 @@ def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
+    box.add_relation(RequiresReachability())
 
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
@@ -99,6 +100,84 @@ def _fake_embodiment():
     return embodiment
 
 
+def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
+    """Build a desk (anchor) + two boxes (each On desk) pool; two movable objects to scope between."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On, RequiresReachability
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+    boxes = []
+    for box_name in ("box_a", "box_b"):
+        box = DummyObject(
+            name=box_name,
+            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        )
+        box.add_relation(On(desk, clearance_m=0.01))
+        # Only box_a carries the RequiresReachability marker, so only it should be IK-checked.
+        if box_name == "box_a":
+            box.add_relation(RequiresReachability())
+        boxes.append(box)
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=5,
+    )
+    return PooledObjectPlacer(
+        objects=[desk, *boxes],
+        placer_params=params,
+        pool_size=num_envs * min_layouts_per_env,
+        num_envs=num_envs,
+    )
+
+
+def _make_unstamped_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
+    """Build a desk (anchor) + box (On desk) pool where the box carries NO RequiresReachability marker."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=5,
+    )
+    return PooledObjectPlacer(
+        objects=[desk, box],
+        placer_params=params,
+        pool_size=num_envs * min_layouts_per_env,
+        num_envs=num_envs,
+    )
+
+
 def _make_reachability_validator(embodiment):
     """Construct the registered ReachabilityValidator with ``embodiment`` set on its params."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -130,3 +209,32 @@ def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+
+
+@pytest.mark.curobo_deps
+def test_validator_checks_only_stamped_objects(monkeypatch):
+    """Only movable objects stamped with a 'reachable' constraint are IK-checked, not every movable object."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    layout = _make_two_box_pool().layouts_per_env()[0][0]
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+    # Two movable boxes exist, but only the stamped one (box_a) contributes a grasp.
+    assert captured["num_grasps"] == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsys):
+    """No stamped target: the layout passes trivially, no IK solve runs, and a one-time warning is printed."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    layout = _make_unstamped_desk_box_pool().layouts_per_env()[0][0]
+    # Two layouts through the same validator: the warning must print once, not once per candidate.
+    assert validator.validate_batch(
+        [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}], []
+    ) == [True, True]
+
+    # No grasp was ever solved (the IK path is skipped entirely when there are no targets).
+    assert "num_grasps" not in captured
+    assert capsys.readouterr().out.count("resolved zero reachability targets") == 1

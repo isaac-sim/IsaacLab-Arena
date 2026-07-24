@@ -276,6 +276,25 @@ class IsAnchor(RelationBase):
 
 
 @register_object_relation
+class RequiresReachability(RelationBase):
+    """Marker indicating the robot shall be able to reach this object.
+
+    Stamped onto an object from a 'reachable' task constraint. It does not affect placement geometry
+    during optimization, but rejects unreachable placements.
+
+    Usage:
+        banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
+    """
+
+    name = "requires_reachability"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
+
+
+@register_object_relation
 class RandomAroundSolution(RelationBase):
     """Marker indicating the solver solution should be used as center of a PoseRange.
 

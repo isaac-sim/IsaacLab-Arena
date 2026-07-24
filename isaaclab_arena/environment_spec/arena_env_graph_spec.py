@@ -69,6 +69,33 @@ class ArenaEnvGraphSpec(BaseModel):
         self._validate_cli_override_specs()
         return self
 
+    def _placed_object_ids(self) -> set[str]:
+        """Ids of placed movable objects -- the only valid reachability subjects (excludes references and scene)."""
+        return {obj.id for obj in self.objects}
+
+    def get_reachability_target_object_ids(self) -> tuple[str, ...]:
+        """Object ids the robot shall be able to reach, derived from each subtask's task definition."""
+        object_ids = self._placed_object_ids()
+        # dict.fromkeys de-duplicates repeated ids while preserving order (e.g. across composite subtasks).
+        return tuple(dict.fromkeys(self._select_task_declared_reachable_subjects(object_ids)))
+
+    def _select_task_declared_reachable_subjects(self, object_ids: set[str]) -> list[str]:
+        """Each subtask declares candidates for reachability targets via its task class's reachability_target_objects."""
+        # Lazy import: reading task-class metadata pulls the task library.
+        from isaaclab_arena.assets.registries import TaskRegistry
+
+        registry = TaskRegistry()
+        subjects: list[str] = []
+        for task in self.task.subtasks:
+            task_cls = registry.get_task_by_name(task.kind)
+            # If the task class declares reachability targets, add them to the list.
+            if task_cls.reachability_target_objects:
+                for param in task_cls.reachability_target_objects:
+                    value = task.params.get(param)
+                    if isinstance(value, str) and value in object_ids:
+                        subjects.append(value)
+        return subjects
+
     def _assert_asset_ids_unique(self) -> set[str]:
         """Ensure every asset and object-reference id in this spec is unique, returning the id set."""
         seen: set[str] = set()

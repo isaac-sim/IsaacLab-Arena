@@ -18,7 +18,7 @@ from isaaclab_arena.relations.placement_events import get_base_rotation_per_obje
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
-from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
@@ -53,7 +53,7 @@ def get_object_world_pose_from_layout(
 
 @register_validator
 class ReachabilityValidator(PlacementValidator):
-    """Build-time placement gate: the robot can reach a top-down grasp at every movable object (cuRobo IK).
+    """Build-time placement gate: the robot can reach a top-down grasp at the target objects (cuRobo IK).
 
     Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
@@ -76,6 +76,8 @@ class ReachabilityValidator(PlacementValidator):
         base_pose = config.embodiment.get_initial_pose()
         self._base_pos = base_pose.position_xyz
         self._base_quat_xyzw = base_pose.rotation_xyzw
+        # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
+        self._warned_no_targets = False
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -104,11 +106,11 @@ class ReachabilityValidator(PlacementValidator):
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
     ) -> bool:
-        """Whether the robot can reach a top-down grasp at every movable object in one candidate layout.
+        """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
         Rebuilds each object's world pose and a per-object collision cuboid, syncs them into the solver's
-        world, then batches a single IK solve over the movable objects' top-down grasps. An anchor-only
-        layout (nothing to grasp) is trivially reachable.
+        world, then batches a single IK solve over the target objects' top-down grasps. A layout with
+        nothing to grasp (anchor-only, or no target present) is trivially reachable.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
@@ -123,8 +125,17 @@ class ReachabilityValidator(PlacementValidator):
         ]
         self._solver.update_world(cuboids, self._base_pos, self._base_quat_xyzw)
 
-        movable = [obj for obj in objects if obj not in anchors]
-        if not movable:
+        # non-anchor objects with a RequiresReachability relation
+        targets = self._select_reachability_targets(objects, anchors)
+        if not targets:
+            # The check is enabled but no movable object is stamped as a reachability target, so it passes every
+            # layout trivially.
+            if not self._warned_no_targets:
+                print(
+                    "[ReachabilityValidator] WARNING: enabled but resolved zero reachability targets; every layout "
+                    "passes the IK check trivially. No reachability targets found in the task."
+                )
+                self._warned_no_targets = True
             return True
 
         grasp_poses = torch.stack([
@@ -136,7 +147,7 @@ class ReachabilityValidator(PlacementValidator):
                 self._grasp_z_offset,
                 device=self._solver.device,
             )
-            for obj in movable
+            for obj in targets
         ])
         feasible, _, _ = solve_ik_feasibility(
             self._solver,
@@ -145,3 +156,7 @@ class ReachabilityValidator(PlacementValidator):
             rotation_threshold=self._ik_rot_threshold,
         )
         return bool(feasible.all().item())
+
+    def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
+        """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
+        return [obj for obj in objects if obj not in anchors and obj.has_relation(RequiresReachability)]

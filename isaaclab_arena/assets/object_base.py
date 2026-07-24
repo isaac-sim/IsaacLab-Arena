@@ -190,6 +190,10 @@ class ObjectBase(Asset, ABC):
         """True if this object has an IsAnchor relation."""
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
+    def has_relation(self, relation_type: type[RelationBase]) -> bool:
+        """True if this object carries a relation of the given type."""
+        return any(isinstance(r, relation_type) for r in self.relations)
+
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
         return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]

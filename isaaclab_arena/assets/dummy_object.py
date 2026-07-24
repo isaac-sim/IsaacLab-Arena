@@ -75,6 +75,10 @@ class DummyObject:
     def is_anchor(self) -> bool:
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
+    def has_relation(self, relation_type: type[RelationBase]) -> bool:
+        """True if this object carries a relation of the given type."""
+        return any(isinstance(r, relation_type) for r in self.relations)
+
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""
         return self._collision_mesh

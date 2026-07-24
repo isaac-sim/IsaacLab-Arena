@@ -245,6 +245,46 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
+def test_reachability_markers_attached_to_only_target_assets():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
+        _attach_reachability_relations_to_assets,
+    )
+    from isaaclab_arena.relations.relations import RequiresReachability
+
+    class _FakeAsset:
+        def __init__(self):
+            self.relations = []
+
+        def add_relation(self, relation):
+            self.relations.append(relation)
+
+    assets = {name: _FakeAsset() for name in ("cube", "plate", "distractor")}
+    _attach_reachability_relations_to_assets(("cube", "plate"), assets)
+
+    assert any(isinstance(r, RequiresReachability) for r in assets["cube"].relations)
+    assert any(isinstance(r, RequiresReachability) for r in assets["plate"].relations)
+    assert assets["distractor"].relations == []
+
+
+def test_pick_and_place_task_auto_populates_reachable_ids():
+    # The pick-up object and its object destination are derived from the task definition as reachability targets.
+    data = _minimal_env_graph_data()
+    data["objects"].append({"id": "plate", "registry_name": "rubiks_cube_hot3d_robolab"})
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "cube"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "plate"
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.get_reachability_target_object_ids() == ("cube", "plate")
+
+
+def test_pick_and_place_non_object_destination_is_not_auto_reachable():
+    # A destination naming the background (a location, not an object) is not an auto reachability target.
+    data = _minimal_env_graph_data()
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "cube"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.get_reachability_target_object_ids() == ("cube",)
+
+
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",
