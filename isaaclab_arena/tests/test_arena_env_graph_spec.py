@@ -279,7 +279,9 @@ def test_task_constraint_accepts_object_reference_subject():
 
 
 def test_reachability_markers_attached_to_only_target_assets():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _attach_reachability_markers_to_assets
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
+        _attach_reachability_relations_to_assets,
+    )
     from isaaclab_arena.relations.relations import RequiresReachability
 
     class _FakeAsset:
@@ -290,7 +292,7 @@ def test_reachability_markers_attached_to_only_target_assets():
             self.relations.append(relation)
 
     assets = {name: _FakeAsset() for name in ("cube", "plate", "distractor")}
-    _attach_reachability_markers_to_assets(("cube", "plate"), assets)
+    _attach_reachability_relations_to_assets(("cube", "plate"), assets)
 
     assert any(isinstance(r, RequiresReachability) for r in assets["cube"].relations)
     assert any(isinstance(r, RequiresReachability) for r in assets["plate"].relations)
