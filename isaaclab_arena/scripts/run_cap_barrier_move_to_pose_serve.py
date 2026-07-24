@@ -55,49 +55,128 @@ _MAX_GENERATIONS_FOLLOWED = 4
 _PERCEPTION_SAMPLE_EVERY_FRAMES = 20
 
 
-class _PerceptionStreamSink:
-    """Co-resident, nonblocking perception producer driven from the serve loop.
+def _close_resources(*resources: Any | None) -> None:
+    """Close every owned resource in order, then re-raise the first failure."""
+    first_error: Exception | None = None
+    for resource in resources:
+        if resource is None:
+            continue
+        try:
+            resource.close()
+        except Exception as error:  # noqa: BLE001 - cleanup must continue
+            if first_error is None:
+                first_error = error
+    if first_error is not None:
+        raise first_error
 
-    Identical contract to the open_gripper serve: samples the exterior_cam right
-    after a physics step on the main/Kit thread at a decimated rate and offers it
-    to the latest-frame gRPC producer. The offer never blocks the 200 Hz loop and
-    drops rather than stalls; a sampling error is logged once and never propagates
-    into the barrier serve loop.
+
+class _PerceptionStreamSink:
+    """Co-resident perception snapshot producer driven from the serve loop.
+
+    Camera extraction must run on the main/Kit thread and is synchronous. The
+    gRPC offer is nonblocking, but rendering is not, so callers may cap captures
+    per generation. The grocery graph uses one fresh snapshot per generation:
+    after that snapshot, perception inference cannot re-enter RTX from the 200 Hz
+    control loop.
     """
 
-    def __init__(self, adapter, endpoint: str, marker_sink) -> None:
+    def __init__(
+        self,
+        adapter,
+        endpoint: str,
+        marker_sink,
+        *,
+        frames_per_generation: int | None,
+        first_capture_generation: int = 1,
+    ) -> None:
         from isaaclab_arena.integrations.cap_barrier.perception_producer import PerceptionFrameProducer
 
+        if frames_per_generation is not None and frames_per_generation <= 0:
+            raise ValueError("frames_per_generation must be positive when set")
+        if first_capture_generation <= 0:
+            raise ValueError("first_capture_generation must be positive")
         self._adapter = adapter
         self._marker_sink = marker_sink
         self._producer = PerceptionFrameProducer(endpoint=endpoint)
+        self._frames_per_generation = frames_per_generation
+        self._first_capture_generation = first_capture_generation
         self._frame_index = 0
         self._sample_calls = 0
+        self._generation: int | None = None
+        self._attempted_in_generation = 0
+        self._captured_in_generation = 0
         self._failed = False
         self._producer.start()
         marker_sink(f"CAP_SERVE_KIT_PERCEPTION_STREAM_STARTED endpoint={endpoint}")
 
+    def begin_generation(self, generation: int) -> None:
+        if generation <= 0:
+            raise ValueError("generation must be positive")
+        if self._generation is not None and generation <= self._generation:
+            raise ValueError(
+                f"perception generation must advance: current={self._generation}, next={generation}"
+            )
+        self._generation = generation
+        self._sample_calls = 0
+        self._attempted_in_generation = 0
+        self._captured_in_generation = 0
+        self._failed = False
+        self._marker_sink(
+            "CAP_SERVE_KIT_PERCEPTION_GENERATION_ARMED "
+            f"generation={generation} frames_per_generation={self._frames_per_generation} "
+            f"capture_enabled={int(generation >= self._first_capture_generation)}"
+        )
+
     def on_physics_frame(self, _frame: int) -> None:
-        self._sample_calls += 1
-        if self._sample_calls % _PERCEPTION_SAMPLE_EVERY_FRAMES != 0:
+        if self._generation is None:
+            raise RuntimeError("perception capture used before begin_generation")
+        if self._generation < self._first_capture_generation:
             return
+        if (
+            self._frames_per_generation is not None
+            and self._attempted_in_generation >= self._frames_per_generation
+        ):
+            return
+        self._sample_calls += 1
+        # Capture immediately on the first PHYSICS frame of each generation so
+        # reset-follow cannot expose only the preceding generation's snapshot.
+        if (self._sample_calls - 1) % _PERCEPTION_SAMPLE_EVERY_FRAMES != 0:
+            return
+        # Consume the bounded attempt before entering RTX. An extraction error
+        # must not turn one requested snapshot into unbounded render retries.
+        self._attempted_in_generation += 1
         try:
             from isaaclab_arena.integrations.cap_barrier.perception_producer import extract_camera_frame
 
             frame = extract_camera_frame(self._adapter._environment, frame_index=self._frame_index)
             self._producer.offer(frame)
             self._frame_index += 1
+            self._captured_in_generation += 1
+            if (
+                self._frames_per_generation is not None
+                and self._captured_in_generation == self._frames_per_generation
+            ):
+                self._marker_sink(
+                    "CAP_SERVE_KIT_PERCEPTION_GENERATION_CAPTURED "
+                    f"generation={self._generation} frames={self._captured_in_generation} "
+                    f"attempts={self._attempted_in_generation}"
+                )
         except Exception as error:  # noqa: BLE001 - never break the serve loop
             if not self._failed:
                 self._failed = True
-                self._marker_sink(f"CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED detail={error!r}")
+                self._marker_sink(
+                    "CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED "
+                    f"generation={self._generation} attempt={self._attempted_in_generation} "
+                    f"detail={error!r}"
+                )
 
     def close(self) -> None:
-        stats = self._producer.stats
         self._producer.close()
+        stats = self._producer.stats
         self._marker_sink(
             "CAP_SERVE_KIT_PERCEPTION_STREAM_TRACE "
             f"offered={stats['offered']} sent={stats['sent']} "
+            f"superseded={stats.get('superseded', 0)} failed={stats.get('failed', 0)} "
             f"dropped={stats['dropped']} stream_starts={stats['stream_starts']}"
         )
 
@@ -126,6 +205,8 @@ def _run_serve(
     device: str,
     *,
     perception_stream: str | None = None,
+    perception_frames_per_generation: int | None = None,
+    perception_first_capture_generation: int = 1,
     serve_seconds: float = _SERVE_TIMEOUT_S,
     environment_factory: Callable[..., Any] | None = None,
     initial_gripper_closed: bool = True,
@@ -168,7 +249,13 @@ def _run_serve(
     perception: _PerceptionStreamSink | None = None
     on_physics_frame = None
     if perception_stream is not None:
-        perception = _PerceptionStreamSink(adapter, perception_stream, lambda marker: print(marker, flush=True))
+        perception = _PerceptionStreamSink(
+            adapter,
+            perception_stream,
+            lambda marker: print(marker, flush=True),
+            frames_per_generation=perception_frames_per_generation,
+            first_capture_generation=perception_first_capture_generation,
+        )
         on_physics_frame = perception.on_physics_frame
     try:
         manager = ArenaLockstepManager(
@@ -194,6 +281,8 @@ def _run_serve(
             f"arm0_rad={adapter.arm_positions()[0]:.6f}",
             flush=True,
         )
+        if perception is not None:
+            perception.begin_generation(generation_1)
         print(ready_marker, flush=True)
 
         # Serve like a real episode for an external ARM policy, reusing the SAME
@@ -242,6 +331,8 @@ def _run_serve(
                 )
                 break
             bootstrap = _paced_bootstrap_fences(manager, adapter, _BOOTSTRAP_FENCE_FRAMES)
+            if perception is not None:
+                perception.begin_generation(followed_generation)
             print(
                 f"CAP_SERVE_KIT_FOLLOWED_RESET generation={followed_generation} "
                 f"fences={len(bootstrap)} arm0_rad={adapter.arm_positions()[0]:.6f}",
@@ -253,10 +344,7 @@ def _run_serve(
         )
         print("CAP_SERVE_KIT_DONE", flush=True)
     finally:
-        if perception is not None:
-            perception.close()
-        client.close()
-        adapter.close()
+        _close_resources(perception, client, adapter)
 
 
 def main() -> None:

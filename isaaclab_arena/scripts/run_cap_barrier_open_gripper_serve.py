@@ -24,6 +24,7 @@ import os
 import time
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _close_resources
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 _SHM_NAME = "/cap_arena_b1"
@@ -87,11 +88,12 @@ class _PerceptionStreamSink:
                 self._marker_sink(f"CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED detail={error!r}")
 
     def close(self) -> None:
-        stats = self._producer.stats
         self._producer.close()
+        stats = self._producer.stats
         self._marker_sink(
             "CAP_SERVE_KIT_PERCEPTION_STREAM_TRACE "
             f"offered={stats['offered']} sent={stats['sent']} "
+            f"superseded={stats.get('superseded', 0)} failed={stats.get('failed', 0)} "
             f"dropped={stats['dropped']} stream_starts={stats['stream_starts']}"
         )
 
@@ -251,10 +253,7 @@ def _run_serve(
             )
         print("CAP_SERVE_KIT_DONE", flush=True)
     finally:
-        if perception is not None:
-            perception.close()
-        client.close()
-        adapter.close()
+        _close_resources(perception, client, adapter)
 
 
 def main() -> None:

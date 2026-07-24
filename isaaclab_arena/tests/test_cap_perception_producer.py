@@ -36,7 +36,7 @@ except ImportError:  # pragma: no cover - stubs not generated in this checkout
         allow_module_level=True,
     )
 
-from isaaclab_arena.integrations.cap_barrier.perception_producer import (
+from isaaclab_arena.integrations.cap_barrier.perception_producer import (  # noqa: E402
     PerceptionFrame,
     PerceptionFrameProducer,
     extract_camera_frame,
@@ -72,7 +72,14 @@ def _fake_environment(
         def __getitem__(self, key):
             return self.sensors[key]
 
-    unwrapped = SimpleNamespace(scene=_Scene({"exterior_cam": camera}))
+    class _Simulation:
+        def __init__(self) -> None:
+            self.render_calls: list[bool] = []
+
+        def render(self, *, skip_app_pumping: bool) -> None:
+            self.render_calls.append(skip_app_pumping)
+
+    unwrapped = SimpleNamespace(scene=_Scene({"exterior_cam": camera}), sim=_Simulation())
     return SimpleNamespace(unwrapped=unwrapped), width, height
 
 
@@ -94,6 +101,7 @@ def test_extract_camera_frame_detaches_rgbd_pose_and_intrinsics() -> None:
     assert frame.camera_pose == pytest.approx((1.0, 2.0, 3.0, 0.9, 0.1, 0.2, 0.3))
     assert frame.frame_index == 5
     assert frame.capture_monotonic_ns == 4242
+    assert env.unwrapped.sim.render_calls == [False]
 
 
 def test_maple_oblique_pose_survives_cap_wxyz_transport() -> None:
@@ -196,6 +204,9 @@ def test_producer_streams_latest_frame_and_restarts_after_disconnect() -> None:
             time.sleep(0.01)
         assert servicer.frames[0].frame_index == 7
         assert servicer.frames[0].camera_name == "exterior_cam"
+        while producer.stats["sent"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert producer.stats["sent"] == 1
 
         # Drop the server to force an RpcError, then bring it back on the same port.
         server.stop(grace=None).wait(timeout=2.0)
@@ -208,6 +219,199 @@ def test_producer_streams_latest_frame_and_restarts_after_disconnect() -> None:
         assert 8 in indexes
         assert servicer.streams >= 2
         assert producer.stats["stream_starts"] >= 2
+        deadline = time.monotonic() + 5.0
+        while producer.stats["sent"] < 2 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert producer.stats["sent"] == 2
     finally:
         producer.close()
         server.stop(grace=None).wait(timeout=2.0)
+
+
+class _SupersedingAckServicer(pb2_grpc.CapPerceptionServicer):
+    def __init__(self) -> None:
+        self.calls = 0
+        self.seen = threading.Event()
+
+    def PublishFrames(self, request_iterator, context):
+        self.calls += 1
+        for _frame in request_iterator:
+            self.seen.set()
+        return pb2.PublishAck(frames_received=0)
+
+
+def test_producer_treats_validated_superseded_frame_as_remotely_settled() -> None:
+    servicer = _SupersedingAckServicer()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    pb2_grpc.add_CapPerceptionServicer_to_server(servicer, server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    producer = PerceptionFrameProducer(endpoint=f"127.0.0.1:{port}", reconnect_backoff_s=0.01)
+    producer.start()
+    try:
+        producer.offer(_sample_frame(9, 300))
+        assert servicer.seen.wait(timeout=5.0)
+        deadline = time.monotonic() + 5.0
+        while producer.stats["sent"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert servicer.calls == 1
+        assert producer.stats["sent"] == 1
+        assert producer.stats["superseded"] == 1
+    finally:
+        producer.close()
+        server.stop(grace=None).wait(timeout=2.0)
+
+
+class _LostFirstAckServicer(pb2_grpc.CapPerceptionServicer):
+    def __init__(self) -> None:
+        self.calls = 0
+        self.settled = threading.Event()
+
+    def PublishFrames(self, request_iterator, context):
+        self.calls += 1
+        assert sum(1 for _frame in request_iterator) == 1
+        if self.calls == 1:
+            context.abort(grpc.StatusCode.UNAVAILABLE, "synthetic lost acknowledgement")
+        self.settled.set()
+        return pb2.PublishAck(frames_received=0)
+
+
+def test_producer_lost_ack_retry_settles_on_duplicate_ack() -> None:
+    servicer = _LostFirstAckServicer()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    pb2_grpc.add_CapPerceptionServicer_to_server(servicer, server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    producer = PerceptionFrameProducer(
+        endpoint=f"127.0.0.1:{port}",
+        reconnect_backoff_s=0.01,
+    )
+    producer.start()
+    try:
+        producer.offer(_sample_frame(10, 400))
+        assert servicer.settled.wait(timeout=5.0)
+        deadline = time.monotonic() + 5.0
+        while producer.stats["sent"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert servicer.calls == 2
+        assert producer.stats["sent"] == 1
+        assert producer.stats["superseded"] == 1
+    finally:
+        producer.close()
+        server.stop(grace=None).wait(timeout=2.0)
+
+
+class _WithheldAckServicer(pb2_grpc.CapPerceptionServicer):
+    def __init__(self) -> None:
+        self.seen = threading.Event()
+        self.exited = threading.Event()
+
+    def PublishFrames(self, request_iterator, context):
+        assert sum(1 for _frame in request_iterator) == 1
+        self.seen.set()
+        while context.is_active():
+            time.sleep(0.01)
+        self.exited.set()
+        return pb2.PublishAck(frames_received=0)
+
+
+def test_producer_close_cancels_withheld_ack_and_proves_worker_exit() -> None:
+    servicer = _WithheldAckServicer()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    pb2_grpc.add_CapPerceptionServicer_to_server(servicer, server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    producer = PerceptionFrameProducer(
+        endpoint=f"127.0.0.1:{port}",
+        reconnect_backoff_s=0.01,
+        publish_ack_timeout_s=10.0,
+    )
+    producer.start()
+    try:
+        producer.offer(_sample_frame(11, 500))
+        assert servicer.seen.wait(timeout=5.0)
+
+        started = time.monotonic()
+        producer.close()
+        elapsed = time.monotonic() - started
+
+        assert elapsed < 2.0
+        assert producer._thread is None
+        assert servicer.exited.wait(timeout=2.0)
+    finally:
+        producer.close()
+        server.stop(grace=None).wait(timeout=2.0)
+
+
+class _InvalidAckServicer(pb2_grpc.CapPerceptionServicer):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def PublishFrames(self, request_iterator, context):
+        self.calls += 1
+        assert sum(1 for _frame in request_iterator) == 1
+        return pb2.PublishAck(frames_received=2)
+
+
+def test_producer_poisoned_by_impossible_ack_does_not_retry() -> None:
+    servicer = _InvalidAckServicer()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    pb2_grpc.add_CapPerceptionServicer_to_server(servicer, server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    producer = PerceptionFrameProducer(
+        endpoint=f"127.0.0.1:{port}",
+        reconnect_backoff_s=0.01,
+    )
+    producer.start()
+    try:
+        producer.offer(_sample_frame(12, 600))
+        deadline = time.monotonic() + 5.0
+        while producer.stats["failed"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert servicer.calls == 1
+        assert producer.stats["failed"] == 1
+        with pytest.raises(RuntimeError, match="poisoned"):
+            producer.offer(_sample_frame(13, 700))
+    finally:
+        producer.close()
+        server.stop(grace=None).wait(timeout=2.0)
+
+
+def test_producer_close_retains_live_worker_handle_on_failed_shutdown() -> None:
+    class _StuckThread:
+        def join(self, *, timeout: float) -> None:
+            assert timeout >= 2.0
+
+        def is_alive(self) -> bool:
+            return True
+
+    producer = PerceptionFrameProducer(endpoint="127.0.0.1:0")
+    stuck = _StuckThread()
+    producer._thread = stuck
+
+    with pytest.raises(RuntimeError, match="worker did not stop"):
+        producer.close()
+
+    assert producer._thread is stuck
+
+
+@pytest.mark.parametrize(
+    ("keyword", "value"),
+    [
+        ("reconnect_backoff_s", -0.1),
+        ("reconnect_backoff_s", float("nan")),
+        ("publish_ack_timeout_s", 0.0),
+        ("publish_ack_timeout_s", float("inf")),
+    ],
+)
+def test_producer_rejects_invalid_transport_bounds(keyword: str, value: float) -> None:
+    with pytest.raises(ValueError):
+        PerceptionFrameProducer(endpoint="127.0.0.1:0", **{keyword: value})

@@ -17,7 +17,9 @@ from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.integrations.cap_barrier.franka_env import (
     _configure_cap_camera,
+    _configure_cap_environment_profile,
     _configure_cap_grocery_embodiment,
+    _disable_cap_automatic_camera_rendering,
     _make_cap_grocery_assets,
     make_cap_grocery_to_bin_environment,
 )
@@ -38,7 +40,11 @@ from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
     _run_grocery,
     _scene_ready_marker,
 )
-from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _run_serve
+from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
+    _PerceptionStreamSink,
+    _close_resources,
+    _run_serve,
+)
 
 
 def _droid_embodiment():
@@ -128,6 +134,72 @@ def test_camera_profiles_are_explicit_and_publish_exterior_camera(profile: str, 
         "rgb",
         "distance_to_image_plane",
     }
+    assert embodiment.camera_config.external_camera is None
+    assert embodiment.camera_config.external_camera_2 is None
+    assert embodiment.camera_config.wrist_camera is None
+
+
+def test_camera_profile_removes_automatic_observation_group() -> None:
+    cfg = SimpleNamespace(
+        sim=SimpleNamespace(dt=0.02),
+        decimation=4,
+        observations=SimpleNamespace(camera_obs=object(), policy=object()),
+    )
+
+    configured = _configure_cap_environment_profile(cfg, enable_cameras=True)
+
+    assert configured is cfg
+    assert cfg.sim.dt == 0.005
+    assert cfg.decimation == 1
+    assert cfg.observations.camera_obs is None
+    assert cfg.observations.policy is not None
+
+
+def test_camera_profile_fails_if_camera_observation_contract_is_missing() -> None:
+    cfg = SimpleNamespace(
+        sim=SimpleNamespace(dt=0.02),
+        decimation=4,
+        observations=SimpleNamespace(policy=object()),
+    )
+
+    with pytest.raises(RuntimeError, match="camera_obs"):
+        _configure_cap_environment_profile(cfg, enable_cameras=True)
+
+
+def test_camera_profile_disables_kit_rendering_on_control_steps() -> None:
+    environment = SimpleNamespace(unwrapped=SimpleNamespace(render_enabled=True))
+
+    _disable_cap_automatic_camera_rendering(environment)
+
+    assert environment.unwrapped.render_enabled is False
+
+
+def test_camera_profile_rejects_environment_without_render_control() -> None:
+    with pytest.raises(RuntimeError, match="render_enabled"):
+        _disable_cap_automatic_camera_rendering(SimpleNamespace(unwrapped=SimpleNamespace()))
+
+
+def test_resource_cleanup_continues_after_perception_close_failure() -> None:
+    closed: list[str] = []
+
+    class _Resource:
+        def __init__(self, name: str, *, fail: bool = False) -> None:
+            self._name = name
+            self._fail = fail
+
+        def close(self) -> None:
+            closed.append(self._name)
+            if self._fail:
+                raise RuntimeError(f"{self._name} close failed")
+
+    with pytest.raises(RuntimeError, match="perception close failed"):
+        _close_resources(
+            _Resource("perception", fail=True),
+            _Resource("barrier-client"),
+            _Resource("adapter"),
+        )
+
+    assert closed == ["perception", "barrier-client", "adapter"]
 
 
 def test_unknown_camera_profile_fails_closed() -> None:
@@ -198,9 +270,178 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
     _, (device, kwargs) = calls[2]
     assert device == "cuda:0"
     assert kwargs["perception_stream"] == "127.0.0.1:50061"
+    assert kwargs["perception_frames_per_generation"] == 1
+    assert kwargs["perception_first_capture_generation"] == 2
     assert kwargs["serve_seconds"] == 321.0
     assert kwargs["initial_gripper_closed"] is False
     assert kwargs["ready_marker"].endswith("camera_profile=oblique")
     assert kwargs["environment_factory"].func is make_cap_grocery_to_bin_environment
     assert kwargs["environment_factory"].keywords == {"camera_profile": "oblique"}
     assert calls[3] == ("context_exit", True)
+
+
+def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:
+    import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
+
+    offered: list[int] = []
+    extracted: list[int] = []
+
+    class _Producer:
+        def __init__(self, *, endpoint: str) -> None:
+            assert endpoint == "127.0.0.1:50061"
+
+        def start(self) -> None:
+            pass
+
+        def offer(self, frame) -> bool:
+            offered.append(frame.frame_index)
+            return True
+
+        @property
+        def stats(self):
+            return {"offered": len(offered), "sent": len(offered), "dropped": 0, "stream_starts": 1}
+
+        def close(self) -> None:
+            pass
+
+    def _extract(_environment, *, frame_index: int):
+        extracted.append(frame_index)
+        return SimpleNamespace(frame_index=frame_index)
+
+    monkeypatch.setattr(perception_module, "PerceptionFrameProducer", _Producer)
+    monkeypatch.setattr(perception_module, "extract_camera_frame", _extract)
+    markers: list[str] = []
+    sink = _PerceptionStreamSink(
+        SimpleNamespace(_environment=object()),
+        "127.0.0.1:50061",
+        markers.append,
+        frames_per_generation=1,
+        first_capture_generation=2,
+    )
+
+    sink.begin_generation(1)
+    for frame in range(100):
+        sink.on_physics_frame(frame)
+    sink.begin_generation(2)
+    for frame in range(100):
+        sink.on_physics_frame(frame)
+    sink.close()
+
+    assert extracted == [0]
+    assert offered == [0]
+    assert sum("PERCEPTION_GENERATION_CAPTURED" in marker for marker in markers) == 1
+
+
+def test_uncapped_perception_stream_keeps_decimated_capture_behavior(monkeypatch) -> None:
+    import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
+
+    extracted: list[int] = []
+
+    class _Producer:
+        def __init__(self, *, endpoint: str) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def offer(self, frame) -> bool:
+            return True
+
+        def close(self) -> None:
+            pass
+
+        @property
+        def stats(self):
+            return {"offered": len(extracted), "sent": len(extracted), "dropped": 0, "stream_starts": 1}
+
+    def _extract(_environment, *, frame_index: int):
+        extracted.append(frame_index)
+        return SimpleNamespace(frame_index=frame_index)
+
+    monkeypatch.setattr(perception_module, "PerceptionFrameProducer", _Producer)
+    monkeypatch.setattr(perception_module, "extract_camera_frame", _extract)
+    sink = _PerceptionStreamSink(
+        SimpleNamespace(_environment=object()),
+        "127.0.0.1:50061",
+        lambda _marker: None,
+        frames_per_generation=None,
+    )
+    sink.begin_generation(1)
+
+    for frame in range(45):
+        sink.on_physics_frame(frame)
+    sink.close()
+
+    assert extracted == [0, 1, 2]
+
+
+def test_perception_capture_requires_monotonic_generations(monkeypatch) -> None:
+    import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
+
+    class _Producer:
+        def __init__(self, *, endpoint: str) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+        @property
+        def stats(self):
+            return {"offered": 0, "sent": 0, "dropped": 0, "stream_starts": 0}
+
+    monkeypatch.setattr(perception_module, "PerceptionFrameProducer", _Producer)
+    sink = _PerceptionStreamSink(
+        SimpleNamespace(_environment=object()),
+        "127.0.0.1:50061",
+        lambda _marker: None,
+        frames_per_generation=1,
+    )
+    sink.begin_generation(2)
+    with pytest.raises(ValueError, match="must advance"):
+        sink.begin_generation(2)
+    sink.close()
+
+
+def test_bounded_perception_capture_does_not_retry_failed_rtx_read(monkeypatch) -> None:
+    import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
+
+    attempts: list[int] = []
+
+    class _Producer:
+        def __init__(self, *, endpoint: str) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+        @property
+        def stats(self):
+            return {"offered": 0, "sent": 0, "dropped": 0, "stream_starts": 0}
+
+    def _failed_extract(_environment, *, frame_index: int):
+        attempts.append(frame_index)
+        raise RuntimeError("synthetic RTX failure")
+
+    monkeypatch.setattr(perception_module, "PerceptionFrameProducer", _Producer)
+    monkeypatch.setattr(perception_module, "extract_camera_frame", _failed_extract)
+    markers: list[str] = []
+    sink = _PerceptionStreamSink(
+        SimpleNamespace(_environment=object()),
+        "127.0.0.1:50061",
+        markers.append,
+        frames_per_generation=1,
+    )
+    sink.begin_generation(1)
+
+    for frame in range(100):
+        sink.on_physics_frame(frame)
+    sink.close()
+
+    assert attempts == [0]
+    assert sum("PERCEPTION_SAMPLE_FAILED" in marker for marker in markers) == 1

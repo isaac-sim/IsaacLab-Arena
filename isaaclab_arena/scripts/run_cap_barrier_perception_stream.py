@@ -33,6 +33,7 @@ import math
 import time
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _close_resources
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 _STREAM_HZ = 10.0
@@ -70,10 +71,12 @@ def _stream(device: str, *, stream_seconds: float, stream_hz: float) -> None:
             remaining = next_tick - time.monotonic()
             if remaining > 0:
                 time.sleep(remaining)
+        producer.close()
         stats = producer.stats
         print(
             "CAP_PERCEPTION_STREAM_TRACE "
             f"frames={frame_index} offered={stats['offered']} sent={stats['sent']} "
+            f"superseded={stats['superseded']} failed={stats['failed']} "
             f"dropped={stats['dropped']} stream_starts={stats['stream_starts']}",
             flush=True,
         )
@@ -84,8 +87,7 @@ def _stream(device: str, *, stream_seconds: float, stream_hz: float) -> None:
             flush=True,
         )
     finally:
-        producer.close()
-        adapter.close()
+        _close_resources(producer, adapter)
 
 
 def main() -> None:

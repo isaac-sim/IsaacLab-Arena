@@ -36,7 +36,8 @@ def _add_grocery_arguments(parser) -> None:
         metavar="HOST:PORT",
         help=(
             "Required cap_perception_bridge endpoint. The grocery producer always "
-            "streams exterior_cam RGB-D while it serves the control barrier."
+            "publishes one post-reset exterior_cam RGB-D snapshot while it serves "
+            "the control barrier."
         ),
     )
     parser.add_argument(
@@ -86,6 +87,14 @@ def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_s
         serve(
             args_cli.device,
             perception_stream=args_cli.perception_stream,
+            # The graph consumes one static observation after ResetEpisode.
+            # Keep RTX outside the 200 Hz control loop once that generation's
+            # snapshot has been captured.
+            perception_frames_per_generation=1,
+            # The connector establishes authority by resetting generation 1.
+            # Do not publish a fresh pre-reset frame that the generation-less
+            # perception transport could briefly expose after ResetEpisode.
+            perception_first_capture_generation=2,
             serve_seconds=args_cli.serve_seconds,
             environment_factory=_environment_factory(args_cli.camera),
             initial_gripper_closed=False,

@@ -174,7 +174,36 @@ def _configure_cap_camera(embodiment: Any, camera_profile: str) -> None:
     # pose updates enabled for both profiles so a future camera variation cannot
     # silently leave RGB-D paired with initialization-time extrinsics.
     camera_config.exterior_cam.update_latest_camera_pose = True
+    # CAP consumes only exterior_cam. The inherited DROID camera config also
+    # creates three 1280x720 RGB sensors; keeping them would make Kit maintain
+    # four RTX render products even though CAP never reads the other three.
+    camera_config.external_camera = None
+    camera_config.external_camera_2 = None
+    camera_config.wrist_camera = None
     embodiment.camera_config = camera_config
+
+
+def _configure_cap_environment_profile(cfg: Any, *, enable_cameras: bool) -> Any:
+    """Apply the fixed control timing and isolate camera reads from control ticks."""
+    cfg.sim.dt = 0.005
+    cfg.decimation = 1
+    if enable_cameras:
+        if not hasattr(cfg.observations, "camera_obs"):
+            raise RuntimeError("CAP camera profile did not produce the expected camera_obs group")
+        # The CAP producer reads exterior_cam explicitly. Leaving camera_obs
+        # enabled would make ObservationManager access Camera.data after every
+        # 200 Hz environment step, synchronously invoking RTX on the control
+        # thread and coupling physics liveness to perception inference load.
+        cfg.observations.camera_obs = None
+    return cfg
+
+
+def _disable_cap_automatic_camera_rendering(environment: Any) -> None:
+    """Keep Kit/RTX pumping off ordinary control steps; explicit reads still render."""
+    unwrapped = environment.unwrapped
+    if not hasattr(unwrapped, "render_enabled"):
+        raise RuntimeError("CAP environment does not expose render_enabled")
+    unwrapped.render_enabled = False
 
 
 def _configure_cap_grocery_embodiment(embodiment: Any) -> None:
@@ -288,9 +317,7 @@ def _make_cap_environment(
         environment_name = "CAP-Barrier-DROID-B1-v0"
 
     def configure_profile(cfg):
-        cfg.sim.dt = 0.005
-        cfg.decimation = 1
-        return cfg
+        return _configure_cap_environment_profile(cfg, enable_cameras=enable_cameras)
 
     description = IsaacLabArenaEnvironment(
         name=environment_name,
@@ -307,6 +334,10 @@ def _make_cap_environment(
     if cfg.sim.dt != 0.005 or cfg.decimation != 1:
         environment.close()
         raise RuntimeError(f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}")
+    if enable_cameras:
+        # Camera.data renders explicitly when the snapshot producer asks for a
+        # frame. Skip Kit app/RTX pumping during ordinary 200 Hz control steps.
+        _disable_cap_automatic_camera_rendering(environment)
     return FrankaSimulationAdapter(environment)
 
 

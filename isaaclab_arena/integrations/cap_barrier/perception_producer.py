@@ -22,6 +22,7 @@ producer must never stall that loop, so it splits into two halves:
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections.abc import Callable
@@ -38,7 +39,19 @@ _CAM = "exterior_cam"
 _DEPTH_DT = "distance_to_image_plane"
 _DEFAULT_ENDPOINT = "127.0.0.1:50061"
 _RECONNECT_BACKOFF_S = 0.5
+_PUBLISH_ACK_TIMEOUT_S = 1.0
+_CLOSE_TIMEOUT_S = 2.0
 _MAX_GRPC_MESSAGE_BYTES = 8 * 1024 * 1024
+_PERMANENT_RPC_CODES = frozenset(
+    {
+        grpc.StatusCode.INVALID_ARGUMENT,
+        grpc.StatusCode.FAILED_PRECONDITION,
+        grpc.StatusCode.OUT_OF_RANGE,
+        grpc.StatusCode.PERMISSION_DENIED,
+        grpc.StatusCode.UNAUTHENTICATED,
+        grpc.StatusCode.UNIMPLEMENTED,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -76,16 +89,21 @@ def extract_camera_frame(
     camera_name: str = _CAM,
     monotonic_ns: Callable[[], int] = time.monotonic_ns,
 ) -> PerceptionFrame:
-    """Read one RGB-D frame + world pose from an already-stepped Arena env.
+    """Render and detach one RGB-D frame + world pose from an already-stepped env.
 
-    Accessing the camera output triggers the RTX render for the current sim
-    state; call this only when a frame is actually wanted, after a physics step.
+    Ordinary CAP control steps deliberately skip Kit/RTX. A non-skipped render
+    prepares Kit visualizers when present; Camera.data then performs the camera
+    render itself when no visualizer pumps the Kit app. Call this only when a
+    frame is actually wanted, after a physics step.
     """
     import numpy as np
 
     unwrapped = environment.unwrapped
     if camera_name not in unwrapped.scene.sensors:
         raise RuntimeError(f"{camera_name} sensor is not attached; build the env with enable_cameras=True")
+    if not hasattr(unwrapped, "sim"):
+        raise RuntimeError("CAP camera environment does not expose its simulation context")
+    unwrapped.sim.render(skip_app_pumping=False)
     camera = unwrapped.scene[camera_name]
 
     rgb_tensor = camera.data.output["rgb"][0, ..., :3]
@@ -134,21 +152,29 @@ class PerceptionFrameProducer:
         endpoint: str = _DEFAULT_ENDPOINT,
         channel_factory: Callable[[str], grpc.Channel] | None = None,
         reconnect_backoff_s: float = _RECONNECT_BACKOFF_S,
-        sleep: Callable[[float], None] = time.sleep,
+        publish_ack_timeout_s: float = _PUBLISH_ACK_TIMEOUT_S,
     ) -> None:
+        if not math.isfinite(reconnect_backoff_s) or reconnect_backoff_s < 0.0:
+            raise ValueError("reconnect_backoff_s must be finite and nonnegative")
+        if not math.isfinite(publish_ack_timeout_s) or publish_ack_timeout_s <= 0.0:
+            raise ValueError("publish_ack_timeout_s must be finite and positive")
         self._endpoint = endpoint
         self._channel_factory = channel_factory or self._default_channel
         self._reconnect_backoff_s = reconnect_backoff_s
-        self._sleep = sleep
+        self._publish_ack_timeout_s = publish_ack_timeout_s
         self._lock = threading.Lock()
         self._pending: PerceptionFrame | None = None
         self._inflight: PerceptionFrame | None = None
         self._new_frame = threading.Condition(self._lock)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._active_call: Any | None = None
+        self._poisoned = False
         self._offered = 0
         self._dropped = 0
         self._sent = 0
+        self._superseded = 0
+        self._failed = 0
         self._stream_starts = 0
 
     @staticmethod
@@ -164,12 +190,18 @@ class PerceptionFrameProducer:
     def start(self) -> None:
         if self._thread is not None:
             raise RuntimeError("producer already started")
+        if self._stop.is_set():
+            raise RuntimeError("producer is closed")
         self._thread = threading.Thread(target=self._run, name="cap-perception-producer", daemon=True)
         self._thread.start()
 
     def offer(self, frame: PerceptionFrame) -> bool:
         """Install ``frame`` as the latest to send; never blocks the caller."""
         with self._new_frame:
+            if self._stop.is_set():
+                raise RuntimeError("perception producer is closed")
+            if self._poisoned:
+                raise RuntimeError("perception producer is poisoned by a permanent transport failure")
             replaced = self._pending is not None
             self._pending = frame
             self._offered += 1
@@ -184,6 +216,8 @@ class PerceptionFrameProducer:
             return {
                 "offered": self._offered,
                 "sent": self._sent,
+                "superseded": self._superseded,
+                "failed": self._failed,
                 "dropped": self._dropped,
                 "stream_starts": self._stream_starts,
             }
@@ -208,28 +242,32 @@ class PerceptionFrameProducer:
                 self._new_frame.notify()
             self._inflight = None
 
-    def _frame_iterator(self, ready: threading.Event):
+    def _wait_for_ready(self, ready: threading.Event) -> bool:
+        deadline = time.monotonic() + self._reconnect_backoff_s + 1.0
         while not self._stop.is_set():
-            frame = self._take_pending(timeout_s=0.1)
-            if frame is None:
-                # Idle client streams do not observe server death, so end the RPC
-                # and let the run loop reconnect once the channel breaks.
-                if not ready.is_set():
-                    return
-                continue
-            if not ready.is_set():
-                # Do not spend the latest frame on a broken channel; requeue it so
-                # the next stream carries it, then end this RPC to force reconnect.
-                self._requeue_inflight()
-                return
-            yield frame.to_proto()
-            with self._lock:
-                self._sent += 1
-                self._inflight = None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                return False
+            if ready.wait(timeout=min(remaining, 0.05)):
+                return True
+        return False
+
+    def _settle_inflight(self, *, superseded: bool) -> None:
+        with self._lock:
+            self._sent += 1
+            self._superseded += int(superseded)
+            self._inflight = None
+
+    def _poison_inflight(self) -> None:
+        with self._lock:
+            self._failed += 1
+            self._inflight = None
+            self._poisoned = True
 
     def _run(self) -> None:
         while not self._stop.is_set():
             ready = threading.Event()
+            channel: grpc.Channel | None = None
 
             def _on_state(state: grpc.ChannelConnectivity, _ready: threading.Event = ready) -> None:
                 if state is grpc.ChannelConnectivity.READY:
@@ -237,36 +275,79 @@ class PerceptionFrameProducer:
                 else:
                     _ready.clear()
 
-            channel = self._channel_factory(self._endpoint)
-            channel.subscribe(_on_state, try_to_connect=True)
             try:
-                if not ready.wait(timeout=self._reconnect_backoff_s + 1.0):
+                channel = self._channel_factory(self._endpoint)
+                channel.subscribe(_on_state, try_to_connect=True)
+                if not self._wait_for_ready(ready):
                     if self._stop.wait(self._reconnect_backoff_s):
                         break
                     continue
                 stub = _pb2_grpc.CapPerceptionStub(channel)
-                with self._lock:
-                    self._stream_starts += 1
-                stub.PublishFrames(self._frame_iterator(ready))
-            except grpc.RpcError:
+                while ready.is_set() and not self._stop.is_set():
+                    frame = self._take_pending(timeout_s=0.1)
+                    if frame is None:
+                        continue
+                    if not ready.is_set():
+                        self._requeue_inflight()
+                        break
+                    # Use a finite one-frame client stream so PublishAck is an
+                    # actual remote-consumption boundary. Clearing _inflight
+                    # merely because gRPC pulled from a long-lived iterator can
+                    # lose the only snapshot on a post-yield disconnect.
+                    with self._lock:
+                        self._stream_starts += 1
+                    call = stub.PublishFrames.future(
+                        iter((frame.to_proto(),)),
+                        timeout=self._publish_ack_timeout_s,
+                    )
+                    with self._lock:
+                        self._active_call = call
+                    try:
+                        acknowledgement = call.result()
+                    finally:
+                        with self._lock:
+                            if self._active_call is call:
+                                self._active_call = None
+                    received = int(acknowledgement.frames_received)
+                    if received not in (0, 1):
+                        self._poison_inflight()
+                        return
+                    # The bridge validates every received frame, but its frozen
+                    # count is the number installed in the latest-frame store.
+                    # Zero therefore means this retry was already present or a
+                    # newer frame won; either value is terminal remote settlement.
+                    self._settle_inflight(superseded=received == 0)
+            except grpc.RpcError as error:
                 if self._stop.is_set():
                     break
-                self._sleep(self._reconnect_backoff_s)
+                if error.code() in _PERMANENT_RPC_CODES:
+                    self._poison_inflight()
+                    return
+                self._stop.wait(self._reconnect_backoff_s)
             except Exception:
                 if self._stop.is_set():
                     break
-                self._sleep(self._reconnect_backoff_s)
+                self._stop.wait(self._reconnect_backoff_s)
             finally:
-                with suppress(Exception):
-                    channel.unsubscribe(_on_state)
-                channel.close()
+                if channel is not None:
+                    with suppress(Exception):
+                        channel.unsubscribe(_on_state)
+                    with suppress(Exception):
+                        channel.close()
                 self._requeue_inflight()
 
     def close(self) -> None:
         self._stop.set()
         with self._new_frame:
             self._new_frame.notify_all()
+        with self._lock:
+            active_call = self._active_call
+        if active_call is not None:
+            with suppress(Exception):
+                active_call.cancel()
         thread = self._thread
         if thread is not None:
-            thread.join(timeout=2.0)
-        self._thread = None
+            thread.join(timeout=max(_CLOSE_TIMEOUT_S, self._publish_ack_timeout_s + 0.5))
+            if thread.is_alive():
+                raise RuntimeError("perception producer worker did not stop within its bound")
+            self._thread = None

@@ -203,13 +203,17 @@ and remote process-group death attestations from the canonical supervisor.
 
 `perception_producer.py` is the ROS-free Kit side of CAP perception. `extract_camera_frame`
 reads the `exterior_cam` RGB-D output, intrinsics, and world pose from an already-stepped
-environment (RTX rendering is triggered by that data access, so the barrier pays no render
-cost until a frame is wanted). `PerceptionFrameProducer` owns a background gRPC
-client-streaming thread with a single-slot latest-frame mailbox: `offer` never blocks the
-physics loop and drops the previous unsent frame rather than back-pressuring lockstep. The
-thread reconnects and restarts the stream on failure, requeues the latest real frame across a
-restart, and never fabricates a frame. The frozen transport is `CapPerception.PublishFrames`
-from the ROS module's `cap_perception.proto`.
+environment. RTX rendering is triggered synchronously by that data access, so callers must
+choose an explicit capture point outside latency-sensitive control work.
+`PerceptionFrameProducer` owns a background gRPC thread with a single-slot latest-frame
+mailbox: `offer` never blocks the physics loop and drops the previous unsent frame rather
+than back-pressuring lockstep. Each detached frame is sent through a finite one-frame
+client-streaming RPC with a deadline and retained until the bridge returns `PublishAck`; a
+failed RPC requeues the latest real frame without asking Kit to render again. For this
+one-frame call, `frames_received=1` means the bridge installed it and `0` means the validated
+retry was already present or superseded by a newer frame; both are terminal remote
+settlement. Shutdown cancels an active call and proves the worker stopped. The frozen transport is
+`CapPerception.PublishFrames` from the ROS module's `cap_perception.proto`.
 
 The pinned Arena `.venv` carries `grpcio`/`protobuf` at runtime but intentionally not
 `grpcio-tools`. Generate the stubs once into the git-ignored `_generated/` tree without
@@ -250,10 +254,16 @@ it). Bringup ORDER matters: start this producer and wait for
 `CAP_PRODUCTION_KIT_ENV_READY` BEFORE bringing up the CAP control plane; a control
 plane started against no fresh producer will not go ACTIVE.
 
-The serve loop samples the camera on the main/Kit thread right after each physics
-step at ~10 Hz (decimated from the 200 Hz base) and offers frames to the same
-nonblocking latest-frame producer; sampling never blocks or breaks the barrier
-serve loop.
+The generic serve loop samples the camera on the main/Kit thread right after a
+physics step at ~10 Hz (decimated from the 200 Hz base) and offers detached frames
+to the nonblocking latest-frame producer. Camera extraction itself is synchronous
+and can block in RTX; only the mailbox offer is nonblocking. CAP camera profiles
+therefore remove automatic `camera_obs`, disable Kit rendering on ordinary 200 Hz
+control steps, and instantiate only `exterior_cam`.
+Each intentional snapshot then performs the supported non-skipped simulation render
+immediately before reading `Camera.data`. The render/data pair, on the owner Kit thread
+after a physics step, is the freshness operation; the render call alone is not claimed to
+update RTX when no Kit visualizer is configured.
 
 ### Grocery-to-bin producer
 
@@ -284,6 +294,14 @@ camera-to-base, GraspGen, and MoveToPose frame chain. The producer emits
 `CAP_GROCERY_TO_BIN_SCENE_READY` after the generation-1 bootstrap fence; the
 marker names the exact object, bin, camera, and camera profile.
 
+This walking skeleton consumes one observation immediately after `ResetEpisode`.
+The grocery producer therefore skips generation 1 and captures exactly one
+`exterior_cam` snapshot on generation 2's first PHYSICS frame. It performs no
+further camera access in that generation, so DINO/SAM/VLM inference cannot
+re-enter RTX from the 200 Hz control loop. A failed extraction consumes that
+generation's single bounded attempt and leaves GetImage to fail closed. This is
+snapshot perception, not the architecture's future continuous perception lane.
+
 The default `--camera libero` uses the existing top-down CAP camera.
 `--camera oblique` selects the existing Maple DROID agent-view camera as the
 open-vocabulary fallback without changing the scene or base calibration. Both
@@ -299,9 +317,15 @@ The live GPU acceptance is non-vacuous only when all of the following hold:
 - Kit emits no `CAP_SERVE_KIT_PERCEPTION_SAMPLE_FAILED`; its terminal
   `CAP_SERVE_KIT_PERCEPTION_STREAM_TRACE` reports both `offered > 0` and
   `sent > 0`.
-- The real DINO/SAM path returns a nonempty mask and OBB for the grocery object.
-- The grocery graph reaches its successful terminal and all producer, control
-  plane, and client processes shut down cleanly.
+- The real DINO/SAM path selects the grocery object rather than the bin, and its
+  finite OBB passes the gripper-aperture feasibility gate.
+- After bounded post-release settling, authoritative scene evidence proves the
+  can moved from its initial pose and lies inside the bin's current containment
+  volume in XY and Z.
+- The graph reaches its successful terminal and all producer, control-plane, and
+  client processes shut down cleanly, but graph completion alone is not a pass.
 
 A scene-ready or `CAP_SERVE_KIT_DONE` marker alone is not a pass. Failure to
 detect the grocery is terminal for the smoke and never fabricates an object pose.
+The current `NoTask` producer does not yet emit an Arena task success result, so
+the physical containment oracle remains a required acceptance-harness check.
