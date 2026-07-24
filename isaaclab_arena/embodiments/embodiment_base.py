@@ -13,7 +13,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.relations.placement_asset import PlacementAsset
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     import trimesh
 
 
-class EmbodimentBase(PlacementAsset):
+class EmbodimentBase(PlaceableAsset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
@@ -58,8 +58,6 @@ class EmbodimentBase(PlacementAsset):
         self.termination_cfg: Any | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
         """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
-        self.pose_event_cfg: EventTermCfg | None = None
-        """Root-pose reset event applied on environment reset; ``None`` when the embodiment has no configured pose."""
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative bounds computed from the articulation's USD geometry."""
@@ -79,9 +77,7 @@ class EmbodimentBase(PlacementAsset):
         """Return the robot's collision mesh from its USD default prim, in the default joint pose."""
         if self._collision_mesh is None:
             # Import locally because USD/pxr is available only after simulation initialization.
-            from pxr import Usd
-
-            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_path
 
             assert self.scene_config is not None, "scene_config must be populated before placement"
             robot = self.scene_config.robot
@@ -89,39 +85,20 @@ class EmbodimentBase(PlacementAsset):
             spawn = robot.spawn
             assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
             scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
-            stage = Usd.Stage.Open(spawn.usd_path)
-            assert stage is not None, f"could not open robot USD: {spawn.usd_path}"
-            default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-            # The default prim scopes extraction to the robot, excluding sibling scene props
-            # (ground planes, stray objects) baked into some flattened articulation USDs.
-            self._collision_mesh = extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+            self._collision_mesh = extract_trimesh_from_usd_path(spawn.usd_path, scale)
         return self._collision_mesh
 
-    def _get_initial_pose_as_pose(self) -> Pose | None:
-        """Return a single ``Pose`` for scene construction; ``PosePerEnv`` collapses to env 0."""
-        initial_pose = self.initial_pose
-        if initial_pose is None:
-            return None
-        if isinstance(initial_pose, PosePerEnv):
-            return initial_pose.poses[0]
-        assert isinstance(initial_pose, Pose), "Embodiments support a fixed Pose or PosePerEnv only"
-        return initial_pose
-
-    def _set_pose_state(self, pose: Pose | PosePerEnv) -> None:
+    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; the construction pose is materialized in ``get_scene_cfg``."""
+        assert isinstance(pose, (Pose, PosePerEnv)), "Embodiments support a fixed Pose or PosePerEnv only"
         self.initial_pose = pose
 
-    def set_spawn_pose(self, pose: Pose) -> None:
-        """Set the scene-construction pose without rebuilding the reset event."""
-        self._set_pose_state(pose)
+    def _get_initial_pose_as_pose(self) -> Pose | None:
+        # Read the explicit override, not get_initial_pose()'s scene_config fallback: an unset pose must
+        # collapse to None so get_scene_cfg leaves the init-configured robot/stand states untouched.
+        return self._collapse_pose_to_single(self.initial_pose)
 
-    def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Set the embodiment root pose and rebuild its pose reset event."""
-        assert isinstance(pose, (Pose, PosePerEnv)), "Embodiments support a fixed Pose or PosePerEnv only"
-        self._set_pose_state(pose)
-        self.pose_event_cfg = self._init_pose_event_cfg()
-
-    def _init_pose_event_cfg(self) -> EventTermCfg | None:
+    def _build_reset_event(self) -> EventTermCfg | None:
         """Build the reset event that restores this embodiment's root pose (and auxiliary prims)."""
         from isaaclab_arena.terms.events import reset_placement_asset_pose, reset_placement_asset_pose_per_env
 
@@ -140,10 +117,6 @@ class EmbodimentBase(PlacementAsset):
             mode="reset",
             params={"scene_writes": self.layout_pose_to_scene_writes(initial_pose)},
         )
-
-    def has_pose_reset_event(self) -> bool:
-        """Return whether the embodiment owns a root-pose reset event."""
-        return self.pose_event_cfg is not None
 
     def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
         """Update the robot's initial joint positions by joint name."""
@@ -202,13 +175,13 @@ class EmbodimentBase(PlacementAsset):
         return self.command_config
 
     def get_events_cfg(self) -> Any:
-        if self.pose_event_cfg is None:
+        if self._pose_event_cfg is None:
             return self.event_config
         from isaaclab_arena.utils.configclass import make_configclass
 
         pose_reset_cfg = make_configclass(
             "EmbodimentPoseResetCfg",
-            [("robot_reset_pose", EventTermCfg, self.pose_event_cfg)],
+            [("robot_reset_pose", EventTermCfg, self._pose_event_cfg)],
         )()
         # Merge the pose reset last so it runs after joint/root resets in ``event_config``.
         return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
@@ -254,7 +227,7 @@ class EmbodimentBase(PlacementAsset):
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
 
-    def get_scene_name(self) -> str:
+    def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
         return "robot"
 

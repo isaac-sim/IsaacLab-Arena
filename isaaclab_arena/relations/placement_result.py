@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placement_asset import PlacementAsset
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
@@ -20,7 +20,7 @@ class PlacementResult:
     validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
 
-    positions: dict[PlacementAsset, tuple[float, float, float]]
+    positions: dict[PlaceableAsset, tuple[float, float, float]]
     """Final ``(x, y, z)`` positions in metres in the environment-local frame."""
 
     final_loss: float
@@ -29,7 +29,7 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-    orientations: dict[PlacementAsset, float] = field(default_factory=dict)
+    orientations: dict[PlaceableAsset, float] = field(default_factory=dict)
     """Sparse map of world yaw angles ``theta_z`` in radians; omitted assets retain marker orientation."""
 
     @property

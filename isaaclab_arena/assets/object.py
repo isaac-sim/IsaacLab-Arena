@@ -61,7 +61,7 @@ class Object(ObjectBase):
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
@@ -81,11 +81,11 @@ class Object(ObjectBase):
 
     def disable_reset_pose(self) -> None:
         self.reset_pose = False
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def enable_reset_pose(self) -> None:
         self.reset_pose = True
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def get_contact_sensor_cfg(
         self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None

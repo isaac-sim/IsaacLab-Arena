@@ -8,7 +8,7 @@ import torch
 import trimesh
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_asset import PlacementAsset
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
 
-class DummyObject(PlacementAsset):
+class DummyObject(PlaceableAsset):
     """Dummy object for testing purposes without Isaac Sim dependencies.
 
     Mirrors the real object pose lifecycle: setting an initial pose builds a
@@ -39,14 +39,8 @@ class DummyObject(PlacementAsset):
         assert self.bounding_box is not None
         self.relations = list(relations or [])
         self._collision_mesh = collision_mesh
-        self.pose_event_cfg: EventTermCfg | None = None
 
-    def set_initial_pose(self, pose: Pose | PosePerEnv) -> None:
-        """Store the requested pose(s) and rebuild the root-pose reset event."""
-        self.initial_pose = pose
-        self.pose_event_cfg = self._init_pose_event_cfg()
-
-    def _init_pose_event_cfg(self) -> EventTermCfg | None:
+    def _build_reset_event(self) -> EventTermCfg | None:
         from isaaclab.managers import EventTermCfg
 
         from isaaclab_arena.terms.events import reset_placement_asset_pose, reset_placement_asset_pose_per_env
@@ -64,10 +58,6 @@ class DummyObject(PlacementAsset):
             mode="reset",
             params={"scene_writes": self.layout_pose_to_scene_writes(self.initial_pose)},
         )
-
-    def has_pose_reset_event(self) -> bool:
-        """Return whether a pose was set and therefore a reset event exists."""
-        return self.pose_event_cfg is not None
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""

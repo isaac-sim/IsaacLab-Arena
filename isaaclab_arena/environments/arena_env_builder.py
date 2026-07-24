@@ -82,9 +82,9 @@ class ArenaEnvBuilder:
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — assigns one fixed layout per environment. Object-only
-          scenes use per-object reset events; scenes with an embodiment use one
-          coordinated reset event.
+        * **False** — assigns one fixed layout per environment. Every non-anchor
+          placement asset (objects and the embodiment alike) stores its solved
+          per-environment pose and owns its own reset event.
         """
         placement_assets = self.arena_env.scene.get_objects_with_relations()
         embodiment = self.arena_env.embodiment
