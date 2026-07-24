@@ -7,15 +7,13 @@
 
 import torch
 
-import pytest
-
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
 def _make_floor_and_robot():
@@ -49,11 +47,15 @@ def test_relation_solver_places_embodiment():
     assert robot.get_initial_pose() is not None
 
 
-def test_batched_embodiment_placement_requires_runtime_application():
+def test_batched_embodiment_placement_stores_per_env_poses():
     floor, robot = _make_floor_and_robot()
 
-    with pytest.raises(AssertionError, match="cannot store per-environment poses"):
-        ObjectPlacer(ObjectPlacerParams(placement_seed=3)).place([floor, robot], num_envs=2)
+    results = ObjectPlacer(ObjectPlacerParams(placement_seed=3)).place([floor, robot], num_envs=2)
+
+    assert len(results) == 2
+    initial_pose = robot.get_initial_pose()
+    assert isinstance(initial_pose, PosePerEnv)
+    assert len(initial_pose.poses) == 2
 
 
 def test_world_bounding_box_applies_positive_quarter_turn():

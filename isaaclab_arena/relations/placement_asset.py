@@ -58,8 +58,8 @@ class PlacementAsset(Asset, ABC):
     def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set the configured root pose.
 
-        ``PoseRange`` and ``PosePerEnv`` support is subclass-specific. Callers
-        assigning ``PosePerEnv`` must first check ``supports_per_env_initial_pose()``.
+        Accepts a fixed ``Pose``, a ``PoseRange`` (randomized on reset), or a ``PosePerEnv``
+        (a distinct pose per environment); the interpretation is subclass-specific.
         """
         self.initial_pose = pose
 
@@ -67,13 +67,17 @@ class PlacementAsset(Asset, ABC):
         """Set the root pose used when constructing the scene."""
         self.set_initial_pose(pose)
 
+    def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
+        """Return the ``(scene entity name, env-local pose)`` writes that realize a solved layout pose.
+
+        A simple asset places only its own root; a compound asset (e.g. a robot on a separate
+        stand) overrides this to also place auxiliary prims that move with the root.
+        """
+        return [(self.get_scene_name(), layout_pose)]
+
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
         return False
-
-    def supports_per_env_initial_pose(self) -> bool:
-        """Return whether one configured pose may be stored per environment."""
-        return True
 
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
