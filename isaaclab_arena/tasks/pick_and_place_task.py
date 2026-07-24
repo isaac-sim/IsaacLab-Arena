@@ -52,6 +52,9 @@ class PickAndPlaceTask(TaskBase):
     The factory receives ``arm_mode`` from the env builder and returns a constructed cfg.
     """
 
+    reachability_target_objects = ("pick_up_object", "destination_location")
+    """The robot must reach the object it picks up and the location it places onto."""
+
     def __init__(
         self,
         pick_up_object: Asset,
