@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -81,19 +80,21 @@ def write_layout_to_sim(
         base_rotations: The base rotations for all objects.
     """
     env_id_tensor = torch.tensor([env_id], device=env.device)
-    zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
     for obj, pos in result.positions.items():
         if obj in anchor_objects_set:
             continue
-        asset = env.scene[obj.name]
         marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
         total_yaw = result.orientations.get(obj, marker_yaw)
         rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
         pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
+        if hasattr(obj, "set_object_pose"):
+            obj.set_object_pose(env, pose, env_ids=env_id_tensor)
+            continue
+        asset = env.scene[obj.name]
         pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
-        asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_id_tensor)
 
 
 def solve_and_place_objects(

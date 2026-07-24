@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import tempfile
 import torch
 from collections.abc import Sequence
@@ -172,7 +173,7 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
         self.temp_urdf_dir = tempfile.gettempdir()
-        temp_urdf_output_path, temp_urdf_meshes_output_path = ControllerUtils.convert_usd_to_urdf(
+        temp_urdf_output_path, temp_urdf_meshes_output_path = _convert_usd_to_urdf(
             self.scene_config.robot.spawn.usd_path, self.temp_urdf_dir, force_conversion=True
         )
 
@@ -188,6 +189,127 @@ class GR1T2JointPositionActionCfg:
     joint_pos = JointPositionActionCfg(
         asset_name="robot", joint_names=ARM_JOINT_NAMES_LIST, scale=1.0, use_default_offset=False
     )
+
+
+def _convert_usd_to_urdf(usd_path: str, output_path: str, force_conversion: bool = True) -> tuple[str, str]:
+    """Convert a USD robot asset to URDF using the Isaac Lab helper or the Isaac Sim 6 exporter."""
+    try:
+        return ControllerUtils.convert_usd_to_urdf(usd_path, output_path, force_conversion=force_conversion)
+    except ImportError as exc:
+        if "UsdToUrdfConverter" not in str(exc):
+            raise
+
+    return _convert_usd_to_urdf_with_isaacsim6(usd_path, output_path, force_conversion=force_conversion)
+
+
+def _convert_usd_to_urdf_with_isaacsim6(
+    usd_path: str, output_path: str, force_conversion: bool = True
+) -> tuple[str, str]:
+    """Convert a USD robot asset with the Isaac Sim 6 exporter API."""
+    from isaacsim.core.experimental.utils.app import enable_extension
+    from nvidia.srl.from_usd.to_urdf import UsdToUrdf
+    from pxr import Usd
+
+    enable_extension("isaacsim.asset.exporter.urdf")
+
+    urdf_output_dir = os.path.join(output_path, "urdf")
+    urdf_file_name = os.path.splitext(os.path.basename(usd_path))[0] + ".urdf"
+    urdf_output_path = os.path.join(urdf_output_dir, urdf_file_name)
+    urdf_meshes_output_dir = os.path.join(output_path, "meshes")
+
+    if os.path.exists(urdf_output_path) and os.path.exists(urdf_meshes_output_dir) and not force_conversion:
+        return urdf_output_path, urdf_meshes_output_dir
+
+    os.makedirs(urdf_output_dir, exist_ok=True)
+    os.makedirs(urdf_meshes_output_dir, exist_ok=True)
+
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"Failed to open USD stage for URDF export: {usd_path}"
+
+    usd_to_urdf = UsdToUrdf(
+        stage,
+        node_names_to_remove=None,
+        edge_names_to_remove=None,
+        root=None,
+        parent_link_is_body_1=None,
+        log_level="ERROR",
+    )
+    usd_to_urdf.save_to_file(
+        urdf_output_path=urdf_output_path,
+        visualize_collision_meshes=False,
+        mesh_dir=urdf_meshes_output_dir,
+        mesh_path_prefix="",
+        use_uri_file_prefix=False,
+    )
+    _make_urdf_mesh_paths_relative(
+        urdf_path=urdf_output_path,
+        mesh_dir=urdf_meshes_output_dir,
+        relative_to=urdf_output_dir,
+    )
+    _strip_urdf_link_prefix(
+        urdf_path=urdf_output_path,
+        prefix=os.path.splitext(os.path.basename(usd_path))[0] + "_",
+    )
+
+    sanitize_urdf = getattr(ControllerUtils, "_sanitize_urdf_for_pinocchio", None)
+    if sanitize_urdf is not None:
+        sanitize_urdf(urdf_output_path)
+
+    return urdf_output_path, urdf_meshes_output_dir
+
+
+def _make_urdf_mesh_paths_relative(urdf_path: str, mesh_dir: str, relative_to: str) -> None:
+    """Rewrite absolute mesh filenames in a generated URDF to paths relative to its directory."""
+    import xml.etree.ElementTree as ET
+
+    mesh_dir = os.path.abspath(mesh_dir)
+    relative_to = os.path.abspath(relative_to)
+
+    tree = ET.parse(urdf_path)
+    changed = False
+    for mesh in tree.iter("mesh"):
+        filename = mesh.get("filename")
+        if filename is None or not os.path.isabs(filename):
+            continue
+
+        try:
+            is_exported_mesh = os.path.commonpath([filename, mesh_dir]) == mesh_dir
+        except ValueError:
+            is_exported_mesh = False
+
+        if is_exported_mesh:
+            mesh.set("filename", os.path.relpath(filename, start=relative_to))
+            changed = True
+
+    if changed:
+        tree.write(urdf_path, encoding="unicode")
+
+
+def _strip_urdf_link_prefix(urdf_path: str, prefix: str) -> None:
+    """Remove the Isaac Sim 6 root prim prefix from generated URDF link names."""
+    import xml.etree.ElementTree as ET
+
+    def strip_prefix(value: str | None) -> str | None:
+        if value is not None and value.startswith(prefix):
+            return value[len(prefix) :]
+        return value
+
+    tree = ET.parse(urdf_path)
+    changed = False
+    for elem in tree.iter():
+        if elem.tag == "link":
+            stripped_name = strip_prefix(elem.get("name"))
+            if stripped_name != elem.get("name"):
+                elem.set("name", stripped_name)
+                changed = True
+        elif elem.tag in {"parent", "child"}:
+            stripped_link = strip_prefix(elem.get("link"))
+            if stripped_link != elem.get("link"):
+                elem.set("link", stripped_link)
+                changed = True
+
+    if changed:
+        tree.write(urdf_path, encoding="unicode")
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py

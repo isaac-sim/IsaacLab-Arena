@@ -29,6 +29,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher,
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
 _AT_LEAST_ONE_TEST_FAILED = False
+_FORCE_EXIT_PERSISTENT_ON_SUCCESS = False
 
 
 _SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900"))
@@ -125,6 +126,13 @@ def _close_persistent():
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(1)
+        if _FORCE_EXIT_PERSISTENT_ON_SUCCESS:
+            # Some backends can fail in Kit's app.close() after pytest has already
+            # completed successfully. Preserve the pytest result for tests that
+            # explicitly opt in to direct process exit.
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
         else:
             _PERSISTENT_SIM_APP_LAUNCHER.app.close()
 
@@ -163,6 +171,7 @@ def run_simulation_app_function(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
+    force_exit_on_success: bool = False,
     **kwargs,
 ) -> bool:
     """Run a simulation app in a separate process.
@@ -181,6 +190,8 @@ def run_simulation_app_function(
     """
     # Get a persistent simulation app
     global _AT_LEAST_ONE_TEST_FAILED
+    global _FORCE_EXIT_PERSISTENT_ON_SUCCESS
+    _FORCE_EXIT_PERSISTENT_ON_SUCCESS |= force_exit_on_success
     try:
         simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
         test_result = bool(function(simulation_app, **kwargs))

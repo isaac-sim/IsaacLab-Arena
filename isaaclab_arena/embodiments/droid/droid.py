@@ -5,6 +5,7 @@
 
 
 import functools
+import math
 import torch
 import warnings
 from abc import ABC
@@ -30,7 +31,9 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim.spawners.from_files.from_files import spawn_from_usd
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.sim.utils import clone
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
@@ -48,6 +51,121 @@ _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
 # The default stand height.
 _DEFAULT_STAND_HEIGHT_M: float = 1.35
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
+
+_DROID_GRIPPER_PRIM_NAME = "Robotiq_2F_85"
+_DROID_GRIPPER_MIN_LINK_MASS_KG = 0.02
+_DROID_GRIPPER_MIN_DIAGONAL_INERTIA = (1.0e-5, 1.0e-5, 1.0e-5)
+_DROID_GRIPPER_JOINT_NAMES = (
+    "finger_joint",
+    "left_inner_finger_joint",
+    "left_inner_finger_knuckle_joint",
+    "right_outer_knuckle_joint",
+    "right_inner_finger_joint",
+    "right_inner_finger_knuckle_joint",
+)
+_DROID_GRIPPER_OPEN_COMMAND = {joint_name: 0.0 for joint_name in _DROID_GRIPPER_JOINT_NAMES}
+_DROID_GRIPPER_CLOSE_POSITION = math.pi / 4
+_DROID_GRIPPER_CLOSE_COMMAND = {
+    "finger_joint": _DROID_GRIPPER_CLOSE_POSITION,
+    "left_inner_finger_joint": -_DROID_GRIPPER_CLOSE_POSITION,
+    "left_inner_finger_knuckle_joint": -_DROID_GRIPPER_CLOSE_POSITION,
+    "right_outer_knuckle_joint": _DROID_GRIPPER_CLOSE_POSITION,
+    "right_inner_finger_joint": _DROID_GRIPPER_CLOSE_POSITION,
+    "right_inner_finger_knuckle_joint": -_DROID_GRIPPER_CLOSE_POSITION,
+}
+
+
+def _needs_positive_scalar(value: float | None) -> bool:
+    return value is None or value <= 0.0
+
+
+def _needs_positive_vector(value) -> bool:
+    return value is None or min(value) <= 0.0
+
+
+def _patch_droid_gripper_mass_properties(robot_prim) -> None:
+    """Give Robotiq moving links positive mass/inertia for Newton's MuJoCo compiler."""
+    from pxr import Gf, UsdPhysics
+
+    stack = [robot_prim]
+    while stack:
+        prim = stack.pop()
+        stack.extend(prim.GetChildren())
+        if _DROID_GRIPPER_PRIM_NAME not in str(prim.GetPath()) or not prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            continue
+
+        mass_api = UsdPhysics.MassAPI(prim)
+        if not mass_api:
+            mass_api = UsdPhysics.MassAPI.Apply(prim)
+
+        mass_attr = mass_api.GetMassAttr()
+        if not mass_attr or _needs_positive_scalar(mass_attr.Get()):
+            mass_api.CreateMassAttr(_DROID_GRIPPER_MIN_LINK_MASS_KG)
+
+        inertia_attr = mass_api.GetDiagonalInertiaAttr()
+        inertia = inertia_attr.Get() if inertia_attr else None
+        if _needs_positive_vector(inertia):
+            mass_api.CreateDiagonalInertiaAttr(Gf.Vec3f(*_DROID_GRIPPER_MIN_DIAGONAL_INERTIA))
+
+
+def _get_or_apply_api(prim, api_schema):
+    return api_schema(prim) if prim.HasAPI(api_schema) else api_schema.Apply(prim)
+
+
+def _move_droid_gripper_collision_schemas_to_meshes(robot_prim) -> None:
+    """Move Robotiq mesh collision schemas onto geometry prims for Newton import."""
+    from pxr import UsdGeom, UsdPhysics
+
+    stack = [robot_prim]
+    while stack:
+        prim = stack.pop()
+        stack.extend(prim.GetChildren())
+
+        prim_path = str(prim.GetPath())
+        if _DROID_GRIPPER_PRIM_NAME not in prim_path:
+            continue
+        if prim.IsA(UsdGeom.Mesh):
+            continue
+        if not prim.HasAPI(UsdPhysics.CollisionAPI) or not prim.HasAPI(UsdPhysics.MeshCollisionAPI):
+            continue
+
+        mesh_children = [child for child in prim.GetChildren() if child.IsA(UsdGeom.Mesh)]
+        if not mesh_children:
+            continue
+
+        # The flattened asset authors collision schemas on Xform wrappers, while Newton's USD importer
+        # creates mesh collision shapes only from concrete Mesh prims.
+        parent_collision_api = UsdPhysics.CollisionAPI(prim)
+        parent_mesh_collision_api = UsdPhysics.MeshCollisionAPI(prim)
+        collision_enabled = parent_collision_api.GetCollisionEnabledAttr().Get()
+        mesh_approximation = parent_mesh_collision_api.GetApproximationAttr().Get()
+
+        for child in mesh_children:
+            child_collision_api = _get_or_apply_api(child, UsdPhysics.CollisionAPI)
+            if collision_enabled is not None:
+                child_collision_api.CreateCollisionEnabledAttr(collision_enabled)
+
+            child_mesh_collision_api = _get_or_apply_api(child, UsdPhysics.MeshCollisionAPI)
+            if mesh_approximation is not None:
+                child_mesh_collision_api.CreateApproximationAttr(mesh_approximation)
+
+        prim.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+        prim.RemoveAPI(UsdPhysics.CollisionAPI)
+
+
+@clone
+def spawn_droid_usd(
+    prim_path: str,
+    cfg: UsdFileCfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+):
+    """Spawn the DROID USD and patch Robotiq schemas needed by Newton/MJWarp."""
+    prim = spawn_from_usd(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
+    _patch_droid_gripper_mass_properties(prim)
+    _move_droid_gripper_collision_schemas_to_meshes(prim)
+    return prim
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -210,6 +328,7 @@ class DroidSceneCfg:
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
+            func=spawn_droid_usd,
             usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
@@ -256,10 +375,11 @@ class DroidSceneCfg:
                 damping=80.0,
             ),
             "gripper": ImplicitActuatorCfg(
-                joint_names_expr=["finger_joint"],
-                stiffness=None,
-                damping=None,
-                velocity_limit=1.0,
+                joint_names_expr=list(_DROID_GRIPPER_JOINT_NAMES),
+                effort_limit_sim=80.0,
+                velocity_limit_sim=2.0,
+                stiffness=200.0,
+                damping=20.0,
             ),
         },
     )
@@ -339,9 +459,9 @@ class DroidDifferentialIKActionsCfg:
 
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
         asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
+        joint_names=list(_DROID_GRIPPER_JOINT_NAMES),
+        open_command_expr=dict(_DROID_GRIPPER_OPEN_COMMAND),
+        close_command_expr=dict(_DROID_GRIPPER_CLOSE_COMMAND),
     )
 
 
@@ -357,9 +477,9 @@ class DroidRelativeJointPositionActionsCfg:
     )
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
         asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
+        joint_names=list(_DROID_GRIPPER_JOINT_NAMES),
+        open_command_expr=dict(_DROID_GRIPPER_OPEN_COMMAND),
+        close_command_expr=dict(_DROID_GRIPPER_CLOSE_COMMAND),
     )
 
 
@@ -376,9 +496,9 @@ class DroidAbsoluteJointPositionActionsCfg:
 
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
         asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
+        joint_names=list(_DROID_GRIPPER_JOINT_NAMES),
+        open_command_expr=dict(_DROID_GRIPPER_OPEN_COMMAND),
+        close_command_expr=dict(_DROID_GRIPPER_CLOSE_COMMAND),
     )
 
 
@@ -446,7 +566,7 @@ class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/external_camera",
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera",
         height=720,
         width=1280,
         data_types=["rgb"],
@@ -459,7 +579,7 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
     )
     external_camera_2: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera_2",
         height=720,
         width=1280,
         data_types=["rgb"],
