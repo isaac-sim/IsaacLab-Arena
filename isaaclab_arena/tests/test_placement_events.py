@@ -230,68 +230,69 @@ def test_solve_and_place_objects_uses_runtime_pool():
     env._assets["robot"].write_root_pose_to_sim.assert_called_once()
 
 
-def test_static_layout_event_writes_embodiment_to_configured_scene_asset():
-    from isaaclab_arena.relations.placement_events import place_assets_from_layouts
-    from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+def _identity_pose(position_xyz):
+    from isaaclab_arena.utils.pose import Pose
 
-    robot = DummyEmbodiment(
-        name="droid",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
-        scene_name="robot",
-    )
-    layouts = [
-        PlacementResult(
-            validation_results=_checklist(True),
-            positions={robot: (0.1, 0.2, 0.0)},
-            final_loss=0.0,
-            attempts=1,
-        ),
-        PlacementResult(
-            validation_results=_checklist(True),
-            positions={robot: (0.4, 0.5, 0.0)},
-            final_loss=0.0,
-            attempts=1,
-        ),
-    ]
+    return Pose(position_xyz=position_xyz, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+
+def test_reset_placement_asset_pose_writes_compound_prims_with_env_origins():
+    """A single fixed layout writes every scene entity to all resetting envs, origin-shifted, zero velocity."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose
+
     env = _make_mock_env(num_envs=2)
+    env.scene.env_origins = torch.tensor([[10.0, 0.0, 0.0], [0.0, 20.0, 0.0]])
+    scene_writes = [("robot", _identity_pose((0.1, 0.2, 0.5))), ("stand", _identity_pose((0.1, 0.2, 0.0)))]
 
-    place_assets_from_layouts(
-        env,
-        torch.tensor([1]),
-        assets=[robot],
-        layouts=layouts,
-    )
+    reset_placement_asset_pose(env, torch.tensor([0, 1]), scene_writes=scene_writes)
 
-    assert "droid" not in env._assets
-    pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
-    assert torch.allclose(pose[0, :3], torch.tensor([0.4, 0.5, 0.0]))
-
-    with pytest.raises(AssertionError, match="Static layouts must match"):
-        place_assets_from_layouts(
-            env,
-            torch.tensor([0]),
-            assets=[robot],
-            layouts=layouts[:1],
-        )
+    for name, base in (("robot", (0.1, 0.2, 0.5)), ("stand", (0.1, 0.2, 0.0))):
+        pose = env._assets[name].write_root_pose_to_sim.call_args.args[0]
+        assert pose.shape == (2, 7)
+        assert torch.allclose(pose[0, :3], torch.tensor([base[0] + 10.0, base[1], base[2]]))
+        assert torch.allclose(pose[1, :3], torch.tensor([base[0], base[1] + 20.0, base[2]]))
+        velocity = env._assets[name].write_root_velocity_to_sim.call_args.args[0]
+        assert torch.count_nonzero(velocity) == 0
 
 
-def test_static_layout_event_rejects_missing_non_anchor_assets():
-    from isaaclab_arena.relations.placement_events import place_assets_from_layouts
-    from isaaclab_arena.relations.placement_result import PlacementResult
+def test_reset_placement_asset_pose_per_env_indexes_by_absolute_env():
+    """A partial reset must apply write_pose_list[env_id], not the first layout."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
 
-    _, box1, _ = _create_test_objects()
-    env = _make_mock_env(num_envs=1)
-    layout = PlacementResult(
-        validation_results=_checklist(True),
-        positions={},
-        final_loss=0.0,
-        attempts=1,
-    )
+    env = _make_mock_env(num_envs=3)
+    write_pose_list = [[("robot", _identity_pose((float(i), 0.0, 0.0)))] for i in range(3)]
 
-    with pytest.raises(AssertionError, match="missing non-anchor assets.*box1"):
-        place_assets_from_layouts(env, torch.tensor([0]), assets=[box1], layouts=[layout])
+    reset_placement_asset_pose_per_env(env, torch.tensor([2]), write_pose_list=write_pose_list)
+
+    robot = env._assets["robot"]
+    robot.write_root_pose_to_sim.assert_called_once()
+    assert torch.equal(robot.write_root_pose_to_sim.call_args.kwargs["env_ids"], torch.tensor([2]))
+    assert torch.allclose(robot.write_root_pose_to_sim.call_args.args[0][0, :3], torch.tensor([2.0, 0.0, 0.0]))
+
+
+def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
+
+    env = _make_mock_env(num_envs=2)
+    write_pose_list = [
+        [("robot", _identity_pose((x, 0.0, 0.5))), ("stand", _identity_pose((x, 0.0, 0.0)))] for x in (0.0, 1.0)
+    ]
+
+    reset_placement_asset_pose_per_env(env, torch.tensor([0, 1]), write_pose_list=write_pose_list)
+
+    assert env._assets["robot"].write_root_pose_to_sim.call_count == 2
+    assert env._assets["stand"].write_root_pose_to_sim.call_count == 2
+
+
+def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
+    """Guarding the length turns an out-of-range env index into a clear error, not an IndexError."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
+
+    env = _make_mock_env(num_envs=3)
+    short_list = [[("robot", _identity_pose((0.0, 0.0, 0.0)))]]
+
+    with pytest.raises(AssertionError, match="per-env pose writes"):
+        reset_placement_asset_pose_per_env(env, torch.tensor([2]), write_pose_list=short_list)
 
 
 def test_get_placement_pool_returns_runtime_pool():
