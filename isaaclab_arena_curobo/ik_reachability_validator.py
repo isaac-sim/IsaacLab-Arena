@@ -76,6 +76,8 @@ class ReachabilityValidator(PlacementValidator):
         base_pose = config.embodiment.get_initial_pose()
         self._base_pos = base_pose.position_xyz
         self._base_quat_xyzw = base_pose.rotation_xyzw
+        self._warned_no_targets = False
+        """Guards the zero-target warning so it fires once per validator, not once per candidate layout."""
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -126,6 +128,14 @@ class ReachabilityValidator(PlacementValidator):
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
         if not targets:
+            # The check is enabled but no movable object is stamped as a reachability target, so it passes every
+            # layout trivially.
+            if not self._warned_no_targets:
+                print(
+                    "[ReachabilityValidator] WARNING: enabled but resolved zero reachability targets; every layout "
+                    "passes the IK check trivially. No reachability targets found in the task."
+                )
+                self._warned_no_targets = True
             return True
 
         grasp_poses = torch.stack([
