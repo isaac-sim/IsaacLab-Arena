@@ -41,7 +41,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, translate_by_xyz_offset
 
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
@@ -75,9 +75,19 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
         self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
         # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
-        self._robot_base_z_offset = stand_height_m - _DEFAULT_STAND_HEIGHT_M
-        self.scene_config.robot.init_state.pos = self._lift_z(self.scene_config.robot.init_state.pos)
-        self.scene_config.stand.init_state.pos = self._lift_z(self.scene_config.stand.init_state.pos)
+        self._robot_base_offset = (0.0, 0.0, stand_height_m - _DEFAULT_STAND_HEIGHT_M)
+        if self.initial_pose is None:
+            # No explicit base pose: lift the default robot and stand init states so the robot sits atop
+            # the lifted stand.
+            self.scene_config.robot.init_state.pos = translate_by_xyz_offset(
+                self.scene_config.robot.init_state.pos, self._robot_base_offset
+            )
+            self.scene_config.stand.init_state.pos = translate_by_xyz_offset(
+                self.scene_config.stand.init_state.pos, self._robot_base_offset
+            )
+        else:
+            # Explicit base pose: lift it via set_initial_pose; get_scene_cfg writes the scene config later.
+            self.set_initial_pose(self.initial_pose)
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -88,21 +98,16 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
-    def _lift_z(self, pos: tuple[float, float, float]) -> tuple[float, float, float]:
-        """Return ``pos`` shifted up by the stand-height-driven robot base offset."""
-        return (pos[0], pos[1], pos[2] + self._robot_base_z_offset)
+    def set_initial_pose(self, pose: Pose) -> None:
+        """Store the requested base pose, lifted by the stand-height offset to match the spawned base."""
+        super().set_initial_pose(pose.translate(self._robot_base_offset))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # We override the default initial pose setting function in order to also set the initial pose
-        # of the stand, and to re-apply the stand-height lift on top of the requested pose (the base
-        # implementation overwrites init_state.pos with the raw pose).
+        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
+        # base implementation sets the robot base as-is; we only add the stand placement here.
         scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.robot.init_state.pos = self._lift_z(pose.position_xyz)
-        scene_config.stand.init_state.pos = self._lift_z(pose.position_xyz)
+        scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_xyzw
-
         return scene_config
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
