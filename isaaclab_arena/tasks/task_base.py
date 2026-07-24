@@ -9,9 +9,11 @@ from typing import Any
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.relations.relations import RequiresReachability
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
@@ -72,6 +74,13 @@ class TaskBase(ABC):
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
         return []
+
+    def apply_reachability_constraints(self) -> None:
+        """Apply RequiresReachability relations to each placeable object named in reachability_target_objects."""
+        for param_name in self.reachability_target_objects:
+            target = getattr(self, param_name, None)
+            if isinstance(target, Object) and not target.has_relation(RequiresReachability):
+                target.add_relation(RequiresReachability())
 
     @classmethod
     def success_state_transition(cls, **_) -> TaskTransition:

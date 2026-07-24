@@ -14,7 +14,6 @@ from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils impor
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import RequiresReachability
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -39,7 +38,6 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
-    _attach_reachability_relations_to_assets(graph_spec.get_reachability_target_object_ids(), assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
@@ -61,14 +59,6 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
         required_checks=set(required) if required is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
-
-
-def _attach_reachability_relations_to_assets(
-    target_object_ids: tuple[str, ...], assets_by_node_id: dict[str, type[Asset]]
-) -> None:
-    """Attach a RequiresReachability relation on each reachability-target asset so the IK check targets it."""
-    for node_id in target_object_ids:
-        assets_by_node_id[node_id].add_relation(RequiresReachability())
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:

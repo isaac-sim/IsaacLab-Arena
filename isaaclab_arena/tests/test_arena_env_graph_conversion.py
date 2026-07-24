@@ -166,8 +166,8 @@ def test_default_light_is_injected_when_scene_has_none():
 
 
 def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(simulation_app):
-    # A pick-and-place spec: the pick-up object and its object destination are auto-derived from the task's
-    # reachability_target_objects and must end up carrying a RequiresReachability marker after conversion --
+    # The task owns reachability: PickAndPlaceTask.apply_reachability_constraints() (invoked by the env builder,
+    # called directly here) stamps a RequiresReachability marker on the pick-up object and its object destination --
     # the exact relation (obj.has_relation(RequiresReachability)) the cuRobo ReachabilityValidator filters on to
     # pick which movable objects to IK-check. A bystander object stays unmarked.
     from isaaclab_arena.relations.relations import RequiresReachability
@@ -198,6 +198,8 @@ def _test_pick_and_place_stamps_reachability_marker_on_pick_and_place_assets(sim
     )
 
     arena_env = spec.to_arena_env()
+    # Conversion no longer stamps markers; the builder does, by asking the task. Drive that step directly.
+    arena_env.task.apply_reachability_constraints()
 
     # A single ATOMIC subtask converts to the PickAndPlaceTask itself, not a container with .subtasks.
     subtask = getattr(arena_env.task, "subtasks", [arena_env.task])[0]

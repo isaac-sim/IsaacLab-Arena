@@ -147,6 +147,11 @@ class CompositeTaskBase(TaskBase):
         """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""
         return self.subtasks[0].get_viewer_cfg()
 
+    def apply_reachability_constraints(self) -> None:
+        """Apply each subtask's reachability constraints; a composite owns no target objects directly."""
+        for subtask in self.subtasks:
+            subtask.apply_reachability_constraints()
+
     @staticmethod
     def _add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
         "Config transformation to add a suffix to all field names."
