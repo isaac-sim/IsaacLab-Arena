@@ -509,6 +509,34 @@
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
 <p>This page describes how to install Isaac Lab Arena, either natively with <code class="docutils literal notranslate"><span class="pre">uv</span></code>
 or from source inside a Docker container.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Supported workflows by installation method</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Installation method</p></th>
+<th class="head"><p>Evaluation</p></th>
+<th class="head"><p>Imitation learning</p></th>
+<th class="head"><p>Reinforcement learning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Docker</p></td>
+<td><p>✓</p></td>
+<td><p>✓</p></td>
+<td><p>✓</p></td>
+</tr>
+<tr class="row-odd"><td><p>uv (Isaac Lab from source)</p></td>
+<td><p>✓</p></td>
+<td><p>✓</p></td>
+<td><p>✓</p></td>
+</tr>
+<tr class="row-even"><td><p>uv (Isaac Lab from wheel)</p></td>
+<td><p>✓</p></td>
+<td><p>✗</p></td>
+<td><p>✗</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <section id="supported-systems">
 <h2>Supported Systems<a class="headerlink" href="#supported-systems" title="Link to this heading">#</a></h2>
 <p>Isaac Lab Arena runs on Isaac Sim <code class="docutils literal notranslate"><span class="pre">6.0.0</span></code> and Isaac Lab <code class="docutils literal notranslate"><span class="pre">3.0.0</span></code>.
@@ -518,39 +546,84 @@ Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are det
 </section>
 <section id="native-uv-developer-setup">
 <h2>Native uv developer setup<a class="headerlink" href="#native-uv-developer-setup" title="Link to this heading">#</a></h2>
-<p>Isaac Lab Arena can be installed natively with <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>
-against the public Isaac Lab and Isaac Sim wheels; the committed lockfile pins
-the complete environment.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/isaac-sim/IsaacLab-Arena.git
+<p>Isaac Lab Arena can be installed natively with <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>;
+the committed lockfile pins the complete environment. Two flavors are
+available, differing only in where Isaac Lab comes from:</p>
+<ul class="simple">
+<li><p><strong>Source flavor (recommended):</strong> Isaac Lab is installed editable from the
+<code class="docutils literal notranslate"><span class="pre">submodules/IsaacLab</span></code> checkout.</p></li>
+<li><p><strong>Wheel flavor:</strong> Isaac Lab is installed from the published wheel, which
+does not include Isaac Lab’s RL/IL scripts.</p></li>
+</ul>
+<p>Both flavors follow the same workflow — clone, sync, activate, run; only the
+<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> line differs.</p>
+<p>Clone the repository:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span>https://github.com/isaac-sim/IsaacLab-Arena.git
 <span class="nb">cd</span><span class="w"> </span>IsaacLab-Arena
-uv<span class="w"> </span>sync
 </pre></div>
 </div>
+<p>Sync the environment and activate it, picking the flavor that matches your
+workflow:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Source (recommended)</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Wheel</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The wheel flavor does not support the
+<a class="reference internal" href="../example_workflows/imitation_learning/index.html"><span class="doc">imitation learning</span></a>
+and
+<a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html"><span class="doc">reinforcement learning</span></a>
+workflows: the published Isaac Lab wheel does not include the scripts
+they rely on. Use the source flavor for those workflows.</p>
+</div>
+</div>
+</div>
 <p><code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> creates a Python virtual environment in <code class="docutils literal notranslate"><span class="pre">.venv/</span></code> (pinned by
-<code class="docutils literal notranslate"><span class="pre">.python-version</span></code>), installs Isaac Lab Arena, and pulls Isaac Lab together
-with the matching Isaac Sim, PyTorch, and Newton wheels at the versions pinned
-by the committed lockfile.</p>
+<code class="docutils literal notranslate"><span class="pre">.python-version</span></code>), installs Isaac Lab Arena and Isaac Lab (editable from
+<code class="docutils literal notranslate"><span class="pre">submodules/IsaacLab</span></code> in the source flavor, or from the published wheel),
+and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
+pinned by the committed lockfile.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The two flavors are mutually exclusive within the single <code class="docutils literal notranslate"><span class="pre">.venv</span></code>: syncing
+one replaces the other. In the wheel flavor, run <code class="docutils literal notranslate"><span class="pre">python</span></code>/<code class="docutils literal notranslate"><span class="pre">pytest</span></code> in
+the activated environment rather than through <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> — a bare
+<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> re-syncs the environment back to the source flavor.</p>
+</div>
 <p>Accept the Isaac Sim EULA so the first launch is non-interactive:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
 </pre></div>
 </div>
 <p>Launch a short zero-action rollout as a visual validation that things are
 running:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">20</span><span class="w"> </span>cube_goal_pose
 </pre></div>
 </div>
 <p>Optionally, watch the rollout in the GUI visualizer by adding <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> (and
 a few more steps so there is time to see it):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">200</span><span class="w"> </span>cube_goal_pose
 </pre></div>
 </div>
 <p>Optionally verify the installation by running the test phases (the same phases
 the Docker workflow runs below):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
-uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
-uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_subprocess<span class="w"> </span>isaaclab_arena/tests/
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
+pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
+pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_subprocess<span class="w"> </span>isaaclab_arena/tests/
 </pre></div>
 </div>
 <p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed you’re ready to build your first environment;
