@@ -7,6 +7,7 @@ from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -33,6 +34,7 @@ class Background(Object):
             object_type=ObjectType.BASE,
             **kwargs,
         )
+        self.collision_mode = CollisionMode.MESH
         # We use this to define reset terms for when objects are dropped.
         # NOTE(alexmillane, 2025.09.19): This is a global z height. If you shift the
         # background, by using initial_pose, this height doesn't shift with it.

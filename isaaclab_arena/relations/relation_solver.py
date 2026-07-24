@@ -60,6 +60,13 @@ class RelationSolver:
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop warp mesh caches so solvers stored in event configs can be deep-copied."""
+        self._mesh_manager = None
+        self._mesh_cache = None
+        self._mesh_collision_enabled = False
+        self._mesh_orientations = None
+
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
 

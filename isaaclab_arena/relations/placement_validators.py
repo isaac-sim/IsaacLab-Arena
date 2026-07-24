@@ -504,6 +504,10 @@ class NoOverlapValidator(PlacementValidator):
             )
         return self._cpu_mesh_manager
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop the CPU warp mesh cache."""
+        self._cpu_mesh_manager = None
+
     def _validate_no_overlap_mesh(
         self,
         positions: dict[PlacementAsset, tuple[float, float, float]],
