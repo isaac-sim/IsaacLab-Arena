@@ -9,11 +9,11 @@ import torch
 
 import pytest
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
