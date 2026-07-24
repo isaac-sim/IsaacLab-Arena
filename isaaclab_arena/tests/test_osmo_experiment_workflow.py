@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
+from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.submit_arena_experiment import (
@@ -26,6 +27,7 @@ from osmo.submit_arena_experiment import (
     POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE,
     ArenaExperimentSubmissionCfg,
     build_arena_experiment_submission_cfg,
+    format_submission_config,
     main,
     submit_arena_experiment,
 )
@@ -36,8 +38,9 @@ from osmo.tasks.collect_experiment_outputs_task import (
     experiment_runner_output_directory_input_token,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
+from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
-from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
+from osmo.workflows.arena_experiment_workflow import Gr00tArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
@@ -69,6 +72,30 @@ def _pi0_experiment_cfg(first_variant: str = "pi05") -> ArenaExperimentCfg:
                 name="second",
                 environment=PickAndPlaceMapleTableEnvironmentCfg(),
                 policy=Pi0RemotePolicyCfg(),
+            ),
+            "local": ArenaRunCfg(
+                name="local",
+                environment=PickAndPlaceMapleTableEnvironmentCfg(),
+                policy=ZeroActionPolicyCfg(),
+            ),
+        }
+    )
+
+
+GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
+
+
+def _gr00t_experiment_cfg() -> ArenaExperimentCfg:
+    return ArenaExperimentCfg(
+        runs={
+            "served": ArenaRunCfg(
+                name="served",
+                environment=PickAndPlaceMapleTableEnvironmentCfg(),
+                policy=Gr00tRemoteClosedloopPolicyCfg(
+                    policy_config_yaml_path=GR00T_CONFIG_YAML_PATH,
+                    remote_host="user-host",
+                    remote_port=1234,
+                ),
             ),
             "local": ArenaRunCfg(
                 name="local",
@@ -135,10 +162,15 @@ def _compose_and_submit(
 
 def test_declares_policy_server_name_and_workflow_mappings():
     """Keep policy-server selection and runtime workflow dispatch explicit."""
-    assert POLICY_SERVER_TASK_CFG_BY_NAME == {"pi0": Pi0ServerTaskCfg}
-    assert POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE == {Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow}
+    assert POLICY_SERVER_TASK_CFG_BY_NAME == {"pi0": Pi0ServerTaskCfg, "gr00t": Gr00tServerTaskCfg}
+    assert POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE == {
+        Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow,
+        Gr00tServerTaskCfg: Gr00tArenaExperimentWorkflow,
+    }
     assert Pi0ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
+    assert Gr00tArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
+    assert Gr00tArenaExperimentWorkflow.server_task_cfg_type is Gr00tServerTaskCfg
 
 
 def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults():
@@ -292,6 +324,75 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "--experiment-output-directory" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
+
+
+def test_gr00t_experiment_fans_out_with_dedicated_gr00t_servers():
+    """Give each GR00T Run its own GR00T server task while leaving non-GR00T Runs server-free."""
+    source_experiment_cfg = _gr00t_experiment_cfg()
+    workflow = Gr00tArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="gr00t-experiment"),
+        experiment_cfg=source_experiment_cfg,
+        server_task_cfg=Gr00tServerTaskCfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    assert [group["name"] for group in groups] == ["arena-run-0", "arena-run-1", "arena-experiment-output"]
+
+    served_tasks = groups[0]["tasks"]
+    local_tasks = groups[1]["tasks"]
+    assert [task["name"] for task in served_tasks] == ["experiment-runner-0", "policy-server-0"]
+    assert [task["name"] for task in local_tasks] == ["experiment-runner-1"]
+    assert served_tasks[1]["image"] == Gr00tServerTaskCfg().image
+
+    served_experiment = _embedded_experiment(served_tasks[0])
+    served_policy = served_experiment["runs"]["served"]["policy"]
+    assert served_policy["remote_host"] == Gr00tServerTask.host_token("policy-server-0")
+    assert served_policy["remote_port"] == POLICY_SERVER_PORT
+    # The source config is snapshotted, not mutated, so the user's values survive.
+    assert source_experiment_cfg.runs["served"].policy.remote_host == "user-host"
+    assert source_experiment_cfg.runs["served"].policy.remote_port == 1234
+
+    local_experiment = _embedded_experiment(local_tasks[0])
+    assert "remote_host" not in local_experiment["runs"]["local"]["policy"]
+
+    runner_command = _task_file(served_tasks[0], "/tmp/entry.sh")["contents"]
+    assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in runner_command
+    assert "--enable_cameras" in runner_command
+
+
+def test_gr00t_workflow_rejects_experiment_without_gr00t_run():
+    """Reject a GR00T server workflow whose Experiment has no GR00T Run to serve."""
+    with pytest.raises(AssertionError, match="requires at least one Run using Gr00tRemoteClosedloopPolicy"):
+        Gr00tArenaExperimentWorkflow(
+            workflow_cfg=WorkflowCfg(),
+            experiment_cfg=_zero_action_experiment_cfg(),
+            server_task_cfg=Gr00tServerTaskCfg(),
+        )
+
+
+def test_gr00t_cli_dry_run_renders_workflow(tmp_path, capsys):
+    """Compose and render a GR00T Experiment submission through the real CLI parser."""
+    experiment_path = tmp_path / "gr00t_experiment.yaml"
+    experiment_path.write_text(
+        f"""runs:
+  gr00t_run:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+      policy_config_yaml_path: {GR00T_CONFIG_YAML_PATH}
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["--experiment_cfg", str(experiment_path), "--policy_server", "gr00t", "--dry_run"]) == 0
+    workflow = _rendered_workflow(capsys.readouterr().out)
+    tasks = _workflow_tasks(workflow)
+    assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
+    assert tasks[1]["image"] == Gr00tServerTaskCfg().image
+    served_policy = _embedded_experiment(tasks[0])["runs"]["gr00t_run"]["policy"]
+    assert served_policy["remote_host"] == Gr00tServerTask.host_token("policy-server-0")
+    assert served_policy["remote_port"] == POLICY_SERVER_PORT
 
 
 def test_embeds_effective_experiment_yaml():
@@ -575,6 +676,65 @@ def test_cli_accepts_arbitrary_paths_and_trailing_overrides(tmp_path, capsys):
     tasks = _workflow_tasks(workflow)
     assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
     assert tasks[0]["image"] == "registry.example.com/evaluator:cli"
+
+
+def test_dry_run_flag_renders_workflow_without_submitting(tmp_path, capsys):
+    """Render the workflow via the --dry_run flag instead of the osmo.dry_run override."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+  openpi:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["--experiment_cfg", str(experiment_path), "--policy_server", "pi0", "--dry_run"]) == 0
+    rendered = capsys.readouterr().out
+    assert "[dry-run] Rendered workflow YAML" in rendered
+    assert _rendered_workflow(rendered)["workflow"]["name"] == WorkflowCfg().workflow_name
+
+    # The flag coexists with an explicit override without producing a duplicate Hydra key.
+    assert (
+        main(["--experiment_cfg", str(experiment_path), "--policy_server", "pi0", "--dry_run", "osmo.dry_run=true"])
+        == 0
+    )
+    assert "[dry-run] Rendered workflow YAML" in capsys.readouterr().out
+
+
+def test_format_submission_config_lists_every_override_section():
+    """Render the four submission sections whose leaves are the valid Hydra override keys."""
+    submission_cfg = _compose_submission()
+
+    values = yaml.safe_load(format_submission_config(submission_cfg))
+
+    assert set(values) == {"osmo", "experiment_runner", "policy_server", "experiment_cfg"}
+    assert values["osmo"]["pool"] == WorkflowCfg().pool
+    assert values["experiment_runner"]["image"] == ExperimentRunnerTaskCfg().image
+    # policy_server is typed as the base TaskCfg but keeps its concrete pi0 fields.
+    assert values["policy_server"]["policy_variant"] == Pi0ServerTaskCfg().policy_variant
+    assert OPENPI_RUN_NAME in values["experiment_cfg"]["runs"]
+
+
+def test_list_overrides_flag_prints_config_without_submitting(capsys):
+    """The --list_overrides flag composes and prints the config, then returns without submitting."""
+    return_code = main([
+        "--experiment_cfg",
+        str(OPENPI_EXPERIMENT_CFG_PATH),
+        "--policy_server",
+        "pi0",
+        "--list_overrides",
+    ])
+
+    assert return_code == 0
+    output = capsys.readouterr().out
+    assert "# Composed OSMO submission configuration" in output
+    values = yaml.safe_load(output[output.index("osmo:") :])
+    assert set(values) == {"osmo", "experiment_runner", "policy_server", "experiment_cfg"}
+    assert OPENPI_RUN_NAME in values["experiment_cfg"]["runs"]
 
 
 def test_experiment_path_is_relative_to_the_invocation_directory(tmp_path, monkeypatch):

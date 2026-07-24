@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,19 +19,23 @@ from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
+from osmo.tasks.gr00t_server_task import Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
-from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
+from osmo.workflows.arena_experiment_workflow import Gr00tArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 
 SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 POLICY_SERVER_TASK_CFG_BY_NAME = {
     "pi0": Pi0ServerTaskCfg,
+    "gr00t": Gr00tServerTaskCfg,
 }
 POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE = {
     Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow,
+    Gr00tServerTaskCfg: Gr00tArenaExperimentWorkflow,
 }
 
 
@@ -117,11 +122,33 @@ def build_arena_experiment_submission_cfg(
     return submission_cfg
 
 
+def format_submission_config(submission_cfg: ArenaExperimentSubmissionCfg) -> str:
+    """Render the composed submission as YAML; every leaf is a valid Hydra KEY=VALUE override.
+
+    The experiment section reuses the Experiment serializer so graph-YAML environments render in
+    their reload-friendly ``type:`` form rather than the internal argparse tokens.
+    """
+    submission_values = {
+        "osmo": OmegaConf.to_container(OmegaConf.structured(submission_cfg.osmo), resolve=True, enum_to_str=True),
+        "experiment_runner": OmegaConf.to_container(
+            OmegaConf.structured(submission_cfg.experiment_runner), resolve=True, enum_to_str=True
+        ),
+        "policy_server": OmegaConf.to_container(
+            OmegaConf.structured(submission_cfg.policy_server), resolve=True, enum_to_str=True
+        ),
+        "experiment_cfg": yaml.safe_load(serialize_arena_experiment_to_yaml(submission_cfg.experiment_cfg)),
+    }
+    return yaml.safe_dump(submission_values, sort_keys=False)
+
+
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create the path-first submission command-line parser."""
     policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
     parser = argparse.ArgumentParser(
-        usage=f"%(prog)s [-h] --experiment_cfg PATH --policy_server {{{policy_server_choices}}} [OVERRIDE ...]",
+        usage=(
+            f"%(prog)s [-h] --experiment_cfg PATH --policy_server {{{policy_server_choices}}} "
+            "[--dry_run] [--list_overrides] [OVERRIDE ...]"
+        ),
         description="Submit a typed Arena Experiment as an OSMO workflow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=r"""
@@ -152,6 +179,19 @@ Hydra override precedence:
         choices=POLICY_SERVER_TASK_CFG_BY_NAME,
         help="co-scheduled policy-server implementation",
     )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help=(
+            "render the workflow YAML and print it instead of submitting to OSMO "
+            "(shorthand for the 'osmo.dry_run=true' override)"
+        ),
+    )
+    parser.add_argument(
+        "--list_overrides",
+        action="store_true",
+        help="print the composed submission configuration and exit; every leaf is a valid Hydra KEY=VALUE override",
+    )
     parser.allow_abbrev = False
     return parser
 
@@ -163,11 +203,23 @@ def main(cli_args: list[str] | None = None) -> int:
     parser = _create_argument_parser()
     args, overrides = parser.parse_known_args(cli_args)
     assert_hydra_overrides(overrides, parser)
+    # Translate the flag into the typed override, unless an explicit one is already present
+    # (Hydra rejects two overrides for the same key).
+    if args.dry_run and not any(override.startswith("osmo.dry_run=") for override in overrides):
+        overrides = [*overrides, "osmo.dry_run=true"]
     submission_cfg = build_arena_experiment_submission_cfg(
         experiment_cfg_path=args.experiment_cfg_path,
         policy_server_name=args.policy_server,
         overrides=overrides,
     )
+    if args.list_overrides:
+        print(
+            "# Composed OSMO submission configuration. Every leaf is a valid Hydra KEY=VALUE override, e.g.\n"
+            "#   osmo.pool=isaac-dev-l40-03  policy_server.policy_variant=pi0  "
+            "experiment_cfg.runs.<run_name>.rollout_limit.num_episodes=4\n"
+        )
+        print(format_submission_config(submission_cfg))
+        return 0
     return submit_arena_experiment(submission_cfg)
 
 

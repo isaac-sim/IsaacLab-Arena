@@ -219,6 +219,7 @@ TABLE OF CONTENTS
    pages/example_workflows/reinforcement_learning_workflows/index
    pages/example_workflows/agentic_env_gen/index
    pages/example_workflows/sensitivity_analysis/index
+   pages/example_workflows/running_evaluations_on_osmo
 
 .. toctree::
    :maxdepth: 1

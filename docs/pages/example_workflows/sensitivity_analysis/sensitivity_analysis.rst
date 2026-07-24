@@ -201,8 +201,5 @@ Running on OSMO
 ^^^^^^^^^^^^^^^
 
 Running experiments for several environments and many episodes can be time-consuming.
-We use OSMO to orchestrate running experiments quickly on multi-node clusters.
-
-.. note::
-
-  OSMO docs coming soon...
+We use OSMO to orchestrate running experiments quickly on multi-node clusters. See
+:doc:`/pages/example_workflows/running_evaluations_on_osmo`.
