@@ -193,6 +193,67 @@ def test_bounding_box_multi_env_overlaps():
     assert result[1].item() is False
 
 
+def test_union_encloses_all_boxes():
+    """Union spans the component-wise min/max of disjoint boxes."""
+    a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 1.0))
+    b = AxisAlignedBoundingBox(min_point=(2.0, -1.0, 0.0), max_point=(3.0, 0.0, 2.0))
+    result = AxisAlignedBoundingBox.union([a, b])
+    torch.testing.assert_close(result.min_point, torch.tensor([[0.0, -1.0, 0.0]]))
+    torch.testing.assert_close(result.max_point, torch.tensor([[3.0, 1.0, 2.0]]))
+
+
+def test_union_broadcasts_single_box_over_batch():
+    """An N=1 box broadcasts against a batched box, yielding a per-env union."""
+    batched = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [5.0, 5.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [6.0, 6.0, 1.0]]),
+    )
+    single = AxisAlignedBoundingBox(min_point=(-1.0, -1.0, -1.0), max_point=(0.0, 0.0, 0.0))
+    result = AxisAlignedBoundingBox.union([batched, single])
+    assert result.num_envs == 2
+    # The single box broadcasts into both rows, so check each independently.
+    torch.testing.assert_close(result.min_point[0], torch.tensor([-1.0, -1.0, -1.0]))
+    torch.testing.assert_close(result.max_point[0], torch.tensor([1.0, 1.0, 1.0]))
+    torch.testing.assert_close(result.min_point[1], torch.tensor([-1.0, -1.0, -1.0]))
+    torch.testing.assert_close(result.max_point[1], torch.tensor([6.0, 6.0, 1.0]))
+
+
+def test_union_rejects_mismatched_batch_sizes():
+    """Boxes with differing num_envs (neither N=1) are ambiguous and assert."""
+    two = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+    )
+    three = AxisAlignedBoundingBox(
+        min_point=torch.zeros(3, 3),
+        max_point=torch.ones(3, 3),
+    )
+    with pytest.raises(AssertionError):
+        AxisAlignedBoundingBox.union([two, three])
+
+
+def test_union_rejects_empty_sequence():
+    """An empty sequence has no bounds to union and must assert, not raise a bare ValueError."""
+    with pytest.raises(AssertionError):
+        AxisAlignedBoundingBox.union([])
+
+
+def test_union_combines_two_per_env_boxes():
+    """Two genuinely per-env N=2 boxes union independently per row (no broadcasting)."""
+    a = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [6.0, 6.0, 6.0]]),
+    )
+    b = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[-1.0, 0.0, 0.0], [5.0, 4.0, 5.0]]),
+        max_point=torch.tensor([[1.0, 2.0, 1.0], [7.0, 6.0, 6.0]]),
+    )
+    result = AxisAlignedBoundingBox.union([a, b])
+    assert result.num_envs == 2
+    torch.testing.assert_close(result.min_point, torch.tensor([[-1.0, 0.0, 0.0], [5.0, 4.0, 5.0]]))
+    torch.testing.assert_close(result.max_point, torch.tensor([[1.0, 2.0, 1.0], [7.0, 6.0, 6.0]]))
+
+
 def test_bounding_box_multi_env_get_corners_at():
     """Multi-env: get_corners_at() returns (N, 8, 3) tensor."""
     aabb = AxisAlignedBoundingBox(

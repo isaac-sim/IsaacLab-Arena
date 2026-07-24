@@ -8,7 +8,7 @@ import functools
 import torch
 import warnings
 from abc import ABC
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -43,6 +43,12 @@ from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
 
+if TYPE_CHECKING:
+    import trimesh
+
+    from isaaclab_arena.relations.collision_object import CollisionComponent
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
 # The base stand's x/y footprint.
 _STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
 # The default stand height.
@@ -71,6 +77,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
+        # Lazily-extracted stand collision mesh, cached so its USD is opened once.
+        self._stand_collision_mesh_cache = None
         # ``stand_height_m`` is an absolute height in meters; convert it to the z-scale the USD needs.
         stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
         self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
@@ -127,6 +135,64 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_xyzw
         return scene_config
+
+    def get_relation_bounding_box(self) -> "AxisAlignedBoundingBox":
+        """Use the stand footprint for ``On``/``NextTo``, not the arm's wider envelope.
+
+        The stand is the part of the mobile base that sits against the support surface, so its
+        footprint is what a proximity/support relation should measure. The arm reaches out well
+        beyond it, and a union box padded to the arm's extent would place the base too far away.
+        """
+        return self._stand_bounding_box()
+
+    def get_collision_components(self) -> list["CollisionComponent"]:
+        """Expose the robot arm and the stand as two separate, identity-posed sub-volumes.
+
+        A single union AABB over the arm and the offset stand is a poor collision proxy: rotating it
+        sweeps large empty regions. Keeping them separate lets a collision check test each against
+        obstacles independently. The solved base pose is written to both the robot and stand prims
+        (see ``_update_scene_cfg_with_robot_initial_pose``), so both components share the Droid root
+        frame and need no local offset.
+        """
+        from isaaclab_arena.relations.collision_object import CollisionComponent
+
+        return [
+            CollisionComponent(
+                name="robot",
+                local_pose=Pose.identity(),
+                bounding_box=self.get_bounding_box(),
+                mesh=self.get_collision_mesh(),
+            ),
+            CollisionComponent(
+                name="stand",
+                local_pose=Pose.identity(),
+                bounding_box=self._stand_bounding_box(),
+                mesh=self._stand_collision_mesh(),
+            ),
+        ]
+
+    def _stand_bounding_box(self) -> "AxisAlignedBoundingBox":
+        """Return the stand's root-relative bounds from its scaled USD geometry."""
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        spawn = self.scene_config.stand.spawn
+        assert spawn.usd_path is not None, "scene_config.stand must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+
+    def _stand_collision_mesh(self) -> "trimesh.Trimesh | None":
+        """Return the stand's collision mesh from its USD, or ``None`` if it has no mesh geometry."""
+        if self._stand_collision_mesh_cache is None:
+            from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError, extract_trimesh_from_usd_path
+
+            spawn = self.scene_config.stand.spawn
+            assert spawn.usd_path is not None, "scene_config.stand must use a USD spawn for placement"
+            scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+            try:
+                self._stand_collision_mesh_cache = extract_trimesh_from_usd_path(spawn.usd_path, scale)
+            except NoCollisionMeshError:
+                self._stand_collision_mesh_cache = None
+        return self._stand_collision_mesh_cache
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
