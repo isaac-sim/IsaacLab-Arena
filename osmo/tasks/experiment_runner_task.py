@@ -33,6 +33,12 @@ class ExperimentRunnerTaskCfg(TaskCfg):
     image: str = DEFAULT_EXPERIMENT_RUNNER_IMAGE
     """Container image that runs the Arena Experiment."""
 
+    record_camera_video: bool = True
+    """Record one mp4 per (env, camera, episode) from each Run's camera observations."""
+
+    record_viewport_video: bool = False
+    """Record a viewport video for each Run."""
+
 
 class ExperimentRunnerTask(BaseTask):
     """Lead OSMO task that runs every Run in one effective Arena Experiment."""
@@ -81,4 +87,8 @@ class ExperimentRunnerTask(BaseTask):
             "none",
             "--enable_cameras",
         ]
+        if self.task_cfg.record_camera_video:
+            command.append("--record_camera_video")
+        if self.task_cfg.record_viewport_video:
+            command.append("--record_viewport_video")
         return f"set -euo pipefail\n{shlex.join(command)}\n"
