@@ -55,7 +55,12 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.kind == "position_limits"
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
-    assert cube_limits.params == {"x_min": 0.55, "x_max": 0.7, "y_min": -0.4, "y_max": -0.1}
+    assert cube_limits.params == {
+        "x_min": 0.55,
+        "x_max": 0.7,
+        "y_min": -0.4,
+        "y_max": -0.1,
+    }
 
     mug_position = spec.relations[5]
     assert mug_position.kind == "at_position"
@@ -70,6 +75,27 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimits
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(mug_position.kind) is AtPosition
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
+
+
+def test_graph_spec_parses_radial_position_limits():
+    """Graph specs preserve radial PositionLimits parameters for relation construction."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = [{
+        "kind": "position_limits",
+        "subject": "cube",
+        "params": {"center_x": 0.5, "center_y": -0.25, "radius_min": 0.1, "radius_max": 0.3},
+    }]
+
+    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
+    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
+    relation = relation_class(**relation_spec.params)
+
+    assert isinstance(relation, PositionLimits)
+    assert relation.center_x == 0.5
+    assert relation.center_y == -0.25
+    assert relation.radius_min == 0.1
+    assert relation.radius_max == 0.3
 
 
 def test_graph_spec_parses_at_position():

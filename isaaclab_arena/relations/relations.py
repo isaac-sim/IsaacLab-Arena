@@ -473,9 +473,9 @@ class AtPosition(UnaryRelation):
 
 @register_object_relation
 class PositionLimits(UnaryRelation):
-    """Constrains object position to a world-coordinate axis-aligned box.
+    """Constrains object position to axis-aligned and optional radial world-coordinate limits.
 
-    Each axis is independently optional (None = unconstrained).
+    Each axis and radial bound is independently optional (None = unconstrained).
 
     Usage:
         mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
@@ -493,15 +493,27 @@ class PositionLimits(UnaryRelation):
         z_min: float | None = None,
         z_max: float | None = None,
         relation_loss_weight: float = 1.0,
+        center_x: float | None = None,
+        center_y: float | None = None,
+        radius_min: float | None = None,
+        radius_max: float | None = None,
     ):
+        has_axis_bound = any(bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max))
+        has_radial_bound = radius_min is not None or radius_max is not None
         assert (
-            x_min is not None
-            or x_max is not None
-            or y_min is not None
-            or y_max is not None
-            or z_min is not None
-            or z_max is not None
-        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for PositionLimits"
+            has_axis_bound or has_radial_bound
+        ), "At least one axis or radial bound must be specified for PositionLimits"
+        assert not has_radial_bound or (
+            center_x is not None and center_y is not None
+        ), "center_x and center_y are required when setting a radial bound"
+        assert has_radial_bound or (
+            center_x is None and center_y is None
+        ), "center_x and center_y may only be set when setting a radial bound"
+        assert radius_min is None or radius_min >= 0.0, "radius_min must be non-negative"
+        assert radius_max is None or radius_max >= 0.0, "radius_max must be non-negative"
+        assert (
+            radius_min is None or radius_max is None or radius_min < radius_max
+        ), "radius_min must be less than radius_max"
         if x_min is not None and x_max is not None:
             assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
         if y_min is not None and y_max is not None:
@@ -515,6 +527,10 @@ class PositionLimits(UnaryRelation):
         self.z_min = z_min
         self.z_max = z_max
         self.relation_loss_weight = relation_loss_weight
+        self.center_x = center_x
+        self.center_y = center_y
+        self.radius_min = radius_min
+        self.radius_max = radius_max
 
 
 def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:

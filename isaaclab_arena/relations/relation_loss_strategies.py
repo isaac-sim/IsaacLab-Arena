@@ -561,7 +561,10 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for PositionLimits relations.
 
     Per constrained axis: band loss when both bounds are set, single-boundary
-    loss when only one bound is set. Unconstrained axes contribute zero loss.
+    loss when only one bound is set. Optional radial bounds apply the same
+    losses to the object's world-XY distance from their center. Axis and radial
+    losses are added, so they define an intersection. Unconstrained dimensions
+    contribute zero loss.
     """
 
     def __init__(self, slope: float = 100.0):
@@ -617,5 +620,71 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
                 )
             # Neither bound set: axis is unconstrained, no loss
 
+        if relation.radius_min is not None or relation.radius_max is not None:
+            center_xy = child_pos.new_tensor((relation.center_x, relation.center_y))
+            radial_delta = child_pos[:, :2] - center_xy
+            radius = torch.linalg.vector_norm(radial_delta, dim=1)
+            if relation.radius_min is not None and relation.radius_max is not None:
+                total_loss = total_loss + linear_band_loss(
+                    self._radius_with_lower_bound_escape_direction(relation, radial_delta, radius),
+                    relation.radius_min,
+                    relation.radius_max,
+                    slope=self.slope,
+                )
+            elif relation.radius_min is not None:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    self._radius_with_lower_bound_escape_direction(relation, radial_delta, radius),
+                    relation.radius_min,
+                    slope=self.slope,
+                    penalty_side="less",
+                )
+            else:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    radius, relation.radius_max, slope=self.slope, penalty_side="greater"
+                )
+
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+    @staticmethod
+    def _radius_with_lower_bound_escape_direction(
+        relation: PositionLimits, radial_delta: torch.Tensor, radius: torch.Tensor
+    ) -> torch.Tensor:
+        """Return radius with a feasible descent direction inside its lower bound.
+
+        When the radial center lies outside an axial XY bound, ordinary radial
+        descent can oppose the axial loss and create a nonzero stationary point.
+        Inside the excluded inner disk, preserve the Euclidean radius value while
+        directing its gradient toward the closest point in the axial region.
+
+        With no such axial direction, only the exact center needs symmetry
+        breaking; use positive X deterministically as before.
+        """
+        assert relation.radius_min is not None
+        assert relation.center_x is not None and relation.center_y is not None
+        escape_components: list[float] = []
+        for center, lower_bound, upper_bound in (
+            (relation.center_x, relation.x_min, relation.x_max),
+            (relation.center_y, relation.y_min, relation.y_max),
+        ):
+            if lower_bound is not None and center < lower_bound:
+                escape_components.append(lower_bound - center)
+            elif upper_bound is not None and center > upper_bound:
+                escape_components.append(upper_bound - center)
+            else:
+                escape_components.append(0.0)
+
+        if any(component != 0.0 for component in escape_components):
+            escape_direction = radial_delta.new_tensor(escape_components)
+            escape_direction = escape_direction / torch.linalg.vector_norm(escape_direction)
+            directional_radius = torch.sum(radial_delta * escape_direction, dim=1)
+            feasibility_steered_radius = radius.detach() + directional_radius - directional_radius.detach()
+            inside_lower_bound = radius < relation.radius_min
+            return torch.where(inside_lower_bound, feasibility_steered_radius, radius)
+
+        at_center = torch.all(radial_delta == 0, dim=1)
+        epsilon = torch.finfo(radial_delta.dtype).eps
+        positive_x_epsilon = torch.zeros_like(radial_delta)
+        positive_x_epsilon[:, 0] = epsilon
+        center_radius = (torch.linalg.vector_norm(radial_delta + positive_x_epsilon, dim=1) - epsilon).clamp_min(0.0)
+        return torch.where(at_center, center_radius, radius)
