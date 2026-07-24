@@ -36,12 +36,20 @@ from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
 __all__ = [
     "ObjectBase",
+    "SpawnableObjectBase",
     "ObjectType",
 ]
 
 
 class ObjectBase(Asset, ABC):
-    """Parent class for (spawnable) Object and ObjectReference."""
+    """Base class for every Arena scene object, independent of how it is spawned.
+
+    ``ObjectBase`` holds only concerns shared by all object kinds -- name/prim path, initial pose and
+    velocity, relations, and the built ``object_cfg``/``event_cfg``. It makes no assumption about the
+    kind of Isaac Lab config an object produces: subclasses implement ``_init_object_cfg`` and the
+    pose accessors. Rigid/articulation/base objects share those implementations via
+    ``SpawnableObjectBase``; deformable objects provide their own.
+    """
 
     def __init__(
         self,
@@ -88,6 +96,10 @@ class ObjectBase(Asset, ABC):
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return collision mesh, or None to fall back to AABB overlap."""
 
+    def requires_soft_body_solver(self) -> bool:
+        """Whether this object needs a soft-body-capable physics preset. False for rigid objects."""
+        return False
+
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
 
@@ -103,6 +115,66 @@ class ObjectBase(Asset, ABC):
         if isinstance(initial_pose, PoseRange):
             return initial_pose.get_midpoint()
         return initial_pose
+
+    def _add_initial_pose_to_cfg(self, object_cfg):
+        """Apply the (single) initial pose to a config's ``init_state`` when one is set.
+
+        Generic over any Isaac Lab asset config exposing ``init_state.pos``/``init_state.rot``.
+        """
+        initial_pose = self._get_initial_pose_as_pose()
+        if initial_pose is not None:
+            object_cfg.init_state.pos = initial_pose.position_xyz
+            object_cfg.init_state.rot = initial_pose.rotation_xyzw
+        return object_cfg
+
+    def get_relations(self) -> list[RelationBase]:
+        """Get all relations for this object."""
+        return self.relations
+
+    @property
+    def is_anchor(self) -> bool:
+        """True if this object has an IsAnchor relation."""
+        return any(isinstance(r, IsAnchor) for r in self.relations)
+
+    def get_spatial_relations(self) -> list[RelationBase]:
+        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
+
+    def set_prim_path(self, prim_path: str) -> None:
+        self.prim_path = prim_path
+
+    def get_prim_path(self) -> str:
+        return self.prim_path
+
+    def get_object_cfg(self):
+        return self.name, self.object_cfg
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self.event_cfg
+
+    @abstractmethod
+    def _init_object_cfg(self):
+        """Build and return this object's Isaac Lab scene config (or a ``PresetCfg`` of them)."""
+        ...
+
+    @abstractmethod
+    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Get the pose of the object in each environment. Shape (num_envs, 7); (x,y,z,qx,qy,qz,qw)."""
+        ...
+
+    @abstractmethod
+    def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
+        """Set the pose of the object in the environment."""
+        ...
+
+
+class SpawnableObjectBase(ObjectBase, ABC):
+    """Base for objects backed by a rigid / articulation / base Isaac Lab asset.
+
+    Centralizes the machinery shared by ``Object`` and ``ObjectReference``: the object-type config
+    switch, rigid-pose reset events, and rigid-root pose get/set. Deformable objects deliberately do
+    NOT inherit this -- they extend ``ObjectBase`` directly.
+    """
 
     def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set / override the initial pose and rebuild derived configs.
@@ -181,31 +253,6 @@ class ObjectBase(Asset, ABC):
                 },
             )
 
-    def get_relations(self) -> list[RelationBase]:
-        """Get all relations for this object."""
-        return self.relations
-
-    @property
-    def is_anchor(self) -> bool:
-        """True if this object has an IsAnchor relation."""
-        return any(isinstance(r, IsAnchor) for r in self.relations)
-
-    def get_spatial_relations(self) -> list[RelationBase]:
-        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
-
-    def set_prim_path(self, prim_path: str) -> None:
-        self.prim_path = prim_path
-
-    def get_prim_path(self) -> str:
-        return self.prim_path
-
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
-        return self.name, self.object_cfg
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self.event_cfg
-
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
             object_cfg = self._generate_rigid_cfg()
@@ -258,9 +305,7 @@ class ObjectBase(Asset, ABC):
         pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         # Set the pose and velocity
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(
-            torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
-        )
+        asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.unwrapped.device), env_ids=env_ids)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"

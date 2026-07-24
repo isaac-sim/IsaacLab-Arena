@@ -15,7 +15,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
-from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase, ObjectType, SpawnableObjectBase
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
@@ -24,7 +24,7 @@ from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
-class Object(ObjectBase):
+class Object(SpawnableObjectBase):
     """Pick-up object config for a pick-and-place environment."""
 
     def __init__(
@@ -196,16 +196,6 @@ class Object(ObjectBase):
             **self.asset_cfg_addon,
         )
         return self._add_initial_pose_to_cfg(object_cfg)
-
-    def _add_initial_pose_to_cfg(
-        self, object_cfg: RigidObjectCfg | ArticulationCfg | AssetBaseCfg
-    ) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
-        # Optionally specify initial pose
-        initial_pose = self._get_initial_pose_as_pose()
-        if initial_pose is not None:
-            object_cfg.init_state.pos = initial_pose.position_xyz
-            object_cfg.init_state.rot = initial_pose.rotation_xyzw
-        return object_cfg
 
     def _requires_reset_pose_event(self) -> bool:
         return super()._requires_reset_pose_event() and self.reset_pose
