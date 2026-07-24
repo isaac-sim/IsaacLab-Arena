@@ -201,7 +201,14 @@ jobs:
 
       # In-source full environment: sync the locked deps and run the sim suite.
       - name: Sync the locked environment
-        run: uv sync ${{ matrix.uv_flags }}
+        # `openpi-client` is a git dependency whose repo carries its own
+        # submodules. uv checks it out under $HOME/.cache/uv and runs
+        # `git submodule update` there; git aborts with "dubious ownership"
+        # because the cache checkout is owned by a different uid. Trust all
+        # paths so the submodule fetch inside the build succeeds.
+        run: |
+          git config --global --add safe.directory '*'
+          uv sync ${{ matrix.uv_flags }}
 
       - name: Run in-process Newton tests
         run: |
