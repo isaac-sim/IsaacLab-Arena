@@ -150,6 +150,9 @@ jobs:
       # Accept the Isaac Sim EULA so the first launch is non-interactive.
       OMNI_KIT_ACCEPT_EULA: "YES"
       ACCEPT_EULA: "Y"
+      # Large CUDA wheels (e.g. nvidia-cublas-cu12) exceed uv's 30s default and
+      # intermittently time out; give downloads more headroom.
+      UV_HTTP_TIMEOUT: "300"
 
     # Validates the native workflow in a clean ubuntu:24.04 container.
     container:
