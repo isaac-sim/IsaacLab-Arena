@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
+from contextlib import ExitStack
 from typing import Any
 
+from .gripper_linkage_override import apply_grocery_gripper_linkage_override
 from .grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
@@ -35,7 +37,9 @@ from .joint_mapping import (
 )
 
 
-def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any, initial_gripper_closed: bool = False) -> None:
+def _configure_cap_droid_embodiment(
+    embodiment: Any, *, stand_spawn: Any, initial_gripper_closed: bool = False
+) -> None:
     # The reused Franka reset helper preserves only the final two articulation joints,
     # which are mimic joints on DROID rather than the commanded finger joint. This fixed
     # profile retains the state-writing reset event but removes its Gaussian offset.
@@ -57,24 +61,33 @@ def _configure_cap_droid_embodiment(embodiment: Any, *, stand_spawn: Any, initia
         # event: init_franka_arm_pose.default_pose lists the finger joint at index 7
         # (seven arm joints precede it). init_state is patched too for consistency.
         # The production smoke keeps the open default (open->close->open sequence).
-        embodiment.scene_config.robot.init_state.joint_pos[DROID_FINGER_JOINT] = DROID_GRIPPER_CLOSED_POSITION_RAD
-        default_pose = embodiment.event_config.init_franka_arm_pose.params["default_pose"]
+        embodiment.scene_config.robot.init_state.joint_pos[DROID_FINGER_JOINT] = (
+            DROID_GRIPPER_CLOSED_POSITION_RAD
+        )
+        default_pose = embodiment.event_config.init_franka_arm_pose.params[
+            "default_pose"
+        ]
         if len(default_pose) <= 7:
-            raise RuntimeError("DROID init_franka_arm_pose.default_pose is missing the finger joint slot")
+            raise RuntimeError(
+                "DROID init_franka_arm_pose.default_pose is missing the finger joint slot"
+            )
         default_pose[7] = DROID_GRIPPER_CLOSED_POSITION_RAD
 
 
 class FrankaSimulationAdapter:
     """Expose the narrow simulator surface consumed by ``ArenaLockstepManager``."""
 
-    def __init__(self, environment: Any):
+    def __init__(self, environment: Any, *, owned_resources: Sequence[Any] = ()):
         import torch
 
         self._torch = torch
         self._environment = environment
+        self._owned_resources = tuple(owned_resources)
         self._unwrapped = environment.unwrapped
         if self._unwrapped.num_envs != 1:
-            raise RuntimeError(f"CAP barrier smoke requires B=1, got {self._unwrapped.num_envs}")
+            raise RuntimeError(
+                f"CAP barrier smoke requires B=1, got {self._unwrapped.num_envs}"
+            )
         self._robot = self._unwrapped.scene["robot"]
         self._joint_names = tuple(self._robot.joint_names)
         self.joint_mapping = make_droid_joint_mapping(self._joint_names)
@@ -82,14 +95,19 @@ class FrankaSimulationAdapter:
         action_manager = self._unwrapped.action_manager
         active_terms = tuple(action_manager.active_terms)
         term_dimensions = tuple(action_manager.action_term_dim)
-        if active_terms != ("arm_action", "gripper_action") or term_dimensions != (7, 1):
+        if active_terms != ("arm_action", "gripper_action") or term_dimensions != (
+            7,
+            1,
+        ):
             raise RuntimeError(
                 "CAP DROID profile requires action terms arm_action[7], gripper_action[1], "
                 f"got {list(zip(active_terms, term_dimensions, strict=True))}"
             )
         arm_term = action_manager.get_term("arm_action")
         gripper_term = action_manager.get_term("gripper_action")
-        self.joint_mapping.assert_action_order((*arm_term._joint_names, *gripper_term._joint_names))
+        self.joint_mapping.assert_action_order(
+            (*arm_term._joint_names, *gripper_term._joint_names)
+        )
         self._arm_slice = slice(0, 7)
         self._gripper_slice = slice(7, 8)
         self.last_physics_step_started_at_s: float | None = None
@@ -104,12 +122,20 @@ class FrankaSimulationAdapter:
     def _as_tensor(value):
         return value.torch if hasattr(value, "torch") else value
 
-    def read_joint_state(self) -> tuple[Sequence[float], Sequence[float], Sequence[float]]:
-        position = self._as_tensor(self._robot.data.joint_pos)[0].detach().cpu().tolist()
-        velocity = self._as_tensor(self._robot.data.joint_vel)[0].detach().cpu().tolist()
+    def read_joint_state(
+        self,
+    ) -> tuple[Sequence[float], Sequence[float], Sequence[float]]:
+        position = (
+            self._as_tensor(self._robot.data.joint_pos)[0].detach().cpu().tolist()
+        )
+        velocity = (
+            self._as_tensor(self._robot.data.joint_vel)[0].detach().cpu().tolist()
+        )
         # This is the best available smoke-level effort sample. Its parity with a
         # physical joint-state effort remains a World State contract question.
-        effort = self._as_tensor(self._robot.data.applied_torque)[0].detach().cpu().tolist()
+        effort = (
+            self._as_tensor(self._robot.data.applied_torque)[0].detach().cpu().tolist()
+        )
         return position, velocity, effort
 
     def arm_positions(self) -> tuple[float, ...]:
@@ -129,7 +155,9 @@ class FrankaSimulationAdapter:
 
     def step_position_targets(self, positions_in_abi_order: Sequence[float]) -> None:
         if len(positions_in_abi_order) != 8:
-            raise ValueError(f"expected eight DROID targets, got {len(positions_in_abi_order)}")
+            raise ValueError(
+                f"expected eight DROID targets, got {len(positions_in_abi_order)}"
+            )
         gripper_action = droid_binary_gripper_action(float(positions_in_abi_order[7]))
         action = self._torch.zeros(
             (1, self._unwrapped.action_manager.total_action_dim),
@@ -154,16 +182,23 @@ class FrankaSimulationAdapter:
         self.reset_count += 1
 
     def close(self) -> None:
-        self._environment.close()
+        with ExitStack() as cleanup:
+            for resource in self._owned_resources:
+                cleanup.callback(resource.close)
+            self._environment.close()
 
 
 def _configure_cap_camera(embodiment: Any, camera_profile: str) -> None:
     if camera_profile == "libero":
-        from isaaclab_arena_environments.libero_cameras import LiberoDroidPerceptionCameraCfg
+        from isaaclab_arena_environments.libero_cameras import (
+            LiberoDroidPerceptionCameraCfg,
+        )
 
         camera_config = LiberoDroidPerceptionCameraCfg()
     elif camera_profile == "oblique":
-        from isaaclab_arena_environments.maple_cameras import MapleDroidPerceptionCameraCfg
+        from isaaclab_arena_environments.maple_cameras import (
+            MapleDroidPerceptionCameraCfg,
+        )
 
         camera_config = MapleDroidPerceptionCameraCfg()
     else:
@@ -189,7 +224,9 @@ def _configure_cap_environment_profile(cfg: Any, *, enable_cameras: bool) -> Any
     cfg.decimation = 1
     if enable_cameras:
         if not hasattr(cfg.observations, "camera_obs"):
-            raise RuntimeError("CAP camera profile did not produce the expected camera_obs group")
+            raise RuntimeError(
+                "CAP camera profile did not produce the expected camera_obs group"
+            )
         # The CAP producer reads exterior_cam explicitly. Leaving camera_obs
         # enabled would make ObservationManager access Camera.data after every
         # 200 Hz environment step, synchronously invoking RTX on the control
@@ -215,7 +252,9 @@ def _configure_cap_grocery_embodiment(embodiment: Any) -> None:
         0.0,
         1.0,
     ):
-        raise RuntimeError("CAP grocery scene requires the identity DROID base pinned by arena_droid_b1 calibration")
+        raise RuntimeError(
+            "CAP grocery scene requires the identity DROID base pinned by arena_droid_b1 calibration"
+        )
     embodiment.set_initial_joint_pose(initial_joint_pose=list(CAP_GROCERY_DROID_HOME))
 
 
@@ -253,7 +292,9 @@ def _make_cap_grocery_assets(registry: Any, sim_utils: Any) -> list[Any]:
         "graspable",
         "food",
     }.issubset(grocery.tags):
-        raise RuntimeError(f"{CAP_GROCERY_OBJECT_ASSET} must remain a dynamic graspable food object")
+        raise RuntimeError(
+            f"{CAP_GROCERY_OBJECT_ASSET} must remain a dynamic graspable food object"
+        )
     grocery.set_initial_pose(Pose(*CAP_GROCERY_OBJECT_POSE))
 
     destination = registry.get_asset_by_name(CAP_GROCERY_BIN_ASSET)()
@@ -287,58 +328,82 @@ def _make_cap_environment(
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.environments.isaaclab_arena_environment import (
+        IsaacLabArenaEnvironment,
+    )
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
 
-    registry = AssetRegistry()
-    embodiment = registry.get_asset_by_name("droid_abs_joint_pos")(enable_cameras=enable_cameras)
-    if enable_cameras:
-        _configure_cap_camera(embodiment, camera_profile)
-    elif camera_profile not in CAP_GROCERY_CAMERA_PROFILES:
-        raise ValueError(
-            f"unsupported CAP camera profile {camera_profile!r}; expected one of {CAP_GROCERY_CAMERA_PROFILES}"
+    with ExitStack() as construction_cleanup:
+        registry = AssetRegistry()
+        embodiment = registry.get_asset_by_name("droid_abs_joint_pos")(
+            enable_cameras=enable_cameras
         )
-    # The DROID stand is not hosted on the public S3 Nucleus. Retain its scene
-    # entry because the embodiment updates its pose, but replace the unavailable
-    # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
-    stand_spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
-    if grocery_scene:
-        _configure_cap_grocery_embodiment(embodiment)
-    _configure_cap_droid_embodiment(embodiment, stand_spawn=stand_spawn, initial_gripper_closed=initial_gripper_closed)
+        if enable_cameras:
+            _configure_cap_camera(embodiment, camera_profile)
+        elif camera_profile not in CAP_GROCERY_CAMERA_PROFILES:
+            raise ValueError(
+                f"unsupported CAP camera profile {camera_profile!r}; expected one of {CAP_GROCERY_CAMERA_PROFILES}"
+            )
+        # The DROID stand is not hosted on the public S3 Nucleus. Retain its scene
+        # entry because the embodiment updates its pose, but replace the unavailable
+        # USD with the same inert placeholder used by Arena's LIBERO DROID profile.
+        stand_spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
+        owned_resources: list[Any] = []
+        if grocery_scene:
+            _configure_cap_grocery_embodiment(embodiment)
+        _configure_cap_droid_embodiment(
+            embodiment,
+            stand_spawn=stand_spawn,
+            initial_gripper_closed=initial_gripper_closed,
+        )
+        if grocery_scene:
+            linkage_override = apply_grocery_gripper_linkage_override(
+                embodiment.scene_config
+            )
+            construction_cleanup.callback(linkage_override.close)
+            owned_resources.append(linkage_override)
+            scene = _make_cap_grocery_scene(registry, sim_utils)
+            environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
+        else:
+            ground_plane = registry.get_asset_by_name("ground_plane")()
+            light = registry.get_asset_by_name("light")()
+            scene = Scene(assets=[ground_plane, light])
+            environment_name = "CAP-Barrier-DROID-B1-v0"
 
-    if grocery_scene:
-        scene = _make_cap_grocery_scene(registry, sim_utils)
-        environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
-    else:
-        ground_plane = registry.get_asset_by_name("ground_plane")()
-        light = registry.get_asset_by_name("light")()
-        scene = Scene(assets=[ground_plane, light])
-        environment_name = "CAP-Barrier-DROID-B1-v0"
+        def configure_profile(cfg):
+            return _configure_cap_environment_profile(
+                cfg,
+                enable_cameras=enable_cameras,
+            )
 
-    def configure_profile(cfg):
-        return _configure_cap_environment_profile(cfg, enable_cameras=enable_cameras)
-
-    description = IsaacLabArenaEnvironment(
-        name=environment_name,
-        scene=scene,
-        embodiment=embodiment,
-        task=NoTask(),
-        env_cfg_callback=configure_profile,
-    )
-    builder = ArenaEnvBuilder(
-        description,
-        ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, device=device),
-    )
-    environment, cfg = builder.make_registered_and_return_cfg()
-    if cfg.sim.dt != 0.005 or cfg.decimation != 1:
-        environment.close()
-        raise RuntimeError(f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}")
-    if enable_cameras:
-        # Camera.data renders explicitly when the snapshot producer asks for a
-        # frame. Skip Kit app/RTX pumping during ordinary 200 Hz control steps.
-        _disable_cap_automatic_camera_rendering(environment)
-    return FrankaSimulationAdapter(environment)
+        description = IsaacLabArenaEnvironment(
+            name=environment_name,
+            scene=scene,
+            embodiment=embodiment,
+            task=NoTask(),
+            env_cfg_callback=configure_profile,
+        )
+        builder = ArenaEnvBuilder(
+            description,
+            ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, device=device),
+        )
+        environment, cfg = builder.make_registered_and_return_cfg()
+        construction_cleanup.callback(environment.close)
+        if cfg.sim.dt != 0.005 or cfg.decimation != 1:
+            raise RuntimeError(
+                f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}"
+            )
+        if enable_cameras:
+            # Camera.data renders explicitly when the snapshot producer asks for a
+            # frame. Skip Kit app/RTX pumping during ordinary 200 Hz control steps.
+            _disable_cap_automatic_camera_rendering(environment)
+        adapter = FrankaSimulationAdapter(
+            environment,
+            owned_resources=owned_resources,
+        )
+        construction_cleanup.pop_all()
+        return adapter
 
 
 def make_cap_franka_environment(

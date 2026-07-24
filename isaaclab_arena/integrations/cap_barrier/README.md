@@ -294,6 +294,18 @@ camera-to-base, GraspGen, and MoveToPose frame chain. The producer emits
 `CAP_GROCERY_TO_BIN_SCENE_READY` after the generation-1 bootstrap fence; the
 marker names the exact object, bin, camera, and camera profile.
 
+The grocery producer also applies a mandatory, instance-local pre-parse USD
+override to the DROID gripper. The stock robot asset gives the six passive
+Robotiq linkage bars collision hulls which can form a false converging cage
+between the finger pads. The override disables collision on exactly those six
+bars while preserving collision on the palm and finger pads. Before building
+the environment, the producer verifies the pinned robot-asset URI, `/panda`
+default prim, all six `PhysicsCollisionAPI` targets, and their stock enabled
+state. Asset drift is terminal rather than silently restoring the cage. The
+tiny generated layer is private to that grocery embodiment, is kept alive
+until the environment closes, and is then deleted; the bare CAP smoke, global
+spawn helpers, and source USD remain unchanged.
+
 This walking skeleton consumes one observation immediately after `ResetEpisode`.
 The grocery producer therefore skips generation 1 and captures exactly one
 `exterior_cam` snapshot on generation 2's first PHYSICS frame. It performs no
