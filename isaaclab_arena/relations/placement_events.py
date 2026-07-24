@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.utils.scene_pose_writes import write_scene_root_poses_to_sim
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -79,31 +79,12 @@ def _write_scene_root_pose_to_sim(
     sim_pose: Pose,
     env_id: int,
     env_id_tensor: torch.Tensor,
-    zero_velocity: torch.Tensor,
 ) -> None:
     """Write one scene root pose for a single environment instance."""
     scene_asset = env.scene[scene_name]
     pose_tensor = sim_pose.to_tensor(device=env.device).unsqueeze(0)
     pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
-
-    # Articulations and rigid objects use write_root_pose_to_sim (ArticulationCfg/RigidObjectSetCfg)
-    write_root_pose = getattr(scene_asset, "write_root_pose_to_sim", None)
-    if write_root_pose is not None:
-        write_root_pose(pose_tensor, env_ids=env_id_tensor)
-        scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
-        return
-
-    # AssetBase extras (e.g. Droid stand) use set_world_poses (AssetBaseCfg).
-    set_world_poses = getattr(scene_asset, "set_world_poses", None)
-    if set_world_poses is not None:
-        set_world_poses(
-            positions=pose_tensor[:, :3],
-            orientations=pose_tensor[:, 3:7],
-            indices=env_id_tensor.detach().cpu(),
-        )
-        return
-
-    assert False, f"Scene asset '{scene_name}' does not support root pose writes"
+    write_scene_root_poses_to_sim(scene_asset, scene_name, pose_tensor, env_id_tensor, env.device)
 
 
 def write_layout_to_sim(
@@ -126,7 +107,6 @@ def write_layout_to_sim(
         base_rotations: The base rotations for all assets.
     """
     env_id_tensor = torch.tensor([env_id], device=env.device)
-    zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
     missing_assets = [
         asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
     ]
@@ -142,7 +122,6 @@ def write_layout_to_sim(
                 sim_pose,
                 env_id,
                 env_id_tensor,
-                zero_velocity,
             )
 
 
