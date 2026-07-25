@@ -58,6 +58,8 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
+        # KukaAllegroEmbodiment carries no camera configuration, so cameras cannot be spawned here.
+        assert not cfg.enable_cameras, "The dexsuite_lift environment does not support cameras"
         embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")()
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])

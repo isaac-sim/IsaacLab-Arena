@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 class GearMeshEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the gear-mesh assembly environment."""
 
-    enable_cameras: bool = False
     background: str = "table"
     embodiment: str = "franka_ik"
     teleop_device: str | None = None

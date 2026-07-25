@@ -16,6 +16,7 @@ from typing import Any
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.override_parser.overrides_parser import OverridesParser
 from hydra.errors import HydraException
 from omegaconf import OmegaConf
 from omegaconf.errors import OmegaConfBaseException
@@ -141,6 +142,62 @@ def load_experiment_run_definitions_from_yaml(yaml_path: str | Path) -> dict[str
         assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
         runs[run_name] = run_values
     return runs
+
+
+_ENVIRONMENT_CAMERA_OVERRIDE_KEY_PATTERN = re.compile(r"runs\.(?P<run_name>[^.]+)\.environment\.enable_cameras")
+
+
+def typed_experiment_requires_cameras(yaml_path: str | Path, overrides: list[str] | None = None) -> bool:
+    """Return whether any Run in a typed YAML Experiment enables environment cameras.
+
+    Composition needs registered environment types, which are only importable once
+    Isaac Sim is running. This reads the same YAML and overrides without importing
+    them, so a runner can enable camera support before it starts SimulationApp.
+
+    Args:
+        yaml_path: Path to the Arena Experiment YAML file.
+        overrides: Hydra field overrides applied to the Runs declared in YAML.
+
+    Returns:
+        Whether any declared Run enables environment cameras.
+    """
+    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path)
+    camera_values_by_run_name = _environment_camera_values_from_overrides(overrides or [])
+    return any(
+        camera_values_by_run_name.get(run_name, _environment_values_enable_cameras(run_name, run_values))
+        for run_name, run_values in run_values_by_name.items()
+    )
+
+
+def _environment_values_enable_cameras(run_name: str, run_values: dict[str, Any]) -> bool:
+    """Return the enable_cameras value a Run declares in YAML."""
+    environment_values = run_values.get("environment")
+    if not isinstance(environment_values, dict):
+        return False
+    enable_cameras = environment_values.get("enable_cameras", False)
+    assert isinstance(
+        enable_cameras, bool
+    ), f"Run '{run_name}' must declare 'environment.enable_cameras' as a boolean, got {enable_cameras!r}"
+    return enable_cameras
+
+
+def _environment_camera_values_from_overrides(overrides: list[str]) -> dict[str, bool]:
+    """Return the enable_cameras value assigned by overrides, keyed by Run name.
+
+    Deletions are ignored because they cannot turn cameras on for a Run that did
+    not already request them.
+    """
+    camera_values_by_run_name: dict[str, bool] = {}
+    for override in OverridesParser.create().parse_overrides(overrides):
+        key_match = _ENVIRONMENT_CAMERA_OVERRIDE_KEY_PATTERN.fullmatch(override.key_or_group)
+        if key_match is None or override.is_delete():
+            continue
+        enable_cameras = override.value()
+        assert isinstance(
+            enable_cameras, bool
+        ), f"Override '{override.input_line}' must assign a boolean, got {enable_cameras!r}"
+        camera_values_by_run_name[key_match.group("run_name")] = enable_cameras
+    return camera_values_by_run_name
 
 
 def _build_arena_run_cfg_from_yaml_values(

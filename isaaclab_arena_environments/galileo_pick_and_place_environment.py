@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class GalileoPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Galileo pick-and-place environment."""
 
-    enable_cameras: bool = False
     object: str = "power_drill"
     embodiment: str = "gr1_pink"
     teleop_device: str | None = None
