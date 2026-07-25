@@ -87,7 +87,8 @@ class ArenaEnvBuilder:
           per-environment pose and owns its own reset event.
         """
         # Reachability constraints are defined in the task, so apply them before placement.
-        self.arena_env.task.apply_reachability_constraints()
+        if self.arena_env.task is not None:
+            self.arena_env.task.apply_reachability_constraints()
         placement_assets = self.arena_env.scene.get_objects_with_relations()
         embodiment = self.arena_env.embodiment
         if embodiment is not None and embodiment.get_relations():

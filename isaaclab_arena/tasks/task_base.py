@@ -78,7 +78,8 @@ class TaskBase(ABC):
     def apply_reachability_constraints(self) -> None:
         """Apply RequiresReachability relations to each placeable object named in reachability_target_objects."""
         for param_name in self.reachability_target_objects:
-            target = getattr(self, param_name, None)
+            target = getattr(self, param_name)
+            # Only placed objects are IK-checked; an object reference or background location is skipped.
             if isinstance(target, Object) and not target.has_relation(RequiresReachability):
                 target.add_relation(RequiresReachability())
 
