@@ -16,7 +16,10 @@ from collections.abc import Sequence
 from contextlib import ExitStack
 from typing import Any
 
-from .gripper_linkage_override import apply_grocery_gripper_linkage_override
+from .gripper_linkage_override import (
+    apply_grocery_gripper_linkage_override,
+    validate_live_grocery_gripper_collision_contract,
+)
 from .grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
@@ -393,6 +396,24 @@ def _make_cap_environment(
         if cfg.sim.dt != 0.005 or cfg.decimation != 1:
             raise RuntimeError(
                 f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}"
+            )
+        if grocery_scene:
+            env_prim_paths = tuple(environment.unwrapped.scene.env_prim_paths)
+            if len(env_prim_paths) != 1:
+                raise RuntimeError(
+                    "CAP grocery collision validation requires exactly one environment; "
+                    f"got {env_prim_paths}"
+                )
+            disabled_linkages, retained_colliders = (
+                validate_live_grocery_gripper_collision_contract(
+                    environment.unwrapped.scene.stage,
+                    robot_prim_path=f"{env_prim_paths[0]}/Robot",
+                )
+            )
+            print(
+                "CAP_GROCERY_GRIPPER_COLLISION_CONTRACT_OK "
+                f"disabled_linkages={disabled_linkages} "
+                f"retained_colliders={retained_colliders}"
             )
         if enable_cameras:
             # Camera.data renders explicitly when the snapshot producer asks for a

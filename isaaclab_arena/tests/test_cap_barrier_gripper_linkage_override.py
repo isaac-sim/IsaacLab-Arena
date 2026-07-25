@@ -17,8 +17,10 @@ from isaaclab_arena.integrations.cap_barrier.franka_env import (
 from isaaclab_arena.integrations.cap_barrier.gripper_linkage_override import (
     _EXPECTED_SOURCE_URI_SUFFIX,
     _LINKAGE_COLLISION_SUBPATHS,
+    _RETAINED_COLLISION_SUBPATHS,
     GripperLinkageCollisionOverride,
     apply_grocery_gripper_linkage_override,
+    validate_live_grocery_gripper_collision_contract,
 )
 
 
@@ -33,6 +35,8 @@ def _write_source(
     missing_target: str | None = None,
     target_without_api: str | None = None,
     disabled_target: str | None = None,
+    missing_retained: str | None = None,
+    disabled_retained: str | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     stage = Usd.Stage.CreateNew(str(path))
@@ -48,6 +52,13 @@ def _write_source(
             UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(
                 subpath != disabled_target
             )
+    for subpath in _RETAINED_COLLISION_SUBPATHS:
+        if subpath == missing_retained:
+            continue
+        prim = stage.DefinePrim(f"/panda/{subpath}")
+        UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(
+            subpath != disabled_retained
+        )
     stage.GetRootLayer().Save()
 
 
@@ -103,6 +114,19 @@ def test_override_is_instance_local_verified_and_owned_until_close(
             .Get()
             is False
         )
+    assert len(_RETAINED_COLLISION_SUBPATHS) == 5
+    for subpath in _RETAINED_COLLISION_SUBPATHS:
+        prim_path = f"/panda/{subpath}"
+        assert (
+            UsdPhysics.CollisionAPI(source_stage.GetPrimAtPath(prim_path))
+            .GetCollisionEnabledAttr()
+            .Get()
+        )
+        assert (
+            UsdPhysics.CollisionAPI(override_stage.GetPrimAtPath(prim_path))
+            .GetCollisionEnabledAttr()
+            .Get()
+        )
 
     override.close()
     assert not override_path.exists()
@@ -148,6 +172,14 @@ def test_adapter_keeps_override_alive_through_environment_close(
             {"disabled_target": _LINKAGE_COLLISION_SUBPATHS[2]},
             "wrong_collisionEnabled=.*left_inner_knuckle",
         ),
+        (
+            {"missing_retained": _RETAINED_COLLISION_SUBPATHS[0]},
+            "missing=.*base_link",
+        ),
+        (
+            {"disabled_retained": _RETAINED_COLLISION_SUBPATHS[1]},
+            "wrong_collisionEnabled=.*left_inner_finger",
+        ),
     ],
 )
 def test_override_rejects_source_asset_contract_drift(
@@ -168,3 +200,33 @@ def test_override_rejects_unrecognized_robot_asset(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="requires the pinned DROID robot USD"):
         GripperLinkageCollisionOverride(str(source_path))
+
+
+def test_live_contract_requires_disabled_linkages_and_retained_colliders(
+    tmp_path: Path,
+) -> None:
+    stage_path = tmp_path / "live.usda"
+    stage = Usd.Stage.CreateNew(str(stage_path))
+    robot_prim_path = "/World/envs/env_0/Robot"
+    stage.DefinePrim(robot_prim_path)
+    for subpath in _LINKAGE_COLLISION_SUBPATHS:
+        prim = stage.DefinePrim(f"{robot_prim_path}/{subpath}")
+        UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(False)
+    for subpath in _RETAINED_COLLISION_SUBPATHS:
+        prim = stage.DefinePrim(f"{robot_prim_path}/{subpath}")
+        UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(True)
+
+    assert validate_live_grocery_gripper_collision_contract(
+        stage,
+        robot_prim_path=robot_prim_path,
+    ) == (6, 5)
+
+    retained = stage.GetPrimAtPath(
+        f"{robot_prim_path}/{_RETAINED_COLLISION_SUBPATHS[-1]}"
+    )
+    UsdPhysics.CollisionAPI(retained).GetCollisionEnabledAttr().Set(False)
+    with pytest.raises(RuntimeError, match="wrong_collisionEnabled=.*fingertips"):
+        validate_live_grocery_gripper_collision_contract(
+            stage,
+            robot_prim_path=robot_prim_path,
+        )

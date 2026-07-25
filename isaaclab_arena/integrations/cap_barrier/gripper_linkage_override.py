@@ -24,6 +24,13 @@ _LINKAGE_COLLISION_SUBPATHS = (
     "Gripper/Robotiq_2F_85/right_outer_finger/Defeatured_2F_85_PAD_OPEN_finger2step_01",
     "Gripper/Robotiq_2F_85/right_inner_knuckle/Defeatured_2F_85_PAD_OPEN_finger3step_01",
 )
+_RETAINED_COLLISION_SUBPATHS = (
+    "Gripper/Robotiq_2F_85/base_link/Defeatured_2F_85_PAD_OPEN_basestep_01",
+    "Gripper/Robotiq_2F_85/left_inner_finger/Defeatured_2F_85_PAD_OPEN_finger4step_01",
+    "Gripper/Robotiq_2F_85/left_inner_finger/Defeatured_2F_85_PAD_OPEN_fingertipsstep_01",
+    "Gripper/Robotiq_2F_85/right_inner_finger/Defeatured_2F_85_PAD_OPEN_finger4step_01",
+    "Gripper/Robotiq_2F_85/right_inner_finger/Defeatured_2F_85_PAD_OPEN_fingertipsstep_01",
+)
 
 
 def _require_source_identity(source_usd_path: str) -> None:
@@ -47,14 +54,21 @@ def _require_default_prim(stage: Any, *, label: str) -> Any:
     return default_prim
 
 
-def _require_linkage_collision_state(stage: Any, *, enabled: bool, label: str) -> None:
+def _require_collision_state(
+    stage: Any,
+    *,
+    prim_root: str,
+    subpaths: tuple[str, ...],
+    enabled: bool,
+    label: str,
+) -> None:
     from pxr import UsdPhysics
 
     missing: list[str] = []
     missing_api: list[str] = []
     wrong_state: list[str] = []
-    for subpath in _LINKAGE_COLLISION_SUBPATHS:
-        prim_path = f"{_ROBOT_DEFAULT_PRIM_PATH}/{subpath}"
+    for subpath in subpaths:
+        prim_path = f"{prim_root}/{subpath}"
         prim = stage.GetPrimAtPath(prim_path)
         if not prim.IsValid() or not prim.IsDefined():
             missing.append(prim_path)
@@ -71,6 +85,37 @@ def _require_linkage_collision_state(stage: Any, *, enabled: bool, label: str) -
             f"missing={missing}, missing_PhysicsCollisionAPI={missing_api}, "
             f"wrong_collisionEnabled={wrong_state}"
         )
+
+
+def _require_linkage_collision_state(
+    stage: Any,
+    *,
+    prim_root: str = _ROBOT_DEFAULT_PRIM_PATH,
+    enabled: bool,
+    label: str,
+) -> None:
+    _require_collision_state(
+        stage,
+        prim_root=prim_root,
+        subpaths=_LINKAGE_COLLISION_SUBPATHS,
+        enabled=enabled,
+        label=label,
+    )
+
+
+def _require_retained_collision_state(
+    stage: Any,
+    *,
+    prim_root: str = _ROBOT_DEFAULT_PRIM_PATH,
+    label: str,
+) -> None:
+    _require_collision_state(
+        stage,
+        prim_root=prim_root,
+        subpaths=_RETAINED_COLLISION_SUBPATHS,
+        enabled=True,
+        label=label,
+    )
 
 
 def _open_and_validate_source(source_usd_path: str) -> Any:
@@ -91,6 +136,10 @@ def _open_and_validate_source(source_usd_path: str) -> Any:
     _require_linkage_collision_state(
         stage,
         enabled=True,
+        label="CAP grocery DROID source USD",
+    )
+    _require_retained_collision_state(
+        stage,
         label="CAP grocery DROID source USD",
     )
     return stage
@@ -152,6 +201,30 @@ def _validate_override_layer(
         enabled=False,
         label="CAP grocery linkage override",
     )
+    _require_retained_collision_state(
+        stage,
+        label="CAP grocery linkage override",
+    )
+
+
+def validate_live_grocery_gripper_collision_contract(
+    stage: Any,
+    *,
+    robot_prim_path: str,
+) -> tuple[int, int]:
+    """Prove the effective grocery robot keeps only the intended gripper collisions."""
+    _require_linkage_collision_state(
+        stage,
+        prim_root=robot_prim_path,
+        enabled=False,
+        label="live CAP grocery DROID robot",
+    )
+    _require_retained_collision_state(
+        stage,
+        prim_root=robot_prim_path,
+        label="live CAP grocery DROID robot",
+    )
+    return len(_LINKAGE_COLLISION_SUBPATHS), len(_RETAINED_COLLISION_SUBPATHS)
 
 
 class GripperLinkageCollisionOverride:
