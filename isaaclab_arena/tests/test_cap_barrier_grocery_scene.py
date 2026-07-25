@@ -27,9 +27,11 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
     CAP_GROCERY_CAMERA_NAME,
+    CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE,
     CAP_GROCERY_DROID_HOME,
     CAP_GROCERY_OBJECT_ASSET,
     CAP_GROCERY_OBJECT_POSE,
+    CAP_GROCERY_OBJECT_SIZE,
     CAP_GROCERY_SUPPORT_INSTANCE,
     CAP_GROCERY_SUPPORT_POSE,
     CAP_GROCERY_SUPPORT_SIZE,
@@ -41,8 +43,8 @@ from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
     _scene_ready_marker,
 )
 from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
-    _PerceptionStreamSink,
     _close_resources,
+    _PerceptionStreamSink,
     _run_serve,
 )
 
@@ -102,6 +104,40 @@ def test_grocery_scene_uses_dynamic_proven_assets_and_fixed_reset_poses() -> Non
     assert tuple(support.object_cfg.spawn.size) == CAP_GROCERY_SUPPORT_SIZE
     assert support.object_cfg.spawn.visible is False
     assert support.object_cfg.spawn.rigid_props.kinematic_enabled is True
+
+
+def test_grocery_scene_can_move_only_the_can_for_contact_counterfactual() -> None:
+    assets = _make_cap_grocery_assets(
+        AssetRegistry(),
+        sim_utils,
+        grocery_object_pose=CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE,
+    )
+    scene_assets = {asset.name: asset for asset in assets}
+
+    grocery = scene_assets[CAP_GROCERY_OBJECT_ASSET]
+    destination = scene_assets[CAP_GROCERY_BIN_ASSET]
+    support = scene_assets[CAP_GROCERY_SUPPORT_INSTANCE]
+    assert grocery.get_initial_pose().position_xyz == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
+    assert grocery.get_initial_pose().rotation_xyzw == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[1]
+    assert destination.get_initial_pose().position_xyz == CAP_GROCERY_BIN_POSE[0]
+    assert support.get_initial_pose().position_xyz == CAP_GROCERY_SUPPORT_POSE[0]
+    support_x, support_y, _ = CAP_GROCERY_SUPPORT_POSE[0]
+    half_x = CAP_GROCERY_SUPPORT_SIZE[0] * 0.5
+    half_y = CAP_GROCERY_SUPPORT_SIZE[1] * 0.5
+    away_x, away_y, _ = CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
+    object_half_x = CAP_GROCERY_OBJECT_SIZE[0] * 0.5
+    object_half_y = CAP_GROCERY_OBJECT_SIZE[1] * 0.5
+    assert support_x - half_x < away_x - object_half_x
+    assert away_x + object_half_x < support_x + half_x
+    assert support_y - half_y < away_y - object_half_y
+    assert away_y + object_half_y < support_y + half_y
+    assert (
+        math.dist(
+            CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0],
+            CAP_GROCERY_OBJECT_POSE[0],
+        )
+        > 0.5
+    )
 
 
 def test_proven_layout_is_inside_support_and_recorded_radial_envelope() -> None:
@@ -217,6 +253,23 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
 
     assert args.perception_stream == "127.0.0.1:50061"
     assert args.camera == "oblique"
+    assert args.diagnostic_can_away is False
+    assert (
+        parser.parse_args(
+            [
+                "--perception-stream",
+                "127.0.0.1:50061",
+                "--diagnostic-can-away",
+            ]
+        ).diagnostic_can_away
+        is True
+    )
+    assert (
+        inspect.signature(make_cap_grocery_to_bin_environment)
+        .parameters["diagnostic_can_away"]
+        .default
+        is False
+    )
     with pytest.raises(SystemExit):
         parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"])
 
@@ -230,7 +283,16 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
         == "CAP_GROCERY_TO_BIN_SCENE_READY "
         "object=alphabet_soup_can_hope_robolab "
         "bin=grey_bin_robolab "
-        "camera=exterior_cam camera_profile=libero"
+        "camera=exterior_cam camera_profile=libero can_state=present"
+    )
+    away_factory = _environment_factory("oblique", diagnostic_can_away=True)
+    assert away_factory.func is make_cap_grocery_to_bin_environment
+    assert away_factory.keywords == {
+        "camera_profile": "oblique",
+        "diagnostic_can_away": True,
+    }
+    assert _scene_ready_marker("oblique", diagnostic_can_away=True).endswith(
+        "camera_profile=oblique can_state=away-diagnostic"
     )
 
     defaults = inspect.signature(_run_serve).parameters
@@ -260,6 +322,7 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
         perception_stream="127.0.0.1:50061",
         serve_seconds=321.0,
         camera="oblique",
+        diagnostic_can_away=False,
         enable_cameras=False,
     )
 
@@ -274,10 +337,47 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
     assert kwargs["perception_first_capture_generation"] == 2
     assert kwargs["serve_seconds"] == 321.0
     assert kwargs["initial_gripper_closed"] is False
-    assert kwargs["ready_marker"].endswith("camera_profile=oblique")
+    assert kwargs["ready_marker"].endswith("camera_profile=oblique can_state=present")
     assert kwargs["environment_factory"].func is make_cap_grocery_to_bin_environment
     assert kwargs["environment_factory"].keywords == {"camera_profile": "oblique"}
     assert calls[3] == ("context_exit", True)
+
+
+def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs() -> None:
+    captured: dict[str, object] = {}
+
+    class _Context:
+        def __init__(self, _args) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            pass
+
+    def serve(device, **kwargs) -> None:
+        captured["device"] = device
+        captured.update(kwargs)
+
+    args = SimpleNamespace(
+        device="cuda:0",
+        perception_stream="127.0.0.1:50061",
+        serve_seconds=321.0,
+        camera="oblique",
+        diagnostic_can_away=True,
+        enable_cameras=False,
+    )
+
+    _run_grocery(args, context_factory=_Context, serve=serve)
+
+    factory = captured["environment_factory"]
+    assert factory.func is make_cap_grocery_to_bin_environment
+    assert factory.keywords == {
+        "camera_profile": "oblique",
+        "diagnostic_can_away": True,
+    }
+    assert str(captured["ready_marker"]).endswith("camera_profile=oblique can_state=away-diagnostic")
 
 
 def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:

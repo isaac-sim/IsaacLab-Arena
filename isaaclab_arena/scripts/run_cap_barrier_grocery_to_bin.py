@@ -59,24 +59,42 @@ def _add_grocery_arguments(parser) -> None:
             "most of the window."
         ),
     )
-
-
-def _environment_factory(camera_profile: str):
-    from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_grocery_to_bin_environment
-
-    return partial(
-        make_cap_grocery_to_bin_environment,
-        camera_profile=camera_profile,
+    parser.add_argument(
+        "--diagnostic-can-away",
+        action="store_true",
+        help=(
+            "Diagnostic counterfactual: keep the scene unchanged except for moving "
+            "the can outside the grasp path. Never use this mode for acceptance."
+        ),
     )
 
 
-def _scene_ready_marker(camera_profile: str) -> str:
+def _environment_factory(
+    camera_profile: str,
+    *,
+    diagnostic_can_away: bool = False,
+):
+    from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_grocery_to_bin_environment
+
+    keywords = {"camera_profile": camera_profile}
+    if diagnostic_can_away:
+        keywords["diagnostic_can_away"] = True
+    return partial(make_cap_grocery_to_bin_environment, **keywords)
+
+
+def _scene_ready_marker(
+    camera_profile: str,
+    *,
+    diagnostic_can_away: bool = False,
+) -> str:
+    can_state = "away-diagnostic" if diagnostic_can_away else "present"
     return (
         "CAP_GROCERY_TO_BIN_SCENE_READY "
         f"object={CAP_GROCERY_OBJECT_ASSET} "
         f"bin={CAP_GROCERY_BIN_ASSET} "
         f"camera={CAP_GROCERY_CAMERA_NAME} "
-        f"camera_profile={camera_profile}"
+        f"camera_profile={camera_profile} "
+        f"can_state={can_state}"
     )
 
 
@@ -96,9 +114,15 @@ def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_s
             # perception transport could briefly expose after ResetEpisode.
             perception_first_capture_generation=2,
             serve_seconds=args_cli.serve_seconds,
-            environment_factory=_environment_factory(args_cli.camera),
+            environment_factory=_environment_factory(
+                args_cli.camera,
+                diagnostic_can_away=args_cli.diagnostic_can_away,
+            ),
             initial_gripper_closed=False,
-            ready_marker=_scene_ready_marker(args_cli.camera),
+            ready_marker=_scene_ready_marker(
+                args_cli.camera,
+                diagnostic_can_away=args_cli.diagnostic_can_away,
+            ),
         )
 
 

@@ -11,6 +11,8 @@ CAP_GROCERY_SUPPORT_ASSET = "procedural_table"
 CAP_GROCERY_SUPPORT_INSTANCE = "table"
 CAP_GROCERY_CAMERA_NAME = "exterior_cam"
 CAP_GROCERY_CAMERA_PROFILES = ("libero", "oblique")
+# Exact local AABB from the pinned alphabet_soup_can USD at metersPerUnit=1.
+CAP_GROCERY_OBJECT_SIZE = (0.0711206, 0.0660558, 0.0835546)
 
 # Exact initial poses from the successful DROID rollout recorded in
 # Isaac-cap/docs/evidence/single_object_uv_rebase_seed71.jsonl. The CAP
@@ -18,6 +20,12 @@ CAP_GROCERY_CAMERA_PROFILES = ("libero", "oblique")
 # are also planner-base poses.
 CAP_GROCERY_OBJECT_POSE = (
     (0.3424806594848633, 0.14789724349975586, 0.05477798730134964),
+    (0.0, 0.0, 0.0, 1.0),
+)
+# Diagnostic counterfactual used only by the exact-pose contact probe. It keeps
+# the can on the same support while moving it outside the robot's grasp path.
+CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE = (
+    (0.82, 0.42, 0.05477798730134964),
     (0.0, 0.0, 0.0, 1.0),
 )
 CAP_GROCERY_BIN_POSE = (

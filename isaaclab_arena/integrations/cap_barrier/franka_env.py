@@ -24,6 +24,7 @@ from .grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
     CAP_GROCERY_CAMERA_PROFILES,
+    CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE,
     CAP_GROCERY_DROID_HOME,
     CAP_GROCERY_OBJECT_ASSET,
     CAP_GROCERY_OBJECT_POSE,
@@ -261,7 +262,15 @@ def _configure_cap_grocery_embodiment(embodiment: Any) -> None:
     embodiment.set_initial_joint_pose(initial_joint_pose=list(CAP_GROCERY_DROID_HOME))
 
 
-def _make_cap_grocery_assets(registry: Any, sim_utils: Any) -> list[Any]:
+def _make_cap_grocery_assets(
+    registry: Any,
+    sim_utils: Any,
+    *,
+    grocery_object_pose: tuple[
+        tuple[float, float, float],
+        tuple[float, float, float, float],
+    ] = CAP_GROCERY_OBJECT_POSE,
+) -> list[Any]:
     """Build the deterministic grocery assets without requiring a live USD stage."""
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -298,7 +307,7 @@ def _make_cap_grocery_assets(registry: Any, sim_utils: Any) -> list[Any]:
         raise RuntimeError(
             f"{CAP_GROCERY_OBJECT_ASSET} must remain a dynamic graspable food object"
         )
-    grocery.set_initial_pose(Pose(*CAP_GROCERY_OBJECT_POSE))
+    grocery.set_initial_pose(Pose(*grocery_object_pose))
 
     destination = registry.get_asset_by_name(CAP_GROCERY_BIN_ASSET)()
     if destination.object_type != ObjectType.RIGID or not {
@@ -311,11 +320,25 @@ def _make_cap_grocery_assets(registry: Any, sim_utils: Any) -> list[Any]:
     return [ground_plane, light, support, destination, grocery]
 
 
-def _make_cap_grocery_scene(registry: Any, sim_utils: Any):
+def _make_cap_grocery_scene(
+    registry: Any,
+    sim_utils: Any,
+    *,
+    grocery_object_pose: tuple[
+        tuple[float, float, float],
+        tuple[float, float, float, float],
+    ] = CAP_GROCERY_OBJECT_POSE,
+):
     """Build the deterministic grocery scene description."""
     from isaaclab_arena.scene.scene import Scene
 
-    return Scene(assets=_make_cap_grocery_assets(registry, sim_utils))
+    return Scene(
+        assets=_make_cap_grocery_assets(
+            registry,
+            sim_utils,
+            grocery_object_pose=grocery_object_pose,
+        )
+    )
 
 
 def _make_cap_environment(
@@ -325,15 +348,17 @@ def _make_cap_environment(
     enable_cameras: bool,
     grocery_scene: bool,
     camera_profile: str,
+    grocery_object_pose: tuple[
+        tuple[float, float, float],
+        tuple[float, float, float, float],
+    ] = CAP_GROCERY_OBJECT_POSE,
 ) -> FrankaSimulationAdapter:
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import (
-        IsaacLabArenaEnvironment,
-    )
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
 
@@ -366,7 +391,11 @@ def _make_cap_environment(
             )
             construction_cleanup.callback(linkage_override.close)
             owned_resources.append(linkage_override)
-            scene = _make_cap_grocery_scene(registry, sim_utils)
+            scene = _make_cap_grocery_scene(
+                registry,
+                sim_utils,
+                grocery_object_pose=grocery_object_pose,
+            )
             environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
         else:
             ground_plane = registry.get_asset_by_name("ground_plane")()
@@ -449,6 +478,7 @@ def make_cap_grocery_to_bin_environment(
     initial_gripper_closed: bool = False,
     enable_cameras: bool = True,
     camera_profile: str = "libero",
+    diagnostic_can_away: bool = False,
 ) -> FrankaSimulationAdapter:
     """Build the calibrated grocery-to-bin scene on the arena_droid_b1 profile.
 
@@ -462,4 +492,9 @@ def make_cap_grocery_to_bin_environment(
         enable_cameras=enable_cameras,
         grocery_scene=True,
         camera_profile=camera_profile,
+        grocery_object_pose=(
+            CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE
+            if diagnostic_can_away
+            else CAP_GROCERY_OBJECT_POSE
+        ),
     )
