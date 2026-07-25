@@ -110,12 +110,13 @@ class Scene:
         return asset_name_to_variations
 
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
-        """Return all objects in the scene that have at least one relation."""
+        """Return scene objects that have at least one relation used in placement optimization."""
         objects_with_relations: list[Object | ObjectReference] = []
         for asset in self.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
                 continue
-            if asset.get_relations():
+            # Those with spatial relations or an anchor, exclude those are only used in validation, e.g. RequiresReachability.
+            if asset.get_spatial_relations() or asset.is_anchor:
                 objects_with_relations.append(asset)
         return objects_with_relations
 
