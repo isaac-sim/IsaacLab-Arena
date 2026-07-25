@@ -545,7 +545,8 @@ the supported-variants table below for the exact values.</p>
 <section id="terminal-2-arena-policy-runner">
 <h2>Terminal 2 — arena policy runner<a class="headerlink" href="#terminal-2-arena-policy-runner" title="Link to this heading">#</a></h2>
 <p><strong>Run pi05 closed-loop</strong></p>
-<p>Open a second terminal and point the arena policy runner at the server:</p>
+<p>Open a second terminal, enter the Arena container with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>, and
+point the arena policy runner at the server:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy<span class="w"> </span><span class="se">\</span>

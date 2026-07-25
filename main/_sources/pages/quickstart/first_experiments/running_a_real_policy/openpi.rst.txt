@@ -45,7 +45,8 @@ Terminal 2 — arena policy runner
 
 **Run pi05 closed-loop**
 
-Open a second terminal and point the arena policy runner at the server:
+Open a second terminal, enter the Arena container with ``./docker/run_docker.sh``, and
+point the arena policy runner at the server:
 
 .. code-block:: bash
 
