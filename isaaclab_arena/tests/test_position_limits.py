@@ -3,14 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for PositionLimits relation and PositionLimitsLossStrategy."""
+"""Tests for box and cylindrical position-limit relations and loss strategies."""
 
 import torch
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import PositionLimitsLossStrategy
-from isaaclab_arena.relations.relations import PositionLimits
+from isaaclab_arena.relations.relation_loss_strategies import (
+    PositionLimitsBoxLossStrategy,
+    PositionLimitsCylindricalLossStrategy,
+)
+from isaaclab_arena.relations.relations import PositionLimitsBox, PositionLimitsCylindrical
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 # Dummy bounding box used for all strategy tests (child object is a 0.1m cube at origin)
@@ -18,28 +21,28 @@ _DUMMY_BBOX = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 
 
 
 # =============================================================================
-# PositionLimits construction / validation tests
+# PositionLimitsBox construction / validation tests
 # =============================================================================
 
 
 def test_position_limits_requires_at_least_one_bound():
-    """PositionLimits() with no bounds should raise AssertionError."""
+    """PositionLimitsBox() with no bounds should raise AssertionError."""
 
     with pytest.raises(AssertionError):
-        PositionLimits()
+        PositionLimitsBox()
 
 
 def test_position_limits_rejects_min_greater_than_max():
-    """PositionLimits with x_min > x_max should raise AssertionError."""
+    """PositionLimitsBox with x_min > x_max should raise AssertionError."""
 
     with pytest.raises(AssertionError):
-        PositionLimits(x_min=0.5, x_max=-0.5)
+        PositionLimitsBox(x_min=0.5, x_max=-0.5)
 
 
 def test_position_limits_allows_single_bound():
-    """PositionLimits with only x_min should construct without error."""
+    """PositionLimitsBox with only x_min should construct without error."""
 
-    relation = PositionLimits(x_min=-0.3)
+    relation = PositionLimitsBox(x_min=-0.3)
     assert relation.x_min == -0.3
     assert relation.x_max is None
 
@@ -47,52 +50,38 @@ def test_position_limits_allows_single_bound():
 def test_position_limits_preserves_original_positional_weight_argument():
     """The seventh positional argument remains the relation loss weight."""
 
-    relation = PositionLimits(-1.0, 1.0, -2.0, 2.0, -3.0, 3.0, 2.0)
+    relation = PositionLimitsBox(-1.0, 1.0, -2.0, 2.0, -3.0, 3.0, 2.0)
     assert relation.relation_loss_weight == 2.0
-    assert relation.center_x is None
-    assert relation.center_y is None
-    assert relation.radius_min is None
-    assert relation.radius_max is None
+
+
+def test_position_limits_cylindrical_requires_at_least_one_radius_bound():
+    with pytest.raises(AssertionError, match="At least one radial bound"):
+        PositionLimitsCylindrical(center_x=0.0, center_y=0.0)
 
 
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"x_min": -1.0, "center_x": 0.0},
-        {"x_min": -1.0, "center_y": 0.0},
-        {"x_min": -1.0, "center_x": 0.0, "center_y": 0.0},
-    ],
-)
-def test_position_limits_rejects_radial_center_without_radial_bound(kwargs):
-    with pytest.raises(AssertionError, match="only be set when setting a radial bound"):
-        PositionLimits(**kwargs)
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {"radius_max": 0.2},
-        {"center_x": 0.0, "radius_max": -0.2},
         {"center_x": 0.0, "center_y": 0.0, "radius_min": -0.2},
         {"center_x": 0.0, "center_y": 0.0, "radius_max": -0.2},
         {"center_x": 0.0, "center_y": 0.0, "radius_min": 0.3, "radius_max": 0.3},
     ],
 )
-def test_position_limits_rejects_invalid_radial_bounds(kwargs):
+def test_position_limits_cylindrical_rejects_invalid_radial_bounds(kwargs):
     with pytest.raises(AssertionError):
-        PositionLimits(**kwargs)
+        PositionLimitsCylindrical(**kwargs)
 
 
 # =============================================================================
-# PositionLimitsLossStrategy tests
+# PositionLimitsBoxLossStrategy tests
 # =============================================================================
 
 
 def test_position_limits_zero_loss_when_inside():
     """Loss is approximately zero when position is inside the box."""
 
-    relation = PositionLimits(x_min=-1.0, x_max=1.0, y_min=-1.0, y_max=1.0, z_min=0.0, z_max=2.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0, y_min=-1.0, y_max=1.0, z_min=0.0, z_max=2.0)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 1.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
@@ -102,8 +91,8 @@ def test_position_limits_zero_loss_when_inside():
 def test_position_limits_positive_loss_when_outside_x():
     """Loss is positive when position exceeds x_max."""
 
-    relation = PositionLimits(x_min=-1.0, x_max=1.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([2.0, 0.0, 0.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
@@ -113,8 +102,8 @@ def test_position_limits_positive_loss_when_outside_x():
 def test_position_limits_positive_loss_when_below_min():
     """Loss is positive when position is below y_min."""
 
-    relation = PositionLimits(y_min=0.5, y_max=1.5)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(y_min=0.5, y_max=1.5)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 0.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
@@ -124,8 +113,8 @@ def test_position_limits_positive_loss_when_below_min():
 def test_position_limits_single_bound_min_only():
     """With only x_min set: zero loss above bound, positive loss below."""
 
-    relation = PositionLimits(x_min=0.5)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(x_min=0.5)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_above = torch.tensor([1.0, 0.0, 0.0])
     loss_above = strategy.compute_loss(relation, pos_above, _DUMMY_BBOX)
@@ -139,8 +128,8 @@ def test_position_limits_single_bound_min_only():
 def test_position_limits_single_bound_max_only():
     """With only x_max set: zero loss below bound, positive loss above."""
 
-    relation = PositionLimits(x_max=0.5)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(x_max=0.5)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_below = torch.tensor([0.0, 0.0, 0.0])
     loss_below = strategy.compute_loss(relation, pos_below, _DUMMY_BBOX)
@@ -154,9 +143,9 @@ def test_position_limits_single_bound_max_only():
 def test_position_limits_loss_scales_with_weight():
     """weight=2.0 gives exactly 2x the loss of weight=1.0."""
 
-    relation_1x = PositionLimits(x_min=-1.0, x_max=1.0, relation_loss_weight=1.0)
-    relation_2x = PositionLimits(x_min=-1.0, x_max=1.0, relation_loss_weight=2.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation_1x = PositionLimitsBox(x_min=-1.0, x_max=1.0, relation_loss_weight=1.0)
+    relation_2x = PositionLimitsBox(x_min=-1.0, x_max=1.0, relation_loss_weight=2.0)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([3.0, 0.0, 0.0])
 
     loss_1x = strategy.compute_loss(relation_1x, child_pos, _DUMMY_BBOX)
@@ -167,8 +156,8 @@ def test_position_limits_loss_scales_with_weight():
 def test_position_limits_z_constraint():
     """Z bounds are enforced like X and Y bounds."""
 
-    relation = PositionLimits(z_min=0.0, z_max=1.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(z_min=0.0, z_max=1.0)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
 
     pos_inside = torch.tensor([0.0, 0.0, 0.5])
     loss_inside = strategy.compute_loss(relation, pos_inside, _DUMMY_BBOX)
@@ -182,8 +171,8 @@ def test_position_limits_z_constraint():
 def test_position_limits_unconstrained_axes_ignored():
     """Only X constrained: extreme Y/Z values produce no loss."""
 
-    relation = PositionLimits(x_min=-1.0, x_max=1.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsBox(x_min=-1.0, x_max=1.0)
+    strategy = PositionLimitsBoxLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 1e6, -1e6])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
@@ -191,8 +180,8 @@ def test_position_limits_unconstrained_axes_ignored():
 
 
 def test_position_limits_radial_annulus_loss():
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5, radius_max=1.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_min=0.5, radius_max=1.0)
+    strategy = PositionLimitsCylindricalLossStrategy(slope=10.0)
     assert torch.isclose(
         strategy.compute_loss(relation, torch.tensor([0.75, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(0.0)
     )
@@ -205,8 +194,8 @@ def test_position_limits_radial_annulus_loss():
 
 
 def test_position_limits_radial_bounds_preserve_batch_shape():
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_max=1.0)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(
+    relation = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=1.0)
+    loss = PositionLimitsCylindricalLossStrategy(slope=10.0).compute_loss(
         relation, torch.tensor([[0.5, 0.0, 0.0], [1.5, 0.0, 0.0]]), _DUMMY_BBOX
     )
     assert loss.shape == (2,)
@@ -214,9 +203,9 @@ def test_position_limits_radial_bounds_preserve_batch_shape():
 
 
 def test_position_limits_radial_loss_scales_with_weight():
-    relation_1x = PositionLimits(center_x=0.0, center_y=0.0, radius_max=1.0)
-    relation_2x = PositionLimits(center_x=0.0, center_y=0.0, radius_max=1.0, relation_loss_weight=2.0)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation_1x = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=1.0)
+    relation_2x = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=1.0, relation_loss_weight=2.0)
+    strategy = PositionLimitsCylindricalLossStrategy(slope=10.0)
     child_pos = torch.tensor([1.5, 0.0, 0.0])
     assert torch.isclose(
         strategy.compute_loss(relation_2x, child_pos, _DUMMY_BBOX),
@@ -225,8 +214,8 @@ def test_position_limits_radial_loss_scales_with_weight():
 
 
 def test_position_limits_radius_min_only_loss():
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
-    strategy = PositionLimitsLossStrategy(slope=10.0)
+    relation = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_min=0.5)
+    strategy = PositionLimitsCylindricalLossStrategy(slope=10.0)
     assert torch.isclose(
         strategy.compute_loss(relation, torch.tensor([0.25, 0.0, 0.0]), _DUMMY_BBOX), torch.tensor(2.5)
     )
@@ -238,9 +227,9 @@ def test_position_limits_radius_min_only_loss():
 def test_position_limits_lower_radius_at_center_has_correct_loss_and_nonzero_gradient():
     """A lower radial bound at its center keeps its loss and has a deterministic gradient."""
 
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
+    relation = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_min=0.5)
     child_pos = torch.tensor([0.0, 0.0, 0.0], requires_grad=True)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
+    loss = PositionLimitsCylindricalLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
     loss.backward()
 
     assert torch.isclose(loss, torch.tensor(5.0), atol=1e-6)
@@ -251,9 +240,9 @@ def test_position_limits_lower_radius_at_center_has_correct_loss_and_nonzero_gra
 def test_position_limits_lower_radius_symmetry_breaker_preserves_mixed_batch_behavior():
     """Exact-center entries get a descent direction without changing other batch entries."""
 
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
+    relation = PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_min=0.5)
     child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.25, 0.0, 0.0]], requires_grad=True)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
+    loss = PositionLimitsCylindricalLossStrategy(slope=10.0).compute_loss(relation, child_pos, _DUMMY_BBOX)
     loss.sum().backward()
 
     assert torch.allclose(loss, torch.tensor([5.0, 2.5]), atol=1e-6)
@@ -261,32 +250,9 @@ def test_position_limits_lower_radius_symmetry_breaker_preserves_mixed_batch_beh
     assert torch.allclose(child_pos.grad, torch.tensor([[-10.0, 0.0, 0.0], [-10.0, 0.0, 0.0]]))
 
 
-def test_position_limits_lower_radius_escape_gradient_points_into_axial_box():
-    """The excluded-center escape gradient follows the shortest direction into the axial box."""
-
-    relation = PositionLimits(
-        x_max=0.4,
-        y_min=0.2,
-        center_x=0.5,
-        center_y=0.5,
-        radius_min=0.2,
-    )
-    radial_delta = torch.zeros((1, 2), requires_grad=True)
-    radius = torch.linalg.vector_norm(radial_delta, dim=1)
-
-    steered_radius = PositionLimitsLossStrategy._radius_with_lower_bound_escape_direction(
-        relation, radial_delta, radius
-    )
-    steered_radius.sum().backward()
-
-    assert radial_delta.grad is not None
-    assert torch.allclose(radial_delta.grad, torch.tensor([[-1.0, 0.0]]))
-
-
 def test_position_limits_center_radius_clamps_rounding_underflow(monkeypatch):
     """The symmetry-breaker radius remains non-negative if a norm rounds below epsilon."""
 
-    relation = PositionLimits(center_x=0.0, center_y=0.0, radius_min=0.5)
     radial_delta = torch.zeros((1, 2))
     radius = torch.zeros(1)
     epsilon = torch.finfo(radial_delta.dtype).eps
@@ -296,16 +262,20 @@ def test_position_limits_center_radius_clamps_rounding_underflow(monkeypatch):
         lambda tensor, dim: tensor.new_full((tensor.shape[0],), epsilon / 2),
     )
 
-    steered_radius = PositionLimitsLossStrategy._radius_with_lower_bound_escape_direction(
-        relation, radial_delta, radius
-    )
+    steered_radius = PositionLimitsCylindricalLossStrategy._radius_with_center_escape_direction(radial_delta, radius)
 
     assert torch.equal(steered_radius, torch.zeros_like(steered_radius))
 
 
 def test_position_limits_radial_and_axis_losses_compose():
-    relation = PositionLimits(x_max=0.5, center_x=0.0, center_y=0.0, radius_max=0.5)
-    loss = PositionLimitsLossStrategy(slope=10.0).compute_loss(relation, torch.tensor([1.0, 0.0, 0.0]), _DUMMY_BBOX)
+    child_pos = torch.tensor([1.0, 0.0, 0.0])
+    box_loss = PositionLimitsBoxLossStrategy(slope=10.0).compute_loss(
+        PositionLimitsBox(x_max=0.5), child_pos, _DUMMY_BBOX
+    )
+    cylindrical_loss = PositionLimitsCylindricalLossStrategy(slope=10.0).compute_loss(
+        PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5), child_pos, _DUMMY_BBOX
+    )
+    loss = box_loss + cylindrical_loss
     assert torch.isclose(loss, torch.tensor(10.0))
 
 
@@ -322,7 +292,7 @@ from isaaclab_arena.utils.pose import Pose
 
 
 def test_solver_respects_position_limits():
-    """Solver moves an object inside the PositionLimits region."""
+    """Solver moves an object inside the PositionLimitsBox region."""
     table = DummyObject(
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
@@ -335,7 +305,7 @@ def test_solver_respects_position_limits():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
     )
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(PositionLimits(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
+    box.add_relation(PositionLimitsBox(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
 
     initial_positions = [{table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}]
 
@@ -357,7 +327,7 @@ def test_solver_respects_annular_position_limits():
     table.add_relation(IsAnchor())
     box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(PositionLimits(center_x=0.5, center_y=0.5, radius_min=0.25, radius_max=0.5))
+    box.add_relation(PositionLimitsCylindrical(center_x=0.5, center_y=0.5, radius_min=0.25, radius_max=0.5))
 
     result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
         objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)}]
@@ -377,21 +347,11 @@ def test_solver_respects_box_constrained_annular_position_limits():
     table.add_relation(IsAnchor())
     box = DummyObject(name="box", bounding_box=_DUMMY_BBOX)
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(
-        PositionLimits(
-            x_min=0.1,
-            x_max=0.4,
-            y_min=0.2,
-            y_max=0.8,
-            center_x=0.5,
-            center_y=0.5,
-            radius_min=0.2,
-            radius_max=0.4,
-        )
-    )
+    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.4, y_min=0.2, y_max=0.8))
+    box.add_relation(PositionLimitsCylindrical(center_x=0.5, center_y=0.5, radius_min=0.2, radius_max=0.4))
 
     result = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4)).solve(
-        objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (1.5, 0.5, 0.11)}]
+        objects=[table, box], initial_positions=[{table: (0.0, 0.0, 0.0), box: (1.5, 0.6, 0.11)}]
     )
     x, y, _ = result[0][box]
     radius = ((x - 0.5) ** 2 + (y - 0.5) ** 2) ** 0.5

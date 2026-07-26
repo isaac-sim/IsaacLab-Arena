@@ -162,7 +162,7 @@ class SpatialRelationSpec(BaseModel):
         description=(
             "Node id this relation applies to. For binary relations (e.g. 'on'), it's the "
             "object placed relative to ``reference``. For unary relations (e.g. "
-            "'is_anchor', 'position_limits'), it's the anchored or constrained object."
+            "'is_anchor', 'position_limits_box'), it's the anchored or constrained object."
         ),
     )
     reference: str | None = Field(

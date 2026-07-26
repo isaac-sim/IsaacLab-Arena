@@ -37,7 +37,7 @@ relations:
   subject: rubiks_cube_hot3d_robolab
   reference: maple_table_robolab_table
   params: {}
-- kind: position_limits
+- kind: position_limits_box
   subject: rubiks_cube_hot3d_robolab
   reference: null
   params:
@@ -49,7 +49,7 @@ relations:
   subject: bowl_ycb_robolab
   reference: maple_table_robolab_table
   params: {}
-- kind: position_limits
+- kind: position_limits_box
   subject: bowl_ycb_robolab
   reference: null
   params:

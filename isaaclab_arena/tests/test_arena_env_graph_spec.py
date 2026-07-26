@@ -14,7 +14,7 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
-from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimitsBox, PositionLimitsCylindrical
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
@@ -52,7 +52,7 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
     cube_limits = spec.relations[2]
-    assert cube_limits.kind == "position_limits"
+    assert cube_limits.kind == "position_limits_box"
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
     assert cube_limits.params == {
@@ -72,17 +72,17 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert table_anchor.kind == "is_anchor"
     assert table_anchor.subject == "maple_table_robolab_table"
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(table_anchor.kind) is IsAnchor
-    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimits
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimitsBox
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(mug_position.kind) is AtPosition
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
 def test_graph_spec_parses_radial_position_limits():
-    """Graph specs preserve radial PositionLimits parameters for relation construction."""
+    """Graph specs preserve cylindrical position-limit parameters for relation construction."""
 
     data = _minimal_env_graph_data()
     data["relations"] = [{
-        "kind": "position_limits",
+        "kind": "position_limits_cylindrical",
         "subject": "cube",
         "params": {"center_x": 0.5, "center_y": -0.25, "radius_min": 0.1, "radius_max": 0.3},
     }]
@@ -91,14 +91,33 @@ def test_graph_spec_parses_radial_position_limits():
     relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
     relation = relation_class(**relation_spec.params)
 
-    assert isinstance(relation, PositionLimits)
+    assert isinstance(relation, PositionLimitsCylindrical)
     assert relation.center_x == 0.5
     assert relation.center_y == -0.25
     assert relation.radius_min == 0.1
     assert relation.radius_max == 0.3
 
 
+def test_graph_spec_accepts_legacy_position_limits_box_name():
+    """The legacy YAML relation name continues to construct a box relation."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = [{
+        "kind": "position_limits",
+        "subject": "cube",
+        "params": {"x_min": 0.1, "x_max": 0.3},
+    }]
+
+    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
+    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
+    relation = relation_class(**relation_spec.params)
+
+    assert relation_class is PositionLimitsBox
+    assert isinstance(relation, PositionLimitsBox)
+
+
 def test_graph_spec_parses_at_position():
+
     data = _minimal_env_graph_data()
     data["relations"] = [{
         "kind": "at_position",
