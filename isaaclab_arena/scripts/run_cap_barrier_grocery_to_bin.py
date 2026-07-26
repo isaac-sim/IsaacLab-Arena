@@ -59,12 +59,22 @@ def _add_grocery_arguments(parser) -> None:
             "most of the window."
         ),
     )
-    parser.add_argument(
+    diagnostic_group = parser.add_mutually_exclusive_group()
+    diagnostic_group.add_argument(
         "--diagnostic-can-away",
         action="store_true",
         help=(
             "Diagnostic counterfactual: keep the scene unchanged except for moving "
             "the can outside the grasp path. Never use this mode for acceptance."
+        ),
+    )
+    diagnostic_group.add_argument(
+        "--diagnostic-collision-null",
+        action="store_true",
+        help=(
+            "Diagnostic plant isolation: omit ground, table, bin, and can while "
+            "preserving the fixed-base DROID control profile. Never use this "
+            "mode for acceptance."
         ),
     )
 
@@ -73,12 +83,15 @@ def _environment_factory(
     camera_profile: str,
     *,
     diagnostic_can_away: bool = False,
+    diagnostic_collision_null: bool = False,
 ):
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_grocery_to_bin_environment
 
     keywords = {"camera_profile": camera_profile}
     if diagnostic_can_away:
         keywords["diagnostic_can_away"] = True
+    if diagnostic_collision_null:
+        keywords["diagnostic_collision_null"] = True
     return partial(make_cap_grocery_to_bin_environment, **keywords)
 
 
@@ -86,7 +99,15 @@ def _scene_ready_marker(
     camera_profile: str,
     *,
     diagnostic_can_away: bool = False,
+    diagnostic_collision_null: bool = False,
 ) -> str:
+    if diagnostic_collision_null:
+        return (
+            "CAP_GROCERY_COLLISION_NULL_SCENE_READY "
+            f"camera={CAP_GROCERY_CAMERA_NAME} "
+            f"camera_profile={camera_profile} "
+            "fixtures=absent-diagnostic"
+        )
     can_state = "away-diagnostic" if diagnostic_can_away else "present"
     return (
         "CAP_GROCERY_TO_BIN_SCENE_READY "
@@ -117,11 +138,13 @@ def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_s
             environment_factory=_environment_factory(
                 args_cli.camera,
                 diagnostic_can_away=args_cli.diagnostic_can_away,
+                diagnostic_collision_null=args_cli.diagnostic_collision_null,
             ),
             initial_gripper_closed=False,
             ready_marker=_scene_ready_marker(
                 args_cli.camera,
                 diagnostic_can_away=args_cli.diagnostic_can_away,
+                diagnostic_collision_null=args_cli.diagnostic_collision_null,
             ),
         )
 

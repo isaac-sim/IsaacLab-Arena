@@ -21,6 +21,7 @@ from isaaclab_arena.integrations.cap_barrier.franka_env import (
     _configure_cap_grocery_embodiment,
     _disable_cap_automatic_camera_rendering,
     _make_cap_grocery_assets,
+    _validate_cap_fixed_robot_anchor,
     make_cap_grocery_to_bin_environment,
 )
 from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
@@ -140,6 +141,23 @@ def test_grocery_scene_can_move_only_the_can_for_contact_counterfactual() -> Non
     )
 
 
+def test_grocery_collision_null_scene_omits_every_external_fixture() -> None:
+    assets = _make_cap_grocery_assets(
+        AssetRegistry(),
+        sim_utils,
+        diagnostic_collision_null=True,
+    )
+
+    assert [asset.name for asset in assets] == ["light"]
+
+
+def test_grocery_collision_null_requires_an_independently_fixed_robot_anchor() -> None:
+    _validate_cap_fixed_robot_anchor(SimpleNamespace(is_fixed_base=True))
+
+    with pytest.raises(RuntimeError, match="requires the DROID articulation root"):
+        _validate_cap_fixed_robot_anchor(SimpleNamespace(is_fixed_base=False))
+
+
 def test_proven_layout_is_inside_support_and_recorded_radial_envelope() -> None:
     support_x, support_y, _ = CAP_GROCERY_SUPPORT_POSE[0]
     half_x = CAP_GROCERY_SUPPORT_SIZE[0] * 0.5
@@ -254,6 +272,7 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
     assert args.perception_stream == "127.0.0.1:50061"
     assert args.camera == "oblique"
     assert args.diagnostic_can_away is False
+    assert args.diagnostic_collision_null is False
     assert (
         parser.parse_args(
             [
@@ -265,8 +284,33 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
         is True
     )
     assert (
+        parser.parse_args(
+            [
+                "--perception-stream",
+                "127.0.0.1:50061",
+                "--diagnostic-collision-null",
+            ]
+        ).diagnostic_collision_null
+        is True
+    )
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "--perception-stream",
+                "127.0.0.1:50061",
+                "--diagnostic-can-away",
+                "--diagnostic-collision-null",
+            ]
+        )
+    assert (
         inspect.signature(make_cap_grocery_to_bin_environment)
         .parameters["diagnostic_can_away"]
+        .default
+        is False
+    )
+    assert (
+        inspect.signature(make_cap_grocery_to_bin_environment)
+        .parameters["diagnostic_collision_null"]
         .default
         is False
     )
@@ -293,6 +337,20 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
     }
     assert _scene_ready_marker("oblique", diagnostic_can_away=True).endswith(
         "camera_profile=oblique can_state=away-diagnostic"
+    )
+    collision_null_factory = _environment_factory(
+        "oblique",
+        diagnostic_collision_null=True,
+    )
+    assert collision_null_factory.func is make_cap_grocery_to_bin_environment
+    assert collision_null_factory.keywords == {
+        "camera_profile": "oblique",
+        "diagnostic_collision_null": True,
+    }
+    assert (
+        _scene_ready_marker("oblique", diagnostic_collision_null=True)
+        == "CAP_GROCERY_COLLISION_NULL_SCENE_READY "
+        "camera=exterior_cam camera_profile=oblique fixtures=absent-diagnostic"
     )
 
     defaults = inspect.signature(_run_serve).parameters
@@ -323,6 +381,7 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
         serve_seconds=321.0,
         camera="oblique",
         diagnostic_can_away=False,
+        diagnostic_collision_null=False,
         enable_cameras=False,
     )
 
@@ -366,6 +425,7 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         serve_seconds=321.0,
         camera="oblique",
         diagnostic_can_away=True,
+        diagnostic_collision_null=False,
         enable_cameras=False,
     )
 
@@ -378,6 +438,57 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         "diagnostic_can_away": True,
     }
     assert str(captured["ready_marker"]).endswith("camera_profile=oblique can_state=away-diagnostic")
+
+
+def test_grocery_runner_wires_collision_null_without_changing_other_inputs() -> None:
+    captured: dict[str, object] = {}
+
+    class _Context:
+        def __init__(self, _args) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            pass
+
+    def serve(device, **kwargs) -> None:
+        captured["device"] = device
+        captured.update(kwargs)
+
+    args = SimpleNamespace(
+        device="cuda:0",
+        perception_stream="127.0.0.1:50061",
+        serve_seconds=321.0,
+        camera="oblique",
+        diagnostic_can_away=False,
+        diagnostic_collision_null=True,
+        enable_cameras=False,
+    )
+
+    _run_grocery(args, context_factory=_Context, serve=serve)
+
+    factory = captured["environment_factory"]
+    assert factory.func is make_cap_grocery_to_bin_environment
+    assert factory.keywords == {
+        "camera_profile": "oblique",
+        "diagnostic_collision_null": True,
+    }
+    assert (
+        captured["ready_marker"]
+        == "CAP_GROCERY_COLLISION_NULL_SCENE_READY "
+        "camera=exterior_cam camera_profile=oblique fixtures=absent-diagnostic"
+    )
+
+
+def test_grocery_environment_rejects_conflicting_diagnostic_modes_before_build() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        make_cap_grocery_to_bin_environment(
+            device="cuda:0",
+            diagnostic_can_away=True,
+            diagnostic_collision_null=True,
+        )
 
 
 def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:

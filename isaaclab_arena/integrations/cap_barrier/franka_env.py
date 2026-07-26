@@ -262,6 +262,15 @@ def _configure_cap_grocery_embodiment(embodiment: Any) -> None:
     embodiment.set_initial_joint_pose(initial_joint_pose=list(CAP_GROCERY_DROID_HOME))
 
 
+def _validate_cap_fixed_robot_anchor(robot: Any) -> None:
+    """Reject a grocery profile whose robot anchor depends on scene fixtures."""
+    if not bool(robot.is_fixed_base):
+        raise RuntimeError(
+            "CAP grocery profile requires the DROID articulation root "
+            "to remain fixed independently of scene fixtures"
+        )
+
+
 def _make_cap_grocery_assets(
     registry: Any,
     sim_utils: Any,
@@ -270,15 +279,22 @@ def _make_cap_grocery_assets(
         tuple[float, float, float],
         tuple[float, float, float, float],
     ] = CAP_GROCERY_OBJECT_POSE,
+    diagnostic_collision_null: bool = False,
 ) -> list[Any]:
     """Build the deterministic grocery assets without requiring a live USD stage."""
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
-    ground_plane = registry.get_asset_by_name("ground_plane")()
     light = registry.get_asset_by_name("light")()
     light.set_intensity(1500.0)
+    if diagnostic_collision_null:
+        # Diagnostic-only plant isolation: retain the same fixed-base robot,
+        # camera, linkage override, controller timing, and light while removing
+        # every external collision fixture. Never use this scene for acceptance.
+        return [light]
+
+    ground_plane = registry.get_asset_by_name("ground_plane")()
 
     support = registry.get_asset_by_name(CAP_GROCERY_SUPPORT_ASSET)()
     support.set_initial_pose(Pose(*CAP_GROCERY_SUPPORT_POSE))
@@ -328,6 +344,7 @@ def _make_cap_grocery_scene(
         tuple[float, float, float],
         tuple[float, float, float, float],
     ] = CAP_GROCERY_OBJECT_POSE,
+    diagnostic_collision_null: bool = False,
 ):
     """Build the deterministic grocery scene description."""
     from isaaclab_arena.scene.scene import Scene
@@ -337,6 +354,7 @@ def _make_cap_grocery_scene(
             registry,
             sim_utils,
             grocery_object_pose=grocery_object_pose,
+            diagnostic_collision_null=diagnostic_collision_null,
         )
     )
 
@@ -352,6 +370,7 @@ def _make_cap_environment(
         tuple[float, float, float],
         tuple[float, float, float, float],
     ] = CAP_GROCERY_OBJECT_POSE,
+    grocery_collision_null: bool = False,
 ) -> FrankaSimulationAdapter:
     import isaaclab.sim as sim_utils
 
@@ -395,6 +414,7 @@ def _make_cap_environment(
                 registry,
                 sim_utils,
                 grocery_object_pose=grocery_object_pose,
+                diagnostic_collision_null=grocery_collision_null,
             )
             environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
         else:
@@ -427,6 +447,13 @@ def _make_cap_environment(
                 f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}"
             )
         if grocery_scene:
+            robot = environment.unwrapped.scene["robot"]
+            _validate_cap_fixed_robot_anchor(robot)
+            print(
+                "CAP_GROCERY_ROBOT_ANCHOR_OK "
+                f"fixed_base={int(bool(robot.is_fixed_base))} "
+                f"collision_null={int(grocery_collision_null)}"
+            )
             env_prim_paths = tuple(environment.unwrapped.scene.env_prim_paths)
             if len(env_prim_paths) != 1:
                 raise RuntimeError(
@@ -479,6 +506,7 @@ def make_cap_grocery_to_bin_environment(
     enable_cameras: bool = True,
     camera_profile: str = "libero",
     diagnostic_can_away: bool = False,
+    diagnostic_collision_null: bool = False,
 ) -> FrankaSimulationAdapter:
     """Build the calibrated grocery-to-bin scene on the arena_droid_b1 profile.
 
@@ -486,12 +514,17 @@ def make_cap_grocery_to_bin_environment(
     Both camera profiles publish their live world pose, so switching the camera
     changes no static world-to-base calibration.
     """
+    if diagnostic_can_away and diagnostic_collision_null:
+        raise ValueError(
+            "diagnostic_can_away and diagnostic_collision_null are mutually exclusive"
+        )
     return _make_cap_environment(
         device=device,
         initial_gripper_closed=initial_gripper_closed,
         enable_cameras=enable_cameras,
         grocery_scene=True,
         camera_profile=camera_profile,
+        grocery_collision_null=diagnostic_collision_null,
         grocery_object_pose=(
             CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE
             if diagnostic_can_away
