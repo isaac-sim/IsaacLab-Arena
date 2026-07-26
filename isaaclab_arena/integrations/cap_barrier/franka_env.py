@@ -35,6 +35,7 @@ from .grocery_scene_spec import (
 from .joint_mapping import (
     DROID_FINGER_JOINT,
     DROID_GRIPPER_CLOSED_POSITION_RAD,
+    DROID_GRIPPER_OPEN_POSITION_RAD,
     DroidBinaryGripperActionLatch,
     PANDA_ARM_JOINTS,
     make_droid_joint_mapping,
@@ -81,9 +82,17 @@ def _configure_cap_droid_embodiment(
 class FrankaSimulationAdapter:
     """Expose the narrow simulator surface consumed by ``ArenaLockstepManager``."""
 
-    def __init__(self, environment: Any, *, owned_resources: Sequence[Any] = ()):
+    def __init__(
+        self,
+        environment: Any,
+        *,
+        initial_gripper_closed: bool,
+        owned_resources: Sequence[Any] = (),
+    ):
         import torch
 
+        if type(initial_gripper_closed) is not bool:
+            raise TypeError("initial_gripper_closed must be a bool")
         self._torch = torch
         self._environment = environment
         self._owned_resources = tuple(owned_resources)
@@ -114,8 +123,13 @@ class FrankaSimulationAdapter:
         )
         self._arm_slice = slice(0, 7)
         self._gripper_slice = slice(7, 8)
+        self._reset_gripper_position = (
+            DROID_GRIPPER_CLOSED_POSITION_RAD
+            if initial_gripper_closed
+            else DROID_GRIPPER_OPEN_POSITION_RAD
+        )
         self._gripper_action_latch = DroidBinaryGripperActionLatch(
-            float(self.abi_positions()[7])
+            self._reset_gripper_position
         )
         self.last_physics_step_started_at_s: float | None = None
         self.physics_step_count = 0
@@ -188,7 +202,7 @@ class FrankaSimulationAdapter:
         # ManagerBasedEnv.reset writes reset state and performs sim.forward(); it
         # does not advance physics, which is the required CR-20 fence behavior.
         self._environment.reset()
-        self._gripper_action_latch.reset(float(self.abi_positions()[7]))
+        self._gripper_action_latch.reset(self._reset_gripper_position)
         self.reset_count += 1
 
     def close(self) -> None:
@@ -458,6 +472,7 @@ def _make_cap_environment(
             _disable_cap_automatic_camera_rendering(environment)
         adapter = FrankaSimulationAdapter(
             environment,
+            initial_gripper_closed=initial_gripper_closed,
             owned_resources=owned_resources,
         )
         construction_cleanup.pop_all()

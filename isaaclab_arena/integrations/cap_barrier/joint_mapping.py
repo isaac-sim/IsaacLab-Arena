@@ -120,7 +120,7 @@ class DroidBinaryGripperActionLatch:
         return self._action
 
     def reset(self, position_rad: float) -> None:
-        """Reset from the deterministic physical endpoint after an episode reset."""
+        """Reset from the scene's configured endpoint after an episode reset."""
         self._action = droid_binary_gripper_action(position_rad)
 
     def action_for_position(self, position_rad: float) -> float:

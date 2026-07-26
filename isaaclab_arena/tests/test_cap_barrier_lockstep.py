@@ -373,7 +373,10 @@ def test_cap_droid_profile_replaces_stand_and_disables_intermediate_joint_reset_
 class _FakeDroidEnvironment:
     def __init__(self, torch):
         joint_names = ("right_mimic_joint", DROID_FINGER_JOINT, *PANDA_ARM_JOINTS)
-        joint_position = torch.tensor([[9.0, 0.0, *range(1, 8)]])
+        # Live Kit can settle slightly away from the configured endpoint before
+        # the adapter is constructed. Binary intent comes from the scene profile,
+        # not from reclassifying this physical state as a command.
+        joint_position = torch.tensor([[9.0, 0.01833321712911129, *range(1, 8)]])
         self.robot = SimpleNamespace(
             joint_names=joint_names,
             data=SimpleNamespace(
@@ -394,7 +397,7 @@ class _FakeDroidEnvironment:
         self.actions.append(action.clone())
 
     def reset(self) -> None:
-        self.robot.data.joint_pos[0, 1] = 0.0
+        self.robot.data.joint_pos[0, 1] = 0.01833321712911129
 
     def close(self) -> None:
         pass
@@ -403,7 +406,7 @@ class _FakeDroidEnvironment:
 def test_droid_adapter_preserves_binary_intent_across_controller_cancel_hold() -> None:
     torch = pytest.importorskip("torch")
     environment = _FakeDroidEnvironment(torch)
-    adapter = FrankaSimulationAdapter(environment)
+    adapter = FrankaSimulationAdapter(environment, initial_gripper_closed=False)
     environment.robot.data.joint_pos[0, 1] = DROID_GRIPPER_CLOSED_POSITION_RAD / 3
     assert adapter.abi_positions() == pytest.approx(
         (
@@ -444,10 +447,10 @@ def test_droid_adapter_preserves_binary_intent_across_controller_cancel_hold() -
         assert len(environment.actions) == step_count
 
 
-def test_droid_adapter_reset_reseeds_binary_intent_from_physical_endpoint() -> None:
+def test_droid_adapter_reset_reseeds_binary_intent_from_scene_profile() -> None:
     torch = pytest.importorskip("torch")
     environment = _FakeDroidEnvironment(torch)
-    adapter = FrankaSimulationAdapter(environment)
+    adapter = FrankaSimulationAdapter(environment, initial_gripper_closed=False)
     arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
     cancel_hold_position = 0.20944960415363312
 
@@ -459,3 +462,16 @@ def test_droid_adapter_reset_reseeds_binary_intent_from_physical_endpoint() -> N
     assert adapter.reset_count == 1
     assert environment.actions[0][0].tolist() == pytest.approx([*arm_target, 1.0])
     assert environment.actions[1][0].tolist() == pytest.approx([*arm_target, 0.0])
+
+
+def test_droid_adapter_uses_configured_closed_intent_not_settled_physical_state() -> (
+    None
+):
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    adapter = FrankaSimulationAdapter(environment, initial_gripper_closed=True)
+    arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+
+    adapter.step_position_targets((*arm_target, 0.01833321712911129))
+
+    assert environment.actions[0][0].tolist() == pytest.approx([*arm_target, 1.0])

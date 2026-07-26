@@ -41,7 +41,7 @@ admits only those two endpoint goal bands with the `arena_droid_b1` profile tole
 When Jazzy cancels an active goal it replaces the command with the current physical position. That
 hold-at-current value is not a new command for a binary device, so the producer validates it as
 finite and in range while retaining the last admitted endpoint intent. A new endpoint flips the
-latch, and reset reinitializes it from the deterministic physical endpoint. Nonfinite and
+latch, and reset reinitializes it from the scene's configured binary endpoint. Nonfinite and
 out-of-range commands still fail before physics. Until shared profile assembly lands, the ROS
 gripper relay configuration must mirror the endpoint tolerance explicitly.
 The smoke brackets each commanded close and open transition with synchronized monotonic timestamps,
