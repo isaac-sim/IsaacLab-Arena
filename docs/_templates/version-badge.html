@@ -1,27 +1,45 @@
 {#
-Renders the version of the docs currently being viewed, beside the logo/title in
-the header navbar.
+Header version switcher, styled to match pydata-sphinx-theme's built-in
+`.version-switcher__button` -- the same look NVIDIA Warp's docs use. Warp drives it
+with pydata's JavaScript switcher (populated from a published versions.json); we don't
+publish one, so we render the same markup/classes server-side from sphinx-multiversion's
+`versions`/`current_version` instead. Reusing the theme's classes means it inherits the
+switcher's border, hover ring, caret, and dropdown-menu styling for free.
 
-Why `current_version` rather than `release`: sphinx-multiversion builds every ref
-with the *current* checkout's conf.py, so `release` (and anything else computed in
-conf.py) is the same for all versions unless restored from each ref's own metadata --
-and that metadata is read from each ref's *committed* conf.py, so it is empty for refs
-that predate this change. `current_version` comes from git and is populated per version
-by sphinx-multiversion, so it is correct for every documented version immediately.
-`current_version.release` is preferred when a ref records one; otherwise we fall back to
-its name (e.g. "release/0.2.0" -> "0.2.0"). `release` is the fallback for a plain
-single-version build, where sphinx-multiversion is not involved.
-
-The <span> is emitted unconditionally: pydata_sphinx_theme drops navbar templates that
-render empty, and that check runs before sphinx-multiversion adds `current_version` to
-the context. Always emitting the element keeps it in the navbar; the value is filled in
-at final render, once `current_version` is available.
+`current_version` comes from git and is populated per version by sphinx-multiversion, so
+the label is correct for every documented version (see the note in conf.py). The outer
+button is emitted unconditionally: pydata drops navbar items that render empty, and that
+check runs before sphinx-multiversion adds `current_version`/`versions` to the context,
+so the label and menu items fill in at final render.
 #}
+{%- macro version_label(name, release) -%}
+{{ release or (name[8:] if name.startswith("release/") else name) }}
+{%- endmacro -%}
 {%- set label = "" %}
 {%- if current_version %}
-{%- set label = current_version.release or current_version.name %}
+{%- set label = version_label(current_version.name, current_version.release) %}
 {%- elif release %}
 {%- set label = release %}
 {%- endif %}
-{%- if label.startswith("release/") %}{% set label = label[8:] %}{% endif %}
-<span class="navbar-version">{{ label }}</span>
+<div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="{{ _('Version switcher list') }}">
+    {{ label }}
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    {%- if versions %}
+    {%- for item in versions.branches %}
+    <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name, item.release) }}</a>
+    {%- endfor %}
+    {%- for item in versions.tags|reverse %}
+    <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name, item.release) }}</a>
+    {%- endfor %}
+    {%- endif %}
+  </div>
+</div>
