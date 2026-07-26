@@ -1,0 +1,27 @@
+{#
+Renders the version of the docs currently being viewed, beside the logo/title in
+the header navbar.
+
+Why `current_version` rather than `release`: sphinx-multiversion builds every ref
+with the *current* checkout's conf.py, so `release` (and anything else computed in
+conf.py) is the same for all versions unless restored from each ref's own metadata --
+and that metadata is read from each ref's *committed* conf.py, so it is empty for refs
+that predate this change. `current_version` comes from git and is populated per version
+by sphinx-multiversion, so it is correct for every documented version immediately.
+`current_version.release` is preferred when a ref records one; otherwise we fall back to
+its name (e.g. "release/0.2.0" -> "0.2.0"). `release` is the fallback for a plain
+single-version build, where sphinx-multiversion is not involved.
+
+The <span> is emitted unconditionally: pydata_sphinx_theme drops navbar templates that
+render empty, and that check runs before sphinx-multiversion adds `current_version` to
+the context. Always emitting the element keeps it in the navbar; the value is filled in
+at final render, once `current_version` is available.
+#}
+{%- set label = "" %}
+{%- if current_version %}
+{%- set label = current_version.release or current_version.name %}
+{%- elif release %}
+{%- set label = release %}
+{%- endif %}
+{%- if label.startswith("release/") %}{% set label = label[8:] %}{% endif %}
+<span class="navbar-version">{{ label }}</span>

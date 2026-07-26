@@ -23,20 +23,10 @@ from typing import List
 import os
 import sys
 
-# TODO(alexmillane, 2025-10-03): Currently we can't import the version number.
-# Modify PYTHONPATH so we can obtain the version data from setup module.
-# pylint: disable=wrong-import-position
-# path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from setup import ISAACLAB_ARENA_VERSION_NUMBER
-
-# TODO(alexmillane, 2025-10-03): Get this programmatically, as above.
-ISAACLAB_ARENA_VERSION_NUMBER = "0.2"
-
-
 # Modify PYTHONPATH so we can import the helpers module.
+# pylint: disable=wrong-import-position
 sys.path.insert(0, os.path.abspath("."))
-from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
+from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired, get_project_version
 
 # NOTE(alexmillane, 2025-04-24): This file is in a separate folder to avoid
 # duplicate configuration errors coming from mypy. The only way I could find
@@ -48,6 +38,16 @@ project = "isaaclab_arena"
 copyright = "2025, NVIDIA"
 author = "NVIDIA"
 released = False  # Indicates if this is a public or internal version of the repo.
+
+# Read the version from pyproject.toml rather than hard-coding it. NOTE that
+# sphinx-multiversion builds every ref with this (the current checkout's) conf.py, so
+# `release`/`version`/`html_title` are identical for every documented version -- the
+# per-version number in the header instead comes from `current_version`, which
+# sphinx-multiversion derives from git. See docs/_templates/version-badge.html. These
+# values are still used for a plain single-version build and by the multiversion
+# metadata pass. Keep them out of `html_title` so the header title is not frozen.
+release = get_project_version()
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 
@@ -111,7 +111,10 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
-html_title = f"isaaclab_arena {ISAACLAB_ARENA_VERSION_NUMBER}"
+# Keep the version OUT of html_title: it would bake a single value into every
+# version's pages (see the release/version note above). The navbar-badge template
+# renders the per-version release next to the title instead.
+html_title = project
 html_show_sphinx = False
 html_theme_options = {
     "copyright_override": {"start": 2023},
@@ -120,6 +123,8 @@ html_theme_options = {
     "footer_links": {},
     "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "show_nav_level": 1,
+    # Render the per-version release beside the logo/title in the header navbar.
+    "navbar_start": ["navbar-logo", "version-badge"],
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {

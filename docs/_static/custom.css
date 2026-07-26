@@ -18,3 +18,14 @@ table.gallery th {
     border: none !important;
     box-shadow: none !important;
 }
+
+/* Version badge shown beside the site title in the header navbar
+   (see docs/_templates/version-badge.html). */
+.navbar-version {
+    align-self: center;
+    margin-left: 0.5rem;
+    font-size: 0.85em;
+    font-weight: 600;
+    opacity: 0.75;
+    white-space: nowrap;
+}
