@@ -16,9 +16,28 @@ from collections.abc import Sequence
 from contextlib import ExitStack
 from typing import Any
 
+from .grocery_close_guard import (
+    GroceryCloseAuthorizationError,
+    GroceryCloseGuard,
+    GroceryCloseObservation,
+)
+from .grocery_bin_collision_override import (
+    apply_grocery_bin_collision_override,
+    validate_live_grocery_bin_collision_contract,
+)
+from .grocery_collision_runtime import (
+    GroceryCollisionRuntimeContract,
+    configure_grocery_ground_collision_contract,
+)
 from .gripper_linkage_override import (
     apply_grocery_gripper_linkage_override,
     validate_live_grocery_gripper_collision_contract,
+)
+from .grocery_object_collision_override import (
+    AnalyticCylinderCollisionSettingOverride,
+    apply_grocery_can_collision_override,
+    validate_analytic_cylinder_collision_setting,
+    validate_live_grocery_can_collision_contract,
 )
 from .grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
@@ -29,7 +48,10 @@ from .grocery_scene_spec import (
     CAP_GROCERY_OBJECT_ASSET,
     CAP_GROCERY_OBJECT_POSE,
     CAP_GROCERY_SUPPORT_ASSET,
+    CAP_GROCERY_SUPPORT_CONTACT_OFFSET_M,
+    CAP_GROCERY_SUPPORT_INSTANCE,
     CAP_GROCERY_SUPPORT_POSE,
+    CAP_GROCERY_SUPPORT_REST_OFFSET_M,
     CAP_GROCERY_SUPPORT_SIZE,
 )
 from .joint_mapping import (
@@ -81,9 +103,22 @@ def _configure_cap_droid_embodiment(
 class FrankaSimulationAdapter:
     """Expose the narrow simulator surface consumed by ``ArenaLockstepManager``."""
 
-    def __init__(self, environment: Any, *, owned_resources: Sequence[Any] = ()):
+    def __init__(
+        self,
+        environment: Any,
+        *,
+        owned_resources: Sequence[Any] = (),
+        grocery_collision_runtime: GroceryCollisionRuntimeContract | None = None,
+        grocery_close_disabled: bool = False,
+    ):
         import torch
 
+        if not isinstance(grocery_close_disabled, bool):
+            raise TypeError("grocery_close_disabled must be boolean")
+        if grocery_close_disabled and grocery_collision_runtime is not None:
+            raise ValueError(
+                "grocery close cannot be both runtime-guarded and explicitly disabled"
+            )
         self._torch = torch
         self._environment = environment
         self._owned_resources = tuple(owned_resources)
@@ -114,6 +149,13 @@ class FrankaSimulationAdapter:
         )
         self._arm_slice = slice(0, 7)
         self._gripper_slice = slice(7, 8)
+        self._grocery_collision_runtime = grocery_collision_runtime
+        self._grocery_close_disabled = grocery_close_disabled
+        self._grocery_close_guard = (
+            GroceryCloseGuard() if grocery_collision_runtime is not None else None
+        )
+        self._previous_guard_arm_positions: tuple[float, ...] | None = None
+        self.last_grocery_close_evidence = None
         self.last_physics_step_started_at_s: float | None = None
         self.physics_step_count = 0
         self.reset_count = 0
@@ -157,31 +199,118 @@ class FrankaSimulationAdapter:
         if device.type == "cuda":
             self._torch.cuda.synchronize(device)
 
+    def _grocery_close_observation(
+        self,
+        *,
+        current_positions: tuple[float, ...],
+        targets: Sequence[float],
+    ) -> GroceryCloseObservation:
+        previous = self._previous_guard_arm_positions
+        if previous is None:
+            raise GroceryCloseAuthorizationError(
+                "initial close requires one sequence-adjacent prior physics sample"
+            )
+        arm_current = current_positions[:7]
+        arm_rates = tuple(
+            (current - prior) / 0.005
+            for current, prior in zip(
+                arm_current,
+                previous,
+                strict=True,
+            )
+        )
+        runtime = self._grocery_collision_runtime
+        if runtime is None:
+            raise GroceryCloseAuthorizationError(
+                "grocery collision runtime is unavailable"
+            )
+        runtime.require_dynamics_certificate()
+        geometry = runtime.capture()
+        return GroceryCloseObservation(
+            gripper_base_pose=geometry.gripper_base_pose,
+            left_inner_finger_pose=geometry.left_inner_finger_pose,
+            right_inner_finger_pose=geometry.right_inner_finger_pose,
+            can_pose=geometry.can_pose,
+            bin_pose=geometry.bin_pose,
+            support_pose=geometry.support_pose,
+            driver_position_rad=current_positions[7],
+            arm_current_position_rad=arm_current,
+            arm_target_position_rad=tuple(targets[:7]),
+            arm_derived_rate_rad_s=arm_rates,
+            collision_offsets=geometry.collision_offsets,
+        )
+
+    def _clear_grocery_close_state(self) -> None:
+        guard = self._grocery_close_guard
+        if guard is not None:
+            guard.reset()
+        self._previous_guard_arm_positions = None
+        self.last_grocery_close_evidence = None
+
     def step_position_targets(self, positions_in_abi_order: Sequence[float]) -> None:
         if len(positions_in_abi_order) != 8:
             raise ValueError(
                 f"expected eight DROID targets, got {len(positions_in_abi_order)}"
             )
-        gripper_action = droid_binary_gripper_action(float(positions_in_abi_order[7]))
-        action = self._torch.zeros(
-            (1, self._unwrapped.action_manager.total_action_dim),
-            device=self._unwrapped.device,
-            dtype=self._as_tensor(self._robot.data.joint_pos).dtype,
-        )
-        action[:, self._arm_slice] = self._torch.as_tensor(
-            positions_in_abi_order[:7],
-            device=self._unwrapped.device,
-            dtype=action.dtype,
-        )
-        action[:, self._gripper_slice] = gripper_action
-        self.synchronize()
-        self.last_physics_step_started_at_s = time.monotonic()
-        self._environment.step(action)
+        current_positions: tuple[float, ...] | None = None
+        try:
+            gripper_action = droid_binary_gripper_action(
+                float(positions_in_abi_order[7])
+            )
+            if gripper_action == 1.0 and self._grocery_close_disabled:
+                raise GroceryCloseAuthorizationError(
+                    "grocery close is disabled in diagnostic collision-null mode"
+                )
+            observation = None
+            if self._grocery_close_guard is not None:
+                current_positions = self.abi_positions()
+                observation = (
+                    self._grocery_close_observation(
+                        current_positions=current_positions,
+                        targets=positions_in_abi_order,
+                    )
+                    if gripper_action == 1.0
+                    else None
+                )
+            action = self._torch.zeros(
+                (1, self._unwrapped.action_manager.total_action_dim),
+                device=self._unwrapped.device,
+                dtype=self._as_tensor(self._robot.data.joint_pos).dtype,
+            )
+            action[:, self._arm_slice] = self._torch.as_tensor(
+                positions_in_abi_order[:7],
+                device=self._unwrapped.device,
+                dtype=action.dtype,
+            )
+            action[:, self._gripper_slice] = gripper_action
+            self.synchronize()
+            if self._grocery_close_guard is not None:
+                evidence = self._grocery_close_guard.evaluate_target(
+                    float(positions_in_abi_order[7]),
+                    observation,
+                )
+                self.last_grocery_close_evidence = evidence
+                if evidence is not None and evidence.newly_latched:
+                    print(
+                        "CAP_GROCERY_CLOSE_AUTHORIZED "
+                        f"left_clearance_m={evidence.left_clearance_m:.9f} "
+                        f"right_clearance_m={evidence.right_clearance_m:.9f} "
+                        f"palm_clearance_m={evidence.palm_clearance_m:.9f} "
+                        "grasp_proven=0"
+                    )
+            self.last_physics_step_started_at_s = time.monotonic()
+            self._environment.step(action)
+        except BaseException:
+            self._clear_grocery_close_state()
+            raise
         self.physics_step_count += 1
+        if current_positions is not None:
+            self._previous_guard_arm_positions = current_positions[:7]
 
     def reset_without_physics_step(self) -> None:
         # ManagerBasedEnv.reset writes reset state and performs sim.forward(); it
         # does not advance physics, which is the required CR-20 fence behavior.
+        self._clear_grocery_close_state()
         self._environment.reset()
         self.reset_count += 1
 
@@ -271,6 +400,27 @@ def _validate_cap_fixed_robot_anchor(robot: Any) -> None:
         )
 
 
+def _spawn_cap_grocery_ground_plane(
+    prim_path: str,
+    cfg: Any,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Spawn the stock plane with finite offsets before PhysX parses the scene."""
+    from isaaclab.sim.spawners.from_files.from_files import spawn_ground_plane
+
+    ground = spawn_ground_plane(
+        prim_path,
+        cfg,
+        translation=translation,
+        orientation=orientation,
+        **kwargs,
+    )
+    configure_grocery_ground_collision_contract(ground.GetStage())
+    return ground
+
+
 def _make_cap_grocery_assets(
     registry: Any,
     sim_utils: Any,
@@ -295,6 +445,9 @@ def _make_cap_grocery_assets(
         return [light]
 
     ground_plane = registry.get_asset_by_name("ground_plane")()
+    ground_spawn = ground_plane.object_cfg.spawn.copy()
+    ground_spawn.func = _spawn_cap_grocery_ground_plane
+    ground_plane.object_cfg.spawn = ground_spawn
 
     support = registry.get_asset_by_name(CAP_GROCERY_SUPPORT_ASSET)()
     support.set_initial_pose(Pose(*CAP_GROCERY_SUPPORT_POSE))
@@ -310,7 +463,10 @@ def _make_cap_grocery_assets(
     support.object_cfg.spawn = sim_utils.CuboidCfg(
         size=CAP_GROCERY_SUPPORT_SIZE,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
-        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+        collision_props=sim_utils.CollisionPropertiesCfg(
+            contact_offset=CAP_GROCERY_SUPPORT_CONTACT_OFFSET_M,
+            rest_offset=CAP_GROCERY_SUPPORT_REST_OFFSET_M,
+        ),
         visible=False,
     )
 
@@ -372,12 +528,20 @@ def _make_cap_environment(
     ] = CAP_GROCERY_OBJECT_POSE,
     grocery_collision_null: bool = False,
 ) -> FrankaSimulationAdapter:
+    if grocery_scene and initial_gripper_closed:
+        raise ValueError(
+            "CAP grocery scenes forbid an initially closed gripper until the "
+            "dynamics certificate and guarded close lifecycle are enabled"
+        )
+
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.environments.isaaclab_arena_environment import (
+        IsaacLabArenaEnvironment,
+    )
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
 
@@ -399,6 +563,14 @@ def _make_cap_environment(
         owned_resources: list[Any] = []
         if grocery_scene:
             _configure_cap_grocery_embodiment(embodiment)
+            if not grocery_collision_null:
+                analytic_cylinder_setting = AnalyticCylinderCollisionSettingOverride()
+                construction_cleanup.callback(analytic_cylinder_setting.close)
+                owned_resources.append(analytic_cylinder_setting)
+                print(
+                    "CAP_GROCERY_ANALYTIC_CYLINDER_SETTING_OK "
+                    f"path={analytic_cylinder_setting.setting_path} value=0"
+                )
         _configure_cap_droid_embodiment(
             embodiment,
             stand_spawn=stand_spawn,
@@ -410,12 +582,25 @@ def _make_cap_environment(
             )
             construction_cleanup.callback(linkage_override.close)
             owned_resources.append(linkage_override)
-            scene = _make_cap_grocery_scene(
+            grocery_assets = _make_cap_grocery_assets(
                 registry,
                 sim_utils,
                 grocery_object_pose=grocery_object_pose,
                 diagnostic_collision_null=grocery_collision_null,
             )
+            if not grocery_collision_null:
+                grocery_by_name = {asset.name: asset for asset in grocery_assets}
+                can_override = apply_grocery_can_collision_override(
+                    grocery_by_name[CAP_GROCERY_OBJECT_ASSET]
+                )
+                construction_cleanup.callback(can_override.close)
+                owned_resources.append(can_override)
+                bin_override = apply_grocery_bin_collision_override(
+                    grocery_by_name[CAP_GROCERY_BIN_ASSET]
+                )
+                construction_cleanup.callback(bin_override.close)
+                owned_resources.append(bin_override)
+            scene = Scene(assets=grocery_assets)
             environment_name = "CAP-Barrier-DROID-Grocery-To-Bin-B1-v0"
         else:
             ground_plane = registry.get_asset_by_name("ground_plane")()
@@ -442,6 +627,8 @@ def _make_cap_environment(
         )
         environment, cfg = builder.make_registered_and_return_cfg()
         construction_cleanup.callback(environment.close)
+        if grocery_scene and not grocery_collision_null:
+            validate_analytic_cylinder_collision_setting()
         if cfg.sim.dt != 0.005 or cfg.decimation != 1:
             raise RuntimeError(
                 f"CAP profile timing mismatch: dt={cfg.sim.dt}, decimation={cfg.decimation}"
@@ -460,7 +647,7 @@ def _make_cap_environment(
                     "CAP grocery collision validation requires exactly one environment; "
                     f"got {env_prim_paths}"
                 )
-            disabled_linkages, retained_colliders = (
+            disabled_colliders, analytic_proxies = (
                 validate_live_grocery_gripper_collision_contract(
                     environment.unwrapped.scene.stage,
                     robot_prim_path=f"{env_prim_paths[0]}/Robot",
@@ -468,9 +655,43 @@ def _make_cap_environment(
             )
             print(
                 "CAP_GROCERY_GRIPPER_COLLISION_CONTRACT_OK "
-                f"disabled_linkages={disabled_linkages} "
-                f"retained_colliders={retained_colliders}"
+                f"disabled_colliders={disabled_colliders} "
+                f"analytic_proxies={analytic_proxies}"
             )
+            if not grocery_collision_null:
+                validate_live_grocery_can_collision_contract(
+                    environment.unwrapped.scene.stage,
+                    can_prim_path=(f"{env_prim_paths[0]}/{CAP_GROCERY_OBJECT_ASSET}"),
+                )
+                print("CAP_GROCERY_CAN_COLLISION_CONTRACT_OK analytic_proxies=1")
+                disabled_bin_colliders, bin_analytic_proxies = (
+                    validate_live_grocery_bin_collision_contract(
+                        environment.unwrapped.scene.stage,
+                        bin_prim_path=(f"{env_prim_paths[0]}/{CAP_GROCERY_BIN_ASSET}"),
+                    )
+                )
+                print(
+                    "CAP_GROCERY_BIN_COLLISION_CONTRACT_OK "
+                    f"disabled_colliders={disabled_bin_colliders} "
+                    f"analytic_proxies={bin_analytic_proxies}"
+                )
+                grocery_collision_runtime = GroceryCollisionRuntimeContract(
+                    environment,
+                    robot_prim_path=f"{env_prim_paths[0]}/Robot",
+                    can_prim_path=(f"{env_prim_paths[0]}/{CAP_GROCERY_OBJECT_ASSET}"),
+                    bin_prim_path=(f"{env_prim_paths[0]}/{CAP_GROCERY_BIN_ASSET}"),
+                    support_prim_path=f"{env_prim_paths[0]}/{CAP_GROCERY_SUPPORT_INSTANCE}",
+                )
+                print(
+                    "CAP_GROCERY_RUNTIME_COLLISION_SANITY_OK "
+                    "shapes=palm:1,left:2,right:2,can:1,bin:5 "
+                    f"dynamics_certified={int(grocery_collision_runtime.dynamics_certified)} "
+                    "close_enabled=0"
+                )
+            else:
+                grocery_collision_runtime = None
+        else:
+            grocery_collision_runtime = None
         if enable_cameras:
             # Camera.data renders explicitly when the snapshot producer asks for a
             # frame. Skip Kit app/RTX pumping during ordinary 200 Hz control steps.
@@ -478,6 +699,8 @@ def _make_cap_environment(
         adapter = FrankaSimulationAdapter(
             environment,
             owned_resources=owned_resources,
+            grocery_collision_runtime=grocery_collision_runtime,
+            grocery_close_disabled=bool(grocery_scene and grocery_collision_null),
         )
         construction_cleanup.pop_all()
         return adapter
@@ -514,6 +737,11 @@ def make_cap_grocery_to_bin_environment(
     Both camera profiles publish their live world pose, so switching the camera
     changes no static world-to-base calibration.
     """
+    if initial_gripper_closed:
+        raise ValueError(
+            "CAP grocery scenes forbid an initially closed gripper until the "
+            "dynamics certificate and guarded close lifecycle are enabled"
+        )
     if diagnostic_can_away and diagnostic_collision_null:
         raise ValueError(
             "diagnostic_can_away and diagnostic_collision_null are mutually exclusive"

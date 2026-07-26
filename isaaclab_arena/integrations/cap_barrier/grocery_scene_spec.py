@@ -41,6 +41,11 @@ CAP_GROCERY_SUPPORT_POSE = (
     (0.5485909, 0.0220630, -0.0169993),
     (0.0, 0.0, 0.0, 1.0),
 )
+CAP_GROCERY_SUPPORT_CONTACT_OFFSET_M = 0.005
+CAP_GROCERY_SUPPORT_REST_OFFSET_M = 0.0
+CAP_GROCERY_GROUND_COLLISION_PRIM_PATH = "/World/GroundPlane/CollisionPlane"
+CAP_GROCERY_GROUND_CONTACT_OFFSET_M = 0.005
+CAP_GROCERY_GROUND_REST_OFFSET_M = 0.0
 
 # DROID home used by the successful grocery-packing profile: seven arm joints,
 # the commanded finger joint, then five passive Robotiq linkage joints.

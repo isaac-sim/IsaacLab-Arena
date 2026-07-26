@@ -12,19 +12,36 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.integrations.cap_barrier.franka_env import FrankaSimulationAdapter, _configure_cap_droid_embodiment
+from isaaclab_arena.integrations.cap_barrier.franka_env import (
+    FrankaSimulationAdapter,
+    _configure_cap_droid_embodiment,
+)
+from isaaclab_arena.integrations.cap_barrier.grocery_close_guard import (
+    CollisionOffsets,
+    GroceryCloseAuthorizationError,
+    GroceryCollisionOffsets,
+    Pose,
+)
+from isaaclab_arena.integrations.cap_barrier.grocery_collision_runtime import (
+    GroceryRuntimeGeometry,
+)
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import (
     DROID_ABI_JOINTS,
     DROID_FINGER_JOINT,
     DROID_GRIPPER_CLOSED_POSITION_RAD,
     DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD,
+    DROID_PHYSICAL_ARTICULATION_JOINTS,
+    DROID_PHYSICAL_GRIPPER_JOINTS,
     DROID_SIMULATION_JOINTS,
     PANDA_ARM_JOINTS,
     JointOrderMapping,
     droid_binary_gripper_action,
     make_droid_joint_mapping,
+    resolve_droid_physical_gripper_joint_indices,
 )
-from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
+from isaaclab_arena.integrations.cap_barrier.lockstep_manager import (
+    ArenaLockstepManager,
+)
 from isaaclab_arena.integrations.cap_barrier.protocol import (
     ControllerTimingSpec,
     FrameKind,
@@ -35,7 +52,11 @@ from isaaclab_arena.integrations.cap_barrier.protocol import (
 
 class _FakeSimulation:
     def __init__(self):
-        self._joint_names = ("right_mimic_joint", DROID_FINGER_JOINT, *reversed(PANDA_ARM_JOINTS))
+        self._joint_names = (
+            "right_mimic_joint",
+            DROID_FINGER_JOINT,
+            *reversed(PANDA_ARM_JOINTS),
+        )
         self.positions = [float(index) for index in range(9)]
         self.velocities = [0.1 * index for index in range(9)]
         self.efforts = [0.2 * index for index in range(9)]
@@ -118,8 +139,12 @@ class _FakeBarrierClient:
         return command
 
     def complete_exchange(self):
-        expected_steps = self._step_count_at_begin + (self._pending_kind == FrameKind.PHYSICS)
-        assert self.simulation.step_count == expected_steps, "barrier released before the Kit physics step completed"
+        expected_steps = self._step_count_at_begin + (
+            self._pending_kind == FrameKind.PHYSICS
+        )
+        assert self.simulation.step_count == expected_steps, (
+            "barrier released before the Kit physics step completed"
+        )
         self.completed.append(self._pending_kind)
         self.expected_sequence += 1
         if self._pending_kind == FrameKind.PHYSICS:
@@ -144,7 +169,11 @@ def _manager() -> tuple[ArenaLockstepManager, _FakeSimulation, _FakeBarrierClien
 
 
 def test_droid_mapping_is_explicit_and_order_preserving() -> None:
-    simulation_names = ("right_mimic_joint", DROID_FINGER_JOINT, *reversed(PANDA_ARM_JOINTS))
+    simulation_names = (
+        "right_mimic_joint",
+        DROID_FINGER_JOINT,
+        *reversed(PANDA_ARM_JOINTS),
+    )
     mapping = make_droid_joint_mapping(simulation_names)
     assert mapping.abi_joint_names == DROID_ABI_JOINTS
     assert mapping.mapped_simulation_joint_names == DROID_SIMULATION_JOINTS
@@ -159,6 +188,65 @@ def test_mapping_rejects_missing_or_duplicate_joints() -> None:
         make_droid_joint_mapping(PANDA_ARM_JOINTS)
     with pytest.raises(ValueError, match="duplicates"):
         JointOrderMapping.from_names(("a", "a"), {"a": "x"}, ("x",))
+
+
+def test_physical_gripper_roster_pins_live_physx_order_not_stale_usd_order() -> None:
+    assert DROID_PHYSICAL_GRIPPER_JOINTS == (
+        "finger_joint",
+        "right_outer_knuckle_joint",
+        "left_inner_finger_joint",
+        "right_inner_finger_joint",
+        "left_inner_finger_knuckle_joint",
+        "right_inner_finger_knuckle_joint",
+    )
+    assert DROID_PHYSICAL_ARTICULATION_JOINTS == (
+        *PANDA_ARM_JOINTS,
+        *DROID_PHYSICAL_GRIPPER_JOINTS,
+    )
+    assert resolve_droid_physical_gripper_joint_indices(
+        DROID_PHYSICAL_ARTICULATION_JOINTS
+    ) == tuple(range(7, 13))
+
+    stale_usd_order = (
+        *PANDA_ARM_JOINTS,
+        "finger_joint",
+        "right_outer_knuckle_joint",
+        "right_inner_finger_joint",
+        "right_inner_finger_knuckle_joint",
+        "left_inner_finger_knuckle_joint",
+        "left_inner_finger_joint",
+    )
+    assert resolve_droid_physical_gripper_joint_indices(stale_usd_order) == (
+        7,
+        8,
+        12,
+        9,
+        11,
+        10,
+    )
+
+
+def test_physical_gripper_roster_resolution_is_name_ordered_and_exact() -> None:
+    reordered = tuple(reversed(DROID_PHYSICAL_ARTICULATION_JOINTS))
+    indices = resolve_droid_physical_gripper_joint_indices(reordered)
+    assert tuple(reordered[index] for index in indices) == DROID_PHYSICAL_GRIPPER_JOINTS
+
+    with pytest.raises(ValueError, match="missing=.*finger_joint"):
+        resolve_droid_physical_gripper_joint_indices(
+            tuple(
+                name
+                for name in DROID_PHYSICAL_ARTICULATION_JOINTS
+                if name != "finger_joint"
+            )
+        )
+    with pytest.raises(ValueError, match="duplicates"):
+        resolve_droid_physical_gripper_joint_indices(
+            (*DROID_PHYSICAL_ARTICULATION_JOINTS, "finger_joint")
+        )
+    with pytest.raises(ValueError, match="extra=.*unexpected_joint"):
+        resolve_droid_physical_gripper_joint_indices(
+            (*DROID_PHYSICAL_ARTICULATION_JOINTS, "unexpected_joint")
+        )
 
 
 def test_fence_discards_command_and_physics_steps_exactly_once() -> None:
@@ -179,7 +267,9 @@ def test_fence_discards_command_and_physics_steps_exactly_once() -> None:
     assert physics.sequence == 1
     assert physics.physics_tick == 0
     assert simulation.step_count == 1
-    assert simulation.targets == [(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, DROID_GRIPPER_CLOSED_POSITION_RAD)]
+    assert simulation.targets == [
+        (0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, DROID_GRIPPER_CLOSED_POSITION_RAD)
+    ]
     assert manager.sequence == 2
     assert manager.physics_tick == 1
     assert client.completed == [FrameKind.FENCE, FrameKind.PHYSICS]
@@ -189,7 +279,10 @@ def test_initial_generation_uses_one_absolute_startup_deadline() -> None:
     manager, simulation, client = _manager()
     startup_deadline = time.monotonic() + 300.0
 
-    assert manager.attach_initial_generation(startup_deadline_monotonic_s=startup_deadline) == 1
+    assert (
+        manager.attach_initial_generation(startup_deadline_monotonic_s=startup_deadline)
+        == 1
+    )
 
     assert simulation.reset_count == 1
     assert client.wait_deadline == startup_deadline
@@ -232,7 +325,9 @@ def test_next_generation_resets_sim_without_stepping_and_restarts_counters() -> 
         ),
     ],
 )
-def test_droid_gripper_endpoint_bands_map_to_binary_polarity(position: float, expected: float) -> None:
+def test_droid_gripper_endpoint_bands_map_to_binary_polarity(
+    position: float, expected: float
+) -> None:
     assert DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD == 0.01
     assert droid_binary_gripper_action(position) == expected
 
@@ -256,7 +351,9 @@ def test_droid_gripper_endpoint_bands_map_to_binary_polarity(position: float, ex
         ),
     ],
 )
-def test_droid_gripper_rejects_nonfinite_and_intermediate_positions(position: float) -> None:
+def test_droid_gripper_rejects_nonfinite_and_intermediate_positions(
+    position: float,
+) -> None:
     with pytest.raises(ValueError):
         droid_binary_gripper_action(position)
 
@@ -275,7 +372,9 @@ class _FakeActionManager:
         raise KeyError(name)
 
 
-def test_cap_droid_profile_replaces_stand_and_disables_intermediate_joint_reset_randomization() -> None:
+def test_cap_droid_profile_replaces_stand_and_disables_intermediate_joint_reset_randomization() -> (
+    None
+):
     arm_action = SimpleNamespace()
     joint_reset = SimpleNamespace(params={"mean": 1.0, "std": 0.02})
     original_stand_spawn = object()
@@ -302,7 +401,9 @@ def test_cap_droid_profile_replaces_stand_and_disables_intermediate_joint_reset_
 class _FakeDroidEnvironment:
     def __init__(self, torch):
         joint_names = ("right_mimic_joint", DROID_FINGER_JOINT, *PANDA_ARM_JOINTS)
-        joint_position = torch.tensor([[9.0, DROID_GRIPPER_CLOSED_POSITION_RAD / 3, *range(1, 8)]])
+        joint_position = torch.tensor(
+            [[9.0, DROID_GRIPPER_CLOSED_POSITION_RAD / 3, *range(1, 8)]]
+        )
         robot = SimpleNamespace(
             joint_names=joint_names,
             data=SimpleNamespace(
@@ -329,20 +430,70 @@ class _FakeDroidEnvironment:
         pass
 
 
-def test_droid_adapter_preserves_raw_finger_state_and_applies_only_supported_endpoints() -> None:
+class _FakeGroceryCollisionRuntime:
+    def require_dynamics_certificate(self) -> object:
+        return object()
+
+    def capture(self) -> GroceryRuntimeGeometry:
+        proxy = CollisionOffsets(contact_m=0.00025, rest_m=0.0)
+        return GroceryRuntimeGeometry(
+            simulation_timestamp_s=1.0,
+            gripper_base_pose=Pose(
+                (0.0, 0.0, 0.3),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            left_inner_finger_pose=Pose(
+                (0.0, 0.0, 0.3),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            right_inner_finger_pose=Pose(
+                (0.0, 0.0, 0.3),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            can_pose=Pose(
+                (0.13, 0.0, 0.3),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            bin_pose=Pose(
+                (0.46, -0.15, 0.01),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            support_pose=Pose(
+                (0.5485909, 0.0220630, -0.0169993),
+                (0.0, 0.0, 0.0, 1.0),
+            ),
+            collision_offsets=GroceryCollisionOffsets(
+                palm=proxy,
+                left_finger4=proxy,
+                left_fingertip=proxy,
+                right_finger4=proxy,
+                right_fingertip=proxy,
+                can=proxy,
+                bin=CollisionOffsets(contact_m=0.001, rest_m=0.0),
+                support=CollisionOffsets(contact_m=0.005, rest_m=0.0),
+                ground=CollisionOffsets(contact_m=0.005, rest_m=0.0),
+            ),
+        )
+
+
+def test_droid_adapter_preserves_raw_finger_state_and_applies_only_supported_endpoints() -> (
+    None
+):
     torch = pytest.importorskip("torch")
     environment = _FakeDroidEnvironment(torch)
     adapter = FrankaSimulationAdapter(environment)
-    assert adapter.abi_positions() == pytest.approx((
-        1.0,
-        2.0,
-        3.0,
-        4.0,
-        5.0,
-        6.0,
-        7.0,
-        DROID_GRIPPER_CLOSED_POSITION_RAD / 3,
-    ))
+    assert adapter.abi_positions() == pytest.approx(
+        (
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0,
+            DROID_GRIPPER_CLOSED_POSITION_RAD / 3,
+        )
+    )
 
     arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
     adapter.step_position_targets((*arm_target, 0.0))
@@ -356,3 +507,152 @@ def test_droid_adapter_preserves_raw_finger_state_and_applies_only_supported_end
             adapter.step_position_targets((*arm_target, invalid_target))
         assert adapter.physics_step_count == step_count
         assert len(environment.actions) == step_count
+
+
+def test_grocery_collision_null_adapter_rejects_close_before_step() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    adapter = FrankaSimulationAdapter(
+        environment,
+        grocery_close_disabled=True,
+    )
+    first_arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+    second_arm_target = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+
+    adapter.step_position_targets((*first_arm_target, 0.0))
+    adapter.step_position_targets((*second_arm_target, 0.0))
+    with pytest.raises(
+        GroceryCloseAuthorizationError,
+        match="disabled in diagnostic collision-null mode",
+    ):
+        adapter.step_position_targets(
+            (*second_arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD)
+        )
+
+    assert len(environment.actions) == 2
+    assert environment.actions[0][0].tolist() == pytest.approx([*first_arm_target, 0.0])
+    assert environment.actions[1][0].tolist() == pytest.approx(
+        [*second_arm_target, 0.0]
+    )
+    assert adapter.physics_step_count == 2
+
+
+def test_grocery_close_disable_flag_rejects_ambiguous_or_invalid_configuration() -> (
+    None
+):
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+
+    with pytest.raises(TypeError, match="must be boolean"):
+        FrankaSimulationAdapter(
+            environment,
+            grocery_close_disabled=1,  # type: ignore[arg-type]
+        )
+    with pytest.raises(
+        ValueError, match="both runtime-guarded and explicitly disabled"
+    ):
+        FrankaSimulationAdapter(
+            environment,
+            grocery_collision_runtime=_FakeGroceryCollisionRuntime(),
+            grocery_close_disabled=True,
+        )
+
+
+def test_grocery_adapter_guards_initial_close_and_reset_reopens_proof() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    environment.unwrapped.scene["robot"].data.joint_pos[0, 1] = 0.0
+    adapter = FrankaSimulationAdapter(
+        environment,
+        grocery_collision_runtime=_FakeGroceryCollisionRuntime(),
+    )
+    arm_target = tuple(float(value) for value in range(1, 8))
+
+    adapter.step_position_targets((*arm_target, 0.0))
+    adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+
+    assert len(environment.actions) == 2
+    assert adapter.last_grocery_close_evidence is not None
+    assert adapter.last_grocery_close_evidence.newly_latched
+
+    adapter.reset_without_physics_step()
+    with pytest.raises(
+        GroceryCloseAuthorizationError,
+        match="sequence-adjacent prior physics sample",
+    ):
+        adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+    assert len(environment.actions) == 2
+
+
+def test_grocery_adapter_clears_close_state_before_a_throwing_reset() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    environment.unwrapped.scene["robot"].data.joint_pos[0, 1] = 0.0
+    adapter = FrankaSimulationAdapter(
+        environment,
+        grocery_collision_runtime=_FakeGroceryCollisionRuntime(),
+    )
+    arm_target = tuple(float(value) for value in range(1, 8))
+    adapter.step_position_targets((*arm_target, 0.0))
+    adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+    assert adapter.last_grocery_close_evidence is not None
+
+    def fail_reset() -> None:
+        raise RuntimeError("reset failed")
+
+    environment.reset = fail_reset
+    with pytest.raises(RuntimeError, match="reset failed"):
+        adapter.reset_without_physics_step()
+
+    assert adapter.last_grocery_close_evidence is None
+    assert not adapter._grocery_close_guard.close_authorized
+    assert adapter._previous_guard_arm_positions is None
+    assert adapter.reset_count == 0
+
+
+def test_grocery_adapter_rolls_back_close_latch_when_step_throws() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    environment.unwrapped.scene["robot"].data.joint_pos[0, 1] = 0.0
+    adapter = FrankaSimulationAdapter(
+        environment,
+        grocery_collision_runtime=_FakeGroceryCollisionRuntime(),
+    )
+    arm_target = tuple(float(value) for value in range(1, 8))
+    adapter.step_position_targets((*arm_target, 0.0))
+
+    def fail_step(action) -> None:
+        del action
+        raise RuntimeError("step failed")
+
+    environment.step = fail_step
+    with pytest.raises(RuntimeError, match="step failed"):
+        adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+
+    assert adapter.last_grocery_close_evidence is None
+    assert not adapter._grocery_close_guard.close_authorized
+    assert adapter._previous_guard_arm_positions is None
+    assert adapter.physics_step_count == 1
+
+
+def test_grocery_adapter_rejects_arm_motion_before_simulation_step() -> None:
+    torch = pytest.importorskip("torch")
+    environment = _FakeDroidEnvironment(torch)
+    environment.unwrapped.scene["robot"].data.joint_pos[0, 1] = 0.0
+    adapter = FrankaSimulationAdapter(
+        environment,
+        grocery_collision_runtime=_FakeGroceryCollisionRuntime(),
+    )
+    arm_target = tuple(float(value) for value in range(1, 8))
+    adapter.step_position_targets((*arm_target, 0.0))
+    environment.unwrapped.scene["robot"].data.joint_pos[0, 2] += 0.001
+
+    with pytest.raises(
+        GroceryCloseAuthorizationError,
+        match="derived rate",
+    ):
+        adapter.step_position_targets(
+            (*adapter.arm_positions(), DROID_GRIPPER_CLOSED_POSITION_RAD)
+        )
+
+    assert len(environment.actions) == 1

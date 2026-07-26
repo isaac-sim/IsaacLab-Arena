@@ -21,6 +21,7 @@ from isaaclab_arena.integrations.cap_barrier.franka_env import (
     _configure_cap_grocery_embodiment,
     _disable_cap_automatic_camera_rendering,
     _make_cap_grocery_assets,
+    _spawn_cap_grocery_ground_plane,
     _validate_cap_fixed_robot_anchor,
     make_cap_grocery_to_bin_environment,
 )
@@ -34,7 +35,9 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_OBJECT_POSE,
     CAP_GROCERY_OBJECT_SIZE,
     CAP_GROCERY_SUPPORT_INSTANCE,
+    CAP_GROCERY_SUPPORT_CONTACT_OFFSET_M,
     CAP_GROCERY_SUPPORT_POSE,
+    CAP_GROCERY_SUPPORT_REST_OFFSET_M,
     CAP_GROCERY_SUPPORT_SIZE,
 )
 from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
@@ -51,7 +54,9 @@ from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
 
 
 def _droid_embodiment():
-    return AssetRegistry().get_asset_by_name("droid_abs_joint_pos")(enable_cameras=False)
+    return AssetRegistry().get_asset_by_name("droid_abs_joint_pos")(
+        enable_cameras=False
+    )
 
 
 def test_grocery_embodiment_preserves_identity_base_and_pins_proven_home() -> None:
@@ -61,7 +66,10 @@ def test_grocery_embodiment_preserves_identity_base_and_pins_proven_home() -> No
 
     assert tuple(embodiment.scene_config.robot.init_state.pos) == (0.0, 0.0, 0.0)
     assert tuple(embodiment.scene_config.robot.init_state.rot) == (0.0, 0.0, 0.0, 1.0)
-    assert tuple(embodiment.event_config.init_franka_arm_pose.params["default_pose"]) == CAP_GROCERY_DROID_HOME
+    assert (
+        tuple(embodiment.event_config.init_franka_arm_pose.params["default_pose"])
+        == CAP_GROCERY_DROID_HOME
+    )
 
 
 def test_grocery_embodiment_rejects_a_base_pose_outside_pinned_calibration() -> None:
@@ -86,6 +94,11 @@ def test_grocery_scene_uses_dynamic_proven_assets_and_fixed_reset_poses() -> Non
     grocery = scene_assets[CAP_GROCERY_OBJECT_ASSET]
     destination = scene_assets[CAP_GROCERY_BIN_ASSET]
     support = scene_assets[CAP_GROCERY_SUPPORT_INSTANCE]
+    ground = scene_assets["ground_plane"]
+
+    assert ground.object_cfg.spawn.func is _spawn_cap_grocery_ground_plane
+    plain_ground = AssetRegistry().get_asset_by_name("ground_plane")()
+    assert plain_ground.object_cfg.spawn.func is not _spawn_cap_grocery_ground_plane
 
     assert grocery.object_type == ObjectType.RIGID
     assert {"object", "graspable", "food"}.issubset(grocery.tags)
@@ -105,6 +118,14 @@ def test_grocery_scene_uses_dynamic_proven_assets_and_fixed_reset_poses() -> Non
     assert tuple(support.object_cfg.spawn.size) == CAP_GROCERY_SUPPORT_SIZE
     assert support.object_cfg.spawn.visible is False
     assert support.object_cfg.spawn.rigid_props.kinematic_enabled is True
+    assert (
+        support.object_cfg.spawn.collision_props.contact_offset
+        == CAP_GROCERY_SUPPORT_CONTACT_OFFSET_M
+    )
+    assert (
+        support.object_cfg.spawn.collision_props.rest_offset
+        == CAP_GROCERY_SUPPORT_REST_OFFSET_M
+    )
 
 
 def test_grocery_scene_can_move_only_the_can_for_contact_counterfactual() -> None:
@@ -118,8 +139,14 @@ def test_grocery_scene_can_move_only_the_can_for_contact_counterfactual() -> Non
     grocery = scene_assets[CAP_GROCERY_OBJECT_ASSET]
     destination = scene_assets[CAP_GROCERY_BIN_ASSET]
     support = scene_assets[CAP_GROCERY_SUPPORT_INSTANCE]
-    assert grocery.get_initial_pose().position_xyz == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
-    assert grocery.get_initial_pose().rotation_xyzw == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[1]
+    assert (
+        grocery.get_initial_pose().position_xyz
+        == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
+    )
+    assert (
+        grocery.get_initial_pose().rotation_xyzw
+        == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[1]
+    )
     assert destination.get_initial_pose().position_xyz == CAP_GROCERY_BIN_POSE[0]
     assert support.get_initial_pose().position_xyz == CAP_GROCERY_SUPPORT_POSE[0]
     support_x, support_y, _ = CAP_GROCERY_SUPPORT_POSE[0]
@@ -176,13 +203,17 @@ def test_proven_layout_is_inside_support_and_recorded_radial_envelope() -> None:
         ("oblique", "MapleDroidPerceptionCameraCfg"),
     ],
 )
-def test_camera_profiles_are_explicit_and_publish_exterior_camera(profile: str, class_name: str) -> None:
+def test_camera_profiles_are_explicit_and_publish_exterior_camera(
+    profile: str, class_name: str
+) -> None:
     embodiment = _droid_embodiment()
 
     _configure_cap_camera(embodiment, profile)
 
     assert type(embodiment.camera_config).__name__ == class_name
-    assert embodiment.camera_config.exterior_cam.prim_path.endswith(f"/{CAP_GROCERY_CAMERA_NAME}")
+    assert embodiment.camera_config.exterior_cam.prim_path.endswith(
+        f"/{CAP_GROCERY_CAMERA_NAME}"
+    )
     assert embodiment.camera_config.exterior_cam.update_latest_camera_pose is True
     assert set(embodiment.camera_config.exterior_cam.data_types) == {
         "rgb",
@@ -230,7 +261,9 @@ def test_camera_profile_disables_kit_rendering_on_control_steps() -> None:
 
 def test_camera_profile_rejects_environment_without_render_control() -> None:
     with pytest.raises(RuntimeError, match="render_enabled"):
-        _disable_cap_automatic_camera_rendering(SimpleNamespace(unwrapped=SimpleNamespace()))
+        _disable_cap_automatic_camera_rendering(
+            SimpleNamespace(unwrapped=SimpleNamespace())
+        )
 
 
 def test_resource_cleanup_continues_after_perception_close_failure() -> None:
@@ -267,7 +300,9 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
 
     with pytest.raises(SystemExit):
         parser.parse_args([])
-    args = parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "oblique"])
+    args = parser.parse_args(
+        ["--perception-stream", "127.0.0.1:50061", "--camera", "oblique"]
+    )
 
     assert args.perception_stream == "127.0.0.1:50061"
     assert args.camera == "oblique"
@@ -315,7 +350,9 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
         is False
     )
     with pytest.raises(SystemExit):
-        parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"])
+        parser.parse_args(
+            ["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"]
+        )
 
 
 def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> None:
@@ -323,8 +360,7 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
     assert factory.func is make_cap_grocery_to_bin_environment
     assert factory.keywords == {"camera_profile": "libero"}
     assert (
-        _scene_ready_marker("libero")
-        == "CAP_GROCERY_TO_BIN_SCENE_READY "
+        _scene_ready_marker("libero") == "CAP_GROCERY_TO_BIN_SCENE_READY "
         "object=alphabet_soup_can_hope_robolab "
         "bin=grey_bin_robolab "
         "camera=exterior_cam camera_profile=libero can_state=present"
@@ -356,7 +392,9 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
     defaults = inspect.signature(_run_serve).parameters
     assert defaults["environment_factory"].default is None
     assert defaults["initial_gripper_closed"].default is True
-    assert defaults["ready_marker"].default == "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE"
+    assert (
+        defaults["ready_marker"].default == "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE"
+    )
 
 
 def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
@@ -402,7 +440,27 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
     assert calls[3] == ("context_exit", True)
 
 
-def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs() -> None:
+@pytest.mark.parametrize(
+    "diagnostic_kwargs",
+    (
+        {},
+        {"diagnostic_can_away": True},
+        {"diagnostic_collision_null": True},
+    ),
+)
+def test_grocery_scene_rejects_an_initially_closed_gripper(
+    diagnostic_kwargs: dict[str, bool],
+) -> None:
+    with pytest.raises(ValueError, match="forbid an initially closed gripper"):
+        make_cap_grocery_to_bin_environment(
+            initial_gripper_closed=True,
+            **diagnostic_kwargs,
+        )
+
+
+def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs() -> (
+    None
+):
     captured: dict[str, object] = {}
 
     class _Context:
@@ -437,7 +495,9 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         "camera_profile": "oblique",
         "diagnostic_can_away": True,
     }
-    assert str(captured["ready_marker"]).endswith("camera_profile=oblique can_state=away-diagnostic")
+    assert str(captured["ready_marker"]).endswith(
+        "camera_profile=oblique can_state=away-diagnostic"
+    )
 
 
 def test_grocery_runner_wires_collision_null_without_changing_other_inputs() -> None:
@@ -476,13 +536,14 @@ def test_grocery_runner_wires_collision_null_without_changing_other_inputs() -> 
         "diagnostic_collision_null": True,
     }
     assert (
-        captured["ready_marker"]
-        == "CAP_GROCERY_COLLISION_NULL_SCENE_READY "
+        captured["ready_marker"] == "CAP_GROCERY_COLLISION_NULL_SCENE_READY "
         "camera=exterior_cam camera_profile=oblique fixtures=absent-diagnostic"
     )
 
 
-def test_grocery_environment_rejects_conflicting_diagnostic_modes_before_build() -> None:
+def test_grocery_environment_rejects_conflicting_diagnostic_modes_before_build() -> (
+    None
+):
     with pytest.raises(ValueError, match="mutually exclusive"):
         make_cap_grocery_to_bin_environment(
             device="cuda:0",
@@ -491,7 +552,9 @@ def test_grocery_environment_rejects_conflicting_diagnostic_modes_before_build()
         )
 
 
-def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:
+def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(
+    monkeypatch,
+) -> None:
     import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
 
     offered: list[int] = []
@@ -510,7 +573,12 @@ def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkey
 
         @property
         def stats(self):
-            return {"offered": len(offered), "sent": len(offered), "dropped": 0, "stream_starts": 1}
+            return {
+                "offered": len(offered),
+                "sent": len(offered),
+                "dropped": 0,
+                "stream_starts": 1,
+            }
 
         def close(self) -> None:
             pass
@@ -543,7 +611,9 @@ def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkey
     assert sum("PERCEPTION_GENERATION_CAPTURED" in marker for marker in markers) == 1
 
 
-def test_uncapped_perception_stream_keeps_decimated_capture_behavior(monkeypatch) -> None:
+def test_uncapped_perception_stream_keeps_decimated_capture_behavior(
+    monkeypatch,
+) -> None:
     import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
 
     extracted: list[int] = []
@@ -563,7 +633,12 @@ def test_uncapped_perception_stream_keeps_decimated_capture_behavior(monkeypatch
 
         @property
         def stats(self):
-            return {"offered": len(extracted), "sent": len(extracted), "dropped": 0, "stream_starts": 1}
+            return {
+                "offered": len(extracted),
+                "sent": len(extracted),
+                "dropped": 0,
+                "stream_starts": 1,
+            }
 
     def _extract(_environment, *, frame_index: int):
         extracted.append(frame_index)

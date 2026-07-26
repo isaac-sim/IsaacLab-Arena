@@ -294,17 +294,34 @@ camera-to-base, GraspGen, and MoveToPose frame chain. The producer emits
 `CAP_GROCERY_TO_BIN_SCENE_READY` after the generation-1 bootstrap fence; the
 marker names the exact object, bin, camera, and camera profile.
 
-The grocery producer also applies a mandatory, instance-local pre-parse USD
-override to the DROID gripper. The stock robot asset gives the six passive
-Robotiq linkage bars collision hulls which can form a false converging cage
-between the finger pads. The override disables collision on exactly those six
-bars while preserving collision on the palm and finger pads. Before building
-the environment, the producer verifies the pinned robot-asset URI, `/panda`
-default prim, all six `PhysicsCollisionAPI` targets, and their stock enabled
-state. Asset drift is terminal rather than silently restoring the cage. The
-tiny generated layer is private to that grocery embodiment, is kept alive
-until the environment closes, and is then deleted; the bare CAP smoke, global
-spawn helpers, and source USD remain unchanged.
+The grocery producer applies mandatory, instance-local pre-parse collision
+overrides. The stock Robotiq collision meshes can form a false converging cage
+between the fingers, so the producer disables the exact 11 source colliders and
+replaces them with five conservative analytic boxes: one palm box plus a distal
+and tip box for each inner finger. The can is replaced by its metric analytic
+cylinder and the bin by five metric wall boxes. The grocery-only ground plane
+also receives its finite contact/rest offsets before PhysX constructs the
+scene. Before use, the producer verifies the pinned source URI suffixes,
+default prims, source collision topology, metric scale, proxy topology,
+materials, and offsets. The separate calibration runner additionally verifies
+the raw source hashes and complete composed layer closures; those identities
+become load-bearing in production when the dynamics certificate is wired. Any
+proven drift is terminal. The generated layers and the process-global
+analytic-cylinder setting are owned for exactly the environment lifetime and
+restored during teardown; the bare CAP smoke, global spawn helpers, and source
+USD remain unchanged.
+
+These simpler collision shapes change the bodies' computed mass, center of
+mass, and inertia unless those properties are restored explicitly. Grocery
+close therefore remains fail-closed until an exact, content-addressed dynamics
+certificate for the nine affected gripper bodies, the can, and the bin is
+installed and matched against the live PhysX tensors. The close proof then
+requires, on every 5 ms sample, exact sample adjacency, fixture clearance for
+all five gripper boxes, and derived settling of all six physical Robotiq
+joints. Its terminal fact is only `closure-settled`; it never claims contact,
+grasp, or retention. Every grocery scene also rejects an initially closed
+gripper before Kit construction, including the can-away and collision-null
+diagnostic variants; a reset cannot bypass the guarded close boundary.
 
 This walking skeleton consumes one observation immediately after `ResetEpisode`.
 The grocery producer therefore skips generation 1 and captures exactly one
@@ -320,7 +337,10 @@ open-vocabulary fallback without changing the scene or base calibration. Both
 publish the camera's live world pose; the ROS adapter derives `T_base_cam` from
 that pose and the pinned identity `T_world_base`.
 
-The live GPU acceptance is non-vacuous only when all of the following hold:
+The target live GPU acceptance is non-vacuous only when all of the following
+hold. Until the dynamics certificate and guarded-close evidence are complete,
+the close skill remains unadvertised and this transfer gate is intentionally
+blocked:
 
 - Kit emits `CAP_PRODUCTION_KIT_ENV_READY`,
   `CAP_SERVE_KIT_GENERATION_1_ATTACHED`,

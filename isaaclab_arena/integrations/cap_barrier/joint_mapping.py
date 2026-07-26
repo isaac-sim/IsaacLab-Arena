@@ -20,6 +20,18 @@ ROBOTIQ_ABI_JOINT = "robotiq_85_left_knuckle_joint"
 DROID_FINGER_JOINT = "finger_joint"
 DROID_ABI_JOINTS = (*FR3_ARM_JOINTS, ROBOTIQ_ABI_JOINT)
 DROID_SIMULATION_JOINTS = (*PANDA_ARM_JOINTS, DROID_FINGER_JOINT)
+DROID_PHYSICAL_GRIPPER_JOINTS = (
+    DROID_FINGER_JOINT,
+    "right_outer_knuckle_joint",
+    "left_inner_finger_joint",
+    "right_inner_finger_joint",
+    "left_inner_finger_knuckle_joint",
+    "right_inner_finger_knuckle_joint",
+)
+DROID_PHYSICAL_ARTICULATION_JOINTS = (
+    *PANDA_ARM_JOINTS,
+    *DROID_PHYSICAL_GRIPPER_JOINTS,
+)
 
 DROID_GRIPPER_OPEN_POSITION_RAD = 0.0
 DROID_GRIPPER_CLOSED_POSITION_RAD = math.pi / 4
@@ -46,7 +58,9 @@ class JointOrderMapping:
     ) -> JointOrderMapping:
         abi_names = tuple(abi_joint_names)
         sim_names = tuple(simulation_joint_names)
-        if len(set(abi_names)) != len(abi_names) or len(set(sim_names)) != len(sim_names):
+        if len(set(abi_names)) != len(abi_names) or len(set(sim_names)) != len(
+            sim_names
+        ):
             raise ValueError("joint name lists must not contain duplicates")
         if set(abi_to_simulation_name) != set(abi_names):
             raise ValueError("joint-name mapping must cover the ABI roster exactly")
@@ -62,7 +76,9 @@ class JointOrderMapping:
     def to_abi_order(self, simulation_values: Sequence[_Value]) -> tuple[_Value, ...]:
         if len(simulation_values) != len(self.simulation_joint_names):
             raise ValueError("simulation value count does not match its joint roster")
-        return tuple(simulation_values[index] for index in self.simulation_indices_in_abi_order)
+        return tuple(
+            simulation_values[index] for index in self.simulation_indices_in_abi_order
+        )
 
     def assert_action_order(self, action_joint_names: Sequence[str]) -> None:
         actual = tuple(action_joint_names)
@@ -72,12 +88,39 @@ class JointOrderMapping:
             )
 
 
-def make_droid_joint_mapping(simulation_joint_names: Sequence[str]) -> JointOrderMapping:
+def make_droid_joint_mapping(
+    simulation_joint_names: Sequence[str],
+) -> JointOrderMapping:
     return JointOrderMapping.from_names(
         DROID_ABI_JOINTS,
         dict(zip(DROID_ABI_JOINTS, DROID_SIMULATION_JOINTS, strict=True)),
         simulation_joint_names,
     )
+
+
+def resolve_droid_physical_gripper_joint_indices(
+    simulation_joint_names: Sequence[str],
+) -> tuple[int, ...]:
+    """Resolve every physical Robotiq DOF after validating the exact DROID roster."""
+    if isinstance(simulation_joint_names, (str, bytes)):
+        raise ValueError("simulation joint roster must be a sequence of names")
+    names = tuple(simulation_joint_names)
+    if any(not isinstance(name, str) or not name for name in names):
+        raise ValueError("simulation joint roster must contain nonempty names")
+    if len(set(names)) != len(names):
+        raise ValueError("simulation joint roster must not contain duplicates")
+    expected = set(DROID_PHYSICAL_ARTICULATION_JOINTS)
+    actual = set(names)
+    missing = tuple(
+        name for name in DROID_PHYSICAL_ARTICULATION_JOINTS if name not in actual
+    )
+    extra = tuple(name for name in names if name not in expected)
+    if missing or extra:
+        raise ValueError(
+            "DROID physical articulation roster mismatch: "
+            f"missing={missing!r}, extra={extra!r}"
+        )
+    return tuple(names.index(name) for name in DROID_PHYSICAL_GRIPPER_JOINTS)
 
 
 def droid_binary_gripper_action(position_rad: float) -> float:
