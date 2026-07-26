@@ -17,14 +17,15 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_PROTO="${HERE}/../../../../../workspaces/isaac-cap-module/ros_ws/src/isaac_ros_cap/cap_perception_bridge/proto/cap_perception.proto"
+MODULE_ROOT="${CAP_MODULE_ROOT:-${HOME}/workspaces/isaac-cap-module}"
+DEFAULT_PROTO="${MODULE_ROOT}/ros_ws/src/isaac_ros_cap/cap_perception_bridge/proto/cap_perception.proto"
 PROTO="${CAP_PERCEPTION_PROTO:-${DEFAULT_PROTO}}"
 GRPCIO_TOOLS_VERSION="${CAP_GRPCIO_TOOLS_VERSION:-1.82.1}"
 OUT_DIR="${HERE}/_generated/cap_perception_proto"
 
 if [[ ! -f "${PROTO}" ]]; then
   echo "error: proto not found at ${PROTO}" >&2
-  echo "set CAP_PERCEPTION_PROTO to the frozen cap_perception.proto path" >&2
+  echo "set CAP_MODULE_ROOT or CAP_PERCEPTION_PROTO to the frozen module source" >&2
   exit 1
 fi
 
