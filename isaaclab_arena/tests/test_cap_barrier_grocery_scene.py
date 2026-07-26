@@ -23,6 +23,7 @@ from isaaclab_arena.integrations.cap_barrier.franka_env import (
     _make_cap_grocery_assets,
     make_cap_grocery_to_bin_environment,
 )
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import make_grocery_physical_result_observer
 from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
@@ -36,17 +37,18 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_SUPPORT_POSE,
     CAP_GROCERY_SUPPORT_SIZE,
 )
-from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
-    make_grocery_physical_result_observer,
-)
+from isaaclab_arena.integrations.cap_barrier.video_recorder import make_grocery_video_recorder
 from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
     _add_grocery_arguments,
     _environment_factory,
+    _grocery_observer_factory,
     _physical_result_observer_factory,
     _run_grocery,
     _scene_ready_marker,
+    _video_observer_factory,
 )
 from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
+    _begin_observer_generation,
     _close_resources,
     _compose_physics_observers,
     _PerceptionStreamSink,
@@ -261,22 +263,16 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
     assert args.diagnostic_can_away is False
     assert args.result_request_file is None
     assert args.result_jsonl is None
+    assert args.record_video is None
     assert (
-        parser.parse_args(
-            [
-                "--perception-stream",
-                "127.0.0.1:50061",
-                "--diagnostic-can-away",
-            ]
-        ).diagnostic_can_away
+        parser.parse_args([
+            "--perception-stream",
+            "127.0.0.1:50061",
+            "--diagnostic-can-away",
+        ]).diagnostic_can_away
         is True
     )
-    assert (
-        inspect.signature(make_cap_grocery_to_bin_environment)
-        .parameters["diagnostic_can_away"]
-        .default
-        is False
-    )
+    assert inspect.signature(make_cap_grocery_to_bin_environment).parameters["diagnostic_can_away"].default is False
     with pytest.raises(SystemExit):
         parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"])
 
@@ -299,6 +295,21 @@ def test_grocery_runner_requires_paired_absolute_physical_result_paths(tmp_path)
         "request_path": args.result_request_file,
         "result_path": args.result_jsonl,
     }
+
+
+def test_grocery_runner_requires_absolute_mp4_video_path(tmp_path) -> None:
+    args = SimpleNamespace(record_video="relative.mp4")
+    with pytest.raises(ValueError, match="must be an absolute path"):
+        _video_observer_factory(args)
+
+    args.record_video = str(tmp_path / "video.avi")
+    with pytest.raises(ValueError, match="must end in .mp4"):
+        _video_observer_factory(args)
+
+    args.record_video = str(tmp_path / "video.mp4")
+    factory = _video_observer_factory(args)
+    assert factory.func is make_grocery_video_recorder
+    assert factory.keywords == {"output_path": args.record_video}
 
 
 def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> None:
@@ -353,6 +364,7 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
         diagnostic_can_away=False,
         result_request_file=None,
         result_jsonl=None,
+        record_video=None,
         enable_cameras=False,
     )
 
@@ -399,6 +411,7 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         diagnostic_can_away=True,
         result_request_file=None,
         result_jsonl=None,
+        record_video=None,
         enable_cameras=False,
     )
 
@@ -440,6 +453,7 @@ def test_grocery_runner_wires_physical_result_observer(tmp_path) -> None:
         diagnostic_can_away=False,
         result_request_file=str(request),
         result_jsonl=str(result),
+        record_video=None,
         enable_cameras=False,
     )
 
@@ -451,6 +465,57 @@ def test_grocery_runner_wires_physical_result_observer(tmp_path) -> None:
         "request_path": str(request),
         "result_path": str(result),
     }
+
+
+def test_grocery_runner_composes_physical_result_before_video(tmp_path, monkeypatch) -> None:
+    calls: list[tuple[str, int | str]] = []
+
+    class _Observer:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def __call__(self, frame: int) -> None:
+            calls.append((self.name, frame))
+
+        def begin_generation(self, generation: int) -> None:
+            calls.append((f"{self.name}-generation", generation))
+
+        def close(self) -> None:
+            calls.append((f"{self.name}-close", "done"))
+
+    def make_result(_adapter, _marker_sink, **_kwargs):
+        return _Observer("result")
+
+    def make_video(_adapter, _marker_sink, **_kwargs):
+        return _Observer("video")
+
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_physical_result_observer",
+        make_result,
+    )
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_video_recorder",
+        make_video,
+    )
+    args = SimpleNamespace(
+        result_request_file=str(tmp_path / "result.request"),
+        result_jsonl=str(tmp_path / "result.jsonl"),
+        record_video=str(tmp_path / "video.mp4"),
+    )
+
+    observer = _grocery_observer_factory(args)(object(), lambda _marker: None)
+    observer.begin_generation(2)
+    observer(17)
+    observer.close()
+
+    assert calls == [
+        ("result-generation", 2),
+        ("video-generation", 2),
+        ("result", 17),
+        ("video", 17),
+        ("result-close", "done"),
+        ("video-close", "done"),
+    ]
 
 
 def test_main_thread_physics_observers_run_in_order_and_propagate_failures() -> None:
@@ -470,6 +535,18 @@ def test_main_thread_physics_observers_run_in_order_and_propagate_failures() -> 
     combined = _compose_physics_observers(lambda _frame: None, fail)
     with pytest.raises(RuntimeError, match="result write failed"):
         combined(18)
+
+
+def test_optional_observer_generation_lifecycle_is_forwarded() -> None:
+    generations: list[int] = []
+    observer = SimpleNamespace(begin_generation=lambda generation: generations.append(generation))
+
+    _begin_observer_generation(None, 1)
+    _begin_observer_generation(lambda _frame: None, 1)
+    _begin_observer_generation(observer, 1)
+    _begin_observer_generation(observer, 2)
+
+    assert generations == [1, 2]
 
 
 def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:

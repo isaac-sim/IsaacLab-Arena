@@ -16,18 +16,18 @@ from __future__ import annotations
 
 import math
 import os
+from collections.abc import Callable
 from functools import partial
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import make_grocery_physical_result_observer
 from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_CAMERA_NAME,
     CAP_GROCERY_CAMERA_PROFILES,
     CAP_GROCERY_OBJECT_ASSET,
 )
-from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
-    make_grocery_physical_result_observer,
-)
+from isaaclab_arena.integrations.cap_barrier.video_recorder import make_grocery_video_recorder
 from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _SERVE_TIMEOUT_S, _run_serve
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -88,6 +88,16 @@ def _add_grocery_arguments(parser) -> None:
             "Must be supplied together with --result-request-file."
         ),
     )
+    parser.add_argument(
+        "--record-video",
+        default=None,
+        metavar="ABS_PATH",
+        help=(
+            "Absolute .mp4 output path for bounded 10 Hz exterior_cam evidence. "
+            "Recording is published only after the regular file "
+            "ABS_PATH.finalize appears; otherwise its .part file is discarded."
+        ),
+    )
 
 
 def _environment_factory(
@@ -123,15 +133,11 @@ def _physical_result_observer_factory(args_cli):
     request_path = args_cli.result_request_file
     result_path = args_cli.result_jsonl
     if (request_path is None) != (result_path is None):
-        raise ValueError(
-            "--result-request-file and --result-jsonl must be supplied together"
-        )
+        raise ValueError("--result-request-file and --result-jsonl must be supplied together")
     if request_path is None:
         return None
     if not os.path.isabs(request_path) or not os.path.isabs(result_path):
-        raise ValueError(
-            "--result-request-file and --result-jsonl must be absolute paths"
-        )
+        raise ValueError("--result-request-file and --result-jsonl must be absolute paths")
     return partial(
         make_grocery_physical_result_observer,
         request_path=request_path,
@@ -139,8 +145,71 @@ def _physical_result_observer_factory(args_cli):
     )
 
 
+def _video_observer_factory(args_cli):
+    output_path = getattr(args_cli, "record_video", None)
+    if output_path is None:
+        return None
+    if not os.path.isabs(output_path):
+        raise ValueError("--record-video must be an absolute path")
+    if not output_path.lower().endswith(".mp4"):
+        raise ValueError("--record-video must end in .mp4")
+    return partial(make_grocery_video_recorder, output_path=output_path)
+
+
+class _GroceryPhysicsObserverGroup:
+    """Own and invoke multiple grocery post-physics observers in order."""
+
+    def __init__(self, observers: tuple[Callable[[int], None], ...]) -> None:
+        self._observers = observers
+
+    def __call__(self, frame: int) -> None:
+        for observer in self._observers:
+            observer(frame)
+
+    def begin_generation(self, generation: int) -> None:
+        for observer in self._observers:
+            begin_generation = getattr(observer, "begin_generation", None)
+            if callable(begin_generation):
+                begin_generation(generation)
+
+    def close(self) -> None:
+        first_error: Exception | None = None
+        for observer in self._observers:
+            close = getattr(observer, "close", None)
+            if not callable(close):
+                continue
+            try:
+                close()
+            except Exception as error:  # noqa: BLE001 - cleanup must continue
+                if first_error is None:
+                    first_error = error
+        if first_error is not None:
+            raise first_error
+
+
+def _grocery_observer_factory(args_cli):
+    factories = tuple(
+        factory
+        for factory in (
+            _physical_result_observer_factory(args_cli),
+            _video_observer_factory(args_cli),
+        )
+        if factory is not None
+    )
+    if not factories:
+        return None
+    if len(factories) == 1:
+        return factories[0]
+
+    def build(adapter, marker_sink):
+        observers = tuple(factory(adapter, marker_sink) for factory in factories)
+        return _GroceryPhysicsObserverGroup(observers)
+
+    return build
+
+
 def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_serve) -> None:
-    physics_observer_factory = _physical_result_observer_factory(args_cli)
+    physics_observer_factory = _grocery_observer_factory(args_cli)
     # Both supported profiles spawn exterior_cam through AppLauncher.
     args_cli.enable_cameras = True
     with context_factory(args_cli):
@@ -177,6 +246,7 @@ def main() -> None:
         parser.error("--serve-seconds must be finite and positive")
     try:
         _physical_result_observer_factory(args_cli)
+        _video_observer_factory(args_cli)
     except ValueError as error:
         parser.error(str(error))
     _run_grocery(args_cli)

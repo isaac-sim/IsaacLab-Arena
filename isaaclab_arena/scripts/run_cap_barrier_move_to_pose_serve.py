@@ -113,9 +113,7 @@ class _PerceptionStreamSink:
         if generation <= 0:
             raise ValueError("generation must be positive")
         if self._generation is not None and generation <= self._generation:
-            raise ValueError(
-                f"perception generation must advance: current={self._generation}, next={generation}"
-            )
+            raise ValueError(f"perception generation must advance: current={self._generation}, next={generation}")
         self._generation = generation
         self._sample_calls = 0
         self._attempted_in_generation = 0
@@ -132,10 +130,7 @@ class _PerceptionStreamSink:
             raise RuntimeError("perception capture used before begin_generation")
         if self._generation < self._first_capture_generation:
             return
-        if (
-            self._frames_per_generation is not None
-            and self._attempted_in_generation >= self._frames_per_generation
-        ):
+        if self._frames_per_generation is not None and self._attempted_in_generation >= self._frames_per_generation:
             return
         self._sample_calls += 1
         # Capture immediately on the first PHYSICS frame of each generation so
@@ -152,10 +147,7 @@ class _PerceptionStreamSink:
             self._producer.offer(frame)
             self._frame_index += 1
             self._captured_in_generation += 1
-            if (
-                self._frames_per_generation is not None
-                and self._captured_in_generation == self._frames_per_generation
-            ):
+            if self._frames_per_generation is not None and self._captured_in_generation == self._frames_per_generation:
                 self._marker_sink(
                     "CAP_SERVE_KIT_PERCEPTION_GENERATION_CAPTURED "
                     f"generation={self._generation} frames={self._captured_in_generation} "
@@ -217,6 +209,15 @@ def _compose_physics_observers(
     return observe
 
 
+def _begin_observer_generation(
+    observer: Callable[[int], None] | None,
+    generation: int,
+) -> None:
+    begin_generation = getattr(observer, "begin_generation", None)
+    if callable(begin_generation):
+        begin_generation(generation)
+
+
 def _run_serve(
     device: str,
     *,
@@ -227,9 +228,7 @@ def _run_serve(
     environment_factory: Callable[..., Any] | None = None,
     initial_gripper_closed: bool = True,
     ready_marker: str = "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE",
-    physics_observer_factory: (
-        Callable[[Any, Callable[[str], None]], Callable[[int], None]] | None
-    ) = None,
+    physics_observer_factory: Callable[[Any, Callable[[str], None]], Callable[[int], None]] | None = None,
 ) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
@@ -265,10 +264,12 @@ def _run_serve(
         ),
         marker_sink=lambda marker: print(marker, flush=True),
     )
+
     def marker_sink(marker: str) -> None:
         print(marker, flush=True)
 
     perception: _PerceptionStreamSink | None = None
+    physical_observer: Callable[[int], None] | None = None
     try:
         if perception_stream is not None:
             perception = _PerceptionStreamSink(
@@ -279,9 +280,7 @@ def _run_serve(
                 first_capture_generation=perception_first_capture_generation,
             )
         physical_observer = (
-            physics_observer_factory(adapter, marker_sink)
-            if physics_observer_factory is not None
-            else None
+            physics_observer_factory(adapter, marker_sink) if physics_observer_factory is not None else None
         )
         on_physics_frame = _compose_physics_observers(
             perception.on_physics_frame if perception is not None else None,
@@ -312,6 +311,7 @@ def _run_serve(
         )
         if perception is not None:
             perception.begin_generation(generation_1)
+        _begin_observer_generation(physical_observer, generation_1)
         print(ready_marker, flush=True)
 
         # Serve like a real episode for an external ARM policy, reusing the SAME
@@ -362,6 +362,7 @@ def _run_serve(
             bootstrap = _paced_bootstrap_fences(manager, adapter, _BOOTSTRAP_FENCE_FRAMES)
             if perception is not None:
                 perception.begin_generation(followed_generation)
+            _begin_observer_generation(physical_observer, followed_generation)
             print(
                 f"CAP_SERVE_KIT_FOLLOWED_RESET generation={followed_generation} "
                 f"fences={len(bootstrap)} arm0_rad={adapter.arm_positions()[0]:.6f}",
@@ -373,7 +374,8 @@ def _run_serve(
         )
         print("CAP_SERVE_KIT_DONE", flush=True)
     finally:
-        _close_resources(perception, client, adapter)
+        observer_resource = physical_observer if callable(getattr(physical_observer, "close", None)) else None
+        _close_resources(perception, observer_resource, client, adapter)
 
 
 def main() -> None:
