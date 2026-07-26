@@ -136,10 +136,11 @@ def serve_generation_watching_gripper(
             exit_reason = ServeExit.BARRIER_INTERRUPTED
             break
 
-        # Optional per-frame observer for a co-resident perception producer. It
-        # runs on this (main/Kit) thread right after the physics step, so a camera
-        # render/sample stays thread-safe; it must be nonblocking and must never
-        # raise, so it can never stall or break the barrier serve loop.
+        # Optional observer runs on the main/Kit thread immediately after each
+        # physics step. Its ordinary per-frame path must stay nonblocking.
+        # Exceptions intentionally fail the producer closed; the grocery result
+        # observer uses that behavior only for a one-shot post-policy evidence
+        # write after the supervisor requests evaluation.
         if on_physics_frame is not None:
             on_physics_frame(frames)
 

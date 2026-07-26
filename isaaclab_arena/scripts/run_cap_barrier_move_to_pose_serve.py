@@ -201,6 +201,22 @@ def _paced_bootstrap_fences(manager, adapter, count: int):
     return results
 
 
+def _compose_physics_observers(
+    *observers: Callable[[int], None] | None,
+) -> Callable[[int], None] | None:
+    active = tuple(observer for observer in observers if observer is not None)
+    if not active:
+        return None
+    if len(active) == 1:
+        return active[0]
+
+    def observe(frame: int) -> None:
+        for observer in active:
+            observer(frame)
+
+    return observe
+
+
 def _run_serve(
     device: str,
     *,
@@ -211,6 +227,9 @@ def _run_serve(
     environment_factory: Callable[..., Any] | None = None,
     initial_gripper_closed: bool = True,
     ready_marker: str = "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE",
+    physics_observer_factory: (
+        Callable[[Any, Callable[[str], None]], Callable[[int], None]] | None
+    ) = None,
 ) -> None:
     from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
     from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
@@ -246,18 +265,28 @@ def _run_serve(
         ),
         marker_sink=lambda marker: print(marker, flush=True),
     )
+    def marker_sink(marker: str) -> None:
+        print(marker, flush=True)
+
     perception: _PerceptionStreamSink | None = None
-    on_physics_frame = None
-    if perception_stream is not None:
-        perception = _PerceptionStreamSink(
-            adapter,
-            perception_stream,
-            lambda marker: print(marker, flush=True),
-            frames_per_generation=perception_frames_per_generation,
-            first_capture_generation=perception_first_capture_generation,
-        )
-        on_physics_frame = perception.on_physics_frame
     try:
+        if perception_stream is not None:
+            perception = _PerceptionStreamSink(
+                adapter,
+                perception_stream,
+                marker_sink,
+                frames_per_generation=perception_frames_per_generation,
+                first_capture_generation=perception_first_capture_generation,
+            )
+        physical_observer = (
+            physics_observer_factory(adapter, marker_sink)
+            if physics_observer_factory is not None
+            else None
+        )
+        on_physics_frame = _compose_physics_observers(
+            perception.on_physics_frame if perception is not None else None,
+            physical_observer,
+        )
         manager = ArenaLockstepManager(
             client=client,
             simulation=adapter,

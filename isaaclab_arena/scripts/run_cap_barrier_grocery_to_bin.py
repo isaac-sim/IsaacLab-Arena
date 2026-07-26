@@ -25,6 +25,9 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_CAMERA_PROFILES,
     CAP_GROCERY_OBJECT_ASSET,
 )
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
+    make_grocery_physical_result_observer,
+)
 from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _SERVE_TIMEOUT_S, _run_serve
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -67,6 +70,24 @@ def _add_grocery_arguments(parser) -> None:
             "the can outside the grasp path. Never use this mode for acceptance."
         ),
     )
+    parser.add_argument(
+        "--result-request-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Absolute one-shot request path. When this regular file appears, "
+            "evaluate the live grocery physical outcome on the Kit serve thread."
+        ),
+    )
+    parser.add_argument(
+        "--result-jsonl",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Absolute output path for the atomic one-row physical-result JSONL. "
+            "Must be supplied together with --result-request-file."
+        ),
+    )
 
 
 def _environment_factory(
@@ -98,7 +119,28 @@ def _scene_ready_marker(
     )
 
 
+def _physical_result_observer_factory(args_cli):
+    request_path = args_cli.result_request_file
+    result_path = args_cli.result_jsonl
+    if (request_path is None) != (result_path is None):
+        raise ValueError(
+            "--result-request-file and --result-jsonl must be supplied together"
+        )
+    if request_path is None:
+        return None
+    if not os.path.isabs(request_path) or not os.path.isabs(result_path):
+        raise ValueError(
+            "--result-request-file and --result-jsonl must be absolute paths"
+        )
+    return partial(
+        make_grocery_physical_result_observer,
+        request_path=request_path,
+        result_path=result_path,
+    )
+
+
 def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_serve) -> None:
+    physics_observer_factory = _physical_result_observer_factory(args_cli)
     # Both supported profiles spawn exterior_cam through AppLauncher.
     args_cli.enable_cameras = True
     with context_factory(args_cli):
@@ -123,6 +165,7 @@ def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_s
                 args_cli.camera,
                 diagnostic_can_away=args_cli.diagnostic_can_away,
             ),
+            physics_observer_factory=physics_observer_factory,
         )
 
 
@@ -132,6 +175,10 @@ def main() -> None:
     args_cli = parser.parse_args()
     if not math.isfinite(args_cli.serve_seconds) or args_cli.serve_seconds <= 0.0:
         parser.error("--serve-seconds must be finite and positive")
+    try:
+        _physical_result_observer_factory(args_cli)
+    except ValueError as error:
+        parser.error(str(error))
     _run_grocery(args_cli)
 
 

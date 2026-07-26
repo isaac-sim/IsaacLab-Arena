@@ -36,14 +36,19 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_SUPPORT_POSE,
     CAP_GROCERY_SUPPORT_SIZE,
 )
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
+    make_grocery_physical_result_observer,
+)
 from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
     _add_grocery_arguments,
     _environment_factory,
+    _physical_result_observer_factory,
     _run_grocery,
     _scene_ready_marker,
 )
 from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
     _close_resources,
+    _compose_physics_observers,
     _PerceptionStreamSink,
     _run_serve,
 )
@@ -254,6 +259,8 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
     assert args.perception_stream == "127.0.0.1:50061"
     assert args.camera == "oblique"
     assert args.diagnostic_can_away is False
+    assert args.result_request_file is None
+    assert args.result_jsonl is None
     assert (
         parser.parse_args(
             [
@@ -272,6 +279,26 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
     )
     with pytest.raises(SystemExit):
         parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"])
+
+
+def test_grocery_runner_requires_paired_absolute_physical_result_paths(tmp_path) -> None:
+    args = SimpleNamespace(
+        result_request_file=str(tmp_path / "result.request"),
+        result_jsonl=None,
+    )
+    with pytest.raises(ValueError, match="must be supplied together"):
+        _physical_result_observer_factory(args)
+
+    args.result_jsonl = "relative-result.jsonl"
+    with pytest.raises(ValueError, match="must be absolute"):
+        _physical_result_observer_factory(args)
+
+    args.result_jsonl = str(tmp_path / "result.jsonl")
+    factory = _physical_result_observer_factory(args)
+    assert factory.keywords == {
+        "request_path": args.result_request_file,
+        "result_path": args.result_jsonl,
+    }
 
 
 def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> None:
@@ -299,6 +326,7 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
     assert defaults["environment_factory"].default is None
     assert defaults["initial_gripper_closed"].default is True
     assert defaults["ready_marker"].default == "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE"
+    assert defaults["physics_observer_factory"].default is None
 
 
 def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
@@ -323,6 +351,8 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
         serve_seconds=321.0,
         camera="oblique",
         diagnostic_can_away=False,
+        result_request_file=None,
+        result_jsonl=None,
         enable_cameras=False,
     )
 
@@ -337,6 +367,7 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
     assert kwargs["perception_first_capture_generation"] == 2
     assert kwargs["serve_seconds"] == 321.0
     assert kwargs["initial_gripper_closed"] is False
+    assert kwargs["physics_observer_factory"] is None
     assert kwargs["ready_marker"].endswith("camera_profile=oblique can_state=present")
     assert kwargs["environment_factory"].func is make_cap_grocery_to_bin_environment
     assert kwargs["environment_factory"].keywords == {"camera_profile": "oblique"}
@@ -366,6 +397,8 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         serve_seconds=321.0,
         camera="oblique",
         diagnostic_can_away=True,
+        result_request_file=None,
+        result_jsonl=None,
         enable_cameras=False,
     )
 
@@ -378,6 +411,65 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         "diagnostic_can_away": True,
     }
     assert str(captured["ready_marker"]).endswith("camera_profile=oblique can_state=away-diagnostic")
+    assert captured["physics_observer_factory"] is None
+
+
+def test_grocery_runner_wires_physical_result_observer(tmp_path) -> None:
+    captured: dict[str, object] = {}
+
+    class _Context:
+        def __init__(self, _args) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            pass
+
+    def serve(_device, **kwargs) -> None:
+        captured.update(kwargs)
+
+    request = tmp_path / "physical-result.request"
+    result = tmp_path / "physical-result.jsonl"
+    args = SimpleNamespace(
+        device="cuda:0",
+        perception_stream="127.0.0.1:50061",
+        serve_seconds=321.0,
+        camera="oblique",
+        diagnostic_can_away=False,
+        result_request_file=str(request),
+        result_jsonl=str(result),
+        enable_cameras=False,
+    )
+
+    _run_grocery(args, context_factory=_Context, serve=serve)
+
+    observer_factory = captured["physics_observer_factory"]
+    assert observer_factory.func is make_grocery_physical_result_observer
+    assert observer_factory.keywords == {
+        "request_path": str(request),
+        "result_path": str(result),
+    }
+
+
+def test_main_thread_physics_observers_run_in_order_and_propagate_failures() -> None:
+    seen: list[tuple[str, int]] = []
+
+    combined = _compose_physics_observers(
+        lambda frame: seen.append(("perception", frame)),
+        lambda frame: seen.append(("result", frame)),
+    )
+    combined(17)
+
+    assert seen == [("perception", 17), ("result", 17)]
+
+    def fail(_frame: int) -> None:
+        raise RuntimeError("result write failed")
+
+    combined = _compose_physics_observers(lambda _frame: None, fail)
+    with pytest.raises(RuntimeError, match="result write failed"):
+        combined(18)
 
 
 def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:
