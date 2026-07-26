@@ -46,7 +46,9 @@ class JointOrderMapping:
     ) -> JointOrderMapping:
         abi_names = tuple(abi_joint_names)
         sim_names = tuple(simulation_joint_names)
-        if len(set(abi_names)) != len(abi_names) or len(set(sim_names)) != len(sim_names):
+        if len(set(abi_names)) != len(abi_names) or len(set(sim_names)) != len(
+            sim_names
+        ):
             raise ValueError("joint name lists must not contain duplicates")
         if set(abi_to_simulation_name) != set(abi_names):
             raise ValueError("joint-name mapping must cover the ABI roster exactly")
@@ -62,7 +64,9 @@ class JointOrderMapping:
     def to_abi_order(self, simulation_values: Sequence[_Value]) -> tuple[_Value, ...]:
         if len(simulation_values) != len(self.simulation_joint_names):
             raise ValueError("simulation value count does not match its joint roster")
-        return tuple(simulation_values[index] for index in self.simulation_indices_in_abi_order)
+        return tuple(
+            simulation_values[index] for index in self.simulation_indices_in_abi_order
+        )
 
     def assert_action_order(self, action_joint_names: Sequence[str]) -> None:
         actual = tuple(action_joint_names)
@@ -72,7 +76,9 @@ class JointOrderMapping:
             )
 
 
-def make_droid_joint_mapping(simulation_joint_names: Sequence[str]) -> JointOrderMapping:
+def make_droid_joint_mapping(
+    simulation_joint_names: Sequence[str],
+) -> JointOrderMapping:
     return JointOrderMapping.from_names(
         DROID_ABI_JOINTS,
         dict(zip(DROID_ABI_JOINTS, DROID_SIMULATION_JOINTS, strict=True)),
@@ -101,3 +107,41 @@ def droid_binary_gripper_action(position_rad: float) -> float:
         f"position={position_rad}, open={DROID_GRIPPER_OPEN_POSITION_RAD}, "
         f"closed={DROID_GRIPPER_CLOSED_POSITION_RAD}, tolerance={DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD}"
     )
+
+
+class DroidBinaryGripperActionLatch:
+    """Preserve the last admitted endpoint across controller-internal hold samples."""
+
+    def __init__(self, initial_position_rad: float):
+        self._action = droid_binary_gripper_action(initial_position_rad)
+
+    @property
+    def action(self) -> float:
+        return self._action
+
+    def reset(self, position_rad: float) -> None:
+        """Reset from the deterministic physical endpoint after an episode reset."""
+        self._action = droid_binary_gripper_action(position_rad)
+
+    def action_for_position(self, position_rad: float) -> float:
+        """Return the binary intent for one ros2_control command sample."""
+        if not math.isfinite(position_rad):
+            raise ValueError("DROID gripper target must be finite")
+        lower = DROID_GRIPPER_OPEN_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        upper = DROID_GRIPPER_CLOSED_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        if position_rad < lower or position_rad > upper:
+            raise ValueError(
+                "DROID gripper target is outside the supported physical range: "
+                f"position={position_rad}, lower={lower}, upper={upper}"
+            )
+        if (
+            position_rad
+            <= DROID_GRIPPER_OPEN_POSITION_RAD + DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        ):
+            self._action = 0.0
+        elif (
+            position_rad
+            >= DROID_GRIPPER_CLOSED_POSITION_RAD - DROID_GRIPPER_ENDPOINT_TOLERANCE_RAD
+        ):
+            self._action = 1.0
+        return self._action

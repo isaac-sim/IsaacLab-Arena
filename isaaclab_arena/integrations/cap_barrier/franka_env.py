@@ -35,8 +35,8 @@ from .grocery_scene_spec import (
 from .joint_mapping import (
     DROID_FINGER_JOINT,
     DROID_GRIPPER_CLOSED_POSITION_RAD,
+    DroidBinaryGripperActionLatch,
     PANDA_ARM_JOINTS,
-    droid_binary_gripper_action,
     make_droid_joint_mapping,
 )
 
@@ -114,6 +114,9 @@ class FrankaSimulationAdapter:
         )
         self._arm_slice = slice(0, 7)
         self._gripper_slice = slice(7, 8)
+        self._gripper_action_latch = DroidBinaryGripperActionLatch(
+            float(self.abi_positions()[7])
+        )
         self.last_physics_step_started_at_s: float | None = None
         self.physics_step_count = 0
         self.reset_count = 0
@@ -162,7 +165,9 @@ class FrankaSimulationAdapter:
             raise ValueError(
                 f"expected eight DROID targets, got {len(positions_in_abi_order)}"
             )
-        gripper_action = droid_binary_gripper_action(float(positions_in_abi_order[7]))
+        gripper_action = self._gripper_action_latch.action_for_position(
+            float(positions_in_abi_order[7])
+        )
         action = self._torch.zeros(
             (1, self._unwrapped.action_manager.total_action_dim),
             device=self._unwrapped.device,
@@ -183,6 +188,7 @@ class FrankaSimulationAdapter:
         # ManagerBasedEnv.reset writes reset state and performs sim.forward(); it
         # does not advance physics, which is the required CR-20 fence behavior.
         self._environment.reset()
+        self._gripper_action_latch.reset(float(self.abi_positions()[7]))
         self.reset_count += 1
 
     def close(self) -> None:
@@ -358,7 +364,9 @@ def _make_cap_environment(
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.environments.isaaclab_arena_environment import (
+        IsaacLabArenaEnvironment,
+    )
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
 

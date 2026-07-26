@@ -36,10 +36,14 @@ The `arena_droid_b1` joint roster is exactly the seven `fr3_joint*` ABI joints f
 virtual `robotiq_85_left_knuckle_joint`. The producer maps those names to Arena's seven ordered
 `panda_joint*` joints followed by `finger_joint`; it does not rely on articulation indices because
 the DROID USD also contains mimic joints. Slot 7 remains in radians (`0` open, `pi/4` closed) in
-both state and command frames. Arena's action is binary closedness (`0` open, `1` closed), so the
-producer accepts only the two endpoint bands with the `arena_droid_b1` profile tolerance of
-`0.01 rad` and rejects nonfinite or intermediate commands before stepping physics. Until shared
-profile assembly lands, the ROS gripper relay configuration must mirror that tolerance explicitly.
+both state and command frames. Arena's action is binary closedness (`0` open, `1` closed), and CAP
+admits only those two endpoint goal bands with the `arena_droid_b1` profile tolerance of `0.01 rad`.
+When Jazzy cancels an active goal it replaces the command with the current physical position. That
+hold-at-current value is not a new command for a binary device, so the producer validates it as
+finite and in range while retaining the last admitted endpoint intent. A new endpoint flips the
+latch, and reset reinitializes it from the deterministic physical endpoint. Nonfinite and
+out-of-range commands still fail before physics. Until shared profile assembly lands, the ROS
+gripper relay configuration must mirror the endpoint tolerance explicitly.
 The smoke brackets each commanded close and open transition with synchronized monotonic timestamps,
 requires physical slot 7 to cross the half-closed position and reach the requested endpoint within
 the declared `2 s` gripper bound. Commanded arm slots must remain exactly at their held values; the
