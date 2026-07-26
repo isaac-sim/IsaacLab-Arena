@@ -77,8 +77,7 @@ and DROID integration, RL workflows, and a large set of new tasks and embodiment
   final subtask success states, and an example that puts an object into a microwave and
   closes the door (#289, #323, #337, #365).
 - **Semantic object placement:** Added a differentiable relation-based object placement
-  solver supporting ``On``, ``NextTo``, ``AtPosition``, ``PositionLimitsBox``, and
-  ``PositionLimitsCylindrical`` relations,
+  solver supporting ``On``, ``NextTo``, ``AtPosition``, and ``PositionLimits`` relations,
   multiple anchors, ``RotateAroundSolution``, and full integration with ``ArenaEnvBuilder``
   and ``ObjectPlacer`` (#328, #354, #358, #362, #387, #574).
 - **Teleoperation:** Added teleoperation support for G1 loco-manipulation and GR1 using

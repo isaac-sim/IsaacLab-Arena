@@ -192,17 +192,15 @@ for the object's bounding-box footprint.
 
 Attach both relations when an object needs the intersection of box and cylindrical
 limits. For example, this keeps an object's origin inside a rectangular tabletop
-region and within 0.25 m of a world-XY point while ``On`` determines its height:
+region and within 0.25 m of a world-XY point:
 
 .. code-block:: python
 
    from isaaclab_arena.relations.relations import (
-       On,
        PositionLimitsBox,
        PositionLimitsCylindrical,
    )
 
-   object.add_relation(On(table_reference))
    object.add_relation(
        PositionLimitsBox(x_min=0.2, x_max=0.6, y_min=-0.4, y_max=0.0)
    )
