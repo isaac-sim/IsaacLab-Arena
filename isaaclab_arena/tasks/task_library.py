@@ -11,7 +11,6 @@
 from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
     close_door_task,
-    deformable_pick_and_place_task,
     goal_pose_task,
     lift_object_task,
     no_task,

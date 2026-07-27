@@ -20,7 +20,7 @@ class DeformableSpherePickPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the deformable Maple-table pick-and-place smoke environment."""
 
     enable_cameras: bool = False
-    embodiment: str = "droid_abs_joint_pos"
+    embodiment: str = "franka_joint_pos"
     light_intensity: float = 500.0
     pick_up_object: str = "procedural_deformable_sphere"
     destination_location: str = "bowl_ycb_robolab"
@@ -43,7 +43,7 @@ class DeformableSpherePickPlaceEnvironment(ArenaEnvironmentFactory[DeformableSph
         from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
         from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.deformable_pick_and_place_task import DeformablePickAndPlaceTask
+        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
@@ -74,7 +74,7 @@ class DeformableSpherePickPlaceEnvironment(ArenaEnvironmentFactory[DeformableSph
                 table_reference,
             ]
         )
-        task = DeformablePickAndPlaceTask(
+        task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,

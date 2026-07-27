@@ -7,17 +7,9 @@ from __future__ import annotations
 
 import torch
 
-import warp as wp
 from isaaclab.assets import RigidObject
 
-
-def get_env(env):
-    """Resolve to the unwrapped manager-based env regardless of wrapper depth."""
-    seen = set()
-    while hasattr(env, "unwrapped") and env.unwrapped is not env and id(env) not in seen:
-        seen.add(id(env))
-        env = env.unwrapped
-    return env
+from isaaclab_arena.scene.object_state import get_env, object_state
 
 
 def get_rigid_object(env, name: str) -> RigidObject:
@@ -28,25 +20,22 @@ def get_rigid_object(env, name: str) -> RigidObject:
 def get_root_pos_w(env, name: str) -> torch.Tensor:
     """Get the root (or deformable centroid) position in the world frame.
 
-    ``root_pos_w`` is exposed identically by rigid and deformable object data, so this works for both.
+    This compatibility wrapper delegates to the shared object-state view.
     """
-    return wp.to_torch(get_env(env).scene[name].data.root_pos_w)
+    return object_state(env, name).position_w()
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
     """Get the root (or deformable centroid) linear velocity in the world frame.
 
-    Rigid objects expose ``root_lin_vel_w``; deformable objects expose the (linear) ``root_vel_w``.
-    Dispatch is on which attribute the entity's data provides, so it holds across physics backends.
+    This compatibility wrapper delegates to the shared object-state view.
     """
-    data = get_env(env).scene[name].data
-    velocity = data.root_lin_vel_w if hasattr(data, "root_lin_vel_w") else data.root_vel_w
-    return wp.to_torch(velocity)
+    return object_state(env, name).linear_velocity_w()
 
 
-def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root angular velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+def get_root_ang_vel_w(env, name: str, required: bool = True) -> torch.Tensor:
+    """Get the root angular velocity of an object in the world frame when available."""
+    return object_state(env, name).angular_velocity_w(required=required)
 
 
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:

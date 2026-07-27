@@ -103,6 +103,9 @@ def write_layout_to_sim(
             continue
         layout_pose = get_pose_from_layout(asset, result)
         for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
+            if scene_name == asset.get_scene_key() and hasattr(asset, "set_object_pose"):
+                asset.set_object_pose(env, pose, env_ids=env_id_tensor)
+                continue
             scene_asset = env.scene[scene_name]
             pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
             pose_tensor[0, :3] += env.scene.env_origins[env_id, :]

@@ -8,7 +8,6 @@ from __future__ import annotations
 import torch
 
 import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
@@ -126,7 +125,6 @@ def object_on_destination(
     """
 
     unwrapped_env = get_env(env)
-    object: RigidObject = unwrapped_env.scene[object_cfg.name]
     sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
@@ -139,7 +137,7 @@ def object_on_destination(
     force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
+    velocity_w = get_root_lin_vel_w(env, object_cfg.name)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 

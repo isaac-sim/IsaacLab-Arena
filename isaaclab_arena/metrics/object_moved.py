@@ -6,7 +6,6 @@
 import numpy as np
 from dataclasses import MISSING
 
-import warp as wp
 from isaaclab.envs.manager_based_rl_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
@@ -14,6 +13,7 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
+from isaaclab_arena.scene.object_state import object_state
 
 
 class ObjectVelocityRecorder(RecorderTerm):
@@ -26,8 +26,7 @@ class ObjectVelocityRecorder(RecorderTerm):
         self.object_name = cfg.object_name
 
     def record_post_step(self):
-        # NOTE(alexmillane, 2025-09-30): This assumes the the object is a rigid object.
-        object_linear_velocity = wp.to_torch(self._env.scene[self.object_name].data.root_link_vel_w)[:, :3]
+        object_linear_velocity = object_state(self._env, self.object_name).linear_velocity_w()
         assert object_linear_velocity.shape == (self._env.num_envs, 3)
         return self.name, object_linear_velocity
 

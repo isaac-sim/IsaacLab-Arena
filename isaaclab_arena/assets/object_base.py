@@ -58,7 +58,7 @@ class ObjectBase(PlaceableAsset, ABC):
         return False
 
     def supports_contact_sensor(self) -> bool:
-        """Return whether the object can be used with Isaac Lab contact sensors."""
+        """Whether this object can provide an Isaac Lab contact sensor config."""
         return False
 
     def _add_initial_pose_to_cfg(self, object_cfg):
@@ -103,7 +103,12 @@ class ObjectBase(PlaceableAsset, ABC):
 
 
 class SpawnableObjectBase(ObjectBase, ABC):
-    """Base for objects backed by a rigid, articulation, or base Isaac Lab asset."""
+    """Base for objects backed by a rigid, articulation, or base Isaac Lab asset.
+
+    Centralizes the machinery shared by ``Object`` and ``ObjectReference``: the object-type config
+    switch, rigid-pose reset events, and rigid-root pose get/set. Deformable objects deliberately do
+    NOT inherit this -- they extend ``ObjectBase`` directly.
+    """
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -195,15 +200,16 @@ class SpawnableObjectBase(ObjectBase, ABC):
             The pose of the object in each environment. The shape is (num_envs, 7).
             The order is (x, y, z, qx, qy, qz, qw).
         """
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
+        env = getattr(env, "unwrapped", env)
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = wp.to_torch(env.unwrapped.scene[self.name].data.root_pose_w).clone()
+            object_pose = wp.to_torch(env.scene[self.name].data.root_pose_w).clone()
         elif self.object_type == ObjectType.BASE:
-            object_pose = torch.cat(env.unwrapped.scene[self.name].get_world_poses(), dim=-1)
+            object_pose = torch.cat(env.scene[self.name].get_world_poses(), dim=-1)
         else:
             raise ValueError(f"Function not implemented for object type: {self.object_type}")
         if is_relative:
-            object_pose[:, :3] -= env.unwrapped.scene.env_origins
+            object_pose[:, :3] -= env.scene.env_origins
         return object_pose
 
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
@@ -213,15 +219,16 @@ class SpawnableObjectBase(ObjectBase, ABC):
             env: The environment.
             pose: The pose to set.
         """
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
+        env = getattr(env, "unwrapped", env)
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
         if env_ids is None:
-            env_ids = torch.arange(env.unwrapped.num_envs, device=env.unwrapped.device)
-        asset = env.unwrapped.scene[self.name]
+            env_ids = torch.arange(env.num_envs, device=env.device)
+        asset = env.scene[self.name]
         num_envs = len(env_ids)
-        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
-        pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).repeat(num_envs, 1)
+        pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.unwrapped.device), env_ids=env_ids)
+        asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
 
     def supports_contact_sensor(self) -> bool:
         """Return whether the object can be used with Isaac Lab contact sensors."""

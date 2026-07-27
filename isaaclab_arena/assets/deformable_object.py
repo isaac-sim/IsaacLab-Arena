@@ -61,7 +61,7 @@ class DeformableObject(ObjectBase):
         self.relations = list(relations or [])
         self.reset_pose = True
         self.object_cfg = self._init_object_cfg()
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def requires_soft_body_solver(self) -> bool:
         return True
@@ -75,11 +75,11 @@ class DeformableObject(ObjectBase):
 
     def disable_reset_pose(self) -> None:
         self.reset_pose = False
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def enable_reset_pose(self) -> None:
         self.reset_pose = True
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def _make_deformable_cfg(self, backend: SimulationBackend) -> DeformableObjectCfg:
         """Wrap the backend's deformable spawn into a ``DeformableObjectCfg`` with the initial pose."""
@@ -93,25 +93,26 @@ class DeformableObject(ObjectBase):
         """Build a per-preset ``PresetCfg`` of ``DeformableObjectCfg`` across soft-body presets."""
         return backend_object_preset(self._make_deformable_cfg, soft_body_only=True)
 
-    def set_initial_pose(self, pose: Pose | PosePerEnv) -> None:
-        """Set the initial pose and rebuild the per-backend cfg preset and reset event."""
+    def _set_initial_pose(self, pose: Pose | PosePerEnv) -> None:
+        """Store the pose and rebuild the per-backend cfg preset."""
+        assert isinstance(pose, (Pose, PosePerEnv)), "Deformable reset currently supports Pose or PosePerEnv only."
         self.initial_pose = pose
         # A deformable's ``object_cfg`` is a ``PresetCfg`` bundle, so we regenerate it rather than
         # mutate a single ``init_state`` in place.
-        self.object_cfg = self._init_object_cfg()
-        self.event_cfg = self._init_event_cfg()
+        if self.object_cfg is not None:
+            self.object_cfg = self._init_object_cfg()
 
     def set_initial_velocity(self, velocity) -> None:
         """Store the initial (linear) velocity, applied to the nodal state on reset."""
         # ``DeformableObjectCfg`` has no ``init_state`` velocity field; the velocity is applied to the
         # nodal state by the reset event, so we only store it and refresh the event.
         self.initial_velocity = velocity
-        self.event_cfg = self._init_event_cfg()
+        self._pose_event_cfg = self._build_reset_event()
 
     def _requires_reset_pose_event(self) -> bool:
         return self.get_initial_pose() is not None and self.reset_pose
 
-    def _init_event_cfg(self) -> EventTermCfg | None:
+    def _build_reset_event(self) -> EventTermCfg | None:
         if not self._requires_reset_pose_event():
             return None
         initial_pose = self.get_initial_pose()
@@ -138,22 +139,24 @@ class DeformableObject(ObjectBase):
         Deformables have no rigid root orientation, so the returned quaternion is identity. The order
         matches the rigid path: (x, y, z, qx, qy, qz, qw). Shape is (num_envs, 7).
         """
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
-        asset = env.unwrapped.scene[self.name]
+        env = getattr(env, "unwrapped", env)
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        asset = env.scene[self.name]
         object_pos = asset.data.root_pos_w.torch.clone()
-        object_quat = torch.zeros((env.unwrapped.num_envs, 4), device=env.unwrapped.device)
+        object_quat = torch.zeros((env.num_envs, 4), device=env.device)
         object_quat[:, 3] = 1.0
         object_pose = torch.cat([object_pos, object_quat], dim=-1)
         if is_relative:
-            object_pose[:, :3] -= env.unwrapped.scene.env_origins
+            object_pose[:, :3] -= env.scene.env_origins
         return object_pose
 
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
         """Reset the deformable's nodal state so its centroid is at ``pose``."""
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
+        env = getattr(env, "unwrapped", env)
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
         if env_ids is None:
-            env_ids = torch.arange(env.unwrapped.num_envs, device=env.unwrapped.device)
-        set_deformable_object_pose(env.unwrapped, env_ids=env_ids, asset_cfg=SceneEntityCfg(self.name), pose=pose)
+            env_ids = torch.arange(env.num_envs, device=env.device)
+        set_deformable_object_pose(env, env_ids=env_ids, asset_cfg=SceneEntityCfg(self.name), pose=pose)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None):
         raise NotImplementedError("Deformable objects carry no contact sensor.")

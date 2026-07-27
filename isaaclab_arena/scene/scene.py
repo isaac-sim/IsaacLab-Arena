@@ -17,6 +17,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.variations.variation_base import VariationBase
@@ -110,11 +111,11 @@ class Scene:
             asset_name_to_variations[asset.name] = asset.get_variations()
         return asset_name_to_variations
 
-    def get_objects_with_relations(self) -> list[Object | ObjectReference]:
-        """Return scene objects that have at least one relation used in placement optimization."""
-        objects_with_relations: list[Object | ObjectReference] = []
+    def get_objects_with_relations(self) -> list[PlaceableAsset]:
+        """Return placeable assets that have at least one relation used in placement optimization."""
+        objects_with_relations: list[PlaceableAsset] = []
         for asset in self.assets.values():
-            if not isinstance(asset, (Object, ObjectReference)):
+            if not isinstance(asset, PlaceableAsset):
                 continue
             # Those with spatial relations or an anchor, exclude those are only used in validation, e.g. RequiresReachability.
             if asset.get_spatial_relations() or asset.is_anchor:

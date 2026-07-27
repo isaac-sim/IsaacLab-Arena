@@ -98,19 +98,26 @@ def objects_settled(
     object_names: list[str],
     lin_vel_threshold: float = 1e-2,
     ang_vel_threshold: float = 5e-2,
+    require_angular_velocity: bool = False,
     env_id: int | None = None,
 ) -> torch.Tensor:
     """True per env when every object in the env is at rest, records each object's rest pose on first settle.
 
     An object is at rest when both its linear speed (m/s) and its angular speed (rad/s) are below the
-    respective thresholds. The recorded rest poses are readable via ``get_object_initial_rest_state``.
+    respective thresholds. Objects without angular velocity contribute zero angular speed unless
+    ``require_angular_velocity`` is True. The recorded rest poses are readable via
+    ``get_object_initial_rest_state``.
     """
 
     lin_speeds = torch.stack(
         [torch.linalg.vector_norm(get_root_lin_vel_w(env, name), dim=-1) for name in object_names], dim=0
     )
     ang_speeds = torch.stack(
-        [torch.linalg.vector_norm(get_root_ang_vel_w(env, name), dim=-1) for name in object_names], dim=0
+        [
+            torch.linalg.vector_norm(get_root_ang_vel_w(env, name, required=require_angular_velocity), dim=-1)
+            for name in object_names
+        ],
+        dim=0,
     )
     settled = torch.all((lin_speeds < lin_vel_threshold) & (ang_speeds < ang_vel_threshold), dim=0)
 
