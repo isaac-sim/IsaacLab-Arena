@@ -15,12 +15,9 @@ so the label and menu items fill in at final render.
 {%- macro version_label(name, release) -%}
 {{ release or (name[8:] if name.startswith("release/") else name) }}
 {%- endmacro -%}
-{%- set label = "" %}
-{%- if current_version %}
-{%- set label = version_label(current_version.name, current_version.release) %}
-{%- elif release %}
-{%- set label = release %}
-{%- endif %}
+{#- `current_version` is only present under sphinx-multiversion; a plain single-version
+    build (make html) has none, so fall back to a "dev" label for local previews. -#}
+{%- set label = version_label(current_version.name, current_version.release) if current_version else "dev" %}
 <div class="version-switcher__container dropdown">
   <button type="button"
     class="version-switcher__button btn btn-sm dropdown-toggle"

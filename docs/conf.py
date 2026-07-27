@@ -26,7 +26,7 @@ import sys
 # Modify PYTHONPATH so we can import the helpers module.
 # pylint: disable=wrong-import-position
 sys.path.insert(0, os.path.abspath("."))
-from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired, get_project_version
+from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
 
 # NOTE(alexmillane, 2025-04-24): This file is in a separate folder to avoid
 # duplicate configuration errors coming from mypy. The only way I could find
@@ -39,15 +39,9 @@ copyright = "2025, NVIDIA"
 author = "NVIDIA"
 released = False  # Indicates if this is a public or internal version of the repo.
 
-# Read the version from pyproject.toml rather than hard-coding it. NOTE that
-# sphinx-multiversion builds every ref with this (the current checkout's) conf.py, so
-# `release`/`version`/`html_title` are identical for every documented version -- the
-# per-version number in the header instead comes from `current_version`, which
-# sphinx-multiversion derives from git. See docs/_templates/version-badge.html. These
-# values are still used for a plain single-version build and by the multiversion
-# metadata pass. Keep them out of `html_title` so the header title is not frozen.
-release = get_project_version()
-version = ".".join(release.split(".")[:2])
+# The header version selector derives each documented version's number from git via
+# sphinx-multiversion's `current_version` (see docs/_templates/version-badge.html), so
+# `version`/`release` are intentionally left unset here.
 
 # -- General configuration ---------------------------------------------------
 
