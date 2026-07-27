@@ -105,11 +105,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         return pose.translate(self._robot_base_offset)
 
     def set_initial_pose(self, pose: Pose | PosePerEnv, create_reset_event: bool = True) -> None:
-        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base.
-
-        Both the reset path and the construction path (``create_reset_event=False``) route through here,
-        so the stand lift is applied consistently in either case.
-        """
+        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base."""
         super().set_initial_pose(self._translate_pose(pose), create_reset_event=create_reset_event)
 
     def has_unplaced_auxiliary_prims(self) -> bool:

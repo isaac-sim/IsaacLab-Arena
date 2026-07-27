@@ -71,12 +71,12 @@ class PlaceableAsset(Asset, ABC):
                 pose on every environment reset. Pass False to set only the scene-construction
                 pose (e.g. when relation solving seeds a fixed per-environment layout).
         """
-        self._materialize_pose_state(pose)
+        self._set_initial_pose(pose)
         if create_reset_event:
             self._pose_event_cfg = self._build_reset_event()
 
-    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Store the configured pose; subclasses also materialize any derived construction config."""
+    def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the configured pose; subclasses also update any derived construction config."""
         self.initial_pose = pose
 
     def _build_reset_event(self) -> EventTermCfg | None:

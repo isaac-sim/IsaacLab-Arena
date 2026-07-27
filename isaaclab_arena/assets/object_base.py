@@ -52,8 +52,8 @@ class ObjectBase(PlaceableAsset, ABC):
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
 
-    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Store the pose and write its construction values into the materialized object config."""
+    def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the pose and write its construction values into the object config."""
         self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:

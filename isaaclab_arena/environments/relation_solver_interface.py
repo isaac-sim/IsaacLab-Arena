@@ -242,6 +242,10 @@ def _validate_no_unplaced_auxiliary_prims(
     A per-env reset repositions only the prims a compound asset emits from
     ``layout_pose_to_scene_writes``; any auxiliary prim it omits (e.g. Droid's static stand) would
     stay at its env-0 spot. Fail loudly here rather than silently orphaning those prims.
+
+    NOTE: This is a temporary guard. Delete it once auxiliary prims travel with their parent on
+    reset (see the in-progress auxiliary-prim work), after which compound assets can be placed
+    like any other and this check is no longer needed.
     """
     for asset in assets:
         if asset in anchor_assets:

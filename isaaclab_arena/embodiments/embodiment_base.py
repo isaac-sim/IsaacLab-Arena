@@ -88,8 +88,8 @@ class EmbodimentBase(PlaceableAsset):
             self._collision_mesh = extract_trimesh_from_usd_path(spawn.usd_path, scale)
         return self._collision_mesh
 
-    def _materialize_pose_state(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Store the configured pose; the construction pose is materialized in ``get_scene_cfg``."""
+    def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Store the configured pose; the construction pose is applied in ``get_scene_cfg``."""
         assert isinstance(pose, (Pose, PosePerEnv)), "Embodiments support a fixed Pose or PosePerEnv only"
         self.initial_pose = pose
 
@@ -100,6 +100,10 @@ class EmbodimentBase(PlaceableAsset):
 
     def _build_reset_event(self) -> EventTermCfg | None:
         """Build the reset event that restores this embodiment's root pose (and auxiliary prims)."""
+        # NOTE(zihaox): This is nearly a duplicate of ObjectBase._build_reset_event. The two diverge only
+        # because an embodiment routes its writes through layout_pose_to_scene_writes so a compound asset
+        # can also move its auxiliary prims (e.g. Droid's stand). Unify with ObjectBase once auxiliary
+        # prims travel with their parent on reset and the two paths converge.
         from isaaclab_arena.terms.events import reset_placement_asset_pose, reset_placement_asset_pose_per_env
 
         initial_pose = self.initial_pose
