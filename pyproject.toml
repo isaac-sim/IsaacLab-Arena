@@ -154,7 +154,7 @@ override-dependencies = [
 # 3.0 GA, which will correctly pin its dependencies. See:
 # https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
 constraint-dependencies = [
-    "pin-pink==3.1.0",
+    "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
     "mujoco-usd-converter==0.2.0",

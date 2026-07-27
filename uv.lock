@@ -15,7 +15,7 @@ conflicts = [[
 [manifest]
 constraints = [
     { name = "mujoco-usd-converter", specifier = "==0.2.0", index = "https://pypi.org/simple" },
-    { name = "pin-pink", specifier = "==3.1.0" },
+    { name = "pin-pink", specifier = "==3.3.0" },
     { name = "pyglet", specifier = "<3" },
     { name = "tinyobjloader", specifier = "==2.0.0rc13" },
 ]
@@ -1934,7 +1934,7 @@ isaacsim = [
 
 [[package]]
 name = "isaaclab"
-version = "6.1.14"
+version = "6.1.17"
 source = { editable = "submodules/IsaacLab/source/isaaclab" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
@@ -2020,9 +2020,9 @@ requires-dist = [
     { name = "omniverseclient", specifier = "==2.71.1.7015" },
     { name = "onnx", specifier = ">=1.18.0" },
     { name = "packaging" },
-    { name = "pillow", specifier = "==12.2.0" },
+    { name = "pillow", specifier = ">=12.1.1" },
     { name = "pin", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'" },
-    { name = "pin-pink", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'", specifier = "==3.1.0" },
+    { name = "pin-pink", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'", specifier = "==3.3.0" },
     { name = "prettytable", specifier = "==3.3.0" },
     { name = "psutil" },
     { name = "pydantic", specifier = ">=2.7,<2.12" },
@@ -2071,7 +2071,7 @@ dev = [
 
 [package.dev-dependencies]
 isaaclab-from-source = [
-    { name = "isaaclab", version = "6.1.14", source = { editable = "submodules/IsaacLab/source/isaaclab" }, extra = ["isaacsim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "isaaclab", version = "6.1.17", source = { editable = "submodules/IsaacLab/source/isaaclab" }, extra = ["isaacsim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "isaaclab-assets", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-contrib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-experimental", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2160,7 +2160,7 @@ openpi = [{ name = "openpi-client", git = "https://github.com/Physical-Intellige
 
 [[package]]
 name = "isaaclab-assets"
-version = "0.3.4"
+version = "0.3.5"
 source = { editable = "submodules/IsaacLab/source/isaaclab_assets" }
 
 [[package]]
@@ -2197,7 +2197,7 @@ requires-dist = [{ name = "toml" }]
 
 [[package]]
 name = "isaaclab-mimic"
-version = "1.3.3"
+version = "1.3.4"
 source = { editable = "submodules/IsaacLab/source/isaaclab_mimic" }
 dependencies = [
     { name = "h5py", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2278,7 +2278,7 @@ source = { editable = "submodules/IsaacLab/source/isaaclab_ppisp" }
 
 [[package]]
 name = "isaaclab-rl"
-version = "0.5.5"
+version = "0.5.7"
 source = { editable = "submodules/IsaacLab/source/isaaclab_rl" }
 dependencies = [
     { name = "h5py", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2286,6 +2286,7 @@ dependencies = [
     { name = "moviepy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "packaging", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "pillow", version = "12.2.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "protobuf", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "tensorboard", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2307,11 +2308,12 @@ requires-dist = [
     { name = "gym", marker = "extra == 'rl-games'" },
     { name = "h5py", specifier = ">=3.16.0" },
     { name = "hydra-core" },
-    { name = "moviepy" },
+    { name = "moviepy", specifier = ">=1.0.3,<2.0.0.dev0" },
     { name = "numpy" },
     { name = "onnxscript", marker = "extra == 'all'", specifier = ">=0.5" },
     { name = "onnxscript", marker = "extra == 'rsl-rl'", specifier = ">=0.5" },
-    { name = "packaging", specifier = "<24" },
+    { name = "packaging" },
+    { name = "pillow", specifier = ">=12.1.1" },
     { name = "protobuf", specifier = ">=4.25.8,!=5.26.0" },
     { name = "rich", marker = "extra == 'all'" },
     { name = "rich", marker = "extra == 'sb3'" },
@@ -2386,7 +2388,7 @@ name = "isaaclab-visualizers"
 version = "0.1.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_visualizers" }
 dependencies = [
-    { name = "isaaclab", version = "6.1.14", source = { editable = "submodules/IsaacLab/source/isaaclab" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "isaaclab", version = "6.1.17", source = { editable = "submodules/IsaacLab/source/isaaclab" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 
@@ -5122,7 +5124,7 @@ wheels = [
 
 [[package]]
 name = "pin-pink"
-version = "3.1.0"
+version = "3.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "loop-rate-limiters", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -5130,11 +5132,10 @@ dependencies = [
     { name = "pin", version = "3.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pin", version = "4.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "qpsolvers", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "quadprog", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7b/af/d86b85ced1cf3ad5be4f5c06bac820405aa58eb2fe1a827ebde87c3ebeff/pin_pink-3.1.0.tar.gz", hash = "sha256:7ce58ee380f6ab0bc037063d0aaac3472a92538be932db137f680a05087330a2", size = 109556, upload-time = "2024-10-28T13:56:16.926Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/6a/ffac93504d5ea1a201400d64f79ad17c487435937301b7eba1b4bf9731b0/pin_pink-3.3.0.tar.gz", hash = "sha256:a92018ab21e36a8c07d510ccc5cd37d16b01f1a79a6b16c29c0529388cc48dcd", size = 212281, upload-time = "2025-05-15T10:55:03.018Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/43/aa9bdf3db894dcbbf79be6f8a68c6154f4ffa5d301f3bf99a126d0fdd593/pin_pink-3.1.0-py3-none-any.whl", hash = "sha256:ba879077cc0ed26bc63df477b2da40a40b7d4ada524e2d2e4ed3d434c7bcf15f", size = 53716, upload-time = "2024-10-28T13:56:14.232Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/5d/1ec853d9d163e18e7878805b0fc3a10f61bfc6cac726909759f83cf07dc8/pin_pink-3.3.0-py3-none-any.whl", hash = "sha256:e7d545466bce3b99464f5015ccc5b437a415dd92cde07510311bd7b88f008eb7", size = 55725, upload-time = "2025-05-15T10:55:00.114Z" },
 ]
 
 [[package]]
@@ -5718,21 +5719,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/30/35/ad6d4c5a547fe9a5baf85a9edbafff93fc6394b014fab30595877305fa59/qrcode-7.4.2.tar.gz", hash = "sha256:9dd969454827e127dbd93696b20747239e6d540e082937c90f14ac95b30f5845", size = 535974, upload-time = "2023-02-05T22:11:46.548Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/79/aaf0c1c7214f2632badb2771d770b1500d3d7cbdf2590ae62e721ec50584/qrcode-7.4.2-py3-none-any.whl", hash = "sha256:581dca7a029bcb2deef5d01068e39093e80ef00b4a61098a2182eac59d01643a", size = 46197, upload-time = "2023-02-05T22:11:43.4Z" },
-]
-
-[[package]]
-name = "quadprog"
-version = "0.1.13"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/60/fb9b56d425c5b3495bb92683c28f954aedb609ae62f14c81a1b5621ad759/quadprog-0.1.13.tar.gz", hash = "sha256:9d6dd32f2762f29b840fb83741d11e527ddf48745f63b79caad0e530b4a6a0ff", size = 16883, upload-time = "2024-10-24T16:58:58.004Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/70/d91d208ad6971c8831ec23b86dfc5c3ddd50a0d79c8da3156c5feaad4665/quadprog-0.1.13-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:cdae336347fc7488743739ad39943f60976ada74cacd0892f5d1503152359ced", size = 103941, upload-time = "2024-10-24T16:58:42.151Z" },
-    { url = "https://files.pythonhosted.org/packages/10/5e/de8d3911e44699abc4e3ce835e69c3db76525af8018026f9bce61be69a43/quadprog-0.1.13-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:8628ea1b1910c0fbfc828fca36ebc76a8c7352fdef782b5971aee1f4db08ba38", size = 95809, upload-time = "2024-10-24T16:58:43.729Z" },
-    { url = "https://files.pythonhosted.org/packages/20/64/72ae344963db87a15e8566b8c4f1408080ad5746c8e1c32f8d04911074bb/quadprog-0.1.13-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7e2cb007ecf649fb2a614a1954359d534682d7339c3834df30aee7321ae1f7bb", size = 534623, upload-time = "2024-10-24T16:58:44.787Z" },
-    { url = "https://files.pythonhosted.org/packages/47/11/4f8b99099215f6e7f2c8ca9756c590e561d1d3093fedb51a960dc609e347/quadprog-0.1.13-cp312-cp312-win_amd64.whl", hash = "sha256:d3d8d774d6436829ea4a11eeffe4a1a72375df17c9e9a7a48973372e64c826ad", size = 92523, upload-time = "2024-10-24T16:58:46.031Z" },
 ]
 
 [[package]]
