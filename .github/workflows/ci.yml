@@ -109,7 +109,7 @@ jobs:
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_af1bab4dc17
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -184,7 +184,7 @@ jobs:
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_af1bab4dc17
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -223,7 +223,7 @@ jobs:
       GR00T_REMOTE_E2E_TIMEOUT: "900"
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_testing
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_beta_2_af1bab4dc17
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
