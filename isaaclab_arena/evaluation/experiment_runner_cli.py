@@ -4,11 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
+_DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
 
 
 def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -38,13 +40,30 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
     )
-    parser.add_argument(
+    # Keep existing Experiment Runner commands backward compatible:
+    # --output_base_dir <base> writes to <base>/<timestamp>.
+    # OSMO workflow tasks use --experiment_output_directory <path> because each task
+    # must write directly to the exact {{output}} directory allocated by OSMO.
+    # TODO(cvolk): Replace these two path options with one path and an explicit
+    # timestamped-or-exact mode after existing --output_base_dir callers migrate.
+    output_directory_group = parser.add_mutually_exclusive_group()
+    output_directory_group.add_argument(
         "--output_base_dir",
         type=str,
-        default="outputs",
+        default=_DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY,
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
             " reverse-dated Experiment subdirectory and per-Run subdirectory are added."
+        ),
+    )
+    output_directory_group.add_argument(
+        "--experiment_output_directory",
+        type=Path,
+        default=None,
+        help=(
+            "Exact directory that will contain this Experiment's report and one subdirectory per Run."
+            " The directory must be missing or empty. Managed execution can use this instead of a timestamped"
+            " directory."
         ),
     )
     parser.add_argument(

@@ -25,6 +25,9 @@ from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTask, D
 from osmo.tasks.dreamzero_server_task import DreamZeroServerTask, DreamZeroServerTaskCfg
 from osmo.workflows.workflow import CompositeWorkflow, Workflow, WorkflowCfg, WorkflowSubmissionResult
 
+DREAMZERO_SERVER_TASK_NAME = "dreamzero_server"
+DREAMZERO_POLICY_RUNNER_TASK_NAME = "policy_runner"
+
 
 @dataclass
 class DreamZeroWorkflowCfg(WorkflowCfg):
@@ -85,6 +88,7 @@ class DreamZeroServerWorkflow(Workflow):
     """Workflow containing only the DreamZero inference server, for cross-pool evaluation."""
 
     task_cls_list = [DreamZeroServerTask]
+    task_names = [DREAMZERO_SERVER_TASK_NAME]
     task_cfg_type = DreamZeroServerTaskCfg
     workflow_cfg_type = DreamZeroServerWorkflowCfg
 
@@ -97,6 +101,7 @@ class DreamZeroPolicyRunnerWorkflow(Workflow):
     """
 
     task_cls_list = [DreamZeroPolicyRunnerTask]
+    task_names = [DREAMZERO_POLICY_RUNNER_TASK_NAME]
     task_cfg_type = DreamZeroPolicyRunnerTaskCfg
 
     def __init__(
@@ -105,12 +110,23 @@ class DreamZeroPolicyRunnerWorkflow(Workflow):
         task_cfg: DreamZeroPolicyRunnerTaskCfg,
         server_workflow_id: str,
         group_name: str = "arena",
+        *,
+        server_task_name: str,
     ) -> None:
         super().__init__(workflow_cfg=workflow_cfg, task_cfg=task_cfg, group_name=group_name)
         self.server_workflow_id = server_workflow_id
+        self.server_task_name = server_task_name
 
     def _get_tasks(self) -> list[BaseTask]:
-        return [DreamZeroPolicyRunnerTask(self.task_cfg, server_workflow_id=self.server_workflow_id, lead=True)]
+        return [
+            DreamZeroPolicyRunnerTask(
+                task_name=self.task_names[0],
+                task_cfg=self.task_cfg,
+                server_workflow_id=self.server_workflow_id,
+                server_task_name=self.server_task_name,
+                lead=True,
+            )
+        ]
 
 
 class DreamZeroEvaluationWorkflow(CompositeWorkflow):
@@ -152,7 +168,10 @@ class DreamZeroEvaluationWorkflow(CompositeWorkflow):
             print(f"DreamZero server workflow: {server_workflow_id}")
 
         runner_workflow = DreamZeroPolicyRunnerWorkflow(
-            self.workflow_cfg, self.task_cfg, server_workflow_id=server_workflow_id
+            self.workflow_cfg,
+            self.task_cfg,
+            server_workflow_id=server_workflow_id,
+            server_task_name=server_workflow.task_names[0],
         )
         runner_result = runner_workflow.submit_workflow()
         if runner_result.returncode != 0 and not self.workflow_cfg.dry_run:

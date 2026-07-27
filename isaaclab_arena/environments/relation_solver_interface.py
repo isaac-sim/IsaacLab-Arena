@@ -69,6 +69,10 @@ def solve_and_apply_relation_placement(
     else:
         placer_params = copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
+    # Note(xinjieyao, 2026-07-23): The build-time IK-reachability check reads the embodiment only while its validator is built (during the
+    # pool construction below). Copy the config so the live embodiment can be dropped afterwards without
+    # mutating the caller.
+    placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
         scene_assets = list(scene_assets)
         collision_objects = _get_passive_collision_objects(
@@ -86,6 +90,9 @@ def solve_and_apply_relation_placement(
         num_envs=num_envs,
         collision_objects=collision_objects,
     )
+    # Validators are built once above and reused for every refill, so the embodiment is done being read; drop
+    # it before the reset-event params below capture (and deep-copy/validate) the pool.
+    placer_params.reachability_config.embodiment = None
 
     if placement_pool.had_fallbacks:
         print(

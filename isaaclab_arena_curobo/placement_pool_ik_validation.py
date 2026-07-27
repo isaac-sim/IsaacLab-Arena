@@ -23,11 +23,11 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena_curobo.curobo_planner_utils import (
+from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+from isaaclab_arena_curobo.utils.planner_utils import (
     sync_object_poses_in_robot_base_frame,
-    top_down_grasp_pose_in_robot_frame,
+    top_down_grasp_pose_from_env,
 )
-from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -57,9 +57,9 @@ def _layout_is_ik_reachable(
     if not movable_object_names:
         return True
     grasp_poses = torch.stack(
-        [top_down_grasp_pose_in_robot_frame(env, name, grasp_z_offset, env_id) for name in movable_object_names]
+        [top_down_grasp_pose_from_env(env, name, grasp_z_offset, env_id) for name in movable_object_names]
     )
-    feasible, _, _ = check_ik_feasibility_batch_goal_poses(
+    feasible, _, _ = solve_ik_feasibility(
         planner,
         grasp_poses,
         position_threshold=ik_pos_threshold,

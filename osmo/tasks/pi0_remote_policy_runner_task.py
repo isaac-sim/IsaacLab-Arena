@@ -17,8 +17,10 @@ class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
         task_cfg: PolicyRunnerTaskCfg,
         remote_host: str,
         lead: bool | None = None,
+        *,
+        task_name: str,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         # Host of the pi0 server this runner connects to; the workflow resolves it from the server task.
         self.remote_host = remote_host
 

@@ -5,6 +5,7 @@
 
 """DreamZero policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
+import shlex
 from dataclasses import dataclass
 
 from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
@@ -52,12 +53,17 @@ class DreamZeroPolicyRunnerTask(PolicyRunnerTask):
         task_cfg: DreamZeroPolicyRunnerTaskCfg,
         server_workflow_id: str,
         lead: bool | None = None,
+        *,
+        task_name: str,
+        server_task_name: str,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         # This ID is spliced unquoted into the generated bash entry script, so reject any
         # value that could word-split or inject there (see is_valid_workflow_id).
         assert is_valid_workflow_id(server_workflow_id), f"Invalid OSMO workflow ID: {server_workflow_id!r}"
+        assert isinstance(server_task_name, str) and server_task_name, "Server task name must be a non-empty string"
         self.server_workflow_id = server_workflow_id
+        self.server_task_name = server_task_name
 
     def _get_credentials(self) -> dict[str, dict[str, str]]:
         return {
@@ -92,7 +98,7 @@ class DreamZeroPolicyRunnerTask(PolicyRunnerTask):
             "set -x\n"
             "(\n"
             "  while true; do\n"
-            f"    osmo workflow port-forward {self.server_workflow_id} {self.get_server_task_name()}"
+            f"    osmo workflow port-forward {self.server_workflow_id} {shlex.quote(self.server_task_name)}"
             f" --port {POLICY_SERVER_PORT} || true\n"
             '    echo "Tunnel to DreamZero server exited; restarting in'
             f' {SERVER_WAIT_INTERVAL_SECONDS}s ..."\n'
@@ -121,10 +127,3 @@ class DreamZeroPolicyRunnerTask(PolicyRunnerTask):
             "--initial_connect_wait_s",
             str(INITIAL_CONNECT_WAIT_SECONDS),
         ]
-
-    @staticmethod
-    def get_server_task_name() -> str:
-        """Name of the server task inside the server workflow this runner tunnels to."""
-        from osmo.tasks.dreamzero_server_task import DreamZeroServerTask
-
-        return DreamZeroServerTask.get_task_name()

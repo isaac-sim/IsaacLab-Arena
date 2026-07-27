@@ -33,12 +33,10 @@ class Gr00tServerTask(BaseTask):
         self,
         task_cfg: Gr00tServerTaskCfg | None = None,
         lead: bool | None = None,
+        *,
+        task_name: str,
     ) -> None:
-        super().__init__(task_cfg=task_cfg or Gr00tServerTaskCfg(), lead=lead)
-
-    @staticmethod
-    def get_task_name() -> str:
-        return "gr00t_server"
+        super().__init__(task_name=task_name, task_cfg=task_cfg or Gr00tServerTaskCfg(), lead=lead)
 
     def _get_image(self) -> str:
         return self.task_cfg.image

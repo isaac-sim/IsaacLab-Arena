@@ -43,8 +43,21 @@ class PlacementValidator(ABC):
     """The check name this validator reports; its registry key and result key. Built-ins use a
     PlacementCheck constant; external validators may use any unique string."""
 
+    run_after_inexpensive_checks: bool = False
+    """If True, run this validator only on candidates that already pass every required check that does not
+    set this flag, so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper
+    geometry."""
+
     def __init__(self, params: ObjectPlacerParams) -> None:
         self._params = params
+
+    @classmethod
+    def is_available(cls, params: ObjectPlacerParams) -> bool:
+        """Whether this validator can run for these params at build time; unavailable ones are delisted.
+
+        build_validators drops any registered validator that returns False. Defaults to True.
+        """
+        return True
 
     @abstractmethod
     def validate_batch(
@@ -71,30 +84,28 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 
 def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
-    """Construct the enabled build-time validators in canonical order.
+    """Construct the enabled build-time validators in registration order.
+
+    A registered check whose is_available() returns False is delisted; a check named in
+    enabled_checks/required_checks that is not registered is likewise dropped rather than
+    raising.
 
     Args:
-        params: Placement params injected into each validator.
+        params: Placement params injected into each registered validator.
     """
     registry = PlacementValidatorRegistry()
-    checks = get_build_time_checks()
+    registered_checks = get_build_time_checks()
+
     enabled_checks = params.enabled_checks
     if enabled_checks is not None:
-        unknown = set(enabled_checks) - set(checks)
-        assert not unknown, (
-            f"enabled_checks names unknown build-time check(s): {sorted(unknown)}. "
-            f"Registered build-time checks: {sorted(checks)}."
-        )
-        checks = tuple(check for check in checks if check in enabled_checks)
+        registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    required_checks = params.required_checks
-    if required_checks is not None:
-        not_running = set(required_checks) - set(checks)
-        assert not not_running, (
-            f"required_checks names check(s) that will not run: {sorted(not_running)}. "
-            f"Checks that will run: {sorted(checks)}."
-        )
-    return [registry.get_validator_by_name(check)(params) for check in checks]
+    validators: list[PlacementValidator] = []
+    for check in registered_checks:
+        validator_cls = registry.get_validator_by_name(check)
+        if validator_cls.is_available(params):
+            validators.append(validator_cls(params))
+    return validators
 
 
 @register_validator

@@ -16,4 +16,5 @@ class ZeroActionPolicyRunnerWorkflow(Workflow):
     """Workflow containing one zero-action policy-runner task."""
 
     task_cls_list = [ZeroActionPolicyRunnerTask]
+    task_names = ["policy_runner"]
     task_cfg_type = PolicyRunnerTaskCfg

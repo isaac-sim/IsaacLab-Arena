@@ -29,8 +29,10 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         task_cfg: Gr00tPolicyRunnerTaskCfg,
         remote_host: str,
         lead: bool | None = None,
+        *,
+        task_name: str,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         # Host of the GR00T server this runner connects to; the workflow resolves it from the server task.
         self.remote_host = remote_host
 

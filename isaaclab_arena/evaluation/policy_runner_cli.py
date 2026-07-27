@@ -71,7 +71,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--policy_type",
         type=str,
-        required=True,
+        default=None,
         help="Type of policy to use. This is either a registered policy name or a path to a policy class.",
     )
     parser.add_argument(

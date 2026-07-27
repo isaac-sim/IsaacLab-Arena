@@ -28,14 +28,20 @@ class BaseTask(ABC):
         self,
         task_cfg: TaskCfg | None = None,
         lead: bool | None = None,
+        *,
+        task_name: str,
+        resource: str | None = None,
     ) -> None:
+        assert isinstance(task_name, str) and task_name, "Task name must be a non-empty string"
+        self.task_name = task_name
         self.task_cfg = task_cfg
         self.lead = lead
+        self.resource = resource
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
-        return {
-            "name": self.get_task_name(),
+        task = {
+            "name": self.task_name,
             "args": ["/tmp/entry.sh"],
             "command": ["bash"],
             "credentials": self._get_credentials(),
@@ -47,6 +53,9 @@ class BaseTask(ABC):
             "outputs": self._get_outputs(),
             "lead": self.lead,
         }
+        if self.resource is not None:
+            task["resource"] = self.resource
+        return task
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Return files OSMO creates in the task container before starting it."""
@@ -72,14 +81,10 @@ class BaseTask(ABC):
         }
 
     @staticmethod
-    @abstractmethod
-    def get_task_name() -> str:
-        """Return the task name."""
-
-    @classmethod
-    def host_token(cls) -> str:
+    def host_token(task_name: str) -> str:
         """Return the OSMO ``{{host:<task>}}`` token that resolves to this task's runtime host/IP."""
-        return "{{host:" + cls.get_task_name() + "}}"
+        assert isinstance(task_name, str) and task_name, "Host token task name must be a non-empty string"
+        return "{{host:" + task_name + "}}"
 
     @abstractmethod
     def _get_image(self) -> str:

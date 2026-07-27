@@ -42,14 +42,14 @@ class ExperimentRunnerTask(BaseTask):
         task_cfg: ExperimentRunnerTaskCfg,
         experiment_cfg: ArenaExperimentCfg,
         lead: bool | None = None,
+        *,
+        task_name: str,
+        published_output_url: str | None = DATASET_SWIFT_URL,
     ) -> None:
-        super().__init__(task_cfg=task_cfg, lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
-
-    @staticmethod
-    def get_task_name() -> str:
-        return "experiment_runner"
+        self.published_output_url = published_output_url
 
     def _get_image(self) -> str:
         return self.task_cfg.image
@@ -58,7 +58,8 @@ class ExperimentRunnerTask(BaseTask):
         return []
 
     def _get_outputs(self) -> list[dict[str, Any]]:
-        return [{"url": DATASET_SWIFT_URL}]
+        """Publish this output externally, or leave it workflow-local for a downstream task."""
+        return [] if self.published_output_url is None else [{"url": self.published_output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the effective Experiment at the path consumed by ``experiment_runner.py``."""
@@ -74,7 +75,7 @@ class ExperimentRunnerTask(BaseTask):
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
             REMOTE_EXPERIMENT_PATH,
-            "--output_base_dir",
+            "--experiment_output_directory",
             OSMO_TASK_OUTPUT_DIR,
             "--viz",
             "none",

@@ -33,6 +33,57 @@ def test_experiment_runner_parses_native_hydra_overrides():
     ]
 
 
+def test_experiment_runner_parses_timestamped_base_or_exact_output_directory(tmp_path):
+    exact_experiment_output_directory = tmp_path / "exact-experiment-output"
+    timestamped_experiment_output_base_directory = tmp_path / "timestamped-experiment-outputs"
+
+    default_arguments, default_experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+    ])
+    assert default_arguments.output_base_dir == "outputs"
+    assert default_arguments.experiment_output_directory is None
+    assert default_experiment_overrides == []
+
+    timestamped_output_arguments, timestamped_output_experiment_overrides = parse_experiment_runner_args([
+        "--output_base_dir",
+        str(timestamped_experiment_output_base_directory),
+    ])
+    assert timestamped_output_arguments.output_base_dir == str(timestamped_experiment_output_base_directory)
+    assert timestamped_output_arguments.experiment_output_directory is None
+    assert timestamped_output_experiment_overrides == []
+
+    exact_output_arguments, exact_output_experiment_overrides = parse_experiment_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--experiment_output_directory",
+        str(exact_experiment_output_directory),
+    ])
+    assert exact_output_arguments.experiment_output_directory == exact_experiment_output_directory
+    assert exact_output_experiment_overrides == []
+
+
+def test_experiment_runner_rejects_timestamped_base_with_exact_output_directory(tmp_path):
+    """Reject mutually exclusive output directory flags in a fresh process."""
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
+            "--output_base_dir",
+            str(tmp_path / "timestamped-experiment-outputs"),
+            "--experiment_output_directory",
+            str(tmp_path / "exact-experiment-output"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode != 0
+    assert "argument --experiment_output_directory: not allowed with argument --output_base_dir" in result.stderr
+
+
 @pytest.mark.with_subprocess
 def test_experiment_runner_rejects_unknown_non_hydra_arguments():
     """Reject misspelled CLI flags in a fresh process."""
@@ -113,7 +164,7 @@ runs:
         str(experiment_config_path),
         config_option="--experiment_config",
         extra_args=[
-            "--output_base_dir",
+            "--experiment_output_directory",
             str(tmp_path / "output"),
             "runs.yaml_baseline.rollout_limit.num_steps=2",
         ],
@@ -123,6 +174,8 @@ runs:
     run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
     run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
     assert run_cells[4] == "2"
+    assert (tmp_path / "output/index.html").is_file()
+    assert (tmp_path / "output/yaml_baseline/episode_results_rebuild0.jsonl").is_file()
 
 
 @pytest.mark.with_subprocess

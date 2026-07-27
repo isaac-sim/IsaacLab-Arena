@@ -592,19 +592,111 @@ class ObjectPlacer:
             bboxes: Per-object bboxes for each candidate's env, each (1, 3).
             collision_objects: Fixed background obstacles shared across candidates.
         """
-        verdicts_by_check = {
-            validator.check: validator.validate_batch(positions, orientations, bboxes, collision_objects)
-            for validator in self._validators
-        }
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
+        num_candidates = len(positions)
+        # Per-check count of layouts evaluated by that check
+        num_layouts_evaluated_by_check: dict[str, int] = {}
+        layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
+
+        self._run_inexpensive_checks(
+            positions,
+            orientations,
+            bboxes,
+            collision_objects,
+            layout_pass_verdicts_by_check,
+            num_layouts_evaluated_by_check,
+        )
+        self._run_expensive_checks(
+            positions,
+            orientations,
+            bboxes,
+            collision_objects,
+            required,
+            layout_pass_verdicts_by_check,
+            num_layouts_evaluated_by_check,
+        )
+        if layout_pass_verdicts_by_check:
+            summary = ", ".join(
+                f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
+                for check, verdicts in layout_pass_verdicts_by_check.items()
+            )
+            print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
         return [
             PlacementValidationResults(
-                validation_results={check: verdicts[candidate_idx] for check, verdicts in verdicts_by_check.items()},
+                validation_results={
+                    check: verdicts[candidate_idx] for check, verdicts in layout_pass_verdicts_by_check.items()
+                },
                 required_checks=set(required) if required is not None else None,
             )
             for candidate_idx in range(len(positions))
         ]
+
+    def _run_inexpensive_checks(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        num_layouts_evaluated_by_check: dict[str, int],
+    ) -> None:
+        """Run every inexpensive validator on all candidates, recording verdicts and evaluated counts."""
+        num_candidates = len(positions)
+        for validator in self._validators:
+            if not validator.run_after_inexpensive_checks:
+                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
+                    positions, orientations, bboxes, collision_objects
+                )
+                num_layouts_evaluated_by_check[validator.check] = num_candidates
+
+    def _run_expensive_checks(
+        self,
+        positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        orientations: list[dict[ObjectBase, float]],
+        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        collision_objects: list[CollisionObject],
+        required: set[str] | None,
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        num_layouts_evaluated_by_check: dict[str, int],
+    ) -> None:
+        """Run each expensive validator only on candidates that passed the required inexpensive checks."""
+        num_candidates = len(positions)
+        for validator in self._validators:
+            if validator.run_after_inexpensive_checks:
+                passed_layout_indices = [
+                    i
+                    for i in range(num_candidates)
+                    if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
+                ]
+                # only passed layouts are validated
+                verdicts_over_passed_layout = validator.validate_batch(
+                    [positions[i] for i in passed_layout_indices],
+                    [orientations[i] for i in passed_layout_indices],
+                    [bboxes[i] for i in passed_layout_indices],
+                    collision_objects,
+                )
+                verdicts = [False] * num_candidates
+                for sub_idx, cand_idx in enumerate(passed_layout_indices):
+                    verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
+                layout_pass_verdicts_by_check[validator.check] = verdicts
+                num_layouts_evaluated_by_check[validator.check] = len(passed_layout_indices)
+
+    @staticmethod
+    def _passes_required_checks(
+        layout_pass_verdicts_by_check: dict[str, list[bool]],
+        required_checks: set[str] | None,
+        candidate_idx: int,
+    ) -> bool:
+        """Whether a candidate passes every required check computed so far.
+
+        required_checks=None means every computed check is required; an explicit set gates only its members.
+        """
+        for check, verdicts in layout_pass_verdicts_by_check.items():
+            is_required = required_checks is None or check in required_checks
+            if is_required and not verdicts[candidate_idx]:
+                return False
+        return True
 
     def _apply_poses(
         self,

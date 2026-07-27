@@ -3,8 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify OSMO workflows for complete Arena Experiments."""
+"""Verify distributed OSMO workflows for Arena Experiments."""
 
+import json
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,11 +29,16 @@ from osmo.submit_arena_experiment import (
     submit_arena_experiment,
 )
 from osmo.tasks.base_task import TaskCfg
+from osmo.tasks.collect_experiment_outputs_task import (
+    _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
+    experiment_runner_output_directory_input_token,
+)
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
-from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
 # Composing complete Arena Experiments loads Isaac runtime modules, so these tests
 # must not share a pytest process with the persistent SimulationApp tests.
@@ -98,8 +104,12 @@ def _rendered_workflow(output: str) -> dict:
     return yaml.safe_load(output[output.index("version: 2\n") :])
 
 
-def _workflow_tasks(workflow: dict) -> list[dict]:
-    return workflow["workflow"]["groups"][0]["tasks"]
+def _workflow_groups(workflow: dict) -> list[dict]:
+    return workflow["workflow"]["groups"]
+
+
+def _workflow_tasks(workflow: dict, group_index: int = 0) -> list[dict]:
+    return _workflow_groups(workflow)[group_index]["tasks"]
 
 
 def _compose_submission(
@@ -180,8 +190,8 @@ def test_policy_server_rejects_workflow_fields():
         ])
 
 
-def test_renders_experiment_runner_and_shared_pi0_server_with_effective_endpoints():
-    """Wire every matching pi0 Run in the effective Experiment to one server."""
+def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_experiment_output():
+    """Render one independent Run group per Run and collect their outputs into one Experiment output."""
     source_experiment_cfg = _pi0_experiment_cfg()
     workflow = Pi0ArenaExperimentWorkflow(
         workflow_cfg=WorkflowCfg(workflow_name="pi0-experiment"),
@@ -189,34 +199,98 @@ def test_renders_experiment_runner_and_shared_pi0_server_with_effective_endpoint
         server_task_cfg=Pi0ServerTaskCfg(),
     )
 
-    tasks = _workflow_tasks(workflow.generate_workflow())
-    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
-    assert [task["lead"] for task in tasks] == [True, False]
+    rendered_workflow = workflow.generate_workflow()
+    groups = _workflow_groups(rendered_workflow)
+    assert rendered_workflow == workflow.generate_workflow()
+    assert [group["name"] for group in groups] == [
+        "arena-run-0",
+        "arena-run-1",
+        "arena-run-2",
+        "arena-experiment-output",
+    ]
+    task_names = [task["name"] for group in groups for task in group["tasks"]]
+    assert len(task_names) == len(set(task_names))
+    workflow_names = [group["name"] for group in groups] + task_names
+    normalized_workflow_names = [name.lower().replace("_", "-") for name in workflow_names]
+    assert len(normalized_workflow_names) == len(set(normalized_workflow_names))
 
-    eval_task = tasks[0]
-    experiment = _embedded_experiment(eval_task)
-    server_host = Pi0ServerTask.host_token()
-    assert experiment["runs"]["first"]["policy"]["remote_host"] == server_host
-    assert experiment["runs"]["first"]["policy"]["remote_port"] == POLICY_SERVER_PORT
-    assert experiment["runs"]["first"]["policy"]["ping_timeout"] == Pi0ServerTaskCfg.client_ping_timeout_s
-    assert experiment["runs"]["second"]["policy"]["remote_host"] == server_host
-    assert experiment["runs"]["second"]["policy"]["remote_port"] == POLICY_SERVER_PORT
-    assert experiment["runs"]["second"]["policy"]["ping_timeout"] == Pi0ServerTaskCfg.client_ping_timeout_s
-    assert "remote_host" not in experiment["runs"]["local"]["policy"]
-    assert "remote_port" not in experiment["runs"]["local"]["policy"]
+    first_tasks = groups[0]["tasks"]
+    second_tasks = groups[1]["tasks"]
+    local_tasks = groups[2]["tasks"]
+    assert [task["name"] for task in first_tasks] == ["experiment-runner-0", "policy-server-0"]
+    assert [task["name"] for task in second_tasks] == ["experiment-runner-1", "policy-server-1"]
+    assert [task["name"] for task in local_tasks] == ["experiment-runner-2"]
+    assert [[task["lead"] for task in group["tasks"]] for group in groups] == [
+        [True, False],
+        [True, False],
+        [True],
+        [True],
+    ]
+
+    first_experiment = _embedded_experiment(first_tasks[0])
+    second_experiment = _embedded_experiment(second_tasks[0])
+    local_experiment = _embedded_experiment(local_tasks[0])
+    assert list(first_experiment["runs"]) == ["first"]
+    assert list(second_experiment["runs"]) == ["second"]
+    assert list(local_experiment["runs"]) == ["local"]
+    assert first_experiment["runs"]["first"]["policy"]["remote_host"] == Pi0ServerTask.host_token("policy-server-0")
+    assert second_experiment["runs"]["second"]["policy"]["remote_host"] == Pi0ServerTask.host_token("policy-server-1")
+    for run_name, experiment in (("first", first_experiment), ("second", second_experiment)):
+        policy = experiment["runs"][run_name]["policy"]
+        assert policy["remote_port"] == POLICY_SERVER_PORT
+        assert policy["ping_timeout"] == Pi0ServerTaskCfg.client_ping_timeout_s
+    assert "remote_host" not in local_experiment["runs"]["local"]["policy"]
+    assert "remote_port" not in local_experiment["runs"]["local"]["policy"]
     assert source_experiment_cfg.runs["first"].policy.remote_host == "user-host"
     assert source_experiment_cfg.runs["first"].policy.ping_timeout == 10
 
-    command = _task_file(eval_task, "/tmp/entry.sh")["contents"]
-    assert "experiment_runner.py" in command
-    assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in command
-    assert "--enable_cameras" in command
-    assert "policy_runner.py" not in command
-    assert "runs." not in command
+    experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
+    assert "experiment_runner.py" in experiment_runner_command
+    assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
+    assert f"--experiment_output_directory '{OSMO_TASK_OUTPUT_DIR}'" in experiment_runner_command
+    assert "--output_base_dir" not in experiment_runner_command
+    assert "--enable_cameras" in experiment_runner_command
+    assert "policy_runner.py" not in experiment_runner_command
+    assert "runs." not in experiment_runner_command
 
-    server_command = _task_file(tasks[1], "/tmp/entry.sh")["contents"]
+    assert first_tasks[0]["outputs"] == []
+    assert second_tasks[0]["outputs"] == []
+    assert local_tasks[0]["outputs"] == []
+
+    server_command = _task_file(first_tasks[1], "/tmp/entry.sh")["contents"]
     assert f"scripts/serve_policy.py --port={POLICY_SERVER_PORT} policy:checkpoint" in server_command
     assert "--policy.config=pi05_droid_jointpos_polaris" in server_command
+
+    experiment_output_task = groups[3]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["resource"] == "experiment-output"
+    assert experiment_output_task["inputs"] == [
+        {"task": "experiment-runner-0"},
+        {"task": "experiment-runner-1"},
+        {"task": "experiment-runner-2"},
+    ]
+    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
+    experiment_runner_output_directories_by_run_name = json.loads(
+        _task_file(experiment_output_task, _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
+    )
+    assert experiment_runner_output_directories_by_run_name == {
+        "first": experiment_runner_output_directory_input_token("experiment-runner-0"),
+        "second": experiment_runner_output_directory_input_token("experiment-runner-1"),
+        "local": experiment_runner_output_directory_input_token("experiment-runner-2"),
+    }
+    experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
+    assert "localpath" not in experiment_output_script_file
+    assert "def build_experiment_output" in experiment_output_script_file["contents"]
+    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
+    assert experiment_output_command.startswith("set -euo pipefail")
+    assert _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
+    assert (
+        f"--experiment-runner-output-directories-file {_REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
+        in experiment_output_command
+    )
+    assert "--experiment-output-directory" in experiment_output_command
+    assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
+    assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
 
 def test_embeds_effective_experiment_yaml():
@@ -225,6 +299,7 @@ def test_embeds_effective_experiment_yaml():
         task_cfg=ExperimentRunnerTaskCfg(image="registry.example.com/evaluator:typed-api"),
         experiment_cfg=_zero_action_experiment_cfg(),
         lead=True,
+        task_name="experiment-runner",
     )
 
     eval_task = experiment_runner_task.create_task_dict()
@@ -302,7 +377,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     workflow = _rendered_workflow(rendered)
     assert workflow["workflow"]["name"] == "overridden-experiment"
     tasks = _workflow_tasks(workflow)
-    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
+    assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
     assert tasks[0]["image"] == "registry.example.com/evaluator:branch"
     assert tasks[1]["image"] == "registry.example.com/openpi:overridden"
 
@@ -311,7 +386,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert experiment["runs"]["openpi_maple_table"]["rollout_limit"]["num_episodes"] == 4
     assert experiment["runs"]["openpi_maple_table"]["environment_builder"]["num_envs"] == 2
     assert policy["ping_interval"] == 33.0
-    assert policy["remote_host"] == Pi0ServerTask.host_token()
+    assert policy["remote_host"] == Pi0ServerTask.host_token("policy-server-0")
     assert policy["remote_port"] == POLICY_SERVER_PORT
     assert policy["ping_timeout"] == 600.0
     assert "experiment_cfg.runs" not in _task_file(tasks[0], "/tmp/entry.sh")["contents"]
@@ -322,7 +397,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
 
 
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
-    """Keep the rendered OSMO handoff compatible with the Experiment Runner loader."""
+    """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()
     assert isinstance(submission_cfg.policy_server, Pi0ServerTaskCfg)
     workflow = Pi0ArenaExperimentWorkflow(
@@ -331,18 +406,19 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
         server_task_cfg=submission_cfg.policy_server,
         task_cfg=submission_cfg.experiment_runner,
     )
-    experiment_path = tmp_path / "effective_experiment.yaml"
-    experiment_file = _task_file(_workflow_tasks(workflow.generate_workflow())[0], REMOTE_EXPERIMENT_PATH)
-    experiment_path.write_text(experiment_file["contents"], encoding="utf-8")
+    rendered_workflow = workflow.generate_workflow()
+    for index, run_name in enumerate(submission_cfg.experiment_cfg.runs):
+        experiment_path = tmp_path / f"effective_experiment_{index}.yaml"
+        experiment_file = _task_file(_workflow_tasks(rendered_workflow, index)[0], REMOTE_EXPERIMENT_PATH)
+        experiment_path.write_text(experiment_file["contents"], encoding="utf-8")
 
-    experiment_cfg = load_arena_experiment_from_config_file(experiment_path, device="cuda:0")
-    run_cfg = experiment_cfg.runs[OPENPI_RUN_NAME]
-
-    assert list(experiment_cfg.runs) == list(submission_cfg.experiment_cfg.runs)
-    assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
-    assert run_cfg.policy.remote_host == Pi0ServerTask.host_token()
-    assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
-    assert run_cfg.policy.ping_timeout == Pi0ServerTaskCfg.client_ping_timeout_s
+        experiment_cfg = load_arena_experiment_from_config_file(experiment_path, device="cuda:0")
+        assert list(experiment_cfg.runs) == [run_name]
+        run_cfg = experiment_cfg.runs[run_name]
+        assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
+        assert run_cfg.policy.remote_host == Pi0ServerTask.host_token(f"policy-server-{index}")
+        assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
+        assert run_cfg.policy.ping_timeout == Pi0ServerTaskCfg.client_ping_timeout_s
 
 
 def test_submission_overrides_osmo_resources(monkeypatch):
@@ -355,7 +431,7 @@ def test_submission_overrides_osmo_resources(monkeypatch):
         assert kwargs["text"] is True
         submitted_command = command
         submitted_workflow = yaml.safe_load(Path(command[3]).read_text(encoding="utf-8"))
-        submitted_resources = submitted_workflow["workflow"]["resources"]["default"]
+        submitted_resources = submitted_workflow["workflow"]["resources"]
         return SimpleNamespace(returncode=0, stdout="")
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
@@ -370,8 +446,11 @@ def test_submission_overrides_osmo_resources(monkeypatch):
     assert submitted_command is not None
     pool_flag_index = submitted_command.index("--pool")
     assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
-    assert submitted_resources["platform"] == "ovx-l40"
-    assert submitted_resources["memory"] == "120Gi"
+    assert submitted_resources["default"]["platform"] == "ovx-l40"
+    assert submitted_resources["default"]["memory"] == "120Gi"
+    assert submitted_resources["experiment-output"]["platform"] == "ovx-l40"
+    assert submitted_resources["experiment-output"]["memory"] == "120Gi"
+    assert submitted_resources["experiment-output"]["gpu"] == 0
 
 
 def test_cli_requires_experiment_cfg_path_and_policy_server(capsys):
@@ -441,7 +520,7 @@ def test_cli_accepts_arbitrary_paths_and_trailing_overrides(tmp_path, capsys):
     workflow = _rendered_workflow(capsys.readouterr().out)
     assert workflow["workflow"]["name"] == "path-based-submission"
     tasks = _workflow_tasks(workflow)
-    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
+    assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
     assert tasks[0]["image"] == "registry.example.com/evaluator:cli"
 
 
@@ -494,7 +573,8 @@ def test_pi0_server_quotes_configurable_shell_values():
         Pi0ServerTaskCfg(
             policy_config="config with spaces",
             policy_dir="gs://bucket/checkpoint; false",
-        )
+        ),
+        task_name="policy-server",
     )
 
     command = task._get_run_script()
