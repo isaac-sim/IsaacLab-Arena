@@ -18,3 +18,9 @@ table.gallery th {
     border: none !important;
     box-shadow: none !important;
 }
+
+/* Nudge the version switcher alignment in the navbar. */
+.navbar-header-items__start .version-switcher__container {
+    display: flex;
+    align-items: center;
+}
