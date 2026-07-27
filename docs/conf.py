@@ -105,9 +105,7 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
-# Keep the version OUT of html_title: it would bake a single value into every
-# version's pages (see the version note above). The version-badge template renders
-# the per-version number next to the title instead.
+# Only render project name, not the version, such that the version can be added below.
 html_title = project
 html_show_sphinx = False
 html_theme_options = {
@@ -139,7 +137,7 @@ html_css_files = ["custom.css"]
 smv_remote_whitelist = r"^.*$"
 smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
-# Version selection lives in the header navbar (see docs/_templates/version-badge.html).
+# Remove the version badge from the sidebar.
 html_sidebars = {"**": ["sidebar-nav-bs"]}
 # Todos
 todo_include_todos = True

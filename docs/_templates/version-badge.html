@@ -1,16 +1,6 @@
 {#
-Header version switcher, styled to match pydata-sphinx-theme's built-in
-`.version-switcher__button` -- the same look NVIDIA Warp's docs use. Warp drives it
-with pydata's JavaScript switcher (populated from a published versions.json); we don't
-publish one, so we render the same markup/classes server-side from sphinx-multiversion's
-`versions`/`current_version` instead. Reusing the theme's classes means it inherits the
-switcher's border, hover ring, caret, and dropdown-menu styling for free.
-
-`current_version` comes from git and is populated per version by sphinx-multiversion, so
-the label is correct for every documented version (see the note in conf.py). The outer
-button is emitted unconditionally: pydata drops navbar items that render empty, and that
-check runs before sphinx-multiversion adds `current_version`/`versions` to the context,
-so the label and menu items fill in at final render.
+Header version switcher styled like pydata-sphinx-theme's built-in one (the look NVIDIA
+Warp's docs use), populated from sphinx-multiversion's git-derived `current_version`.
 #}
 {%- macro version_label(name) -%}
 {{ name[8:] if name.startswith("release/") else name }}
@@ -18,6 +8,7 @@ so the label and menu items fill in at final render.
 {#- `current_version` is only present under sphinx-multiversion; a plain single-version
     build (make html) has none, so fall back to a "dev" label for local previews. -#}
 {%- set label = version_label(current_version.name) if current_version else "dev" %}
+{#- Always emit the button: pydata drops navbar items that render empty. -#}
 <div class="version-switcher__container dropdown">
   <button type="button"
     class="version-switcher__button btn btn-sm dropdown-toggle"

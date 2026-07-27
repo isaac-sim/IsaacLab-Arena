@@ -19,9 +19,7 @@ table.gallery th {
     box-shadow: none !important;
 }
 
-/* Version switcher shown beside the site title in the header navbar
-   (see docs/_templates/version-badge.html). Reuses the theme's
-   .version-switcher__button styling; only nudge its alignment in the navbar. */
+/* Nudge the version switcher alignment in the navbar. */
 .navbar-header-items__start .version-switcher__container {
     display: flex;
     align-items: center;
