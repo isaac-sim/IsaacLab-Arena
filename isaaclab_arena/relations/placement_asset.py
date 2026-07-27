@@ -116,23 +116,14 @@ class PlaceableAsset(Asset, ABC):
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Return the ``(scene entity name, env-local pose)`` writes that realize a solved layout pose.
 
-        A simple asset places only its own root; a compound asset (e.g. a robot on a separate
-        stand) overrides this to also place auxiliary prims that move with the root.
+        A simple asset places only its own root. Compound assets that still spawn auxiliary prims
+        outside that root override this to emit additional writes.
         """
         return [(self.get_scene_key(), layout_pose)]
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
         return self._pose_event_cfg is not None
-
-    def has_unplaced_auxiliary_prims(self) -> bool:
-        """Whether this asset owns auxiliary scene prims that per-environment reset does not reposition.
-
-        Defaults to False. A compound asset whose ``layout_pose_to_scene_writes`` does not yet emit
-        writes for all of its prims (e.g. Droid's static stand) overrides this to True so relation
-        placement can reject it loudly instead of silently orphaning those prims.
-        """
-        return False
 
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:

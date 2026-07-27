@@ -137,8 +137,6 @@ def _apply_relation_placement_result(
     anchor_assets = set(get_anchor_objects(assets))
     # Prevent external pose-reset events from conflicting with relation-solved assets.
     _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
-    # Reject movable compound assets whose auxiliary prims a per-env reset cannot yet reposition.
-    _validate_no_unplaced_auxiliary_prims(assets, anchor_assets)
 
     # Anchor assets do not move, so no need to apply reset event.
     if anchor_assets == set(assets):
@@ -230,28 +228,4 @@ def _validate_no_conflicting_pose_reset_events(
             f"Non-anchor asset '{asset.name}' has an explicit pose-reset event. "
             "Relational solving should not be combined with explicit setting of "
             "poses on non-anchor assets."
-        )
-
-
-def _validate_no_unplaced_auxiliary_prims(
-    assets: list[PlaceableAsset],
-    anchor_assets: set[PlaceableAsset],
-) -> None:
-    """Reject movable compound assets whose auxiliary prims a per-env reset cannot reposition.
-
-    A per-env reset repositions only the prims a compound asset emits from
-    ``layout_pose_to_scene_writes``; any auxiliary prim it omits (e.g. Droid's static stand) would
-    stay at its env-0 spot. Fail loudly here rather than silently orphaning those prims.
-
-    NOTE: This is a temporary guard. Delete it once auxiliary prims travel with their parent on
-    reset (see the in-progress auxiliary-prim work), after which compound assets can be placed
-    like any other and this check is no longer needed.
-    """
-    for asset in assets:
-        if asset in anchor_assets:
-            continue
-        assert not asset.has_unplaced_auxiliary_prims(), (
-            f"Non-anchor asset '{asset.name}' owns auxiliary scene prims that a per-environment reset "
-            "does not reposition, so relation placement would orphan them (e.g. Droid's static stand). "
-            "Make it an anchor, or implement layout_pose_to_scene_writes for its auxiliary prims."
         )
