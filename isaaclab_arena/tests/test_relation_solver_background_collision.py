@@ -637,7 +637,7 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     embodiment = Embodiment()
-    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None)
+    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None, task=None)
 
     ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
 
