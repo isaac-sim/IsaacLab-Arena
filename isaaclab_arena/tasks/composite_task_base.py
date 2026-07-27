@@ -148,7 +148,7 @@ class CompositeTaskBase(TaskBase):
         return self.subtasks[0].get_viewer_cfg()
 
     def apply_reachability_constraints(self) -> None:
-        """Apply each subtask's reachability constraints; a composite owns no target objects directly."""
+        """Apply RequiresReachability relations to each subtask's reachability targets."""
         for subtask in self.subtasks:
             subtask.apply_reachability_constraints()
 

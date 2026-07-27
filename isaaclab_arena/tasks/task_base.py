@@ -74,11 +74,8 @@ class TaskBase(ABC):
         return []
 
     def apply_reachability_constraints(self) -> None:
-        """Stamp RequiresReachability on the objects the robot must be able to reach for this task.
-
-        The base task has no reachability targets. A task that does overrides this and passes its own
-        target objects to _apply_reachability_constraints.
-        """
+        """Stamp RequiresReachability on the objects the robot must be able to reach for this task."""
+        pass
 
     def _apply_reachability_constraints(self, targets: list[Asset]) -> None:
         """Stamp RequiresReachability on each placed object in targets.

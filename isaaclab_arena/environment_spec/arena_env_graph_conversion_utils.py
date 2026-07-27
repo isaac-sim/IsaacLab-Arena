@@ -51,12 +51,12 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
     """Build placement params defining what checks to run during layout validation for this env."""
     placement_validators = graph_spec.placement_validators
-    enabled = placement_validators.enabled_checks if placement_validators is not None else None
-    required = placement_validators.required_checks if placement_validators is not None else None
+    enabled_checks = placement_validators.enabled_checks if placement_validators is not None else None
+    required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     return ObjectPlacerParams(
-        enabled_checks=set(enabled) if enabled is not None else None,
-        required_checks=set(required) if required is not None else None,
+        enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
+        required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
 

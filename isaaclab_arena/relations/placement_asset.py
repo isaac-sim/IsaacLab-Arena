@@ -61,7 +61,7 @@ class PlaceableAsset(Asset, ABC):
 
     @property
     def requires_reachability(self) -> bool:
-        """Return whether the asset carries a RequiresReachability marker (from a 'reachable' task constraint)."""
+        """Return whether the asset carries a RequiresReachability relation."""
         return any(isinstance(relation, RequiresReachability) for relation in self.relations)
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
