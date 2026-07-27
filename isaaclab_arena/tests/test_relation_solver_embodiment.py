@@ -37,6 +37,21 @@ def _make_floor_and_robot():
     return floor, robot
 
 
+def test_placement_asset_defaults_to_single_component():
+    """A simple asset exposes one identity-posed component and a relation bbox equal to its bbox."""
+    bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.2))
+    robot = DummyEmbodiment(name="robot", bounding_box=bbox)
+
+    assert robot.get_relation_bounding_box() is bbox
+
+    components = robot.get_collision_components()
+    assert len(components) == 1
+    component = components[0]
+    assert component.local_pose == Pose.identity()
+    assert component.bounding_box is bbox
+    assert component.mesh is None
+
+
 def test_relation_solver_places_embodiment():
     floor, robot = _make_floor_and_robot()
 
