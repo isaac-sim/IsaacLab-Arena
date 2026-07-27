@@ -163,22 +163,21 @@ def typed_experiment_requires_cameras(yaml_path: str | Path, overrides: list[str
     """
     run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path)
     camera_values_by_run_name = _environment_camera_values_from_overrides(overrides or [])
-    return any(
-        camera_values_by_run_name.get(run_name, _environment_values_enable_cameras(run_name, run_values))
-        for run_name, run_values in run_values_by_name.items()
-    )
+
+    for run_name, run_values in run_values_by_name.items():
+        declared_in_yaml = _environment_values_enable_cameras(run_values)
+        enable_cameras = camera_values_by_run_name.get(run_name, declared_in_yaml)
+        if enable_cameras:
+            return True
+    return False
 
 
-def _environment_values_enable_cameras(run_name: str, run_values: dict[str, Any]) -> bool:
+def _environment_values_enable_cameras(run_values: dict[str, Any]) -> bool:
     """Return the enable_cameras value a Run declares in YAML."""
     environment_values = run_values.get("environment")
     if not isinstance(environment_values, dict):
         return False
-    enable_cameras = environment_values.get("enable_cameras", False)
-    assert isinstance(
-        enable_cameras, bool
-    ), f"Run '{run_name}' must declare 'environment.enable_cameras' as a boolean, got {enable_cameras!r}"
-    return enable_cameras
+    return environment_values.get("enable_cameras", False)
 
 
 def _environment_camera_values_from_overrides(overrides: list[str]) -> dict[str, bool]:

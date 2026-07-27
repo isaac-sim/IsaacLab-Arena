@@ -27,8 +27,7 @@ class LegacyGraphEnvironmentCfg(ArenaEnvironmentCfg):
 
     # Keyword-only so this required field can follow the defaulted fields of ArenaEnvironmentCfg.
     arena_env_args: list[str] = field(kw_only=True)
-    """Arguments consumed by the existing graph-environment parser. Camera support is
-    requested with an ``--enable_cameras`` token here rather than through ``enable_cameras``."""
+    """Arguments consumed by the existing graph-environment parser."""
 
 
 def build_arena_builder_from_legacy_graph(

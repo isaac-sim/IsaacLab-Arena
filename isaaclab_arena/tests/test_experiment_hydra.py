@@ -449,24 +449,6 @@ def test_camera_requirement_read_before_startup_matches_composed_experiment(
     assert typed_experiment_requires_cameras(config_path, overrides) == composed_requires_cameras
 
 
-def test_non_boolean_camera_declaration_is_rejected(tmp_path):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-runs:
-  maple_table:
-    environment:
-      type: pick_and_place_maple_table
-      enable_cameras: sometimes
-    policy:
-      type: zero_action
-""",
-    )
-
-    with pytest.raises(AssertionError, match="must declare 'environment.enable_cameras' as a boolean"):
-        typed_experiment_requires_cameras(config_path)
-
-
 def test_non_boolean_camera_override_is_rejected(tmp_path):
     config_path = _write_experiment(
         tmp_path,

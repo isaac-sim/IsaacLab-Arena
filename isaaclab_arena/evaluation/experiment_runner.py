@@ -56,11 +56,7 @@ def _experiment_requires_cameras(
 
 
 def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
-    """Check that AppLauncher enabled the camera support the composed Runs need.
-
-    Camera requirements are read from the Experiment before startup, so a failure here means
-    that pre-startup read disagreed with the composed Experiment rather than a missing flag.
-    """
+    """Check that AppLauncher enabled camera support requested by typed Runs."""
     camera_run_names = [run_cfg.name for run_cfg in experiment_cfg.runs.values() if run_cfg.environment.enable_cameras]
     assert not camera_run_names or enable_cameras, (
         f"Runs {camera_run_names} enable environment cameras but AppLauncher started without camera support. "

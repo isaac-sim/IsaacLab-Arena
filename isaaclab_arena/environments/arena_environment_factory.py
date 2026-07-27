@@ -20,7 +20,7 @@ class ArenaEnvironmentCfg:
     """Mark a typed Arena environment configuration."""
 
     enable_cameras: bool = False
-    """Spawn the embodiment's cameras. Runners read this before startup to enable Isaac Sim camera support."""
+    """Spawn the embodiment's cameras."""
 
 
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
