@@ -24,7 +24,6 @@ import os
 import sys
 
 # Modify PYTHONPATH so we can import the helpers module.
-# pylint: disable=wrong-import-position
 sys.path.insert(0, os.path.abspath("."))
 from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
 

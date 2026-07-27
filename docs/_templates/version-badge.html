@@ -1,6 +1,6 @@
 {#
-Header version switcher styled like pydata-sphinx-theme's built-in one (the look NVIDIA
-Warp's docs use), populated from sphinx-multiversion's git-derived `current_version`.
+Header version switcher styled like pydata-sphinx-theme's built-in one, populated from
+sphinx-multiversion's git-derived `current_version`.
 #}
 {%- macro version_label(name) -%}
 {{ name[8:] if name.startswith("release/") else name }}
