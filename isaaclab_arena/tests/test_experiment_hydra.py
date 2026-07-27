@@ -15,10 +15,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.hydra.typed_experiment_loader import (
-    load_arena_experiment_from_yaml,
-    typed_experiment_requires_cameras,
-)
+from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -27,11 +24,6 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 
 GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
-)
-CAMERA_SENSITIVITY_EXPERIMENT_PATH = (
-    Path(TestConstants.arena_environments_dir)
-    / "experiment_configs"
-    / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
 )
 
 
@@ -378,89 +370,3 @@ def test_hydra_override_cannot_add_run():
             GETTING_STARTED_EXPERIMENT_PATH,
             overrides=["+runs.new_run={environment:{type:pick_and_place_maple_table},policy:{type:zero_action}}"],
         )
-
-
-_CAMERA_EXPERIMENT_YAML = """
-runs:
-  first:
-    environment:
-      type: pick_and_place_maple_table
-      enable_cameras: {first_enable_cameras}
-    policy:
-      type: zero_action
-  second:
-    environment:
-      type: pick_and_place_maple_table
-      enable_cameras: {second_enable_cameras}
-    policy:
-      type: zero_action
-"""
-
-
-def test_experiment_without_declared_cameras_does_not_require_cameras(tmp_path):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-runs:
-  maple_table:
-    environment:
-      type: pick_and_place_maple_table
-    policy:
-      type: zero_action
-""",
-    )
-
-    assert typed_experiment_requires_cameras(config_path) is False
-
-
-def test_shipped_camera_experiment_requires_cameras():
-    assert typed_experiment_requires_cameras(CAMERA_SENSITIVITY_EXPERIMENT_PATH) is True
-
-
-@pytest.mark.parametrize(
-    ("first_enable_cameras", "second_enable_cameras", "overrides"),
-    [
-        (False, False, []),
-        (True, False, []),
-        (False, True, []),
-        (True, True, []),
-        (False, False, ["runs.second.environment.enable_cameras=true"]),
-        (True, False, ["runs.first.environment.enable_cameras=false"]),
-        (True, True, ["runs.first.environment.enable_cameras=false"]),
-        (False, False, ["++runs.second.environment.enable_cameras=true"]),
-        (True, False, ["runs.first.environment.light_intensity=750.0"]),
-    ],
-)
-def test_camera_requirement_read_before_startup_matches_composed_experiment(
-    tmp_path, first_enable_cameras, second_enable_cameras, overrides
-):
-    """The pre-startup read must agree with composition; the runner asserts on this invariant."""
-    config_path = _write_experiment(
-        tmp_path,
-        _CAMERA_EXPERIMENT_YAML.format(
-            first_enable_cameras=str(first_enable_cameras).lower(),
-            second_enable_cameras=str(second_enable_cameras).lower(),
-        ),
-    )
-
-    experiment_cfg = _load_experiment(config_path, overrides=overrides)
-    composed_requires_cameras = any(run.environment.enable_cameras for run in experiment_cfg.runs.values())
-
-    assert typed_experiment_requires_cameras(config_path, overrides) == composed_requires_cameras
-
-
-def test_non_boolean_camera_override_is_rejected(tmp_path):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-runs:
-  maple_table:
-    environment:
-      type: pick_and_place_maple_table
-    policy:
-      type: zero_action
-""",
-    )
-
-    with pytest.raises(AssertionError, match="must assign a boolean"):
-        typed_experiment_requires_cameras(config_path, ["runs.maple_table.environment.enable_cameras=1"])

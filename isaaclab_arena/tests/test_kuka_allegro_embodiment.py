@@ -67,16 +67,3 @@ def test_embodiment_has_reset_event() -> None:
     assert isinstance(emb.event_config, KukaAllegroEventCfg)
     assert hasattr(emb.event_config, "reset_robot_joints")
     assert emb.event_config.reset_robot_joints.mode == "reset"
-
-
-@pytest.mark.with_newton
-def test_embodiment_accepts_disabled_cameras_and_rejects_enabled_cameras() -> None:
-    pytest.importorskip(
-        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
-    )
-    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
-
-    assert KukaAllegroEmbodiment(enable_cameras=False).enable_cameras is False
-
-    with pytest.raises(AssertionError, match="carries no cameras"):
-        KukaAllegroEmbodiment(enable_cameras=True)

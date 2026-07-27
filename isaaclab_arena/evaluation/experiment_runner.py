@@ -18,7 +18,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
     run_legacy_json_in_chunks,
 )
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
-from isaaclab_arena.hydra.typed_experiment_loader import typed_experiment_requires_cameras
+from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
@@ -40,16 +40,7 @@ def _experiment_requires_cameras(
     legacy_experiment_config: dict | None,
     experiment_overrides: list[str],
 ) -> bool:
-    """Return whether an Experiment enables environment cameras, reading it before startup.
-
-    Args:
-        experiment_config_path: Path to the legacy JSON or typed YAML Experiment.
-        legacy_experiment_config: Loaded legacy Experiment, or None for a typed YAML Experiment.
-        experiment_overrides: Hydra overrides applied to typed YAML Experiments.
-
-    Returns:
-        Whether any Run in the Experiment enables environment cameras.
-    """
+    """Return whether an Experiment enables environment cameras, reading it before startup."""
     if legacy_experiment_config is not None:
         return legacy_json_experiment_requires_cameras(legacy_experiment_config)
     return typed_experiment_requires_cameras(experiment_config_path, experiment_overrides)
@@ -85,8 +76,7 @@ def main():
         experiment_overrides,
     )
 
-    # AppLauncher must enable camera support before SimulationApp starts, so the Experiment's
-    # camera requirements are read from its configuration file rather than demanded on the CLI.
+    # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
     if args_cli.record_camera_video or _experiment_requires_cameras(
         experiment_config_path, legacy_experiment_config, experiment_overrides
     ):
