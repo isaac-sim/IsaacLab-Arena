@@ -145,7 +145,8 @@ html_css_files = ["custom.css"]
 smv_remote_whitelist = r"^.*$"
 smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
-html_sidebars = {"**": ["versioning.html", "sidebar-nav-bs"]}
+# Version selection lives in the header navbar (see docs/_templates/version-badge.html).
+html_sidebars = {"**": ["sidebar-nav-bs"]}
 # Todos
 todo_include_todos = True
 
