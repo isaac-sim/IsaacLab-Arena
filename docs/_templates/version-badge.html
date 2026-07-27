@@ -12,12 +12,12 @@ button is emitted unconditionally: pydata drops navbar items that render empty, 
 check runs before sphinx-multiversion adds `current_version`/`versions` to the context,
 so the label and menu items fill in at final render.
 #}
-{%- macro version_label(name, release) -%}
-{{ release or (name[8:] if name.startswith("release/") else name) }}
+{%- macro version_label(name) -%}
+{{ name[8:] if name.startswith("release/") else name }}
 {%- endmacro -%}
 {#- `current_version` is only present under sphinx-multiversion; a plain single-version
     build (make html) has none, so fall back to a "dev" label for local previews. -#}
-{%- set label = version_label(current_version.name, current_version.release) if current_version else "dev" %}
+{%- set label = version_label(current_version.name) if current_version else "dev" %}
 <div class="version-switcher__container dropdown">
   <button type="button"
     class="version-switcher__button btn btn-sm dropdown-toggle"
@@ -31,11 +31,11 @@ so the label and menu items fill in at final render.
     {%- if versions %}
     {%- for item in versions.branches %}
     <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
-       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name, item.release) }}</a>
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
     {%- endfor %}
     {%- for item in versions.tags|reverse %}
     <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
-       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name, item.release) }}</a>
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
     {%- endfor %}
     {%- endif %}
   </div>

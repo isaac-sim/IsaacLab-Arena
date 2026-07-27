@@ -106,8 +106,8 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
 # Keep the version OUT of html_title: it would bake a single value into every
-# version's pages (see the release/version note above). The navbar-badge template
-# renders the per-version release next to the title instead.
+# version's pages (see the version note above). The version-badge template renders
+# the per-version number next to the title instead.
 html_title = project
 html_show_sphinx = False
 html_theme_options = {
@@ -117,7 +117,7 @@ html_theme_options = {
     "footer_links": {},
     "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "show_nav_level": 1,
-    # Render the per-version release beside the logo/title in the header navbar.
+    # Render the per-version number beside the logo/title in the header navbar.
     "navbar_start": ["navbar-logo", "version-badge"],
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
