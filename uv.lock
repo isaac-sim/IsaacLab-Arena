@@ -2044,7 +2044,7 @@ provides-extras = ["isaacsim", "all"]
 
 [[package]]
 name = "isaaclab-arena"
-version = "1.0.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "lightwheel-sdk", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
