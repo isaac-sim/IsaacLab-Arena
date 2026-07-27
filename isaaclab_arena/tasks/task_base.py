@@ -9,6 +9,7 @@ from typing import Any
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -20,9 +21,6 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 class TaskBase(ABC):
 
     DEFAULT_EPISODE_LENGTH_S: float = 20.0
-
-    reachability_target_objects: tuple[str, ...] = ()
-    """Assets the robot must be able to reach in this task."""
 
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
         self.episode_length_s = episode_length_s if episode_length_s is not None else self.DEFAULT_EPISODE_LENGTH_S
@@ -76,10 +74,19 @@ class TaskBase(ABC):
         return []
 
     def apply_reachability_constraints(self) -> None:
-        """Apply RequiresReachability relations to each placeable object named in reachability_target_objects."""
-        for param_name in self.reachability_target_objects:
-            target = getattr(self, param_name)
-            # Only placed objects are IK-checked; an object reference or background location is skipped.
+        """Stamp RequiresReachability on the objects the robot must be able to reach for this task.
+
+        The base task has no reachability targets. A task that does overrides this and passes its own
+        target objects to _apply_reachability_constraints.
+        """
+
+    def _apply_reachability_constraints(self, targets: list[Asset]) -> None:
+        """Stamp RequiresReachability on each placed object in targets.
+
+        An object reference or a background location is a static, non-placed asset and is skipped;
+        only placed objects are IK-checked during layout validation.
+        """
+        for target in targets:
             if isinstance(target, Object) and not target.has_relation(RequiresReachability):
                 target.add_relation(RequiresReachability())
 
