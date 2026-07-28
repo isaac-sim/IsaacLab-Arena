@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -58,10 +57,7 @@ def get_base_rotation_per_asset(
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
-    base_rotation = get_rotation_xyzw(asset)
-    marker_yaw = yaw_from_quat_xyzw(base_rotation)
-    total_yaw = layout.orientations.get(asset, marker_yaw)
-    rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+    rotation = layout.rotations.get(asset, IDENTITY_ROTATION_XYZW)
     return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
 
 

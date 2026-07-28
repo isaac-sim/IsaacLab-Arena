@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""AABB-based no-overlap collision loss computation."""
+"""OBB-based no-overlap collision loss computation."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_m
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -24,25 +25,19 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NoOverlapPair:
-    """One directed overlap penalty: the subject box is pushed off the (detached) obstacle box.
+    """One directed overlap pair."""
 
-    Dimensions: B = batch_size (num envs).
-    """
+    subject: OrientedBoundingBox
+    """Subject world boxes; center and half-extents have shape (N, 3)."""
 
-    subject_min: torch.Tensor
-    """(B, 3) world-space min corner of the subject box."""
+    obstacle: OrientedBoundingBox
+    """Detached obstacle world boxes; center and half-extents have shape (N, 3)."""
 
-    subject_max: torch.Tensor
-    """(B, 3) world-space max corner of the subject box."""
-
-    obstacle_min: torch.Tensor
-    """(B, 3) world-space min corner of the obstacle box."""
-
-    obstacle_max: torch.Tensor
-    """(B, 3) world-space max corner of the obstacle box."""
+    tie_break_sign: float = 1.0
+    """Directed sign used when coincident boxes have equally deep escape directions."""
 
 
-def compute_no_overlap_loss_aabb(
+def compute_no_overlap_loss_obb(
     state: RelationSolverState,
     no_collision_strategy: NoCollisionLossStrategy,
     clearance_m: float,
@@ -51,7 +46,7 @@ def compute_no_overlap_loss_aabb(
     skip_mesh_pairs: bool = False,
     debug: bool = False,
 ) -> tuple[torch.Tensor, int]:
-    """AABB collision loss summed over all directed pairs, returned per environment.
+    """OBB collision loss summed over all directed pairs, returned per environment.
 
     - Non-anchor vs fixed obstacle (anchor or collision object): gradient flows to the non-anchor only.
     - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
@@ -83,23 +78,24 @@ def compute_no_overlap_loss_aabb(
                 on_pairs.add((id(obj), id(rel.parent)))
                 on_pairs.add((id(rel.parent), id(obj)))
 
-    extents: dict[PlaceableAsset | CollisionObject, tuple[torch.Tensor, torch.Tensor]] = {}
+    world_boxes: dict[PlaceableAsset | CollisionObject, OrientedBoundingBox] = {}
     for obj in non_anchor_objects:
         pos = state.get_position(obj)
         bbox = state.get_bbox(obj)
-        extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
+        world_boxes[obj] = bbox.translated(pos)
     for obstacle in fixed_obstacles:
-        obstacle_world_bbox = state.get_fixed_obstacle_world_bbox(obstacle)
-        extents[obstacle] = (
-            obstacle_world_bbox.min_point.expand(batch_size, 3),
-            obstacle_world_bbox.max_point.expand(batch_size, 3),
+        bbox = state.get_fixed_obstacle_world_bbox(obstacle)
+        world_boxes[obstacle] = OrientedBoundingBox.from_tensors_unchecked(
+            bbox.center.expand(batch_size, 3),
+            bbox.half_extents.expand(batch_size, 3),
+            bbox.rotation_xyzw.expand(batch_size, 4),
         )
+    detached_world_boxes = {obj: _detached(bbox) for obj, bbox in world_boxes.items()}
 
     pairs: list[NoOverlapPair] = []
     pair_names: list[tuple[str, str]] = []
 
     for child in non_anchor_objects:
-        child_min, child_max = extents[child]
         for obstacle in fixed_obstacles:
             if (id(child), id(obstacle)) in on_pairs:
                 continue
@@ -111,12 +107,10 @@ def compute_no_overlap_loss_aabb(
                 )
             ):
                 continue
-            obstacle_min, obstacle_max = extents[obstacle]
-            pairs.append(NoOverlapPair(child_min, child_max, obstacle_min, obstacle_max))
+            pairs.append(NoOverlapPair(world_boxes[child], detached_world_boxes[obstacle]))
             pair_names.append((child.name, obstacle.name))
 
     for i, child in enumerate(non_anchor_objects):
-        child_min, child_max = extents[child]
         for j in range(i + 1, len(non_anchor_objects)):
             other = non_anchor_objects[j]
             if (id(child), id(other)) in on_pairs:
@@ -129,30 +123,52 @@ def compute_no_overlap_loss_aabb(
                 )
             ):
                 continue
-            other_min, other_max = extents[other]
-            pairs.append(NoOverlapPair(child_min, child_max, other_min.detach(), other_max.detach()))
+            pairs.append(NoOverlapPair(world_boxes[child], detached_world_boxes[other], tie_break_sign=1.0))
             pair_names.append((child.name, other.name))
-            pairs.append(NoOverlapPair(other_min, other_max, child_min.detach(), child_max.detach()))
+            pairs.append(NoOverlapPair(world_boxes[other], detached_world_boxes[child], tie_break_sign=-1.0))
             pair_names.append((other.name, child.name))
 
     num_pairs = len(pairs)
     if not pairs:
         return zero_loss, 0
 
-    subject_min = torch.stack([p.subject_min for p in pairs], dim=0)
-    subject_max = torch.stack([p.subject_max for p in pairs], dim=0)
-    obstacle_min = torch.stack([p.obstacle_min for p in pairs], dim=0)
-    obstacle_max = torch.stack([p.obstacle_max for p in pairs], dim=0)
-
-    pair_loss = no_collision_strategy.compute_loss_batched(
-        clearance_m, subject_min, subject_max, obstacle_min, obstacle_max
-    )
+    subjects = _concatenate_boxes([pair.subject for pair in pairs])
+    obstacles = _concatenate_boxes([pair.obstacle for pair in pairs])
+    tie_break_signs = torch.tensor(
+        [pair.tie_break_sign for pair in pairs],
+        dtype=subjects.center.dtype,
+        device=device,
+    ).repeat_interleave(batch_size)
+    penetration = subjects.penetration(
+        obstacles,
+        clearance_m,
+        tie_break_sign=tie_break_signs,
+    ).reshape(num_pairs, batch_size)
+    pair_loss = no_collision_strategy.compute_loss_batched(penetration)
 
     if debug:
         for (subject_name, obstacle_name), loss in zip(pair_names, pair_loss):
             print(f"  [NoOverlap] {subject_name} vs {obstacle_name}: loss={loss.mean().item():.6f}")
 
     return pair_loss.sum(dim=0), num_pairs
+
+
+def _detached(bbox: OrientedBoundingBox) -> OrientedBoundingBox:
+    """Return a box detached from the optimization graph."""
+    return OrientedBoundingBox.from_tensors_unchecked(
+        bbox.center.detach(),
+        bbox.half_extents.detach(),
+        bbox.rotation_xyzw.detach(),
+    )
+
+
+def _concatenate_boxes(boxes: list[OrientedBoundingBox]) -> OrientedBoundingBox:
+    """Concatenate pair-major box batches without revalidating their tensors."""
+    return OrientedBoundingBox.from_tensors_unchecked(
+        torch.cat([bbox.center for bbox in boxes], dim=0),
+        torch.cat([bbox.half_extents for bbox in boxes], dim=0),
+        torch.cat([bbox.rotation_xyzw for bbox in boxes], dim=0),
+    )
 
 
 def _fixed_pair_is_covered_by_mesh_collision(
@@ -200,4 +216,4 @@ def _has_mesh_or_invariant_bbox(
     mesh = mesh_manager.get_collision_mesh(obj) if object_uses_mesh_collision(obj, default_collision_mode) else None
     if mesh is not None:
         return True
-    return state.get_bbox(obj).is_batch_invariant()
+    return state.get_base_bbox(obj).is_batch_invariant()

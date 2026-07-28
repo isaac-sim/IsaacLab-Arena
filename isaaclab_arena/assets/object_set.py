@@ -12,7 +12,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
@@ -97,15 +97,15 @@ class RigidObjectSet(Object):
             return [self.member_usd_paths[idx] for idx in self.variant_indices_by_env]
         return self.member_usd_paths
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return one local bbox for callers that cannot vary by env.
 
-        The returned bbox has shape (1, 3) and uses the member with the
-        greatest z-extent. Heterogeneous placement uses
+        The returned bbox has N=1 and uses the member with the greatest
+        z-extent. Heterogeneous placement uses
         get_bounding_box_per_env() after assign_variants() so each env
         uses its actual variant geometry.
         """
-        return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
+        return max(self.objects, key=lambda obj: obj.get_bounding_box().half_extents[0, 2].item()).get_bounding_box()
 
     def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
         """Fix one member-variant index per environment.
@@ -132,18 +132,17 @@ class RigidObjectSet(Object):
             print(f"Warning: RigidObjectSet '{self.name}' regenerating variant assignments for {num_envs} envs.")
         self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
 
-    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+    def get_bounding_box_per_env(self, num_envs: int) -> OrientedBoundingBox:
         """Return each env's actual variant bbox.
 
-        Requires assign_variants(num_envs) to have been called first. The
-        returned bbox has shape (num_envs, 3).
+        Requires assign_variants(num_envs) to have been called first.
 
         Args:
             num_envs: Number of environments. Must match the assignment.
 
         Returns:
-            AxisAlignedBoundingBox with min_point / max_point of
-            shape (num_envs, 3).
+            OrientedBoundingBox with center and half_extents shape
+            (num_envs, 3), and rotation_xyzw shape (num_envs, 4).
         """
         assert self.variant_indices_by_env is not None, (
             f"RigidObjectSet '{self.name}' has no variant assignment; "
@@ -155,9 +154,10 @@ class RigidObjectSet(Object):
         )
         bounding_boxes = [obj.get_bounding_box() for obj in self.objects]
 
-        min_pts = torch.stack([bounding_boxes[idx].min_point[0] for idx in self.variant_indices_by_env], dim=0)
-        max_pts = torch.stack([bounding_boxes[idx].max_point[0] for idx in self.variant_indices_by_env], dim=0)
-        return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+        centers = torch.stack([bounding_boxes[idx].center[0] for idx in self.variant_indices_by_env], dim=0)
+        half_extents = torch.stack([bounding_boxes[idx].half_extents[0] for idx in self.variant_indices_by_env], dim=0)
+        rotations = torch.stack([bounding_boxes[idx].rotation_xyzw[0] for idx in self.variant_indices_by_env], dim=0)
+        return OrientedBoundingBox(center=centers, half_extents=half_extents, rotation_xyzw=rotations)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We assume that by here, our USDs have been modified to be compatible with each other

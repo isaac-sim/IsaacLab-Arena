@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import plotly.graph_objects as go
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -69,7 +69,7 @@ class RelationSolverVisualizer:
 
     def _create_wireframe_box(
         self,
-        bbox: AxisAlignedBoundingBox,
+        bbox: OrientedBoundingBox,
         position: tuple[float, float, float],
         color: str,
         name: str,
@@ -89,29 +89,9 @@ class RelationSolverVisualizer:
         Returns:
             Scatter3d trace forming the wireframe
         """
-        # Compute world-space corners: world = position + local offset
-        # This matches how the loss strategies compute world extents
         x, y, z = position
-        local_min = bbox.min_point[0].tolist()
-        local_max = bbox.max_point[0].tolist()
-        x_min = x + local_min[0]
-        x_max = x + local_max[0]
-        y_min = y + local_min[1]
-        y_max = y + local_max[1]
-        z_min = z + local_min[2]
-        z_max = z + local_max[2]
-
-        # 8 corners of the box (same ordering as get_corners_at)
-        corners = [
-            [x_min, y_min, z_min],  # 0: Bottom-front-left
-            [x_max, y_min, z_min],  # 1: Bottom-front-right
-            [x_max, y_max, z_min],  # 2: Bottom-back-right
-            [x_min, y_max, z_min],  # 3: Bottom-back-left
-            [x_min, y_min, z_max],  # 4: Top-front-left
-            [x_max, y_min, z_max],  # 5: Top-front-right
-            [x_max, y_max, z_max],  # 6: Top-back-right
-            [x_min, y_max, z_max],  # 7: Top-back-left
-        ]
+        corners = bbox.get_corners()[0].tolist()
+        corners = [[corner[0] + x, corner[1] + y, corner[2] + z] for corner in corners]
 
         # Define edges as pairs of corner indices (matching get_corners ordering)
         edges = [
@@ -338,7 +318,7 @@ class RelationSolverVisualizer:
 
     def _get_wireframe_coords(
         self,
-        bbox: AxisAlignedBoundingBox,
+        bbox: OrientedBoundingBox,
         position: tuple[float, float, float],
     ) -> tuple[list, list, list]:
         """Get wireframe coordinates for a bounding box at a position.
@@ -350,27 +330,9 @@ class RelationSolverVisualizer:
         Returns:
             Tuple of (x_coords, y_coords, z_coords) lists for the wireframe
         """
-        # Compute world-space corners: world = position + local offset
         x, y, z = position
-        local_min = bbox.min_point[0].tolist()
-        local_max = bbox.max_point[0].tolist()
-        x_min = x + local_min[0]
-        x_max = x + local_max[0]
-        y_min = y + local_min[1]
-        y_max = y + local_max[1]
-        z_min = z + local_min[2]
-        z_max = z + local_max[2]
-
-        corners = [
-            [x_min, y_min, z_min],
-            [x_max, y_min, z_min],
-            [x_max, y_max, z_min],
-            [x_min, y_max, z_min],
-            [x_min, y_min, z_max],
-            [x_max, y_min, z_max],
-            [x_max, y_max, z_max],
-            [x_min, y_max, z_max],
-        ]
+        corners = bbox.get_corners()[0].tolist()
+        corners = [[corner[0] + x, corner[1] + y, corner[2] + z] for corner in corners]
 
         edges = [
             (0, 1),
@@ -420,10 +382,10 @@ class RelationSolverVisualizer:
             for idx, obj in enumerate(self.objects):
                 pos = positions[idx]
                 bbox = obj.get_bounding_box()
-                half_size = (bbox.size[0] / 2).tolist()
-                all_x.extend([pos[0] - half_size[0], pos[0] + half_size[0]])
-                all_y.extend([pos[1] - half_size[1], pos[1] + half_size[1]])
-                all_z.extend([pos[2] - half_size[2], pos[2] + half_size[2]])
+                local_min, local_max = bbox.get_axis_aligned_bounds()
+                all_x.extend([pos[0] + local_min[0, 0].item(), pos[0] + local_max[0, 0].item()])
+                all_y.extend([pos[1] + local_min[0, 1].item(), pos[1] + local_max[0, 1].item()])
+                all_z.extend([pos[2] + local_min[0, 2].item(), pos[2] + local_max[0, 2].item()])
 
         padding = 0.1
         x_range = [min(all_x) - padding, max(all_x) + padding]

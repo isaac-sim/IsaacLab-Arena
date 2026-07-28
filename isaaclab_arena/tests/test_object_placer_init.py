@@ -10,14 +10,14 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
 def _make_desk():
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
@@ -33,7 +33,7 @@ def test_on_init_x_y_within_parent_footprint():
     desk = _make_desk()
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -45,10 +45,12 @@ def test_on_init_x_y_within_parent_footprint():
     child_bbox = box.get_bounding_box()
     desk_world = desk.get_world_bounding_box()
 
-    assert x + child_bbox.min_point[0, 0] >= desk_world.min_point[0, 0] - 1e-6
-    assert x + child_bbox.max_point[0, 0] <= desk_world.max_point[0, 0] + 1e-6
-    assert y + child_bbox.min_point[0, 1] >= desk_world.min_point[0, 1] - 1e-6
-    assert y + child_bbox.max_point[0, 1] <= desk_world.max_point[0, 1] + 1e-6
+    child_min, child_max = child_bbox.get_axis_aligned_bounds()
+    desk_min, desk_max = desk_world.get_axis_aligned_bounds()
+    assert x + child_min[0, 0] >= desk_min[0, 0] - 1e-6
+    assert x + child_max[0, 0] <= desk_max[0, 0] + 1e-6
+    assert y + child_min[0, 1] >= desk_min[0, 1] - 1e-6
+    assert y + child_max[0, 1] <= desk_max[0, 1] + 1e-6
 
 
 def test_on_init_z_places_bottom_at_parent_top():
@@ -57,7 +59,7 @@ def test_on_init_z_places_bottom_at_parent_top():
     clearance_m = 0.01
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=clearance_m))
 
@@ -69,8 +71,10 @@ def test_on_init_z_places_bottom_at_parent_top():
     child_bbox = box.get_bounding_box()
     desk_world = desk.get_world_bounding_box()
 
-    child_bottom = z + child_bbox.min_point[0, 2]
-    expected_bottom = desk_world.max_point[0, 2] + clearance_m
+    child_min, _ = child_bbox.get_axis_aligned_bounds()
+    _, desk_max = desk_world.get_axis_aligned_bounds()
+    child_bottom = z + child_min[0, 2]
+    expected_bottom = desk_max[0, 2] + clearance_m
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
@@ -78,13 +82,13 @@ def test_on_init_uses_env_specific_parent_bbox():
     """Object with On(anchor set) should initialize against that env's assigned bbox."""
     table_set = DummyObject(
         name="table_set",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.5)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (2.0, 2.0, 0.5)),
     )
     table_set.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table_set.add_relation(IsAnchor())
 
-    small_table_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.1))
-    box_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.05, 0.05, 0.05))
+    small_table_bbox = OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.3, 0.3, 0.1))
+    box_bbox = OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.05, 0.05, 0.05))
     box = DummyObject(name="box", bounding_box=box_bbox)
     box.add_relation(On(table_set, clearance_m=0.02))
 
@@ -96,23 +100,25 @@ def test_on_init_uses_env_specific_parent_bbox():
     )
 
     x, y, z = positions[box]
-    assert small_table_bbox.min_point[0, 0] <= x <= small_table_bbox.max_point[0, 0]
-    assert small_table_bbox.min_point[0, 1] <= y <= small_table_bbox.max_point[0, 1]
-    assert abs(z - (small_table_bbox.max_point[0, 2] + 0.02 - box_bbox.min_point[0, 2])) < 1e-6
+    table_min, table_max = small_table_bbox.get_axis_aligned_bounds()
+    box_min, _ = box_bbox.get_axis_aligned_bounds()
+    assert table_min[0, 0] <= x <= table_max[0, 0]
+    assert table_min[0, 1] <= y <= table_max[0, 1]
+    assert abs(z - (table_max[0, 2] + 0.02 - box_min[0, 2])) < 1e-6
 
 
 def test_on_init_clamps_to_center_when_child_wider_than_parent():
     """Object wider than its On parent in X/Y is clamped to parent center, not an invalid range."""
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.1, 0.1, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
 
     big_box = DummyObject(
         name="big_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.5, 0.5, 0.2)),
     )
     big_box.add_relation(On(desk, clearance_m=0.0))
 
@@ -122,8 +128,8 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
 
     x, y, _ = positions[big_box]
     desk_world = desk.get_world_bounding_box()
-    center_x = (desk_world.min_point[0, 0] + desk_world.max_point[0, 0]) / 2.0
-    center_y = (desk_world.min_point[0, 1] + desk_world.max_point[0, 1]) / 2.0
+    center_x = desk_world.center[0, 0]
+    center_y = desk_world.center[0, 1]
 
     assert abs(x - center_x) < 1e-6
     assert abs(y - center_y) < 1e-6
@@ -134,7 +140,7 @@ def test_no_on_relation_initializes_at_anchor_center():
     desk = _make_desk()
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
     )
     box.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.05))
 
@@ -156,13 +162,13 @@ def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():
     desk = _make_desk()
     plate = DummyObject(
         name="plate",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.02)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.3, 0.3, 0.02)),
     )
     plate.add_relation(On(desk, clearance_m=0.01))
 
     mug = DummyObject(
         name="mug",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.12)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.1, 0.1, 0.12)),
     )
     mug.add_relation(On(plate, clearance_m=0.0))
 
@@ -174,11 +180,13 @@ def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():
     desk_world = desk.get_world_bounding_box()
 
     # Mug's parent (plate) is non-anchor with On(desk): uses desk's bbox as proxy
-    assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
-    assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
+    desk_min, desk_max = desk_world.get_axis_aligned_bounds()
+    assert desk_min[0, 0] <= x <= desk_max[0, 0]
+    assert desk_min[0, 1] <= y <= desk_max[0, 1]
     # Z: desk top (0.1) + clearance (0.0) - mug bbox min_z (0.0) = 0.1
     mug_bbox = mug.get_bounding_box()
-    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug_bbox.min_point[0, 2])) < 1e-6
+    mug_min, _ = mug_bbox.get_axis_aligned_bounds()
+    assert abs(z - (desk_max[0, 2] - mug_min[0, 2])) < 1e-6
 
 
 def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
@@ -186,13 +194,13 @@ def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
     desk = _make_desk()
     stand = DummyObject(
         name="stand",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.5)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.3, 0.3, 0.5)),
     )
     stand.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.1))
 
     mug = DummyObject(
         name="mug",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.12)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.1, 0.1, 0.12)),
     )
     mug.add_relation(On(stand, clearance_m=0.0))
 
@@ -204,10 +212,12 @@ def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
     desk_world = desk.get_world_bounding_box()
 
     # Parent (stand) has no On relation: falls back to desk's world bbox
-    assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
-    assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
+    desk_min, desk_max = desk_world.get_axis_aligned_bounds()
+    assert desk_min[0, 0] <= x <= desk_max[0, 0]
+    assert desk_min[0, 1] <= y <= desk_max[0, 1]
     # Z: desk.max_z (fallback) + clearance (0.0) - mug.min_z (0.0) = 0.1
-    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
+    mug_min, _ = mug.get_bounding_box().get_axis_aligned_bounds()
+    assert abs(z - (desk_max[0, 2] - mug_min[0, 2])) < 1e-6
 
 
 def test_on_init_reproducible_with_placement_seed():
@@ -219,7 +229,7 @@ def test_on_init_reproducible_with_placement_seed():
         desk = _make_desk()
         box = DummyObject(
             name="box",
-            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+            bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
         )
         box.add_relation(On(desk, clearance_m=0.01))
         (result,) = ObjectPlacer(params=params).place([desk, box])

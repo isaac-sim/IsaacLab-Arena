@@ -20,7 +20,8 @@ def aabb_dimensions_from_asset(asset: ObjectBase) -> AabbDimensionsM | None:
     """Return local axis-aligned bounding box size (x, y, z) in meters for one live asset."""
     try:
         bbox = asset.get_bounding_box()
-        size = bbox.size[0]
+        min_point, max_point = bbox.get_axis_aligned_bounds()
+        size = (max_point - min_point)[0]
         return (float(size[0]), float(size[1]), float(size[2]))
     except Exception as exc:
         name = getattr(asset, "name", "?")

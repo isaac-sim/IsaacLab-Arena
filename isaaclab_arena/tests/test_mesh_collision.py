@@ -20,7 +20,7 @@ from isaaclab_arena.relations.relation_solver_params import CollisionMode, Relat
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 try:
@@ -34,6 +34,14 @@ except Exception:
 requires_warp = pytest.mark.skipif(not _WARP_AVAILABLE, reason="Warp not available")
 
 
+def _quat(roll: float = 0.0, pitch: float = 0.0, yaw: float = 0.0) -> tuple[float, float, float, float]:
+    """Return an xyzw quaternion for Euler XYZ angles."""
+    from isaaclab.utils.math import quat_from_euler_xyz
+
+    quat = quat_from_euler_xyz(torch.tensor(roll), torch.tensor(pitch), torch.tensor(yaw))
+    return tuple(quat.tolist())
+
+
 # Unit tests
 
 
@@ -41,7 +49,7 @@ def _make_cylinder(name: str, radius: float = 0.033, height: float = 0.1) -> Dum
     mesh = trimesh.creation.cylinder(radius=radius, height=height, sections=32)
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-radius, -radius, -height / 2),
             max_point=(radius, radius, height / 2),
         ),
@@ -53,7 +61,7 @@ def _make_box_obj(name: str, sx: float, sy: float, sz: float) -> DummyObject:
     mesh = trimesh.creation.box(extents=(sx, sy, sz))
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-sx / 2, -sy / 2, -sz / 2),
             max_point=(sx / 2, sy / 2, sz / 2),
         ),
@@ -65,7 +73,7 @@ def _make_table() -> DummyObject:
     mesh = trimesh.creation.box(extents=(1.0, 1.0, 0.05))
     table = DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.5, -0.5, -0.025), max_point=(0.5, 0.5, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.5, -0.5, -0.025), max_point=(0.5, 0.5, 0.025)),
         collision_mesh=mesh,
     )
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
@@ -75,7 +83,7 @@ def _make_table() -> DummyObject:
 
 def _env_bboxes_for(
     positions: dict[DummyObject, tuple[float, float, float]],
-) -> dict[DummyObject, AxisAlignedBoundingBox]:
+) -> dict[DummyObject, OrientedBoundingBox]:
     """Return default bboxes keyed by the positioned objects."""
     return {obj: obj.get_bounding_box() for obj in positions}
 
@@ -102,33 +110,42 @@ def test_object_placer_aabb_proxy_uses_candidate_bbox():
     """Mesh validation builds AABB proxies from the candidate bbox."""
     from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
-    bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
-    proxy = NoOverlapValidator._collision_mesh_or_aabb_proxy(None, bbox)
+    bbox = OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
+    proxy = NoOverlapValidator._collision_mesh_or_bbox_proxy(None, bbox)
 
     np.testing.assert_allclose(proxy.extents, [0.4, 0.2, 0.1], atol=1e-6)
 
 
-def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
-    """Placed non-anchors do not inherit initial_pose yaw unless the caller explicitly allows pose yaw."""
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+@pytest.mark.parametrize(
+    ("source_rpy", "target_rpy"),
+    [
+        ((0.4, -0.3, 0.0), (0.0, 0.0, 0.0)),
+        ((0.0, 0.0, 0.0), (-0.2, 0.5, 0.0)),
+        ((0.4, -0.3, 0.2), (-0.2, 0.5, -0.1)),
+    ],
+)
+def test_full_quaternion_relative_transform(source_rpy, target_rpy):
+    """Source-only, target-only, and combined roll/pitch use the full relative transform."""
+    from isaaclab.utils.math import quat_from_euler_xyz
 
-    obj = _make_box_obj("placed", sx=0.1, sy=0.02, sz=0.05)
-    obj.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
+    from isaaclab_arena.relations.no_overlap_mesh import transform_points_between_frames
 
-    assert NoOverlapValidator._effective_yaw(obj, orientations=None, use_pose_yaw=False) == 0.0
-    assert NoOverlapValidator._effective_yaw(obj, orientations=None, use_pose_yaw=True) > 1.5
+    source_rotation = quat_from_euler_xyz(*(torch.tensor(value) for value in source_rpy))
+    target_rotation = quat_from_euler_xyz(*(torch.tensor(value) for value in target_rpy))
+    centers = torch.tensor([[0.1, -0.02, 0.03]])
+    source_position = torch.tensor([0.3, -0.1, 0.2])
+    target_position = torch.tensor([-0.2, 0.4, 0.1])
 
+    transformed = transform_points_between_frames(
+        centers, source_position, source_rotation, target_position, target_rotation
+    )
+    from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
-def test_mesh_broadphase_rotates_bbox_about_object_origin():
-    """Mesh broadphase bbox rotation matches AxisAlignedBoundingBox origin-frame semantics."""
-    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
-
-    bbox = AxisAlignedBoundingBox(min_point=(0.1, -0.01, -0.02), max_point=(0.3, 0.01, 0.02))
-    expected = bbox.rotated_around_z(torch.tensor([math.pi / 2]))
-    min_point, max_point = _rotate_bbox_extents(bbox.min_point, bbox.max_point, torch.tensor([math.pi / 2]))
-
-    torch.testing.assert_close(min_point, expected.min_point)
-    torch.testing.assert_close(max_point, expected.max_point)
+    expected = quat_apply_inverse(
+        target_rotation.unsqueeze(0),
+        quat_apply(source_rotation.unsqueeze(0), centers) + source_position - target_position,
+    )
+    torch.testing.assert_close(transformed, expected)
 
 
 @requires_warp
@@ -158,13 +175,13 @@ def test_warp_mesh_raw_mesh_flag_skips_convex_hull(monkeypatch):
     )
     raw_obj = DummyObject(
         "raw_background",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
         collision_mesh=mesh,
     )
     raw_obj.repair_collision_mesh_non_watertight = False
     normal_obj = DummyObject(
         "normal_background",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
         collision_mesh=mesh,
     )
 
@@ -180,12 +197,9 @@ def test_warp_mesh_raw_mesh_flag_skips_convex_hull(monkeypatch):
 
 
 def _batched_aabb_loss(strategy, clearance_m, child_pos, child_bbox, parent_world_bbox):
-    """Helper: compute single-pair AABB loss via compute_loss_batched."""
-    subject_min = (child_pos + child_bbox.min_point).unsqueeze(0).unsqueeze(0)
-    subject_max = (child_pos + child_bbox.max_point).unsqueeze(0).unsqueeze(0)
-    obstacle_min = parent_world_bbox.min_point.unsqueeze(0)
-    obstacle_max = parent_world_bbox.max_point.unsqueeze(0)
-    loss = strategy.compute_loss_batched(clearance_m, subject_min, subject_max, obstacle_min, obstacle_max)
+    """Helper: compute one directed OBB loss via compute_loss_batched."""
+    penetration = child_bbox.translated(child_pos).penetration(parent_world_bbox, clearance_m).unsqueeze(0)
+    loss = strategy.compute_loss_batched(penetration)
     return loss.squeeze()
 
 
@@ -343,40 +357,21 @@ def test_anchor_with_rotate_around_solution_rejected():
         placer.place([table, child])
 
 
-@requires_warp
-def test_centers_in_target_frame_applies_both_yaws():
-    """Net yaw = source - target; equal yaws cancel out."""
+def test_relative_transform_identity_and_equal_yaw_regressions():
+    """Identity passes through and equal source/target yaw cancels with zero offset."""
+    from isaaclab.utils.math import quat_from_euler_xyz
 
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.no_overlap_mesh import transform_points_between_frames
 
-    src = DummyObject(
-        "src",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
-        collision_mesh=trimesh.creation.box(extents=(0.2, 0.2, 0.2)),
-    )
-    tgt = DummyObject(
-        "tgt",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
-        collision_mesh=trimesh.creation.box(extents=(0.2, 0.2, 0.2)),
-    )
     centers = torch.tensor([[0.10, 0.0, 0.0]])
-    src_pos = torch.tensor([0.0, 0.0, 0.0])
-    tgt_pos = torch.tensor([0.0, 0.0, 0.0])
+    zero = torch.zeros(3)
+    identity = torch.tensor([0.0, 0.0, 0.0, 1.0])
+    torch.testing.assert_close(transform_points_between_frames(centers, zero, identity, zero, identity), centers)
 
-    # No orientations: pass-through
-    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
-    assert torch.allclose(result, centers, atol=1e-6)
-
-    # Source yaw=pi/2, target yaw=0: net rotation = pi/2
-    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2})
-    assert abs(result[0, 0].item()) < 1e-5
-    assert abs(result[0, 1].item() - 0.10) < 1e-5
-
-    # Both at same yaw: net rotation = 0, centers unchanged (offset is zero here)
-    result = NoOverlapValidator._centers_in_target_frame(
-        centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2, tgt: math.pi / 2}
+    yaw = quat_from_euler_xyz(torch.tensor(0.0), torch.tensor(0.0), torch.tensor(math.pi / 2))
+    torch.testing.assert_close(
+        transform_points_between_frames(centers, zero, yaw, zero, yaw), centers, atol=1e-6, rtol=1e-6
     )
-    assert torch.allclose(result, centers, atol=1e-5)
 
 
 @requires_warp
@@ -435,7 +430,7 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
     table = _make_table()
     box = DummyObject(
         "aabb_only_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
     )
     box.add_relation(On(table))
     background = _make_box_obj("mesh_background", 0.2, 0.2, 0.2)
@@ -459,7 +454,7 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
 
 @requires_warp
 def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
-    """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
+    """CPU validation rejects unsupported sentinel geometry with the solver message."""
     from isaaclab_arena.relations import warp_sdf_kernels
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_validators import NoOverlapValidator
@@ -479,7 +474,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     env_bboxes = _env_bboxes_for(positions)
     assert validator._validate_no_overlap_mesh(positions, env_bboxes)
 
-    # Force every query to hit the sentinel; the same separated layout must now fail.
+    # Force every query to hit the sentinel; the same separated layout is unsupported.
     from isaaclab_arena.relations import placement_validators as _pv_mod
 
     real_mesh_sdf = warp_sdf_kernels.mesh_sdf
@@ -489,7 +484,11 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 
     monkeypatch.setattr(warp_sdf_kernels, "mesh_sdf", fake_sdf)
     monkeypatch.setattr(_pv_mod, "mesh_sdf", fake_sdf)
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes)
+    with pytest.raises(
+        AssertionError,
+        match="MESH collision query could not resolve a target face; the promised collision geometry is unsupported",
+    ):
+        validator._validate_no_overlap_mesh(positions, env_bboxes)
 
 
 @requires_warp
@@ -503,7 +502,7 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
     anchor_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
     anchor = DummyObject(
         "anchor",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
         collision_mesh=anchor_mesh,
     )
     sz = math.sin(math.pi / 4)
@@ -624,6 +623,47 @@ def test_broadphase_does_not_skip_overlapping_pairs():
 
 
 @requires_warp
+def test_broadphase_rotates_off_origin_base_obb():
+    """A rotated off-origin base OBB must keep a genuinely overlapping pair active."""
+    table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
+    source_mesh = trimesh.creation.box(extents=(0.08, 0.02, 0.02))
+    source_mesh.apply_translation((0.2, 0.0, 0.0))
+    source = DummyObject(
+        "off_origin_source",
+        bounding_box=OrientedBoundingBox(
+            center=(0.2, 0.0, 0.0),
+            half_extents=(0.04, 0.01, 0.01),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+        ),
+        collision_mesh=source_mesh,
+    )
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.2, 0.0)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, source, target], initial, rotations=[{source: _quat(yaw=math.pi / 2)}])
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_fixed_mesh_obstacle_roll_pitch_is_supported():
+    """Fixed mesh obstacles with roll/pitch are transformed, not rejected or yaw-projected."""
+    table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
+    source = _make_cylinder("source", radius=0.012, height=0.02)
+    obstacle = _make_box_obj("pitched_obstacle", sx=0.2, sy=0.02, sz=0.05)
+    obstacle.set_initial_pose(Pose(rotation_xyzw=_quat(roll=0.2, pitch=math.pi / 2)))
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.06)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, source], initial, collision_objects=[obstacle])
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
 def test_object_collision_mode_can_force_bbox_in_mesh_solver():
     """Objects can opt out of mesh collision even when the solver default is MESH."""
     table = _make_table()
@@ -667,7 +707,7 @@ def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
     table = _make_table()
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
     )
     target = _make_box_obj("target", sx=0.1, sy=0.1, sz=0.1)
     target.collision_mode = CollisionMode.MESH
@@ -675,7 +715,7 @@ def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
     initial = [{table: (0.0, 0.0, 0.0), source: (0.0, 0.0, 0.2), target: (0.08, 0.0, 0.2)}]
     env_bboxes = {
         table: table.get_bounding_box(),
-        source: AxisAlignedBoundingBox(min_point=(-0.06, -0.06, -0.01), max_point=(0.06, 0.06, 0.01)),
+        source: OrientedBoundingBox.from_min_max(min_point=(-0.06, -0.06, -0.01), max_point=(0.06, 0.06, 0.01)),
         target: target.get_bounding_box(),
     }
 
@@ -683,6 +723,16 @@ def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
     solver.solve([table, source, target], initial, env_bboxes=env_bboxes)
 
     assert solver._mesh_cache is not None
+    directions = {
+        (subject.name, obstacle.name)
+        for subject, obstacle in zip(
+            solver._mesh_cache.pair_subject_objs,
+            solver._mesh_cache.pair_obstacle_objs,
+            strict=True,
+        )
+    }
+    assert ("source", "target") in directions
+    assert ("target", "source") in directions
     assert solver.last_loss_per_env[0].item() > 0.0
 
 
@@ -690,9 +740,10 @@ def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
 def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
     """Varying per-env AABB proxies stay on the AABB collision path."""
     table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
     )
     target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
     target.collision_mode = CollisionMode.MESH
@@ -703,7 +754,7 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
     ]
     env_bboxes = {
         table: table.get_bounding_box(),
-        source: AxisAlignedBoundingBox(
+        source: OrientedBoundingBox.from_min_max(
             min_point=torch.tensor([[-0.01, -0.01, -0.01], [-0.3, -0.3, -0.01]]),
             max_point=torch.tensor([[0.01, 0.01, 0.01], [0.3, 0.3, 0.01]]),
         ),
@@ -722,37 +773,66 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
 
 @requires_warp
 def test_yawed_aabb_proxy_validation_is_not_double_rotated():
-    """AABB proxy spheres built from yaw-expanded bboxes must not rotate by source yaw again."""
+    """A base OBB proxy receives its candidate root rotation exactly once."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
     )
     source.collision_mode = CollisionMode.BBOX
     target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
     target.collision_mode = CollisionMode.MESH
 
     positions = {source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}
-    env_bboxes = {
-        source: source.get_bounding_box().rotated_around_z(torch.tensor([math.pi / 2])),
-        target: target.get_bounding_box(),
-    }
+    env_bboxes = {source: source.get_bounding_box(), target: target.get_bounding_box()}
     validator = NoOverlapValidator(
         ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
     )
 
-    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, orientations={source: math.pi / 2})
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes, rotations={source: _quat(yaw=math.pi / 2)})
+
+
+@requires_warp
+def test_mixed_mesh_bbox_validation_checks_both_directions(monkeypatch):
+    """Validation mirrors the solver's two directed mixed mesh/proxy checks."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+
+    source = DummyObject(
+        "source",
+        bounding_box=OrientedBoundingBox.from_min_max((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    target = _make_box_obj("target", sx=0.1, sy=0.1, sz=0.1)
+    target.collision_mode = CollisionMode.MESH
+    positions = {source: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.0)}
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
+    validator = NoOverlapValidator(
+        ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
+    )
+    directions: list[tuple[str, str]] = []
+
+    def _capture_direction(*args):
+        direction = (args[0].name, args[5].name)
+        directions.append(direction)
+        return direction == ("target", "source")
+
+    monkeypatch.setattr(validator, "_spheres_penetrate_mesh", _capture_direction)
+
+    assert not validator._validate_no_overlap_mesh(positions, env_bboxes)
+    assert directions == [("source", "target"), ("target", "source")]
 
 
 @requires_warp
 def test_yawed_aabb_proxy_solver_loss_is_not_double_rotated():
-    """Solver mixed mesh/AABB loss uses yaw-expanded proxy bboxes without rotating them again."""
+    """Solver mixed mesh/OBB loss transforms the asset-local proxy exactly once."""
     table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
     )
     source.collision_mode = CollisionMode.BBOX
     target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
@@ -760,7 +840,7 @@ def test_yawed_aabb_proxy_solver_loss_is_not_double_rotated():
     initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}]
     env_bboxes = {
         table: table.get_bounding_box(),
-        source: source.get_bounding_box().rotated_around_z(torch.tensor([math.pi / 2])),
+        source: source.get_bounding_box(),
         target: target.get_bounding_box(),
     }
 
@@ -769,29 +849,34 @@ def test_yawed_aabb_proxy_solver_loss_is_not_double_rotated():
         [table, source, target],
         initial,
         env_bboxes=env_bboxes,
-        env_bboxes_include_yaw=True,
-        orientations=[{source: math.pi / 2}],
+        rotations=[{source: _quat(yaw=math.pi / 2)}],
     )
 
     assert solver.last_loss_per_env[0].item() > 0.0
 
 
 @requires_warp
-def test_yawed_aabb_proxy_solver_loss_rotates_unexpanded_bbox():
-    """Direct solver calls rotate AABB proxy spheres when bboxes are not pre-expanded."""
+def test_rolled_meshless_proxy_solver_loss_uses_full_rotation():
+    """A meshless box proxy uses source roll, not a yaw projection."""
     table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
     )
     source.collision_mode = CollisionMode.BBOX
     target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
     target.collision_mode = CollisionMode.MESH
-    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}]
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.15)}]
     env_bboxes = {table: table.get_bounding_box(), source: source.get_bounding_box(), target: target.get_bounding_box()}
 
     solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
-    solver.solve([table, source, target], initial, env_bboxes=env_bboxes, orientations=[{source: math.pi / 2}])
+    solver.solve(
+        [table, source, target],
+        initial,
+        env_bboxes=env_bboxes,
+        rotations=[{source: _quat(pitch=-math.pi / 2)}],
+    )
 
     assert solver.last_loss_per_env[0].item() > 0.0
 
@@ -804,7 +889,7 @@ def test_validate_no_overlap_mesh_respects_yawed_collision_object():
 
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
     )
     source.collision_mode = CollisionMode.BBOX
     obstacle = _make_box_obj("obstacle", sx=0.2, sy=0.02, sz=0.05)
@@ -825,9 +910,10 @@ def test_validate_no_overlap_mesh_respects_yawed_collision_object():
 def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
     """Fixed mesh obstacle bboxes still rotate when placed-object bboxes are yaw-expanded."""
     table = _make_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.0)))
     source = DummyObject(
         "source",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
     )
     source.collision_mode = CollisionMode.BBOX
     obstacle = _make_box_obj("obstacle", sx=0.2, sy=0.02, sz=0.05)
@@ -839,7 +925,7 @@ def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
     env_bboxes = {table: table.get_bounding_box(), source: source.get_bounding_box()}
 
     solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
-    solver.solve([table, source], initial, env_bboxes=env_bboxes, orientations=[{}], collision_objects=[obstacle])
+    solver.solve([table, source], initial, env_bboxes=env_bboxes, rotations=[{}], collision_objects=[obstacle])
 
     assert solver.last_loss_per_env[0].item() > 0.0
 
@@ -912,23 +998,21 @@ def test_solver_target_only_yaw():
     # With target rotated 90°, the 0.2/2=0.1 half-extent now spans Y → collision.
     initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.03, 0.05)}]
 
-    solver_no_rot = RelationSolver(
-        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
-    )
-    solver_no_rot.solve([table, target, child], initial, orientations=None)
+    params = RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    solver_no_rot = RelationSolver(params=params)
+    solver_no_rot.solve([table, target, child], initial)
     loss_no_rot = solver_no_rot.last_loss_per_env[0].item()
 
     # Target rotated 90° around Z: child is now inside target's mesh
-    orientations_rotated = [{target: math.pi / 2, child: 0.0}]
-    solver_rot = RelationSolver(
-        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
-    )
-    solver_rot.solve([table, target, child], initial, orientations=orientations_rotated)
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=_quat(yaw=math.pi / 2)))
+    solver_rot = RelationSolver(params=params)
+    solver_rot.solve([table, target, child], initial)
     loss_rot = solver_rot.last_loss_per_env[0].item()
 
+    minimum_loss_delta = 1e-4 * params.collision_loss_slope
     assert (
-        loss_rot > loss_no_rot + 1.0
-    ), f"Target yaw=90° should dramatically increase collision loss (got {loss_rot:.2f} vs {loss_no_rot:.2f})"
+        loss_rot > loss_no_rot + minimum_loss_delta
+    ), f"Target yaw=90° should increase collision loss (got {loss_rot:.2f} vs {loss_no_rot:.2f})"
 
 
 @requires_warp
@@ -939,7 +1023,7 @@ def test_anchor_initial_pose_yaw_affects_collision():
     target_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
     target = DummyObject(
         "target",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
         collision_mesh=target_mesh,
     )
     # Bake 90° Z-yaw into initial_pose (not via orientations dict)
@@ -954,27 +1038,27 @@ def test_anchor_initial_pose_yaw_affects_collision():
     # Child at Y=0.02: outside unrotated target (half-width=0.01), inside rotated (half-length=0.1)
     initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}]
 
-    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
-    solver.solve([table, target, child], initial, orientations=None)
+    params = RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    solver = RelationSolver(params=params)
+    solver.solve([table, target, child], initial)
     loss_yawed = solver.last_loss_per_env[0].item()
 
     # Same geometry with identity anchor — should have lower loss
     target_id = DummyObject(
         "target_id",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
         collision_mesh=target_mesh,
     )
     target_id.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
     target_id.add_relation(IsAnchor())
     initial_id = [{table: (0.0, 0.0, 0.0), target_id: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}]
 
-    solver_id = RelationSolver(
-        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
-    )
-    solver_id.solve([table, target_id, child], initial_id, orientations=None)
+    solver_id = RelationSolver(params=params)
+    solver_id.solve([table, target_id, child], initial_id)
     loss_identity = solver_id.last_loss_per_env[0].item()
 
-    assert loss_yawed > loss_identity + 1.0, (
+    minimum_loss_delta = 1e-4 * params.collision_loss_slope
+    assert loss_yawed > loss_identity + minimum_loss_delta, (
         "Yawed anchor (from initial_pose) should produce higher collision "
         f"(got {loss_yawed:.2f} vs identity {loss_identity:.2f})"
     )
@@ -1031,12 +1115,12 @@ def test_broadphase_does_not_falsely_cull_yawed_elongated_pair():
     b_mesh = trimesh.creation.box(extents=(0.4, 0.02, 0.05))
     a = DummyObject(
         "a",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
         collision_mesh=a_mesh,
     )
     b = DummyObject(
         "b",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
         collision_mesh=b_mesh,
     )
     a.add_relation(On(table))
@@ -1046,10 +1130,10 @@ def test_broadphase_does_not_falsely_cull_yawed_elongated_pair():
     # but if we yaw both by pi/2 the unrotated AABB (width 0.02) would be separated.
     yaw = math.pi / 2
     initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.05, 0.0, 0.05)}]
-    orientations = [{a: yaw, b: yaw}]
+    rotations = [{a: _quat(yaw=yaw), b: _quat(yaw=yaw)}]
 
     solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
-    solver.solve([table, a, b], initial, orientations=orientations)
+    solver.solve([table, a, b], initial, rotations=rotations)
     loss = solver.last_loss_per_env[0].item()
     assert loss > 0.0, "Broadphase must not falsely cull yawed elongated pairs that genuinely collide"
 
@@ -1060,7 +1144,7 @@ def test_mesh_mode_queries_aabb_subject_against_mesh_background():
     table = _make_table()
     box = DummyObject(
         "aabb_only_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
     )
     box.add_relation(On(table))
     background = _make_box_obj("mesh_background", 0.2, 0.2, 0.2)
@@ -1089,7 +1173,7 @@ def test_mesh_mode_scores_background_collision_object():
     table = _make_table()
     box = DummyObject(
         "aabb_only_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
     )
     box.add_relation(On(table))
     background = FixedCollisionObject(trimesh.creation.box(extents=(0.2, 0.2, 0.2)))
@@ -1118,7 +1202,7 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
     mesh_box = _make_box_obj("mesh_box", 0.1, 0.1, 0.1)
     aabb_box = DummyObject(
         "aabb_only_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
     )
     mesh_box.add_relation(On(table))
     aabb_box.add_relation(On(table))

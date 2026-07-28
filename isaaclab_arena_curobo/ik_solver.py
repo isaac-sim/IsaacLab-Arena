@@ -19,7 +19,7 @@ from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, world_config_from_cuboids
+from isaaclab_arena_curobo.utils.ik_solver_utils import OrientedCollisionCuboid, world_config_from_cuboids
 from isaaclab_arena_curobo.utils.robot_cfg_utils import load_patched_robot_yaml
 
 
@@ -137,7 +137,7 @@ class CuroboIKSolver:
 
     def update_world(
         self,
-        cuboids: list[AABBCollisionCuboid],
+        cuboids: list[OrientedCollisionCuboid],
         robot_base_pos_w: tuple[float, float, float],
         robot_base_quat_w_xyzw: tuple[float, float, float, float],
     ) -> None:
