@@ -17,7 +17,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi
 
@@ -27,18 +27,18 @@ def _create_test_objects():
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
 
     box1 = DummyObject(
         name="box1",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
     )
     box2 = DummyObject(
         name="box2",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.15, 0.15, 0.15)),
     )
 
     box1.add_relation(On(desk, clearance_m=0.01))
@@ -51,7 +51,7 @@ def _create_test_objects():
 def test_get_random_pose_same_seed_produces_identical_result():
     """Test that get_random_pose_within_bounding_box with same seed produces identical poses."""
 
-    bbox = AxisAlignedBoundingBox(min_point=(-1.0, -1.0, 0.0), max_point=(1.0, 1.0, 1.0))
+    bbox = OrientedBoundingBox.from_min_max((-1.0, -1.0, 0.0), (1.0, 1.0, 1.0))
 
     pose1 = get_random_pose_within_bounding_box(bbox, seed=42)
     pose2 = get_random_pose_within_bounding_box(bbox, seed=42)
@@ -303,7 +303,7 @@ def test_random_yaw_init_applied_yaw_matches_selected_candidate():
     (result,) = placer.place([desk, box1, box2], num_envs=1)
     for box in (box1, box2):
         applied = _yaw_rad_from_quat(box.get_initial_pose().rotation_xyzw)
-        assert abs(wrap_angle_to_pi(applied - result.orientations[box])) < 1e-5
+        assert abs(wrap_angle_to_pi(applied - _yaw_rad_from_quat(result.rotations[box]))) < 1e-5
 
 
 def test_random_yaw_init_composes_marker_yaw():
@@ -316,32 +316,27 @@ def test_random_yaw_init_composes_marker_yaw():
     )
     (result,) = placer.place([desk, box1, box2], num_envs=1)
     applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
-    # result.orientations now carries total yaw = marker + sampled
-    assert abs(wrap_angle_to_pi(applied - result.orientations[box1])) < 1e-5
+    assert abs(wrap_angle_to_pi(applied - _yaw_rad_from_quat(result.rotations[box1]))) < 1e-5
 
 
-def test_roll_pitch_marker_applied_verbatim_without_random_yaw():
-    """A roll/pitch marker is excluded from random-yaw sampling and applied verbatim.
-
-    A Z-rotated footprint can't enclose a tilted box, so the object keeps its requested rotation
-    and receives no sampled yaw even when random_yaw_init is on.
-    """
-    pitch_rad = math.pi / 2
+def test_roll_pitch_marker_survives_place_with_forced_world_yaw(monkeypatch):
+    """A roll/pitch marker and world yaw reach the result and applied Pose unchanged."""
     solver_params = RelationSolverParams(max_iters=5, verbose=False)
     desk, box1, box2 = _create_test_objects()
-    box1.add_relation(RotateAroundSolution(pitch_rad=pitch_rad))
+    box1.add_relation(RotateAroundSolution(roll_rad=0.4, pitch_rad=-0.3))
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=True)
     )
-    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
-    assert box1 not in orientations, "roll/pitch marker object must not receive a sampled yaw"
+    monkeypatch.setattr("isaaclab_arena.relations.object_placer.get_random_rotation", lambda generator: math.pi / 2)
+    expected = placer._generate_initial_rotations([desk, box1, box2], {desk})[box1]
 
-    placer.place([desk, box1, box2], num_envs=1)
-    applied = box1.get_initial_pose().rotation_xyzw
-    expected = RotateAroundSolution(pitch_rad=pitch_rad).get_rotation_xyzw()
-    assert all(
-        abs(a - e) < 1e-5 for a, e in zip(applied, expected)
-    ), f"marker pitch must be applied verbatim; expected {expected}, got {applied}"
+    (result,) = placer.place([desk, box1, box2])
+    applied = box1.get_initial_pose()
+
+    assert isinstance(applied, Pose)
+    assert abs(expected[0]) > 1e-3 and abs(expected[1]) > 1e-3
+    assert result.rotations[box1] == pytest.approx(expected)
+    assert applied.rotation_xyzw == pytest.approx(expected)
 
 
 def test_marker_yaw_applied_without_random_yaw_init():
@@ -353,8 +348,8 @@ def test_marker_yaw_applied_without_random_yaw_init():
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=False)
     )
-    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
-    assert abs(wrap_angle_to_pi(orientations[box1] - marker_yaw)) < 1e-5
+    rotations = placer._generate_initial_rotations([desk, box1, box2], {desk})
+    assert abs(wrap_angle_to_pi(_yaw_rad_from_quat(rotations[box1]) - marker_yaw)) < 1e-5
     placer.place([desk, box1, box2], num_envs=1)
     applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
     assert abs(wrap_angle_to_pi(applied - marker_yaw)) < 1e-5, f"Marker yaw {marker_yaw} must be applied; got {applied}"

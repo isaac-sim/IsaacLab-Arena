@@ -12,13 +12,12 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.loss_primitives import (
-    interval_overlap_axis_loss,
     linear_band_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,
 )
 from isaaclab_arena.relations.relations import Side
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import (
@@ -49,16 +48,13 @@ class Direction(IntEnum):
 
 @dataclass(frozen=True)
 class SideConfig:
-    """Configuration for computing NextTo loss for a given axis direction.
-
-    Attributes:
-        primary_axis: Axis along which child is placed (X or Y).
-        direction: POSITIVE if child should be in positive direction from parent,
-                   NEGATIVE if child should be in negative direction.
-    """
+    """Axis and direction of a NextTo side."""
 
     primary_axis: Axis
+    """Axis along which the child is placed."""
+
     direction: Direction
+    """Direction from the parent."""
 
     @property
     def band_axis(self) -> Axis:
@@ -77,8 +73,8 @@ SIDE_CONFIGS: dict[Side, SideConfig] = {
 def next_to_violations(
     cfg: SideConfig,
     child_pos: torch.Tensor,
-    child_bbox: AxisAlignedBoundingBox,
-    parent_world_bbox: AxisAlignedBoundingBox,
+    child_bbox: OrientedBoundingBox,
+    parent_world_bbox: OrientedBoundingBox,
     distance_m: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Side and distance violation magnitudes (meters, >= 0) for a NextTo relation.
@@ -96,13 +92,17 @@ def next_to_violations(
     Returns:
         (half_plane, distance) tensors of shape (N,), each >= 0 and zero when satisfied.
     """
+    axis = child_pos.new_zeros(3)
+    axis[cfg.primary_axis] = 1.0
+    child_min, child_max = child_bbox.get_bounds_along_axis(axis)
+    parent_min, parent_max = parent_world_bbox.get_bounds_along_axis(axis)
     if cfg.direction == Direction.POSITIVE:
-        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
-        child_offset = child_bbox.min_point[:, cfg.primary_axis]
+        parent_edge = parent_max
+        child_offset = child_min
         penalty_side = "less"
     else:
-        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
-        child_offset = child_bbox.max_point[:, cfg.primary_axis]
+        parent_edge = parent_min
+        child_offset = child_max
         penalty_side = "greater"
 
     primary = child_pos[:, cfg.primary_axis]
@@ -115,8 +115,8 @@ def next_to_violations(
 def not_next_to_violations(
     cfg: SideConfig,
     child_pos: torch.Tensor,
-    child_bbox: AxisAlignedBoundingBox,
-    parent_world_bbox: AxisAlignedBoundingBox,
+    child_bbox: OrientedBoundingBox,
+    parent_world_bbox: OrientedBoundingBox,
     margin_m: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Per-route escape distances (meters, >= 0) for a NotNextTo relation.
@@ -135,17 +135,22 @@ def not_next_to_violations(
     Returns:
         (remaining_side, remaining_cross) tensors of shape (N,), each >= 0.
     """
+    primary_axis = child_pos.new_zeros(3)
+    primary_axis[cfg.primary_axis] = 1.0
+    parent_primary_min, parent_primary_max = parent_world_bbox.get_bounds_along_axis(primary_axis)
     if cfg.direction == Direction.POSITIVE:
-        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
+        parent_edge = parent_primary_max
         blocked_side_penalty = "greater"
     else:
-        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
+        parent_edge = parent_primary_min
         blocked_side_penalty = "less"
 
-    parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
-    parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
-    valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
-    valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+    band_axis = child_pos.new_zeros(3)
+    band_axis[cfg.band_axis] = 1.0
+    child_band_min, child_band_max = child_bbox.get_bounds_along_axis(band_axis)
+    parent_band_min, parent_band_max = parent_world_bbox.get_bounds_along_axis(band_axis)
+    valid_band_min = parent_band_min - child_band_min
+    valid_band_max = parent_band_max - child_band_max
 
     primary = child_pos[:, cfg.primary_axis]
     cross = child_pos[:, cfg.band_axis]
@@ -169,14 +174,13 @@ class UnaryRelationLossStrategy(ABC):
         self,
         relation: UnaryRelation,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute the loss for a unary relation constraint.
 
         Args:
             relation: The relation object containing constraint metadata.
-            child_pos: Child object position tensor. Accepts (3,) for single-env
-                backward compat or (N, 3) for batched.
+            child_pos: Child position with shape (3,) or (N, 3).
             child_bbox: Child object local bounding box (N=1).
 
         Returns:
@@ -193,15 +197,14 @@ class RelationLossStrategy(ABC):
         self,
         relation: Relation,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
+        parent_world_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute the loss for a relation constraint.
 
         Args:
             relation: The relation object containing relationship metadata.
-            child_pos: Child object position tensor. Accepts (3,) for single-env
-                backward compat or (N, 3) for batched.
+            child_pos: Child position with shape (3,) or (N, 3).
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
 
@@ -234,8 +237,8 @@ class NextToLossStrategy(RelationLossStrategy):
         self,
         relation: NextTo,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
+        parent_world_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
@@ -264,10 +267,12 @@ class NextToLossStrategy(RelationLossStrategy):
         distance_loss = self.slope * distance_raw
 
         # 2. Band position loss: child placed at target position within parent's perpendicular extent
-        parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
-        parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
-        valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
-        valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+        band_axis = child_pos.new_zeros(3)
+        band_axis[cfg.band_axis] = 1.0
+        child_band_min, child_band_max = child_bbox.get_bounds_along_axis(band_axis)
+        parent_band_min, parent_band_max = parent_world_bbox.get_bounds_along_axis(band_axis)
+        valid_band_min = parent_band_min - child_band_min
+        valid_band_max = parent_band_max - child_band_max
         # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
         t = (relation.cross_position_ratio + 1.0) / 2.0
         target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
@@ -315,8 +320,8 @@ class OnLossStrategy(RelationLossStrategy):
         self,
         relation: On,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
+        parent_world_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for On relation.
 
@@ -333,20 +338,21 @@ class OnLossStrategy(RelationLossStrategy):
         if single_input:
             child_pos = child_pos.unsqueeze(0)
 
-        # Parent world-space extents from the world bounding box
-        parent_x_min = parent_world_bbox.min_point[:, 0]
-        parent_x_max = parent_world_bbox.max_point[:, 0]
-        parent_y_min = parent_world_bbox.min_point[:, 1]
-        parent_y_max = parent_world_bbox.max_point[:, 1]
-        parent_z_max = parent_world_bbox.max_point[:, 2]  # Top surface
+        axes = torch.eye(3, dtype=child_pos.dtype, device=child_pos.device)
+        parent_x_min, parent_x_max = parent_world_bbox.get_bounds_along_axis(axes[0])
+        parent_y_min, parent_y_max = parent_world_bbox.get_bounds_along_axis(axes[1])
+        _, parent_z_max = parent_world_bbox.get_bounds_along_axis(axes[2])
+        child_x_min, child_x_max = child_bbox.get_bounds_along_axis(axes[0])
+        child_y_min, child_y_max = child_bbox.get_bounds_along_axis(axes[1])
+        child_z_min, _ = child_bbox.get_bounds_along_axis(axes[2])
 
         # Compute valid position ranges such that child's entire footprint is within parent,
         # with the parent's extent inset by edge_margin_m so the footprint stays off the rim.
         m = relation.edge_margin_m
-        valid_x_min = parent_x_min + m - child_bbox.min_point[:, 0]  # child's left at parent's left + margin
-        valid_x_max = parent_x_max - m - child_bbox.max_point[:, 0]  # child's right at parent's right - margin
-        valid_y_min = parent_y_min + m - child_bbox.min_point[:, 1]
-        valid_y_max = parent_y_max - m - child_bbox.max_point[:, 1]
+        valid_x_min = parent_x_min + m - child_x_min
+        valid_x_max = parent_x_max - m - child_x_max
+        valid_y_min = parent_y_min + m - child_y_min
+        valid_y_max = parent_y_max - m - child_y_max
 
         # The bounds invert (lower > upper) when the margin is too large for the surface or the
         # child is oversized. The loss becomes a non-zero constant with gradient zero.
@@ -368,7 +374,7 @@ class OnLossStrategy(RelationLossStrategy):
         )
 
         # 3. Z point loss: child bottom = parent top + clearance
-        target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[:, 2]
+        target_z = parent_z_max + relation.clearance_m - child_z_min
         z_loss = single_point_linear_loss(child_pos[:, 2], target_z, slope=self.slope)
 
         if self.debug and child_pos.shape[0] == 1:
@@ -424,8 +430,8 @@ class NotNextToLossStrategy(RelationLossStrategy):
         self,
         relation: NotNextTo,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
+        parent_world_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for ``NotNextTo``."""
         single_input = child_pos.dim() == 1
@@ -457,51 +463,27 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
 
 class NoCollisionLossStrategy:
-    """AABB no-overlap loss between object pairs."""
+    """Scale OBB minimum-penetration distances into collision loss."""
 
-    def __init__(
-        self,
-        slope: float = 10.0,
-    ):
-        """
+    def __init__(self, slope: float = 10.0):
+        """Initialize the overlap-loss scale.
+
         Args:
             slope: Gradient magnitude for overlap loss.
         """
         self.slope = slope
 
-    def compute_loss_batched(
-        self,
-        clearance_m: float,
-        subject_min: torch.Tensor,
-        subject_max: torch.Tensor,
-        obstacle_min: torch.Tensor,
-        obstacle_max: torch.Tensor,
-    ) -> torch.Tensor:
-        """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
+    def compute_loss_batched(self, penetration: torch.Tensor) -> torch.Tensor:
+        """Return scaled minimum penetration for directed pairs.
 
         Args:
-            clearance_m: Minimum clearance between boxes in meters.
-            subject_min: World-space min extent of the subject box, shape (num_pairs, batch_size, 3).
-            subject_max: World-space max extent of the subject box, shape (num_pairs, batch_size, 3).
-            obstacle_min: World-space min extent of the obstacle box, shape (num_pairs, batch_size, 3).
-            obstacle_max: World-space max extent of the obstacle box, shape (num_pairs, batch_size, 3).
+            penetration: OBB penetration distances with shape (P, N).
 
         Returns:
-            Per-pair, per-env loss of shape (num_pairs, batch_size).
+            Per-pair, per-env loss with shape (P, N).
         """
-        assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
-        obstacle_min = obstacle_min - clearance_m
-        obstacle_max = obstacle_max + clearance_m
-        overlap_x = interval_overlap_axis_loss(
-            subject_min[..., 0], subject_max[..., 0], obstacle_min[..., 0], obstacle_max[..., 0]
-        )
-        overlap_y = interval_overlap_axis_loss(
-            subject_min[..., 1], subject_max[..., 1], obstacle_min[..., 1], obstacle_max[..., 1]
-        )
-        overlap_z = interval_overlap_axis_loss(
-            subject_min[..., 2], subject_max[..., 2], obstacle_min[..., 2], obstacle_max[..., 2]
-        )
-        return self.slope * (overlap_x * overlap_y * overlap_z)
+        assert penetration.ndim == 2, f"Expected penetration shape (P, N), got {tuple(penetration.shape)}."
+        return self.slope * penetration
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
@@ -523,7 +505,7 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
         self,
         relation: AtPosition,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for AtPosition relation.
 
@@ -576,7 +558,7 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
         self,
         relation: PositionLimits,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for PositionLimits relation.
 

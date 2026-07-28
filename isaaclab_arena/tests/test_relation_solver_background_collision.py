@@ -18,12 +18,12 @@ def _make_desk():
     """Anchor desk, 2m x 1m wide so a box has room to relocate along X away from the obstacle."""
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
@@ -33,23 +33,23 @@ def _make_desk():
 def _make_box(name: str = "box"):
     """A 0.3m cube to place On the desk (smaller than each desk half so a valid spot exists)."""
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3)),
     )
 
 
 def _make_background():
     """Return an obstacle narrower than the desk to preserve a non-zero escape gradient."""
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     background = DummyObject(
         name="cabinet",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 1.0, 1.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 1.0, 1.0)),
     )
     background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     return background
@@ -60,13 +60,13 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
     import trimesh
 
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     half = tuple(e / 2.0 for e in extents)
     obj = DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-half[0], -half[1], -half[2]),
             max_point=(half[0], half[1], half[2]),
         ),
@@ -179,8 +179,9 @@ def test_background_collision_objects_treat_background_none_pose_as_identity(mon
     collision_objects = make_fixed_collision_objects([kitchen])
 
     assert len(collision_objects) == 1
-    assert torch.allclose(collision_objects[0].get_bounding_box().min_point, torch.tensor([[-0.1, -0.1, -0.1]]))
-    assert torch.allclose(collision_objects[0].get_bounding_box().max_point, torch.tensor([[0.1, 0.1, 0.1]]))
+    min_point, max_point = collision_objects[0].get_bounding_box().get_axis_aligned_bounds()
+    assert torch.allclose(min_point, torch.tensor([[-0.1, -0.1, -0.1]]))
+    assert torch.allclose(max_point, torch.tensor([[0.1, 0.1, 0.1]]))
 
 
 def test_background_collision_objects_reject_bbox_whole_background():
@@ -292,7 +293,7 @@ def test_solver_pushes_object_off_background_obstacle():
     result = solver.solve([desk, box], initial_positions, collision_objects=[background])[0]
 
     box_world = box.get_bounding_box().translated(result[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), clearance_m=solver_params.clearance_m).item()
 
 
 def test_solve_without_collision_objects_is_a_noop():
@@ -309,7 +310,7 @@ def test_solve_without_collision_objects_is_a_noop():
     solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
 
     result = solver.solve([desk, box], initial_positions)[0]
-    box_bottom_z = box.get_bounding_box().min_point[0, 2].item() + result[box][2]
+    box_bottom_z = box.get_bounding_box().get_axis_aligned_bounds()[0][0, 2].item() + result[box][2]
     assert abs(box_bottom_z - 0.1) < 0.05
 
 
@@ -342,10 +343,10 @@ def test_validate_no_overlap_rejects_background_overlap():
     env_bboxes = {desk: desk.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}
-    assert not validator._validate_no_overlap(overlapping, env_bboxes, [background])
+    assert not validator._validate_no_overlap(overlapping, env_bboxes, collision_objects=[background])
 
     clear = {desk: (0.0, 0.0, 0.0), box: (1.5, 0.3, 0.1)}
-    assert validator._validate_no_overlap(clear, env_bboxes, [background])
+    assert validator._validate_no_overlap(clear, env_bboxes, collision_objects=[background])
 
 
 def _test_get_passive_collision_objects_filters(simulation_app) -> bool:
@@ -454,7 +455,7 @@ def test_object_placer_place_forwards_collision_objects():
 
     assert result.success
     box_world = box.get_bounding_box().translated(result.positions[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), clearance_m=solver_params.clearance_m).item()
 
 
 def test_pooled_object_placer_forwards_collision_objects():
@@ -485,7 +486,7 @@ def test_pooled_object_placer_forwards_collision_objects():
     layout = pool.sample_with_replacement(1)[0]
 
     box_world = box.get_bounding_box().translated(layout.positions[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), clearance_m=solver_params.clearance_m).item()
 
 
 def test_pooled_object_placer_multi_env_avoids_obstacle():
@@ -520,7 +521,7 @@ def test_pooled_object_placer_multi_env_avoids_obstacle():
     assert len(layouts) == num_envs
     for layout in layouts:
         box_world = box.get_bounding_box().translated(layout.positions[box])
-        assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
+        assert not box_world.overlaps(background.get_world_bounding_box(), clearance_m=solver_params.clearance_m).item()
 
 
 def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch):
@@ -652,11 +653,11 @@ def test_relation_placement_includes_background_mesh_for_object_mesh_override(mo
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     mesh_object = DummyObject(
         "mesh_object",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
     )
     mesh_object.add_relation(IsAnchor())
     mesh_object.collision_mode = CollisionMode.MESH
@@ -695,13 +696,13 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     background = Background.__new__(Background)
     background.collision_mode = CollisionMode.MESH
     placed_object = DummyObject(
         "placed_object",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
     )
     placed_object.add_relation(IsAnchor())
     calls = {}
@@ -741,13 +742,13 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     background = Background.__new__(Background)
     background.collision_mode = None
     placed_object = DummyObject(
         "placed_object",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
     )
     placed_object.add_relation(IsAnchor())
     calls = {}

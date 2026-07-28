@@ -14,7 +14,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -59,7 +59,7 @@ class EmbodimentBase(PlaceableAsset):
         self._collision_mesh: trimesh.Trimesh | None = None
         """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return root-relative bounds computed from the articulation's USD geometry."""
         # Import locally because USD/pxr is available only after simulation initialization.
         from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd

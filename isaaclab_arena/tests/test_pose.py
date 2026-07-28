@@ -6,6 +6,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import (
     rotate_points_by_yaw,
@@ -35,6 +37,14 @@ def test_rotate_quat_by_yaw_composes_and_wraps():
     # yaw == 0 (and full turns) return the base unchanged.
     assert rotate_quat_by_yaw(base, 0.0) == base
     assert rotate_quat_by_yaw(base, 2.0 * math.pi) == base
+
+
+def test_rotate_quat_by_yaw_precomposes_world_yaw_over_pitch():
+    """World yaw multiplies on the left when the base rotation contains pitch."""
+    half_sqrt = 2**-0.5
+    result = rotate_quat_by_yaw((0.0, half_sqrt, 0.0, half_sqrt), math.pi / 2)
+
+    assert result == pytest.approx((-0.5, 0.5, 0.5, 0.5))
 
 
 def test_pose_composition():

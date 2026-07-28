@@ -54,15 +54,15 @@ def yaw_from_quat_xyzw(quat_xyzw: tuple[float, float, float, float]) -> float:
 def rotate_quat_by_yaw(
     base_xyzw: tuple[float, float, float, float], yaw_rad: float
 ) -> tuple[float, float, float, float]:
-    """Rotate base_xyzw (xyzw) by an extra yaw about Z. Returns base unchanged when yaw is 0."""
+    """Apply an extra world-Z yaw as ``yaw_quat ⊗ base_xyzw``."""
     yaw_rad = wrap_angle_to_pi(yaw_rad)  # keep half-angle small for precision; canonicalize 2pi -> 0
     if yaw_rad == 0.0:
         return base_xyzw
     bx, by, bz, bw = base_xyzw
     sz = math.sin(yaw_rad / 2.0)
     cz = math.cos(yaw_rad / 2.0)
-    # Hamilton product base ⊗ (0, 0, sz, cz). Both rotations are about Z, so they commute.
-    return (bx * cz + by * sz, -bx * sz + by * cz, bz * cz + bw * sz, -bz * sz + bw * cz)
+    # Hamilton product (0, 0, sz, cz) ⊗ base.
+    return (bx * cz - by * sz, bx * sz + by * cz, bz * cz + bw * sz, -bz * sz + bw * cz)
 
 
 def rotate_points_by_yaw(points: torch.Tensor, yaw: float) -> torch.Tensor:

@@ -62,6 +62,9 @@ class RelationSolverParams:
     The solver adds a no-overlap loss for all pairs automatically. Set to 0.0 to only
     reject actual overlaps (no safety margin)."""
 
+    collision_loss_slope: float = 1000.0
+    """Scale applied to OBB and mesh penetration, ten times the strongest default relation slope."""
+
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
     strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
         default_factory=_default_strategies
@@ -70,3 +73,4 @@ class RelationSolverParams:
 
     def __post_init__(self):
         assert self.clearance_m >= 0, f"clearance_m must be >= 0, got {self.clearance_m}"
+        assert self.collision_loss_slope > 0, f"collision_loss_slope must be > 0, got {self.collision_loss_slope}"

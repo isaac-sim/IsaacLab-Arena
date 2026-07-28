@@ -5,6 +5,8 @@
 
 import numpy as np
 
+import pytest
+
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
@@ -46,6 +48,23 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
     return True
 
 
+def _test_get_prim_pose_rejects_scaled_reference(simulation_app):
+    """A referenced prim with local scale cannot be represented by Pose and OBB."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
+
+    stage = Usd.Stage.CreateInMemory()
+    root = UsdGeom.Xform.Define(stage, "/Root")
+    stage.SetDefaultPrim(root.GetPrim())
+    reference = UsdGeom.Xform.Define(stage, "/Root/Reference")
+    reference.AddScaleOp().Set(Gf.Vec3d(2.0, 2.0, 2.0))
+
+    with pytest.raises(AssertionError, match="must have unit scale"):
+        get_prim_pose_in_default_prim_frame(reference.GetPrim(), stage)
+    return True
+
+
 def test_get_prim_pose_in_default_prim_frame():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
     result = run_simulation_app_function(
@@ -53,6 +72,11 @@ def test_get_prim_pose_in_default_prim_frame():
         headless=HEADLESS,
     )
     assert result, "Test failed"
+
+
+def test_get_prim_pose_rejects_scaled_reference():
+    """Scaled referenced prims fail before their local scale can be discarded."""
+    assert run_simulation_app_function(_test_get_prim_pose_rejects_scaled_reference, headless=HEADLESS)
 
 
 if __name__ == "__main__":

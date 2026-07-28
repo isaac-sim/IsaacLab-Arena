@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.trimesh import bounding_box_from_mesh, mesh_in_world_frame
 
@@ -54,11 +54,11 @@ class FixedCollisionObject:
         """Return identity pose because the mesh is already baked into world coordinates."""
         return self._pose
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return the mesh bounds; identical to the world bounds since the mesh is in world frame."""
         return self._bounding_box
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_world_bounding_box(self) -> OrientedBoundingBox:
         """Return the mesh bounds in world frame."""
         return self._bounding_box
 

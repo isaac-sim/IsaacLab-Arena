@@ -3,17 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bounding-box helpers for heterogeneous placement.
-
-Keeps num_envs and per-env geometry logic out of placement assets.
-"""
+"""Per-environment bounding-box helpers."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -44,88 +41,72 @@ def assign_variants_for_envs(objects: list[PlaceableAsset], num_envs: int, place
             variant_set_idx += 1
 
 
-def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedBoundingBox:
-    """Return bounding boxes expanded to (num_envs, 3).
-
-    RigidObjectSet delegates to its own get_bounding_box_per_env.
-    All other objects broadcast their single bbox.
-    """
+def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> OrientedBoundingBox:
+    """Return one local bounding box per environment."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     if isinstance(obj, RigidObjectSet):
         return obj.get_bounding_box_per_env(num_envs)
 
     bbox = obj.get_bounding_box()
-    return AxisAlignedBoundingBox(
-        min_point=bbox.min_point.expand(num_envs, 3),
-        max_point=bbox.max_point.expand(num_envs, 3),
+    return OrientedBoundingBox(
+        center=bbox.center.expand(num_envs, 3),
+        half_extents=bbox.half_extents.expand(num_envs, 3),
+        rotation_xyzw=bbox.rotation_xyzw.expand(num_envs, 4),
     )
 
 
 @dataclass(frozen=True)
 class PerEnvBoundingBoxes:
-    """Per-env object bboxes, exposed in three layouts:
+    """Local object bounding boxes for each environment."""
 
-    - get_bounding_boxes_for_env_id: one dict for a single env, bboxes (1, 3).
-    - get_bounding_boxes_for_all_envs: list[dict] of length num_envs, each bbox (1, 3).
-    - get_bounding_boxes_for_solver_candidates: one dict tiled to
-      (num_envs * candidates_per_env, 3), grouped contiguously by env.
-    """
+    object_bboxes: dict[PlaceableAsset, OrientedBoundingBox]
+    """Boxes with center/half-extents shape (N, 3) and rotation shape (N, 4)."""
 
-    object_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox]
     num_envs: int
+    """Number of environments N."""
 
     def __post_init__(self) -> None:
         assert self.num_envs >= 1, f"num_envs must be >= 1, got {self.num_envs}"
         for obj, bbox in self.object_bboxes.items():
             assert (
-                bbox.min_point.shape[0] == self.num_envs
-            ), f"Object '{obj.name}' bbox min_point has {bbox.min_point.shape[0]} envs, expected {self.num_envs}."
+                bbox.center.shape[0] == self.num_envs
+            ), f"Object '{obj.name}' bbox center has {bbox.center.shape[0]} envs, expected {self.num_envs}."
             assert (
-                bbox.max_point.shape[0] == self.num_envs
-            ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
-
-    def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Return object bboxes for a single env (each (1, 3)), used for per-env initialization and validation."""
-        return {
-            obj: AxisAlignedBoundingBox(
-                min_point=bbox.min_point[env_id : env_id + 1],
-                max_point=bbox.max_point[env_id : env_id + 1],
+                bbox.half_extents.shape[0] == self.num_envs
+            ), f"Object '{obj.name}' bbox half_extents has {bbox.half_extents.shape[0]} envs, expected {self.num_envs}."
+            assert bbox.rotation_xyzw.shape[0] == self.num_envs, (
+                f"Object '{obj.name}' bbox rotation_xyzw has {bbox.rotation_xyzw.shape[0]} envs, expected"
+                f" {self.num_envs}."
             )
-            for obj, bbox in self.object_bboxes.items()
-        }
 
-    def get_bounding_boxes_for_all_envs(self) -> list[dict[PlaceableAsset, AxisAlignedBoundingBox]]:
-        """Return one-env bbox dicts for every env.
+    def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[PlaceableAsset, OrientedBoundingBox]:
+        """Return object bboxes for one env with N=1."""
+        return {obj: bbox[env_id] for obj, bbox in self.object_bboxes.items()}
 
-        The outer list has length num_envs. Each bbox has min_point/max_point
-        shape (1, 3).
-        """
+    def get_bounding_boxes_for_all_envs(self) -> list[dict[PlaceableAsset, OrientedBoundingBox]]:
+        """Return num_envs one-env bbox dicts, each with N=1."""
         return [self.get_bounding_boxes_for_env_id(env_id) for env_id in range(self.num_envs)]
 
     def get_bounding_boxes_for_solver_candidates(
         self, candidates_per_env: int
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
+    ) -> dict[PlaceableAsset, OrientedBoundingBox]:
         """Return bboxes tiled to one row per solver candidate.
 
-        Each bbox has shape (num_envs * candidates_per_env, 3). Rows are grouped
-        contiguously by env: rows [i * candidates_per_env : (i + 1) * candidates_per_env]
-        all hold env i's bbox. Callers recover the env via candidate_idx // candidates_per_env.
+        Each bbox has N=num_envs * candidates_per_env. Rows are grouped contiguously
+        by env; callers recover the env via candidate_idx // candidates_per_env.
         """
         return {
-            obj: AxisAlignedBoundingBox(
-                min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),
-                max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
+            obj: OrientedBoundingBox(
+                center=bbox.center.repeat_interleave(candidates_per_env, dim=0),
+                half_extents=bbox.half_extents.repeat_interleave(candidates_per_env, dim=0),
+                rotation_xyzw=bbox.rotation_xyzw.repeat_interleave(candidates_per_env, dim=0),
             )
             for obj, bbox in self.object_bboxes.items()
         }
 
 
 def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -> PerEnvBoundingBoxes:
-    """Build per-env base bboxes for each placement object.
-
-    Object orientation (marker roll/pitch/yaw plus sampled and FaceTo yaw) is applied later per
-    candidate in ObjectPlacer._rotate_candidate_bboxes, so these boxes carry object geometry only.
-    """
+    """Build per-env local OBB geometry for each placement object."""
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)

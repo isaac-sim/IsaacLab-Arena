@@ -37,7 +37,11 @@ def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pos
     default_T_world = default_T_world.GetInverse()
     prim_T_default = prim_T_world * default_T_world
 
-    pos, rot, _ = UsdSkel.DecomposeTransform(prim_T_default)
+    pos, rot, scale = UsdSkel.DecomposeTransform(prim_T_default)
+    assert all(abs(component - 1.0) < 1e-6 for component in scale), (
+        "Referenced prim transform relative to the default prim must have unit scale; "
+        "Pose and oriented bounding boxes only support rigid transforms."
+    )
     rot_tuple = (rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal())
     pos_tuple = (pos[0], pos[1], pos[2])
     return Pose(position_xyz=pos_tuple, rotation_xyzw=rot_tuple)

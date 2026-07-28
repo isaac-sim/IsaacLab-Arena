@@ -23,7 +23,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -81,23 +81,24 @@ class HeterogeneousDummyObject(DummyObject):
     RigidObjectSet's USD machinery.
     """
 
-    def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
+    def __init__(self, name: str, bboxes: list[OrientedBoundingBox], **kwargs):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
 
-    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+    def get_bounding_box_per_env(self, num_envs: int) -> OrientedBoundingBox:
         """Return env-specific bbox variants for this test double."""
         n_variants = len(self._per_env_bboxes)
         indices = [i % n_variants for i in range(num_envs)]
-        min_pts = torch.stack([self._per_env_bboxes[idx].min_point[0] for idx in indices])
-        max_pts = torch.stack([self._per_env_bboxes[idx].max_point[0] for idx in indices])
-        return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+        centers = torch.stack([self._per_env_bboxes[idx].center[0] for idx in indices])
+        half_extents = torch.stack([self._per_env_bboxes[idx].half_extents[0] for idx in indices])
+        rotations = torch.stack([self._per_env_bboxes[idx].rotation_xyzw[0] for idx in indices])
+        return OrientedBoundingBox(center=centers, half_extents=half_extents, rotation_xyzw=rotations)
 
 
 def _make_desk() -> DummyObject:
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
@@ -114,45 +115,45 @@ def test_dummy_object_bbox_per_env_expands_single():
 
     obj = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
 
     per_env = get_bounding_box_per_env(obj, 4)
-    assert per_env.min_point.shape == (4, 3)
-    assert per_env.max_point.shape == (4, 3)
-    assert torch.allclose(per_env.min_point[0], per_env.min_point[3])
+    assert per_env.center.shape == (4, 3)
+    assert per_env.half_extents.shape == (4, 3)
+    assert torch.allclose(per_env.center[0], per_env.center[3])
 
 
 def test_per_env_bounding_boxes_formats_solver_and_env_views():
     """PerEnvBoundingBoxes should expose solver and one-env bbox formats."""
     obj = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.3, 0.4)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.3, 0.4)),
     )
 
     env_bboxes = build_per_env_bounding_boxes([obj], num_envs=3)
     solver_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env=2)
     per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
-    assert solver_bboxes[obj].min_point.shape == (6, 3)
-    assert solver_bboxes[obj].max_point.shape == (6, 3)
+    assert solver_bboxes[obj].center.shape == (6, 3)
+    assert solver_bboxes[obj].half_extents.shape == (6, 3)
     assert len(per_env_bboxes) == 3
-    assert per_env_bboxes[1][obj].min_point.shape == (1, 3)
-    assert torch.allclose(per_env_bboxes[1][obj].max_point[0], torch.tensor([0.2, 0.3, 0.4]))
+    assert per_env_bboxes[1][obj].center.shape == (1, 3)
+    assert torch.allclose(per_env_bboxes[1][obj].half_extents[0], torch.tensor([0.1, 0.15, 0.2]))
 
 
 def test_heterogeneous_dummy_returns_different_bboxes():
     """HeterogeneousDummyObject should cycle through its member bboxes."""
 
-    small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
+    small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
     obj = HeterogeneousDummyObject(name="set", bboxes=[small, large])
 
     per_env = obj.get_bounding_box_per_env(4)
-    assert per_env.max_point.shape == (4, 3)
+    assert per_env.half_extents.shape == (4, 3)
     # env 0 and 2 should use small; env 1 and 3 should use large
-    assert torch.allclose(per_env.max_point[0], torch.tensor([0.1, 0.1, 0.1]))
-    assert torch.allclose(per_env.max_point[1], torch.tensor([0.3, 0.3, 0.3]))
+    assert torch.allclose(per_env.half_extents[0], torch.tensor([0.05, 0.05, 0.05]))
+    assert torch.allclose(per_env.half_extents[1], torch.tensor([0.15, 0.15, 0.15]))
 
 
 def test_dummy_object_preserves_constructor_relations():
@@ -162,7 +163,7 @@ def test_dummy_object_preserves_constructor_relations():
     anchor_relation = IsAnchor()
     obj = DummyObject(
         name="anchor",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
         relations=[anchor_relation],
     )
 
@@ -200,7 +201,7 @@ def test_relation_solver_uses_env_bboxes():
     desk = _make_desk()
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -212,7 +213,7 @@ def test_relation_solver_uses_env_bboxes():
     # Create per-env bboxes with varying sizes across the batch.
     min_pts = torch.zeros(batch_size, 3)
     max_pts = torch.stack([torch.tensor([0.1 + 0.05 * i, 0.1 + 0.05 * i, 0.2]) for i in range(batch_size)])
-    env_bbox = AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+    env_bbox = OrientedBoundingBox.from_min_max(min_point=min_pts, max_point=max_pts)
 
     solver_params = RelationSolverParams(max_iters=100, convergence_threshold=1e-3, verbose=False)
     solver = RelationSolver(params=solver_params)
@@ -234,8 +235,8 @@ def test_object_placer_heterogeneous_produces_per_env_results():
 
     desk = _make_desk()
 
-    small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
+    small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
     hetero_box = HeterogeneousDummyObject(name="hetero_box", bboxes=[small, large])
     hetero_box.add_relation(On(desk, clearance_m=0.01))
 
@@ -263,9 +264,9 @@ def test_object_placer_heterogeneous_z_height_matches_variant():
     desk = _make_desk()
 
     # "tall" variant: height 0.4 -> bottom at z ~0.11 (desk top 0.1 + clearance 0.01)
-    tall = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.4))
+    tall = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.4))
     # "short" variant: height 0.1 -> bottom at z ~0.11 (same clearance)
-    short = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.1))
+    short = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.1))
     hetero = HeterogeneousDummyObject(name="hetero", bboxes=[tall, short])
     hetero.add_relation(On(desk, clearance_m=0.01))
 
@@ -299,15 +300,15 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     desk = _make_desk()
 
     # A: heterogeneous — small variant in even envs, large in odd envs.
-    small_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    large_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.25, 0.25, 0.25))
+    small_a = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large_a = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.25, 0.25, 0.25))
     obj_a = HeterogeneousDummyObject(name="A", bboxes=[small_a, large_a])
     obj_a.add_relation(On(desk, clearance_m=0.01))
 
     # X: homogeneous — same bbox in all envs.
     obj_x = DummyObject(
         name="X",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
     )
     obj_x.add_relation(On(desk, clearance_m=0.01))
 
@@ -405,7 +406,7 @@ def test_object_placer_homogeneous_objects_return_multi_env_result():
     desk = _make_desk()
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -431,8 +432,8 @@ def test_object_placer_homogeneous_objects_return_multi_env_result():
 def _make_hetero_pool_objects():
     """Create desk + heterogeneous box for pool tests."""
     desk = _make_desk()
-    small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
+    small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
     hetero = HeterogeneousDummyObject(name="hetero", bboxes=[small, large])
     hetero.add_relation(On(desk, clearance_m=0.01))
 
@@ -737,7 +738,7 @@ def test_pooled_placer_homogeneous_reports_complete_env_rounds():
     desk = _make_desk()
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -757,14 +758,14 @@ def test_pooled_placer_homogeneous_reports_complete_env_rounds():
 def test_pooled_placer_mixed_heterogeneous_and_homogeneous_objects():
     """A pool with mixed object types should match only per-env geometry by env."""
     desk = _make_desk()
-    small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.25, 0.25, 0.25))
+    small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.25, 0.25, 0.25))
     hetero = HeterogeneousDummyObject(name="hetero", bboxes=[small, large])
     hetero.add_relation(On(desk, clearance_m=0.01))
 
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -793,14 +794,14 @@ def test_pooled_placer_multi_set_different_variant_counts():
     """
     desk = _make_desk()
 
-    bottle_small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.2))
-    bottle_medium = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.25))
-    bottle_large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.3))
+    bottle_small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.2))
+    bottle_medium = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.25))
+    bottle_large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.3))
     bottles = HeterogeneousDummyObject(name="bottles", bboxes=[bottle_small, bottle_medium, bottle_large])
     bottles.add_relation(On(desk, clearance_m=0.01))
 
-    box_small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
-    box_large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.15))
+    box_small = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
+    box_large = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.15))
     boxes = HeterogeneousDummyObject(name="boxes", bboxes=[box_small, box_large])
     boxes.add_relation(On(desk, clearance_m=0.01))
 
@@ -821,14 +822,14 @@ def test_pooled_placer_multi_set_sample_with_replacement():
     """sample_with_replacement with multi-set heterogeneous objects."""
     desk = _make_desk()
 
-    a_s = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.15))
-    a_m = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    a_l = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.25))
+    a_s = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.15))
+    a_m = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    a_l = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.25))
     obj_a = HeterogeneousDummyObject(name="A", bboxes=[a_s, a_m, a_l])
     obj_a.add_relation(On(desk, clearance_m=0.01))
 
-    b_s = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    b_l = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.12))
+    b_s = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    b_l = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.12))
     obj_b = HeterogeneousDummyObject(name="B", bboxes=[b_s, b_l])
     obj_b.add_relation(On(desk, clearance_m=0.01))
 
@@ -847,14 +848,14 @@ def test_pooled_placer_multi_set_sample_without_replacement_triggers_refill():
     """Exhausting a per-env pool should trigger refill with multi-set objects."""
     desk = _make_desk()
 
-    v1 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
-    v2 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.2))
-    v3 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.18))
+    v1 = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
+    v2 = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.2))
+    v3 = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.18))
     obj_a = HeterogeneousDummyObject(name="A", bboxes=[v1, v2, v3])
     obj_a.add_relation(On(desk, clearance_m=0.01))
 
-    w1 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
-    w2 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.12, 0.12))
+    w1 = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
+    w2 = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.12, 0.12))
     obj_b = HeterogeneousDummyObject(name="B", bboxes=[w1, w2])
     obj_b.add_relation(On(desk, clearance_m=0.01))
 
@@ -914,8 +915,8 @@ def test_real_rigid_object_set_through_pooled_placer():
 
     can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
     can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
-    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.2))
+    can_a.bounding_box = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
+    can_b.bounding_box = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.2))
 
     with (
         patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),

@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING
 
 import warp as wp
 
-from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
-
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
 
@@ -124,24 +122,7 @@ class WarpMeshAndSphereCache:
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
         self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
-        self._sentinel_warned: bool = False
         self._raw_open_mesh_warned: set[tuple] = set()
-
-    def reset_sentinel_warning(self) -> None:
-        """Re-arm for a new solve/validation pass."""
-        self._sentinel_warned = False
-
-    def warn_sdf_sentinel(self, sdf_values: torch.Tensor) -> None:
-        """Warn (once per pass) if any query hit the no-face sentinel."""
-        if self._sentinel_warned:
-            return
-        if has_sdf_sentinel(sdf_values):
-            self._sentinel_warned = True
-            n_bad = sdf_sentinel_count(sdf_values)
-            print(
-                f"  [MeshSDF] WARNING: {n_bad}/{len(sdf_values)} sphere queries returned sentinel SDF "
-                "(no mesh face found). Collision detection may be incomplete for these points."
-            )
 
     def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""

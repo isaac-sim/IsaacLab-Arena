@@ -5,7 +5,12 @@
 
 """Smoke tests for IsaacSimDebugDraw."""
 
+import math
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 
 def smoke_test_debug_draw(simulation_app) -> bool:
@@ -31,3 +36,25 @@ def test_isaac_sim_debug_draw_smoke():
     """Smoke test: IsaacSimDebugDraw initializes and runs without errors."""
     result = run_simulation_app_function(smoke_test_debug_draw)
     assert result, "IsaacSimDebugDraw smoke test failed"
+
+
+def test_draw_object_bboxes_uses_oriented_corners():
+    """Object drawing emits the exact OBB corners in wireframe edge order."""
+    from isaaclab_arena.utils.isaac_sim_debug_draw import DEFAULT_COLOR, IsaacSimDebugDraw
+
+    half_yaw = math.pi / 8
+    bbox = OrientedBoundingBox((1.0, 2.0, 3.0), (2.0, 1.0, 0.5), (0.0, 0.0, math.sin(half_yaw), math.cos(half_yaw)))
+    obj = SimpleNamespace(get_world_bounding_box=lambda: bbox)
+    debug_draw = IsaacSimDebugDraw.__new__(IsaacSimDebugDraw)
+    debug_draw._draw = MagicMock()
+
+    debug_draw.draw_object_bboxes([obj], thickness=2.0)
+
+    corners = bbox.get_corners()[0].tolist()
+    edges = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)]
+    debug_draw._draw.draw_lines.assert_called_once_with(
+        [corners[start] for start, _ in edges],
+        [corners[end] for _, end in edges],
+        [DEFAULT_COLOR] * 12,
+        [2.0] * 12,
+    )
