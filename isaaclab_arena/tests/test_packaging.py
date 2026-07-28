@@ -18,6 +18,7 @@ from pathlib import Path
 
 PACKAGE_ROOTS = (
     "isaaclab_arena",
+    "isaaclab_arena_cosmos",
     "isaaclab_arena_curobo",
     "isaaclab_arena_dreamzero",
     "isaaclab_arena_environments",
