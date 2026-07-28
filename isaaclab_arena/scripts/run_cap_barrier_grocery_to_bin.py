@@ -17,18 +17,29 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Callable
+from contextlib import suppress
 from functools import partial
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import make_grocery_physical_result_observer
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
+    make_grocery_physical_result_observer,
+)
+from isaaclab_arena.integrations.cap_barrier.grocery_retention_trace import (
+    make_grocery_retention_trace_writer,
+)
 from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_CAMERA_NAME,
     CAP_GROCERY_CAMERA_PROFILES,
     CAP_GROCERY_OBJECT_ASSET,
 )
-from isaaclab_arena.integrations.cap_barrier.video_recorder import make_grocery_video_recorder
-from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _SERVE_TIMEOUT_S, _run_serve
+from isaaclab_arena.integrations.cap_barrier.video_recorder import (
+    make_grocery_video_recorder,
+)
+from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
+    _SERVE_TIMEOUT_S,
+    _run_serve,
+)
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 
@@ -89,6 +100,23 @@ def _add_grocery_arguments(parser) -> None:
         ),
     )
     parser.add_argument(
+        "--retention-trace-jsonl",
+        default=None,
+        metavar="ABS_PATH",
+        help=(
+            "Absolute non-existing .jsonl path for the opt-in per-physics-step grocery retention trace. "
+            "Requires --retention-trace-diagnostic-only."
+        ),
+    )
+    parser.add_argument(
+        "--retention-trace-diagnostic-only",
+        action="store_true",
+        help=(
+            "Acknowledge that an enabled retention trace changes wall-clock execution and the run cannot "
+            "count toward the grocery 3/3 qualification."
+        ),
+    )
+    parser.add_argument(
         "--record-video",
         default=None,
         metavar="ABS_PATH",
@@ -105,7 +133,9 @@ def _environment_factory(
     *,
     diagnostic_can_away: bool = False,
 ):
-    from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_grocery_to_bin_environment
+    from isaaclab_arena.integrations.cap_barrier.franka_env import (
+        make_cap_grocery_to_bin_environment,
+    )
 
     keywords = {"camera_profile": camera_profile}
     if diagnostic_can_away:
@@ -133,11 +163,15 @@ def _physical_result_observer_factory(args_cli):
     request_path = args_cli.result_request_file
     result_path = args_cli.result_jsonl
     if (request_path is None) != (result_path is None):
-        raise ValueError("--result-request-file and --result-jsonl must be supplied together")
+        raise ValueError(
+            "--result-request-file and --result-jsonl must be supplied together"
+        )
     if request_path is None:
         return None
     if not os.path.isabs(request_path) or not os.path.isabs(result_path):
-        raise ValueError("--result-request-file and --result-jsonl must be absolute paths")
+        raise ValueError(
+            "--result-request-file and --result-jsonl must be absolute paths"
+        )
     return partial(
         make_grocery_physical_result_observer,
         request_path=request_path,
@@ -154,6 +188,26 @@ def _video_observer_factory(args_cli):
     if not output_path.lower().endswith(".mp4"):
         raise ValueError("--record-video must end in .mp4")
     return partial(make_grocery_video_recorder, output_path=output_path)
+
+
+def _retention_trace_observer_factory(args_cli):
+    output_path = getattr(args_cli, "retention_trace_jsonl", None)
+    diagnostic_only = getattr(args_cli, "retention_trace_diagnostic_only", False)
+    if output_path is None:
+        if diagnostic_only:
+            raise ValueError(
+                "--retention-trace-diagnostic-only requires --retention-trace-jsonl"
+            )
+        return None
+    if not diagnostic_only:
+        raise ValueError(
+            "--retention-trace-jsonl requires --retention-trace-diagnostic-only"
+        )
+    if not os.path.isabs(output_path):
+        raise ValueError("--retention-trace-jsonl must be an absolute path")
+    if not output_path.lower().endswith(".jsonl"):
+        raise ValueError("--retention-trace-jsonl must end in .jsonl")
+    return partial(make_grocery_retention_trace_writer, output_path=output_path)
 
 
 class _GroceryPhysicsObserverGroup:
@@ -188,27 +242,45 @@ class _GroceryPhysicsObserverGroup:
 
 
 def _grocery_observer_factory(args_cli):
-    factories = tuple(
-        factory
-        for factory in (
-            _physical_result_observer_factory(args_cli),
-            _video_observer_factory(args_cli),
+    named_factories = tuple(
+        (name, factory)
+        for name, factory in (
+            ("physical_result", _physical_result_observer_factory(args_cli)),
+            ("video", _video_observer_factory(args_cli)),
+            ("retention_trace", _retention_trace_observer_factory(args_cli)),
         )
         if factory is not None
     )
-    if not factories:
+    if not named_factories:
         return None
-    if len(factories) == 1:
-        return factories[0]
+    if len(named_factories) == 1:
+        return named_factories[0][1]
 
     def build(adapter, marker_sink):
-        observers = tuple(factory(adapter, marker_sink) for factory in factories)
+        created: dict[str, Callable[[int], None]] = {}
+        try:
+            for name, factory in named_factories:
+                created[name] = factory(adapter, marker_sink)
+        except BaseException:
+            for observer in reversed(tuple(created.values())):
+                close = getattr(observer, "close", None)
+                if callable(close):
+                    with suppress(BaseException):
+                        close()
+            raise
+        observers = tuple(
+            created[name]
+            for name in ("retention_trace", "physical_result", "video")
+            if name in created
+        )
         return _GroceryPhysicsObserverGroup(observers)
 
     return build
 
 
-def _run_grocery(args_cli, *, context_factory=SimulationAppContext, serve=_run_serve) -> None:
+def _run_grocery(
+    args_cli, *, context_factory=SimulationAppContext, serve=_run_serve
+) -> None:
     physics_observer_factory = _grocery_observer_factory(args_cli)
     # Both supported profiles spawn exterior_cam through AppLauncher.
     args_cli.enable_cameras = True
@@ -247,6 +319,7 @@ def main() -> None:
     try:
         _physical_result_observer_factory(args_cli)
         _video_observer_factory(args_cli)
+        _retention_trace_observer_factory(args_cli)
     except ValueError as error:
         parser.error(str(error))
     _run_grocery(args_cli)

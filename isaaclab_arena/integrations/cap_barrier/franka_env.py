@@ -131,6 +131,7 @@ class FrankaSimulationAdapter:
         self._gripper_action_latch = DroidBinaryGripperActionLatch(
             self._reset_gripper_position
         )
+        self._last_admitted_binary_gripper_action: float | None = None
         self.last_physics_step_started_at_s: float | None = None
         self.physics_step_count = 0
         self.reset_count = 0
@@ -165,6 +166,13 @@ class FrankaSimulationAdapter:
     def gripper_position(self) -> float:
         return self.abi_positions()[7]
 
+    @property
+    def last_admitted_binary_gripper_action(self) -> float:
+        """Return the binary gripper action from the last successful physics step."""
+        if self._last_admitted_binary_gripper_action is None:
+            raise RuntimeError("no DROID gripper action has completed a physics step")
+        return self._last_admitted_binary_gripper_action
+
     def abi_positions(self) -> tuple[float, ...]:
         positions, _, _ = self.read_joint_state()
         return self.joint_mapping.to_abi_order(positions)
@@ -196,6 +204,7 @@ class FrankaSimulationAdapter:
         self.synchronize()
         self.last_physics_step_started_at_s = time.monotonic()
         self._environment.step(action)
+        self._last_admitted_binary_gripper_action = float(gripper_action)
         self.physics_step_count += 1
 
     def reset_without_physics_step(self) -> None:
@@ -203,6 +212,7 @@ class FrankaSimulationAdapter:
         # does not advance physics, which is the required CR-20 fence behavior.
         self._environment.reset()
         self._gripper_action_latch.reset(self._reset_gripper_position)
+        self._last_admitted_binary_gripper_action = None
         self.reset_count += 1
 
     def close(self) -> None:

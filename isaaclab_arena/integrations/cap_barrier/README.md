@@ -203,6 +203,51 @@ and remote process-group death attestations from the canonical supervisor.
 - The production control plane owns reset admission and fence closure; the Kit producer remains
   ROS-free and observes only the CR-05 shared-memory contract.
 
+## Grocery retention trace
+
+The grocery runner accepts an optional
+`--retention-trace-jsonl /absolute/non-existing/path.jsonl`, paired with the mandatory
+`--retention-trace-diagnostic-only` acknowledgement. When absent, no trace writer is constructed
+and the environment and per-frame observer path are unchanged. A traced run is diagnostic-only:
+it must never count toward the grocery 3/3 qualification because even bounded asynchronous
+instrumentation can perturb wall-clock scheduling. Final qualification runs are untraced.
+
+When configured, the producer opens the path exclusively and stages live state into a bounded
+queue. The Kit physics callback never encodes JSON, writes, flushes, or calls a CUDA
+synchronization primitive. On CUDA, it copies into one of a fixed number of preallocated pinned
+host slots and records a CUDA event on the exact staging stream; a worker waits for that event
+before materializing Python values and writing. If event recording fails, cleanup fences that
+captured stream rather than consulting another thread's current stream. Callback work above the
+`0.5 ms` target is dropped and counted rather than
+back-pressuring physics, queue exhaustion also drops and counts the frame, and any callback taking
+`5 ms` or more fails the run. Worker failures are sticky and fail closed. The close marker reports
+observed, persisted, dropped, and maximum-callback-time totals. A trace with any dropped frame is
+explicitly incomplete and fails at close; only a zero-drop trace satisfying
+`observed == persisted + dropped` emits the clean `CLOSED` marker. This preserves the strict
+contiguous-frame contract of the host validator instead of making a real drop look like file
+corruption.
+
+Persisted rows remain canonical `cap.grocery-retention-trace.v1` objects. No schema change is
+needed because the asynchronous mechanics and drop totals are external lifecycle evidence; each
+persisted row retains the same state and local-counter shape. Records contain only local
+generation, frame, reset, and physics-step counters plus a monotonic timestamp and the local
+kernel boot ID. The boot ID lets the host fail closed unless GaP's diagnostic node markers and
+the Arena trace use the same kernel `CLOCK_MONOTONIC`; it is local diagnostic identity, not a
+benchmark identity. Records do not claim barrier wire generation, sequence, or tick identities.
+
+Each row records the successfully applied binary gripper action, all six physical Robotiq
+articulation joints by their live names (position, velocity, and diagnostic `applied_torque`), the
+can world pose and velocity, and the existing DROID `tool_leftfinger` and `tool_rightfinger`
+FrameTransformer targets in both world and can-relative coordinates. Those targets are the
+configured frames on the inner-finger links, including the embodiment's `0.046 m` offsets.
+`applied_torque` is actuator telemetry, not calibrated contact force.
+
+V1 deliberately contains no contact or force fields. Arena has no source-proven, can-filtered
+left/right contact-sensor configuration on this scene, and the exact runtime can collision prim
+path has not been validated. Guessing a filter could silently measure support, self-contact, or no
+contact at all. Add contact measurements only after a live validation pins the can collision prim
+and proves that enabling the two filtered sensors is confined to this opt-in trace path.
+
 ## Perception producer (Phase 3)
 
 `perception_producer.py` is the ROS-free Kit side of CAP perception. `extract_camera_frame`

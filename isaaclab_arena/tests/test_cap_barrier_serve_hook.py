@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 from isaaclab_arena.integrations.cap_barrier.protocol import (
     BarrierPhase,
     FrameKind,
@@ -18,6 +20,7 @@ from isaaclab_arena.integrations.cap_barrier.serve import (
     serve_generation_watching_gripper,
 )
 from isaaclab_arena.integrations.cap_barrier.shared_memory import BarrierStatus
+from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import _run_serve
 
 
 class _ServingManager:
@@ -56,7 +59,7 @@ class _ServingManager:
 
 def test_on_physics_frame_hook_fires_once_per_physics_step() -> None:
     manager = _ServingManager(frames_before_advance=5)
-    seen: list[int] = []
+    seen: list[tuple[int, int]] = []
 
     observation = serve_generation_watching_gripper(
         manager,
@@ -65,13 +68,14 @@ def test_on_physics_frame_hook_fires_once_per_physics_step() -> None:
         settle_frames=0,
         declare_open_success=False,
         marker_sink=lambda _marker: None,
-        on_physics_frame=seen.append,
+        on_physics_frame=lambda frame: seen.append((frame, manager.published)),
     )
 
     assert observation.exit_reason == ServeExit.GENERATION_ADVANCED
     assert observation.physics_frames == 5
-    # One hook call per served physics frame, in order, pre-increment counter.
-    assert seen == [0, 1, 2, 3, 4]
+    # The manager's published count proves the hook runs after each completed
+    # physics step, while the hook's local frame is intentionally pre-increment.
+    assert seen == [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]
 
 
 def test_serve_loop_is_unchanged_without_a_hook() -> None:
@@ -88,3 +92,11 @@ def test_serve_loop_is_unchanged_without_a_hook() -> None:
 
     assert observation.exit_reason == ServeExit.GENERATION_ADVANCED
     assert observation.physics_frames == 3
+
+
+def test_generic_done_marker_follows_observer_resource_close() -> None:
+    source = inspect.getsource(_run_serve)
+
+    assert source.index("_close_resources(") < source.index(
+        'print("CAP_SERVE_KIT_DONE"'
+    )

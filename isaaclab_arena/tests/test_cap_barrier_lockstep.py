@@ -403,10 +403,44 @@ class _FakeDroidEnvironment:
         pass
 
 
+class _FailingDroidEnvironment(_FakeDroidEnvironment):
+    def step(self, action) -> None:
+        del action
+        raise RuntimeError("synthetic physics failure")
+
+
+def test_droid_adapter_records_admitted_action_only_after_successful_physics() -> None:
+    torch = pytest.importorskip("torch")
+    adapter = FrankaSimulationAdapter(
+        _FailingDroidEnvironment(torch),
+        initial_gripper_closed=False,
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic physics failure"):
+        adapter.step_position_targets(
+            (
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                DROID_GRIPPER_CLOSED_POSITION_RAD,
+            )
+        )
+
+    assert adapter.physics_step_count == 0
+    with pytest.raises(RuntimeError, match="no DROID gripper action"):
+        _ = adapter.last_admitted_binary_gripper_action
+
+
 def test_droid_adapter_preserves_binary_intent_across_controller_cancel_hold() -> None:
     torch = pytest.importorskip("torch")
     environment = _FakeDroidEnvironment(torch)
     adapter = FrankaSimulationAdapter(environment, initial_gripper_closed=False)
+    with pytest.raises(RuntimeError, match="no DROID gripper action"):
+        _ = adapter.last_admitted_binary_gripper_action
     environment.robot.data.joint_pos[0, 1] = DROID_GRIPPER_CLOSED_POSITION_RAD / 3
     assert adapter.abi_positions() == pytest.approx(
         (
@@ -424,9 +458,13 @@ def test_droid_adapter_preserves_binary_intent_across_controller_cancel_hold() -
     arm_target = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
     cancel_hold_position = 0.20944960415363312
     adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
+    assert adapter.last_admitted_binary_gripper_action == 1.0
     adapter.step_position_targets((*arm_target, cancel_hold_position))
+    assert adapter.last_admitted_binary_gripper_action == 1.0
     adapter.step_position_targets((*arm_target, 0.0))
+    assert adapter.last_admitted_binary_gripper_action == 0.0
     adapter.step_position_targets((*arm_target, cancel_hold_position))
+    assert adapter.last_admitted_binary_gripper_action == 0.0
     assert environment.actions[0][0].tolist() == pytest.approx([*arm_target, 1.0])
     assert environment.actions[1][0].tolist() == pytest.approx([*arm_target, 1.0])
     assert environment.actions[2][0].tolist() == pytest.approx([*arm_target, 0.0])
@@ -457,9 +495,12 @@ def test_droid_adapter_reset_reseeds_binary_intent_from_scene_profile() -> None:
     adapter.step_position_targets((*arm_target, DROID_GRIPPER_CLOSED_POSITION_RAD))
     environment.robot.data.joint_pos[0, 1] = cancel_hold_position
     adapter.reset_without_physics_step()
+    with pytest.raises(RuntimeError, match="no DROID gripper action"):
+        _ = adapter.last_admitted_binary_gripper_action
     adapter.step_position_targets((*arm_target, cancel_hold_position))
 
     assert adapter.reset_count == 1
+    assert adapter.last_admitted_binary_gripper_action == 0.0
     assert environment.actions[0][0].tolist() == pytest.approx([*arm_target, 1.0])
     assert environment.actions[1][0].tolist() == pytest.approx([*arm_target, 0.0])
 

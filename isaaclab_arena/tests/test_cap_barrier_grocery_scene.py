@@ -23,7 +23,12 @@ from isaaclab_arena.integrations.cap_barrier.franka_env import (
     _make_cap_grocery_assets,
     make_cap_grocery_to_bin_environment,
 )
-from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import make_grocery_physical_result_observer
+from isaaclab_arena.integrations.cap_barrier.grocery_physical_result import (
+    make_grocery_physical_result_observer,
+)
+from isaaclab_arena.integrations.cap_barrier.grocery_retention_trace import (
+    make_grocery_retention_trace_writer,
+)
 from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_BIN_ASSET,
     CAP_GROCERY_BIN_POSE,
@@ -37,12 +42,15 @@ from isaaclab_arena.integrations.cap_barrier.grocery_scene_spec import (
     CAP_GROCERY_SUPPORT_POSE,
     CAP_GROCERY_SUPPORT_SIZE,
 )
-from isaaclab_arena.integrations.cap_barrier.video_recorder import make_grocery_video_recorder
+from isaaclab_arena.integrations.cap_barrier.video_recorder import (
+    make_grocery_video_recorder,
+)
 from isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin import (
     _add_grocery_arguments,
     _environment_factory,
     _grocery_observer_factory,
     _physical_result_observer_factory,
+    _retention_trace_observer_factory,
     _run_grocery,
     _scene_ready_marker,
     _video_observer_factory,
@@ -57,7 +65,9 @@ from isaaclab_arena.scripts.run_cap_barrier_move_to_pose_serve import (
 
 
 def _droid_embodiment():
-    return AssetRegistry().get_asset_by_name("droid_abs_joint_pos")(enable_cameras=False)
+    return AssetRegistry().get_asset_by_name("droid_abs_joint_pos")(
+        enable_cameras=False
+    )
 
 
 def test_grocery_embodiment_preserves_identity_base_and_pins_proven_home() -> None:
@@ -67,7 +77,10 @@ def test_grocery_embodiment_preserves_identity_base_and_pins_proven_home() -> No
 
     assert tuple(embodiment.scene_config.robot.init_state.pos) == (0.0, 0.0, 0.0)
     assert tuple(embodiment.scene_config.robot.init_state.rot) == (0.0, 0.0, 0.0, 1.0)
-    assert tuple(embodiment.event_config.init_franka_arm_pose.params["default_pose"]) == CAP_GROCERY_DROID_HOME
+    assert (
+        tuple(embodiment.event_config.init_franka_arm_pose.params["default_pose"])
+        == CAP_GROCERY_DROID_HOME
+    )
 
 
 def test_grocery_embodiment_rejects_a_base_pose_outside_pinned_calibration() -> None:
@@ -124,8 +137,14 @@ def test_grocery_scene_can_move_only_the_can_for_contact_counterfactual() -> Non
     grocery = scene_assets[CAP_GROCERY_OBJECT_ASSET]
     destination = scene_assets[CAP_GROCERY_BIN_ASSET]
     support = scene_assets[CAP_GROCERY_SUPPORT_INSTANCE]
-    assert grocery.get_initial_pose().position_xyz == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
-    assert grocery.get_initial_pose().rotation_xyzw == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[1]
+    assert (
+        grocery.get_initial_pose().position_xyz
+        == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[0]
+    )
+    assert (
+        grocery.get_initial_pose().rotation_xyzw
+        == CAP_GROCERY_DIAGNOSTIC_OBJECT_AWAY_POSE[1]
+    )
     assert destination.get_initial_pose().position_xyz == CAP_GROCERY_BIN_POSE[0]
     assert support.get_initial_pose().position_xyz == CAP_GROCERY_SUPPORT_POSE[0]
     support_x, support_y, _ = CAP_GROCERY_SUPPORT_POSE[0]
@@ -165,13 +184,17 @@ def test_proven_layout_is_inside_support_and_recorded_radial_envelope() -> None:
         ("oblique", "MapleDroidPerceptionCameraCfg"),
     ],
 )
-def test_camera_profiles_are_explicit_and_publish_exterior_camera(profile: str, class_name: str) -> None:
+def test_camera_profiles_are_explicit_and_publish_exterior_camera(
+    profile: str, class_name: str
+) -> None:
     embodiment = _droid_embodiment()
 
     _configure_cap_camera(embodiment, profile)
 
     assert type(embodiment.camera_config).__name__ == class_name
-    assert embodiment.camera_config.exterior_cam.prim_path.endswith(f"/{CAP_GROCERY_CAMERA_NAME}")
+    assert embodiment.camera_config.exterior_cam.prim_path.endswith(
+        f"/{CAP_GROCERY_CAMERA_NAME}"
+    )
     assert embodiment.camera_config.exterior_cam.update_latest_camera_pose is True
     assert set(embodiment.camera_config.exterior_cam.data_types) == {
         "rgb",
@@ -219,7 +242,9 @@ def test_camera_profile_disables_kit_rendering_on_control_steps() -> None:
 
 def test_camera_profile_rejects_environment_without_render_control() -> None:
     with pytest.raises(RuntimeError, match="render_enabled"):
-        _disable_cap_automatic_camera_rendering(SimpleNamespace(unwrapped=SimpleNamespace()))
+        _disable_cap_automatic_camera_rendering(
+            SimpleNamespace(unwrapped=SimpleNamespace())
+        )
 
 
 def test_resource_cleanup_continues_after_perception_close_failure() -> None:
@@ -256,28 +281,43 @@ def test_grocery_runner_requires_perception_and_has_bounded_camera_choices() -> 
 
     with pytest.raises(SystemExit):
         parser.parse_args([])
-    args = parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "oblique"])
+    args = parser.parse_args(
+        ["--perception-stream", "127.0.0.1:50061", "--camera", "oblique"]
+    )
 
     assert args.perception_stream == "127.0.0.1:50061"
     assert args.camera == "oblique"
     assert args.diagnostic_can_away is False
     assert args.result_request_file is None
     assert args.result_jsonl is None
+    assert args.retention_trace_jsonl is None
+    assert args.retention_trace_diagnostic_only is False
     assert args.record_video is None
     assert (
-        parser.parse_args([
-            "--perception-stream",
-            "127.0.0.1:50061",
-            "--diagnostic-can-away",
-        ]).diagnostic_can_away
+        parser.parse_args(
+            [
+                "--perception-stream",
+                "127.0.0.1:50061",
+                "--diagnostic-can-away",
+            ]
+        ).diagnostic_can_away
         is True
     )
-    assert inspect.signature(make_cap_grocery_to_bin_environment).parameters["diagnostic_can_away"].default is False
+    assert (
+        inspect.signature(make_cap_grocery_to_bin_environment)
+        .parameters["diagnostic_can_away"]
+        .default
+        is False
+    )
     with pytest.raises(SystemExit):
-        parser.parse_args(["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"])
+        parser.parse_args(
+            ["--perception-stream", "127.0.0.1:50061", "--camera", "unknown"]
+        )
 
 
-def test_grocery_runner_requires_paired_absolute_physical_result_paths(tmp_path) -> None:
+def test_grocery_runner_requires_paired_absolute_physical_result_paths(
+    tmp_path,
+) -> None:
     args = SimpleNamespace(
         result_request_file=str(tmp_path / "result.request"),
         result_jsonl=None,
@@ -312,13 +352,38 @@ def test_grocery_runner_requires_absolute_mp4_video_path(tmp_path) -> None:
     assert factory.keywords == {"output_path": args.record_video}
 
 
+def test_grocery_runner_requires_absolute_jsonl_retention_trace_path(tmp_path) -> None:
+    args = SimpleNamespace(
+        retention_trace_jsonl="relative.jsonl",
+        retention_trace_diagnostic_only=False,
+    )
+    with pytest.raises(ValueError, match="requires --retention-trace-diagnostic-only"):
+        _retention_trace_observer_factory(args)
+
+    args.retention_trace_diagnostic_only = True
+    with pytest.raises(ValueError, match="must be an absolute path"):
+        _retention_trace_observer_factory(args)
+
+    args.retention_trace_jsonl = str(tmp_path / "trace.txt")
+    with pytest.raises(ValueError, match="must end in .jsonl"):
+        _retention_trace_observer_factory(args)
+
+    args.retention_trace_jsonl = str(tmp_path / "retention.jsonl")
+    factory = _retention_trace_observer_factory(args)
+    assert factory.func is make_grocery_retention_trace_writer
+    assert factory.keywords == {"output_path": args.retention_trace_jsonl}
+
+    args.retention_trace_jsonl = None
+    with pytest.raises(ValueError, match="requires --retention-trace-jsonl"):
+        _retention_trace_observer_factory(args)
+
+
 def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> None:
     factory = _environment_factory("libero")
     assert factory.func is make_cap_grocery_to_bin_environment
     assert factory.keywords == {"camera_profile": "libero"}
     assert (
-        _scene_ready_marker("libero")
-        == "CAP_GROCERY_TO_BIN_SCENE_READY "
+        _scene_ready_marker("libero") == "CAP_GROCERY_TO_BIN_SCENE_READY "
         "object=alphabet_soup_can_hope_robolab "
         "bin=grey_bin_robolab "
         "camera=exterior_cam camera_profile=libero can_state=present"
@@ -336,7 +401,9 @@ def test_grocery_runner_injects_only_scene_specific_serve_configuration() -> Non
     defaults = inspect.signature(_run_serve).parameters
     assert defaults["environment_factory"].default is None
     assert defaults["initial_gripper_closed"].default is True
-    assert defaults["ready_marker"].default == "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE"
+    assert (
+        defaults["ready_marker"].default == "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE"
+    )
     assert defaults["physics_observer_factory"].default is None
 
 
@@ -386,7 +453,9 @@ def test_grocery_runner_executes_required_scene_and_perception_wiring() -> None:
     assert calls[3] == ("context_exit", True)
 
 
-def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs() -> None:
+def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs() -> (
+    None
+):
     captured: dict[str, object] = {}
 
     class _Context:
@@ -423,7 +492,9 @@ def test_grocery_runner_wires_diagnostic_can_away_without_changing_other_inputs(
         "camera_profile": "oblique",
         "diagnostic_can_away": True,
     }
-    assert str(captured["ready_marker"]).endswith("camera_profile=oblique can_state=away-diagnostic")
+    assert str(captured["ready_marker"]).endswith(
+        "camera_profile=oblique can_state=away-diagnostic"
+    )
     assert captured["physics_observer_factory"] is None
 
 
@@ -467,7 +538,9 @@ def test_grocery_runner_wires_physical_result_observer(tmp_path) -> None:
     }
 
 
-def test_grocery_runner_composes_physical_result_before_video(tmp_path, monkeypatch) -> None:
+def test_grocery_runner_composes_trace_then_physical_result_then_video(
+    tmp_path, monkeypatch
+) -> None:
     calls: list[tuple[str, int | str]] = []
 
     class _Observer:
@@ -489,6 +562,13 @@ def test_grocery_runner_composes_physical_result_before_video(tmp_path, monkeypa
     def make_video(_adapter, _marker_sink, **_kwargs):
         return _Observer("video")
 
+    def make_trace(_adapter, _marker_sink, **_kwargs):
+        return _Observer("trace")
+
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_retention_trace_writer",
+        make_trace,
+    )
     monkeypatch.setattr(
         "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_physical_result_observer",
         make_result,
@@ -500,6 +580,8 @@ def test_grocery_runner_composes_physical_result_before_video(tmp_path, monkeypa
     args = SimpleNamespace(
         result_request_file=str(tmp_path / "result.request"),
         result_jsonl=str(tmp_path / "result.jsonl"),
+        retention_trace_jsonl=str(tmp_path / "retention.jsonl"),
+        retention_trace_diagnostic_only=True,
         record_video=str(tmp_path / "video.mp4"),
     )
 
@@ -509,13 +591,62 @@ def test_grocery_runner_composes_physical_result_before_video(tmp_path, monkeypa
     observer.close()
 
     assert calls == [
+        ("trace-generation", 2),
         ("result-generation", 2),
         ("video-generation", 2),
+        ("trace", 17),
         ("result", 17),
         ("video", 17),
+        ("trace-close", "done"),
         ("result-close", "done"),
         ("video-close", "done"),
     ]
+
+
+def test_grocery_observer_construction_closes_prior_observers_on_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    closed: list[str] = []
+
+    class _Observer:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def __call__(self, _frame: int) -> None:
+            pass
+
+        def close(self) -> None:
+            closed.append(self.name)
+
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_physical_result_observer",
+        lambda *_args, **_kwargs: _Observer("result"),
+    )
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_video_recorder",
+        lambda *_args, **_kwargs: _Observer("video"),
+    )
+
+    def fail_trace(*_args, **_kwargs):
+        raise RuntimeError("synthetic trace construction failure")
+
+    monkeypatch.setattr(
+        "isaaclab_arena.scripts.run_cap_barrier_grocery_to_bin.make_grocery_retention_trace_writer",
+        fail_trace,
+    )
+    args = SimpleNamespace(
+        result_request_file=str(tmp_path / "result.request"),
+        result_jsonl=str(tmp_path / "result.jsonl"),
+        retention_trace_jsonl=str(tmp_path / "retention.jsonl"),
+        retention_trace_diagnostic_only=True,
+        record_video=str(tmp_path / "video.mp4"),
+    )
+
+    with pytest.raises(RuntimeError, match="trace construction failure"):
+        _grocery_observer_factory(args)(object(), lambda _marker: None)
+
+    assert closed == ["video", "result"]
 
 
 def test_main_thread_physics_observers_run_in_order_and_propagate_failures() -> None:
@@ -539,7 +670,9 @@ def test_main_thread_physics_observers_run_in_order_and_propagate_failures() -> 
 
 def test_optional_observer_generation_lifecycle_is_forwarded() -> None:
     generations: list[int] = []
-    observer = SimpleNamespace(begin_generation=lambda generation: generations.append(generation))
+    observer = SimpleNamespace(
+        begin_generation=lambda generation: generations.append(generation)
+    )
 
     _begin_observer_generation(None, 1)
     _begin_observer_generation(lambda _frame: None, 1)
@@ -549,7 +682,9 @@ def test_optional_observer_generation_lifecycle_is_forwarded() -> None:
     assert generations == [1, 2]
 
 
-def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkeypatch) -> None:
+def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(
+    monkeypatch,
+) -> None:
     import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
 
     offered: list[int] = []
@@ -568,7 +703,12 @@ def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkey
 
         @property
         def stats(self):
-            return {"offered": len(offered), "sent": len(offered), "dropped": 0, "stream_starts": 1}
+            return {
+                "offered": len(offered),
+                "sent": len(offered),
+                "dropped": 0,
+                "stream_starts": 1,
+            }
 
         def close(self) -> None:
             pass
@@ -601,7 +741,9 @@ def test_grocery_perception_skips_pre_reset_and_captures_once_after_reset(monkey
     assert sum("PERCEPTION_GENERATION_CAPTURED" in marker for marker in markers) == 1
 
 
-def test_uncapped_perception_stream_keeps_decimated_capture_behavior(monkeypatch) -> None:
+def test_uncapped_perception_stream_keeps_decimated_capture_behavior(
+    monkeypatch,
+) -> None:
     import isaaclab_arena.integrations.cap_barrier.perception_producer as perception_module
 
     extracted: list[int] = []
@@ -621,7 +763,12 @@ def test_uncapped_perception_stream_keeps_decimated_capture_behavior(monkeypatch
 
         @property
         def stats(self):
-            return {"offered": len(extracted), "sent": len(extracted), "dropped": 0, "stream_starts": 1}
+            return {
+                "offered": len(extracted),
+                "sent": len(extracted),
+                "dropped": 0,
+                "stream_starts": 1,
+            }
 
     def _extract(_environment, *, frame_index: int):
         extracted.append(frame_index)

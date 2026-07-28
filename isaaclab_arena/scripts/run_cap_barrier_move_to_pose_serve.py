@@ -89,7 +89,9 @@ class _PerceptionStreamSink:
         frames_per_generation: int | None,
         first_capture_generation: int = 1,
     ) -> None:
-        from isaaclab_arena.integrations.cap_barrier.perception_producer import PerceptionFrameProducer
+        from isaaclab_arena.integrations.cap_barrier.perception_producer import (
+            PerceptionFrameProducer,
+        )
 
         if frames_per_generation is not None and frames_per_generation <= 0:
             raise ValueError("frames_per_generation must be positive when set")
@@ -113,7 +115,9 @@ class _PerceptionStreamSink:
         if generation <= 0:
             raise ValueError("generation must be positive")
         if self._generation is not None and generation <= self._generation:
-            raise ValueError(f"perception generation must advance: current={self._generation}, next={generation}")
+            raise ValueError(
+                f"perception generation must advance: current={self._generation}, next={generation}"
+            )
         self._generation = generation
         self._sample_calls = 0
         self._attempted_in_generation = 0
@@ -130,7 +134,10 @@ class _PerceptionStreamSink:
             raise RuntimeError("perception capture used before begin_generation")
         if self._generation < self._first_capture_generation:
             return
-        if self._frames_per_generation is not None and self._attempted_in_generation >= self._frames_per_generation:
+        if (
+            self._frames_per_generation is not None
+            and self._attempted_in_generation >= self._frames_per_generation
+        ):
             return
         self._sample_calls += 1
         # Capture immediately on the first PHYSICS frame of each generation so
@@ -141,13 +148,20 @@ class _PerceptionStreamSink:
         # must not turn one requested snapshot into unbounded render retries.
         self._attempted_in_generation += 1
         try:
-            from isaaclab_arena.integrations.cap_barrier.perception_producer import extract_camera_frame
+            from isaaclab_arena.integrations.cap_barrier.perception_producer import (
+                extract_camera_frame,
+            )
 
-            frame = extract_camera_frame(self._adapter._environment, frame_index=self._frame_index)
+            frame = extract_camera_frame(
+                self._adapter._environment, frame_index=self._frame_index
+            )
             self._producer.offer(frame)
             self._frame_index += 1
             self._captured_in_generation += 1
-            if self._frames_per_generation is not None and self._captured_in_generation == self._frames_per_generation:
+            if (
+                self._frames_per_generation is not None
+                and self._captured_in_generation == self._frames_per_generation
+            ):
                 self._marker_sink(
                     "CAP_SERVE_KIT_PERCEPTION_GENERATION_CAPTURED "
                     f"generation={self._generation} frames={self._captured_in_generation} "
@@ -174,7 +188,9 @@ class _PerceptionStreamSink:
 
 
 def _max_delta(lhs, rhs) -> float:
-    return max(abs(float(left) - float(right)) for left, right in zip(lhs, rhs, strict=True))
+    return max(
+        abs(float(left) - float(right)) for left, right in zip(lhs, rhs, strict=True)
+    )
 
 
 def _paced_bootstrap_fences(manager, adapter, count: int):
@@ -228,16 +244,26 @@ def _run_serve(
     environment_factory: Callable[..., Any] | None = None,
     initial_gripper_closed: bool = True,
     ready_marker: str = "CAP_SERVE_KIT_ARM_READY_FOR_MOVE_TO_POSE",
-    physics_observer_factory: Callable[[Any, Callable[[str], None]], Callable[[int], None]] | None = None,
+    physics_observer_factory: Callable[
+        [Any, Callable[[str], None]], Callable[[int], None]
+    ]
+    | None = None,
 ) -> None:
-    from isaaclab_arena.integrations.cap_barrier.franka_env import make_cap_franka_environment
-    from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
+    from isaaclab_arena.integrations.cap_barrier.franka_env import (
+        make_cap_franka_environment,
+    )
+    from isaaclab_arena.integrations.cap_barrier.lockstep_manager import (
+        ArenaLockstepManager,
+    )
     from isaaclab_arena.integrations.cap_barrier.production_smoke import (
         CAP_PRODUCTION_STARTUP_RENDEZVOUS_TIMEOUT_S,
         open_production_startup_rendezvous,
     )
     from isaaclab_arena.integrations.cap_barrier.protocol import ControllerTimingSpec
-    from isaaclab_arena.integrations.cap_barrier.serve import ServeExit, serve_generation_watching_gripper
+    from isaaclab_arena.integrations.cap_barrier.serve import (
+        ServeExit,
+        serve_generation_watching_gripper,
+    )
     from isaaclab_arena.integrations.cap_barrier.shared_memory import ArenaBarrierClient
 
     if environment_factory is None:
@@ -280,7 +306,9 @@ def _run_serve(
                 first_capture_generation=perception_first_capture_generation,
             )
         physical_observer = (
-            physics_observer_factory(adapter, marker_sink) if physics_observer_factory is not None else None
+            physics_observer_factory(adapter, marker_sink)
+            if physics_observer_factory is not None
+            else None
         )
         on_physics_frame = _compose_physics_observers(
             perception.on_physics_frame if perception is not None else None,
@@ -298,10 +326,14 @@ def _run_serve(
             startup_deadline_monotonic_s=startup_deadline,
         )
         if generation_1 != 1:
-            raise RuntimeError(f"serve producer must bootstrap at generation 1, got {generation_1}")
+            raise RuntimeError(
+                f"serve producer must bootstrap at generation 1, got {generation_1}"
+            )
         print("CAP_SERVE_KIT_GENERATION_1_ATTACHED", flush=True)
 
-        bootstrap_fences = _paced_bootstrap_fences(manager, adapter, _BOOTSTRAP_FENCE_FRAMES)
+        bootstrap_fences = _paced_bootstrap_fences(
+            manager, adapter, _BOOTSTRAP_FENCE_FRAMES
+        )
         if bootstrap_fences[0].sequence != 0 or bootstrap_fences[0].physics_tick != 0:
             raise RuntimeError("generation 1 did not begin at sequence/tick zero")
         print(
@@ -359,7 +391,9 @@ def _run_serve(
                     flush=True,
                 )
                 break
-            bootstrap = _paced_bootstrap_fences(manager, adapter, _BOOTSTRAP_FENCE_FRAMES)
+            bootstrap = _paced_bootstrap_fences(
+                manager, adapter, _BOOTSTRAP_FENCE_FRAMES
+            )
             if perception is not None:
                 perception.begin_generation(followed_generation)
             _begin_observer_generation(physical_observer, followed_generation)
@@ -372,10 +406,16 @@ def _run_serve(
             f"CAP_SERVE_KIT_TRACE generations={generations_served}",
             flush=True,
         )
-        print("CAP_SERVE_KIT_DONE", flush=True)
     finally:
-        observer_resource = physical_observer if callable(getattr(physical_observer, "close", None)) else None
+        observer_resource = (
+            physical_observer
+            if callable(getattr(physical_observer, "close", None))
+            else None
+        )
         _close_resources(perception, observer_resource, client, adapter)
+    # DONE is a resource-terminal marker: an observer close failure must
+    # propagate before generic producer completion can be published.
+    print("CAP_SERVE_KIT_DONE", flush=True)
 
 
 def main() -> None:
