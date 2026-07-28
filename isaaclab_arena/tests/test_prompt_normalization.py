@@ -69,3 +69,10 @@ def test_format_normalized_prompt_block_lists_objects():
     assert "NORMALIZED PROMPT:" in block
     assert "avocado" in block
     assert "bowl" in block
+
+
+def test_system_prompt_treats_maple_table_as_background_not_object_reference():
+    prompt = PromptNormalizationInference._system_prompt()
+    assert "maple table" in prompt
+    assert "background asset itself is" in prompt
+    assert "Do not invent a table-surface reference" in prompt
