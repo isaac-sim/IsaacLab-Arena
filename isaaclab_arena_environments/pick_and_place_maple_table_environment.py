@@ -3,6 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""运行示例:
+
+python isaaclab_arena/evaluation/policy_runner.py \
+  --policy_type zero_action \
+  --num_steps 200 \
+  franka_pick_and_place_maple_table
+
+在指定环境中用指定策略运行给定的步数。
+"""
+
+
 from __future__ import annotations
 
 import argparse
@@ -23,7 +34,9 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     embodiment: str = "droid_abs_joint_pos"
     hdr: str | None = None
     light_intensity: float = 500.0
+    # 待抓取的物体
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
+    # 目标放置位置
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
     episode_length_s: float = 70.0
