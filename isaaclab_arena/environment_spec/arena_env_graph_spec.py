@@ -39,7 +39,8 @@ class ArenaEnvGraphSpec(BaseModel):
     object_sets: list[ObjectSetSpec] | None = Field(
         default=None,
         description=(
-            "Optional sets of rigid objects distributed among parallel environments, one object per environment, sharing the same task."
+            "Optional sets of rigid objects distributed among parallel environments, one object per environment,"
+            " sharing the same task."
         ),
     )
     object_references: list[ObjectReferenceSpec] | None = Field(
@@ -128,11 +129,12 @@ class ArenaEnvGraphSpec(BaseModel):
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
-        object_sets = f"{len(self.object_sets)} object sets · " if self.object_sets else ""
-        return (
-            f"{len(self.objects)} objects · {object_sets}{len(self.task.subtasks)} atomic tasks "
-            f"({self.task.composition}) · {len(self.relations)} relations"
-        )
+        parts = [f"{len(self.objects)} objects"]
+        if self.object_sets:
+            parts.append(f"{len(self.object_sets)} object sets")
+        parts.append(f"{len(self.task.subtasks)} atomic tasks ({self.task.composition})")
+        parts.append(f"{len(self.relations)} relations")
+        return " · ".join(parts)
 
     def _validate_cli_override_specs(self) -> None:
         """Check each CLI override uses a unique flag and points to a swappable asset."""
