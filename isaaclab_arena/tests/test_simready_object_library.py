@@ -29,3 +29,11 @@ def test_asset_spec_accepts_simready_usd_path():
     )
     assert spec.registry_name == "simready_usd_object"
     assert spec.params["usd_path"] == "https://example.com/hammer.usd"
+
+
+def test_simready_usd_object_enables_physics_variant_by_default():
+    ensure_assets_registered()
+    obj = SimReadyUsdObject(usd_path="https://example.com/kettle.usd", instance_name="kettle")
+    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
+    spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
+    assert spawn.variants == {"Physics": "physics"}
