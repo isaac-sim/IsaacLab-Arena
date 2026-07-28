@@ -17,8 +17,8 @@ import torch
 
 from isaaclab_arena.tasks.predicates.predicate_utils import (
     get_env,
+    get_max_point_speed_w,
     get_root_ang_vel_w,
-    get_root_lin_vel_w,
     get_root_pos_w,
     select,
 )
@@ -103,15 +103,14 @@ def objects_settled(
 ) -> torch.Tensor:
     """True per env when every object in the env is at rest, records each object's rest pose on first settle.
 
-    An object is at rest when both its linear speed (m/s) and its angular speed (rad/s) are below the
-    respective thresholds. Objects without angular velocity contribute zero angular speed unless
-    ``require_angular_velocity`` is True. The recorded rest poses are readable via
+    An object is at rest when its representative point speeds (nodal speed for deformables, root speed
+    for rigid objects) and angular speed are below the respective thresholds. Objects without angular
+    velocity contribute zero angular speed unless ``require_angular_velocity`` is True. The recorded
+    rest poses are readable via
     ``get_object_initial_rest_state``.
     """
 
-    lin_speeds = torch.stack(
-        [torch.linalg.vector_norm(get_root_lin_vel_w(env, name), dim=-1) for name in object_names], dim=0
-    )
+    lin_speeds = torch.stack([get_max_point_speed_w(env, name) for name in object_names], dim=0)
     ang_speeds = torch.stack(
         [
             torch.linalg.vector_norm(get_root_ang_vel_w(env, name, required=require_angular_velocity), dim=-1)

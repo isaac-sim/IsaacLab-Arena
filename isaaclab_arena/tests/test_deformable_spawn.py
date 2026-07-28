@@ -36,20 +36,22 @@ def test_registry_metadata_matrix() -> None:
     )
 
     expected = {
-        # name: (backend, supports_soft_body, replicate_physics)
-        "physx": (SimulationBackend.PHYSX, False, None),
-        "newton": (SimulationBackend.NEWTON, False, True),
-        "newton_mjwarp_vbd": (SimulationBackend.NEWTON, True, True),
-        "default": (SimulationBackend.PHYSX, False, None),
+        # name: (backend, supports_soft_body, soft_body_kinds, replicate_physics)
+        "physx": (SimulationBackend.PHYSX, False, frozenset(), None),
+        "newton": (SimulationBackend.NEWTON, False, frozenset(), True),
+        "newton_mjwarp_vbd": (SimulationBackend.NEWTON, True, frozenset({"volume", "surface", "cable"}), True),
+        "newton_mjwarp_vbd_surface": (SimulationBackend.NEWTON, True, frozenset({"surface", "cable"}), True),
+        "default": (SimulationBackend.PHYSX, False, frozenset(), None),
     }
     assert set(ARENA_PHYSICS_PRESETS) == set(expected)
-    for name, (backend, soft, replicate) in expected.items():
+    for name, (backend, soft, soft_body_kinds, replicate) in expected.items():
         preset = ARENA_PHYSICS_PRESETS[name]
         assert preset.backend is backend
         assert preset.supports_soft_body is soft
+        assert preset.soft_body_kinds == soft_body_kinds
         assert preset.replicate_physics is replicate
 
-    assert soft_body_presets() == frozenset({"newton_mjwarp_vbd"})
+    assert soft_body_presets() == frozenset({"newton_mjwarp_vbd", "newton_mjwarp_vbd_surface"})
     assert is_soft_body_preset("newton_mjwarp_vbd") and not is_soft_body_preset("physx")
     assert DEFAULT_PRESET == "physx" and DEFAULT_SOFT_BODY_PRESET == "newton_mjwarp_vbd"
     # default mirrors physx (same cfg instance)
@@ -89,14 +91,21 @@ def _reference_spawns(usd_path, youngs, poissons, density, physx_tuning, newton_
         usd_path=usd_path,
         deformable_props=PhysxDeformableBodyPropertiesCfg(**physx_tuning),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color),
-        physics_material=PhysxDeformableBodyMaterialCfg(poissons_ratio=poissons, youngs_modulus=youngs),
+        physics_material=PhysxDeformableBodyMaterialCfg(
+            density=density,
+            poissons_ratio=poissons,
+            youngs_modulus=youngs,
+            static_friction=0.25,
+            dynamic_friction=0.25,
+            elasticity_damping=0.005,
+        ),
     )
     newton = UsdFileCfg(
         usd_path=usd_path,
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color),
         physics_material=NewtonDeformableBodyMaterialCfg(
-            density=density, particle_radius=newton_particle_radius, k_mu=k_mu, k_lambda=k_lambda
+            density=density, particle_radius=newton_particle_radius, k_mu=k_mu, k_lambda=k_lambda, k_damp=0.0
         ),
     )
     return physx, newton
@@ -119,7 +128,7 @@ def test_build_deformable_spawn_matches_reference_constants() -> None:
             _PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL,
             _reference_spawns(
                 _DEFORMABLE_SPHERE_TET_USD,
-                1.0e5,
+                8.0e4,
                 0.4,
                 300.0,
                 dict(rest_offset=0.0, contact_offset=0.002, solver_position_iteration_count=16, linear_damping=0.01),
@@ -150,3 +159,33 @@ def test_build_deformable_spawn_matches_reference_constants() -> None:
             assert built.usd_path == ref.usd_path
             assert built.deformable_props.to_dict() == ref.deformable_props.to_dict()
             assert built.physics_material.to_dict() == ref.physics_material.to_dict()
+
+
+def test_surface_and_cable_spawn_use_surface_materials() -> None:
+    """Surface and cable materials select Isaac Lab surface material cfgs, not volume cfgs."""
+    import isaaclab.sim as sim_utils
+    from isaaclab_newton.sim.spawners.materials import NewtonSurfaceDeformableBodyMaterialCfg
+    from isaaclab_physx.sim.spawners.materials import PhysxSurfaceDeformableBodyMaterialCfg
+
+    from isaaclab_arena.assets.deformable_spawn import (
+        CableDeformableMaterial,
+        DeformableKind,
+        SurfaceDeformableMaterial,
+        build_deformable_spawn,
+    )
+    from isaaclab_arena.environments.physics_presets import SimulationBackend
+
+    visual = sim_utils.PreviewSurfaceCfg(diffuse_color=(0.1, 0.2, 0.3))
+    for material, expected_kind in (
+        (SurfaceDeformableMaterial(), DeformableKind.SURFACE),
+        (CableDeformableMaterial(), DeformableKind.CABLE),
+    ):
+        source = sim_utils.MeshRectangleCfg(size=(0.2, 0.02), resolution=(8, 2))
+        built_newton = build_deformable_spawn(source, material, SimulationBackend.NEWTON, visual_material=visual)
+        built_physx = build_deformable_spawn(source, material, SimulationBackend.PHYSX, visual_material=visual)
+
+        assert material.kind is expected_kind
+        assert isinstance(built_newton.physics_material, NewtonSurfaceDeformableBodyMaterialCfg)
+        assert isinstance(built_physx.physics_material, PhysxSurfaceDeformableBodyMaterialCfg)
+        assert built_newton.deformable_props is not source.deformable_props
+        assert source.deformable_props is None and source.physics_material is None

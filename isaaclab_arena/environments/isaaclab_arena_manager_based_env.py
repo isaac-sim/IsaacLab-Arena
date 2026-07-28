@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
@@ -27,6 +28,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        arena_scene_assets: dict[str, Asset] | None = None,
         **kwargs,
     ):
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
@@ -36,6 +38,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
+        self._arena_scene_assets = dict(arena_scene_assets or {})
         # Per-env count of completed episodes; advanced in ``_reset_idx``.
         self._episode_counts: dict[int, int] = {}
         # The initial reset touches every env before any episode has run; skip it.
@@ -56,6 +59,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
         """The recorder of initial object rest poses. Used when object_settled predicate is enabled by task progress tracking."""
         return self._object_initial_rest_pose_recorder
+
+    @property
+    def arena_scene_assets(self) -> dict[str, Asset]:
+        """Original Arena scene assets keyed by name, used for runtime geometry queries."""
+        return self._arena_scene_assets
 
     @property
     def episode_recorder(self) -> EpisodeRecorderManager:

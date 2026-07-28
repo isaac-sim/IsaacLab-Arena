@@ -127,6 +127,13 @@ class ArenaEnvBuilder:
             for asset in self.arena_env.scene.assets.values()
         )
 
+    def _scene_soft_body_kinds(self) -> frozenset[str]:
+        """Return every soft-body kind required by composed assets."""
+        kinds: set[str] = set()
+        for asset in self.arena_env.scene.assets.values():
+            kinds.update(getattr(asset, "soft_body_kinds", lambda: frozenset())())
+        return frozenset(kinds)
+
     def _select_backend_preset(self, presets: str | None, needs_soft_body: bool) -> str | None:
         """Return the effective physics preset name for the scene.
 
@@ -136,6 +143,7 @@ class ArenaEnvBuilder:
         variant name is hardcoded here.
         """
         from isaaclab_arena.environments.physics_presets import (
+            ARENA_PHYSICS_PRESETS,
             DEFAULT_SOFT_BODY_PRESET,
             is_soft_body_preset,
             soft_body_presets,
@@ -148,6 +156,15 @@ class ArenaEnvBuilder:
                 f"Soft-body scenes need a soft-body physics preset ({sorted(soft_body_presets())}); "
                 f"got --presets {presets}."
             )
+        if needs_soft_body:
+            required_kinds = self._scene_soft_body_kinds()
+            supported_kinds = ARENA_PHYSICS_PRESETS[presets].soft_body_kinds
+            unsupported = required_kinds - supported_kinds
+            if unsupported:
+                raise NotImplementedError(
+                    f"Preset {presets!r} does not support soft-body kinds {sorted(unsupported)}; "
+                    f"supported kinds are {sorted(supported_kinds)}."
+                )
         return presets
 
     def _configure_physics_for_scene(self, env_cfg: Any, presets: str | None) -> Any:
@@ -452,7 +469,10 @@ class ArenaEnvBuilder:
         # Apply the requested physics backend after the callback so it remains the final authority.
         env_cfg = self._configure_physics_for_scene(env_cfg, self.cfg.presets)
 
-        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        env_kwargs: dict[str, Any] = {
+            "variation_recorder": variation_recorder,
+            "arena_scene_assets": self.arena_env.scene.assets,
+        }
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

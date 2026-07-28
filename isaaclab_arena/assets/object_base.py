@@ -57,6 +57,10 @@ class ObjectBase(PlaceableAsset, ABC):
         """Return whether this object needs a soft-body-capable physics preset."""
         return False
 
+    def soft_body_kinds(self) -> frozenset[str]:
+        """Return soft-body kinds required by this object, if any."""
+        return frozenset()
+
     def supports_contact_sensor(self) -> bool:
         """Whether this object can provide an Isaac Lab contact sensor config."""
         return False

@@ -18,8 +18,14 @@ def test_deformable_assets_registered() -> None:
     from isaaclab_arena.assets.registries import AssetRegistry
 
     reg = AssetRegistry()
-    assert reg.is_registered("procedural_deformable_sphere")
-    assert reg.is_registered("procedural_deformable_cube")
+    for asset_name in (
+        "procedural_deformable_sphere",
+        "procedural_deformable_cube",
+        "procedural_deformable_volume_block",
+        "procedural_deformable_cloth",
+        "procedural_deformable_cable",
+    ):
+        assert reg.is_registered(asset_name)
 
 
 def test_object_hierarchy_reparented() -> None:
@@ -82,8 +88,8 @@ def test_deformable_spawn_uses_pretet_usd() -> None:
             assert cfg.spawn.usd_path.endswith(tet_file), f"{asset_name}/{backend} not pointing at {tet_file}"
 
 
-def test_pick_and_place_task_uses_proximity_for_deformable() -> None:
-    """PickAndPlaceTask uses generic proximity success when the pickup object has no contact sensor.
+def test_pick_and_place_task_uses_geometry_for_deformable() -> None:
+    """PickAndPlaceTask uses generic geometry success when the pickup object has no contact sensor.
 
     The background is stubbed to its ``object_min_z`` (the only field the task reads): constructing a
     real ``Background`` eagerly opens its remote USD, which requires a running SimulationApp.
@@ -91,7 +97,7 @@ def test_pick_and_place_task_uses_proximity_for_deformable() -> None:
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask, TerminationsCfg
-    from isaaclab_arena.tasks.predicates.spatial import object_is_below_height, objects_in_proximity
+    from isaaclab_arena.tasks.predicates.spatial import object_is_below_height, object_on_destination_by_geometry
 
     reg = AssetRegistry()
     sphere = reg.get_asset_by_name("procedural_deformable_sphere")()
@@ -107,13 +113,13 @@ def test_pick_and_place_task_uses_proximity_for_deformable() -> None:
     termination_cfg = task.get_termination_cfg()
     success_predicates = termination_cfg.success.params["predicates"]
 
-    assert task.success_strategy == "proximity"
+    assert task.success_strategy == "geometry"
     assert task.contact_sensor_name is None
     assert task.get_scene_cfg() is None
     assert task.get_events_cfg() is None
     assert isinstance(termination_cfg, TerminationsCfg)
     assert len(success_predicates) == 1
-    assert success_predicates[0].func is objects_in_proximity
+    assert success_predicates[0].func is object_on_destination_by_geometry
     assert success_predicates[0].params["velocity_threshold"] == task.velocity_threshold
     assert termination_cfg.object_dropped.func is object_is_below_height
     assert isinstance(task.get_metrics()[0], SuccessRateMetric)
@@ -179,6 +185,8 @@ def test_deformable_physics_backend_selection() -> None:
     for preset in ("default", "newton", "physx"):
         with pytest.raises(NotImplementedError, match="soft-body"):
             builder._select_backend_preset(preset, needs_soft_body=True)
+    with pytest.raises(NotImplementedError, match="does not support"):
+        builder._select_backend_preset("newton_mjwarp_vbd_surface", needs_soft_body=True)
 
     # No preset on a soft-body scene -> Newton VBD (the PhysX deformable path is unstable).
     assert builder._select_backend_preset(None, needs_soft_body=True) == "newton_mjwarp_vbd"
@@ -188,6 +196,21 @@ def test_deformable_physics_backend_selection() -> None:
 
     # Rigid-only scenes with no preset stay on the stock PhysX spawn.
     assert builder._select_backend_preset(None, needs_soft_body=False) is None
+
+
+def test_surface_deformables_can_use_surface_preset() -> None:
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    cloth = AssetRegistry().get_asset_by_name("procedural_deformable_cloth")()
+    cable = AssetRegistry().get_asset_by_name("procedural_deformable_cable")()
+    builder = object.__new__(ArenaEnvBuilder)
+    builder.arena_env = types.SimpleNamespace(scene=types.SimpleNamespace(assets={"cloth": cloth, "cable": cable}))
+
+    assert builder._scene_soft_body_kinds() == frozenset({"surface", "cable"})
+    assert (
+        builder._select_backend_preset("newton_mjwarp_vbd_surface", needs_soft_body=True) == "newton_mjwarp_vbd_surface"
+    )
 
 
 def _test_deformable_sphere_newton_smoke(simulation_app) -> bool:
@@ -256,9 +279,69 @@ def _test_deformable_sphere_newton_smoke(simulation_app) -> bool:
     return True
 
 
+def _test_surface_and_cable_newton_smoke(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    registry = AssetRegistry()
+    ground = registry.get_asset_by_name("ground_plane")()
+    cloth = registry.get_asset_by_name("procedural_deformable_cloth")()
+    cable = registry.get_asset_by_name("procedural_deformable_cable")()
+    embodiment = registry.get_asset_by_name("franka_joint_pos")()
+    cloth.set_initial_pose(Pose(position_xyz=(-0.2, 0.0, 0.5)))
+    cable.set_initial_pose(Pose(position_xyz=(0.25, 0.0, 0.5)))
+
+    arena_env = IsaacLabArenaEnvironment(
+        name="minimal_surface_deformables",
+        scene=Scene([ground, cloth, cable]),
+        embodiment=embodiment,
+    )
+    builder = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, presets="newton_mjwarp_vbd_surface"),
+    )
+    env = builder.make_registered().unwrapped
+
+    try:
+        env.reset()
+        assert env.cfg.scene.replicate_physics is True
+        hold_action = torch.zeros((env.num_envs, env.action_manager.total_action_dim), device=env.device)
+        before = {}
+        for name in (cloth.name, cable.name):
+            asset = env.scene[name]
+            before[name] = asset.data.nodal_pos_w.torch.clone()
+            assert before[name].shape[1] > 0
+            assert torch.isfinite(before[name]).all()
+
+        for _ in range(10):
+            env.step(hold_action)
+
+        for name in (cloth.name, cable.name):
+            after = env.scene[name].data.nodal_pos_w.torch
+            assert torch.isfinite(after).all()
+            assert (after - before[name]).abs().max().item() > 1.0e-6
+    finally:
+        env.close()
+    return True
+
+
 @pytest.mark.with_subprocess
 def test_deformable_sphere_newton_smoke() -> None:
     assert run_simulation_app_function(
         _test_deformable_sphere_newton_smoke,
+        headless=HEADLESS,
+    )
+
+
+@pytest.mark.with_subprocess
+def test_surface_and_cable_newton_smoke() -> None:
+    assert run_simulation_app_function(
+        _test_surface_and_cable_newton_smoke,
         headless=HEADLESS,
     )

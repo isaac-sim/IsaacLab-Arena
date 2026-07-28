@@ -5,27 +5,31 @@
 
 """Backend-neutral deformable spawn construction.
 
-This module is the *only* place in Arena that names the concrete PhysX / Newton deformable config
-classes. Deformable assets declare a backend-neutral :class:`DeformableMaterial` (shared physical
-properties plus small per-backend solver-tuning structs) and let :func:`build_deformable_spawn`
-translate it into the spawn config for a given :class:`~isaaclab_arena.environments.physics_presets.SimulationBackend`.
-
-:func:`backend_object_preset` then fans a single per-backend spawn builder out to every physics
-preset in the registry, so adding a new Newton solver variant needs no change here or in any asset.
+This module is the only place in Arena that names concrete PhysX / Newton deformable config
+classes. Arena assets declare a deformable source (USD or mesh spawner) plus a material kind
+(volume, surface, or cable-as-surface), and this module translates that declaration into the
+backend-specific Isaac Lab spawn config.
 """
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import Enum
+from typing import TypeAlias
 
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.materials.visual_materials_cfg import VisualMaterialCfg
+from isaaclab.sim.spawners.spawner_cfg import DeformableObjectSpawnerCfg
 from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-from isaaclab_newton.sim.spawners.materials import NewtonDeformableBodyMaterialCfg
+from isaaclab_newton.sim.spawners.materials import (
+    NewtonDeformableBodyMaterialCfg,
+    NewtonSurfaceDeformableBodyMaterialCfg,
+)
 from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
-from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg
+from isaaclab_physx.sim.spawners.materials import PhysxDeformableBodyMaterialCfg, PhysxSurfaceDeformableBodyMaterialCfg
 from isaaclab_tasks.utils import PresetCfg, preset
 
 from isaaclab_arena.environments.physics_presets import (
@@ -36,6 +40,14 @@ from isaaclab_arena.environments.physics_presets import (
     preset_backend,
     soft_body_presets,
 )
+
+
+class DeformableKind(str, Enum):
+    """Topological kind of deformable simulated by Isaac Lab."""
+
+    VOLUME = "volume"
+    SURFACE = "surface"
+    CABLE = "cable"
 
 
 def lame_parameters(youngs_modulus: float, poissons_ratio: float) -> tuple[float, float]:
@@ -58,28 +70,66 @@ def lame_parameters(youngs_modulus: float, poissons_ratio: float) -> tuple[float
 
 @dataclass
 class PhysxDeformableTuning:
-    """PhysX-specific FEM solver knobs (no backend-neutral equivalent)."""
+    """PhysX-specific deformable body and material knobs."""
 
     rest_offset: float = 0.0
     contact_offset: float = 0.002
     solver_position_iteration_count: int = 16
     linear_damping: float = 0.01
+    static_friction: float = 0.25
+    dynamic_friction: float = 0.25
+    elasticity_damping: float = 0.005
 
 
 @dataclass
 class NewtonDeformableTuning:
-    """Newton-specific VBD solver knobs (no backend-neutral equivalent).
+    """Newton-specific volume-deformable material knobs.
 
     ``particle_radius`` is the VBD collision radius [m]; keep it below the tet edge length so
     neighboring particles collide against the gripper rather than tunnel through.
     """
 
     particle_radius: float = 0.008
+    k_damp: float = 0.0
 
 
 @dataclass
-class DeformableMaterial:
-    """Backend-neutral deformable material.
+class PhysxSurfaceDeformableTuning:
+    """PhysX-specific surface-deformable material and body knobs."""
+
+    rest_offset: float = 0.0
+    contact_offset: float = 0.002
+    solver_position_iteration_count: int = 16
+    linear_damping: float = 0.01
+    density: float = 1000.0
+    static_friction: float = 0.25
+    dynamic_friction: float = 0.25
+    youngs_modulus: float = 1.0e6
+    poissons_ratio: float = 0.45
+    elasticity_damping: float = 0.005
+    surface_thickness: float = 0.01
+    surface_stretch_stiffness: float = 0.0
+    surface_shear_stiffness: float = 0.0
+    surface_bend_stiffness: float = 0.0
+    bend_damping: float = 0.0
+
+
+@dataclass
+class NewtonSurfaceDeformableTuning:
+    """Newton-specific surface-deformable material knobs."""
+
+    density: float = 50.0
+    particle_radius: float = 0.005
+    tri_ke: float = 5.0e2
+    tri_ka: float = 5.0e2
+    tri_kd: float = 1.0e-3
+    edge_ke: float = 2.0
+    edge_kd: float = 1.0e-3
+
+
+@dataclass
+class VolumeDeformableMaterial:
+    """Backend-neutral volume deformable material.
 
     The shared physical properties (Young's/Poisson/density) are declared once and converted per
     backend; the ``physx`` / ``newton`` sub-structs carry only the genuinely backend-specific solver
@@ -88,7 +138,7 @@ class DeformableMaterial:
     Args:
         youngs_modulus: Young's modulus [Pa] (stiffness).
         poissons_ratio: Poisson's ratio.
-        density: Material density [kg/m^3] (consumed by the Newton backend; PhysX uses its default).
+        density: Material density [kg/m^3].
         physx: PhysX-specific solver tuning.
         newton: Newton-specific solver tuning.
     """
@@ -96,54 +146,171 @@ class DeformableMaterial:
     youngs_modulus: float
     poissons_ratio: float
     density: float
+    kind: DeformableKind = DeformableKind.VOLUME
     physx: PhysxDeformableTuning = field(default_factory=PhysxDeformableTuning)
     newton: NewtonDeformableTuning = field(default_factory=NewtonDeformableTuning)
 
+    def __post_init__(self) -> None:
+        self.kind = DeformableKind(self.kind)
+        assert self.kind is DeformableKind.VOLUME, f"VolumeDeformableMaterial kind must be volume, got {self.kind!r}."
 
-def build_deformable_spawn(
-    usd_path: str,
-    material: DeformableMaterial,
-    backend: SimulationBackend,
-    *,
-    visual_material: VisualMaterialCfg,
-) -> UsdFileCfg:
-    """Build the deformable spawn config for a backend from a backend-neutral material.
 
-    Args:
-        usd_path: Path to the pre-tetrahedralized deformable USD asset.
-        material: The backend-neutral material.
-        backend: The simulation backend to build the spawn for.
-        visual_material: The visual (render) material for the object.
+@dataclass
+class SurfaceDeformableMaterial:
+    """Backend-neutral surface deformable material.
+
+    Surface materials are intentionally separate from volume materials because Isaac Lab exposes
+    different physical controls for cloth-like deformables in Newton and PhysX.
     """
+
+    kind: DeformableKind = DeformableKind.SURFACE
+    physx: PhysxSurfaceDeformableTuning = field(default_factory=PhysxSurfaceDeformableTuning)
+    newton: NewtonSurfaceDeformableTuning = field(default_factory=NewtonSurfaceDeformableTuning)
+
+    def __post_init__(self) -> None:
+        self.kind = DeformableKind(self.kind)
+        assert self.kind in (
+            DeformableKind.SURFACE,
+            DeformableKind.CABLE,
+        ), f"SurfaceDeformableMaterial kind must be surface or cable, got {self.kind!r}."
+
+
+@dataclass
+class CableDeformableMaterial(SurfaceDeformableMaterial):
+    """Cable-like deformable represented as a narrow Newton/PhysX surface mesh strip."""
+
+    kind: DeformableKind = DeformableKind.CABLE
+
+
+DeformableMaterial: TypeAlias = VolumeDeformableMaterial
+DeformableSource: TypeAlias = str | DeformableObjectSpawnerCfg
+
+
+def _build_deformable_props(
+    material: VolumeDeformableMaterial | SurfaceDeformableMaterial,
+    backend: SimulationBackend,
+) -> PhysxDeformableBodyPropertiesCfg | NewtonDeformableBodyPropertiesCfg:
     if backend is SimulationBackend.PHYSX:
-        return UsdFileCfg(
-            usd_path=usd_path,
-            deformable_props=PhysxDeformableBodyPropertiesCfg(
-                rest_offset=material.physx.rest_offset,
-                contact_offset=material.physx.contact_offset,
-                solver_position_iteration_count=material.physx.solver_position_iteration_count,
-                linear_damping=material.physx.linear_damping,
-            ),
-            visual_material=visual_material,
-            physics_material=PhysxDeformableBodyMaterialCfg(
-                poissons_ratio=material.poissons_ratio,
-                youngs_modulus=material.youngs_modulus,
-            ),
+        tuning = material.physx
+        return PhysxDeformableBodyPropertiesCfg(
+            rest_offset=tuning.rest_offset,
+            contact_offset=tuning.contact_offset,
+            solver_position_iteration_count=tuning.solver_position_iteration_count,
+            linear_damping=tuning.linear_damping,
+        )
+    if backend is SimulationBackend.NEWTON:
+        return NewtonDeformableBodyPropertiesCfg()
+    raise ValueError(f"Unsupported simulation backend for deformable props: {backend}")
+
+
+def _build_volume_material(
+    material: VolumeDeformableMaterial,
+    backend: SimulationBackend,
+) -> PhysxDeformableBodyMaterialCfg | NewtonDeformableBodyMaterialCfg:
+    if backend is SimulationBackend.PHYSX:
+        return PhysxDeformableBodyMaterialCfg(
+            density=material.density,
+            poissons_ratio=material.poissons_ratio,
+            youngs_modulus=material.youngs_modulus,
+            static_friction=material.physx.static_friction,
+            dynamic_friction=material.physx.dynamic_friction,
+            elasticity_damping=material.physx.elasticity_damping,
         )
     if backend is SimulationBackend.NEWTON:
         k_mu, k_lambda = lame_parameters(material.youngs_modulus, material.poissons_ratio)
-        return UsdFileCfg(
-            usd_path=usd_path,
-            deformable_props=NewtonDeformableBodyPropertiesCfg(),
-            visual_material=visual_material,
-            physics_material=NewtonDeformableBodyMaterialCfg(
-                density=material.density,
-                particle_radius=material.newton.particle_radius,
-                k_mu=k_mu,
-                k_lambda=k_lambda,
-            ),
+        return NewtonDeformableBodyMaterialCfg(
+            density=material.density,
+            particle_radius=material.newton.particle_radius,
+            k_mu=k_mu,
+            k_lambda=k_lambda,
+            k_damp=material.newton.k_damp,
         )
-    raise ValueError(f"Unsupported simulation backend for deformable spawn: {backend}")
+    raise ValueError(f"Unsupported simulation backend for volume material: {backend}")
+
+
+def _build_surface_material(
+    material: SurfaceDeformableMaterial,
+    backend: SimulationBackend,
+) -> PhysxSurfaceDeformableBodyMaterialCfg | NewtonSurfaceDeformableBodyMaterialCfg:
+    if backend is SimulationBackend.PHYSX:
+        tuning = material.physx
+        return PhysxSurfaceDeformableBodyMaterialCfg(
+            density=tuning.density,
+            static_friction=tuning.static_friction,
+            dynamic_friction=tuning.dynamic_friction,
+            youngs_modulus=tuning.youngs_modulus,
+            poissons_ratio=tuning.poissons_ratio,
+            elasticity_damping=tuning.elasticity_damping,
+            surface_thickness=tuning.surface_thickness,
+            surface_stretch_stiffness=tuning.surface_stretch_stiffness,
+            surface_shear_stiffness=tuning.surface_shear_stiffness,
+            surface_bend_stiffness=tuning.surface_bend_stiffness,
+            bend_damping=tuning.bend_damping,
+        )
+    if backend is SimulationBackend.NEWTON:
+        tuning = material.newton
+        return NewtonSurfaceDeformableBodyMaterialCfg(
+            density=tuning.density,
+            particle_radius=tuning.particle_radius,
+            tri_ke=tuning.tri_ke,
+            tri_ka=tuning.tri_ka,
+            tri_kd=tuning.tri_kd,
+            edge_ke=tuning.edge_ke,
+            edge_kd=tuning.edge_kd,
+        )
+    raise ValueError(f"Unsupported simulation backend for surface material: {backend}")
+
+
+def _build_physics_material(
+    material: VolumeDeformableMaterial | SurfaceDeformableMaterial,
+    backend: SimulationBackend,
+) -> (
+    PhysxDeformableBodyMaterialCfg
+    | NewtonDeformableBodyMaterialCfg
+    | PhysxSurfaceDeformableBodyMaterialCfg
+    | NewtonSurfaceDeformableBodyMaterialCfg
+):
+    if material.kind is DeformableKind.VOLUME:
+        assert isinstance(material, VolumeDeformableMaterial)
+        return _build_volume_material(material, backend)
+    assert isinstance(material, SurfaceDeformableMaterial)
+    return _build_surface_material(material, backend)
+
+
+def build_deformable_spawn(
+    source: DeformableSource,
+    material: VolumeDeformableMaterial | SurfaceDeformableMaterial,
+    backend: SimulationBackend,
+    *,
+    visual_material: VisualMaterialCfg,
+    scale: tuple[float, float, float] | None = None,
+) -> DeformableObjectSpawnerCfg:
+    """Build the deformable spawn config for a backend from a backend-neutral material.
+
+    Args:
+        source: Path to a deformable USD asset or an Isaac Lab mesh spawner config.
+        material: The backend-neutral material.
+        backend: The simulation backend to build the spawn for.
+        visual_material: The visual (render) material for the object.
+        scale: Optional USD scale. Ignored for mesh spawner sources.
+    """
+    deformable_props = _build_deformable_props(material, backend)
+    physics_material = _build_physics_material(material, backend)
+
+    if isinstance(source, str):
+        return UsdFileCfg(
+            usd_path=source,
+            scale=scale,
+            deformable_props=deformable_props,
+            visual_material=visual_material,
+            physics_material=physics_material,
+        )
+
+    spawn_cfg = copy.deepcopy(source)
+    spawn_cfg.deformable_props = deformable_props
+    spawn_cfg.visual_material = visual_material
+    spawn_cfg.physics_material = physics_material
+    return spawn_cfg
 
 
 def backend_object_preset(

@@ -10,8 +10,15 @@ from isaaclab.assets import DeformableObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.materials.visual_materials_cfg import VisualMaterialCfg
+from isaaclab.sim.spawners.spawner_cfg import DeformableObjectSpawnerCfg
 
-from isaaclab_arena.assets.deformable_spawn import DeformableMaterial, backend_object_preset, build_deformable_spawn
+from isaaclab_arena.assets.deformable_spawn import (
+    DeformableMaterial,
+    DeformableSource,
+    SurfaceDeformableMaterial,
+    backend_object_preset,
+    build_deformable_spawn,
+)
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.environments.physics_presets import SimulationBackend
 from isaaclab_arena.relations.relations import RelationBase
@@ -29,9 +36,9 @@ class DeformableObject(ObjectBase):
     behavior (nodal-state pose get/set, nodal reset events) so that ``SpawnableObjectBase``/``Object``
     stay free of deformable branches.
 
-    The object is declared backend-neutrally: a ``usd_path`` (a pre-tetrahedralized asset) and a
-    :class:`~isaaclab_arena.assets.deformable_spawn.DeformableMaterial`. ``_init_object_cfg`` fans a
-    single per-backend spawn builder across every soft-body physics preset via
+    The object is declared backend-neutrally: either a ``usd_path`` or an Isaac Lab mesh spawner plus
+    a backend-neutral deformable material. ``_init_object_cfg`` fans a single per-backend spawn
+    builder across every soft-body physics preset via
     :func:`~isaaclab_arena.assets.deformable_spawn.backend_object_preset`, so the object names no
     physics backend or preset variant. The active preset is selected at build time by ``--presets``.
     """
@@ -39,22 +46,26 @@ class DeformableObject(ObjectBase):
     def __init__(
         self,
         name: str,
-        usd_path: str,
-        material: DeformableMaterial,
+        material: DeformableMaterial | SurfaceDeformableMaterial,
         local_bounding_box: AxisAlignedBoundingBox,
         visual_material: VisualMaterialCfg,
+        usd_path: str | None = None,
+        spawner_cfg: DeformableObjectSpawnerCfg | None = None,
+        scale: tuple[float, float, float] | None = None,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         relations: list[RelationBase] | None = None,
         asset_cfg_addon: dict | None = None,
         **kwargs,
     ):
+        assert (usd_path is None) != (spawner_cfg is None), "Pass exactly one of usd_path or spawner_cfg."
         # NOTE: the config generators below read these attributes, so assign them before building the
         # object/event configs.
-        self._usd_path = usd_path
+        self._source: DeformableSource = usd_path if usd_path is not None else spawner_cfg
         self._material = material
         self._visual_material = visual_material
         self._local_bounding_box = local_bounding_box
+        self._scale = scale
         self.asset_cfg_addon = asset_cfg_addon or {}
         super().__init__(name=name, prim_path=prim_path, object_type=ObjectType.DEFORMABLE, **kwargs)
         self.initial_pose = initial_pose
@@ -65,6 +76,9 @@ class DeformableObject(ObjectBase):
 
     def requires_soft_body_solver(self) -> bool:
         return True
+
+    def soft_body_kinds(self) -> frozenset[str]:
+        return frozenset({self._material.kind.value})
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object."""
@@ -84,7 +98,11 @@ class DeformableObject(ObjectBase):
     def _make_deformable_cfg(self, backend: SimulationBackend) -> DeformableObjectCfg:
         """Wrap the backend's deformable spawn into a ``DeformableObjectCfg`` with the initial pose."""
         spawn_cfg = build_deformable_spawn(
-            self._usd_path, self._material, backend, visual_material=self._visual_material
+            self._source,
+            self._material,
+            backend,
+            visual_material=self._visual_material,
+            scale=self._scale,
         )
         object_cfg = DeformableObjectCfg(prim_path=self.prim_path, spawn=spawn_cfg, **self.asset_cfg_addon)
         return self._add_initial_pose_to_cfg(object_cfg)

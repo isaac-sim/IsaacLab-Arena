@@ -22,7 +22,15 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.deformable_object import DeformableObject
-from isaaclab_arena.assets.deformable_spawn import DeformableMaterial, NewtonDeformableTuning, PhysxDeformableTuning
+from isaaclab_arena.assets.deformable_spawn import (
+    CableDeformableMaterial,
+    DeformableMaterial,
+    NewtonDeformableTuning,
+    NewtonSurfaceDeformableTuning,
+    PhysxDeformableTuning,
+    PhysxSurfaceDeformableTuning,
+    SurfaceDeformableMaterial,
+)
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
@@ -458,6 +466,137 @@ class ProceduralDeformableCube(DeformableObject):
             local_bounding_box=AxisAlignedBoundingBox(
                 min_point=tuple(-extent for extent in half_extents),
                 max_point=half_extents,
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE = (0.08, 0.04, 0.04)
+
+
+@register_asset
+class ProceduralDeformableVolumeBlock(DeformableObject):
+    """Mesh-spawned Newton/PhysX volume deformable cuboid."""
+
+    name = "procedural_deformable_volume_block"
+    tags = ["object", "procedural", "deformable", "volume"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            prim_path=prim_path,
+            spawner_cfg=sim_utils.MeshCuboidCfg(size=_PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE),
+            material=DeformableMaterial(
+                youngs_modulus=1.2e5,
+                poissons_ratio=0.35,
+                density=250.0,
+                physx=PhysxDeformableTuning(contact_offset=0.0015, solver_position_iteration_count=20),
+                newton=NewtonDeformableTuning(particle_radius=0.006),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.75, 0.42, 0.16)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=tuple(-extent for extent in half_extents),
+                max_point=half_extents,
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_CLOTH_SIZE = (0.22, 0.22)
+_PROCEDURAL_DEFORMABLE_CABLE_SIZE = (0.4, 0.018)
+
+
+@register_asset
+class ProceduralDeformableCloth(DeformableObject):
+    """Mesh-spawned surface deformable cloth patch."""
+
+    name = "procedural_deformable_cloth"
+    tags = ["object", "procedural", "deformable", "surface", "cloth"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_x, half_y = (_PROCEDURAL_DEFORMABLE_CLOTH_SIZE[0] * 0.5, _PROCEDURAL_DEFORMABLE_CLOTH_SIZE[1] * 0.5)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            prim_path=prim_path,
+            spawner_cfg=sim_utils.MeshRectangleCfg(size=_PROCEDURAL_DEFORMABLE_CLOTH_SIZE, resolution=(24, 24)),
+            material=SurfaceDeformableMaterial(
+                physx=PhysxSurfaceDeformableTuning(
+                    density=80.0,
+                    surface_thickness=0.003,
+                    surface_stretch_stiffness=5.0e2,
+                    surface_shear_stiffness=5.0e2,
+                    surface_bend_stiffness=2.0,
+                ),
+                newton=NewtonSurfaceDeformableTuning(
+                    density=50.0,
+                    particle_radius=0.005,
+                    tri_ke=5.0e2,
+                    tri_ka=5.0e2,
+                    tri_kd=1.0e-3,
+                    edge_ke=2.0,
+                    edge_kd=1.0e-3,
+                ),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-half_x, -half_y, -0.001),
+                max_point=(half_x, half_y, 0.001),
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+@register_asset
+class ProceduralDeformableCable(DeformableObject):
+    """Cable-like deformable represented as a narrow surface strip."""
+
+    name = "procedural_deformable_cable"
+    tags = ["object", "procedural", "deformable", "surface", "cable"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_x, half_y = (_PROCEDURAL_DEFORMABLE_CABLE_SIZE[0] * 0.5, _PROCEDURAL_DEFORMABLE_CABLE_SIZE[1] * 0.5)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            prim_path=prim_path,
+            spawner_cfg=sim_utils.MeshRectangleCfg(size=_PROCEDURAL_DEFORMABLE_CABLE_SIZE, resolution=(36, 2)),
+            material=CableDeformableMaterial(
+                physx=PhysxSurfaceDeformableTuning(
+                    density=120.0,
+                    surface_thickness=0.006,
+                    surface_stretch_stiffness=1.0e3,
+                    surface_shear_stiffness=2.0e2,
+                    surface_bend_stiffness=0.5,
+                ),
+                newton=NewtonSurfaceDeformableTuning(
+                    density=120.0,
+                    particle_radius=0.004,
+                    tri_ke=1.0e3,
+                    tri_ka=2.0e2,
+                    tri_kd=1.0e-3,
+                    edge_ke=0.5,
+                    edge_kd=1.0e-3,
+                ),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.02, 0.02, 0.02)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-half_x, -half_y, -0.003),
+                max_point=(half_x, half_y, 0.003),
             ),
             initial_pose=initial_pose,
         )

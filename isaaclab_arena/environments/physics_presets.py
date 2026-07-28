@@ -53,6 +53,7 @@ class PhysicsPreset:
         backend: The simulation backend family this preset runs on.
         cfg: The concrete physics config instance selected by this preset.
         supports_soft_body: Whether Arena supports soft-body (deformable) objects on this preset.
+        soft_body_kinds: Soft-body kinds accepted by this preset, such as ``volume`` or ``surface``.
         replicate_physics: ``True`` forces ``scene.replicate_physics`` on, ``None`` leaves the env
             default untouched.
     """
@@ -61,6 +62,7 @@ class PhysicsPreset:
     backend: SimulationBackend
     cfg: PhysicsCfg
     supports_soft_body: bool
+    soft_body_kinds: frozenset[str]
     replicate_physics: bool | None
 
 
@@ -133,11 +135,51 @@ _NEWTON_MJWARP_VBD_CFG = DeformableNewtonCfg(
     debug_mode=False,
 )
 
+_NEWTON_MJWARP_VBD_SURFACE_CFG = DeformableNewtonCfg(
+    solver_cfg=CoupledMJWarpVBDSolverCfg(
+        rigid_solver_cfg=MJWarpSolverCfg(
+            solver="newton",
+            integrator="implicitfast",
+            njmax=300,
+            nconmax=400,
+            impratio=10.0,
+            cone="elliptic",
+            update_data_interval=2,
+            iterations=100,
+            ls_iterations=15,
+            ls_parallel=False,
+            ccd_iterations=15000,
+        ),
+        soft_solver_cfg=VBDSolverCfg(
+            iterations=10,
+            integrate_with_external_rigid_solver=True,
+            particle_enable_self_contact=False,
+            particle_collision_detection_interval=-1,
+        ),
+        coupling_mode="two_way",
+    ),
+    model_cfg=NewtonModelCfg(
+        soft_contact_ke=1.0e3,
+        soft_contact_kd=1.0e-5,
+        soft_contact_mu=0.5,
+        shape_material_ke=1.0e3,
+        shape_material_kd=1.0e-5,
+        shape_material_mu=1.0e-4,
+    ),
+    num_substeps=10,
+    debug_mode=False,
+)
+
 
 # --- The registry: one entry per preset name; the single source of truth --------------------------
 
 _PHYSX_PRESET = PhysicsPreset(
-    name="physx", backend=SimulationBackend.PHYSX, cfg=_PHYSX_CFG, supports_soft_body=False, replicate_physics=None
+    name="physx",
+    backend=SimulationBackend.PHYSX,
+    cfg=_PHYSX_CFG,
+    supports_soft_body=False,
+    soft_body_kinds=frozenset(),
+    replicate_physics=None,
 )
 
 ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
@@ -147,6 +189,7 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         backend=SimulationBackend.NEWTON,
         cfg=_NEWTON_MJWARP_CFG,
         supports_soft_body=False,
+        soft_body_kinds=frozenset(),
         replicate_physics=True,
     ),
     "newton_mjwarp_vbd": PhysicsPreset(
@@ -154,6 +197,15 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         backend=SimulationBackend.NEWTON,
         cfg=_NEWTON_MJWARP_VBD_CFG,
         supports_soft_body=True,
+        soft_body_kinds=frozenset({"volume", "surface", "cable"}),
+        replicate_physics=True,
+    ),
+    "newton_mjwarp_vbd_surface": PhysicsPreset(
+        name="newton_mjwarp_vbd_surface",
+        backend=SimulationBackend.NEWTON,
+        cfg=_NEWTON_MJWARP_VBD_SURFACE_CFG,
+        supports_soft_body=True,
+        soft_body_kinds=frozenset({"surface", "cable"}),
         replicate_physics=True,
     ),
     # ``default`` mirrors ``physx`` (the stock backend used when no preset is selected).

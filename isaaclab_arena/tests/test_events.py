@@ -6,6 +6,7 @@
 import torch
 import tqdm
 import traceback
+import types
 
 import warp as wp
 
@@ -17,6 +18,36 @@ INITIAL_POSITION_EPS = 0.1  # The cracker box falls slightly.
 
 # For object initial velocity test: min displacement in velocity direction
 OBJECT_VELOCITY_MIN_DISPLACEMENT = 0.05  # minimum movement in meters
+
+
+def test_deformable_nodal_state_for_pose_applies_rotation() -> None:
+    from isaaclab.managers import SceneEntityCfg
+
+    from isaaclab_arena.terms.events import _deformable_nodal_state_for_pose
+    from isaaclab_arena.utils.pose import Pose
+
+    class _Scene(dict):
+        env_origins = torch.zeros(1, 3)
+
+    default_pos = torch.tensor([[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]])
+    default_state = torch.cat([default_pos, torch.zeros_like(default_pos)], dim=-1)
+    asset = types.SimpleNamespace(
+        data=types.SimpleNamespace(default_nodal_state_w=types.SimpleNamespace(torch=default_state)),
+        cfg=types.SimpleNamespace(init_state=types.SimpleNamespace(rot=(0.0, 0.0, 0.0, 1.0))),
+    )
+    env = types.SimpleNamespace(scene=_Scene(soft=asset), device=torch.device("cpu"))
+    pose = Pose(position_xyz=(1.0, 2.0, 3.0), rotation_xyzw=(0.0, 0.0, 0.70710678, 0.70710678))
+
+    nodal_state = _deformable_nodal_state_for_pose(
+        env,
+        env_ids=torch.tensor([0]),
+        asset_cfg=SceneEntityCfg("soft"),
+        pose=pose,
+    )
+
+    expected_pos = torch.tensor([[[1.0, 3.0, 3.0], [0.0, 2.0, 3.0], [1.0, 1.0, 3.0], [2.0, 2.0, 3.0]]])
+    assert torch.allclose(nodal_state[..., :3], expected_pos, atol=1.0e-6)
+    assert torch.allclose(nodal_state[..., 3:], torch.zeros_like(default_pos))
 
 
 def _test_set_object_pose_per_env_event(simulation_app):
