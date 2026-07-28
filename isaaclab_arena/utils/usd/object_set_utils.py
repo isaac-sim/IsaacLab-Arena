@@ -13,7 +13,6 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
 from isaaclab_arena.utils.usd_helpers import open_stage
 
-
 CONTAINER_PRIM_NAME = "object_set_member"
 """Name of the Xform inserted above a root-level rigid body to give it a container to hang under."""
 
