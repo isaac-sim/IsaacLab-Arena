@@ -18,6 +18,9 @@ objects:
 - id: raisin_box_hope_robolab
   registry_name: raisin_box_hope_robolab
   params: {}
+placement_validators:
+  enabled_checks: [no_overlap, on_relation, ik_reachable]
+  required_checks: [no_overlap, on_relation]
 relations:
 - kind: is_anchor
   subject: maple_table_robolab

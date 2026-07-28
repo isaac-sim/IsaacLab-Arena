@@ -29,7 +29,6 @@ GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
 class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 put-and-close-door environment."""
 
-    enable_cameras: bool = False
     object: str = "ranch_dressing_hope_robolab"
     object_set: list[str] | None = None
     kitchen_style: int = 2

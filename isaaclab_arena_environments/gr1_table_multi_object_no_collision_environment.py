@@ -92,7 +92,6 @@ GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
 class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 table multi-object environment."""
 
-    enable_cameras: bool = False
     objects: list[str] | None = None
     embodiment: str = "gr1_joint"
     teleop_device: str | None = None
@@ -142,7 +141,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
             rot=camera_offset.rotation_xyzw,
             convention="opengl",
         )
-        embodiment.camera_config.use_tiled_camera = cfg.num_envs > 1
+        embodiment.camera_config.set_use_tiled_camera(cfg.num_envs > 1)
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),

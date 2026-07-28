@@ -59,8 +59,8 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
-        from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner
         from isaaclab_arena_curobo.placement_pool_ik_validation import print_ik_validation_results, validate_pool_ik
+        from isaaclab_arena_curobo.utils.planner_utils import make_curobo_planner
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,

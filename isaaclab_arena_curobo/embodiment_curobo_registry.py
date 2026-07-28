@@ -5,14 +5,9 @@
 
 """Registry of cuRobo descriptions keyed by embodiment name.
 
-Keeps cuRobo out of core: core ``EmbodimentBase`` stays vendor-agnostic, and this extension owns the
-mapping from an embodiment to its cuRobo config. Look one up with ``get_curobo_cfg_for(embodiment)``;
-register more with ``register_curobo_cfg(embodiment_name, cfg)``.
 
 The cuRobo config is a property of the robot hardware, so register under the robot-family base name
-(e.g. ``"droid"``, the class-level ``name`` on ``DroidEmbodimentBase``). Concrete action variants
-override ``name`` (e.g. ``"droid_abs_joint_pos"``), so the lookup walks the embodiment's class
-hierarchy — one family entry covers every variant, and a variant may still register its own override.
+(e.g. ``"droid"``, the class-level ``name`` on ``DroidEmbodimentBase``).
 """
 
 from __future__ import annotations
@@ -37,7 +32,17 @@ def register_curobo_cfg(embodiment_name: str, cfg: CuroboEmbodimentCfg) -> None:
     _CUROBO_EMBODIMENT_CFGS[embodiment_name] = cfg
 
 
-def get_curobo_cfg_for(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg:
+def get_curobo_cfg_by_name(embodiment_name: str) -> CuroboEmbodimentCfg:
+    """Return the cuRobo config registered under an exact embodiment name."""
+    cfg = _CUROBO_EMBODIMENT_CFGS.get(embodiment_name)
+    assert cfg is not None, (
+        f"No cuRobo config registered for '{embodiment_name}'. Register one via register_curobo_cfg(...). "
+        f"Known: {sorted(_CUROBO_EMBODIMENT_CFGS)}."
+    )
+    return cfg
+
+
+def get_embodiment_curobo_cfg(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg:
     """Return the cuRobo config registered for an embodiment's robot family.
 
     Walks the embodiment's class hierarchy so a config registered under a robot-family base name (e.g.

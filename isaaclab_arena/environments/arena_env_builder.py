@@ -18,6 +18,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
+import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -67,13 +68,12 @@ class ArenaEnvBuilder:
         self._placement_event_cfg: EventTermCfg | None = None
 
     def _solve_relations(self) -> None:
-        """Solve spatial relations for objects in the scene.
+        """Solve spatial relations for scene objects and the embodiment.
 
         This method:
-        1. Collects all objects from the scene that have relations
-        2. Builds an object-placement pool
-        3. Reuses the object-only relation placer
-        4. Applies solved positions either by writing fixed per-object initial poses
+        1. Collects placement assets that have relations
+        2. Builds a placement pool
+        3. Applies solved positions either by writing fixed initial poses
            or by registering a pooled reset placement event
 
         Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
@@ -82,10 +82,17 @@ class ArenaEnvBuilder:
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment so per-object reset
-          events restore the same layout every time.
+        * **False** — assigns one fixed layout per environment. Every non-anchor
+          placement asset (objects and the embodiment alike) stores its solved
+          per-environment pose and owns its own reset event.
         """
-        objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        # Reachability constraints are defined in the task, so apply them before placement.
+        if self.arena_env.task is not None:
+            self.arena_env.task.apply_reachability_constraints()
+        placement_assets = self.arena_env.scene.get_objects_with_relations()
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.get_relations():
+            placement_assets.append(embodiment)
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
@@ -96,8 +103,12 @@ class ArenaEnvBuilder:
             placer_params.placement_seed = self.cfg.placement_seed
         if self.cfg.resolve_on_reset is not None:
             placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+
+        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
+        placer_params.reachability_config.embodiment = self.arena_env.embodiment
         self._placement_event_cfg = solve_and_apply_relation_placement(
-            objects_with_relations,
+            placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),

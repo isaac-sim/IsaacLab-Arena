@@ -51,6 +51,13 @@ class Pose:
     def multiply(self, other: "Pose") -> "Pose":
         return compose_poses(self, other)
 
+    def translate(self, xyz_offset: tuple[float, float, float]) -> "Pose":
+        """Return this pose shifted by ``xyz_offset`` (rotation unchanged)."""
+        return Pose(
+            position_xyz=translate_by_xyz_offset(self.position_xyz, xyz_offset),
+            rotation_xyzw=self.rotation_xyzw,
+        )
+
     def to_transform_matrix(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a 4x4 homogeneous transform matrix."""
         import isaaclab.utils.math as math_utils
@@ -79,6 +86,18 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     # Compose the translations
     t_C_A = R_C_B @ torch.tensor(T_B_A.position_xyz) + torch.tensor(T_C_B.position_xyz)
     return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_xyzw=tuple(q_C_A.tolist()))
+
+
+def translate_by_xyz_offset(
+    target: tuple[float, float, float], xyz_offset: tuple[float, float, float]
+) -> tuple[float, float, float]:
+    """Return ``target`` shifted by ``xyz_offset``.
+
+    Args:
+        target: The (x, y, z) position to shift.
+        xyz_offset: The (x, y, z) translation to add.
+    """
+    return (target[0] + xyz_offset[0], target[1] + xyz_offset[1], target[2] + xyz_offset[2])
 
 
 @dataclass

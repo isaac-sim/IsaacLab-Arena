@@ -279,10 +279,10 @@ def test_position_limits_cylindrical_unconstrained_z_ignored():
 # =============================================================================
 
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.pose import Pose
 
 

@@ -3,11 +3,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
-__all__ = ["CollisionMode", "ObjectPlacerParams"]
+if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
+
+@dataclass
+class ReachabilityConfig:
+    """Declarative tuning for the optional build-time IK-reachability check.
+
+    Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
+    """
+
+    embodiment: EmbodimentBase | None = None
+    """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
+
+    grasp_z_offset_m: float = 0.02
+    """Height above each object's root for the top-down grasp pose the check tests."""
+
+    ik_position_threshold_m: float = 0.01
+    """Max IK position error (m) for a grasp to count as reachable."""
+
+    ik_rotation_threshold_rad: float = 0.1
+    """Max IK rotation error (rad) for a grasp to count as reachable."""
 
 
 @dataclass
@@ -57,3 +81,6 @@ class ObjectPlacerParams:
     required_checks: set[str] | None = None
     """Check names that must pass for a layout to count as valid (gates rejection/refill in the pool).
     None requires every enabled check; otherwise should be a subset of enabled_checks."""
+
+    reachability_config: ReachabilityConfig = field(default_factory=ReachabilityConfig)
+    """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""

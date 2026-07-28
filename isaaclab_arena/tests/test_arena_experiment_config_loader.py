@@ -28,6 +28,11 @@ GETTING_STARTED_JSON_PATH = (
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
+CAMERA_SENSITIVITY_YAML_PATH = (
+    Path(TestConstants.arena_environments_dir)
+    / "experiment_configs"
+    / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
+)
 
 
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
@@ -138,13 +143,57 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
     experiment_runner.main()
 
 
-def test_typed_camera_run_requires_prelaunch_camera_flag():
+def test_camera_support_invariant_holds_for_composed_runs():
     experiment_cfg = _experiment_cfg(enable_cameras=True)
 
-    with pytest.raises(AssertionError, match="Pass --enable_cameras"):
+    with pytest.raises(AssertionError, match="AppLauncher started without camera support"):
         _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)
 
     _assert_camera_support_enabled(experiment_cfg, enable_cameras=True)
+    _assert_camera_support_enabled(_experiment_cfg(enable_cameras=False), enable_cameras=False)
+
+
+@pytest.mark.parametrize(
+    ("experiment_config_path", "expected_enable_cameras"),
+    [(CAMERA_SENSITIVITY_YAML_PATH, True), (GETTING_STARTED_YAML_PATH, False)],
+)
+def test_typed_experiment_enables_camera_support_from_its_config(
+    monkeypatch, experiment_config_path, expected_enable_cameras
+):
+    """A typed Experiment that declares cameras must not also need --enable_cameras on the CLI."""
+    launched_with_cameras = None
+
+    class _SimulationAppContext:
+        def __init__(self, args_cli):
+            nonlocal launched_with_cameras
+            launched_with_cameras = args_cli.enable_cameras
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            pass
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(
+        experiment_runner,
+        "load_arena_experiment_from_config_file",
+        lambda *_args, **_kwargs: _experiment_cfg(enable_cameras=expected_enable_cameras),
+    )
+    monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(experiment_config_path),
+            "--list_variations",
+        ],
+    )
+
+    experiment_runner.main()
+
+    assert launched_with_cameras is expected_enable_cameras
 
 
 def test_legacy_json_camera_detection_is_preserved():

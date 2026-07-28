@@ -404,3 +404,18 @@ def extract_trimesh_from_prim(
             f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}"
         )
     raise NoCollisionMeshError(f"No mesh geometry found under {prim_path}")
+
+
+def extract_trimesh_from_usd_path(
+    usd_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Extract the mesh under a USD file's default prim into that prim's local frame.
+
+    Scoping extraction to the default prim excludes sibling scene props (ground planes, stray
+    objects) baked into some flattened articulation USDs.
+    """
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)

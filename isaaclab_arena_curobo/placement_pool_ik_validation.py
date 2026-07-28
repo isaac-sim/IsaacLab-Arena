@@ -16,18 +16,18 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import (
-    get_base_rotation_per_object,
-    get_movable_object_names,
+    get_base_rotation_per_asset,
+    get_movable_asset_names,
     get_placement_pool,
     write_layout_to_sim,
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena_curobo.curobo_planner_utils import (
+from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+from isaaclab_arena_curobo.utils.planner_utils import (
     sync_object_poses_in_robot_base_frame,
-    top_down_grasp_pose_in_robot_frame,
+    top_down_grasp_pose_from_env,
 )
-from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -57,9 +57,9 @@ def _layout_is_ik_reachable(
     if not movable_object_names:
         return True
     grasp_poses = torch.stack(
-        [top_down_grasp_pose_in_robot_frame(env, name, grasp_z_offset, env_id) for name in movable_object_names]
+        [top_down_grasp_pose_from_env(env, name, grasp_z_offset, env_id) for name in movable_object_names]
     )
-    feasible, _, _ = check_ik_feasibility_batch_goal_poses(
+    feasible, _, _ = solve_ik_feasibility(
         planner,
         grasp_poses,
         position_threshold=ik_pos_threshold,
@@ -98,12 +98,12 @@ def validate_pool_ik(
 
     objects = placement_pool.objects
     anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotation_per_object(objects)
+    base_rotations = get_base_rotation_per_asset(objects)
     # TODO(xinjieyao, 2026-06-29): Expose the objects-to-reach as an interface
     # rather than checking every movable object. Default it to the task's pickup object(s)
     # then validate only those grasps. For now we batch-check all
     # movable objects.
-    movable_object_names = get_movable_object_names(objects, anchor_objects_set)
+    movable_object_names = get_movable_asset_names(objects, anchor_objects_set)
 
     layouts_per_env = placement_pool.layouts_per_env()
     num_envs = min(len(layouts_per_env), env.unwrapped.num_envs)

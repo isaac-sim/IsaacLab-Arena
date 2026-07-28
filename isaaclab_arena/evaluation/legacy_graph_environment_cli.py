@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 class LegacyGraphEnvironmentCfg(ArenaEnvironmentCfg):
     """Carry a graph-YAML environment through its temporary CLI construction path."""
 
-    arena_env_args: list[str]
+    # Keyword-only so this required field can follow the defaulted fields of ArenaEnvironmentCfg.
+    arena_env_args: list[str] = field(kw_only=True)
     """Arguments consumed by the existing graph-environment parser."""
 
 
