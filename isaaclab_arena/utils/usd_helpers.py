@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import numpy as np
 import trimesh
+from collections.abc import Callable
 from contextlib import contextmanager
 
+from isaaclab.utils.mesh import PRIMITIVE_MESH_TYPES, create_trimesh_from_geom_shape
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
@@ -21,6 +23,111 @@ class NoCollisionMeshError(ValueError):
 
 class UnsupportedCollisionGeometryError(NoCollisionMeshError):
     """USD geometry exists but cannot be represented as a collision mesh."""
+
+
+_COLLISION_GPRIM_TYPES = frozenset(PRIMITIVE_MESH_TYPES) - {"Plane"}
+
+
+def _classify_gprim(prim: Usd.Prim) -> str:
+    """Classify a Gprim for collision extraction.
+
+    Returns:
+        ``"collision"`` for supported analytic shapes, ``"plane"`` for infinite ground
+        sheets (intentionally skipped), or ``"unsupported"`` for other Gprims.
+    """
+    type_name = prim.GetTypeName()
+    if type_name == "Plane":
+        return "plane"
+    if type_name in _COLLISION_GPRIM_TYPES:
+        return "collision"
+    return "unsupported"
+
+
+def _append_triangles(
+    verts: np.ndarray,
+    faces: np.ndarray,
+    *,
+    transform_verts: Callable[[np.ndarray], np.ndarray],
+    all_verts: list[np.ndarray],
+    all_faces: list[list[int]],
+    offset: int,
+) -> int:
+    """Transform and append triangle vertices/faces; return the next vertex offset."""
+    verts_out = transform_verts(np.asarray(verts, dtype=np.float64))
+    all_verts.append(verts_out)
+    all_faces.extend((faces + offset).tolist())
+    return offset + len(verts_out)
+
+
+def _append_mesh_prim(
+    prim: Usd.Prim,
+    *,
+    transform_verts: Callable[[np.ndarray], np.ndarray],
+    all_verts: list[np.ndarray],
+    all_faces: list[list[int]],
+    offset: int,
+) -> int:
+    """Fan-triangulate a UsdGeom.Mesh prim and append it to the output buffers."""
+    mesh_prim = UsdGeom.Mesh(prim)
+    points = mesh_prim.GetPointsAttr().Get()
+    face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
+    face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
+    if points is None or face_vertex_counts is None or face_vertex_indices is None:
+        return offset
+
+    verts = np.asarray(points, dtype=np.float64)
+    verts_out = transform_verts(verts)
+    idx = 0
+    for count in face_vertex_counts:
+        for k in range(1, count - 1):
+            all_faces.append([
+                face_vertex_indices[idx] + offset,
+                face_vertex_indices[idx + k] + offset,
+                face_vertex_indices[idx + k + 1] + offset,
+            ])
+        idx += count
+
+    all_verts.append(verts_out)
+    return offset + len(verts_out)
+
+
+def _append_collision_gprim(
+    prim: Usd.Prim,
+    *,
+    transform_verts: Callable[[np.ndarray], np.ndarray],
+    all_verts: list[np.ndarray],
+    all_faces: list[list[int]],
+    offset: int,
+) -> int:
+    """Triangulate a supported analytic Gprim and append it to the output buffers."""
+    local_tri = create_trimesh_from_geom_shape(prim)
+    return _append_triangles(
+        local_tri.vertices,
+        local_tri.faces,
+        transform_verts=transform_verts,
+        all_verts=all_verts,
+        all_faces=all_faces,
+        offset=offset,
+    )
+
+
+def _finalize_trimesh_extraction(
+    all_verts: list[np.ndarray],
+    all_faces: list[list[int]],
+    skipped_gprims: list[str],
+    *,
+    location: str,
+) -> trimesh.Trimesh:
+    """Build the merged trimesh or raise when no extractable geometry exists."""
+    if all_verts:
+        if skipped_gprims:
+            print(f"Unsupported non-mesh geometry in {location}: {', '.join(skipped_gprims)}")
+        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if skipped_gprims:
+        raise UnsupportedCollisionGeometryError(
+            f"Unsupported non-mesh geometry in {location}: {', '.join(skipped_gprims)}"
+        )
+    raise NoCollisionMeshError(f"No mesh geometry found in {location}")
 
 
 def get_all_prims(
@@ -265,12 +372,14 @@ def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
+    """Extract mesh and supported analytic collision Gprims from a USD into a single trimesh.
 
     Scale is applied per-vertex in local frame before the prim-to-world transform.
     All scale components must be positive (negative flips winding/SDF sign).
-    Payloads are loaded and instance proxies are traversed so instanced collision
-    meshes are included. Other Gprim geometry is rejected, not silently dropped.
+    Supported analytic Gprims (Cube, Sphere, Cylinder, Capsule, Cone) are triangulated via
+    Isaac Lab mesh utils. ``UsdGeom.Plane`` is intentionally skipped (infinite-ground approximation).
+    Payloads are loaded and instance proxies are traversed so referenced stand collision meshes
+    are included. Other Gprim geometry is rejected, not silently dropped.
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
@@ -288,54 +397,49 @@ def extract_trimesh_from_usd(
         raise ValueError(f"Failed to open USD: {usd_path}")
     stage.Load()
 
+    scale_np = np.asarray(scale, dtype=np.float64)
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
     skipped_gprims: list[str] = []
     offset = 0
 
     for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies()):
-        if not prim.IsA(UsdGeom.Mesh):
-            if prim.IsA(UsdGeom.Gprim):
+        if prim.IsA(UsdGeom.Mesh):
+            world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+
+            def transform_verts(verts: np.ndarray, world_tf=world_tf) -> np.ndarray:
+                verts_scaled = verts * scale_np
+                verts_h = np.hstack([verts_scaled, np.ones((len(verts_scaled), 1))])
+                return (verts_h @ world_tf)[:, :3]
+
+            offset = _append_mesh_prim(
+                prim,
+                transform_verts=transform_verts,
+                all_verts=all_verts,
+                all_faces=all_faces,
+                offset=offset,
+            )
+        elif prim.IsA(UsdGeom.Gprim):
+            gprim_kind = _classify_gprim(prim)
+            if gprim_kind == "unsupported":
                 skipped_gprims.append(str(prim.GetPath()))
-            continue
-        mesh_prim = UsdGeom.Mesh(prim)
-        points = mesh_prim.GetPointsAttr().Get()
-        face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
-        face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
-        if points is None or face_vertex_counts is None or face_vertex_indices is None:
-            continue
+            elif gprim_kind == "collision":
+                world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
 
-        xform = UsdGeom.Xformable(prim)
-        world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+                def transform_verts(verts: np.ndarray, world_tf=world_tf) -> np.ndarray:
+                    verts_scaled = verts * scale_np
+                    verts_h = np.hstack([verts_scaled, np.ones((len(verts_scaled), 1))])
+                    return (verts_h @ world_tf)[:, :3]
 
-        verts = np.asarray(points, dtype=np.float64)
-        verts_scaled = verts * np.array(scale, dtype=np.float64)
-        verts_h = np.hstack([verts_scaled, np.ones((len(verts_scaled), 1))])
-        verts_world = (verts_h @ world_tf)[:, :3]
+                offset = _append_collision_gprim(
+                    prim,
+                    transform_verts=transform_verts,
+                    all_verts=all_verts,
+                    all_faces=all_faces,
+                    offset=offset,
+                )
 
-        # Fan-triangulate faces
-        idx = 0
-        for count in face_vertex_counts:
-            for k in range(1, count - 1):
-                all_faces.append([
-                    face_vertex_indices[idx] + offset,
-                    face_vertex_indices[idx + k] + offset,
-                    face_vertex_indices[idx + k + 1] + offset,
-                ])
-            idx += count
-
-        all_verts.append(verts_world)
-        offset += len(verts_world)
-
-    if all_verts:
-        if skipped_gprims:
-            print(f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}")
-        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
-    if skipped_gprims:
-        raise UnsupportedCollisionGeometryError(
-            f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
-        )
-    raise NoCollisionMeshError(f"No mesh geometry found in {usd_path}")
+    return _finalize_trimesh_extraction(all_verts, all_faces, skipped_gprims, location=usd_path)
 
 
 def extract_trimesh_from_prim(
@@ -343,10 +447,12 @@ def extract_trimesh_from_prim(
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
+    """Extract mesh and supported analytic collision Gprims under a prim into its local frame.
 
-    Payloads are loaded and instance proxies are traversed so instanced collision
-    meshes are included. Other Gprim geometry is rejected, not silently dropped.
+    Supported analytic Gprims (Cube, Sphere, Cylinder, Capsule, Cone) are triangulated via
+    Isaac Lab mesh utils. ``UsdGeom.Plane`` is intentionally skipped (infinite-ground approximation).
+    Payloads are loaded and instance proxies are traversed so referenced stand collision meshes
+    are included. Other Gprim geometry is rejected, not silently dropped.
     """
     assert all(
         s > 0 for s in scale
@@ -370,45 +476,42 @@ def extract_trimesh_from_prim(
     offset = 0
 
     for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
-        if not prim.IsA(UsdGeom.Mesh):
-            if prim.IsA(UsdGeom.Gprim):
+        if prim.IsA(UsdGeom.Mesh):
+            prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+            prim_to_root_tf = prim_world_tf @ root_world_tf_inv
+
+            def transform_verts(verts: np.ndarray, prim_to_root_tf=prim_to_root_tf) -> np.ndarray:
+                verts_h = np.hstack([verts, np.ones((len(verts), 1))])
+                return (verts_h @ prim_to_root_tf)[:, :3] * scale_np
+
+            offset = _append_mesh_prim(
+                prim,
+                transform_verts=transform_verts,
+                all_verts=all_verts,
+                all_faces=all_faces,
+                offset=offset,
+            )
+        elif prim.IsA(UsdGeom.Gprim):
+            gprim_kind = _classify_gprim(prim)
+            if gprim_kind == "unsupported":
                 skipped_gprims.append(str(prim.GetPath()))
-            continue
-        mesh_prim = UsdGeom.Mesh(prim)
-        points = mesh_prim.GetPointsAttr().Get()
-        face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
-        face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
-        if points is None or face_vertex_counts is None or face_vertex_indices is None:
-            continue
+            elif gprim_kind == "collision":
+                prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+                prim_to_root_tf = prim_world_tf @ root_world_tf_inv
 
-        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-        prim_to_root_tf = prim_world_tf @ root_world_tf_inv
-        verts = np.asarray(points, dtype=np.float64)
-        verts_h = np.hstack([verts, np.ones((len(verts), 1))])
-        verts_root = (verts_h @ prim_to_root_tf)[:, :3] * scale_np
+                def transform_verts(verts: np.ndarray, prim_to_root_tf=prim_to_root_tf) -> np.ndarray:
+                    verts_h = np.hstack([verts, np.ones((len(verts), 1))])
+                    return (verts_h @ prim_to_root_tf)[:, :3] * scale_np
 
-        idx = 0
-        for count in face_vertex_counts:
-            for k in range(1, count - 1):
-                all_faces.append([
-                    face_vertex_indices[idx] + offset,
-                    face_vertex_indices[idx + k] + offset,
-                    face_vertex_indices[idx + k + 1] + offset,
-                ])
-            idx += count
+                offset = _append_collision_gprim(
+                    prim,
+                    transform_verts=transform_verts,
+                    all_verts=all_verts,
+                    all_faces=all_faces,
+                    offset=offset,
+                )
 
-        all_verts.append(verts_root)
-        offset += len(verts_root)
-
-    if all_verts:
-        if skipped_gprims:
-            print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
-        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
-    if skipped_gprims:
-        raise UnsupportedCollisionGeometryError(
-            f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}"
-        )
-    raise NoCollisionMeshError(f"No mesh geometry found under {prim_path}")
+    return _finalize_trimesh_extraction(all_verts, all_faces, skipped_gprims, location=prim_path)
 
 
 def extract_trimesh_from_usd_path(

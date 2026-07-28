@@ -172,7 +172,7 @@ def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
 
 
 def _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry(simulation_app):
-    """extract_trimesh_from_prim keeps extracted meshes when analytic geometry is present."""
+    """extract_trimesh_from_prim keeps extracted meshes when unsupported Gprims are present."""
     from pxr import Gf, Usd, UsdGeom
 
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
@@ -190,15 +190,34 @@ def _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry(simulat
     mesh_prim.GetFaceVertexCountsAttr().Set([3])
     mesh_prim.GetFaceVertexIndicesAttr().Set([0, 1, 2])
     UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+    UsdGeom.Points.Define(stage, "/root/unsupported_points")
 
     tri = extract_trimesh_from_prim(stage, "/root")
-    assert len(tri.vertices) == 3
+    assert len(tri.vertices) > 3
 
     return True
 
 
-def _test_extract_trimesh_from_prim_rejects_analytic_only_geometry(simulation_app):
-    """extract_trimesh_from_prim rejects geometry with no mesh subset."""
+def _test_extract_trimesh_from_prim_converts_analytic_only_geometry(simulation_app):
+    """extract_trimesh_from_prim triangulates supported analytic Gprims."""
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+
+    tri = extract_trimesh_from_prim(stage, "/root")
+    assert len(tri.vertices) == 8
+    assert np.allclose(tri.extents, (2.0, 2.0, 2.0), atol=1e-5)
+
+    return True
+
+
+def _test_extract_trimesh_from_prim_rejects_unsupported_only_geometry(simulation_app):
+    """extract_trimesh_from_prim rejects geometry with no extractable subset."""
     from pxr import Usd, UsdGeom
 
     from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_prim
@@ -206,7 +225,7 @@ def _test_extract_trimesh_from_prim_rejects_analytic_only_geometry(simulation_ap
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
     stage.SetDefaultPrim(root)
-    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+    UsdGeom.Points.Define(stage, "/root/unsupported_points")
 
     with pytest.raises(UnsupportedCollisionGeometryError):
         extract_trimesh_from_prim(stage, "/root")
@@ -215,7 +234,7 @@ def _test_extract_trimesh_from_prim_rejects_analytic_only_geometry(simulation_ap
 
 
 def _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry(simulation_app):
-    """extract_trimesh_from_usd keeps extracted meshes when analytic geometry is present."""
+    """extract_trimesh_from_usd keeps extracted meshes when unsupported Gprims are present."""
     from pxr import Gf, Usd, UsdGeom
 
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
@@ -233,24 +252,25 @@ def _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry(simulati
     mesh_prim.GetFaceVertexCountsAttr().Set([3])
     mesh_prim.GetFaceVertexIndicesAttr().Set([0, 1, 2])
     UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+    UsdGeom.Points.Define(stage, "/root/unsupported_points")
 
     with tempfile.NamedTemporaryFile(suffix=".usda", delete=False) as f:
         usd_path = f.name
     stage.Export(usd_path)
 
     tri = extract_trimesh_from_usd(usd_path)
-    assert len(tri.vertices) == 3
+    assert len(tri.vertices) > 3
 
     return True
 
 
-def _test_extract_trimesh_from_usd_rejects_analytic_only_geometry(simulation_app):
-    """extract_trimesh_from_usd rejects geometry with no mesh subset."""
+def _test_extract_trimesh_from_usd_converts_analytic_only_geometry(simulation_app):
+    """extract_trimesh_from_usd triangulates supported analytic Gprims."""
     import tempfile
 
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -261,8 +281,71 @@ def _test_extract_trimesh_from_usd_rejects_analytic_only_geometry(simulation_app
         usd_path = f.name
     stage.Export(usd_path)
 
+    tri = extract_trimesh_from_usd(usd_path)
+    assert len(tri.vertices) == 8
+    assert np.allclose(tri.extents, (2.0, 2.0, 2.0), atol=1e-5)
+
+    return True
+
+
+def _test_extract_trimesh_from_usd_rejects_unsupported_only_geometry(simulation_app):
+    """extract_trimesh_from_usd rejects geometry with no extractable subset."""
+    import tempfile
+
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_usd
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    UsdGeom.Points.Define(stage, "/root/unsupported_points")
+
+    with tempfile.NamedTemporaryFile(suffix=".usda", delete=False) as f:
+        usd_path = f.name
+    stage.Export(usd_path)
+
     with pytest.raises(UnsupportedCollisionGeometryError):
         extract_trimesh_from_usd(usd_path)
+
+    return True
+
+
+def _test_extract_trimesh_skips_plane(simulation_app):
+    """extract_trimesh_from_prim ignores Plane Gprims but keeps bounded collision geometry."""
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+    UsdGeom.Plane.Define(stage, "/root/ground_plane")
+
+    tri = extract_trimesh_from_prim(stage, "/root")
+    assert len(tri.vertices) == 8
+    assert np.all(tri.extents < 10.0)
+
+    return True
+
+
+def _test_extract_trimesh_includes_cylinder(simulation_app):
+    """extract_trimesh_from_prim triangulates Cylinder Gprims."""
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    cylinder = UsdGeom.Cylinder.Define(stage, "/root/cylinder")
+    cylinder.GetRadiusAttr().Set(0.1)
+    cylinder.GetHeightAttr().Set(0.5)
+
+    tri = extract_trimesh_from_prim(stage, "/root")
+    assert len(tri.vertices) > 0
+    assert np.allclose(tri.extents, (0.2, 0.2, 0.5), atol=1e-4)
 
     return True
 
@@ -444,13 +527,6 @@ def test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry():
     assert result
 
 
-def test_extract_trimesh_from_prim_rejects_analytic_only_geometry():
-    result = run_simulation_app_function(
-        _test_extract_trimesh_from_prim_rejects_analytic_only_geometry, headless=HEADLESS
-    )
-    assert result
-
-
 def test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry():
     result = run_simulation_app_function(
         _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry, headless=HEADLESS
@@ -458,10 +534,41 @@ def test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry():
     assert result
 
 
-def test_extract_trimesh_from_usd_rejects_analytic_only_geometry():
+def test_extract_trimesh_from_prim_converts_analytic_only_geometry():
     result = run_simulation_app_function(
-        _test_extract_trimesh_from_usd_rejects_analytic_only_geometry, headless=HEADLESS
+        _test_extract_trimesh_from_prim_converts_analytic_only_geometry, headless=HEADLESS
     )
+    assert result
+
+
+def test_extract_trimesh_from_prim_rejects_unsupported_only_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_prim_rejects_unsupported_only_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_from_usd_converts_analytic_only_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_usd_converts_analytic_only_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_from_usd_rejects_unsupported_only_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_usd_rejects_unsupported_only_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_skips_plane():
+    result = run_simulation_app_function(_test_extract_trimesh_skips_plane, headless=HEADLESS)
+    assert result
+
+
+def test_extract_trimesh_includes_cylinder():
+    result = run_simulation_app_function(_test_extract_trimesh_includes_cylinder, headless=HEADLESS)
     assert result
 
 

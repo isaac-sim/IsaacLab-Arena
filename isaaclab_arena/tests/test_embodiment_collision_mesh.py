@@ -20,8 +20,8 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"
         assert len(mesh.vertices) > 0
 
-        # Mesh extraction scopes to UsdGeom.Mesh under the default prim, including instance-proxied
-        # stand collision. Reject runaway ground-plane geometry while allowing robot + stand footprint.
+        # Mesh extraction includes UsdGeom.Mesh and supported analytic colliders under the default prim.
+        # Reject runaway ground-plane geometry while allowing robot + stand footprint.
         extents = mesh.extents
         assert all(e < 3.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
 
