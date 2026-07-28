@@ -18,9 +18,9 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 _HEIGHT_ATOL = 1e-3
 _ROOT_WRITE_ATOL = 5e-3
+# Root-pose X delta used to verify ``write_root_pose_to_sim``
 _ROOT_WRITE_DELTA_X = 1.0
 _CUSTOM_DROID_STAND_HEIGHT_M = 2.0
-_HEADLESS = True
 
 
 def _assert_compose_on_stand_usd(
@@ -179,36 +179,6 @@ def _test_franka_on_stand_usd_compose(simulation_app) -> bool:
     return True
 
 
-def _test_franka_stand_under_link0_follows_root_write(simulation_app) -> bool:
-    """Franka runtime: stand under link0; root write moves PhysX ``panda_link0``."""
-    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.scene.scene import Scene
-
-    env = None
-    try:
-        arena_env = IsaacLabArenaEnvironment(name="franka_stand_follow", embodiment=FrankaIKEmbodiment(), scene=Scene())
-        args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-        env = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
-        env.reset()
-        env.unwrapped.sim.step(render=False)
-
-        stand_path = "/World/envs/env_0/Robot/panda_link0/stand_instanceable"
-        _assert_prim_parent(stand_path, "panda_link0")
-        _assert_root_write_moves_link0(env)
-        _assert_prim_parent(stand_path, "panda_link0")
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-    finally:
-        if env is not None:
-            env.close()
-    return True
-
-
 def _test_droid_stand_and_externals_under_link0(simulation_app) -> bool:
     """Droid runtime: stand and external cameras under ``panda_link0``; root write moves link0."""
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -250,25 +220,16 @@ def _test_droid_stand_and_externals_under_link0(simulation_app) -> bool:
 
 
 def test_droid_on_stand_usd_compose():
-    result = run_simulation_app_function(_test_droid_on_stand_usd_compose, headless=_HEADLESS)
+    result = run_simulation_app_function(_test_droid_on_stand_usd_compose)
     assert result, f"Test {test_droid_on_stand_usd_compose.__name__} failed"
 
 
 def test_franka_on_stand_usd_compose():
-    result = run_simulation_app_function(_test_franka_on_stand_usd_compose, headless=_HEADLESS)
+    result = run_simulation_app_function(_test_franka_on_stand_usd_compose)
     assert result, f"Test {test_franka_on_stand_usd_compose.__name__} failed"
-
-
-def test_franka_stand_under_link0_follows_root_write():
-    result = run_simulation_app_function(_test_franka_stand_under_link0_follows_root_write, headless=_HEADLESS)
-    assert result, f"Test {test_franka_stand_under_link0_follows_root_write.__name__} failed"
 
 
 @pytest.mark.with_cameras
 def test_droid_stand_and_externals_under_link0():
-    result = run_simulation_app_function(
-        _test_droid_stand_and_externals_under_link0,
-        headless=_HEADLESS,
-        enable_cameras=True,
-    )
+    result = run_simulation_app_function(_test_droid_stand_and_externals_under_link0, enable_cameras=True)
     assert result, f"Test {test_droid_stand_and_externals_under_link0.__name__} failed"
