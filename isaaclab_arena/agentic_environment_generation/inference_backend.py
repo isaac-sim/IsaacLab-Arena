@@ -129,13 +129,28 @@ class InferenceBackend:
                 # ``strict=False`` lets json.loads accept unescaped control characters
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
-                return json.loads(text, strict=False)
+                return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
             f"Model {self._model!r} failed {request.retry_label} after "
             f"{1 + self._max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
+
+
+def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:
+    """Drop a single-key wrapper some models put around their answer, e.g. ``{"input": {<answer>}}``.
+
+    Such a reply parses fine but then fails validation as if every field were missing. Only unwraps
+    when that key is not itself a schema field, so a genuine one-field answer is left alone.
+    """
+    if not isinstance(data, dict) or len(data) != 1:
+        return data
+    ((key, value),) = data.items()
+    if key in (schema.get("properties") or {}) or not isinstance(value, dict):
+        return data
+    print(f"[inference] unwrapped provider envelope key {key!r} around structured output", flush=True)
+    return value
 
 
 def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:

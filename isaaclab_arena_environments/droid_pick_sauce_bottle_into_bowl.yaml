@@ -1,0 +1,49 @@
+env_name: droid_pick_sauce_bottle_into_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_sets:
+- id: sauce_bottle
+  members:
+  - bbq_sauce_bottle_hope_robolab
+  - ketchup_bottle_hope_robolab
+  - mustard_bottle_hope_robolab
+  - mayonnaise_bottle_hope_robolab
+  - salad_dressing_bottle_hot3d_robolab
+  random_choice: true
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: sauce_bottle
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: maple_table
+  params: {}
+- kind: next_to
+  subject: bowl
+  reference: sauce_bottle
+  params: {}
+task:
+  composition: atomic
+  description: Pick up the sauce bottle from the maple table and place it into the
+    bowl on the table.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: sauce_bottle
+      destination_location: bowl
+      background_scene: maple_table

@@ -28,9 +28,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     resolve_node_usd_paths,
     usd_cache_key,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
-    object_set_member_key,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
@@ -39,13 +36,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     thumbnail_cache_dir,
     wait_for_stage_load,
 )
-
-
-# A freshly opened stage often needs more than the default budget before Kit flushes the capture
-# PNG, and the capture future can report done before the file lands. Retry with a wider budget so a
-# slow-loading asset yields a snapshot instead of an empty card.
-_STAGE_CAPTURE_ATTEMPTS = 3
-_STAGE_CAPTURE_MAX_UPDATES = 40
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
+    object_set_member_key,
+)
 
 
 @dataclass
@@ -135,10 +128,10 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
 def _resolve_object_set_members(
     spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]
 ) -> tuple[dict[str, str], dict[str, AabbDimensionsM]]:
-    """Return each object-set member's USD path and AABB, keyed per member so variants get their own card.
+    """Return the USD path and AABB of every object-set member, keyed so each gets its own card.
 
-    Member USD paths follow the declared member order, and may point at the rescaled copies
-    RigidObjectSet writes to its cache.
+    Member USD paths follow the order the members were declared in, and may point at the rescaled
+    copies RigidObjectSet writes to its cache.
     """
     usd_paths: dict[str, str] = {}
     dimensions: dict[str, AabbDimensionsM] = {}
@@ -249,17 +242,7 @@ def _capture_stage_snapshot(
                 file=sys.stderr,
             )
 
-    for attempt in range(1, _STAGE_CAPTURE_ATTEMPTS + 1):
-        png_bytes = capture_viewport_png(app, cache_path, max_updates=_STAGE_CAPTURE_MAX_UPDATES)
-        if png_bytes is not None:
-            return png_bytes
-        print(
-            f"[thumbnail_capture]   capture attempt {attempt}/{_STAGE_CAPTURE_ATTEMPTS} "
-            f"produced no file: {cache_path}",
-            file=sys.stderr,
-        )
-        pump_app(app, count=PRE_CAPTURE_UPDATES)
-    return None
+    return capture_viewport_png(app, cache_path)
 
 
 # Viewport and stage setup — camera, lighting, and collision-mesh overlay.
