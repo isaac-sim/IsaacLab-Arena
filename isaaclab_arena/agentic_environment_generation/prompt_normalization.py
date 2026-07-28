@@ -35,8 +35,9 @@ class NormalizedPromptDescriptions(BaseModel):
     object_references: str = Field(
         default="",
         description=(
-            "Optional surfaces or appliances inside the background that should become "
-            "object_reference nodes; empty when none are needed."
+            "Optional named sub-parts inside a multi-prim background (e.g. counter top, "
+            "fridge door) that should become object_reference nodes; empty when none are needed. "
+            "Do not list the background itself (e.g. 'maple table') here."
         ),
     )
     objects: list[str] = Field(
@@ -119,8 +120,13 @@ GUIDANCE:
 - ``env_name`` should be short snake_case summarizing the scene and task.
 - ``objects`` must list one short search phrase per distinct manipulable object or distractor.
   Keep phrases compact and visual, e.g. "red hammer", "blue bowl", "spring clamp".
-- Leave ``object_references`` empty unless the prompt explicitly mentions a surface or appliance
-  inside the background (counter top, fridge door, table surface).
+- Put the scene/table/room name in ``background`` only (e.g. "maple table", "kitchen").
+  Naming the background is not an ``object_references`` cue — the background asset itself is
+  the resting surface, so leave ``object_references`` empty for prompts like
+  "on the maple table" or "from the maple table".
+- Leave ``object_references`` empty unless the prompt names a distinct sub-part or appliance
+  *inside* a multi-prim background (e.g. "counter top", "fridge door", "microwave door").
+  Do not invent a table-surface reference for a table background.
 - ``relations`` should capture placement intent (what sits on what, next_to sides, anchor surface).
 - ``task`` should summarize the robot's goal in one or two sentences.
 """

@@ -133,8 +133,10 @@ GUIDANCE:
   variance of that family in EMBODIMENTS, pick the one with the default tag.
 - For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
   suffixes in ``id``.
-- Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
-  inside the background; otherwise leave it unset.
+- Only populate ``object_references`` when the prompt (or NORMALIZED PROMPT) names a distinct
+  sub-part or appliance *inside* a multi-prim background (e.g. counter top, fridge door).
+  A background name such as "maple table" is the resting surface itself — do not add an
+  ``object_reference`` for it; anchor ``is_anchor`` on the background asset instead.
 - For each ``object_reference``, leave ``prim_path`` empty.
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
