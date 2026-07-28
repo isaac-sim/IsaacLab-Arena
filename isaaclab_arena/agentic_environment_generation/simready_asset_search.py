@@ -160,7 +160,7 @@ async def _search_phrase_async(
 ) -> list[SimReadyObjectCandidate]:
     from simready.search import AssetLibrary, SearchFilterPhrase
 
-    matches = library.search(include_all=_phrase_path_filters(phrase))
+    matches = library.search(include_any=_phrase_path_filters(phrase))
     if not matches and use_service_phrase:
         service_library = AssetLibrary()
         service_library.add_service_source(service_url)

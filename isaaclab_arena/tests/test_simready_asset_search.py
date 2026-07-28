@@ -30,7 +30,7 @@ class _FakeLibrary:
     def __init__(self, matches: list[_FakeMatch] | None = None):
         self._matches = matches or []
 
-    def search(self, include_all):
+    def search(self, include_all=None, include_any=None):
         return list(self._matches)
 
 
