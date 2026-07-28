@@ -35,18 +35,23 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
-from isaaclab_arena.embodiments.robot_on_stand_utils import StandMountSpec, compose_on_stand_usd
+from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
-_DEFAULT_STAND_HEIGHT_M: float = 1.35
-_DROID_ROBOT_USD_PATH = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd"
-_DROID_STAND_MOUNT = StandMountSpec(
+_DROID_ROBOT_PRIM = RobotPrimSpec(
+    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+    root_prim_path="/panda",
+    robot_base_prim_name="panda_link0",
+    stand_prim_name="stand_instanceable",
+)
+_DROID_STAND_PRIM = StandPrimSpec(
     stand_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda",
     ref_prim_path="/World/franka_table",
     payload_child_name="franka_table",
     footprint_translate_xyz=(-0.05, 0.0, 0.0),
     footprint_scale_xy=(1.2, 1.2),
+    stand_default_height=1.35,
 )
 
 
@@ -73,14 +78,14 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.stand_height_m = stand_height_m
         self.scene_config = DroidSceneCfg()
         self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
-            _DROID_ROBOT_USD_PATH,
-            _DROID_STAND_MOUNT,
+            _DROID_ROBOT_PRIM,
+            _DROID_STAND_PRIM,
             stand_height_m=stand_height_m,
             output_basename="droid_franka_robotiq_on_stand",
         )
@@ -118,7 +123,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
     ):
         super().__init__(
             enable_cameras,
@@ -145,7 +150,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
     ):
         super().__init__(
             enable_cameras,
@@ -173,7 +178,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
     ):
         super().__init__(
             enable_cameras,
@@ -198,7 +203,7 @@ class DroidSceneCfg:
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=_DROID_ROBOT_USD_PATH,
+            usd_path=_DROID_ROBOT_PRIM.robot_usd_path,
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,

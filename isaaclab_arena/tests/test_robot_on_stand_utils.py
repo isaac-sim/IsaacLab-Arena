@@ -24,25 +24,20 @@ _HEADLESS = True
 
 
 def _assert_compose_on_stand_usd(
-    robot_usd_path: str,
-    mount,
+    robot_spec,
+    stand_spec,
     *,
     stand_height_m: float,
     output_basename: str,
-    payload_child_name: str,
     check_orient_180z: bool = False,
 ) -> str:
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.embodiments.robot_on_stand_utils import (
-        ROBOT_BASE_PRIM_PATH,
-        STAND_PRIM_PATH,
-        compose_on_stand_usd,
-    )
+    from isaaclab_arena.embodiments.robot_on_stand_utils import compose_on_stand_usd
 
     usd_path = compose_on_stand_usd(
-        robot_usd_path,
-        mount,
+        robot_spec,
+        stand_spec,
         stand_height_m=stand_height_m,
         output_basename=output_basename,
     )
@@ -50,39 +45,35 @@ def _assert_compose_on_stand_usd(
 
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None
-    stand = stage.GetPrimAtPath(STAND_PRIM_PATH)
-    assert stand.IsValid(), f"missing stand prim at {STAND_PRIM_PATH!r}"
-    robot_base = stage.GetPrimAtPath(ROBOT_BASE_PRIM_PATH)
-    assert robot_base.IsValid(), f"missing robot base prim at {ROBOT_BASE_PRIM_PATH!r}"
-    assert stand.GetParent() == robot_base
+    stand_prim = stage.GetPrimAtPath(robot_spec.stand_prim_path)
+    assert stand_prim.IsValid(), f"missing stand prim at {robot_spec.stand_prim_path!r}"
+    robot_base = stage.GetPrimAtPath(robot_spec.robot_base_prim_path)
+    assert robot_base.IsValid(), f"missing robot base prim at {robot_spec.robot_base_prim_path!r}"
+    assert stand_prim.GetParent() == robot_base
 
-    payload = stage.GetPrimAtPath(f"{STAND_PRIM_PATH}/{payload_child_name}")
-    assert payload.IsValid(), f"missing payload child {payload_child_name!r}"
-    assert abs(_stand_world_height_m(stage) - stand_height_m) < _HEIGHT_ATOL
+    payload = stage.GetPrimAtPath(f"{robot_spec.stand_prim_path}/{stand_spec.payload_child_name}")
+    assert payload.IsValid(), f"missing payload child {stand_spec.payload_child_name!r}"
+    assert abs(_stand_world_height_m(stage, robot_spec.stand_prim_path) - stand_height_m) < _HEIGHT_ATOL
     if check_orient_180z:
         mesh_xf = UsdGeom.Xformable(payload).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
         assert mesh_xf[0][0] < 0.0 and mesh_xf[1][1] < 0.0, mesh_xf
     return usd_path
 
 
-def _stand_world_height_m(stage) -> float:
+def _stand_world_height_m(stage, stand_prim_path: str) -> float:
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.embodiments.robot_on_stand_utils import STAND_PRIM_PATH
-
-    stand = stage.GetPrimAtPath(STAND_PRIM_PATH)
-    assert stand.IsValid(), f"missing stand prim at {STAND_PRIM_PATH!r}"
+    stand = stage.GetPrimAtPath(stand_prim_path)
+    assert stand.IsValid(), f"missing stand prim at {stand_prim_path!r}"
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     return float(cache.ComputeWorldBound(stand).ComputeAlignedRange().GetSize()[2])
 
 
-def _stand_top_z(stage) -> float:
+def _stand_top_z(stage, stand_prim_path: str) -> float:
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.embodiments.robot_on_stand_utils import STAND_PRIM_PATH
-
-    stand = stage.GetPrimAtPath(STAND_PRIM_PATH)
-    assert stand.IsValid(), f"missing stand prim at {STAND_PRIM_PATH!r}"
+    stand = stage.GetPrimAtPath(stand_prim_path)
+    assert stand.IsValid(), f"missing stand prim at {stand_prim_path!r}"
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     return float(cache.ComputeWorldBound(stand).ComputeAlignedRange().GetMax()[2])
 
@@ -129,31 +120,34 @@ def _test_droid_on_stand_usd_compose(simulation_app) -> bool:
     from pxr import Usd
 
     from isaaclab_arena.embodiments.droid.droid import (
-        _DEFAULT_STAND_HEIGHT_M,
-        _DROID_ROBOT_USD_PATH,
-        _DROID_STAND_MOUNT,
+        _DROID_ROBOT_PRIM,
+        _DROID_STAND_PRIM,
         DroidAbsoluteJointPositionEmbodiment,
     )
 
     try:
         default_usd = _assert_compose_on_stand_usd(
-            _DROID_ROBOT_USD_PATH,
-            _DROID_STAND_MOUNT,
-            stand_height_m=_DEFAULT_STAND_HEIGHT_M,
+            _DROID_ROBOT_PRIM,
+            _DROID_STAND_PRIM,
+            stand_height_m=_DROID_STAND_PRIM.stand_default_height,
             output_basename="droid_franka_robotiq_on_stand",
-            payload_child_name="franka_table",
             check_orient_180z=True,
         )
 
         custom_usd = _assert_compose_on_stand_usd(
-            _DROID_ROBOT_USD_PATH,
-            _DROID_STAND_MOUNT,
+            _DROID_ROBOT_PRIM,
+            _DROID_STAND_PRIM,
             stand_height_m=_CUSTOM_DROID_STAND_HEIGHT_M,
             output_basename="droid_franka_robotiq_on_stand",
-            payload_child_name="franka_table",
         )
         assert custom_usd != default_usd
-        assert abs(_stand_top_z(Usd.Stage.Open(custom_usd)) - _stand_top_z(Usd.Stage.Open(default_usd))) < _HEIGHT_ATOL
+        assert (
+            abs(
+                _stand_top_z(Usd.Stage.Open(custom_usd), _DROID_ROBOT_PRIM.stand_prim_path)
+                - _stand_top_z(Usd.Stage.Open(default_usd), _DROID_ROBOT_PRIM.stand_prim_path)
+            )
+            < _HEIGHT_ATOL
+        )
 
         default_emb = DroidAbsoluteJointPositionEmbodiment()
         custom_emb = DroidAbsoluteJointPositionEmbodiment(stand_height_m=_CUSTOM_DROID_STAND_HEIGHT_M)
@@ -169,19 +163,14 @@ def _test_droid_on_stand_usd_compose(simulation_app) -> bool:
 
 def _test_franka_on_stand_usd_compose(simulation_app) -> bool:
     """Franka compose reaches the legacy default stand height."""
-    from isaaclab_arena.embodiments.franka.franka import (
-        _FRANKA_DEFAULT_STAND_HEIGHT_M,
-        _FRANKA_ROBOT_USD_PATH,
-        _FRANKA_STAND_MOUNT,
-    )
+    from isaaclab_arena.embodiments.franka.franka import _FRANKA_ROBOT_PRIM, _FRANKA_STAND_PRIM
 
     try:
         _assert_compose_on_stand_usd(
-            _FRANKA_ROBOT_USD_PATH,
-            _FRANKA_STAND_MOUNT,
-            stand_height_m=_FRANKA_DEFAULT_STAND_HEIGHT_M,
+            _FRANKA_ROBOT_PRIM,
+            _FRANKA_STAND_PRIM,
+            stand_height_m=_FRANKA_STAND_PRIM.stand_default_height,
             output_basename="franka_panda_on_stand",
-            payload_child_name="Stand",
         )
     except Exception as e:
         print(f"Error: {e}")
