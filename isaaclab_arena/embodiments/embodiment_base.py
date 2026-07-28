@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -23,11 +24,35 @@ if TYPE_CHECKING:
     import trimesh
 
 
+@dataclass(frozen=True)
+class PlacementGeometrySource:
+    """What an embodiment's placement bounding box and collision mesh are derived from."""
+
+    usd_path: str
+    """Robot USD, as spawned."""
+
+    scale: tuple[float, float, float]
+    """Per-axis spawn scale."""
+
+    joint_pos: Mapping[str, float]
+    """Joint positions to pose the geometry at, revolute in radians, keyed by name or Isaac Lab regex."""
+
+    library_folder: str | None
+    """Robot's folder under the published robot library, or None if it publishes no collision mesh."""
+
+
 class EmbodimentBase(PlaceableAsset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+
+    robot_library_folder: str | None = None
+    """This robot's folder under the published robot library, shared by its action-space variants.
+
+    Named separately from the USD because robots that spawn a composed asset, such as the on-stand
+    Droid and Franka, spawn from a per-user cache path that says nothing about where they publish.
+    """
 
     def __init__(
         self,
@@ -56,42 +81,52 @@ class EmbodimentBase(PlaceableAsset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
-        self._collision_mesh: trimesh.Trimesh | None = None
-        """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
+
+    def get_placement_geometry_source(self) -> PlacementGeometrySource:
+        """Return the USD, scale and joint positions the robot's placement geometry is derived from."""
+        assert self.scene_config is not None, "scene_config must be populated before placement"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before placement"
+        spawn = robot.spawn
+        assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+        scale_x, scale_y, scale_z = spawn.scale or (1.0, 1.0, 1.0)
+        return PlacementGeometrySource(
+            usd_path=spawn.usd_path,
+            scale=(scale_x, scale_y, scale_z),
+            joint_pos=dict(robot.init_state.joint_pos or {}),
+            library_folder=self.robot_library_folder,
+        )
 
     def get_bounding_box(self, prim_path: str | None = None) -> AxisAlignedBoundingBox:
-        """Return root-relative bounds computed from the articulation's USD geometry.
+        """Return root-relative bounds of the articulation posed at its configured joint positions.
+
+        Shared and cached across callers, so treat the result as read-only.
 
         Args:
             prim_path: Optional sub-prim to bound (e.g. stand only). When None, bounds the
                 full default prim.
         """
         # Import locally because USD/pxr is available only after simulation initialization.
-        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd_at_joint_pos
 
-        assert self.scene_config is not None, "scene_config must be populated before placement"
-        robot = self.scene_config.robot
-        assert robot is not None, "scene_config.robot must be populated before placement"
-        spawn = robot.spawn
-        assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
-        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
-        # TODO(zihaox): Account for configured initial joint positions in bounds and collision meshes.
-        return compute_local_bounding_box_from_usd(spawn.usd_path, scale, prim_path=prim_path)
+        source = self.get_placement_geometry_source()
+        return compute_local_bounding_box_from_usd_at_joint_pos(
+            source.usd_path, source.joint_pos, source.scale, prim_path=prim_path
+        )
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return the robot's collision mesh from its USD default prim, in the default joint pose."""
-        if self._collision_mesh is None:
-            # Import locally because USD/pxr is available only after simulation initialization.
-            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_path
+        """Return the robot's collision mesh, posed at its configured initial joint positions.
 
-            assert self.scene_config is not None, "scene_config must be populated before placement"
-            robot = self.scene_config.robot
-            assert robot is not None, "scene_config.robot must be populated before placement"
-            spawn = robot.spawn
-            assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
-            scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
-            self._collision_mesh = extract_trimesh_from_usd_path(spawn.usd_path, scale)
-        return self._collision_mesh
+        The mesh matches the robot as spawned even when its USD was authored in another joint
+        configuration. Shared and cached across callers, so treat the result as read-only.
+        """
+        # Import locally because USD/pxr is available only after simulation initialization.
+        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
+
+        source = self.get_placement_geometry_source()
+        return extract_trimesh_from_usd_at_joint_pos(
+            source.usd_path, source.joint_pos, source.scale, library_folder=source.library_folder
+        )
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; the construction pose is applied in ``get_scene_cfg``."""

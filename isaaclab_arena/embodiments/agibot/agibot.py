@@ -32,6 +32,7 @@ class AgibotEmbodiment(EmbodimentBase):
 
     name = "agibot"
     default_arm_mode = ArmMode.LEFT
+    robot_library_folder = "agibot_a2d"
 
     def __init__(
         self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode = ArmMode.LEFT

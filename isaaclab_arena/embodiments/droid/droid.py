@@ -73,6 +73,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
+    robot_library_folder = "droid"
 
     def __init__(
         self,
