@@ -55,6 +55,12 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     Includes Franka with robotiq gripper and specific set of cameras.
     Subclasses must set ``self.action_config`` to a concrete action configuration.
+
+    ``initial_pose`` / ``set_initial_pose`` set the base of the robot in world frame.
+    ``stand_height_m`` sets the height of the stand mesh under the robot base link,
+    which changes how far the stand extends below the root link.
+    When manually placing the robot on floor, ``set_initial_pose`` z value and
+    ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
     """
 
     name = "droid"
