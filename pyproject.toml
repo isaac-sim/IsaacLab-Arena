@@ -31,7 +31,7 @@ dev = [
     "jupyter",
     "debugpy",
     "tenacity",
-    "streamlit>=1.30",
+    "streamlit>=1.56",
     "streamlit-ace>=0.1.1",
 ]
 
