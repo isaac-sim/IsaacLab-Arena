@@ -663,6 +663,58 @@ unconstrained axes are determined by other relations (for example, <code class="
 <li><p><code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>: Target world coordinates (any can be <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave unconstrained)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">relation_loss_weight</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>): Weight in the solver’s loss function</p></li>
 </ul>
+<p><strong>PositionLimitsBox and PositionLimitsCylindrical</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> constrains an object’s world-frame placement origin with
+axis-aligned <code class="docutils literal notranslate"><span class="pre">x_min</span></code>/<code class="docutils literal notranslate"><span class="pre">x_max</span></code>, <code class="docutils literal notranslate"><span class="pre">y_min</span></code>/<code class="docutils literal notranslate"><span class="pre">y_max</span></code>, and <code class="docutils literal notranslate"><span class="pre">z_min</span></code>/<code class="docutils literal notranslate"><span class="pre">z_max</span></code>
+bounds. <code class="docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code> constrains the origin’s world-XY distance
+from <code class="docutils literal notranslate"><span class="pre">(center_x,</span> <span class="pre">center_y)</span></code>: <code class="docutils literal notranslate"><span class="pre">radius_max</span></code> keeps it inside a cylinder,
+<code class="docutils literal notranslate"><span class="pre">radius_min</span></code> excludes the inner cylinder, and both bounds create a cylindrical
+annulus. These relations constrain the placement origin only; they do not account
+for the object’s bounding-box footprint.</p>
+<p>Attach both relations when an object needs the intersection of box and cylindrical
+limits. For example, this keeps an object’s origin inside a rectangular tabletop
+region and within 0.25 m of a world-XY point:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PositionLimitsBox</span><span class="p">,</span>
+    <span class="n">PositionLimitsCylindrical</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span>
+    <span class="n">PositionLimitsBox</span><span class="p">(</span><span class="n">x_min</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">x_max</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">y_min</span><span class="o">=-</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">y_max</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="nb">object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span>
+    <span class="n">PositionLimitsCylindrical</span><span class="p">(</span><span class="n">center_x</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">center_y</span><span class="o">=-</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">radius_max</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The equivalent YAML relations are:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">relations</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">position_limits_box</span>
+<span class="w">    </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+<span class="w">    </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">x_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+<span class="w">      </span><span class="nt">x_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
+<span class="w">      </span><span class="nt">y_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-0.4</span>
+<span class="w">      </span><span class="nt">y_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">position_limits_cylindrical</span>
+<span class="w">    </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+<span class="w">    </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">center_x</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.4</span>
+<span class="w">      </span><span class="nt">center_y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-0.2</span>
+<span class="w">      </span><span class="nt">radius_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code> requires at least one optional world-coordinate axis bound:
+<code class="docutils literal notranslate"><span class="pre">x_min</span></code>, <code class="docutils literal notranslate"><span class="pre">x_max</span></code>, <code class="docutils literal notranslate"><span class="pre">y_min</span></code>, <code class="docutils literal notranslate"><span class="pre">y_max</span></code>, <code class="docutils literal notranslate"><span class="pre">z_min</span></code>, or <code class="docutils literal notranslate"><span class="pre">z_max</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PositionLimitsCylindrical</span></code> requires <code class="docutils literal notranslate"><span class="pre">center_x</span></code> and <code class="docutils literal notranslate"><span class="pre">center_y</span></code> plus at
+least one nonnegative <code class="docutils literal notranslate"><span class="pre">radius_min</span></code> or <code class="docutils literal notranslate"><span class="pre">radius_max</span></code>; when both are present,
+<code class="docutils literal notranslate"><span class="pre">radius_min</span></code> must be strictly less than <code class="docutils literal notranslate"><span class="pre">radius_max</span></code></p></li>
+<li><p>Both relations accept <code class="docutils literal notranslate"><span class="pre">relation_loss_weight</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>)</p></li>
+</ul>
+<p>For backward compatibility, <code class="docutils literal notranslate"><span class="pre">PositionLimits</span></code> and YAML kind <code class="docutils literal notranslate"><span class="pre">position_limits</span></code>
+remain aliases for <code class="docutils literal notranslate"><span class="pre">PositionLimitsBox</span></code>.</p>
 </section>
 <section id="anchors">
 <h3>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h3>
@@ -741,6 +793,8 @@ Each relation type contributes a differentiable loss component:</p>
 <li><p><strong>On</strong>: Band loss on X/Y (child footprint within parent), point loss on Z (child bottom at parent top)</p></li>
 <li><p><strong>NextTo</strong>: Half-plane loss (correct side), band loss (perpendicular alignment), distance loss (target gap)</p></li>
 <li><p><strong>AtPosition</strong>: Point loss on each constrained axis</p></li>
+<li><p><strong>PositionLimitsBox</strong>: Band or one-sided loss for each axis-aligned rectangular bound</p></li>
+<li><p><strong>PositionLimitsCylindrical</strong>: Band or one-sided loss on the world-XY radius from its center</p></li>
 </ul>
 <p>Losses use linear ReLU-style functions (zero inside the valid region, linearly growing outside),
 which provide constant gradients that work well with the Adam optimizer.</p>

@@ -180,6 +180,65 @@ Parameters:
 - ``x``, ``y``, ``z``: Target world coordinates (any can be ``None`` to leave unconstrained)
 - ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
 
+**PositionLimitsBox and PositionLimitsCylindrical**
+
+``PositionLimitsBox`` constrains an object's world-frame placement origin with
+axis-aligned ``x_min``/``x_max``, ``y_min``/``y_max``, and ``z_min``/``z_max``
+bounds. ``PositionLimitsCylindrical`` constrains the origin's world-XY distance
+from ``(center_x, center_y)``: ``radius_max`` keeps it inside a cylinder,
+``radius_min`` excludes the inner cylinder, and both bounds create a cylindrical
+annulus. These relations constrain the placement origin only; they do not account
+for the object's bounding-box footprint.
+
+Attach both relations when an object needs the intersection of box and cylindrical
+limits. For example, this keeps an object's origin inside a rectangular tabletop
+region and within 0.25 m of a world-XY point:
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.relations import (
+       PositionLimitsBox,
+       PositionLimitsCylindrical,
+   )
+
+   object.add_relation(
+       PositionLimitsBox(x_min=0.2, x_max=0.6, y_min=-0.4, y_max=0.0)
+   )
+   object.add_relation(
+       PositionLimitsCylindrical(center_x=0.4, center_y=-0.2, radius_max=0.25)
+   )
+
+The equivalent YAML relations are:
+
+.. code-block:: yaml
+
+   relations:
+     - kind: position_limits_box
+       subject: object
+       params:
+         x_min: 0.2
+         x_max: 0.6
+         y_min: -0.4
+         y_max: 0.0
+     - kind: position_limits_cylindrical
+       subject: object
+       params:
+         center_x: 0.4
+         center_y: -0.2
+         radius_max: 0.25
+
+Parameters:
+
+- ``PositionLimitsBox`` requires at least one optional world-coordinate axis bound:
+  ``x_min``, ``x_max``, ``y_min``, ``y_max``, ``z_min``, or ``z_max``
+- ``PositionLimitsCylindrical`` requires ``center_x`` and ``center_y`` plus at
+  least one nonnegative ``radius_min`` or ``radius_max``; when both are present,
+  ``radius_min`` must be strictly less than ``radius_max``
+- Both relations accept ``relation_loss_weight`` (default ``1.0``)
+
+For backward compatibility, ``PositionLimits`` and YAML kind ``position_limits``
+remain aliases for ``PositionLimitsBox``.
+
 Anchors
 ~~~~~~~
 
@@ -275,6 +334,8 @@ Each relation type contributes a differentiable loss component:
 - **On**: Band loss on X/Y (child footprint within parent), point loss on Z (child bottom at parent top)
 - **NextTo**: Half-plane loss (correct side), band loss (perpendicular alignment), distance loss (target gap)
 - **AtPosition**: Point loss on each constrained axis
+- **PositionLimitsBox**: Band or one-sided loss for each axis-aligned rectangular bound
+- **PositionLimitsCylindrical**: Band or one-sided loss on the world-XY radius from its center
 
 Losses use linear ReLU-style functions (zero inside the valid region, linearly growing outside),
 which provide constant gradients that work well with the Adam optimizer.
