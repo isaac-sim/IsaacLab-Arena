@@ -129,6 +129,7 @@ class InferenceBackend:
                 # ``strict=False`` lets json.loads accept unescaped control characters
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
+                # Model response is sometimes wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
                 return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
             except Exception as exc:
                 last_exc = exc
@@ -139,11 +140,7 @@ class InferenceBackend:
 
 
 def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:
-    """Drop a single-key wrapper some models put around their answer, e.g. ``{"input": {<answer>}}``.
-
-    Such a reply parses fine but then fails validation as if every field were missing. Only unwraps
-    when that key is not itself a schema field, so a genuine one-field answer is left alone.
-    """
+    """Drop a single-key wrapper some models put around their answer, e.g. from {"input": {<answer>}} to <answer>."""
     if not isinstance(data, dict) or len(data) != 1:
         return data
     ((key, value),) = data.items()
