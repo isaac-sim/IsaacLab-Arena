@@ -8,7 +8,7 @@
 python isaaclab_arena/evaluation/policy_runner.py \
   --policy_type zero_action \
   --num_steps 200 \
-  franka_pick_and_place_maple_table
+  pick_and_place_maple_table
 
 在指定环境中用指定策略运行给定的步数。
 """
@@ -43,7 +43,6 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
         default_factory=lambda: [
             "banana_ycb_robolab",
             "chocolate_pudding_ycb_robolab",
-            "mug_ycb_robolab",
         ]
     )
 
