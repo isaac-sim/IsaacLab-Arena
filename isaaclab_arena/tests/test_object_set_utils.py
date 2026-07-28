@@ -14,7 +14,7 @@ HEADLESS = True
 
 def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
     """Test cache pipeline with a depth-0 rigid body (single root prim)."""
-    from pxr import Usd, UsdPhysics
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.utils.usd.object_set_utils import (
         CONTAINER_PRIM_NAME,
@@ -23,10 +23,11 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
     )
     from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
 
-    # Create minimal USD: single root prim with RigidBodyAPI (depth 0)
+    # Create minimal USD: single root prim with RigidBodyAPI (depth 0), already carrying a scale
     stage = Usd.Stage.CreateInMemory()
     prim = stage.DefinePrim("/original_rb", "Xform")
     prim.ApplyAPI(UsdPhysics.RigidBodyAPI)
+    UsdGeom.Xformable(prim).AddScaleOp().Set(Gf.Vec3f(3.0, 3.0, 3.0))
     stage.SetDefaultPrim(prim)
     with tempfile.NamedTemporaryFile(suffix=".usd", delete=False) as f:
         src_path = f.name
@@ -36,7 +37,7 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
     class _MinimalAsset:
         name = "test_depth0_asset"
         usd_path = src_path
-        scale = (1.0, 1.0, 1.0)
+        scale = (2.0, 2.0, 2.0)
 
     try:
         cache_path_str = rescale_rename_rigid_body_and_save_to_cache(_MinimalAsset())
@@ -52,11 +53,15 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
         assert rb_path == f"/{CONTAINER_PRIM_NAME}/rigid_body"
         rb_prim = cache_stage.GetPrimAtPath(rb_path)
         assert rb_prim.IsValid() and rb_prim.HasAPI(UsdPhysics.RigidBodyAPI)
+        # The asset scale replaces the one already on the root; the container must not add another,
+        # which would apply both and leave the member 3x too small.
+        assert rb_prim.GetAttribute("xformOp:scale").Get() == Gf.Vec3f(2.0, 2.0, 2.0)
+        assert not default_prim.GetAttribute("xformOp:scale").IsValid(), "Container must stay identity"
         return True
     finally:
         with contextlib.suppress(OSError):
             os.unlink(src_path)
-        cache_path = get_object_set_asset_cache_path(_MinimalAsset(), (1.0, 1.0, 1.0))
+        cache_path = get_object_set_asset_cache_path(_MinimalAsset(), (2.0, 2.0, 2.0))
         with contextlib.suppress(OSError):
             os.unlink(cache_path)
 

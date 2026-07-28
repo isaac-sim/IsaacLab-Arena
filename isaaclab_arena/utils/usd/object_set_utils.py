@@ -164,8 +164,8 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     """Export a scaled, compatible USD to the asset cache for use in object sets.
 
     Object sets need all member USDs to share the same structure (same rigid-body path) and
-    scale. This function: (1) moves a root-level rigid body under a container so every member
-    nests it the same way, (2) rescales the root, (3) renames the shallowest rigid body to
+    scale. This function: (1) rescales the root, (2) moves a root-level rigid body under a
+    container so every member nests it the same way, (3) renames the shallowest rigid body to
     "rigid_body", (4) rewrites relationship/connection targets to use that path so they remain
     valid when the file is referenced, (5) sets the default prim to the rigid body's parent,
     (6) exports to the cache. Without step (4), material bindings and shader connections would
@@ -173,9 +173,9 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     """
     cache_path = get_object_set_asset_cache_path(asset, asset.scale)
     with open_stage(asset.usd_path) as stage:
-        # Wrap first so the scale lands on the container.
-        _wrap_root_rigid_body_in_container(stage)
         rescale_root(stage, asset)
+        # Move root-level rigid body under a container so every member nests it the same way.
+        _wrap_root_rigid_body_in_container(stage)
         # Unify name; need old path for rewrite
         old_rb_path = rename_rigid_body(stage, new_name="rigid_body")
         # Path after rename (e.g. /rigid_body or /root/rigid_body)
