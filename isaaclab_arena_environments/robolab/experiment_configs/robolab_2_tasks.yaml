@@ -17,13 +17,25 @@ runs:
       remote_host: 127.0.0.1
       remote_port: 8000
       openpi_embodiment_adapter: droid
+    # This YAML anchor keeps the shared lighting variations in one place:
+    # the directional light's direction and the dome light's color.
+    variations: &light_variation
+      directional_light:
+        direction:
+          enabled: true
+      light:
+        color:
+          enabled: true
+    num_rebuilds: 10
     rollout_limit:
-      num_episodes: 1
+      num_episodes: 10
 
   banana_in_bowl:
     environment:
       type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
       enable_cameras: true
     policy: *openpi_policy
+    variations: *light_variation
+    num_rebuilds: 10
     rollout_limit:
-      num_episodes: 1
+      num_episodes: 10

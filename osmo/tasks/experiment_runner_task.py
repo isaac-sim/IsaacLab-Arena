@@ -41,10 +41,10 @@ class ExperimentRunnerTaskCfg(TaskCfg):
     record_viewport_video: bool = False
     """Record a viewport video for each Run."""
 
-    watchdog_stall_timeout_seconds: float = 300.0
+    watchdog_stall_timeout_seconds: float = 600.0
     """Relaunch the runner if it emits no output for this long. Non-positive disables the watchdog."""
 
-    watchdog_max_restarts: int = 3
+    watchdog_max_restarts: int = 5
     """Maximum number of stall-triggered relaunches before the task gives up."""
 
 
@@ -100,7 +100,11 @@ class ExperimentRunnerTask(BaseTask):
         if self.task_cfg.record_viewport_video:
             command.append("--record_viewport_video")
         command = self._wrap_with_watchdog(command)
-        return f"set -euo pipefail\n{shlex.join(command)}\n"
+        # Disable HDF5 file locking: each Run writes its own single-writer episode dataset, so the
+        # lock buys nothing, and a stalled process the watchdog kills can leave the lock held on the
+        # cluster filesystem — making the relaunched Run die creating its dataset (BlockingIOError,
+        # errno 11). Exported before the command so the watchdog and every relaunched child inherit it.
+        return f"set -euo pipefail\nexport HDF5_USE_FILE_LOCKING=FALSE\n{shlex.join(command)}\n"
 
     def _wrap_with_watchdog(self, command: list[str]) -> list[str]:
         """Wrap the runner command so a stalled Run is killed and relaunched on a fresh output dir."""

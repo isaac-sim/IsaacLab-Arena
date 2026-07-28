@@ -82,11 +82,27 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
         output_dir=tmp_path,
     )
 
+    base_seed = run.environment_builder.seed
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
-    assert received_run_cfgs == [run, run]
+    # Rebuild 0 builds the run unchanged; each later rebuild offsets the seed so its fresh
+    # construction differs (e.g. a build-time light-direction variation resolves to a new value).
+    assert received_run_cfgs[0] is run
+    assert [cfg.environment_builder.seed for cfg in received_run_cfgs] == [base_seed, base_seed + 1]
     assert run.rollout_limit == RolloutLimitCfg(num_episodes=5)
+    assert run.environment_builder.seed == base_seed
+
+
+def test_cfg_for_rebuild_offsets_seed_per_rebuild():
+    run = _run(num_rebuilds=3)
+    base_seed = run.environment_builder.seed
+
+    assert run_execution._cfg_for_rebuild(run, 0) is run
+    assert run_execution._cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
+    assert run_execution._cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
+    # The original config is never mutated.
+    assert run.environment_builder.seed == base_seed
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):

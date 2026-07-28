@@ -7,7 +7,7 @@ env_name: throw_away_apple
 external_yaml: ../scenes/workdesk_snacks.yaml
 task:
   composition: atomic
-  description: place the apple into the plasticpail on the table
+  description: place the apple into the plastic pail on the table
   subtasks:
   - kind: PickAndPlaceTask
     params:

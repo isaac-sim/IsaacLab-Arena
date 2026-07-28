@@ -87,6 +87,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = None
         self.mimic_env = None
+        self.add_variation(CameraExtrinsicsVariation(camera_name="external_camera"))
+        self.add_variation(CameraExtrinsicsVariation(camera_name="external_camera_2"))
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
 
     def _lift_z(self, pos: tuple[float, float, float]) -> tuple[float, float, float]:
