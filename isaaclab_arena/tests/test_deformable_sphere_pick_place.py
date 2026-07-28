@@ -26,6 +26,7 @@ def test_deformable_assets_registered() -> None:
         "procedural_deformable_cable",
     ):
         assert reg.is_registered(asset_name)
+        assert "deformable" in reg.get_asset_by_name(asset_name)().tags
 
 
 def test_object_hierarchy_reparented() -> None:
@@ -80,6 +81,8 @@ def test_deformable_spawn_uses_pretet_usd() -> None:
     for asset_name, tet_file in (
         ("procedural_deformable_sphere", "procedural_deformable_sphere_tet.usda"),
         ("procedural_deformable_cube", "procedural_deformable_cube_tet.usda"),
+        ("procedural_deformable_volume_block", "procedural_deformable_volume_block_tet.usda"),
+        ("procedural_deformable_cable", "procedural_deformable_cable_tet.usda"),
     ):
         asset = AssetRegistry().get_asset_by_name(asset_name)()
         for backend in ("newton_mjwarp_vbd", "default"):
@@ -203,14 +206,27 @@ def test_surface_deformables_can_use_surface_preset() -> None:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     cloth = AssetRegistry().get_asset_by_name("procedural_deformable_cloth")()
-    cable = AssetRegistry().get_asset_by_name("procedural_deformable_cable")()
     builder = object.__new__(ArenaEnvBuilder)
-    builder.arena_env = types.SimpleNamespace(scene=types.SimpleNamespace(assets={"cloth": cloth, "cable": cable}))
+    builder.arena_env = types.SimpleNamespace(scene=types.SimpleNamespace(assets={"cloth": cloth}))
 
-    assert builder._scene_soft_body_kinds() == frozenset({"surface", "cable"})
+    assert builder._scene_soft_body_kinds() == frozenset({"surface"})
     assert (
         builder._select_backend_preset("newton_mjwarp_vbd_surface", needs_soft_body=True) == "newton_mjwarp_vbd_surface"
     )
+
+
+def test_cable_uses_volume_soft_body_preset() -> None:
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    cable = AssetRegistry().get_asset_by_name("procedural_deformable_cable")()
+    builder = object.__new__(ArenaEnvBuilder)
+    builder.arena_env = types.SimpleNamespace(scene=types.SimpleNamespace(assets={"cable": cable}))
+
+    assert builder._scene_soft_body_kinds() == frozenset({"volume"})
+    with pytest.raises(NotImplementedError, match="does not support"):
+        builder._select_backend_preset("newton_mjwarp_vbd_surface", needs_soft_body=True)
+    assert builder._select_backend_preset("newton_mjwarp_vbd", needs_soft_body=True) == "newton_mjwarp_vbd"
 
 
 def _test_deformable_sphere_newton_smoke(simulation_app) -> bool:
@@ -279,7 +295,7 @@ def _test_deformable_sphere_newton_smoke(simulation_app) -> bool:
     return True
 
 
-def _test_surface_and_cable_newton_smoke(simulation_app) -> bool:
+def _test_surface_cable_and_volume_newton_smoke(simulation_app) -> bool:
     import torch
 
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -289,45 +305,58 @@ def _test_surface_and_cable_newton_smoke(simulation_app) -> bool:
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
+    def assert_deformables_step(arena_env, preset: str, asset_names: tuple[str, ...]) -> None:
+        builder = ArenaEnvBuilder(
+            arena_env,
+            ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, presets=preset),
+        )
+        env = builder.make_registered().unwrapped
+        try:
+            env.reset()
+            assert env.cfg.scene.replicate_physics is True
+            hold_action = torch.zeros((env.num_envs, env.action_manager.total_action_dim), device=env.device)
+            before = {}
+            for name in asset_names:
+                asset = env.scene[name]
+                before[name] = asset.data.nodal_pos_w.torch.clone()
+                assert before[name].shape[1] > 0
+                assert torch.isfinite(before[name]).all()
+
+            for _ in range(10):
+                env.step(hold_action)
+
+            for name in asset_names:
+                after = env.scene[name].data.nodal_pos_w.torch
+                assert torch.isfinite(after).all()
+                assert (after - before[name]).abs().max().item() > 1.0e-6
+        finally:
+            env.close()
+
     registry = AssetRegistry()
     ground = registry.get_asset_by_name("ground_plane")()
     cloth = registry.get_asset_by_name("procedural_deformable_cloth")()
+    volume_block = registry.get_asset_by_name("procedural_deformable_volume_block")()
     cable = registry.get_asset_by_name("procedural_deformable_cable")()
     embodiment = registry.get_asset_by_name("franka_joint_pos")()
     cloth.set_initial_pose(Pose(position_xyz=(-0.2, 0.0, 0.5)))
+    volume_block.set_initial_pose(Pose(position_xyz=(0.0, 0.25, 0.5)))
     cable.set_initial_pose(Pose(position_xyz=(0.25, 0.0, 0.5)))
 
     arena_env = IsaacLabArenaEnvironment(
         name="minimal_surface_deformables",
-        scene=Scene([ground, cloth, cable]),
+        scene=Scene([ground, cloth, volume_block, cable]),
         embodiment=embodiment,
     )
-    builder = ArenaEnvBuilder(
-        arena_env,
-        ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, presets="newton_mjwarp_vbd_surface"),
+    assert_deformables_step(arena_env, "newton_mjwarp_vbd", (cloth.name, volume_block.name, cable.name))
+
+    cloth_surface = registry.get_asset_by_name("procedural_deformable_cloth")(instance_name="cloth_surface_only")
+    cloth_surface.set_initial_pose(Pose(position_xyz=(-0.2, 0.0, 0.5)))
+    surface_env = IsaacLabArenaEnvironment(
+        name="minimal_surface_preset_deformable",
+        scene=Scene([registry.get_asset_by_name("ground_plane")(), cloth_surface]),
+        embodiment=registry.get_asset_by_name("franka_joint_pos")(),
     )
-    env = builder.make_registered().unwrapped
-
-    try:
-        env.reset()
-        assert env.cfg.scene.replicate_physics is True
-        hold_action = torch.zeros((env.num_envs, env.action_manager.total_action_dim), device=env.device)
-        before = {}
-        for name in (cloth.name, cable.name):
-            asset = env.scene[name]
-            before[name] = asset.data.nodal_pos_w.torch.clone()
-            assert before[name].shape[1] > 0
-            assert torch.isfinite(before[name]).all()
-
-        for _ in range(10):
-            env.step(hold_action)
-
-        for name in (cloth.name, cable.name):
-            after = env.scene[name].data.nodal_pos_w.torch
-            assert torch.isfinite(after).all()
-            assert (after - before[name]).abs().max().item() > 1.0e-6
-    finally:
-        env.close()
+    assert_deformables_step(surface_env, "newton_mjwarp_vbd_surface", (cloth_surface.name,))
     return True
 
 
@@ -340,8 +369,8 @@ def test_deformable_sphere_newton_smoke() -> None:
 
 
 @pytest.mark.with_subprocess
-def test_surface_and_cable_newton_smoke() -> None:
+def test_surface_cable_and_volume_newton_smoke() -> None:
     assert run_simulation_app_function(
-        _test_surface_and_cable_newton_smoke,
+        _test_surface_cable_and_volume_newton_smoke,
         headless=HEADLESS,
     )

@@ -23,7 +23,6 @@ from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.deformable_object import DeformableObject
 from isaaclab_arena.assets.deformable_spawn import (
-    CableDeformableMaterial,
     DeformableMaterial,
     NewtonDeformableTuning,
     NewtonSurfaceDeformableTuning,
@@ -49,6 +48,8 @@ from isaaclab_arena.utils.pose import Pose
 _LOCAL_ASSET_DIR = Path(__file__).resolve().parent / "usd"
 _DEFORMABLE_SPHERE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_sphere_tet.usda")
 _DEFORMABLE_CUBE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cube_tet.usda")
+_DEFORMABLE_VOLUME_BLOCK_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_volume_block_tet.usda")
+_DEFORMABLE_CABLE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cable_tet.usda")
 
 
 class LibraryObject(Object):
@@ -408,7 +409,7 @@ class ProceduralDeformableSphere(DeformableObject):
     """Small FEM soft sphere for deformable-object smoke tests."""
 
     name = "procedural_deformable_sphere"
-    tags = ["object", "procedural", "deformable"]
+    tags = ["object", "procedural", "deformable", "volume"]
 
     def __init__(
         self,
@@ -419,6 +420,7 @@ class ProceduralDeformableSphere(DeformableObject):
         radius = _PROCEDURAL_DEFORMABLE_SPHERE_RADIUS
         super().__init__(
             name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
             prim_path=prim_path,
             usd_path=_DEFORMABLE_SPHERE_TET_USD,
             material=_PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL,
@@ -448,7 +450,7 @@ class ProceduralDeformableCube(DeformableObject):
     """Small FEM soft cube for maple-table deformable pick-and-place tests."""
 
     name = "procedural_deformable_cube"
-    tags = ["object", "procedural", "deformable"]
+    tags = ["object", "procedural", "deformable", "volume"]
 
     def __init__(
         self,
@@ -459,6 +461,7 @@ class ProceduralDeformableCube(DeformableObject):
         half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_CUBE_SIZE)
         super().__init__(
             name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
             prim_path=prim_path,
             usd_path=_DEFORMABLE_CUBE_TET_USD,
             material=_PROCEDURAL_DEFORMABLE_CUBE_MATERIAL,
@@ -476,7 +479,7 @@ _PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE = (0.08, 0.04, 0.04)
 
 @register_asset
 class ProceduralDeformableVolumeBlock(DeformableObject):
-    """Mesh-spawned Newton/PhysX volume deformable cuboid."""
+    """Pre-tetrahedralized Newton/PhysX volume deformable cuboid."""
 
     name = "procedural_deformable_volume_block"
     tags = ["object", "procedural", "deformable", "volume"]
@@ -490,8 +493,9 @@ class ProceduralDeformableVolumeBlock(DeformableObject):
         half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE)
         super().__init__(
             name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
             prim_path=prim_path,
-            spawner_cfg=sim_utils.MeshCuboidCfg(size=_PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE),
+            usd_path=_DEFORMABLE_VOLUME_BLOCK_TET_USD,
             material=DeformableMaterial(
                 youngs_modulus=1.2e5,
                 poissons_ratio=0.35,
@@ -509,7 +513,8 @@ class ProceduralDeformableVolumeBlock(DeformableObject):
 
 
 _PROCEDURAL_DEFORMABLE_CLOTH_SIZE = (0.22, 0.22)
-_PROCEDURAL_DEFORMABLE_CABLE_SIZE = (0.4, 0.018)
+_PROCEDURAL_DEFORMABLE_CABLE_LENGTH = 0.4
+_PROCEDURAL_DEFORMABLE_CABLE_RADIUS = 0.012
 
 
 @register_asset
@@ -528,6 +533,7 @@ class ProceduralDeformableCloth(DeformableObject):
         half_x, half_y = (_PROCEDURAL_DEFORMABLE_CLOTH_SIZE[0] * 0.5, _PROCEDURAL_DEFORMABLE_CLOTH_SIZE[1] * 0.5)
         super().__init__(
             name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
             prim_path=prim_path,
             spawner_cfg=sim_utils.MeshRectangleCfg(size=_PROCEDURAL_DEFORMABLE_CLOTH_SIZE, resolution=(24, 24)),
             material=SurfaceDeformableMaterial(
@@ -559,10 +565,10 @@ class ProceduralDeformableCloth(DeformableObject):
 
 @register_asset
 class ProceduralDeformableCable(DeformableObject):
-    """Cable-like deformable represented as a narrow surface strip."""
+    """Cable-shaped volume deformable using Isaac Lab's native tetrahedralized mesh path."""
 
     name = "procedural_deformable_cable"
-    tags = ["object", "procedural", "deformable", "surface", "cable"]
+    tags = ["object", "procedural", "deformable", "volume", "cable"]
 
     def __init__(
         self,
@@ -570,33 +576,24 @@ class ProceduralDeformableCable(DeformableObject):
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
     ):
-        half_x, half_y = (_PROCEDURAL_DEFORMABLE_CABLE_SIZE[0] * 0.5, _PROCEDURAL_DEFORMABLE_CABLE_SIZE[1] * 0.5)
+        half_length = _PROCEDURAL_DEFORMABLE_CABLE_LENGTH * 0.5
+        radius = _PROCEDURAL_DEFORMABLE_CABLE_RADIUS
         super().__init__(
             name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
             prim_path=prim_path,
-            spawner_cfg=sim_utils.MeshRectangleCfg(size=_PROCEDURAL_DEFORMABLE_CABLE_SIZE, resolution=(36, 2)),
-            material=CableDeformableMaterial(
-                physx=PhysxSurfaceDeformableTuning(
-                    density=120.0,
-                    surface_thickness=0.006,
-                    surface_stretch_stiffness=1.0e3,
-                    surface_shear_stiffness=2.0e2,
-                    surface_bend_stiffness=0.5,
-                ),
-                newton=NewtonSurfaceDeformableTuning(
-                    density=120.0,
-                    particle_radius=0.004,
-                    tri_ke=1.0e3,
-                    tri_ka=2.0e2,
-                    tri_kd=1.0e-3,
-                    edge_ke=0.5,
-                    edge_kd=1.0e-3,
-                ),
+            usd_path=_DEFORMABLE_CABLE_TET_USD,
+            material=DeformableMaterial(
+                youngs_modulus=3.0e4,
+                poissons_ratio=0.35,
+                density=120.0,
+                physx=PhysxDeformableTuning(contact_offset=0.0015, solver_position_iteration_count=20),
+                newton=NewtonDeformableTuning(particle_radius=0.004, k_damp=1.0e-3),
             ),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.02, 0.02, 0.02)),
             local_bounding_box=AxisAlignedBoundingBox(
-                min_point=(-half_x, -half_y, -0.003),
-                max_point=(half_x, half_y, 0.003),
+                min_point=(-half_length, -radius, -radius),
+                max_point=(half_length, radius, radius),
             ),
             initial_pose=initial_pose,
         )

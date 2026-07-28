@@ -6,9 +6,9 @@
 """Backend-neutral deformable spawn construction.
 
 This module is the only place in Arena that names concrete PhysX / Newton deformable config
-classes. Arena assets declare a deformable source (USD or mesh spawner) plus a material kind
-(volume, surface, or cable-as-surface), and this module translates that declaration into the
-backend-specific Isaac Lab spawn config.
+classes. Arena assets declare a deformable source (USD or mesh spawner) plus a material topology
+(volume or surface), and this module translates that declaration into the backend-specific Isaac Lab
+spawn config.
 """
 
 from __future__ import annotations
@@ -47,7 +47,6 @@ class DeformableKind(str, Enum):
 
     VOLUME = "volume"
     SURFACE = "surface"
-    CABLE = "cable"
 
 
 def lame_parameters(youngs_modulus: float, poissons_ratio: float) -> tuple[float, float]:
@@ -169,17 +168,9 @@ class SurfaceDeformableMaterial:
 
     def __post_init__(self) -> None:
         self.kind = DeformableKind(self.kind)
-        assert self.kind in (
-            DeformableKind.SURFACE,
-            DeformableKind.CABLE,
-        ), f"SurfaceDeformableMaterial kind must be surface or cable, got {self.kind!r}."
-
-
-@dataclass
-class CableDeformableMaterial(SurfaceDeformableMaterial):
-    """Cable-like deformable represented as a narrow Newton/PhysX surface mesh strip."""
-
-    kind: DeformableKind = DeformableKind.CABLE
+        assert (
+            self.kind is DeformableKind.SURFACE
+        ), f"SurfaceDeformableMaterial kind must be surface, got {self.kind!r}."
 
 
 DeformableMaterial: TypeAlias = VolumeDeformableMaterial
@@ -330,8 +321,8 @@ def backend_object_preset(
         soft_body_only: When True, restrict the preset fields to soft-body-capable presets and use
             the soft-body default; otherwise cover all presets and use the stock default.
     """
-    names = soft_body_presets() if soft_body_only else set(ARENA_PHYSICS_PRESETS)
-    fields: dict[str, AssetBaseCfg] = {name: make_object_cfg(preset_backend(name)) for name in names}
+    names = soft_body_presets() if soft_body_only else ARENA_PHYSICS_PRESETS
+    fields: dict[str, AssetBaseCfg] = {name: make_object_cfg(preset_backend(name)) for name in sorted(names)}
     default_name = DEFAULT_SOFT_BODY_PRESET if soft_body_only else DEFAULT_PRESET
     fields["default"] = make_object_cfg(preset_backend(default_name))
     return preset(**fields)

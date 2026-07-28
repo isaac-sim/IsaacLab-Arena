@@ -66,6 +66,36 @@ def _write_tet_usd(points: np.ndarray, tets: np.ndarray, out_path: Path, prim_na
     print(f"wrote {out_path.name}: {len(points)} vertices, {len(tets)} tetrahedra")
 
 
+def _structured_box_tets(
+    length: float, half_width: float, half_height: float, num_segments: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build a low-resolution tetrahedral prism without runtime tetrahedralization."""
+    points = []
+    for x in np.linspace(-length * 0.5, length * 0.5, num_segments + 1):
+        for y in (-half_width, half_width):
+            for z in (-half_height, half_height):
+                points.append((x, y, z))
+
+    def vid(i: int, y_id: int, z_id: int) -> int:
+        return i * 4 + y_id * 2 + z_id
+
+    cell_tets = ((0, 1, 7, 3), (0, 3, 7, 2), (0, 2, 7, 6), (0, 6, 7, 4), (0, 4, 7, 5), (0, 5, 7, 1))
+    tets = []
+    for i in range(num_segments):
+        local = [
+            vid(i, 0, 0),
+            vid(i, 0, 1),
+            vid(i, 1, 0),
+            vid(i, 1, 1),
+            vid(i + 1, 0, 0),
+            vid(i + 1, 0, 1),
+            vid(i + 1, 1, 0),
+            vid(i + 1, 1, 1),
+        ]
+        tets.extend(tuple(local[index] for index in tet) for tet in cell_tets)
+    return np.asarray(points, dtype=np.float32), np.asarray(tets, dtype=np.int32)
+
+
 def main() -> None:
     sphere = trimesh.creation.icosphere(subdivisions=2, radius=0.03)
     pts, tets = _tetrahedralize(sphere)
@@ -74,6 +104,12 @@ def main() -> None:
     cube = trimesh.creation.box(extents=(0.06, 0.06, 0.06))
     pts, tets = _tetrahedralize(cube)
     _write_tet_usd(pts, tets, _OUT_DIR / "procedural_deformable_cube_tet.usda", "DeformableCube")
+
+    pts, tets = _structured_box_tets(length=0.08, half_width=0.02, half_height=0.02, num_segments=4)
+    _write_tet_usd(pts, tets, _OUT_DIR / "procedural_deformable_volume_block_tet.usda", "DeformableVolumeBlock")
+
+    pts, tets = _structured_box_tets(length=0.4, half_width=0.012, half_height=0.012, num_segments=8)
+    _write_tet_usd(pts, tets, _OUT_DIR / "procedural_deformable_cable_tet.usda", "DeformableCable")
 
 
 if __name__ == "__main__":

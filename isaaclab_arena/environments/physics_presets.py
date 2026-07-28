@@ -197,7 +197,7 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         backend=SimulationBackend.NEWTON,
         cfg=_NEWTON_MJWARP_VBD_CFG,
         supports_soft_body=True,
-        soft_body_kinds=frozenset({"volume", "surface", "cable"}),
+        soft_body_kinds=frozenset({"volume", "surface"}),
         replicate_physics=True,
     ),
     "newton_mjwarp_vbd_surface": PhysicsPreset(
@@ -205,7 +205,7 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         backend=SimulationBackend.NEWTON,
         cfg=_NEWTON_MJWARP_VBD_SURFACE_CFG,
         supports_soft_body=True,
-        soft_body_kinds=frozenset({"surface", "cable"}),
+        soft_body_kinds=frozenset({"surface"}),
         replicate_physics=True,
     ),
     # ``default`` mirrors ``physx`` (the stock backend used when no preset is selected).
