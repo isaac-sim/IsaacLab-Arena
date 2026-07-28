@@ -40,27 +40,25 @@ def _fake_observation(num_envs: int = 1) -> dict:
     }
 
 
-def test_droid_adapter_uses_cosmos_wire_keys():
-    """The wire-format contract between CosmosDroidAdapter and the Cosmos server."""
+def test_droid_adapter_composes_cosmos_concat_view():
+    """The wire-format contract between CosmosDroidAdapter and the Cosmos server.
+
+    Mirrors RoboLab's cosmos3 client: the three DROID cameras are padded and composed into a
+    single ``observation/image`` concat_view (wrist over [left|right]) of size 540x640.
+    """
     adapter = CosmosDroidAdapter()
     extracted = adapter.extract(_fake_observation(), env_id=0)
     server_request = adapter.pack_request(extracted, "pick up the banana and place it in the bowl")
 
     assert set(server_request.keys()) == {
-        "observation/wrist_image_left",
-        "observation/exterior_image_1_left",
-        "observation/exterior_image_2_left",
+        "observation/image",
         "observation/joint_position",
         "observation/gripper_position",
         "prompt",
     }
-    for image_key in (
-        "observation/wrist_image_left",
-        "observation/exterior_image_1_left",
-        "observation/exterior_image_2_left",
-    ):
-        assert server_request[image_key].shape == (720, 1280, 3)
-        assert server_request[image_key].dtype == np.uint8
+    # wrist (360x640) stacked over [left|right] (each 180x320) -> 540x640.
+    assert server_request["observation/image"].shape == (540, 640, 3)
+    assert server_request["observation/image"].dtype == np.uint8
     assert server_request["observation/joint_position"].shape == (7,)
     assert server_request["observation/gripper_position"].shape == (1,)
     assert server_request["prompt"] == "pick up the banana and place it in the bowl"
