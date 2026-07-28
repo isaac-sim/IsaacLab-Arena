@@ -1,0 +1,33 @@
+{#
+Header version switcher styled like pydata-sphinx-theme's built-in one, populated from
+sphinx-multiversion's git-derived `current_version`.
+#}
+{%- macro version_label(name) -%}
+{{ name[8:] if name.startswith("release/") else name }}
+{%- endmacro -%}
+{#- `current_version` is only present under sphinx-multiversion; a plain single-version
+    build (make html) has none, so fall back to a "dev" label for local previews. -#}
+{%- set label = version_label(current_version.name) if current_version else "dev" %}
+{#- Always emit the button: pydata drops navbar items that render empty. -#}
+<div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="{{ _('Version switcher list') }}">
+    {{ label }}
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    {%- if versions %}
+    {%- for item in versions.branches %}
+    <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
+    {%- endfor %}
+    {%- for item in versions.tags|reverse %}
+    <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
+       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
+    {%- endfor %}
+    {%- endif %}
+  </div>
+</div>

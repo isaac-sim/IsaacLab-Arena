@@ -21,7 +21,7 @@ MAX_RETRIES_LIMIT = 10
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
+DEFAULT_MODEL = "azure/anthropic/claude-opus-4-8"
 
 
 @dataclass(frozen=True)

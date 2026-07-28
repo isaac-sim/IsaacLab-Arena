@@ -5,10 +5,14 @@
 
 """Tests for placement-on-reset event: fresh layouts on successive resets."""
 
+import contextlib
 import torch
 from unittest.mock import MagicMock
 
 import pytest
+
+from isaaclab_arena.relations.placement_validator_registry import register_validator
+from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
 def _checklist(passed: bool):
@@ -735,7 +739,8 @@ def test_pooled_placer_only_falls_back_on_final_batch(capsys):
     captured = capsys.readouterr()
 
     assert pool.had_fallbacks
-    assert captured.out.count("Placement pool solved") == 2
+    # Fallback is accepted only on the final batch, so the warning prints exactly once.
+    assert captured.out.count("Falling back to best-loss layouts") == 1
     assert not pool.sample_without_replacement(1)[0].success
 
 
@@ -777,3 +782,154 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
 
     with pytest.raises(RuntimeError, match="could not fill"):
         PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+
+
+_STUB_REACHABILITY_CHECK = "stub_reachability"
+
+
+@register_validator
+class _StubReachabilityValidator(PlacementValidator):
+    """Test double for a run-after-inexpensive reachability gate, registered under a unique check name.
+
+    Stands in for the cuRobo IK gate without cuRobo, an embodiment, or a GPU, so the pooled placer
+    exercises the same reject-&-refill path the real validator drives. Delisted (``is_available`` False)
+    unless a test installs a predicate via ``_stub_reachability()``, so it never affects placer tests
+    that do not opt in.
+    """
+
+    check = _STUB_REACHABILITY_CHECK
+    run_after_inexpensive_checks = True
+    predicate = None
+    """Per-test callable ``(PlacementResult) -> bool``; None delists the validator."""
+
+    @classmethod
+    def is_available(cls, params) -> bool:
+        return cls.predicate is not None
+
+    def validate_batch(self, positions, orientations, bboxes, collision_objects):
+        from isaaclab_arena.relations.placement_result import PlacementResult
+        from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+
+        candidates = [
+            PlacementResult(
+                validation_results=PlacementValidationResults(),
+                positions=positions[i],
+                final_loss=0.0,
+                attempts=0,
+                orientations=orientations[i],
+            )
+            for i in range(len(positions))
+        ]
+        return [bool(type(self).predicate(candidate)) for candidate in candidates]
+
+
+@contextlib.contextmanager
+def _stub_reachability(predicate):
+    """Install a predicate on the stub reachability validator for the duration of the block."""
+    _StubReachabilityValidator.predicate = predicate
+    try:
+        yield
+    finally:
+        _StubReachabilityValidator.predicate = None
+
+
+def _make_validated_pool(
+    num_envs: int,
+    min_layouts_per_env: int,
+    reachability_predicate=None,
+    allow_best_loss_fallbacks: bool = True,
+):
+    """Build a small valid pool over the desk/box fixtures, optionally gating on a fake reachability predicate."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    objects = list(_create_test_objects())
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=7,
+        allow_best_loss_fallbacks=allow_best_loss_fallbacks,
+    )
+    # The predicate is only consulted while the pool solves (in this constructor), so scope it here.
+    with _stub_reachability(reachability_predicate):
+        return PooledObjectPlacer(
+            objects=objects,
+            placer_params=params,
+            pool_size=num_envs * min_layouts_per_env,
+            num_envs=num_envs,
+        )
+
+
+def test_reachability_validator_gates_and_refills():
+    """A reachability predicate gates the stub run-after-inexpensive validator; rejected candidates are
+    not stored and the pool solve loop refills until every env meets its target."""
+    num_envs, target = 2, 2
+    # Reject the first num_envs*target candidates the validator sees, accept every one after, forcing at
+    # least one refill batch before the pool can reach the target.
+    reject_first = num_envs * target
+    calls = {"n": 0}
+
+    def validator(result) -> bool:
+        index = calls["n"]
+        calls["n"] += 1
+        return index >= reject_first
+
+    pool = _make_validated_pool(num_envs=num_envs, min_layouts_per_env=target, reachability_predicate=validator)
+
+    # Every stored layout passed the reachability check...
+    for env_layouts in pool.layouts_per_env():
+        for layout in env_layouts:
+            assert layout.validation_results.validation_results.get(_STUB_REACHABILITY_CHECK) is True
+    assert all(len(env_layouts) >= target for env_layouts in pool.layouts_per_env())
+    # ...and more candidates were validated than the initial fill, i.e. a refill actually happened.
+    assert calls["n"] > reject_first
+
+
+def test_reachability_validator_reject_all_raises_without_fallback():
+    """When the validator rejects everything and fallbacks are off, the pool cannot fill and raises."""
+    with pytest.raises(RuntimeError, match="could not fill"):
+        _make_validated_pool(
+            num_envs=2,
+            min_layouts_per_env=2,
+            reachability_predicate=lambda result: False,
+            allow_best_loss_fallbacks=False,
+        )
+
+
+def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params():
+    """The build-time-only reachability embodiment must not survive into the reset-event params.
+
+    Isaac Lab deep-copies and validates those params, and a live embodiment's cyclic ``mimic_env``/scene
+    config graph overflows both passes (deepcopy on un-picklable handles, ``_validate`` on the cycle).
+    """
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    for box in (box1, box2):
+        box.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
+    # With no cuRobo reachability validator registered the embodiment is only carried, never dereferenced,
+    # so a sentinel stands in for a live (cyclic) EmbodimentBase.
+    embodiment = object()
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        min_unique_layouts_per_env=2,
+        placement_seed=7,
+    )
+    params.reachability_config.embodiment = embodiment
+
+    event = solve_and_apply_relation_placement([desk, box1, box2], num_envs=1, placer_params=params)
+
+    # The caller's own config is copied before severing, so its embodiment is left intact...
+    assert params.reachability_config.embodiment is embodiment
+    # ...while the pool the reset event captured no longer references the embodiment -- on the placer params
+    # and on every built validator alike -- so configclass never deep-copies or recurses into it.
+    pool = event.params["placement_pool"]
+    assert pool._placer.params.reachability_config.embodiment is None
+    assert all(v._params.reachability_config.embodiment is None for v in pool._placer._validators)

@@ -1,0 +1,49 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from isaaclab_arena.policy.policy_base import PolicyCfg
+
+MAX_RECONNECT_ATTEMPTS = 3
+
+
+@dataclass
+class CosmosRemotePolicyCfg(PolicyCfg):
+    """Connection + runtime config for ``CosmosRemotePolicy``.
+
+    Embodiment-specific wire-format details (camera keys, joint counts, ...) live on the
+    embodiment adapter (see ``CosmosDroidAdapter`` in ``droid_adapter.py``) so this config
+    stays usable unchanged regardless of which adapter the policy is built with.
+    """
+
+    cosmos_embodiment_adapter: str = "droid"
+    """Adapter used to translate Arena observations into the Cosmos server wire format."""
+
+    policy_device: str = "cuda"
+    """Torch device for the returned action tensor."""
+
+    remote_host: str = "localhost"
+    """Hostname of the Cosmos policy server."""
+
+    remote_port: int = 8000
+    """Port the Cosmos policy server listens on."""
+
+    open_loop_horizon: int = 32
+    """Number of action steps to replay per server inference call before refetching.
+    Defaults to the full 32-step chunk, matching the released Cosmos DROID client
+    (RoboLab ``policies/cosmos3/client.py``, ``OPEN_LOOP_HORIZON = 32``). Must not exceed
+    the server's ``action_chunk_size`` (32 for the released DROID policies)."""
+
+    ping_interval: float | None = 20.0
+    """Seconds between websocket keepalive pings, or None to disable pings."""
+
+    ping_timeout: float | None = 20.0
+    """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""
+
+    def __post_init__(self) -> None:
+        assert self.open_loop_horizon > 0, "open_loop_horizon must be positive"

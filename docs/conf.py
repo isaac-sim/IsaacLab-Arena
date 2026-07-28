@@ -23,17 +23,6 @@ from typing import List
 import os
 import sys
 
-# TODO(alexmillane, 2025-10-03): Currently we can't import the version number.
-# Modify PYTHONPATH so we can obtain the version data from setup module.
-# pylint: disable=wrong-import-position
-# path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from setup import ISAACLAB_ARENA_VERSION_NUMBER
-
-# TODO(alexmillane, 2025-10-03): Get this programmatically, as above.
-ISAACLAB_ARENA_VERSION_NUMBER = "0.2"
-
-
 # Modify PYTHONPATH so we can import the helpers module.
 sys.path.insert(0, os.path.abspath("."))
 from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
@@ -48,6 +37,10 @@ project = "isaaclab_arena"
 copyright = "2025, NVIDIA"
 author = "NVIDIA"
 released = False  # Indicates if this is a public or internal version of the repo.
+
+# The header version selector derives each documented version's number from git via
+# sphinx-multiversion's `current_version` (see docs/_templates/version-badge.html), so
+# `version`/`release` are intentionally left unset here.
 
 # -- General configuration ---------------------------------------------------
 
@@ -111,7 +104,8 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
-html_title = f"isaaclab_arena {ISAACLAB_ARENA_VERSION_NUMBER}"
+# Only render project name, not the version, such that the version can be added below.
+html_title = project
 html_show_sphinx = False
 html_theme_options = {
     "copyright_override": {"start": 2023},
@@ -120,6 +114,8 @@ html_theme_options = {
     "footer_links": {},
     "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "show_nav_level": 1,
+    # Render the per-version number beside the logo/title in the header navbar.
+    "navbar_start": ["navbar-logo", "version-badge"],
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {
@@ -140,7 +136,8 @@ html_css_files = ["custom.css"]
 smv_remote_whitelist = r"^.*$"
 smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
-html_sidebars = {"**": ["versioning.html", "sidebar-nav-bs"]}
+# Remove the version badge from the sidebar.
+html_sidebars = {"**": ["sidebar-nav-bs"]}
 # Todos
 todo_include_todos = True
 
