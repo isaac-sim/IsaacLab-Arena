@@ -269,7 +269,8 @@ def extract_trimesh_from_usd(
 
     Scale is applied per-vertex in local frame before the prim-to-world transform.
     All scale components must be positive (negative flips winding/SDF sign).
-    Other Gprim geometry is rejected, not silently dropped.
+    Payloads are loaded and instance proxies are traversed so instanced collision
+    meshes are included. Other Gprim geometry is rejected, not silently dropped.
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
@@ -285,13 +286,14 @@ def extract_trimesh_from_usd(
     stage = Usd.Stage.Open(usd_path)
     if stage is None:
         raise ValueError(f"Failed to open USD: {usd_path}")
+    stage.Load()
 
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
     skipped_gprims: list[str] = []
     offset = 0
 
-    for prim in stage.Traverse():
+    for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
@@ -343,7 +345,8 @@ def extract_trimesh_from_prim(
 ) -> trimesh.Trimesh:
     """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
 
-    Other Gprim geometry is rejected, not silently dropped.
+    Payloads are loaded and instance proxies are traversed so instanced collision
+    meshes are included. Other Gprim geometry is rejected, not silently dropped.
     """
     assert all(
         s > 0 for s in scale
@@ -355,6 +358,8 @@ def extract_trimesh_from_prim(
     if not root_prim.IsA(UsdGeom.Xformable):
         raise ValueError(f"Prim at path {prim_path} is not Xformable")
 
+    stage.Load()
+
     root_world_tf = np.array(UsdGeom.Xformable(root_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
     root_world_tf_inv = np.linalg.inv(root_world_tf)
     scale_np = np.asarray(scale, dtype=np.float64)
@@ -364,7 +369,7 @@ def extract_trimesh_from_prim(
     skipped_gprims: list[str] = []
     offset = 0
 
-    for prim in Usd.PrimRange(root_prim):
+    for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))

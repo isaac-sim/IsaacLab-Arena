@@ -20,22 +20,21 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"
         assert len(mesh.vertices) > 0
 
-        # Mesh extraction scopes to UsdGeom.Mesh under the default prim (arm/gripper). The Droid USD also
-        # bakes in a stand and may reference non-mesh gprims; leaking a 50 m ground plane would blow this up.
+        # Mesh extraction scopes to UsdGeom.Mesh under the default prim, including instance-proxied
+        # stand collision. Reject runaway ground-plane geometry while allowing robot + stand footprint.
         extents = mesh.extents
-        assert all(e < 2.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
+        assert all(e < 3.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
 
-        # Placement bbox comes from the full composed on-stand spawn USD (robot + stand). It should be at
-        # least as large as the arm mesh footprint.
+        # Placement bbox and collision mesh both scope to the composed on-stand spawn USD.
         bbox = emb.get_bounding_box()
         bbox_size = (bbox.max_point - bbox.min_point)[0].tolist()
         for mesh_extent, box_extent in zip(extents, bbox_size):
             assert (
                 box_extent + 1e-3 >= mesh_extent
             ), f"placement bbox {bbox_size} should cover robot mesh extents {extents.tolist()}"
-            # TODO(qianl): Re-enable check for exact match when the stand with non-mesh collision geometry
-            # is correctly included in get_bounding_box()/extract_trimesh_from_prim()
-            # assert abs(mesh_extent - box_extent) < 0.2, f"mesh extents {extents} disagree withbox {bbox_size}"
+            assert (
+                abs(mesh_extent - box_extent) < 0.2
+            ), f"mesh extents {extents.tolist()} disagree with bbox {bbox_size}"
 
         # Extraction opens the USD, so the result is cached rather than recomputed per solve.
         assert emb.get_collision_mesh() is mesh
