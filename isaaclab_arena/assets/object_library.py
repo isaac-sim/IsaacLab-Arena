@@ -385,7 +385,7 @@ _PROCEDURAL_DEFORMABLE_SPHERE_RADIUS = 0.03
 # density ~ lightweight foam (Newton); particle_radius is the VBD collision radius, kept below the tet
 # edge length so neighboring particles collide against the gripper rather than tunnel through.
 _PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL = DeformableMaterial(
-    youngs_modulus=1.0e5,
+    youngs_modulus=8.0e4,
     poissons_ratio=0.4,
     density=300.0,
     physx=PhysxDeformableTuning(
