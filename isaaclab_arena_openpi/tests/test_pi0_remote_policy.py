@@ -110,7 +110,7 @@ def test_registration_builds_typed_config_and_resolves_adapter(monkeypatch):
             openpi_embodiment_adapter="droid",
         )
     )
-    assert isinstance(policy._openpi_embodiment_adapter, Pi0DroidAdapter)
+    assert isinstance(policy._adapter, Pi0DroidAdapter)
     assert policy._open_loop_horizon == 15
 
 

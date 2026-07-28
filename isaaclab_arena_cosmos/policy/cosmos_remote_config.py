@@ -28,14 +28,16 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     """Torch device for the returned action tensor."""
 
     remote_host: str = "localhost"
-    """Hostname of the Cosmos RoboLab policy server."""
+    """Hostname of the Cosmos policy server."""
 
     remote_port: int = 8000
-    """Port the Cosmos RoboLab policy server listens on."""
+    """Port the Cosmos policy server listens on."""
 
-    open_loop_horizon: int = 16
-    """Number of action steps to replay per server inference call. Must not exceed the
-    server's ``action_chunk_size`` (32 for the released DROID policies)."""
+    open_loop_horizon: int = 32
+    """Number of action steps to replay per server inference call before refetching.
+    Defaults to the full 32-step chunk, matching the released Cosmos DROID client
+    (RoboLab ``policies/cosmos3/client.py``, ``OPEN_LOOP_HORIZON = 32``). Must not exceed
+    the server's ``action_chunk_size`` (32 for the released DROID policies)."""
 
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""

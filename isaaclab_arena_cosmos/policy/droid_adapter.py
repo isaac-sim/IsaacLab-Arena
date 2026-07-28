@@ -9,12 +9,12 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any
 
-from isaaclab_arena_cosmos.policy.cosmos_remote_policy import CosmosEmbodimentAdapter
+from isaaclab_arena_openpi.policy.remote_policy_base import EmbodimentAdapter
 
 
 @dataclass(frozen=True)
 class DroidObservation:
-    """Per-env tensors needed to assemble a Cosmos RoboLab DROID request."""
+    """Per-env tensors needed to assemble a Cosmos DROID request."""
 
     wrist_image: np.ndarray  # (H, W, 3) uint8
     exterior_image_1: np.ndarray  # (H, W, 3) uint8
@@ -23,13 +23,13 @@ class DroidObservation:
     gripper_position: np.ndarray  # (1,) float32
 
 
-class CosmosDroidAdapter(CosmosEmbodimentAdapter):
+class CosmosDroidAdapter(EmbodimentAdapter):
     """Wire format for the released Cosmos DROID policies (Nano/Edge), joint_pos action space.
 
-    The RoboLab server composes its ``concat_view`` (wrist on top, two third-person
-    views on the bottom) from the wrist + two exterior images, so this adapter forwards
-    all three of Arena's DROID cameras. Images are sent at their native resolution; the
-    server resizes them to the model's input size.
+    The server composes its ``concat_view`` (wrist on top, two third-person views on the
+    bottom) from the wrist + two exterior images, so this adapter forwards all three of
+    Arena's DROID cameras. Images are sent at their native resolution; the server resizes
+    them to the model's input size.
     """
 
     # Fixed by the released DROID joint_pos policies: 7 arm joints + 1 gripper command.
