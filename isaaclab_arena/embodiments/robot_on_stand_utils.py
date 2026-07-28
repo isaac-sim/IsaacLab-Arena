@@ -95,7 +95,7 @@ def compose_on_stand_usd(
         stage.SetDefaultPrim(root)
 
         _mount_stand_normalized(stage, robot, stand, stand_height_m)
-        stage.GetRootLayer().Save()
+        assert stage.GetRootLayer().Save(), f"failed to save composed on-stand USD to {tmp_path}"
         os.replace(tmp_path, out_path)
     except Exception:
         tmp_path.unlink(missing_ok=True)
