@@ -138,7 +138,6 @@ Run it with:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-     --enable_cameras \
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 

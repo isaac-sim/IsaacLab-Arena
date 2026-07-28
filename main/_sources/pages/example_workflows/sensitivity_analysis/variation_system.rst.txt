@@ -94,7 +94,6 @@ Then run the example inside the container:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --enable_cameras \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
 The viewport will show the environment being rebuilt with different variation values:
