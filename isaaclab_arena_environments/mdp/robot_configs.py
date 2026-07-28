@@ -8,13 +8,18 @@
 
 from __future__ import annotations
 
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+
+_LEGACY_FRANKA_PANDA_USD_PATH = f"{ISAACLAB_NUCLEUS_DIR}/Robots/FrankaEmika/Legacy/panda_instanceable.usd"
 
 # ===========================================================================================
 # Franka Panda robot configuration optimized for assembly tasks (peg insert, gear mesh, etc.).
 # ===========================================================================================
 
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+# TODO: Remove this compatibility override once the minimum supported Isaac Lab wheel includes the Legacy path fix.
+FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.usd_path = _LEGACY_FRANKA_PANDA_USD_PATH
 
 # Enable contact sensors for assembly tasks
 FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.spawn.activate_contact_sensors = True
