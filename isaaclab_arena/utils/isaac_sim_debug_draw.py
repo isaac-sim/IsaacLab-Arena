@@ -55,7 +55,19 @@ class IsaacSimDebugDraw:
             max_point: Maximum corner (x, y, z).
             thickness: Line thickness in pixels.
         """
-        self._draw_bbox_wireframe(min_point, max_point, DEFAULT_COLOR, thickness)
+        x0, y0, z0 = min_point
+        x1, y1, z1 = max_point
+        corners = [
+            (x0, y0, z0),
+            (x1, y0, z0),
+            (x1, y1, z0),
+            (x0, y1, z0),
+            (x0, y0, z1),
+            (x1, y0, z1),
+            (x1, y1, z1),
+            (x0, y1, z1),
+        ]
+        self._draw_corner_wireframe(corners, DEFAULT_COLOR, thickness)
 
     def draw_object_bboxes(
         self,
@@ -64,59 +76,28 @@ class IsaacSimDebugDraw:
     ) -> None:
         """Draw bounding boxes for one or more objects.
 
-        Uses each object's get_world_bounding_box() method which returns
-        the bounding box in world coordinates (local bbox + position offset).
+        Uses each object's exact oriented world bounding box.
 
         Args:
             objects: List of objects with get_world_bounding_box() methods.
             thickness: Line thickness in pixels.
         """
         for obj in objects:
-            bbox_coords = self._extract_bbox_from_object(obj)
-            if bbox_coords is not None:
-                min_pt, max_pt = bbox_coords
-                self._draw_bbox_wireframe(min_pt, max_pt, DEFAULT_COLOR, thickness)
-            else:
-                print(f"Skipping {obj.name}: no bbox coordinates")
+            corners = obj.get_world_bounding_box().get_corners()[0].tolist()
+            self._draw_corner_wireframe(corners, DEFAULT_COLOR, thickness)
 
     def clear(self) -> None:
         """Clear all debug drawings."""
         self._draw.clear_lines()
         self._draw.clear_points()
 
-    def _extract_bbox_from_object(self, obj) -> tuple[tuple, tuple] | None:
-        """Extract world-space bounding box coordinates from an object.
-
-        Returns:
-            Tuple of (min_point, max_point) or None if extraction failed.
-        """
-        world_bbox = obj.get_world_bounding_box()
-        return tuple(world_bbox.min_point[0].tolist()), tuple(world_bbox.max_point[0].tolist())
-
-    def _draw_bbox_wireframe(
+    def _draw_corner_wireframe(
         self,
-        min_point: tuple[float, float, float],
-        max_point: tuple[float, float, float],
+        corners: list[tuple[float, float, float]] | list[list[float]],
         color: tuple[float, float, float, float],
         thickness: float,
     ) -> None:
-        """Draw a wireframe bounding box using 12 edge lines."""
-        x0, y0, z0 = min_point
-        x1, y1, z1 = max_point
-
-        # 8 corners of the box
-        corners = [
-            (x0, y0, z0),
-            (x1, y0, z0),
-            (x1, y1, z0),
-            (x0, y1, z0),  # Bottom face
-            (x0, y0, z1),
-            (x1, y0, z1),
-            (x1, y1, z1),
-            (x0, y1, z1),  # Top face
-        ]
-
-        # 12 edges connecting corners
+        """Draw the 12-edge wireframe joining eight ordered corners."""
         edges = [
             (0, 1),
             (1, 2),
@@ -132,7 +113,6 @@ class IsaacSimDebugDraw:
             (3, 7),  # Vertical edges
         ]
 
-        # Build lists for draw_lines API
         start_points = [corners[i] for i, j in edges]
         end_points = [corners[j] for i, j in edges]
         colors_list = [color] * len(edges)

@@ -28,7 +28,7 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
 
         # Link boxes conservatively cover the same posed Gprims as the placement bbox.
         bbox = emb.get_bounding_box()
-        bbox_size = (bbox.max_point - bbox.min_point)[0].tolist()
+        bbox_size = (2.0 * bbox.half_extents[0]).tolist()
         for mesh_extent, box_extent in zip(extents, bbox_size):
             assert (
                 mesh_extent + 1e-3 >= box_extent

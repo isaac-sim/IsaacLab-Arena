@@ -5,8 +5,8 @@
 
 """Regression tests for USD scale handling in extract_trimesh_from_usd and compute_local_bounding_box_from_usd.
 
-Verifies that spawn-scale is applied in the local frame (R·(S·v)+t) rather than world
-frame (S·(R·v+t)), which matters for translated/rotated child prims under non-uniform scale.
+Verifies that spawn scale is applied in the default-prim frame after child transforms,
+matching scale authored on the spawned default-prim wrapper.
 """
 
 import numpy as np
@@ -20,17 +20,16 @@ HEADLESS = True
 
 
 def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
-    """extract_trimesh_from_usd must scale in local frame, not world frame.
+    """Mesh and bounding-box extraction agree in the scaled default-prim frame.
 
     Setup: unit cube under a child Xform translated +1.0 in X, scale=(2,1,1).
-    Correct (local scale): verts ±0.5 → ±1.0 in local X, then translate +1 → world X [0.0, 2.0].
-    Bug (world scale): verts ±0.5, translate +1 → world [0.5, 1.5], then *2 → [1.0, 3.0].
+    Child transform gives X [0.5, 1.5], then root-wrapper scale gives X [1.0, 3.0].
     """
     import tempfile
 
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -87,16 +86,20 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
 
     scale = (2.0, 1.0, 1.0)
     tri = extract_trimesh_from_usd(usd_path, scale=scale)
+    bbox = compute_local_bounding_box_from_usd(usd_path, scale=scale)
     verts = tri.vertices
 
-    # Local scale: ±0.5*2=±1.0 then +1 translate → world X [0.0, 2.0]
-    assert np.isclose(verts[:, 0].min(), 0.0, atol=1e-5), f"got {verts[:, 0].min():.4f}"
-    assert np.isclose(verts[:, 0].max(), 2.0, atol=1e-5), f"got {verts[:, 0].max():.4f}"
+    assert np.isclose(verts[:, 0].min(), 1.0, atol=1e-5), f"got {verts[:, 0].min():.4f}"
+    assert np.isclose(verts[:, 0].max(), 3.0, atol=1e-5), f"got {verts[:, 0].max():.4f}"
 
     assert np.isclose(verts[:, 1].min(), -0.5, atol=1e-5)
     assert np.isclose(verts[:, 1].max(), 0.5, atol=1e-5)
     assert np.isclose(verts[:, 2].min(), -0.5, atol=1e-5)
     assert np.isclose(verts[:, 2].max(), 0.5, atol=1e-5)
+
+    bbox_min, bbox_max = bbox.get_axis_aligned_bounds()
+    np.testing.assert_allclose(bbox_min[0].cpu().numpy(), verts.min(axis=0), atol=1e-5)
+    np.testing.assert_allclose(bbox_max[0].cpu().numpy(), verts.max(axis=0), atol=1e-5)
 
     return True
 
@@ -332,8 +335,8 @@ def _test_bbox_translated_child_nonuniform_scale(simulation_app):
     bbox = compute_local_bounding_box_from_usd(usd_path, scale=scale)
 
     # ComputeLocalBound gives [0.5,1.5] * scale_x=2 → [1.0, 3.0]
-    min_pt = bbox.min_point[0]  # (3,) tensor
-    max_pt = bbox.max_point[0]  # (3,) tensor
+    min_point, max_point = bbox.get_axis_aligned_bounds()
+    min_pt, max_pt = min_point[0], max_point[0]
     assert np.isclose(min_pt[0].item(), 1.0, atol=1e-5), f"got {min_pt[0].item():.4f}"
     assert np.isclose(max_pt[0].item(), 3.0, atol=1e-5), f"got {max_pt[0].item():.4f}"
     assert np.isclose(min_pt[1].item(), -0.5, atol=1e-5)
@@ -415,8 +418,8 @@ def _test_both_paths_agree_origin_prim(simulation_app):
     assert np.isclose(verts[:, 2].max(), 0.25, atol=1e-5)
 
     # BBox must match mesh extents exactly for origin-centered single prim.
-    min_pt = bbox.min_point[0]  # (3,) tensor
-    max_pt = bbox.max_point[0]  # (3,) tensor
+    min_point, max_point = bbox.get_axis_aligned_bounds()
+    min_pt, max_pt = min_point[0], max_point[0]
     assert np.isclose(min_pt[0].item(), -1.0, atol=1e-5)
     assert np.isclose(max_pt[0].item(), 1.0, atol=1e-5)
     assert np.isclose(min_pt[1].item(), -1.5, atol=1e-5)

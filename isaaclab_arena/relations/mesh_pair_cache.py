@@ -19,10 +19,7 @@ if TYPE_CHECKING:
 
 
 class MeshPairEntry(NamedTuple):
-    """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh).
-
-    Dimensions: S = sphere count for this pair's subject, B = batch_size.
-    """
+    """One directed sphere-to-mesh collision pair."""
 
     subject: PlaceableAsset
     """Subject (sphere source) object."""
@@ -36,35 +33,14 @@ class MeshPairEntry(NamedTuple):
     fixed_obstacle_pos: torch.Tensor | None
     """(3,) world-frame position of the fixed obstacle; None for non-fixed obstacles."""
 
-    fixed_obstacle_yaw: float
-    """Fixed obstacle Z-yaw in radians (0.0 for non-fixed obstacles)."""
+    fixed_obstacle_rotation: torch.Tensor | None
+    """(4,) world-frame xyzw rotation of the fixed obstacle; None for non-fixed obstacles."""
 
     centers_local: torch.Tensor
     """(S, 3) sphere centers in subject-local frame."""
 
-    subject_applies_yaw: bool
-    """True when subject sphere centers are in the object's unrotated local frame."""
-
     radii: torch.Tensor
-    """(S,) sphere radii."""
-
-    subject_bbox_min: torch.Tensor
-    """(B, 3) subject bounding box min corners."""
-
-    subject_bbox_max: torch.Tensor
-    """(B, 3) subject bounding box max corners."""
-
-    subject_bbox_includes_yaw: bool
-    """True when subject bbox extents are already yaw-expanded."""
-
-    obstacle_bbox_min: torch.Tensor
-    """(B, 3) obstacle bounding box min corners."""
-
-    obstacle_bbox_max: torch.Tensor
-    """(B, 3) obstacle bounding box max corners."""
-
-    obstacle_bbox_includes_yaw: bool
-    """True when obstacle bbox extents are already yaw-expanded."""
+    """(S,) asset-local sphere radii."""
 
     warp_mesh: wp.Mesh
     """Warp mesh asset for the obstacle."""
@@ -72,13 +48,7 @@ class MeshPairEntry(NamedTuple):
 
 @dataclass(slots=True)
 class MeshPairCache:
-    """Precomputed per-pair collision data for the vectorized multi-mesh kernel.
-
-    Dimensions: P = num_pairs (ordered subject/obstacle pairs), B = batch_size (num envs),
-    S = total_spheres (sum of sphere counts across all P pairs; each subject object is decomposed
-    into multiple covering spheres via greedy_sphere_decomposition),
-    M = num_unique_meshes (distinct collision meshes referenced by the pairs).
-    """
+    """Precomputed data for P directed pairs, S spheres, and M target meshes."""
 
     all_centers_local: torch.Tensor
     """(S, 3) sphere centers in each subject's local frame, concatenated across pairs."""
@@ -92,35 +62,14 @@ class MeshPairCache:
     pair_obstacle_objs: list[PlaceableAsset | CollisionObject]
     """(P,) obstacle (mesh target) object reference per pair."""
 
-    pair_subject_applies_yaw: list[bool]
-    """(P,) True when subject sphere centers are in the subject's unrotated local frame."""
-
     pair_obstacle_is_fixed: list[bool]
     """(P,) True if the obstacle is fixed in world coordinates."""
 
     pair_fixed_obstacle_pos: list[torch.Tensor | None]
     """(P,) world position for fixed obstacles (None for non-fixed obstacles)."""
 
-    pair_fixed_obstacle_yaw: list[float]
-    """(P,) fixed obstacle yaw in radians (0.0 for non-fixed obstacles)."""
-
-    pair_subject_bbox_min: torch.Tensor
-    """(P, B, 3) subject bounding box min corners."""
-
-    pair_subject_bbox_max: torch.Tensor
-    """(P, B, 3) subject bounding box max corners."""
-
-    pair_subject_bbox_includes_yaw: torch.Tensor
-    """(P,) bool; whether each subject bbox already includes yaw."""
-
-    pair_obstacle_bbox_min: torch.Tensor
-    """(P, B, 3) obstacle bounding box min corners."""
-
-    pair_obstacle_bbox_max: torch.Tensor
-    """(P, B, 3) obstacle bounding box max corners."""
-
-    pair_obstacle_bbox_includes_yaw: torch.Tensor
-    """(P,) bool; whether each obstacle bbox already includes yaw."""
+    pair_fixed_obstacle_rotation: list[torch.Tensor | None]
+    """(P,) fixed-obstacle world xyzw rotations, each (4,); None for dynamic obstacles."""
 
     pair_max_radius: torch.Tensor
     """(P,) maximum sphere radius across all spheres in each pair."""
@@ -143,34 +92,25 @@ class MeshPairCache:
     total_spheres: int
     """Total number of sphere queries across all pairs."""
 
-    pair_fixed_obstacle_pos_tensor: torch.Tensor
-    """(P, 3) fixed obstacle world positions, or zeros for non-fixed pairs."""
-
-    pair_fixed_obstacle_yaw_tensor: torch.Tensor
-    """(P,) fixed obstacle yaw; 0 for non-fixed pairs."""
-
     def __post_init__(self) -> None:
         assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
         assert len(self.pair_obstacle_objs) == self.num_pairs, "pair_obstacle_objs length mismatch"
-        assert len(self.pair_subject_applies_yaw) == self.num_pairs, "pair_subject_applies_yaw length mismatch"
-        assert self.pair_subject_bbox_includes_yaw.shape == (
-            self.num_pairs,
-        ), "pair_subject_bbox_includes_yaw length mismatch"
-        assert self.pair_obstacle_bbox_includes_yaw.shape == (
-            self.num_pairs,
-        ), "pair_obstacle_bbox_includes_yaw length mismatch"
         assert len(self.pair_obstacle_is_fixed) == self.num_pairs, "pair_obstacle_is_fixed length mismatch"
+        assert len(self.pair_fixed_obstacle_pos) == self.num_pairs, "pair_fixed_obstacle_pos length mismatch"
+        assert len(self.pair_fixed_obstacle_rotation) == self.num_pairs, "pair_fixed_obstacle_rotation length mismatch"
         assert self.all_centers_local.shape[0] == self.total_spheres, "all_centers_local size mismatch"
         assert self.all_radii.shape[0] == self.total_spheres, "all_radii size mismatch"
         assert self.sphere_pair_id.shape[0] == self.total_spheres, "sphere_pair_id size mismatch"
         assert self.sphere_mesh_idx.shape[0] == self.total_spheres, "sphere_mesh_idx size mismatch"
         assert int(self.pair_sphere_count.sum().item()) == self.total_spheres, "pair_sphere_count sum mismatch"
-        assert self.pair_fixed_obstacle_pos_tensor.shape == (
-            self.num_pairs,
-            3,
-        ), "pair_fixed_obstacle_pos_tensor shape mismatch"
-        assert self.pair_fixed_obstacle_yaw_tensor.shape == (
-            self.num_pairs,
-        ), "pair_fixed_obstacle_yaw_tensor shape mismatch"
-        for i, (is_fixed, pos) in enumerate(zip(self.pair_obstacle_is_fixed, self.pair_fixed_obstacle_pos)):
-            assert not is_fixed or pos is not None, f"pair {i}: obstacle_is_fixed=True but fixed_obstacle_pos is None"
+        for i, (is_fixed, pos, rotation) in enumerate(
+            zip(
+                self.pair_obstacle_is_fixed,
+                self.pair_fixed_obstacle_pos,
+                self.pair_fixed_obstacle_rotation,
+                strict=True,
+            )
+        ):
+            assert not is_fixed or (
+                pos is not None and rotation is not None
+            ), f"pair {i}: fixed obstacles require position and rotation"

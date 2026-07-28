@@ -55,7 +55,7 @@ def _bbox_size(path: pathlib.Path, scale: tuple[float, float, float]) -> tuple[f
     from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
     bbox = compute_local_bounding_box_from_usd(path.as_posix(), scale=scale)
-    size = bbox.size[0]
+    size = 2.0 * bbox.half_extents[0]
     return (float(size[0]), float(size[1]), float(size[2]))
 
 
@@ -69,7 +69,7 @@ def _test_compute_local_bounding_box_from_usd(simulation_app, asset_dir: pathlib
     size = _bbox_size(unit_cube, scale=(2.0, 2.0, 2.0))
     assert all(abs(dim - 2.0) < EPS for dim in size), size
 
-    # Default-prim root scale is unbaked before spawn scale is applied.
+    # ComputeUntransformedBound excludes the authored default-prim transform before spawn scale is applied.
     size = _bbox_size(scaled_root_cube, scale=(1.0, 1.0, 1.0))
     assert all(abs(dim - 1.0) < EPS for dim in size), size
 

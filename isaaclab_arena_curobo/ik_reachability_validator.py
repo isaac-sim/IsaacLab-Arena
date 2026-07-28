@@ -6,7 +6,7 @@
 """Build-time cuRobo IK-reachability gate for pooled placement, sim-free (no SimApp).
 
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
-top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
+top-down grasp at every marked target, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
 
 With the placement debug view on (``ObjectPlacerParams.debug_visualize``), the check also draws what it solved for each
 candidate -- the robot base, the grasps, their IK errors; see ``isaaclab_arena_curobo.reachability_visualizer``.
@@ -17,20 +17,18 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
-    AABBCollisionCuboid,
     IKFeasibility,
-    get_aabb_collision_cuboid_for_object,
+    OrientedCollisionCuboid,
+    get_obb_collision_cuboid_for_object,
     hand_sphere_mask,
     robot_collision_spheres,
     solve_ik_feasibility,
@@ -41,25 +39,34 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
 
 def get_object_world_pose_from_layout(
     positions: dict[ObjectBase, tuple[float, float, float]],
-    orientations: dict[ObjectBase, float],
+    rotations: dict[ObjectBase, tuple[float, float, float, float]],
     obj: ObjectBase,
-    base_rotations: dict,
+    anchors: set[ObjectBase],
 ) -> Pose:
     """Return the world pose an object gets under a layout."""
-    pos_w = positions[obj]
-    base_quat_xyzw = base_rotations[obj]
-    marker_yaw = yaw_from_quat_xyzw(base_quat_xyzw)
-    total_yaw = orientations.get(obj, marker_yaw)
-    quat_w_xyzw = rotate_quat_by_yaw(base_quat_xyzw, total_yaw - marker_yaw)
+    if obj in rotations:
+        rotation_xyzw = rotations[obj]
+    elif obj in anchors:
+        fixed_pose = obj.get_initial_pose()
+        assert isinstance(fixed_pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose."
+        rotation_xyzw = fixed_pose.rotation_xyzw
+    else:
+        rotation_xyzw = (0.0, 0.0, 0.0, 1.0)
+    rotation = torch.tensor(rotation_xyzw, dtype=torch.float32)
+    assert rotation.shape == (4,), f"Rotation for '{obj.name}' must have shape (4,)."
+    assert torch.isfinite(rotation).all(), f"Rotation for '{obj.name}' must be finite."
+    assert torch.isclose(
+        torch.linalg.vector_norm(rotation), torch.tensor(1.0), atol=1e-5, rtol=1e-5
+    ), f"Rotation for '{obj.name}' must be a unit quaternion."
     return Pose(
-        position_xyz=tuple(float(v) for v in pos_w),
-        rotation_xyzw=tuple(float(v) for v in quat_w_xyzw),
+        position_xyz=tuple(float(v) for v in positions[obj]),
+        rotation_xyzw=tuple(float(v) for v in rotation_xyzw),
     )
 
 
@@ -115,18 +122,20 @@ class ReachabilityValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
+        rotations: list[dict[ObjectBase, tuple[float, float, float, float]]],
+        bboxes: list[dict[ObjectBase, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         return [
-            self._validate(positions[i], orientations[i], layout_index_within_batch=i) for i in range(len(positions))
+            self._validate(positions[i], rotations[i], bboxes[i], layout_index_within_batch=i)
+            for i in range(len(positions))
         ]
 
     def _validate(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        orientations: dict[ObjectBase, float],
+        rotations: dict[ObjectBase, tuple[float, float, float, float]],
+        bboxes: dict[ObjectBase, OrientedBoundingBox],
         layout_index_within_batch: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
@@ -139,28 +148,29 @@ class ReachabilityValidator(PlacementValidator):
 
         Args:
             positions: Solved (x, y, z) per object.
-            orientations: Absolute world Z-yaw per object.
+            rotations: Sparse world xyzw rotations per movable object.
+            bboxes: Per-object oriented boxes for this candidate's environment.
             layout_index_within_batch: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
-        base_rotations = get_base_rotation_per_asset(objects)
 
-        world_poses = {
-            obj: get_object_world_pose_from_layout(positions, orientations, obj, base_rotations) for obj in objects
-        }
-        # non-anchor objects with a RequiresReachability relation
-        targets = self._select_reachability_targets(objects, anchors)
+        world_poses = {obj: get_object_world_pose_from_layout(positions, rotations, obj, anchors) for obj in objects}
         robot_base_pose_w = world_poses.get(self._embodiment, self._configured_robot_base_pose_w)
         # The robot's own body is not an obstacle: cuRobo already carries it as collision spheres.
         cuboid_per_object = {
-            obj: get_aabb_collision_cuboid_for_object(
-                obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw
+            obj: get_obb_collision_cuboid_for_object(
+                obj,
+                bboxes[obj],
+                world_poses[obj].position_xyz,
+                world_poses[obj].rotation_xyzw,
             )
             for obj in objects
             if obj is not self._embodiment
         }
 
+        # Non-anchor objects with a RequiresReachability relation.
+        targets = self._select_reachability_targets(objects, anchors)
         if not targets:
             # The check is enabled but no movable object is stamped as a reachability target, so it passes every
             # layout trivially.
@@ -205,7 +215,7 @@ class ReachabilityValidator(PlacementValidator):
         self,
         targets: list[ObjectBase],
         grasp_poses: torch.Tensor,
-        cuboid_per_object: dict[ObjectBase, AABBCollisionCuboid],
+        cuboid_per_object: dict[ObjectBase, OrientedCollisionCuboid],
         robot_base_pose_w: Pose,
     ) -> IKFeasibility:
         """IK-solve each target's grasp against a world holding every object but that target, and stack the results.

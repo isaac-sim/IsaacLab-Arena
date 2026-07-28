@@ -28,12 +28,12 @@ OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
 def _make_object_set_variants():
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
     can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    bbox_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    bbox_b = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
+    bbox_a = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    bbox_b = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
     can_a.bounding_box = bbox_a
     can_b.bounding_box = bbox_b
     return can_a, can_b, bbox_a, bbox_b
@@ -70,8 +70,8 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
 
     per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
-    assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
-    assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])
+    assert torch.allclose(per_env_bbox.center[0], bbox_b.center[0])
+    assert torch.allclose(per_env_bbox.half_extents[1], bbox_a.half_extents[0])
     return True
 
 
@@ -97,8 +97,8 @@ def _test_object_set_default_variant_indices_follow_member_order(simulation_app)
     assert getattr(spawn_cfg, "random_choice") is False
 
     per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=5)
-    assert torch.allclose(per_env_bbox.max_point[0], bbox_a.max_point[0])
-    assert torch.allclose(per_env_bbox.max_point[1], bbox_b.max_point[0])
+    assert torch.allclose(per_env_bbox.center[0], bbox_a.center[0])
+    assert torch.allclose(per_env_bbox.half_extents[1], bbox_b.half_extents[0])
     return True
 
 

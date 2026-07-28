@@ -67,7 +67,7 @@ def _test_object_mass_variation_registration(simulation_app):
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     registry = AssetRegistry()
@@ -82,8 +82,8 @@ def _test_object_mass_variation_registration(simulation_app):
 
     can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
     can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
+    can_a.bounding_box = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    can_b.bounding_box = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
     with (
         patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
         patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),

@@ -29,8 +29,8 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-    orientations: dict[PlaceableAsset, float] = field(default_factory=dict)
-    """Sparse map of world yaw angles ``theta_z`` in radians; omitted assets retain marker orientation."""
+    rotations: dict[PlaceableAsset, tuple[float, float, float, float]] = field(default_factory=dict)
+    """Sparse movable-asset world rotations in xyzw order; omitted assets use identity."""
 
     @property
     def success(self) -> bool:

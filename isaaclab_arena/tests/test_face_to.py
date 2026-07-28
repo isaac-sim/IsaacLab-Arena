@@ -24,7 +24,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -36,7 +36,7 @@ def _box(name: str, half_extents: tuple[float, float, float] = (0.1, 0.1, 0.1)) 
     hx, hy, hz = half_extents
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(-hx, -hy, -hz), max_point=(hx, hy, hz)),
+        bounding_box=OrientedBoundingBox.from_min_max((-hx, -hy, -hz), (hx, hy, hz)),
     )
 
 
@@ -67,9 +67,8 @@ def _set_solver_results(
     def _solve(
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None,
-        env_bboxes_include_yaw: bool = False,
-        orientations: list[dict[ObjectBase, float]] | None = None,
+        env_bboxes: dict[ObjectBase, OrientedBoundingBox] | None,
+        rotations: list[dict[ObjectBase, tuple[float, float, float, float]]] | None = None,
         collision_objects=None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         assert len(initial_positions) == len(layouts)
@@ -122,12 +121,12 @@ def test_face_to_uses_candidate_positions_for_anchor_and_foreground_targets():
         {pair.subject: (0.0, 0.0, 0.0), pair.target: pair.target.get_initial_pose().position_xyz},
         {pair.subject: (2.0, -2.0, 0.0), pair.target: (2.0, 0.0, 0.0)},
     ]
-    orientations = [{}, {}]
+    rotations = [{}, {}]
 
-    ObjectPlacer._apply_face_to_orientations(positions, orientations)
+    ObjectPlacer._apply_face_to_rotations(positions, rotations)
 
-    assert orientations[0][pair.subject] == pytest.approx(-math.pi / 2)
-    assert orientations[1][pair.subject] == pytest.approx(math.pi / 2)
+    assert yaw_from_quat_xyzw(rotations[0][pair.subject]) == pytest.approx(-math.pi / 2)
+    assert yaw_from_quat_xyzw(rotations[1][pair.subject]) == pytest.approx(math.pi / 2)
 
 
 def test_coincident_face_to_fails_candidate_validation():
@@ -135,22 +134,22 @@ def test_coincident_face_to_fails_candidate_validation():
     subject = _box("subject")
     subject.add_relation(FaceTo(target))
     positions = {subject: (0.0, 0.0, 0.0), target: (0.0, 0.0, 2.0)}
-    orientations = [{}]
+    rotations = [{}]
 
-    ObjectPlacer._apply_face_to_orientations([positions], orientations)
+    ObjectPlacer._apply_face_to_rotations([positions], rotations)
     validation = ObjectPlacer()._validate_candidates(
         [positions],
-        [{subject: 0.0}],
+        rotations,
         [{obj: obj.get_bounding_box() for obj in positions}],
         [],
     )[0]
 
-    assert orientations == [{}]
+    assert rotations == [{}]
     assert validation.validation_results[PlacementCheck.FACE_TO] is False
     assert validation.do_all_required_validation_checks_pass() is False
 
 
-def test_face_to_rebuilds_rotated_footprint_before_validation():
+def test_face_to_rotation_is_applied_directly_during_validation():
     target = _box("target")
     blocker = _box("blocker")
     subject = _box("subject", half_extents=(1.0, 0.1, 0.1))
@@ -158,17 +157,16 @@ def test_face_to_rebuilds_rotated_footprint_before_validation():
     objects = [subject, target, blocker]
     positions = {subject: (0.0, 0.0, 0.0), target: (0.0, 2.0, 0.0), blocker: (0.0, 0.75, 0.0)}
     unrotated = {obj: obj.get_bounding_box() for obj in objects}
-    orientations = [{}]
+    rotations = [{}]
     placer = ObjectPlacer()
 
     assert placer._validate_candidates([positions], [{}], [unrotated], [])[0].validation_results[
         PlacementCheck.NO_OVERLAP
     ]
-    ObjectPlacer._apply_face_to_orientations([positions], orientations)
-    rotated = ObjectPlacer._rotate_candidate_bboxes(objects, unrotated, orientations)
-    validation = placer._validate_candidates([positions], [orientations[0]], [rotated], [])[0]
+    ObjectPlacer._apply_face_to_rotations([positions], rotations)
+    validation = placer._validate_candidates([positions], rotations, [unrotated], [])[0]
 
-    assert orientations[0][subject] == pytest.approx(math.pi / 2)
+    assert yaw_from_quat_xyzw(rotations[0][subject]) == pytest.approx(math.pi / 2)
     assert validation.validation_results[PlacementCheck.NO_OVERLAP] is False
 
 
@@ -176,7 +174,7 @@ def test_face_to_suppresses_initial_random_yaw_and_rejects_rotate_marker():
     pair = _face_to_pair()
     placer = ObjectPlacer(ObjectPlacerParams(random_yaw_init=True))
 
-    assert placer._generate_initial_orientations([pair.target, pair.subject], {pair.target}) == {}
+    assert placer._generate_initial_rotations([pair.target, pair.subject], {pair.target}) == {}
 
     pair.subject.add_relation(RotateAroundSolution(yaw_rad=0.5))
     with pytest.raises(AssertionError, match="cannot combine FaceTo"):
@@ -235,7 +233,7 @@ def test_face_to_allows_reset_rotation_around_facing_yaw():
     positions = {pair.target: (0.0, 2.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}
 
     anchors, _ = placer._prepare_placement([pair.target, pair.subject])
-    placer._apply_poses([positions], anchors, [{pair.subject: math.pi / 2}])
+    placer._apply_poses([positions], anchors, [{pair.subject: (0.0, 0.0, 2**-0.5, 2**-0.5)}])
     pose = pair.subject.get_initial_pose()
 
     assert isinstance(pose, PoseRange)
@@ -253,20 +251,54 @@ def test_relation_solver_ignores_face_to_marker():
     RelationSolver(RelationSolverParams(max_iters=1, verbose=False)).solve([pair.target, pair.subject], [positions])
 
 
-def test_face_to_applies_absolute_world_yaw_with_default_orientation_params():
+def test_coincident_face_to_collision_loss_has_finite_gradients():
+    """Coincident FaceTo rows do not poison differentiable OBB collision gradients."""
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+
+    pair = _face_to_pair(target_position=(0.0, 0.0, 0.0), subject_half_extents=(0.4, 0.1, 0.1))
+    blocker = _box("blocker")
+    positions = [
+        {pair.target: (0.0, 0.0, 0.0), pair.subject: (0.0, 0.0, 0.0), blocker: (0.0, 0.15, 0.0)},
+        {pair.target: (0.0, 0.0, 0.0), pair.subject: (-1.0, 0.0, 0.0), blocker: (-1.0, 0.15, 0.0)},
+    ]
+    state = RelationSolverState([pair.target, pair.subject, blocker], positions)
+    solver = RelationSolver(RelationSolverParams(verbose=False))
+
+    solver._compute_no_overlap_loss(state).sum().backward()
+
+    assert state.optimizable_positions is not None
+    gradients = state.optimizable_positions.grad
+    assert gradients is not None
+    assert torch.isfinite(gradients).all()
+    subject_idx = state.optimizable_objects.index(pair.subject)
+    assert gradients[1, subject_idx].abs().max().item() > 1e-6
+
+
+def test_face_to_applies_absolute_world_yaw_with_default_orientation_params(monkeypatch):
     pair = _face_to_pair(target_position=(0.0, 2.0, 0.0))
     pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, verbose=False),
         max_placement_attempts=1,
     )
+    placer = ObjectPlacer(params)
+    _set_solver_results(
+        monkeypatch,
+        placer,
+        [{pair.target: (0.0, 2.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}],
+    )
 
-    (result,) = ObjectPlacer(params).place([pair.target, pair.subject])
+    (result,) = placer.place([pair.target, pair.subject])
     pose = pair.subject.get_initial_pose()
 
     assert isinstance(pose, Pose)
-    assert result.orientations[pair.subject] == pytest.approx(math.pi / 2)
-    assert abs(wrap_angle_to_pi(yaw_from_quat_xyzw(pose.rotation_xyzw) - math.pi / 2)) < 1e-5
+    expected_yaw = math.atan2(
+        result.positions[pair.target][1] - result.positions[pair.subject][1],
+        result.positions[pair.target][0] - result.positions[pair.subject][0],
+    )
+    assert expected_yaw == pytest.approx(math.pi / 2)
+    assert yaw_from_quat_xyzw(result.rotations[pair.subject]) == pytest.approx(expected_yaw)
+    assert abs(wrap_angle_to_pi(yaw_from_quat_xyzw(pose.rotation_xyzw) - expected_yaw)) < 1e-5
 
 
 def test_face_to_applies_independent_multi_env_yaws(monkeypatch):
@@ -282,7 +314,7 @@ def test_face_to_applies_independent_multi_env_yaws(monkeypatch):
     assert isinstance(pose, PosePerEnv)
     expected = [0.0, math.pi / 2, math.pi, -math.pi / 2]
     for result, env_pose, expected_yaw in zip(results, pose.poses, expected, strict=True):
-        assert abs(wrap_angle_to_pi(result.orientations[pair.subject] - expected_yaw)) < 1e-5
+        assert abs(wrap_angle_to_pi(yaw_from_quat_xyzw(result.rotations[pair.subject]) - expected_yaw)) < 1e-5
         assert abs(wrap_angle_to_pi(yaw_from_quat_xyzw(env_pose.rotation_xyzw) - expected_yaw)) < 1e-5
 
 
@@ -329,7 +361,7 @@ def test_face_to_registers_as_binary_graph_relation():
         SpatialRelationSpec(kind="face_to", subject="camera")
 
 
-def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
+def test_mesh_validation_receives_final_face_to_rotation(monkeypatch):
     pair = _face_to_pair(target_position=(0.0, 1.0, 0.0))
     pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
     params = ObjectPlacerParams(
@@ -338,15 +370,21 @@ def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
         apply_positions_to_objects=False,
     )
     placer = ObjectPlacer(params)
+    _set_solver_results(
+        monkeypatch,
+        placer,
+        [{pair.target: (0.0, 1.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}],
+    )
     received = {}
 
-    def _capture_orientations(candidate_positions, env_bboxes, candidate_orientations=None, collision_objects=None):
-        received.update(candidate_orientations or {})
+    def _capture_rotations(candidate_positions, env_bboxes, candidate_rotations=None, collision_objects=None):
+        received.update(candidate_rotations or {})
         return True
 
     no_overlap_validator = next(v for v in placer._validators if isinstance(v, NoOverlapValidator))
-    monkeypatch.setattr(no_overlap_validator, "_validate_no_overlap_mesh", _capture_orientations)
+    monkeypatch.setattr(no_overlap_validator, "_validate_no_overlap_mesh", _capture_rotations)
     (result,) = placer.place([pair.target, pair.subject])
 
-    assert received[pair.subject] == pytest.approx(math.pi / 2)
-    assert result.orientations[pair.subject] == pytest.approx(math.pi / 2)
+    expected = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    assert received[pair.subject] == pytest.approx(expected)
+    assert result.rotations[pair.subject] == pytest.approx(expected)

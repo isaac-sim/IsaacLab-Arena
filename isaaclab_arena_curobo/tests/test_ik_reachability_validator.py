@@ -6,9 +6,9 @@
 """Logic tests for ReachabilityValidator, with cuRobo mocked out.
 
 Exercises what the validator does around cuRobo -- reconstruct object poses from a layout, build a
-collision cuboid per non-target object, and IK-check one grasp per movable (non-anchor) object -- against
-a real geometry-solved layout, asserting the per-layout ``validate_batch`` verdict. The cuRobo solver build
-and the batched IK solve are patched, so no GPU or cuRobo install is needed; the pure-math grasp
+collision cuboid per object, and IK-check one grasp per task-marked reachability target -- against a
+real geometry-solved layout, asserting the per-layout ``validate_batch`` verdict. The cuRobo solver
+build and batched IK solve are patched, so no GPU or cuRobo install is needed; pure-math grasp
 reconstruction runs for real on CPU.
 """
 
@@ -26,25 +26,29 @@ NUM_SPHERES = 5
 """Collision-sphere count the patched kinematics reports, for the same reason."""
 
 
-def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
+def _make_desk_box_pool(
+    num_envs: int = 1,
+    min_layouts_per_env: int = 2,
+    desk_rotation: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+):
     """Build a small valid desk (anchor) + box (On desk) pool and return it."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On, RequiresReachability
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
-    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=desk_rotation))
     desk.add_relation(IsAnchor())
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
     box.add_relation(RequiresReachability())
@@ -99,8 +103,21 @@ def _patch_curobo(monkeypatch, feasible_fn):
         captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
+    def _fake_cuboid(obj, bbox, position, rotation):
+        captured.setdefault("cuboid_bboxes", {})[obj.name] = bbox
+        captured.setdefault("cuboid_poses", {})[obj.name] = (position, rotation)
+        cuboid = MagicMock()
+        cuboid.name = obj.name
+        return cuboid
+
+    def _fake_grasp(position, rotation, *args, **kwargs):
+        captured.setdefault("grasp_poses", []).append((position, rotation))
+        return torch.tensor((*position, *rotation), dtype=torch.float32)
+
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
     monkeypatch.setattr(mod, "solve_ik_feasibility", _fake_ik)
+    monkeypatch.setattr(mod, "get_obb_collision_cuboid_for_object", _fake_cuboid)
+    monkeypatch.setattr(mod, "top_down_grasp_pose_from_world_poses", _fake_grasp)
     monkeypatch.setattr(mod, "get_embodiment_curobo_cfg", lambda embodiment: None)
     # The sphere helpers are cuRobo kinematics calls; they are covered in test_ik_solver_utils.py.
     monkeypatch.setattr(mod, "robot_collision_spheres", lambda solver, q: torch.zeros(q.shape[0], NUM_SPHERES, 4))
@@ -128,12 +145,12 @@ def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2, stamped:
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On, RequiresReachability
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
@@ -141,7 +158,7 @@ def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2, stamped:
     for box_name in ("box_a", "box_b"):
         box = DummyObject(
             name=box_name,
-            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+            bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
         )
         box.add_relation(On(desk, clearance_m=0.01))
         # Only the stamped boxes are IK-checked; the rest stay plain movable objects.
@@ -170,18 +187,18 @@ def _make_unstamped_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
 
@@ -239,7 +256,10 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(
-        [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}], []
+        [layout.positions, layout.positions],
+        [layout.rotations, layout.rotations],
+        [_layout_bboxes(layout), _layout_bboxes(layout)],
+        [],
     ) == [False, False]
 
     assert [entry["layout_index_across_batch"] for entry in drawn] == [7, 9]
@@ -276,17 +296,62 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     assert rrd_path.is_file() and rrd_path.stat().st_size > 0
 
 
+def _layout_bboxes(layout):
+    """Return the complete candidate bounding-box map for a solved layout."""
+    return {obj: obj.get_bounding_box() for obj in layout.positions}
+
+
+@pytest.mark.curobo_deps
+def test_collision_cuboid_composes_intrinsic_bbox_rotation():
+    """The cuRobo cuboid pose includes the OBB's asset-local orientation."""
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
+    from isaaclab_arena_curobo.utils.ik_solver_utils import get_obb_collision_cuboid_for_object
+
+    bbox_rotation = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    obj = DummyObject(
+        name="rotated_box",
+        bounding_box=OrientedBoundingBox(
+            center=(0.25, 0.0, 0.0),
+            half_extents=(0.2, 0.1, 0.05),
+            rotation_xyzw=bbox_rotation,
+        ),
+    )
+
+    cuboid = get_obb_collision_cuboid_for_object(
+        obj,
+        obj.get_bounding_box(),
+        pos_w=(1.0, 2.0, 3.0),
+        quat_w_xyzw=(0.0, 0.0, 0.0, 1.0),
+    )
+
+    assert cuboid.pose_W_O.position_xyz == pytest.approx((1.25, 2.0, 3.0))
+    assert cuboid.pose_W_O.rotation_xyzw == pytest.approx(bbox_rotation)
+
+
 @pytest.mark.curobo_deps
 def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
-    """A layout passes when every movable-object grasp is feasible."""
+    """Full world quaternions reach cuboid and grasp construction unchanged."""
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
     validator = _make_reachability_validator(_fake_embodiment())
 
-    layout = _make_desk_box_pool().layouts_per_env()[0][0]
-    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
-    # One collision cuboid per non-target object (the desk); one grasp per target (the box).
+    anchor_rotation = (0.5, 0.0, 0.0, 3**0.5 / 2)
+    movable_rotation = (0.5, 0.5, 0.5, 0.5)
+    layout = _make_desk_box_pool(desk_rotation=anchor_rotation).layouts_per_env()[0][0]
+    box = next(obj for obj in layout.positions if obj.name == "box")
+    layout.rotations[box] = movable_rotation
+    assert validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], []) == [True]
+    # Both OBB cuboids are constructed, but the grasp target itself is omitted from its collision world.
     assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
     assert captured["total_grasps"] == 1
+    assert captured["cuboid_poses"]["desk"][1] == pytest.approx(anchor_rotation)
+    box_cuboid_position, box_cuboid_rotation = captured["cuboid_poses"]["box"]
+    assert box_cuboid_position == pytest.approx(layout.positions[box])
+    assert box_cuboid_rotation == pytest.approx(movable_rotation)
+    assert len(captured["grasp_poses"]) == 1
+    grasp_position, grasp_rotation = captured["grasp_poses"][0]
+    assert grasp_position == pytest.approx(layout.positions[box])
+    assert grasp_rotation == pytest.approx(movable_rotation)
 
 
 @pytest.mark.curobo_deps
@@ -339,24 +404,29 @@ def test_validator_collision_checks_grasps_by_default(monkeypatch):
     """Grasps are collision-checked unless the task's reachability config opts out."""
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    bboxes = _layout_bboxes(layout)
 
-    _make_reachability_validator(_fake_embodiment()).validate_batch([layout.positions], [layout.orientations], [{}], [])
+    _make_reachability_validator(_fake_embodiment()).validate_batch(
+        [layout.positions], [layout.rotations], [bboxes], []
+    )
     assert captured["ik_kwargs"]["require_collision_free"] is True
 
     _make_reachability_validator(_fake_embodiment(), require_collision_free=False).validate_batch(
-        [layout.positions], [layout.orientations], [{}], []
+        [layout.positions], [layout.rotations], [bboxes], []
     )
     assert captured["ik_kwargs"]["require_collision_free"] is False
 
 
 @pytest.mark.curobo_deps
 def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
-    """A layout fails when any movable-object grasp is infeasible."""
-    _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
+    """Omitted movable rotations use identity before an infeasible grasp rejects the layout."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
     validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
-    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+    layout.rotations.clear()
+    assert validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], []) == [False]
+    assert captured["cuboid_poses"]["box"][1] == pytest.approx((0.0, 0.0, 0.0, 1.0))
 
 
 @pytest.mark.curobo_deps
@@ -367,7 +437,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
     # Of the three objects, only box_a is a target; the desk and the unstamped box_b stay obstacles.
     layout = _make_two_box_pool().layouts_per_env()[0][0]
-    validator.validate_batch([layout.positions], [layout.orientations], [{}], [])
+    validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], [])
 
     assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
 
@@ -380,7 +450,7 @@ def test_sibling_targets_obstruct_each_others_grasps(monkeypatch):
 
     # Both boxes are targets, so each is solved in turn against a world that still holds the other.
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
-    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+    assert validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], []) == [True]
 
     assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"], ["box_a", "desk"]]
     assert captured["total_grasps"] == 2
@@ -394,7 +464,7 @@ def test_validator_rejects_when_one_sibling_target_is_infeasible(monkeypatch):
     validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
-    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+    assert validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], []) == [False]
 
 
 @pytest.mark.curobo_deps
@@ -404,7 +474,7 @@ def test_validator_checks_only_stamped_objects(monkeypatch):
     validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_two_box_pool().layouts_per_env()[0][0]
-    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+    assert validator.validate_batch([layout.positions], [layout.rotations], [_layout_bboxes(layout)], []) == [True]
     # Two movable boxes exist, but only the stamped one (box_a) contributes a grasp.
     assert captured["total_grasps"] == 1
 
@@ -417,10 +487,35 @@ def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsy
 
     layout = _make_unstamped_desk_box_pool().layouts_per_env()[0][0]
     # Two layouts through the same validator: the warning must print once, not once per candidate.
+    bboxes = _layout_bboxes(layout)
     assert validator.validate_batch(
-        [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}], []
+        [layout.positions, layout.positions],
+        [layout.rotations, layout.rotations],
+        [bboxes, bboxes],
+        [],
     ) == [True, True]
 
     # No grasp was ever solved (the IK path is skipped entirely when there are no targets).
     assert "num_grasps" not in captured
     assert capsys.readouterr().out.count("resolved zero reachability targets") == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_passes_candidate_bbox_to_cuboid_construction(monkeypatch):
+    """The candidate's heterogeneous box, not the object's default box, defines its cuboid."""
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
+
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    box = next(obj for obj in layout.positions if obj.name == "box")
+    candidate_bbox = OrientedBoundingBox(
+        center=(0.4, -0.2, 0.1),
+        half_extents=(0.3, 0.2, 0.1),
+        rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+    )
+    bboxes = _layout_bboxes(layout)
+    bboxes[box] = candidate_bbox
+
+    assert validator.validate_batch([layout.positions], [layout.rotations], [bboxes], []) == [True]
+    assert captured["cuboid_bboxes"]["box"] is candidate_bbox

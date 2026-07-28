@@ -14,10 +14,10 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     PositionLimitsCylindricalLossStrategy,
 )
 from isaaclab_arena.relations.relations import PositionLimitsBox, PositionLimitsCylindrical
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 # Dummy bounding box used for all strategy tests (child object is a 0.1m cube at origin)
-_DUMMY_BBOX = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+_DUMMY_BBOX = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
 
 
 # =============================================================================
@@ -290,14 +290,14 @@ def test_solver_respects_position_limits():
     """Solver moves an object inside the PositionLimitsBox region."""
     table = DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
     )
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
 
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
     )
     box.add_relation(On(table, clearance_m=0.01))
     box.add_relation(PositionLimitsBox(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
@@ -316,7 +316,9 @@ def test_solver_respects_cylindrical_position_limits():
     """Solver moves an object from an annulus center into its allowed radial band."""
     table = DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(
+            min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)
+        ),
     )
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
