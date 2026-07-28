@@ -34,6 +34,12 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     return str(usd_path) if usd_path else None
 
 
+def _assert_registered_asset_name(registry_name: str) -> str:
+    """Return ``registry_name`` after checking it names a registered asset."""
+    assert AssetRegistry().is_registered(registry_name), f"Unknown asset registry_name '{registry_name}'"
+    return registry_name
+
+
 class AssetSpec(BaseModel):
     """One registered asset instance in an environment graph."""
 
@@ -56,9 +62,7 @@ class AssetSpec(BaseModel):
     @field_validator("registry_name")
     @classmethod
     def _validate_registry_name(cls, value: str) -> str:
-        registry = AssetRegistry()
-        assert registry.is_registered(value), f"Unknown asset registry_name '{value}'"
-        return value
+        return _assert_registered_asset_name(value)
 
     def resolve_usd_path(self) -> str:
         """Return the USD path or URL for this registered asset instance."""
@@ -66,6 +70,41 @@ class AssetSpec(BaseModel):
         usd_path = _extract_asset_usd_path(asset_cls, **self.params)
         assert usd_path, f"asset {self.registry_name!r} has no usd_path"
         return usd_path
+
+
+class ObjectSetSpec(BaseModel):
+    """A set of rigid objects distributed among parallel environments, one object per environment."""
+
+    id: str = Field(
+        min_length=1,
+        description=(
+            "Unique id for this object set (e.g. 'bottles'). Referenced by relations and task "
+            "params exactly like an object id."
+        ),
+    )
+    members: list[str] = Field(
+        min_length=1,
+        description=(
+            "Exact registered rigid-object names from OBJECTS that this set draws from; every "
+            "environment spawns one of them."
+        ),
+    )
+    random_choice: bool = Field(
+        default=False,
+        description=(
+            "Sample each environment's member independently at random. When false, members are "
+            "assigned by repeating their declared order across environments."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional constructor kwargs forwarded to RigidObjectSet (e.g. 'scale').",
+    )
+
+    @field_validator("members")
+    @classmethod
+    def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
+        return [_assert_registered_asset_name(registry_name) for registry_name in value]
 
 
 class ObjectReferenceSpec(BaseModel):

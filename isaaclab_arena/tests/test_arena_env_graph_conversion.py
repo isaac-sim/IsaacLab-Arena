@@ -110,6 +110,35 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     assert result
 
 
+def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml")
+    arena_env = spec.to_arena_env()
+
+    object_set = arena_env.scene.assets["pick_up_object_set"]
+    assert isinstance(object_set, RigidObjectSet)
+    assert len(object_set.objects) == 2
+    assert len(object_set.member_usd_paths) == 2
+    assert object_set.random_choice
+
+    # The set is a single node: the task manipulates it, and each env gets one of its members.
+    assert arena_env.task.pick_up_object is object_set
+    object_set.assign_variants(num_envs=4)
+    assert len(object_set.object_usd_paths) == 4
+
+    return True
+
+
+def test_arena_env_graph_conversion_builds_object_set_node():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_object_set_node)
+    assert result
+
+
 def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
     return ArenaEnvGraphSpec(
         env_name="lighting_test",
