@@ -5,14 +5,30 @@
 
 from __future__ import annotations
 
+import functools
 import numpy as np
 import trimesh
+from collections.abc import Mapping
 from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.collision_mesh_store import load_mesh, save_mesh, scaled_mesh
+from isaaclab_arena.utils.usd_articulation import (
+    articulation_joint_prims,
+    compute_posed_prim_world_deltas,
+    resolve_joint_pos_patterns,
+    resolve_prim_world_delta,
+)
+
+_POSED_GEOMETRY_CACHE_SIZE = 16
+"""Distinct (USD, joint positions, scale) combinations to keep posed geometry for.
+
+An environment poses a handful of articulations, so a small cache spares repeated USD opens
+without pinning many multi-megabyte meshes.
+"""
 
 
 class NoCollisionMeshError(ValueError):
@@ -358,10 +374,19 @@ def extract_trimesh_from_prim(
     stage: Usd.Stage,
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    prim_world_deltas: Mapping[str, np.ndarray] | None = None,
 ) -> trimesh.Trimesh:
     """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
 
     Other Gprim geometry is rejected, not silently dropped.
+
+    Args:
+        stage: Stage containing the prim.
+        prim_path: Root prim to gather mesh geometry under.
+        scale: Per-axis scale applied in the root frame.
+        prim_world_deltas: Optional world-space transform per prim path, applied before the root
+            frame conversion so callers can relocate geometry (e.g. posing an articulation). A mesh
+            inherits the delta of its nearest ancestor present in the mapping.
     """
     assert all(
         s > 0 for s in scale
@@ -382,7 +407,8 @@ def extract_trimesh_from_prim(
     skipped_gprims: list[str] = []
     offset = 0
 
-    for prim in Usd.PrimRange(root_prim):
+    # Instance proxies must be traversed explicitly, or an instanceable stand contributes no vertices.
+    for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
@@ -395,6 +421,10 @@ def extract_trimesh_from_prim(
             continue
 
         prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        if prim_world_deltas is not None:
+            delta = resolve_prim_world_delta(str(prim.GetPath()), prim_world_deltas)
+            if delta is not None:
+                prim_world_tf = prim_world_tf @ delta
         prim_to_root_tf = prim_world_tf @ root_world_tf_inv
         verts = np.asarray(points, dtype=np.float64)
         verts_h = np.hstack([verts, np.ones((len(verts), 1))])
@@ -437,3 +467,143 @@ def extract_trimesh_from_usd_path(
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+
+
+def extract_trimesh_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    library_folder: str | None = None,
+) -> trimesh.Trimesh:
+    """Extract an articulation's mesh posed at joint_pos, in its default prim's local frame.
+
+    Joints the articulation has but joint_pos omits are posed at zero, so the result depends only on
+    joint_pos and not on the configuration the asset happens to be authored in. Cached in process and
+    on disk, and shared with every other caller, so treat the result as read-only.
+
+    Args:
+        usd_path: Path to the articulation's .usd/.usda/.usdc file.
+        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
+        scale: Spawn-time scale passed to ``UsdFileCfg``.
+        library_folder: Robot's folder in the published library, or None to skip the published lookup.
+
+    Returns:
+        Combined trimesh in the scaled default-prim frame.
+    """
+    return _extract_trimesh_from_usd_at_joint_pos(
+        usd_path, tuple(sorted(joint_pos.items())), tuple(scale), library_folder
+    )
+
+
+# NOTE(zihaox, 2026-07-28): Cache here rather than on the asset. Isaac Lab reaches assets through
+# EventTermCfg params, and configclass's validation walk tracks no visited set, so a trimesh held by
+# an asset sends it recursing through trimesh's internal back-references until the stack overflows.
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _extract_trimesh_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+    library_folder: str | None,
+) -> trimesh.Trimesh:
+    """Cacheable body of ``extract_trimesh_from_usd_at_joint_pos``, keyed by hashable arguments."""
+    joint_pos = dict(joint_pos_items)
+    stored = load_mesh(usd_path, joint_pos, scale, library_folder)
+    if stored is not None:
+        return stored
+
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    default_prim_path = default_prim.GetPath().pathString
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
+    deltas = compute_posed_prim_world_deltas(stage, default_prim_path, resolved)
+
+    # Store at unit scale so one artifact serves every spawn scale of the asset.
+    unscaled = extract_trimesh_from_prim(stage, default_prim_path, (1.0, 1.0, 1.0), prim_world_deltas=deltas)
+    save_mesh(usd_path, joint_pos, unscaled, library_folder=library_folder)
+    return scaled_mesh(unscaled, scale)
+
+
+def compute_local_bounding_box_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    prim_path: str | None = None,
+) -> AxisAlignedBoundingBox:
+    """Compute posed bounds under a prim in the articulation's default-prim-local frame.
+
+    Every ``UsdGeom.Gprim`` contributes, matching the geometry the unposed
+    ``compute_local_bounding_box_from_usd`` covers. Bounds must not come from the posed mesh alone:
+    mesh extraction drops analytic gprims (Droid's ``gripper_adapter``), which would understate the
+    robot's footprint by centimetres.
+
+    The result is cached on the arguments and shared with every other caller, so treat it as
+    read-only. Relation losses ask for bounds every optimisation step, which would otherwise reopen
+    the USD and redo the posing per step.
+
+    Args:
+        usd_path: Path to the articulation's .usd/.usda/.usdc file.
+        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
+        scale: Spawn-time scale passed to ``UsdFileCfg``.
+        prim_path: Optional sub-prim to bound. When None, bounds the full default prim.
+
+    Returns:
+        AxisAlignedBoundingBox containing the posed local bounds.
+    """
+    return _compute_local_bounding_box_from_usd_at_joint_pos(
+        usd_path, tuple(sorted(joint_pos.items())), tuple(scale), prim_path
+    )
+
+
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _compute_local_bounding_box_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+    prim_path: str | None,
+) -> AxisAlignedBoundingBox:
+    """Cacheable body of ``compute_local_bounding_box_from_usd_at_joint_pos``, keyed by hashable args."""
+    joint_pos = dict(joint_pos_items)
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    bound_prim = stage.GetPrimAtPath(prim_path) if prim_path is not None else default_prim
+    assert bound_prim.IsValid(), f"prim not found: {prim_path} in {usd_path}"
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+
+    # Expressing corners relative to the root cancels its own transform, including the root scale
+    # Isaac Lab's spawner ignores, so only the caller's spawn scale applies.
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    root_world_tf_inv = np.linalg.inv(
+        np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    )
+    scale_np = np.asarray(scale, dtype=np.float64)
+
+    corners: list[np.ndarray] = []
+    # Instance proxies must be traversed explicitly: robot-on-stand assemblies mark the stand (and for
+    # Franka, every visual) instanceable, so a default traversal stops at the instance and reports bounds
+    # covering the arm alone.
+    for prim in Usd.PrimRange(bound_prim, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Gprim):
+            continue
+        local_range = bbox_cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+        if local_range.IsEmpty():
+            continue
+        low, high = local_range.GetMin(), local_range.GetMax()
+        box_corners = np.array(
+            [[x, y, z, 1.0] for x in (low[0], high[0]) for y in (low[1], high[1]) for z in (low[2], high[2])]
+        )
+        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        delta = resolve_prim_world_delta(str(prim.GetPath()), deltas)
+        if delta is not None:
+            prim_world_tf = prim_world_tf @ delta
+        corners.append((box_corners @ (prim_world_tf @ root_world_tf_inv))[:, :3] * scale_np)
+
+    assert corners, f"no bounded geometry found under {root_path} in {usd_path}"
+    stacked = np.vstack(corners)
+    return AxisAlignedBoundingBox(
+        min_point=tuple(stacked.min(axis=0)),
+        max_point=tuple(stacked.max(axis=0)),
+    )

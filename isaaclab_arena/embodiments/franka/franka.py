@@ -68,6 +68,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
+    robot_library_folder = "franka"
 
     def __init__(
         self,

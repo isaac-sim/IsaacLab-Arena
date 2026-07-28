@@ -20,25 +20,39 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"
         assert len(mesh.vertices) > 0
 
-        # Mesh extraction scopes to UsdGeom.Mesh under the default prim (arm/gripper). The Droid USD also
-        # bakes in a stand and may reference non-mesh gprims; leaking a 50 m ground plane would blow this up.
+        # The spawn USD composes robot and stand, so the mesh spans the whole assembly: 1.46 x 0.91 x
+        # 2.10 m as measured, the tallest axis being the arm on its 1.35 m stand. A leaked 50 m ground
+        # plane would still blow this up by an order of magnitude.
         extents = mesh.extents
-        assert all(e < 2.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
+        assert all(e < 3.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
 
-        # Placement bbox comes from the full composed on-stand spawn USD (robot + stand). It should be at
-        # least as large as the arm mesh footprint.
+        # The placement bbox covers the same posed assembly plus the analytic gprims that mesh extraction
+        # cannot represent, so it is marginally larger but must not diverge.
         bbox = emb.get_bounding_box()
         bbox_size = (bbox.max_point - bbox.min_point)[0].tolist()
         for mesh_extent, box_extent in zip(extents, bbox_size):
             assert (
                 box_extent + 1e-3 >= mesh_extent
             ), f"placement bbox {bbox_size} should cover robot mesh extents {extents.tolist()}"
-            # TODO(qianl): Re-enable check for exact match when the stand with non-mesh collision geometry
-            # is correctly included in get_bounding_box()/extract_trimesh_from_prim()
-            # assert abs(mesh_extent - box_extent) < 0.2, f"mesh extents {extents} disagree withbox {bbox_size}"
+            assert abs(mesh_extent - box_extent) < 0.2, f"mesh extents {extents} disagree with box {bbox_size}"
 
-        # Extraction opens the USD, so the result is cached rather than recomputed per solve.
+        # Both derivations open the USD and pose it, so results are cached rather than recomputed per
+        # solve step. The cache is keyed by USD, joint positions and scale, so an identical embodiment
+        # shares it.
         assert emb.get_collision_mesh() is mesh
+        assert DroidAbsoluteJointPositionEmbodiment().get_collision_mesh() is mesh
+        assert emb.get_bounding_box() is bbox
+        assert DroidAbsoluteJointPositionEmbodiment().get_bounding_box() is bbox
+
+        # Isaac Lab reaches placeable assets through EventTermCfg params and validates whatever they
+        # hold without tracking visited objects, so an embodiment holding its mesh would send
+        # validation recursing through trimesh's back-references until the stack overflows.
+        from isaaclab.managers import EventTermCfg
+
+        def _noop(env, env_ids, embodiment):
+            pass
+
+        EventTermCfg(func=_noop, mode="reset", params={"embodiment": emb}).validate()
 
     except Exception as e:
         print(f"Error: {e}")

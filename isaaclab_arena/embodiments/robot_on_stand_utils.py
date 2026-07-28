@@ -16,7 +16,7 @@ from pathlib import Path
 from isaaclab.utils.assets import retrieve_file_path
 from pxr import Gf, Usd, UsdGeom
 
-from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
+from isaaclab_arena.assets.asset_cache import get_arena_usd_cache_dir
 
 _ROBOT_ON_STAND_USD_CACHE_DIR = "robot_on_stand"
 
@@ -80,7 +80,7 @@ def compose_on_stand_usd(
     """
     assert stand_height_m > 0.0, f"stand_height_m must be positive, got {stand_height_m}"
 
-    cache_root = get_arena_asset_cache_dir().parent / "usd" / _ROBOT_ON_STAND_USD_CACHE_DIR
+    cache_root = get_arena_usd_cache_dir() / _ROBOT_ON_STAND_USD_CACHE_DIR
     cache_root.mkdir(parents=True, exist_ok=True)
     out_path = cache_root / f"{output_basename}_{stand_height_m:.3f}.usd"
 
