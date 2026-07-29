@@ -58,6 +58,18 @@ Available devices
    XR hand tracking via the ``isaacteleop`` retargeting pipeline. Maps hand
    poses and controller input to robot joint commands.
 
+   For the single-arm ``franka_ik`` embodiment, ``--xr`` selects OpenXR
+   automatically: the right motion controller drives the end-effector with
+   relative 6-DoF commands, and its trigger closes the binary gripper. For
+   example:
+
+   .. code-block:: bash
+
+      python isaaclab_arena/scripts/imitation_learning/teleop.py \
+        --xr --viz kit --device cpu \
+        kitchen_pick_and_place \
+        --embodiment franka_ik
+
    For a full walkthrough — collecting demonstrations on a static manipulation
    task using an Apple Vision Pro or Meta Quest — see
    :doc:`../../example_workflows/static_manipulation/step_2_teleoperation`.

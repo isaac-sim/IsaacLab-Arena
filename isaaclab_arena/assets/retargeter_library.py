@@ -89,6 +89,19 @@ class G1WbcAgilePinkIsaacTeleopRetargeter(RetargetterBase):
 
 
 @register_retargeter
+class FrankaIKIsaacTeleopRetargeter(RetargetterBase):
+    """Quest motion-controller pipeline for the single-arm Franka IK embodiment."""
+
+    device = "openxr"
+    embodiment = "franka_ik"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable:
+        from isaaclab_arena.teleop.single_arm_openxr_pipeline import build_single_arm_openxr_pipeline
+
+        return build_single_arm_openxr_pipeline
+
+
+@register_retargeter
 class FrankaKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "franka_ik"

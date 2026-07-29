@@ -18,6 +18,7 @@ from collections.abc import Callable
 from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.teleop import enable_openxr_teleop_from_cli
 from isaaclab_arena_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # add argparse arguments
@@ -31,10 +32,8 @@ add_example_environments_cli_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
 
+enable_openxr_teleop_from_cli(args_cli)
 app_launcher_args = vars(args_cli)
-
-if "openxr" in args_cli.teleop_device.lower():
-    app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)
