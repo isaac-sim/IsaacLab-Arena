@@ -73,7 +73,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
-    robot_library_folder = "droid"
 
     def __init__(
         self,
@@ -424,10 +423,10 @@ class DroidEventCfg:
                 0.0,  # panda_joint7
                 0.0,  # finger_joint
                 0.0,  # right_outer_knuckle_joint
-                0.0,  # right_inner_finger_joint
-                0.0,  # right_inner_finger_knuckle_joint
-                0.0,  # left_inner_finger_knuckle_joint
                 0.0,  # left_inner_finger_joint
+                0.0,  # right_inner_finger_joint
+                0.0,  # left_inner_finger_knuckle_joint
+                0.0,  # right_inner_finger_knuckle_joint
             ],
         },
     )

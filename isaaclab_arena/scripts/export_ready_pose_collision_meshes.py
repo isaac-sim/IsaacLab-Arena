@@ -81,27 +81,27 @@ class PlannedArtifact:
     """Embodiment the mesh is extracted from, for reporting which robot an artifact came from."""
 
     source: PlacementGeometrySource
-    """USD, scale, joint positions and library folder the artifact is written from."""
+    """USD, scale and joint positions the artifact is written from."""
 
 
 def plan_artifacts(sources: Mapping[str, PlacementGeometrySource]) -> dict[str, PlannedArtifact]:
     """Map each artifact's published relative path to the embodiment and source it is written from.
 
-    Robots differing only in action space share a USD and a folder, so they collapse to one artifact.
-    Robots declaring no library folder have nowhere to publish and are left out.
+    Robots differing only in action space share a USD, so they collapse to one artifact. Robots
+    missing from ``ROBOT_LIBRARY_FOLDERS`` have nowhere to publish and are left out.
 
     Args:
         sources: Placement geometry source per embodiment name.
     """
-    from isaaclab_arena.utils.collision_mesh_store import ready_pose_artifact_name
+    from isaaclab_arena.utils.collision_mesh_store import published_relative_path
 
     plan: dict[str, PlannedArtifact] = {}
     for name, source in sorted(sources.items()):
-        if source.library_folder is None:
+        relative_path = published_relative_path(source.usd_path)
+        if relative_path is None:
             continue
-        relative_path = f"{source.library_folder}/{ready_pose_artifact_name(source.usd_path)}"
-        # Artifacts are validated by USD stem, so two robots sharing one within a folder would be
-        # served each other's mesh. Refuse to publish that rather than let placement use the wrong shape.
+        # Artifacts are validated by USD stem, so two robots sharing one would be served each other's
+        # mesh. Refuse to publish that rather than let placement use the wrong shape.
         planned = plan.setdefault(relative_path, PlannedArtifact(name, source))
         assert planned.source.usd_path == source.usd_path, (
             f"{relative_path} would be written for both {planned.source.usd_path} and"
@@ -117,7 +117,7 @@ def export_ready_pose_meshes(out_dir: Path, names: list[str] | None) -> tuple[li
         out_dir: Staging directory, whose per-robot folders are uploaded as-is to the robot library.
         names: Registered embodiment names to export, or None for every registered embodiment.
     """
-    from isaaclab_arena.utils.collision_mesh_store import export_ready_pose_mesh
+    from isaaclab_arena.utils.collision_mesh_store import export_ready_pose_mesh, published_relative_path
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
     sources = {}
@@ -129,20 +129,20 @@ def export_ready_pose_meshes(out_dir: Path, names: list[str] | None) -> tuple[li
             failed.append(f"{embodiment_class.__name__}: {error}")
             traceback.print_exc()
 
-    skipped = sorted(name for name, source in sources.items() if source.library_folder is None)
+    skipped = sorted(name for name, source in sources.items() if published_relative_path(source.usd_path) is None)
     written = []
     for relative_path, planned in plan_artifacts(sources).items():
         source = planned.source
         try:
             # Unit scale: one artifact serves every spawn scale, as the loader rescales on read.
             mesh = extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, (1.0, 1.0, 1.0))
-            export_ready_pose_mesh(source.usd_path, source.joint_pos, mesh, out_dir, source.library_folder)
+            export_ready_pose_mesh(source.usd_path, source.joint_pos, mesh, out_dir)
             written.append(f"{relative_path}  ({len(mesh.vertices)} vertices, from {planned.embodiment_name})")
         except Exception as error:
             failed.append(f"{planned.embodiment_name}: {error}")
             traceback.print_exc()
     if skipped:
-        print(f"\nSkipped {len(skipped)} embodiment(s) with no robot_library_folder: {', '.join(skipped)}")
+        print(f"\nSkipped {len(skipped)} embodiment(s) missing from ROBOT_LIBRARY_FOLDERS: {', '.join(skipped)}")
     return sorted(written), failed
 
 

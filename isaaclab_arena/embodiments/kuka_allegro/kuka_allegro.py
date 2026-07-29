@@ -91,7 +91,6 @@ class KukaAllegroEmbodiment(EmbodimentBase):
 
     name = "kuka_allegro"
     default_arm_mode = ArmMode.SINGLE_ARM
-    robot_library_folder = "kuka"
 
     def __init__(
         self,

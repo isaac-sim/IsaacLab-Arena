@@ -37,22 +37,12 @@ class PlacementGeometrySource:
     joint_pos: Mapping[str, float]
     """Joint positions to pose the geometry at, revolute in radians, keyed by name or Isaac Lab regex."""
 
-    library_folder: str | None
-    """Robot's folder under the published robot library, or None if it publishes no collision mesh."""
-
 
 class EmbodimentBase(PlaceableAsset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
-
-    robot_library_folder: str | None = None
-    """This robot's folder under the published robot library, shared by its action-space variants.
-
-    Named separately from the USD because robots that spawn a composed asset, such as the on-stand
-    Droid and Franka, spawn from a per-user cache path that says nothing about where they publish.
-    """
 
     def __init__(
         self,
@@ -94,7 +84,6 @@ class EmbodimentBase(PlaceableAsset):
             usd_path=spawn.usd_path,
             scale=(scale_x, scale_y, scale_z),
             joint_pos=dict(robot.init_state.joint_pos or {}),
-            library_folder=self.robot_library_folder,
         )
 
     def get_bounding_box(self, prim_path: str | None = None) -> AxisAlignedBoundingBox:
@@ -124,9 +113,7 @@ class EmbodimentBase(PlaceableAsset):
         from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
         source = self.get_placement_geometry_source()
-        return extract_trimesh_from_usd_at_joint_pos(
-            source.usd_path, source.joint_pos, source.scale, library_folder=source.library_folder
-        )
+        return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; the construction pose is applied in ``get_scene_cfg``."""

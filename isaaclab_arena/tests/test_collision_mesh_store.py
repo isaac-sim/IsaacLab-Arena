@@ -44,6 +44,18 @@ def _published_dir(path: str):
             os.environ[ROBOT_LIBRARY_DIR_ENV_VAR] = previous
 
 
+@contextlib.contextmanager
+def _publishes_as(stem: str, folder: str):
+    """Give a fixture asset a robot-library folder, as a shipped robot has."""
+    from isaaclab_arena.utils import collision_mesh_store as store
+
+    store.ROBOT_LIBRARY_FOLDERS[stem] = folder
+    try:
+        yield
+    finally:
+        store.ROBOT_LIBRARY_FOLDERS.pop(stem, None)
+
+
 def _test_trimming_evicts_least_recently_used_artifacts(simulation_app) -> bool:
     """Trimming drops artifacts oldest-first down to the budget, and leaves in-flight writes alone."""
     from isaaclab_arena.utils import collision_mesh_store as store
@@ -78,40 +90,38 @@ def _test_trimming_evicts_least_recently_used_artifacts(simulation_app) -> bool:
 
 def _test_pose_keys_identify_the_pose(simulation_app) -> bool:
     """Every all-zero spelling shares the readable zero key; distinct poses key apart."""
-    from isaaclab_arena.utils.collision_mesh_store import is_zero_pose, pose_key
+    from isaaclab_arena.utils.collision_mesh_store import _pose_key
 
-    assert is_zero_pose({}) and is_zero_pose({"elbow": 0.0, "wrist": -0.0})
-    assert not is_zero_pose({"elbow": 0.5})
-
-    assert pose_key({}) == "zero"
-    assert pose_key({"elbow": 0.0, "wrist": -0.0}) == "zero"
-    assert pose_key({"elbow": 0.5}) != "zero"
+    # Omitted joints are posed at zero, so an empty mapping is the zero pose.
+    assert _pose_key({}) == "zero"
+    assert _pose_key({"elbow": 0.0, "wrist": -0.0}) == "zero"
+    assert _pose_key({"elbow": 0.5}) != "zero"
     # Order must not matter, but the values must.
-    assert pose_key({"a": 0.5, "b": 0.25}) == pose_key({"b": 0.25, "a": 0.5})
-    assert pose_key({"elbow": 0.5}) != pose_key({"elbow": 0.6})
-    assert pose_key({"elbow": 0.5}) != pose_key({"wrist": 0.5})
+    assert _pose_key({"a": 0.5, "b": 0.25}) == _pose_key({"b": 0.25, "a": 0.5})
+    assert _pose_key({"elbow": 0.5}) != _pose_key({"elbow": 0.6})
+    assert _pose_key({"elbow": 0.5}) != _pose_key({"wrist": 0.5})
     return True
 
 
 def _test_distinct_poses_get_distinct_artifacts(simulation_app) -> bool:
     """Posing at one configuration must never serve the mesh for another."""
     from isaaclab_arena.utils import usd_helpers
-    from isaaclab_arena.utils.collision_mesh_store import mesh_cache_path
+    from isaaclab_arena.utils.collision_mesh_store import _cache_path
 
     extended = {"elbow": 0.5}
     with tempfile.TemporaryDirectory() as tmp_dir, contextlib.ExitStack() as published:
         usd_path = _build_arm_usd(tmp_dir, joint_type="prismatic")
         published.enter_context(_published_dir(tmp_dir))
         for joint_pos in ({}, extended):
-            mesh_cache_path(usd_path, joint_pos).unlink(missing_ok=True)
+            _cache_path(usd_path, joint_pos).unlink(missing_ok=True)
 
         usd_helpers._extract_trimesh_from_usd_at_joint_pos.cache_clear()
         zero_mesh = usd_helpers.extract_trimesh_from_usd_at_joint_pos(usd_path, {})
         usd_helpers._extract_trimesh_from_usd_at_joint_pos.cache_clear()
         posed_mesh = usd_helpers.extract_trimesh_from_usd_at_joint_pos(usd_path, extended)
 
-        assert mesh_cache_path(usd_path, {}).is_file() and mesh_cache_path(usd_path, extended).is_file()
-        assert mesh_cache_path(usd_path, {}) != mesh_cache_path(usd_path, extended)
+        assert _cache_path(usd_path, {}).is_file() and _cache_path(usd_path, extended).is_file()
+        assert _cache_path(usd_path, {}) != _cache_path(usd_path, extended)
         assert posed_mesh.extents[0] > zero_mesh.extents[0] + 0.4, f"prismatic pose should extend: {posed_mesh.extents}"
 
         # Reloading from the store must preserve that difference.
@@ -119,13 +129,13 @@ def _test_distinct_poses_get_distinct_artifacts(simulation_app) -> bool:
         reloaded_zero = usd_helpers.extract_trimesh_from_usd_at_joint_pos(usd_path, {})
         np.testing.assert_allclose(reloaded_zero.extents, zero_mesh.extents, atol=1e-6)
         for joint_pos in ({}, extended):
-            mesh_cache_path(usd_path, joint_pos).unlink(missing_ok=True)
+            _cache_path(usd_path, joint_pos).unlink(missing_ok=True)
     return True
 
 
 def _test_stored_mesh_keeps_its_vertices_verbatim(simulation_app) -> bool:
     """Reloading must not merge coincident vertices, which trimesh does by default on construction."""
-    from isaaclab_arena.utils.collision_mesh_store import load_mesh, mesh_cache_path, save_mesh
+    from isaaclab_arena.utils.collision_mesh_store import _cache_path, load_mesh, save_mesh
 
     # Two coincident triangles: merging would collapse six vertices into three.
     vertices = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]] * 2)
@@ -142,19 +152,19 @@ def _test_stored_mesh_keeps_its_vertices_verbatim(simulation_app) -> bool:
         scaled = load_mesh(source, {}, (2.0, 2.0, 2.0))
         assert scaled is not None
         assert len(scaled.vertices) == len(vertices), f"scaling changed vertex count: {len(scaled.vertices)}"
-        mesh_cache_path(source, {}).unlink(missing_ok=True)
+        _cache_path(source, {}).unlink(missing_ok=True)
     return True
 
 
 def _test_stored_mesh_is_scale_independent(simulation_app) -> bool:
     """One unit-scale artifact serves every spawn scale."""
     from isaaclab_arena.utils import usd_helpers
-    from isaaclab_arena.utils.collision_mesh_store import mesh_cache_path
+    from isaaclab_arena.utils.collision_mesh_store import _cache_path
 
     with tempfile.TemporaryDirectory() as tmp_dir, contextlib.ExitStack() as published:
         usd_path = _build_arm_usd(tmp_dir)
         published.enter_context(_published_dir(tmp_dir))
-        mesh_cache_path(usd_path, {}).unlink(missing_ok=True)
+        _cache_path(usd_path, {}).unlink(missing_ok=True)
 
         usd_helpers._extract_trimesh_from_usd_at_joint_pos.cache_clear()
         unit = usd_helpers.extract_trimesh_from_usd_at_joint_pos(usd_path, {})
@@ -163,13 +173,13 @@ def _test_stored_mesh_is_scale_independent(simulation_app) -> bool:
         doubled = usd_helpers.extract_trimesh_from_usd_at_joint_pos(usd_path, {}, scale=(2.0, 1.0, 1.0))
         np.testing.assert_allclose(doubled.extents[0], unit.extents[0] * 2.0, atol=1e-6)
         np.testing.assert_allclose(doubled.extents[1:], unit.extents[1:], atol=1e-6)
-        mesh_cache_path(usd_path, {}).unlink(missing_ok=True)
+        _cache_path(usd_path, {}).unlink(missing_ok=True)
     return True
 
 
 def _test_artifact_from_another_asset_or_pose_is_ignored(simulation_app) -> bool:
     """A mesh recording a different source or pose is refused, so it cannot misplace a robot."""
-    from isaaclab_arena.utils.collision_mesh_store import load_mesh, mesh_cache_path, save_mesh
+    from isaaclab_arena.utils.collision_mesh_store import _cache_path, load_mesh, save_mesh
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
     posed = {"elbow": 0.5}
@@ -179,52 +189,52 @@ def _test_artifact_from_another_asset_or_pose_is_ignored(simulation_app) -> bool
         mesh = extract_trimesh_from_usd_at_joint_pos(usd_path, posed)
 
         # Recorded under a foreign source USD, then moved into this asset's slot.
-        save_mesh(f"{tmp_dir}/other_arm.usda", posed, mesh).replace(mesh_cache_path(usd_path, posed))
+        save_mesh(f"{tmp_dir}/other_arm.usda", posed, mesh).replace(_cache_path(usd_path, posed))
         assert load_mesh(usd_path, posed, (1.0, 1.0, 1.0)) is None, "foreign source must be ignored"
 
         # Recorded for this asset but at another pose, then moved into this pose's slot.
-        save_mesh(usd_path, {"elbow": 0.9}, mesh).replace(mesh_cache_path(usd_path, posed))
+        save_mesh(usd_path, {"elbow": 0.9}, mesh).replace(_cache_path(usd_path, posed))
         assert load_mesh(usd_path, posed, (1.0, 1.0, 1.0)) is None, "foreign pose must be ignored"
-        mesh_cache_path(usd_path, posed).unlink(missing_ok=True)
+        _cache_path(usd_path, posed).unlink(missing_ok=True)
     return True
 
 
 def _test_published_artifact_is_found_by_its_name(simulation_app) -> bool:
     """An exported artifact is loaded from the published directory when the local cache is empty."""
     from isaaclab_arena.utils.collision_mesh_store import (
+        _cache_path,
+        _published_path,
         export_ready_pose_mesh,
         load_mesh,
-        mesh_cache_path,
-        published_ready_pose_path,
-        ready_pose_artifact_name,
+        published_relative_path,
     )
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
     posed = {"elbow": 0.5}
-    with tempfile.TemporaryDirectory() as tmp_dir, tempfile.TemporaryDirectory() as publish_dir:
+    with (
+        tempfile.TemporaryDirectory() as tmp_dir,
+        tempfile.TemporaryDirectory() as publish_dir,
+        _publishes_as("arm", "test_arm"),
+    ):
         usd_path = _build_arm_usd(tmp_dir)
         mesh = extract_trimesh_from_usd_at_joint_pos(usd_path, posed)
-        artifact = export_ready_pose_mesh(usd_path, posed, mesh, Path(publish_dir), "test_arm")
+        artifact = export_ready_pose_mesh(usd_path, posed, mesh, Path(publish_dir))
 
         # The artifact lands in the robot's own library folder, under a name derived from the asset.
-        assert artifact.name == "arm_ready_pose.usd" == ready_pose_artifact_name(usd_path)
-        assert artifact.parent.name == "test_arm", artifact
+        assert published_relative_path(usd_path) == "test_arm/arm_ready_pose.usd"
+        assert artifact.name == "arm_ready_pose.usd" and artifact.parent.name == "test_arm", artifact
 
         with _published_dir(publish_dir):
-            assert published_ready_pose_path(usd_path, "test_arm") == str(artifact)
+            assert _published_path(usd_path) == str(artifact)
             # Empty the local cache so only the published copy can answer.
-            mesh_cache_path(usd_path, posed).unlink(missing_ok=True)
-            loaded = load_mesh(usd_path, posed, (1.0, 1.0, 1.0), "test_arm")
+            _cache_path(usd_path, posed).unlink(missing_ok=True)
+            loaded = load_mesh(usd_path, posed, (1.0, 1.0, 1.0))
             assert loaded is not None, f"published artifact {artifact} was not found"
             np.testing.assert_allclose(loaded.vertices, mesh.vertices, atol=1e-6)
 
-            # A robot that names no folder must not be served another robot's artifact.
-            mesh_cache_path(usd_path, posed).unlink(missing_ok=True)
-            assert load_mesh(usd_path, posed, (1.0, 1.0, 1.0)) is None, "published lookup needs a folder"
-
             # Published artifacts outlive config changes, so a repose must not be served the old shape.
-            assert load_mesh(usd_path, {"elbow": 0.9}, (1.0, 1.0, 1.0), "test_arm") is None, "stale pose"
-        mesh_cache_path(usd_path, posed).unlink(missing_ok=True)
+            assert load_mesh(usd_path, {"elbow": 0.9}, (1.0, 1.0, 1.0)) is None, "stale pose"
+        _cache_path(usd_path, posed).unlink(missing_ok=True)
     return True
 
 
@@ -234,7 +244,7 @@ def _test_published_artifact_loads_for_a_relocated_source(simulation_app) -> boo
     Arena composes the robot-on-stand USDs into a per-user cache directory, so validating against the
     full source path would reject every artifact anyone else exported.
     """
-    from isaaclab_arena.utils.collision_mesh_store import export_ready_pose_mesh, load_mesh, mesh_cache_path
+    from isaaclab_arena.utils.collision_mesh_store import _cache_path, export_ready_pose_mesh, load_mesh
     from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
     posed = {"elbow": 0.5}
@@ -242,22 +252,23 @@ def _test_published_artifact_loads_for_a_relocated_source(simulation_app) -> boo
         tempfile.TemporaryDirectory() as exporter_dir,
         tempfile.TemporaryDirectory() as consumer_dir,
         tempfile.TemporaryDirectory() as publish_dir,
+        _publishes_as("arm", "test_arm"),
     ):
         exporter_usd = _build_arm_usd(exporter_dir)
         mesh = extract_trimesh_from_usd_at_joint_pos(exporter_usd, posed)
-        export_ready_pose_mesh(exporter_usd, posed, mesh, Path(publish_dir), "test_arm")
+        export_ready_pose_mesh(exporter_usd, posed, mesh, Path(publish_dir))
 
         # The same asset reached through another absolute path, as a second machine's cache would.
         consumer_usd = f"{consumer_dir}/arm.usda"
         shutil.copy(exporter_usd, consumer_usd)
 
         with _published_dir(publish_dir):
-            mesh_cache_path(consumer_usd, posed).unlink(missing_ok=True)
-            loaded = load_mesh(consumer_usd, posed, (1.0, 1.0, 1.0), "test_arm")
+            _cache_path(consumer_usd, posed).unlink(missing_ok=True)
+            loaded = load_mesh(consumer_usd, posed, (1.0, 1.0, 1.0))
             assert loaded is not None, "an artifact must load for the same asset at another path"
             np.testing.assert_allclose(loaded.vertices, mesh.vertices, atol=1e-6)
         for path in (exporter_usd, consumer_usd):
-            mesh_cache_path(path, posed).unlink(missing_ok=True)
+            _cache_path(path, posed).unlink(missing_ok=True)
     return True
 
 
@@ -288,40 +299,31 @@ def _test_truncated_artifact_is_ignored(simulation_app) -> bool:
 
 
 def _test_colliding_published_names_are_refused(simulation_app) -> bool:
-    """Two robots sharing a stem within one folder cannot both be published, as one name serves both."""
+    """Two robots sharing a USD stem cannot both be published, as one artifact name serves both."""
     from isaaclab_arena.embodiments.embodiment_base import PlacementGeometrySource
     from isaaclab_arena.scripts.export_ready_pose_collision_meshes import plan_artifacts
 
-    def source(usd_path: str, library_folder: str | None) -> PlacementGeometrySource:
-        return PlacementGeometrySource(usd_path, (1.0, 1.0, 1.0), {}, library_folder)
+    def source(usd_path: str) -> PlacementGeometrySource:
+        return PlacementGeometrySource(usd_path, (1.0, 1.0, 1.0), {})
 
-    # Same stem in one folder, different assets: the published name cannot tell them apart.
-    colliding = {
-        "robot_a": source("/assets/vendor_a/robot.usd", "shared"),
-        "robot_b": source("/assets/vendor_b/robot.usd", "shared"),
-    }
-    try:
-        plan_artifacts(colliding)
-    except AssertionError as error:
-        assert "rename one of the source USDs" in str(error), error
-    else:
-        raise AssertionError("a colliding published name must be refused")
+    with _publishes_as("robot", "shared"):
+        # Same stem, different assets: the published name cannot tell them apart.
+        colliding = {"robot_a": source("/assets/vendor_a/robot.usd"), "robot_b": source("/assets/vendor_b/robot.usd")}
+        try:
+            plan_artifacts(colliding)
+        except AssertionError as error:
+            assert "rename one of the source USDs" in str(error), error
+        else:
+            raise AssertionError("a colliding published name must be refused")
 
-    # The same stem in separate folders is fine, which is what per-robot folders buy.
-    separate = {
-        "robot_a": source("/assets/vendor_a/robot.usd", "robot_a"),
-        "robot_b": source("/assets/vendor_b/robot.usd", "robot_b"),
-    }
-    assert sorted(plan_artifacts(separate)) == ["robot_a/robot_ready_pose.usd", "robot_b/robot_ready_pose.usd"]
+        # Action-space variants of one robot share a USD, and so legitimately share one artifact.
+        shared_usd = source("/assets/vendor_a/robot.usd")
+        assert sorted(plan_artifacts({"robot_ik": shared_usd, "robot_joint_pos": shared_usd})) == [
+            "shared/robot_ready_pose.usd"
+        ]
 
-    # Action-space variants of one robot share a USD, and so legitimately share one artifact.
-    shared_usd = source("/assets/vendor_a/robot.usd", "robot_a")
-    assert sorted(plan_artifacts({"robot_ik": shared_usd, "robot_joint_pos": shared_usd})) == [
-        "robot_a/robot_ready_pose.usd"
-    ]
-
-    # A robot with nowhere to publish is left out rather than written to a guessed folder.
-    assert plan_artifacts({"unpublished": source("/assets/vendor_a/robot.usd", None)}) == {}
+    # A robot missing from ROBOT_LIBRARY_FOLDERS is left out rather than written to a guessed folder.
+    assert plan_artifacts({"unpublished": source("/assets/vendor_a/robot.usd")}) == {}
     return True
 
 

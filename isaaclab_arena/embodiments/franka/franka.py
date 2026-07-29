@@ -68,7 +68,6 @@ class FrankaEmbodimentBase(EmbodimentBase):
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
-    robot_library_folder = "franka"
 
     def __init__(
         self,
@@ -284,6 +283,23 @@ class FrankaObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
 
 
+_FRANKA_READY_POSE = {
+    "panda_joint1": 0.0,
+    "panda_joint2": -0.785,
+    "panda_joint3": -0.1107,
+    "panda_joint4": -1.1775,
+    "panda_joint5": 0.0,
+    "panda_joint6": 0.785,
+    "panda_joint7": 0.785,
+    "panda_finger_joint.*": 0.0400,
+}
+"""The arm pose the Franka spawns and resets in, spelled by name for the spawn state.
+
+``init_franka_arm_pose`` below repeats it positionally, as Isaac Lab's reset event assigns joints by
+index. ``test_spawn_pose_matches_the_reset_pose`` holds the two together.
+"""
+
+
 @configclass
 class FrankaEventCfg:
     """Configuration for Franka."""
@@ -460,6 +476,10 @@ class FrankaMimicEnv(ManagerBasedRLMimicEnv):
 def _franka_robot_cfg_on_stand(robot_cfg: ArticulationCfg) -> ArticulationCfg:
     """Copy ``robot_cfg`` onto ``{ENV_REGEX_NS}/Robot`` with the composed on-stand USD."""
     cfg = robot_cfg.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    # Spawn where ``init_franka_arm_pose`` resets the arm to, rather than at Isaac Lab's own pose.
+    # The two described different arm configurations, which left placement geometry, derived from
+    # the spawn state, describing an arm the scene never contains.
+    cfg.init_state = cfg.init_state.replace(joint_pos=_FRANKA_READY_POSE)
     cfg.spawn.usd_path = compose_on_stand_usd(
         _FRANKA_ROBOT_PRIM,
         _FRANKA_STAND_PRIM,
