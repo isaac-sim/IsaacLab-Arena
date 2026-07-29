@@ -18,7 +18,7 @@ runs:
       cosmos_embodiment_adapter: droid
       policy_device: cuda:0
       remote_host: 127.0.0.1
-      remote_port: 8000
+      remote_port: 8001
     environment_builder: &env_builder
       num_envs: 5
     rollout_limit:
