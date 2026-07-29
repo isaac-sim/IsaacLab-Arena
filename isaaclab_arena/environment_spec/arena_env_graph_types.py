@@ -34,9 +34,18 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     return str(usd_path) if usd_path else None
 
 
-def _assert_registered_asset_name(registry_name: str) -> str:
-    """Return ``registry_name`` after checking it names a registered asset."""
+def _assert_registered_asset_name(registry_name: str, object_type: ObjectType | None = None) -> str:
+    """Return ``registry_name`` after checking it names a registered asset of ``object_type``(if provided).
+    Args:
+        registry_name: Registered asset name to check.
+        object_type: Object type the asset must declare. ``None`` accepts any asset.
+    """
     assert AssetRegistry().is_registered(registry_name), f"Unknown asset registry_name '{registry_name}'"
+    if object_type is not None:
+        declared_type = getattr(AssetRegistry().get_asset_by_name(registry_name), "object_type", None)
+        assert (
+            declared_type is object_type
+        ), f"Asset '{registry_name}' must be a {object_type.value} object, got {declared_type}"
     return registry_name
 
 
@@ -85,8 +94,8 @@ class ObjectSetSpec(BaseModel):
     members: list[str] = Field(
         min_length=1,
         description=(
-            "Exact registered rigid-object names from OBJECTS that this set draws from; every "
-            "environment spawns one of them."
+            "Exact registered object names from OBJECTS marked type=rigid that this set draws "
+            "from; every environment spawns one of them."
         ),
     )
     random_choice: bool = Field(
@@ -98,13 +107,29 @@ class ObjectSetSpec(BaseModel):
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional constructor kwargs forwarded to RigidObjectSet (e.g. 'scale').",
+        description=(
+            "Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default. Must "
+            "not set 'name', 'objects', or 'random_choice' — use the id, members, and random_choice "
+            "fields — nor 'scale', which comes from each member asset."
+        ),
     )
 
     @field_validator("members")
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
-        return [_assert_registered_asset_name(registry_name) for registry_name in value]
+        return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
+
+    @field_validator("params")
+    @classmethod
+    def _reject_reserved_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # These are forwarded from the fields above, so a duplicate here would be a TypeError at
+        # build time, and an 'objects' override would skip the rigid-member check on members.
+        reserved = sorted({"name", "objects", "random_choice"} & set(value))
+        assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
+        # RigidObjectSet bakes each member's own scale into a rewritten USD, so a set-level scale
+        # would be silently dropped rather than applied.
+        assert "scale" not in value, "params must not set 'scale'; scale comes from each member asset"
+        return value
 
 
 class ObjectReferenceSpec(BaseModel):

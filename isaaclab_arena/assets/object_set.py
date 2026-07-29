@@ -26,7 +26,6 @@ class RigidObjectSet(Object):
         name: str,
         objects: list[Object],
         prim_path: str | None = None,
-        scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         random_choice: bool = False,
         initial_pose: Pose | None = None,
         **kwargs,
@@ -37,8 +36,6 @@ class RigidObjectSet(Object):
             objects: The list of objects to be included in the object set.
             prim_path: The prim path of the object set. Note that for all environments, the object set
                 prim path must be the same.
-            scale: The scale of the object set. Note all objects can only have the same scale, if
-                different scales are needed, considering scaling the object USD file.
             random_choice: Whether to randomly choose an object from the object set to spawn in
                 each environment. If False, variants are assigned by repeating
                 the member order across environments.

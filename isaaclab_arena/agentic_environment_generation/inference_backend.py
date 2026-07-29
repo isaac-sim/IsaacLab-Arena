@@ -129,7 +129,9 @@ class InferenceBackend:
                 # ``strict=False`` lets json.loads accept unescaped control characters
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
-                # Model response is sometimes wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
+                # Model response is wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
+                # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
+                # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
                 return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
             except Exception as exc:
                 last_exc = exc

@@ -152,6 +152,21 @@ def test_graph_spec_rejects_object_set_without_valid_members():
         ArenaEnvGraphSpec.from_dict(data)
 
 
+def test_graph_spec_rejects_non_rigid_object_set_member():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "ground_plane"]}]
+    with pytest.raises(ValidationError, match="must be a rigid object"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+@pytest.mark.parametrize("params", [{"objects": []}, {"scale": [2.0, 2.0, 2.0]}])
+def test_graph_spec_rejects_object_set_params_shadowing_spec_fields(params):
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato"], "params": params}]
+    with pytest.raises(ValidationError, match="params must not set"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_rejects_relation_referencing_unknown_object_set():
     data = _minimal_env_graph_data()
     data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "jug"]}]
