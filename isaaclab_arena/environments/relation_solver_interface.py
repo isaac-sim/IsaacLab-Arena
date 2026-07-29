@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_pose_from_layout, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import PosePerEnv
@@ -180,14 +180,16 @@ def _apply_dynamic_spawn_pose(
     [construction_layout] = placement_pool.sample_with_replacement(1)
     _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
 
-    # EventTermCfg deep-copies params; warp mesh caches hold ctypes pointers and must not be stored.
+    # Drop CUDA warp meshes built during the construction solve. The pool handle shares the
+    # live placer across EventTermCfg deep-copies, so these caches would otherwise stay pinned
+    # through Kit startup/reset and can break instanceable visuals (e.g. the Droid stand).
     placement_pool.release_mesh_collision_resources()
 
     return EventTermCfg(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "placement_pool": placement_pool,
+            "placement_pool": PlacementPoolHandle(placement_pool),
         },
     )
 

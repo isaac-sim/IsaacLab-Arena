@@ -61,7 +61,7 @@ class RelationSolver:
         self._mesh_collision_enabled = False
 
     def release_mesh_collision_resources(self) -> None:
-        """Drop warp mesh caches so solvers stored in event configs can be deep-copied."""
+        """Drop warp mesh caches so CUDA BVHs are not held across Kit startup/reset."""
         self._mesh_manager = None
         self._mesh_cache = None
         self._mesh_collision_enabled = False

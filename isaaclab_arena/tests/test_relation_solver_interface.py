@@ -164,11 +164,17 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
 
     assert "placement_pool" in event_cfg.params
     assert placement_pool.released_mesh_resources
-    assert [asset.name for asset in event_cfg.params["placement_pool"].objects] == ["desk", "box"]
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, resolve_placement_pool
+
+    assert isinstance(event_cfg.params["placement_pool"], PlacementPoolHandle)
+    assert [asset.name for asset in resolve_placement_pool(event_cfg.params["placement_pool"]).objects] == [
+        "desk",
+        "box",
+    ]
 
 
 def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
-    """EventTermCfg deep-copies params; mesh caches must be released before storing the pool."""
+    """EventTermCfg deep-copies params; handle shares the pool after mesh caches are released."""
     import copy
     import trimesh
 
@@ -196,6 +202,9 @@ def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
     assert event_cfg is not None
     assert isinstance(event_cfg, EventTermCfg)
     copy.deepcopy(event_cfg)
+    from isaaclab.utils.configclass import _validate
+
+    _validate(event_cfg, prefix="")
 
 
 def test_static_embodiment_placement_stores_per_env_poses():
