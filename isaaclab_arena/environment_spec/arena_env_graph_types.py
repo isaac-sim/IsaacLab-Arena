@@ -107,11 +107,7 @@ class ObjectSetSpec(BaseModel):
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description=(
-            "Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default. Must "
-            "not set 'name', 'objects', or 'random_choice' — use the id, members, and random_choice "
-            "fields — nor 'scale', which comes from each member asset."
-        ),
+        description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
     )
 
     @field_validator("members")
@@ -126,9 +122,6 @@ class ObjectSetSpec(BaseModel):
         # build time, and an 'objects' override would skip the rigid-member check on members.
         reserved = sorted({"name", "objects", "random_choice"} & set(value))
         assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
-        # RigidObjectSet bakes each member's own scale into a rewritten USD, so a set-level scale
-        # would be silently dropped rather than applied.
-        assert "scale" not in value, "params must not set 'scale'; scale comes from each member asset"
         return value
 
 
