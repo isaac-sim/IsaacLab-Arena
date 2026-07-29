@@ -113,8 +113,8 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    assets: list[PlaceableAsset],
     placement_pool: PooledObjectPlacer,
+    assets: list[PlaceableAsset] | None = None,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -125,11 +125,13 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        assets: Assets participating in relation solving.
         placement_pool: Runtime pool of solved placement layouts.
+        assets: Assets participating in relation solving. Defaults to
+            ``placement_pool.objects`` when omitted so event params stay small.
     """
     if env_ids is None or len(env_ids) == 0:
         return
+    assets = placement_pool.objects if assets is None else assets
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (

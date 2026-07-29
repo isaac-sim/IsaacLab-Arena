@@ -51,6 +51,9 @@ class PlacementValidator(ABC):
     def __init__(self, params: ObjectPlacerParams) -> None:
         self._params = params
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop any warp/mesh caches held by this validator (no-op by default)."""
+
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
         """Whether this validator can run for these params at build time; unavailable ones are delisted.
@@ -503,6 +506,10 @@ class NoOverlapValidator(PlacementValidator):
                 device="cpu",
             )
         return self._cpu_mesh_manager
+
+    def release_mesh_collision_resources(self) -> None:
+        """Drop the CPU warp mesh cache."""
+        self._cpu_mesh_manager = None
 
     def _validate_no_overlap_mesh(
         self,

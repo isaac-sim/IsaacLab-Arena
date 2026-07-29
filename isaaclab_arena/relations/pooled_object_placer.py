@@ -68,6 +68,21 @@ class PooledObjectPlacer:
             optimized or relation-constrained.
     """
 
+    # Suppress __dict__ so configclass.validate() does not recurse into cyclic asset/relation graphs.
+    __slots__ = (
+        "_allow_best_loss_fallbacks",
+        "_base_placement_seed",
+        "_collision_objects",
+        "_env_pools",
+        "_env_rngs",
+        "_had_fallbacks",
+        "_next_seed_offset",
+        "_num_envs",
+        "_objects",
+        "_placer",
+        "_pool_size",
+    )
+
     def __init__(
         self,
         objects: list[PlaceableAsset],
@@ -216,6 +231,10 @@ class PooledObjectPlacer:
 
         if fallback_envs:
             print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
+
+    def release_mesh_collision_resources(self) -> None:
+        """Drop warp mesh caches held by the underlying placer."""
+        self._placer.release_mesh_collision_resources()
 
     # ------------------------------------------------------------------
     # Public API
