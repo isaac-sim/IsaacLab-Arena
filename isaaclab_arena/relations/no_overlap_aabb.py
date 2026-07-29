@@ -11,7 +11,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
+from isaaclab_arena.relations.collision_mode import CollisionMode, pair_is_covered_by_mesh_collision
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
@@ -26,20 +26,20 @@ if TYPE_CHECKING:
 class NoOverlapPair:
     """One directed overlap penalty: the subject box is pushed off the (detached) obstacle box.
 
-    Dimensions: B = batch_size (num envs).
+    B is the batch size.
     """
 
     subject_min: torch.Tensor
-    """(B, 3) world-space min corner of the subject box."""
+    """World-space subject minimum. Shape: [B, 3]."""
 
     subject_max: torch.Tensor
-    """(B, 3) world-space max corner of the subject box."""
+    """World-space subject maximum. Shape: [B, 3]."""
 
     obstacle_min: torch.Tensor
-    """(B, 3) world-space min corner of the obstacle box."""
+    """World-space obstacle minimum. Shape: [B, 3]."""
 
     obstacle_max: torch.Tensor
-    """(B, 3) world-space max corner of the obstacle box."""
+    """World-space obstacle maximum. Shape: [B, 3]."""
 
 
 def compute_no_overlap_loss_aabb(
@@ -163,13 +163,14 @@ def _fixed_pair_is_covered_by_mesh_collision(
     default_collision_mode: CollisionMode,
 ) -> bool:
     """Return True when MESH loss handles subject vs fixed obstacle."""
-    obstacle_mesh = (
-        mesh_manager.get_collision_mesh(obstacle)
-        if object_uses_mesh_collision(obstacle, default_collision_mode)
-        else None
-    )
-    return obstacle_mesh is not None and _has_mesh_or_invariant_bbox(
-        state, subject, mesh_manager, default_collision_mode
+    return pair_is_covered_by_mesh_collision(
+        subject,
+        obstacle,
+        state.get_bbox(subject),
+        obstacle.get_bounding_box(),
+        mesh_manager,
+        default_collision_mode,
+        obstacle_is_fixed=True,
     )
 
 
@@ -181,23 +182,12 @@ def _dynamic_pair_is_covered_by_mesh_collision(
     default_collision_mode: CollisionMode,
 ) -> bool:
     """Return True when MESH loss handles a non-anchor object pair."""
-    a_mesh = mesh_manager.get_collision_mesh(a) if object_uses_mesh_collision(a, default_collision_mode) else None
-    b_mesh = mesh_manager.get_collision_mesh(b) if object_uses_mesh_collision(b, default_collision_mode) else None
-    if a_mesh is None and b_mesh is None:
-        return False
-    return _has_mesh_or_invariant_bbox(state, a, mesh_manager, default_collision_mode) and _has_mesh_or_invariant_bbox(
-        state, b, mesh_manager, default_collision_mode
+    return pair_is_covered_by_mesh_collision(
+        a,
+        b,
+        state.get_bbox(a),
+        state.get_bbox(b),
+        mesh_manager,
+        default_collision_mode,
+        obstacle_is_fixed=False,
     )
-
-
-def _has_mesh_or_invariant_bbox(
-    state: RelationSolverState,
-    obj: PlaceableAsset,
-    mesh_manager: WarpMeshAndSphereCache,
-    default_collision_mode: CollisionMode,
-) -> bool:
-    """Return True when MESH loss can represent obj as mesh or one bbox proxy."""
-    mesh = mesh_manager.get_collision_mesh(obj) if object_uses_mesh_collision(obj, default_collision_mode) else None
-    if mesh is not None:
-        return True
-    return state.get_bbox(obj).is_batch_invariant()

@@ -8,7 +8,6 @@
 import math
 import torch
 
-from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -94,27 +93,17 @@ def _single_pair_no_overlap_loss(
     parent_world_bbox: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
     """Single-pair no-overlap loss; the reference the vectorized solver path must reproduce."""
-    single_input = child_pos.dim() == 1
-    if single_input:
-        child_pos = child_pos.unsqueeze(0)
-
-    c = clearance_m
-    parent_x_min = parent_world_bbox.min_point[:, 0] - c
-    parent_x_max = parent_world_bbox.max_point[:, 0] + c
-    parent_y_min = parent_world_bbox.min_point[:, 1] - c
-    parent_y_max = parent_world_bbox.max_point[:, 1] + c
-    parent_z_min = parent_world_bbox.min_point[:, 2] - c
-    parent_z_max = parent_world_bbox.max_point[:, 2] + c
-
-    child_world_min = child_pos + child_bbox.min_point
-    child_world_max = child_pos + child_bbox.max_point
-
-    overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
-    overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
-    overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
-
-    total_loss = slope * (overlap_x * overlap_y * overlap_z)
-    return total_loss.squeeze(0) if single_input else total_loss
+    child_pos = child_pos.reshape(-1, 3)
+    subject_min = (child_pos + child_bbox.min_point).unsqueeze(0)
+    subject_max = (child_pos + child_bbox.max_point).unsqueeze(0)
+    strategy = NoCollisionLossStrategy(slope=slope)
+    return strategy.compute_loss_batched(
+        clearance_m,
+        subject_min,
+        subject_max,
+        parent_world_bbox.min_point.unsqueeze(0),
+        parent_world_bbox.max_point.unsqueeze(0),
+    ).squeeze()
 
 
 # =============================================================================
@@ -198,7 +187,7 @@ def test_no_collision_positive_loss_when_3d_overlap():
 
 
 def test_no_collision_loss_scales_with_slope():
-    """Test that NoCollision loss scales with slope (loss = slope * overlap_volume)."""
+    """Test that normalized penetration loss scales with slope."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
 
@@ -214,20 +203,48 @@ def test_no_collision_loss_scales_with_slope():
     assert torch.isclose(loss_20, 2.0 * loss_10, rtol=1e-5)
 
 
-def test_no_collision_loss_volume_formula():
-    """Test that NoCollision loss equals slope * overlap volume for known overlap (clearance_m=0)."""
+def test_no_collision_loss_normalized_depth_formula():
+    """Loss is slope times shortest separating depth divided by subject size."""
     box_a = _create_box("box_a", size=0.2)
     box_b = _create_box("box_b", size=0.2)
 
     child_pos = torch.tensor([0.1, 0.1, 0.1])
     parent_world_bbox = box_b.get_bounding_box().translated((0.15, 0.15, 0.15))
-    # Overlap [0.15, 0.3]^3, volume 0.15^3. Expected loss = 10 * 0.15^3.
-    expected_loss = 10.0 * (0.15**3)
+    # The nearest separating face is 0.15 m away; subject max extent is 0.2 m.
+    expected_loss = 10.0 * 0.15 / 0.2
 
     loss = _single_pair_no_overlap_loss(
         10.0, clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss, torch.tensor(expected_loss), rtol=1e-4)
+
+
+def test_no_collision_loss_is_scale_invariant():
+    """Equal fractional penetration has equal loss at different scales."""
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    def loss_for_size(size: float) -> torch.Tensor:
+        subject_min = torch.tensor([[[0.0, 0.0, 0.0]]])
+        subject_max = torch.tensor([[[size, size, size]]])
+        obstacle_min = torch.tensor([[[0.5 * size, 0.0, 0.0]]])
+        obstacle_max = torch.tensor([[[1.5 * size, size, size]]])
+        return strategy.compute_loss_batched(0.0, subject_min, subject_max, obstacle_min, obstacle_max)
+
+    torch.testing.assert_close(loss_for_size(0.1), loss_for_size(2.0))
+
+
+def test_no_collision_containment_has_translation_gradient():
+    """Containment retains a translation gradient."""
+    strategy = NoCollisionLossStrategy(slope=10.0)
+    subject_min = torch.tensor([[[0.0, 0.0, 0.0]]], requires_grad=True)
+    subject_max = subject_min + 1.0
+    obstacle_min = torch.tensor([[[-2.0, -2.0, -2.0]]])
+    obstacle_max = torch.tensor([[[2.0, 2.0, 2.0]]])
+
+    strategy.compute_loss_batched(0.0, subject_min, subject_max, obstacle_min, obstacle_max).sum().backward()
+
+    assert subject_min.grad is not None
+    assert torch.count_nonzero(subject_min.grad) > 0
 
 
 # =============================================================================
@@ -626,7 +643,7 @@ def test_compute_loss_batched_direct():
     loss = strategy.compute_loss_batched(0.0, subject_min, subject_max, obstacle_min, obstacle_max)
 
     assert loss.shape == (2, 1)
-    assert torch.isclose(loss[0, 0], torch.tensor(10.0 * 0.1**3), rtol=1e-4)  # slope * overlap volume
+    assert torch.isclose(loss[0, 0], torch.tensor(5.0), rtol=1e-4)
     assert torch.isclose(loss[1, 0], torch.tensor(0.0), atol=1e-6)
 
 

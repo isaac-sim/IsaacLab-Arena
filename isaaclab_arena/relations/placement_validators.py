@@ -11,7 +11,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
+from isaaclab_arena.relations.collision_mode import (
+    CollisionMode,
+    get_object_collision_mode,
+    object_uses_mesh_collision,
+    pair_is_covered_by_mesh_collision,
+)
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
@@ -22,6 +27,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -30,7 +36,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlacementValidator(ABC):
@@ -366,9 +371,30 @@ class NoOverlapValidator(PlacementValidator):
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
+        batch_bboxes = self._stack_candidate_bboxes(bboxes)
         return [
-            self._validate(positions[i], bboxes[i], orientations[i], collision_objects) for i in range(len(positions))
+            self._validate(
+                positions[i],
+                bboxes[i],
+                orientations[i],
+                collision_objects,
+                batch_bboxes=batch_bboxes,
+            )
+            for i in range(len(positions))
         ]
+
+    @staticmethod
+    def _stack_candidate_bboxes(
+        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
+        """Stack candidate bounding boxes along the batch dimension."""
+        return {
+            obj: AxisAlignedBoundingBox(
+                min_point=torch.cat([candidate[obj].min_point for candidate in bboxes]),
+                max_point=torch.cat([candidate[obj].max_point for candidate in bboxes]),
+            )
+            for obj in bboxes[0]
+        }
 
     def _validate(
         self,
@@ -376,17 +402,26 @@ class NoOverlapValidator(PlacementValidator):
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         orientations: dict[PlaceableAsset, float] | None,
         collision_objects: list[CollisionObject] | None,
+        batch_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """AABB overlap check, falling through to mesh penetration for mesh-collision objects."""
+        batch_bboxes = batch_bboxes or env_bboxes
         use_mesh = self._should_validate_mesh(positions, collision_objects)
         no_overlap = self._validate_no_overlap(
             positions,
             env_bboxes,
             collision_objects=collision_objects,
             skip_mesh_pairs=use_mesh,
+            batch_bboxes=batch_bboxes,
         )
         if no_overlap and use_mesh:
-            no_overlap = self._validate_no_overlap_mesh(positions, env_bboxes, orientations, collision_objects)
+            no_overlap = self._validate_no_overlap_mesh(
+                positions,
+                env_bboxes,
+                orientations,
+                collision_objects,
+                batch_bboxes=batch_bboxes,
+            )
         return no_overlap
 
     def _should_validate_mesh(
@@ -425,6 +460,7 @@ class NoOverlapValidator(PlacementValidator):
     def _non_skip_pairs(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
+        batch_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> Iterator[tuple[PlaceableAsset, PlaceableAsset]]:
         """Yield non-relation object pairs, optionally skipping pairs handled by mesh collision."""
@@ -439,17 +475,20 @@ class NoOverlapValidator(PlacementValidator):
                     continue
                 if (id(a), id(b)) in on_pairs:
                     continue
-                if mesh_manager is not None and (
-                    (
-                        object_uses_mesh_collision(a, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(a) is not None
-                    )
-                    or (
-                        object_uses_mesh_collision(b, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(b) is not None
-                    )
-                ):
-                    continue
+                if id(a) in anchor_ids:
+                    a, b = b, a
+                if mesh_manager is not None:
+                    assert batch_bboxes is not None, "Mesh pair dispatch requires batched bounding boxes."
+                    if pair_is_covered_by_mesh_collision(
+                        a,
+                        b,
+                        batch_bboxes[a],
+                        batch_bboxes[b],
+                        mesh_manager,
+                        default_collision_mode,
+                        obstacle_is_fixed=b.is_anchor,
+                    ):
+                        continue
                 yield a, b
 
     def _validate_no_overlap(
@@ -458,14 +497,16 @@ class NoOverlapValidator(PlacementValidator):
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         collision_objects: list[CollisionObject] | None = None,
         skip_mesh_pairs: bool = False,
+        batch_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
+        batch_bboxes = batch_bboxes or env_bboxes
         clearance_m = self._params.solver_params.clearance_m
         margin = max(0.0, clearance_m - 1e-6)
         collision_objects = collision_objects or []
         _, anchor_ids = self._collect_skip_pairs(positions)
 
-        for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
+        for a, b in self._non_skip_pairs(positions, batch_bboxes, skip_mesh_pairs=skip_mesh_pairs):
             if self._pair_aabb_overlaps(env_bboxes[a], env_bboxes[b], positions[a], positions[b], 0.0, 0.0, margin):
                 if self._params.verbose:
                     print(f"  Overlap between '{a.name}' and '{b.name}'")
@@ -481,10 +522,14 @@ class NoOverlapValidator(PlacementValidator):
                 continue
             obj_world = env_bboxes[obj].translated(positions[obj])
             for background, background_world in background_worlds:
-                if (
-                    mesh_manager is not None
-                    and object_uses_mesh_collision(background, default_collision_mode)
-                    and mesh_manager.get_collision_mesh(background) is not None
+                if mesh_manager is not None and pair_is_covered_by_mesh_collision(
+                    obj,
+                    background,
+                    batch_bboxes[obj],
+                    background.get_bounding_box(),
+                    mesh_manager,
+                    default_collision_mode,
+                    obstacle_is_fixed=True,
                 ):
                     continue
                 if obj_world.overlaps(background_world, margin=margin).item():
@@ -510,30 +555,32 @@ class NoOverlapValidator(PlacementValidator):
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         orientations: dict[PlaceableAsset, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        batch_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
+        batch_bboxes = batch_bboxes or env_bboxes
         clearance_m = self._params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
         mesh_manager = self._get_cpu_mesh_manager()
         mesh_manager.reset_sentinel_warning()
-        warned_no_mesh: set[str] = set()
         collision_objects = collision_objects or []
         default_collision_mode = self._params.solver_params.collision_mode
 
         for a, b in self._non_skip_pairs(positions):
+            if not pair_is_covered_by_mesh_collision(
+                a,
+                b,
+                batch_bboxes[a],
+                batch_bboxes[b],
+                mesh_manager,
+                default_collision_mode,
+                obstacle_is_fixed=b.is_anchor,
+            ):
+                continue
             a_uses_mesh = object_uses_mesh_collision(a, default_collision_mode)
             b_uses_mesh = object_uses_mesh_collision(b, default_collision_mode)
             a_mesh = mesh_manager.get_collision_mesh(a) if a_uses_mesh else None
             b_mesh = mesh_manager.get_collision_mesh(b) if b_uses_mesh else None
-            if a_mesh is None and b_mesh is None:
-                for obj, uses_mesh, mesh in [(a, a_uses_mesh, a_mesh), (b, b_uses_mesh, b_mesh)]:
-                    if uses_mesh and mesh is None and obj.name not in warned_no_mesh:
-                        warned_no_mesh.add(obj.name)
-                        print(
-                            f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
-                            " falling back to AABB validation for this pair"
-                        )
-                continue
 
             a_pos = torch.tensor(positions[a], dtype=torch.float32)
             b_pos = torch.tensor(positions[b], dtype=torch.float32)
@@ -581,13 +628,22 @@ class NoOverlapValidator(PlacementValidator):
             )
             source_pos = torch.tensor(positions[source], dtype=torch.float32)
             for background in collision_objects:
+                if not pair_is_covered_by_mesh_collision(
+                    source,
+                    background,
+                    batch_bboxes[source],
+                    background.get_bounding_box(),
+                    mesh_manager,
+                    default_collision_mode,
+                    obstacle_is_fixed=True,
+                ):
+                    continue
                 target_mesh = (
                     mesh_manager.get_collision_mesh(background)
                     if object_uses_mesh_collision(background, default_collision_mode)
                     else None
                 )
-                if target_mesh is None:
-                    continue
+                assert target_mesh is not None, f"Mesh collision selected a meshless background '{background.name}'."
                 target_pose = background.get_initial_pose()
                 assert isinstance(
                     target_pose, Pose

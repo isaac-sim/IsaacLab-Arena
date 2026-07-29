@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.asset import Asset
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -29,11 +30,16 @@ if TYPE_CHECKING:
 def _get_passive_collision_objects(
     assets: Iterable[Asset | RigidObjectSet],
     include_background: bool = False,
+    background_mesh_exclusions: Iterable[ObjectReference] = (),
 ) -> list[CollisionObject]:
     """Load passive collision discovery only when relation placement needs it."""
     from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
 
-    return get_passive_collision_objects(assets, include_background=include_background)
+    return get_passive_collision_objects(
+        assets,
+        include_background=include_background,
+        background_mesh_exclusions=background_mesh_exclusions,
+    )
 
 
 def solve_and_apply_relation_placement(
@@ -77,12 +83,18 @@ def solve_and_apply_relation_placement(
     # mutating the caller.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
+        from isaaclab_arena.assets.object_reference import ObjectReference
+
         scene_assets = list(scene_assets)
+        background_mesh_exclusions = [
+            asset for asset in get_anchor_objects(assets) if isinstance(asset, ObjectReference)
+        ]
         collision_objects = _get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
                 assets, scene_assets, placer_params.solver_params.collision_mode
             ),
+            background_mesh_exclusions=background_mesh_exclusions,
         )
     placement_pool = PooledObjectPlacer(
         objects=assets,

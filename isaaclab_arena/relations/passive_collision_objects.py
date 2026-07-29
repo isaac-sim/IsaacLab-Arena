@@ -23,7 +23,9 @@ if TYPE_CHECKING:
 
 
 def get_passive_collision_objects(
-    assets: Iterable[Asset | RigidObjectSet], include_background: bool = False
+    assets: Iterable[Asset | RigidObjectSet],
+    include_background: bool = False,
+    background_mesh_exclusions: Iterable[ObjectReference] = (),
 ) -> list[CollisionObject]:
     """Return relation-free scene assets that qualify as passive collision obstacles.
 
@@ -34,6 +36,8 @@ def get_passive_collision_objects(
         assets: Scene assets to scan for relation-free fixed objects.
         include_background: If True, include Background assets and aggregate all
             mesh-capable objects into a single FixedCollisionObject.
+        background_mesh_exclusions: Object references whose USD subtrees are omitted
+            from an aggregated parent Background mesh.
     """
     collision_objects: list[CollisionObject] = []
     for asset in assets:
@@ -76,5 +80,14 @@ def get_passive_collision_objects(
     ]
 
     if include_background:
-        return make_fixed_collision_objects(collision_objects)
-    return list(collision_objects)
+        excluded_prim_paths_by_object: dict[CollisionObject, list[str]] = {}
+        for reference in background_mesh_exclusions:
+            if reference.parent_asset in collision_object_set:
+                excluded_prim_paths_by_object.setdefault(reference.parent_asset, []).append(
+                    reference.get_prim_path_in_parent_usd()
+                )
+        return make_fixed_collision_objects(
+            collision_objects,
+            excluded_prim_paths_by_object=excluded_prim_paths_by_object,
+        )
+    return collision_objects

@@ -154,12 +154,22 @@ def compute_no_overlap_loss_mesh(
         mesh_manager.warn_sdf_sentinel(sdf_values)
         sdf_values = clamp_sdf_sentinel(sdf_values)
         penetration = torch.relu(active_radii + clearance_m - sdf_values)
+        pair_subject_scale = (
+            mesh_cache.pair_subject_bbox_max[:, b, :] - mesh_cache.pair_subject_bbox_min[:, b, :]
+        ).amax(dim=1)
+        assert torch.all(pair_subject_scale > 0), "Subject bounding boxes must have positive size."
+        normalized_penetration = penetration / pair_subject_scale[active_sphere_pair_id]
 
-        pair_sum = torch.zeros(num_pairs, device=device, dtype=penetration.dtype)
-        pair_sum.index_add_(0, active_sphere_pair_id, penetration)
-        pair_mean = pair_sum / mesh_cache.pair_sphere_count
+        pair_penetration = torch.zeros(num_pairs, device=device, dtype=penetration.dtype)
+        pair_penetration = pair_penetration.scatter_reduce(
+            0,
+            active_sphere_pair_id,
+            normalized_penetration,
+            reduce="amax",
+            include_self=True,
+        )
         active_pair_idx = active_pair.nonzero(as_tuple=True)[0]
-        total_loss[b] = total_loss[b] + slope * pair_mean[active_pair_idx].sum()
+        total_loss[b] = total_loss[b] + slope * pair_penetration[active_pair_idx].sum()
 
     if debug:
         print(f"  [NoOverlap MESH] total_loss={total_loss.tolist()}")
