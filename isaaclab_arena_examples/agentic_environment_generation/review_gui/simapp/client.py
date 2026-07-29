@@ -217,8 +217,18 @@ def wait_for_simapp_socket(
     raise SimAppError(f"Timed out after {timeout_s:.0f}s waiting for SimApp at {socket_path}.{detail}")
 
 
-def spawn_simapp_process(socket_path: str) -> subprocess.Popen[Any]:
-    """Launch the SimApp server subprocess bound to ``socket_path``."""
+def spawn_simapp_process(
+    socket_path: str,
+    *,
+    enable_visualizer: bool = True,
+) -> subprocess.Popen[Any]:
+    """Launch the SimApp server subprocess bound to ``socket_path``.
+
+    Args:
+        socket_path: Unix domain socket the server listens on.
+        enable_visualizer: If True (default), boot with Kit UI. If False, boot headless with
+            cameras (CI-friendly).
+    """
     if Path(socket_path).exists():
         Path(socket_path).unlink()
     cmd = [
@@ -228,6 +238,8 @@ def spawn_simapp_process(socket_path: str) -> subprocess.Popen[Any]:
         "--socket",
         socket_path,
     ]
+    if not enable_visualizer:
+        cmd.append("--headless")
     return subprocess.Popen(cmd, env=os.environ.copy())
 
 

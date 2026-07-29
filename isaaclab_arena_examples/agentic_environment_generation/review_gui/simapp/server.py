@@ -76,11 +76,16 @@ def _serve_connection(
     return False
 
 
-def _serve_socket(socket_path: str) -> int:
-    """Boot SimApp, bind ``socket_path``, and service requests sequentially."""
+def _serve_socket(socket_path: str, *, enable_visualizer: bool = True) -> int:
+    """Boot SimApp, bind ``socket_path``, and service requests sequentially.
+
+    Args:
+        socket_path: Unix domain socket path for JSON-RPC.
+        enable_visualizer: Forwarded to :func:`launch_simulation_app`. Defaults to Kit UI.
+    """
     _install_signal_handlers()
 
-    app = launch_simulation_app()
+    app = launch_simulation_app(enable_visualizer=enable_visualizer)
     if app is None:
         print("[simapp] SimulationApp launch returned None", file=sys.stderr)
         return 1
@@ -192,12 +197,17 @@ def _parse_args() -> argparse.Namespace:
         required=True,
         help="Unix domain socket path for newline-delimited JSON-RPC requests.",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Boot SimulationApp headless with cameras (no Kit UI). Preferred for CI.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = _parse_args()
-    return _serve_socket(args.socket)
+    return _serve_socket(args.socket, enable_visualizer=not args.headless)
 
 
 if __name__ == "__main__":
