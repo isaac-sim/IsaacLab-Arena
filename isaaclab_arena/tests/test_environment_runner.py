@@ -96,26 +96,17 @@ def test_assert_interactive_runner_args_rejects_unsupported_configuration(argume
         environment_runner.assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
 
 
-def test_get_idle_actions_returns_zeros_matching_the_environment_action_space():
-    env = _FakeEnvironment(action_space_shape=(1, 3))
-
-    actions = environment_runner.get_idle_actions(env, SimpleNamespace())
-
-    assert actions.device.type == "cpu"
-    assert torch.equal(actions, torch.zeros((1, 3)))
-
-
-def test_get_idle_actions_repeats_the_configured_action_for_each_environment():
-    env = _FakeEnvironment(action_space_shape=(2, 2), num_envs=2)
-    configured_idle_action = torch.tensor([[0.25, -0.5]])
-    env_cfg = SimpleNamespace(idle_action=configured_idle_action)
-
-    actions = environment_runner.get_idle_actions(env, env_cfg)
-
-    assert torch.equal(actions, torch.tensor([[0.25, -0.5], [0.25, -0.5]]))
-
-
-def test_run_environment_resets_and_steps_once_before_the_application_stops():
+@pytest.mark.parametrize(
+    ("configured_idle_action", "expected_actions"),
+    [
+        (None, torch.zeros((1, 2))),
+        (torch.tensor([[0.25, -0.5]]), torch.tensor([[0.25, -0.5], [0.25, -0.5]])),
+    ],
+)
+def test_run_environment_resets_and_steps_once_before_the_application_stops(
+    configured_idle_action,
+    expected_actions,
+):
     class OneIterationSimulationApp:
         def __init__(self) -> None:
             self.running_checks = 0
@@ -134,19 +125,22 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops():
         def sleep(self) -> None:
             self.sleep_count += 1
 
-    env = _FakeEnvironment()
+    env = _FakeEnvironment(action_space_shape=expected_actions.shape, num_envs=expected_actions.shape[0])
+    env_cfg = SimpleNamespace()
+    if configured_idle_action is not None:
+        env_cfg.idle_action = configured_idle_action
     rate_limiter = CountingRateLimiter()
 
     environment_runner.run_environment(
         OneIterationSimulationApp(),
         env,
-        SimpleNamespace(),
+        env_cfg,
         rate_limiter=rate_limiter,
     )
 
     assert env.reset_count == 1
     assert len(env.step_actions) == 1
-    assert torch.equal(env.step_actions[0], torch.zeros((1, 2)))
+    assert torch.equal(env.step_actions[0], expected_actions)
     assert rate_limiter.sleep_count == 1
 
 

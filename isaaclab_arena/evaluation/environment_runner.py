@@ -39,15 +39,6 @@ def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 
 
-def get_idle_actions(env: gym.Env, env_cfg) -> torch.Tensor:
-    """Return the configured idle action or a zero action for the environment."""
-    device = torch.device(env.unwrapped.device)
-    configured_idle_action = getattr(env_cfg, "idle_action", None)
-    if configured_idle_action is not None:
-        return configured_idle_action.repeat(env.unwrapped.num_envs, 1).to(device)
-    return torch.zeros(env.action_space.shape, device=device)
-
-
 def enable_mouse_interaction() -> None:
     """Enable Shift-drag physics interaction using a D6 joint grab."""
     import carb
@@ -85,7 +76,12 @@ def run_environment(
 ) -> None:
     """Reset once, then run one environment with idle actions until Kit closes."""
     env.reset()
-    idle_actions = get_idle_actions(env, env_cfg)
+    device = torch.device(env.unwrapped.device)
+    configured_idle_action = getattr(env_cfg, "idle_action", None)
+    if configured_idle_action is not None:
+        idle_actions = configured_idle_action.repeat(env.unwrapped.num_envs, 1).to(device)
+    else:
+        idle_actions = torch.zeros(env.action_space.shape, device=device)
     if rate_limiter is None:
         rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)
 
