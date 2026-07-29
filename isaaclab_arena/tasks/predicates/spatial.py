@@ -17,16 +17,10 @@ from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms, quat_apply, quat_inv, quat_mul
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.tasks.predicates.predicate_utils import (
-    get_asset_pose_w,
-    get_env,
-    get_root_lin_vel_w,
-    get_root_pos_w,
-    select,
-)
+from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 def object_is_above_height(
@@ -141,8 +135,8 @@ def contact_force_is_upward_support(
 
 def object_centroid_in_destination_footprint(
     env: ManagerBasedRLEnv,
-    object_asset: PlaceableAsset,
-    destination_asset: PlaceableAsset,
+    object_asset: ObjectBase,
+    destination_asset: ObjectBase,
     footprint_tolerance: float = 1e-2,
 ) -> torch.Tensor:
     """Check whether an object's bounding-box centroid is within a destination's world XY footprint."""
@@ -182,10 +176,10 @@ def object_centroid_in_destination_footprint(
     )
 
 
-def _get_bounding_box_pose_w(env, asset: PlaceableAsset) -> torch.Tensor:
+def _get_bounding_box_pose_w(env, asset: ObjectBase) -> torch.Tensor:
     """Get the world pose of the frame in which an asset's bounding box is expressed."""
 
-    asset_pose_w = get_asset_pose_w(env, asset)
+    asset_pose_w = asset.get_object_pose(env, is_relative=False)
     pose_relative_to_parent = getattr(asset, "initial_pose_relative_to_parent", None)
     if pose_relative_to_parent is None:
         return asset_pose_w
@@ -196,7 +190,7 @@ def _get_bounding_box_pose_w(env, asset: PlaceableAsset) -> torch.Tensor:
     return torch.cat((asset_pose_w[:, :3], bounding_box_quaternion_w), dim=-1)
 
 
-def _get_asset_bounding_box_per_env(asset: PlaceableAsset, num_envs: int):
+def _get_asset_bounding_box_per_env(asset: ObjectBase, num_envs: int):
     """Get root-relative bounds per environment, using assigned object-set variants when available."""
 
     if getattr(asset, "variant_indices_by_env", None) is not None:
@@ -221,8 +215,8 @@ def object_on_destination(
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
-    object_asset: PlaceableAsset | None = None,
-    destination_asset: PlaceableAsset | None = None,
+    object_asset: ObjectBase | None = None,
+    destination_asset: ObjectBase | None = None,
     support_cone_half_angle_deg: float = 45.0,
     footprint_tolerance: float = 1e-2,
 ) -> torch.Tensor:

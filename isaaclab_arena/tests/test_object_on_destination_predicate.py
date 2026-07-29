@@ -13,6 +13,9 @@ def _test_object_on_destination_predicate(_simulation_app) -> bool:
     import warp as wp
     from isaaclab.managers import SceneEntityCfg
 
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.tasks.predicates.spatial import (
         contact_force_is_upward_support,
         object_centroid_in_destination_footprint,
@@ -31,6 +34,7 @@ def _test_object_on_destination_predicate(_simulation_app) -> bool:
             self.num_envs = num_envs
             self.device = "cpu"
             self.scene = DummyScene(num_envs)
+            self.unwrapped = self
 
     class DummyAsset:
         def __init__(self, name: str, bounding_box: AxisAlignedBoundingBox, pose_w: torch.Tensor):
@@ -120,38 +124,87 @@ def _test_object_on_destination_predicate(_simulation_app) -> bool:
         torch.tensor([True, True, False, True, False]),
     )
 
-    parent_pose_w = torch.tensor([[1.0, 2.0, 0.0, *yaw_90_quaternion]])
-    reference_env = DummyEnv(num_envs=1)
-    parent_asset = DummyAsset(
-        "parent",
-        AxisAlignedBoundingBox(min_point=(-2.0, -2.0, -0.2), max_point=(2.0, 2.0, 0.2)),
-        parent_pose_w,
+    reference_env = DummyEnv(num_envs=2)
+    reference_env.scene.env_origins = torch.tensor([
+        [0.0, 0.0, 0.0],
+        [4.0, -3.0, 1.0],
+    ])
+    parent_asset = Object.__new__(Object)
+    parent_asset.name = "parent"
+    parent_asset.object_type = ObjectType.BASE
+    parent_asset.initial_pose = Pose(
+        position_xyz=(1.0, 2.0, 0.0),
+        rotation_xyzw=yaw_90_quaternion,
     )
     reference_env.scene[parent_asset.name] = object()
+
+    expected_parent_pose_relative = torch.tensor([
+        [1.0, 2.0, 0.0, *yaw_90_quaternion],
+        [1.0, 2.0, 0.0, *yaw_90_quaternion],
+    ])
+    expected_parent_pose_w = expected_parent_pose_relative.clone()
+    expected_parent_pose_w[:, :3] += reference_env.scene.env_origins
+    torch.testing.assert_close(parent_asset.get_object_pose(reference_env), expected_parent_pose_relative)
+    torch.testing.assert_close(
+        parent_asset.get_object_pose(reference_env, is_relative=False),
+        expected_parent_pose_w,
+    )
+
+    parent_without_pose = Object.__new__(Object)
+    parent_without_pose.name = "parent_without_pose"
+    parent_without_pose.object_type = ObjectType.BASE
+    parent_without_pose.initial_pose = None
+    reference_env.scene[parent_without_pose.name] = object()
+    expected_identity_pose = torch.tensor([
+        [0.0, 0.0, 0.0, *identity_quaternion],
+        [0.0, 0.0, 0.0, *identity_quaternion],
+    ])
+    torch.testing.assert_close(parent_without_pose.get_object_pose(reference_env), expected_identity_pose)
+
     reference_object_asset = DummyAsset(
         "reference_object",
         AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
-        torch.tensor([[1.25, 1.75, 0.0, *identity_quaternion]]),
+        torch.tensor([
+            [1.25, 1.75, 0.0, *identity_quaternion],
+            [5.25, -1.25, 1.0, *identity_quaternion],
+        ]),
     )
     reference_env.scene[reference_object_asset.name] = object()
 
-    reference_destination_asset = DummyAsset(
-        "reference_destination",
-        AxisAlignedBoundingBox(min_point=(-1.0, -0.5, -0.2), max_point=(1.0, 0.5, 0.2)),
-        torch.empty((1, 7)),
-    )
+    reference_destination_asset = ObjectReference.__new__(ObjectReference)
+    reference_destination_asset.name = "reference_destination"
     reference_destination_asset.parent_asset = parent_asset
     reference_destination_asset.initial_pose_relative_to_parent = Pose(
         position_xyz=(0.5, 0.0, 0.0),
         rotation_xyzw=yaw_90_quaternion,
     )
+    reference_destination_asset._bounding_box = AxisAlignedBoundingBox(
+        min_point=(-1.0, -0.5, -0.2),
+        max_point=(1.0, 0.5, 0.2),
+    )
+
+    expected_reference_pose_relative = torch.tensor([
+        [1.0, 2.5, 0.0, 0.0, 0.0, 1.0, 0.0],
+        [1.0, 2.5, 0.0, 0.0, 0.0, 1.0, 0.0],
+    ])
+    expected_reference_pose_w = expected_reference_pose_relative.clone()
+    expected_reference_pose_w[:, :3] += reference_env.scene.env_origins
+    torch.testing.assert_close(
+        reference_destination_asset.get_object_pose(reference_env),
+        expected_reference_pose_relative,
+    )
+    torch.testing.assert_close(
+        reference_destination_asset.get_object_pose(reference_env, is_relative=False),
+        expected_reference_pose_w,
+    )
+
     reference_footprint_result = object_centroid_in_destination_footprint(
         reference_env,
         object_asset=reference_object_asset,
         destination_asset=reference_destination_asset,
         footprint_tolerance=0.0,
     )
-    assert reference_footprint_result.item()
+    torch.testing.assert_close(reference_footprint_result, torch.tensor([True, True]))
 
     combined_env = DummyEnv(num_envs=3)
     combined_object_asset = DummyAsset(
