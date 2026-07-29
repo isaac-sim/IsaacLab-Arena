@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_pose_from_layout, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import PosePerEnv
@@ -184,8 +184,7 @@ def _apply_dynamic_spawn_pose(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "assets": assets,
-            "placement_pool": placement_pool,
+            "placement_pool": PlacementPoolHandle(placement_pool),
         },
     )
 
