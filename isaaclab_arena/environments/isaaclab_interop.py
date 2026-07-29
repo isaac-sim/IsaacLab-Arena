@@ -80,7 +80,8 @@ def environment_registration_callback() -> list[str]:
     add_environment_cli_args(parser, environment_factory_type)
     args, remaining_args = parser.parse_known_args()
     if args.arena_teleop_device is not None:
-        assert hasattr(args, "teleop_device"), "The selected Arena environment does not configure teleoperation devices"
+        if not hasattr(args, "teleop_device"):
+            raise ValueError("The selected Arena environment does not configure teleoperation devices.")
         args.teleop_device = args.arena_teleop_device
     # Create the environment config
     isaaclab_arena_environment = build_environment_from_cli(environment_factory_type, args)
