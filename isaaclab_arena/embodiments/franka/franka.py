@@ -5,7 +5,7 @@
 
 
 import torch
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -73,14 +73,11 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.event_config = FrankaEventCfg()
-        if initial_joint_pose is not None:
-            self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
         self.camera_config = FrankaCameraCfg()
@@ -89,8 +86,16 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.add_camera_variations(self.camera_config)
 
-    def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
-        self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
+    def set_initial_joint_pose(self, initial_joint_pose: Mapping[str, float]) -> None:
+        """Spawn and reset the arm at ``initial_joint_pose``, keyed by joint name or Isaac Lab regex.
+
+        Call after construction, once :attr:`scene_config` holds the robot. Placement geometry is
+        derived from the same spawn state, so it follows the new pose.
+        """
+        assert self.scene_config is not None, "scene_config must be populated before setting the joint pose"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting the joint pose"
+        robot.init_state = robot.init_state.replace(joint_pos=dict(initial_joint_pose))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
@@ -107,14 +112,12 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
-            initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
         )
@@ -160,14 +163,12 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
-            initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
         )
@@ -186,7 +187,15 @@ class FrankaJointPosActionsCfg:
         asset_name="robot",
         joint_names=["panda_joint.*"],
         scale=0.5,
-        use_default_offset=True,
+        # Actions are displacements from Isaac Lab's default Franka pose, which is the zero point
+        # trained policies were fitted against. Stated rather than left to ``use_default_offset``,
+        # which reads the spawn state and so would move the zero point whenever that pose changes.
+        use_default_offset=False,
+        offset={
+            name: value
+            for name, value in FRANKA_PANDA_CFG.init_state.joint_pos.items()
+            if name.startswith("panda_joint")
+        },
     )
 
     gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
@@ -293,24 +302,13 @@ _FRANKA_READY_POSE = {
     "panda_joint7": 0.785,
     "panda_finger_joint.*": 0.0400,
 }
-"""The arm pose the Franka spawns and resets in, spelled by name for the spawn state.
-
-``init_franka_arm_pose`` below repeats it positionally, as Isaac Lab's reset event assigns joints by
-index. ``test_spawn_pose_matches_the_reset_pose`` holds the two together.
-"""
+"""The arm pose the Franka spawns and resets in, overridable via ``set_initial_joint_pose``."""
 
 
 @configclass
 class FrankaEventCfg:
     """Configuration for Franka."""
 
-    init_franka_arm_pose = EventTerm(
-        func=franka_stack_events.set_default_joint_pose,
-        mode="reset",
-        params={
-            "default_pose": [0.0, -0.785, -0.1107, -1.1775, 0.0, 0.785, 0.785, 0.0400, 0.0400],
-        },
-    )
     randomize_franka_joint_state = EventTerm(
         func=franka_stack_events.randomize_joint_by_gaussian_offset,
         mode="reset",
@@ -476,9 +474,8 @@ class FrankaMimicEnv(ManagerBasedRLMimicEnv):
 def _franka_robot_cfg_on_stand(robot_cfg: ArticulationCfg) -> ArticulationCfg:
     """Copy ``robot_cfg`` onto ``{ENV_REGEX_NS}/Robot`` with the composed on-stand USD."""
     cfg = robot_cfg.replace(prim_path="{ENV_REGEX_NS}/Robot")
-    # Spawn where ``init_franka_arm_pose`` resets the arm to, rather than at Isaac Lab's own pose.
-    # The two described different arm configurations, which left placement geometry, derived from
-    # the spawn state, describing an arm the scene never contains.
+    # Arena reaches for objects on a table, so it spawns at its own ready pose rather than at the
+    # pose Isaac Lab ships, which folds the elbow back.
     cfg.init_state = cfg.init_state.replace(joint_pos=_FRANKA_READY_POSE)
     cfg.spawn.usd_path = compose_on_stand_usd(
         _FRANKA_ROBOT_PRIM,
