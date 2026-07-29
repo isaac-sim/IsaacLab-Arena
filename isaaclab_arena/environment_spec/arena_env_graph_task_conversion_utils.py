@@ -30,7 +30,10 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
 
     if task_spec.composition is TaskCompositionType.ATOMIC:
         return _build_atomic_task_from_spec(
-            task_spec.subtasks[0], assets_by_node_id, task_description=task_spec.description
+            task_spec.subtasks[0],
+            assets_by_node_id,
+            task_description=task_spec.description,
+            episode_length_s=task_spec.episode_length_s,
         )
 
     subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.subtasks]
@@ -43,10 +46,12 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
     if task_spec.composition is TaskCompositionType.PARALLEL:
         return CompositeTaskBase(
             subtasks=subtasks,
+            episode_length_s=task_spec.episode_length_s,
             task_description=task_spec.description,
         )
     return SequentialTaskBase(
         subtasks=subtasks,
+        episode_length_s=task_spec.episode_length_s,
         task_description=task_spec.description,
     )
 
@@ -56,12 +61,15 @@ def _build_atomic_task_from_spec(
     assets_by_node_id: dict[str, Any],
     *,
     task_description: str | None = None,
+    episode_length_s: float | None = None,
 ) -> Any:
     """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
     task_class = TaskRegistry().get_task_by_name(task_spec.kind)
     task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)
     if task_description and "task_description" not in task_init_kwargs:
         task_init_kwargs["task_description"] = task_description
+    if episode_length_s is not None and "episode_length_s" not in task_init_kwargs:
+        task_init_kwargs["episode_length_s"] = episode_length_s
     return task_class(**task_init_kwargs)
 
 

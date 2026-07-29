@@ -8,16 +8,15 @@ external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
 task:
   composition: parallel
   description: Put the bagels on the plate
+  episode_length_s: 60.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bagel_1
       destination_location: plate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bagel_2
       destination_location: plate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0

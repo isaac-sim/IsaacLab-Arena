@@ -8,10 +8,10 @@ external_yaml: ../scenes/workdesk.yaml
 task:
   composition: atomic
   description: place the computer mouse on the keyboard
+  episode_length_s: 60.0
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: computer_mouse
       destination_location: keyboard
       background_scene: maple_table_robolab
-      episode_length_s: 20.0

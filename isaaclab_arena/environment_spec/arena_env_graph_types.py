@@ -131,6 +131,10 @@ class CompositeTaskSpec(BaseModel):
         min_length=1,
         description="Natural-language summary of the overall task (e.g. 'pick and place all bananas into the bin').",
     )
+    episode_length_s: float | None = Field(
+        default=None,
+        description="Maximum episode duration in seconds for the root task.",
+    )
     subtasks: list[TaskSpec] = Field(
         default_factory=list,
         description="Atomic registered tasks that compose this root task.",
