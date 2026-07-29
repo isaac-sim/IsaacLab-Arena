@@ -3,14 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared machinery for openpi-protocol remote policies (openpi, Cosmos, ...).
-
-Servers built on openpi's ``WebsocketPolicyServer`` all speak the same msgpack+NumPy
-protocol: one observation per request, one action chunk per response. This module holds
-the transport, per-env chunk caching, and reconnect logic common to every such client so
-each concrete policy only has to declare its embodiment adapter and the horizon to replay.
-"""
-
 from __future__ import annotations
 
 import gymnasium as gym

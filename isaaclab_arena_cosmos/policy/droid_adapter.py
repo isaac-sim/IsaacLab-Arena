@@ -28,14 +28,7 @@ class DroidObservation:
 
 
 class CosmosDroidAdapter(EmbodimentAdapter):
-    """Wire format for the released Cosmos DROID policies (Nano/Edge), joint_pos action space.
-
-    Mirrors the released Cosmos DROID client (RoboLab ``policies/cosmos3/client.py``): each of
-    Arena's three DROID cameras is ``resize_with_pad``-ed to the tile size, then composed into
-    a single ``concat_view`` image (wrist on top, the two third-person views side-by-side on
-    the bottom) sent as ``observation/image``. Aspect-preserving padding is done here rather
-    than relying on the server's plain resize so non-16:9 cameras are not distorted.
-    """
+    """Wire format for the released Cosmos DROID policies (Nano/Edge), joint_pos action space."""
 
     # Fixed by the released DROID joint_pos policies: 7 arm joints + 1 gripper command.
     action_dim = 8
