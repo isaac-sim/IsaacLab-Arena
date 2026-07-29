@@ -35,10 +35,13 @@ from isaaclab_arena.utils.configclass import make_configclass
 @agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
-    """Pick-and-place task. Success fires when the pick-up object contacts the destination
-    with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
-    of the destination. Failure (object_dropped) fires when the object falls below the
-    background's ``object_min_z``.
+    """Pick-and-place task.
+
+    Success fires when the pick-up object rests on the destination with upward
+    support force and its bounding-box centroid within the destination's world
+    XY footprint. When ``max_separation`` is set, success also requires
+    axis-aligned proximity to the destination. Failure (object_dropped) fires
+    when the object falls below the background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
     shape (different arm subtask sequences, different per-subtask numerical knobs,
@@ -64,6 +67,8 @@ class PickAndPlaceTask(TaskBase):
         velocity_threshold: float = 0.1,
         max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
+        support_cone_half_angle_deg: float = 45.0,
+        footprint_tolerance: float = 1e-2,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -74,6 +79,8 @@ class PickAndPlaceTask(TaskBase):
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        self.support_cone_half_angle_deg = support_cone_half_angle_deg
+        self.footprint_tolerance = footprint_tolerance
         if max_separation is not None:
             assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
         self.max_separation = max_separation
@@ -113,8 +120,12 @@ class PickAndPlaceTask(TaskBase):
                 params={
                     "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                     "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
+                    "object_asset": self.pick_up_object,
+                    "destination_asset": self.destination_location,
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
+                    "support_cone_half_angle_deg": self.support_cone_half_angle_deg,
+                    "footprint_tolerance": self.footprint_tolerance,
                 },
             ),
         ]
@@ -193,8 +204,12 @@ class PickAndPlaceTask(TaskBase):
                         object_on_destination,
                         object_cfg=SceneEntityCfg(self.pick_up_object.name),
                         contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
+                        object_asset=self.pick_up_object,
+                        destination_asset=self.destination_location,
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
+                        support_cone_half_angle_deg=self.support_cone_half_angle_deg,
+                        footprint_tolerance=self.footprint_tolerance,
                     ),
                 ],
             ),
