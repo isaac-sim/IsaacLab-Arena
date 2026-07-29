@@ -2117,7 +2117,7 @@ requires-dist = [
     { name = "pytest" },
     { name = "sbi" },
     { name = "scipy" },
-    { name = "streamlit", marker = "extra == 'dev'", specifier = ">=1.30" },
+    { name = "streamlit", marker = "extra == 'dev'", specifier = ">=1.56" },
     { name = "streamlit-ace", marker = "extra == 'dev'", specifier = ">=0.1.1" },
     { name = "tenacity", marker = "extra == 'dev'" },
     { name = "typing-extensions" },
