@@ -39,26 +39,6 @@ def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 
 
-def disable_timeout_terminations(env_cfg) -> list[str]:
-    """Disable timeout termination terms and return their names."""
-    terminations_cfg = env_cfg.terminations
-    if terminations_cfg is None:
-        return []
-
-    disabled_term_names: list[str] = []
-    if hasattr(terminations_cfg, "time_out") and terminations_cfg.time_out is not None:
-        terminations_cfg.time_out = None
-        disabled_term_names.append("time_out")
-
-    for term_name, term_cfg in vars(terminations_cfg).items():
-        if term_cfg is not None and getattr(term_cfg, "time_out", False):
-            setattr(terminations_cfg, term_name, None)
-            if term_name not in disabled_term_names:
-                disabled_term_names.append(term_name)
-
-    return disabled_term_names
-
-
 def get_idle_actions(env: gym.Env, env_cfg) -> torch.Tensor:
     """Return the configured idle action or a zero action for the environment."""
     device = torch.device(env.unwrapped.device)
@@ -143,15 +123,9 @@ def main() -> None:
 
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
         env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
-        disabled_term_names = disable_timeout_terminations(env_cfg)
         env_cfg.sim.enable_scene_query_support = True
         env_cfg.recorders = {}
         env_cfg.episode_recorders = {}
-        if disabled_term_names:
-            print(
-                f"[environment_runner] Disabled timeout terms: {', '.join(disabled_term_names)}.",
-                flush=True,
-            )
 
         env = arena_builder.make_registered(env_cfg, env_kwargs)
         try:

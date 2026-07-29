@@ -96,29 +96,6 @@ def test_assert_interactive_runner_args_rejects_unsupported_configuration(argume
         environment_runner.assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
 
 
-def test_disable_timeout_terminations_removes_canonical_and_flagged_timeout_terms():
-    canonical_timeout = object()
-    custom_timeout = SimpleNamespace(time_out=True)
-    success = SimpleNamespace(time_out=False)
-    terminations_cfg = SimpleNamespace(
-        time_out=canonical_timeout,
-        connection_lost=custom_timeout,
-        success=success,
-    )
-    env_cfg = SimpleNamespace(terminations=terminations_cfg)
-
-    disabled_term_names = environment_runner.disable_timeout_terminations(env_cfg)
-
-    assert disabled_term_names == ["time_out", "connection_lost"]
-    assert terminations_cfg.time_out is None
-    assert terminations_cfg.connection_lost is None
-    assert terminations_cfg.success is success
-
-
-def test_disable_timeout_terminations_handles_environment_without_terminations():
-    assert environment_runner.disable_timeout_terminations(SimpleNamespace(terminations=None)) == []
-
-
 def test_get_idle_actions_returns_zeros_matching_the_environment_action_space():
     env = _FakeEnvironment(action_space_shape=(1, 3))
 
@@ -247,7 +224,6 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     lifecycle_events = []
     env_cfg = SimpleNamespace(
         sim=SimpleNamespace(enable_scene_query_support=False),
-        terminations=None,
         recorders=object(),
         episode_recorders=object(),
     )
