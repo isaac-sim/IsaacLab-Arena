@@ -113,41 +113,9 @@ from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subta
 from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
 
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
+from isaaclab_arena.utils.rate_limiter import RateLimiter
 
 # Imports have to follow simulation startup.
-
-
-class RateLimiter:
-    """Convenience class for enforcing rates in loops."""
-
-    def __init__(self, hz: int):
-        """Initialize a RateLimiter with specified frequency.
-
-        Args:
-            hz: Frequency to enforce in Hertz.
-        """
-        self.hz = hz
-        self.last_time = time.time()
-        self.sleep_duration = 1.0 / hz
-        self.render_period = min(0.033, self.sleep_duration)
-
-    def sleep(self, env: gym.Env):
-        """Attempt to sleep at the specified rate in hz.
-
-        Args:
-            env: Environment to render during sleep periods.
-        """
-        next_wakeup_time = self.last_time + self.sleep_duration
-        while time.time() < next_wakeup_time:
-            time.sleep(self.render_period)
-            env.sim.render()
-
-        self.last_time = self.last_time + self.sleep_duration
-
-        # detect time jumping forwards (e.g. loop is too slow)
-        if self.last_time < time.time():
-            while self.last_time < time.time():
-                self.last_time += self.sleep_duration
 
 
 def setup_output_directories() -> tuple[str, str]:
@@ -523,7 +491,7 @@ def run_simulation_loop(
                     target_time = time.time() + 0.8
                     while time.time() < target_time:
                         if rate_limiter:
-                            rate_limiter.sleep(env)
+                            rate_limiter.sleep(wait_callback=env.sim.render)
                         else:
                             env.sim.render()
                     break
@@ -539,7 +507,7 @@ def run_simulation_loop(
 
                 # Rate limiting
                 if rate_limiter:
-                    rate_limiter.sleep(env)
+                    rate_limiter.sleep(wait_callback=env.sim.render)
 
     # Run the loop with or without context manager based on stack
     if use_isaac_teleop:
@@ -572,7 +540,7 @@ def main() -> None:
         # Assign the teleop visualization manager to the visualization system
         XRVisualization.assign_manager(TeleopVisualizationManager)
     else:
-        rate_limiter = RateLimiter(args_cli.step_hz)
+        rate_limiter = RateLimiter(period_seconds=1.0 / args_cli.step_hz)
 
     # Set up output directories
     output_dir, output_file_name = setup_output_directories()

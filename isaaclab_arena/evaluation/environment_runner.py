@@ -7,40 +7,17 @@ from __future__ import annotations
 
 import argparse
 import os
-import time
 import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.rate_limiter import RateLimiter
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
     import gymnasium as gym
-
-
-class RealTimeRateLimiter:
-    """Limit a loop to one iteration per requested period."""
-
-    def __init__(self, period: float) -> None:
-        """Initialize the limiter for a period in seconds.
-
-        Args:
-            period: Minimum time between consecutive loop iterations.
-        """
-        self._period = period
-        self._next_iteration_time = time.monotonic()
-
-    def sleep(self) -> None:
-        """Sleep until the next iteration should begin."""
-        self._next_iteration_time += self._period
-        current_time = time.monotonic()
-        remaining_time = self._next_iteration_time - current_time
-        if remaining_time > 0.0:
-            time.sleep(remaining_time)
-        else:
-            self._next_iteration_time = current_time
 
 
 def use_kit_visualizer_by_default(args_cli: argparse.Namespace) -> None:
@@ -154,13 +131,13 @@ def run_environment(
     simulation_app: SimulationAppContext,
     env: gym.Env,
     env_cfg,
-    rate_limiter: RealTimeRateLimiter | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> None:
     """Reset once, then run one environment with idle actions until Kit closes."""
     env.reset()
     idle_actions = get_idle_actions(env, env_cfg)
     if rate_limiter is None:
-        rate_limiter = RealTimeRateLimiter(env.unwrapped.step_dt)
+        rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)
 
     print(
         "[environment_runner] Environment running. Hold Shift, then left-drag a physics object.",
