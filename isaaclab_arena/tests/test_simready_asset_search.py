@@ -15,9 +15,15 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadyObjectCandidate,
     SimReadySearchConfig,
     SimReadySourceKind,
+    _count_matching_words,
+    _keep_whole_word_matches,
+    _split_path_into_words,
     search_simready_objects,
     simready_search_config_from_cli,
 )
+
+CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_d01_01.usd"
+TRASH_CAN_PATH = "SimReady/Residential/Garage/sm_trashCan_wheeled_green_a01_01.usd"
 
 
 class _FakeMatch:
@@ -36,6 +42,39 @@ class _FakeLibrary:
 
 async def _fake_configure_library(config, traces):
     return _FakeLibrary([_FakeMatch("s3://bucket/red_hammer.usd", relevance_score=0.95)])
+
+
+def test_split_path_into_words_splits_camel_case_and_separators():
+    words = _split_path_into_words(TRASH_CAN_PATH)
+    assert {"trash", "can", "wheeled", "green", "garage"} <= words
+    # "trashCan" must not survive as one token, or camelCase names stay unsearchable.
+    assert "trashcan" not in words
+
+
+def test_count_matching_words_ignores_substring_hits():
+    # "bin" only appears inside "Cabinets", which is how a cabinet got picked for a grey bin.
+    assert _count_matching_words("grey bin", CABINET_PATH) == 0
+    assert _count_matching_words("kitchen cabinet", CABINET_PATH) == 2
+
+
+def test_count_matching_words_tolerates_plurals():
+    assert _count_matching_words("cabinet", CABINET_PATH) == 1
+    assert _count_matching_words("cabinets", CABINET_PATH) == 1
+
+
+def test_keep_whole_word_matches_filters_and_ranks():
+    cabinet = _FakeMatch(CABINET_PATH)
+    trash_can = _FakeMatch(TRASH_CAN_PATH)
+    assert _keep_whole_word_matches([cabinet], "grey bin") == []
+    # "green trash can" matches three words in the trash can and none in the cabinet.
+    assert _keep_whole_word_matches([cabinet, trash_can], "green trash can") == [trash_can]
+
+
+def test_keep_whole_word_matches_orders_by_word_overlap():
+    cabinet = _FakeMatch(CABINET_PATH)
+    trash_can = _FakeMatch(TRASH_CAN_PATH)
+    ranked = _keep_whole_word_matches([cabinet, trash_can], "kitchen green trash can")
+    assert ranked == [trash_can, cabinet]
 
 
 def test_simready_candidate_catalogue_to_catalog_string():

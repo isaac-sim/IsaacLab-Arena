@@ -91,10 +91,12 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # the simple RIGID/ARTICULATION classification:
         # - For example, the "peg" and "hole" assets have both RigidBodyAPI and ArticulationRootAPI
         #   applied simultaneously, sometimes in different prim layers.
-        # Procedurally generated assets do not have USD paths, so we skip them.
-        if "procedural" in getattr(object_asset, "tags", []):
-            continue
-        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere"):
+        # Assets without a USD path on the class cannot be classified without an instance. That
+        # covers procedurally generated assets and ones whose path arrives as a graph parameter.
+        has_usd_path = getattr(object_asset, "usd_path", None) is not None
+        is_procedural = "procedural" in getattr(object_asset, "tags", [])
+        skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
+        if has_usd_path and not is_procedural and object_asset.name not in skipped_names:
             print(f"Automatically classifying: {object_asset.name}")
             detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
             print(f"database object type: {object_asset.object_type}")

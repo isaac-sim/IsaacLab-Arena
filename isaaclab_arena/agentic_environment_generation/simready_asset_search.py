@@ -93,18 +93,62 @@ class SimReadyCandidateCatalogue:
         return "\n".join(lines)
 
 
+_CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
+
+
 def _slugify_phrase(phrase: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", phrase.strip().lower()).strip("_")
     return slug or "object"
 
 
+def _phrase_words(phrase: str) -> list[str]:
+    return [word for word in re.split(r"\s+", phrase.strip().lower()) if word]
+
+
 def _phrase_path_filters(phrase: str) -> list[Any]:
     from simready.search import SearchFilterPathContains
 
-    words = [word for word in re.split(r"\s+", phrase.strip().lower()) if word]
+    words = _phrase_words(phrase)
     if not words:
         return [SearchFilterPathContains(phrase)]
     return [SearchFilterPathContains(word) for word in words]
+
+
+def _split_path_into_words(asset_path: str) -> frozenset[str]:
+    """Split an asset path into lowercase words, also splitting camelCase.
+
+    SimReady names run words together, as in ``sm_trashCan_wheeled_green_a01_01.usd``, so
+    splitting on separators alone would miss ``trash`` and ``can``.
+    """
+    spaced = _CAMEL_CASE_BOUNDARY.sub(" ", asset_path)
+    return frozenset(word for word in _NON_ALPHANUMERIC.split(spaced.lower()) if word)
+
+
+def _is_word_in_path(word: str, path_words: frozenset[str]) -> bool:
+    """True if the word is one of the path words, ignoring a plural on either side."""
+    if word in path_words or f"{word}s" in path_words:
+        return True
+    return word.endswith("s") and word[:-1] in path_words
+
+
+def _count_matching_words(phrase: str, asset_path: str) -> int:
+    """Count how many words of the phrase appear as whole words in the asset path."""
+    path_words = _split_path_into_words(asset_path)
+    return sum(1 for word in _phrase_words(phrase) if _is_word_in_path(word, path_words))
+
+
+def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
+    """Keep only results that share a whole word with the phrase, best matches first.
+
+    ``SearchFilterPathContains`` matches any substring, so searching for "bin" returns every
+    cabinet in the library. Asking for whole words drops those results.
+    """
+    scored = [(_count_matching_words(phrase, str(match.asset_path)), match) for match in matches]
+    kept = [entry for entry in scored if entry[0] > 0]
+    # The sort is stable, so results with the same number of matching words keep their order.
+    kept.sort(key=lambda entry: entry[0], reverse=True)
+    return [match for _, match in kept]
 
 
 def _select_matches(matches: list[Any], max_results: int) -> list[Any]:
@@ -160,7 +204,7 @@ async def _search_phrase_async(
 ) -> list[SimReadyObjectCandidate]:
     from simready.search import AssetLibrary, SearchFilterPhrase
 
-    matches = library.search(include_any=_phrase_path_filters(phrase))
+    matches = _keep_whole_word_matches(library.search(include_any=_phrase_path_filters(phrase)), phrase)
     if not matches and use_service_phrase:
         service_library = AssetLibrary()
         service_library.add_service_source(service_url)

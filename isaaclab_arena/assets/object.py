@@ -49,7 +49,7 @@ class Object(ObjectBase):
                 "object_type is None (indicating auto-detect) but usd_path is also None. usd_path is required to detect"
                 " object type"
             )
-            object_type = detect_object_type(usd_path=usd_path)
+            object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
         self.spawner_cfg = spawner_cfg

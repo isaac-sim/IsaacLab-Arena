@@ -31,9 +31,19 @@ def test_asset_spec_accepts_simready_usd_path():
     assert spec.params["usd_path"] == "https://example.com/hammer.usd"
 
 
-def test_simready_usd_object_enables_physics_variant_by_default():
+def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
+
     ensure_assets_registered()
-    obj = SimReadyUsdObject(usd_path="https://example.com/kettle.usd", instance_name="kettle")
+    # A real USD file, because the object reads it to work out its type.
+    stage = new_stage()
+    add_body(stage, "body_01")
+    usd_path = str(tmp_path / "kettle.usd")
+    assert stage.Export(usd_path)
+
+    obj = SimReadyUsdObject(usd_path=usd_path, instance_name="kettle")
     assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
     assert spawn.variants == {"Physics": "physics"}
+    # One body already, so the object keeps the file it was given.
+    assert obj.usd_path == usd_path
