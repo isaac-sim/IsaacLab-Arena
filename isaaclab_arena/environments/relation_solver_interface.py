@@ -42,7 +42,7 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-) -> EventTermCfg | None:
+) -> tuple[EventTermCfg | None, PooledObjectPlacer | None]:
     """Solve relation placement and apply the result to asset reset/static state.
 
     Args:
@@ -56,12 +56,13 @@ def solve_and_apply_relation_placement(
             when collision_objects is not supplied.
 
     Returns:
-        Reset event config to attach to the environment when placement should be
-        resolved on reset. Returns ``None`` when no reset event is needed.
+        A ``(reset_event_cfg, placement_pool)`` pair. When ``resolve_on_reset`` is
+        enabled, ``placement_pool`` is the live runtime pool to pass through
+        ``env_kwargs``; otherwise both entries are ``None``.
     """
     if not assets:
         print("No assets with relations found in scene. Skipping relation solving.")
-        return None
+        return None, None
     asset_names = {asset.name for asset in assets}
     assert len(asset_names) == len(assets), "Placement asset names must be unique"
     scene_keys = [asset.get_scene_key() for asset in assets]
@@ -92,7 +93,7 @@ def solve_and_apply_relation_placement(
         collision_objects=collision_objects,
     )
     # Validators are built once above and reused for every refill, so the embodiment is done being read; drop
-    # it before the reset-event params below capture (and deep-copy/validate) the pool.
+    # it before the pool is handed to the env at runtime.
     placer_params.reachability_config.embodiment = None
 
     if placement_pool.had_fallbacks:
@@ -101,12 +102,15 @@ def solve_and_apply_relation_placement(
             "that failed strict placement validation."
         )
 
-    return _apply_relation_placement_result(
+    event_cfg = _apply_relation_placement_result(
         assets=assets,
         placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
     )
+    if event_cfg is not None:
+        return event_cfg, placement_pool
+    return None, None
 
 
 def _should_include_background_mesh(
@@ -183,10 +187,7 @@ def _apply_dynamic_spawn_pose(
     return EventTermCfg(
         func=solve_and_place_objects,
         mode="reset",
-        params={
-            "assets": assets,
-            "placement_pool": placement_pool,
-        },
+        params={},
     )
 
 

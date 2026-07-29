@@ -34,8 +34,13 @@ def _make_box(name: str = "box"):
 
 
 class _FakePlacementPool:
-    def __init__(self, layouts) -> None:
+    def __init__(self, layouts, objects=None) -> None:
         self._layouts = layouts
+        self._objects = objects or []
+
+    @property
+    def objects(self):
+        return self._objects
 
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
@@ -57,9 +62,10 @@ def _fallback_layout(positions):
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
-    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_solve_and_apply_relation_placement_requires_unique_asset_names():
@@ -89,13 +95,14 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     params = ObjectPlacerParams(placement_seed=11, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
@@ -109,13 +116,14 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     box.add_relation(On(desk, clearance_m=0.01))
 
     params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg, placement_pool = solve_and_apply_relation_placement(
         [desk, box],
         num_envs=2,
         placer_params=params,
     )
 
     assert placement_event_cfg is None
+    assert placement_pool is None
 
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
@@ -137,12 +145,15 @@ def test_dynamic_spawn_pose_rejects_layout_missing_non_anchor():
         )
 
 
-def test_dynamic_spawn_pose_event_params_use_runtime_assets():
+def test_dynamic_spawn_pose_event_has_no_runtime_params():
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
 
     desk = _make_desk()
     box = _make_box()
-    placement_pool = _FakePlacementPool([_fallback_layout(positions={box: (0.1, 0.2, 0.3)})])
+    placement_pool = _FakePlacementPool(
+        [_fallback_layout(positions={box: (0.1, 0.2, 0.3)})],
+        objects=[desk, box],
+    )
 
     event_cfg = _apply_dynamic_spawn_pose(
         assets=[desk, box],
@@ -150,8 +161,43 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
         anchor_assets={desk},
     )
 
-    assert [asset.name for asset in event_cfg.params["assets"]] == ["desk", "box"]
-    assert "placement_pool" in event_cfg.params
+    assert event_cfg.params == {}
+
+
+def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
+    """EventTermCfg deep-copies params; runtime pool lives on the env, not in params."""
+    import copy
+    import trimesh
+
+    from isaaclab.managers import EventTermCfg
+
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk, clearance_m=0.01))
+    box.collision_mode = CollisionMode.MESH
+    box._collision_mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
+
+    params = ObjectPlacerParams(
+        placement_seed=17,
+        resolve_on_reset=True,
+        min_unique_layouts_per_env=1,
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=50),
+    )
+    event_cfg, placement_pool = solve_and_apply_relation_placement([desk, box], num_envs=1, placer_params=params)
+
+    assert event_cfg is not None
+    assert isinstance(event_cfg, EventTermCfg)
+    assert placement_pool is not None
+    assert event_cfg.params == {}
+    copy.deepcopy(event_cfg)
+    from isaaclab.utils.configclass import _validate
+
+    _validate(event_cfg, prefix="")
 
 
 def test_static_embodiment_placement_stores_per_env_poses():

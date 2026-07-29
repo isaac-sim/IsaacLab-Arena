@@ -40,6 +40,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -66,6 +67,7 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        self._placement_pool: PooledObjectPlacer | None = None
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
@@ -107,7 +109,7 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        self._placement_event_cfg = solve_and_apply_relation_placement(
+        self._placement_event_cfg, self._placement_pool = solve_and_apply_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
@@ -402,6 +404,8 @@ class ArenaEnvBuilder:
                 env_cfg.scene.replicate_physics = True
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        if self._placement_pool is not None:
+            env_kwargs["placement_pool"] = self._placement_pool
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

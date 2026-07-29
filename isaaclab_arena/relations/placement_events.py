@@ -22,24 +22,21 @@ if TYPE_CHECKING:
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
-# Name of the reset event term that owns the pooled object placer.
+# Name of the reset event term registered when ``resolve_on_reset`` is enabled.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
-    """Return the pooled placer stored on the env reset event, or ``None`` when absent.
+    """Return the runtime placement pool bound on the env, or ``None`` when absent.
 
-    Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
-    without holding the builder. The pool is reached through the env's event manager.
+    The pool is build-time state passed through ``ArenaEnvBuilder`` ``env_kwargs`` and
+    stored on :class:`~isaaclab_arena.environments.isaaclab_arena_manager_based_env.IsaacLabArenaManagerBasedRLEnv`,
+    not in ``EventTermCfg`` params.
 
     Args:
         env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
     """
-    try:
-        term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
-    except ValueError:
-        return None
-    return term_cfg.params.get("placement_pool")
+    return getattr(env.unwrapped, "placement_pool", None)
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -113,23 +110,23 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    assets: list[PlaceableAsset],
-    placement_pool: PooledObjectPlacer,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
     Registered as a single EventTermCfg(mode="reset"). Layouts are env-indexed:
     one layout is consumed for each requested absolute env id, so partial resets
-    only advance the pools of the resetting envs.
+    only advance the pools of the resetting envs. The pool is read from the env
+    via :func:`get_placement_pool`.
 
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        assets: Assets participating in relation solving.
-        placement_pool: Runtime pool of solved placement layouts.
     """
+    placement_pool = get_placement_pool(env)
+    assert placement_pool is not None, "Env has no placement pool; build through ArenaEnvBuilder."
     if env_ids is None or len(env_ids) == 0:
         return
+    assets = placement_pool.objects
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
