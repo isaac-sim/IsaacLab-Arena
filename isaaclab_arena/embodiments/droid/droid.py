@@ -36,6 +36,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
@@ -66,6 +67,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     which changes how far the stand extends below the root link.
     When manually placing the robot on floor, ``set_initial_pose`` z value and
     ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
+    ``placement_bbox_stand_only`` uses the stand footprint for ``On`` / ``NextTo`` placement
+    instead of the full robot+stand USD bounds.
     """
 
     name = "droid"
@@ -79,9 +82,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.stand_height_m = stand_height_m
+        self.placement_bbox_stand_only = placement_bbox_stand_only
         self.scene_config = DroidSceneCfg()
         self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
             _DROID_ROBOT_PRIM,
@@ -98,6 +103,15 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative placement bounds from the composed on-stand USD spawn.
+
+        When ``placement_bbox_stand_only`` is True, bounds exclude the robot arm and cover
+        the stand footprint only.
+        """
+        prim_path = _DROID_ROBOT_PRIM.stand_prim_path if self.placement_bbox_stand_only else None
+        return super().get_bounding_box(prim_path=prim_path)
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
@@ -124,6 +138,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
             enable_cameras,
@@ -132,6 +147,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms,
             arm_mode,
             stand_height_m,
+            placement_bbox_stand_only,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
 
@@ -151,6 +167,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
             enable_cameras,
@@ -159,6 +176,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms,
             arm_mode,
             stand_height_m,
+            placement_bbox_stand_only,
         )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
@@ -179,6 +197,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
             enable_cameras,
@@ -187,6 +206,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms,
             arm_mode,
             stand_height_m,
+            placement_bbox_stand_only,
         )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 

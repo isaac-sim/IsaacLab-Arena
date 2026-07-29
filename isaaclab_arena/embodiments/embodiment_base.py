@@ -59,8 +59,13 @@ class EmbodimentBase(PlaceableAsset):
         self._collision_mesh: trimesh.Trimesh | None = None
         """Lazily-extracted robot collision mesh, cached so the USD is opened once."""
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return root-relative bounds computed from the articulation's USD geometry."""
+    def get_bounding_box(self, prim_path: str | None = None) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds computed from the articulation's USD geometry.
+
+        Args:
+            prim_path: Optional sub-prim to bound (e.g. stand only). When None, bounds the
+                full default prim.
+        """
         # Import locally because USD/pxr is available only after simulation initialization.
         from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
@@ -71,7 +76,7 @@ class EmbodimentBase(PlaceableAsset):
         assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
         scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
         # TODO(zihaox): Account for configured initial joint positions in bounds and collision meshes.
-        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+        return compute_local_bounding_box_from_usd(spawn.usd_path, scale, prim_path=prim_path)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the robot's collision mesh from its USD default prim, in the default joint pose."""

@@ -172,6 +172,7 @@ def _read_default_prim_scale(prim: Usd.Prim) -> tuple[float, float, float]:
 def compute_local_bounding_box_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    prim_path: str | None = None,
 ) -> AxisAlignedBoundingBox:
     """Compute the local bounding box matching Isaac Lab ``UsdFileCfg`` spawn size.
 
@@ -185,6 +186,9 @@ def compute_local_bounding_box_from_usd(
     Args:
         usd_path: Path to the USD file.
         scale: Spawn-time scale passed to ``UsdFileCfg`` / ``Object.scale``.
+        prim_path: Optional sub-prim to bound. When set, returns that prim's AABB
+            expressed in the default prim's frame (root-relative). When None,
+            bounds the default prim itself.
 
     Returns:
         AxisAlignedBoundingBox containing local min and max points.
@@ -197,7 +201,21 @@ def compute_local_bounding_box_from_usd(
     if not default_prim:
         default_prim = stage.GetPseudoRoot()
 
-    bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
+    if prim_path is None:
+        bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
+    else:
+        # Sub-prim bounds expressed in the default-prim (root) frame.
+        sub_prim = stage.GetPrimAtPath(prim_path)
+        assert sub_prim, f"No prim found at path {prim_path}"
+        bbox = compute_local_bounding_box_from_prim(stage, prim_path)
+        time_code = Usd.TimeCode.Default()
+        sub_world = UsdGeom.Xformable(sub_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
+        root_world = UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
+        bbox = bbox.translated((
+            float(sub_world[0] - root_world[0]),
+            float(sub_world[1] - root_world[1]),
+            float(sub_world[2] - root_world[2]),
+        ))
 
     usd_scale = _read_default_prim_scale(default_prim)
     assert not any(
