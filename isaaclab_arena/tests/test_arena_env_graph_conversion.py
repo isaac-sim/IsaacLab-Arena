@@ -48,7 +48,6 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
 
 def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
-    pytest.importorskip("isaaclab.app")
 
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -102,7 +101,6 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
 
 def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
-    pytest.importorskip("isaaclab.app")
 
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -131,8 +129,6 @@ def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
 
 
 def test_arena_env_graph_conversion_builds_object_set_node():
-    pytest.importorskip("isaaclab.app")
-
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
     result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_object_set_node)
@@ -186,8 +182,6 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
 
 
 def test_default_light_is_injected_when_scene_has_none():
-    pytest.importorskip("isaaclab.app")
-
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
     result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)
