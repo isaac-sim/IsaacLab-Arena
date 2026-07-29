@@ -17,9 +17,11 @@ from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.tasks.cosmos_server_task import CosmosServerTask, CosmosServerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import WorkflowCfg
@@ -83,6 +85,16 @@ def _configure_gr00t_client(policy_cfg: PolicyCfg, server_task_name: str, server
     policy_cfg.remote_port = POLICY_SERVER_PORT
 
 
+def _configure_cosmos_client(policy_cfg: PolicyCfg, server_task_name: str, server_cfg: TaskCfg) -> None:
+    assert isinstance(policy_cfg, CosmosRemotePolicyCfg)
+    assert isinstance(server_cfg, CosmosServerTaskCfg)
+    policy_cfg.remote_host = CosmosServerTask.host_token(server_task_name)
+    policy_cfg.remote_port = POLICY_SERVER_PORT
+    # The first OSMO inference loads the checkpoint and compiles, which can exceed the client's
+    # normal keepalive timeout; use the timeout owned by this server deployment.
+    policy_cfg.ping_timeout = server_cfg.client_ping_timeout_s
+
+
 def _check_none(runs_using_binding: list[ArenaRunCfg], server_cfg: TaskCfg) -> None:
     """No per-server compatibility check."""
 
@@ -105,11 +117,21 @@ GR00T_SERVER_BINDING = ServerBinding(
     check=_check_none,
 )
 
+COSMOS_SERVER_BINDING = ServerBinding(
+    name="cosmos",
+    server_task_cls=CosmosServerTask,
+    pool=_DEFAULT_SERVER_POOL,
+    platform=_DEFAULT_SERVER_PLATFORM,
+    configure_client=_configure_cosmos_client,
+    check=_check_none,
+)
+
 # Client policy config type -> the server that serves it. A Run whose policy type is absent
 # here (e.g. a local zero-action policy) runs standalone with no server.
 REMOTE_POLICY_SERVERS: dict[type[PolicyCfg], ServerBinding] = {
     Pi0RemotePolicyCfg: PI0_SERVER_BINDING,
     Gr00tRemoteClosedloopPolicyCfg: GR00T_SERVER_BINDING,
+    CosmosRemotePolicyCfg: COSMOS_SERVER_BINDING,
 }
 
 # Server-type name -> binding, for resolving the ``servers.<name>`` config field.
@@ -129,3 +151,4 @@ class ServersCfg:
 
     pi0: Pi0ServerTaskCfg = field(default_factory=Pi0ServerTaskCfg)
     gr00t: Gr00tServerTaskCfg = field(default_factory=Gr00tServerTaskCfg)
+    cosmos: CosmosServerTaskCfg = field(default_factory=CosmosServerTaskCfg)

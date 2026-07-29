@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
@@ -35,6 +36,7 @@ from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
 )
+from osmo.tasks.cosmos_server_task import CosmosServerTask
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -154,11 +156,17 @@ def _compose_and_submit(
 
 def test_declares_server_registry():
     """Keep the client-policy-to-server binding registry explicit."""
-    assert set(REMOTE_POLICY_SERVERS) == {Pi0RemotePolicyCfg, Gr00tRemoteClosedloopPolicyCfg}
+    assert set(REMOTE_POLICY_SERVERS) == {
+        Pi0RemotePolicyCfg,
+        Gr00tRemoteClosedloopPolicyCfg,
+        CosmosRemotePolicyCfg,
+    }
     assert REMOTE_POLICY_SERVERS[Pi0RemotePolicyCfg].name == "pi0"
     assert REMOTE_POLICY_SERVERS[Pi0RemotePolicyCfg].server_task_cls is Pi0ServerTask
     assert REMOTE_POLICY_SERVERS[Gr00tRemoteClosedloopPolicyCfg].name == "gr00t"
     assert REMOTE_POLICY_SERVERS[Gr00tRemoteClosedloopPolicyCfg].server_task_cls is Gr00tServerTask
+    assert REMOTE_POLICY_SERVERS[CosmosRemotePolicyCfg].name == "cosmos"
+    assert REMOTE_POLICY_SERVERS[CosmosRemotePolicyCfg].server_task_cls is CosmosServerTask
     assert ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
 
 

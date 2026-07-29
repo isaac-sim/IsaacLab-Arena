@@ -1,0 +1,241 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# 20 single-subtask robolab tasks run with the Cosmos policy, with a lighting-direction variation.
+# On OSMO the inference server for each Run is derived from its policy type, so this launches
+# a Cosmos server (cosmos_server image) per Run. Cosmos Runs use 5 parallel environments.
+runs:
+
+  banana_in_bowl_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+    # This YAML anchor keeps the shared Cosmos policy configuration in one place.
+    policy: &cosmos_policy
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+    # This YAML anchor keeps the shared Cosmos environment-builder settings in one place.
+    environment_builder: &cosmos_builder
+      num_envs: 5
+    # This YAML anchor keeps the shared lighting-direction variation in one place.
+    variations: &direction_variation
+      directional_light:
+        direction:
+          enabled: true
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  banana_on_plate_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  big_pumpkin_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  bowl_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bowl_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  butter_above_raisin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  canned_food_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/canned_food_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  clamp_in_right_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  coffee_pot_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/coffee_pot_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  food_packing_1_boxes_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_boxes.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  food_packing_1_cans_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_cans.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  larger_object_raisin_box_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  marker_in_mug_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/marker_in_mug.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  mouse_on_keyboard_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mouse_on_keyboard.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  mustard_above_raisin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  mustard_in_left_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_in_left_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  rubiks_cube_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  sauce_bottles_crate_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/sauce_bottles_crate.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  smartphone_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  throw_away_apple_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/throw_away_apple.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
+
+  toy_in_bin_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/toy_in_bin.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *direction_variation
+    num_rebuilds: 20
+    rollout_limit:
+      num_episodes: 100
