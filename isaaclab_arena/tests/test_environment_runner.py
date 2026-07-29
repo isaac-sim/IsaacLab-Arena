@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
-import io
 import torch
 from types import SimpleNamespace
 
@@ -37,18 +35,11 @@ class _FakeEnvironment:
         *,
         action_space_shape: tuple[int, ...] = (1, 2),
         num_envs: int = 1,
-        termination_terms: dict[str, torch.Tensor] | None = None,
     ) -> None:
-        termination_terms = termination_terms or {}
-        termination_manager = SimpleNamespace(
-            active_terms=list(termination_terms),
-            get_term=lambda term_name: termination_terms[term_name],
-        )
         self.unwrapped = SimpleNamespace(
             device="cpu",
             num_envs=num_envs,
             step_dt=0.02,
-            termination_manager=termination_manager,
         )
         self.action_space = SimpleNamespace(shape=action_space_shape)
         self.reset_count = 0
@@ -147,63 +138,7 @@ def test_get_idle_actions_repeats_the_configured_action_for_each_environment():
     assert torch.equal(actions, torch.tensor([[0.25, -0.5], [0.25, -0.5]]))
 
 
-def test_get_fired_termination_terms_returns_every_fired_term_and_environment_id():
-    env = _FakeEnvironment(
-        num_envs=3,
-        action_space_shape=(3, 2),
-        termination_terms={
-            "success": torch.tensor([True, False, True]),
-            "robot_fell": torch.tensor([False, True, False]),
-            "inactive": torch.tensor([False, False, False]),
-        },
-    )
-
-    assert environment_runner.get_fired_termination_terms(env) == {
-        "success": [0, 2],
-        "robot_fell": [1],
-    }
-
-
-def test_log_fired_termination_terms_prints_all_named_reset_causes(capsys):
-    env = _FakeEnvironment(
-        termination_terms={
-            "success": torch.tensor([True]),
-            "robot_fell": torch.tensor([True]),
-            "inactive": torch.tensor([False]),
-        }
-    )
-
-    environment_runner.log_fired_termination_terms(
-        env,
-        terminated=torch.tensor([True]),
-        truncated=torch.tensor([False]),
-    )
-
-    output = capsys.readouterr().out
-    assert "Termination 'success' fired for env IDs [0]; environment reset." in output
-    assert "Termination 'robot_fell' fired for env IDs [0]; environment reset." in output
-    assert "inactive" not in output
-
-
-def test_log_fired_termination_terms_does_not_inspect_terms_without_a_reset(capsys):
-    class UnexpectedTerminationManagerAccess:
-        @property
-        def active_terms(self):
-            raise AssertionError("Termination terms should not be inspected without a reset")
-
-    env = _FakeEnvironment()
-    env.unwrapped.termination_manager = UnexpectedTerminationManagerAccess()
-
-    environment_runner.log_fired_termination_terms(
-        env,
-        terminated=torch.tensor([False]),
-        truncated=torch.tensor([False]),
-    )
-
-    assert capsys.readouterr().out == ""
-
-
-def test_run_environment_resets_and_steps_once_before_the_application_stops(capsys):
+def test_run_environment_resets_and_steps_once_before_the_application_stops():
     class OneIterationSimulationApp:
         def __init__(self) -> None:
             self.running_checks = 0
@@ -222,7 +157,7 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops(caps
         def sleep(self) -> None:
             self.sleep_count += 1
 
-    env = _FakeEnvironment(termination_terms={"success": torch.tensor([True])})
+    env = _FakeEnvironment()
     rate_limiter = CountingRateLimiter()
 
     environment_runner.run_environment(
@@ -236,33 +171,6 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops(caps
     assert len(env.step_actions) == 1
     assert torch.equal(env.step_actions[0], torch.zeros((1, 2)))
     assert rate_limiter.sleep_count == 1
-    assert "Termination 'success' fired" in capsys.readouterr().out
-
-
-def _test_success_term_is_logged_after_automatic_reset(simulation_app) -> bool:
-    from isaaclab_arena.tests.test_open_door import get_test_environment
-
-    env, microwave = get_test_environment(remove_reset_door_state_event=False, num_envs=1)
-    try:
-        microwave.open(env, env_ids=None)
-        actions = torch.zeros(env.action_space.shape, device=env.device)
-        _, _, terminated, truncated, _ = env.step(actions)
-
-        output = io.StringIO()
-        with contextlib.redirect_stdout(output):
-            environment_runner.log_fired_termination_terms(env, terminated, truncated)
-
-        assert terminated.item()
-        assert "Termination 'success' fired" in output.getvalue()
-        assert not microwave.is_open(env).item()
-    finally:
-        env.close()
-    return True
-
-
-def test_success_term_is_logged_after_automatic_reset():
-    result = run_simulation_app_function(_test_success_term_is_logged_after_automatic_reset, headless=True)
-    assert result
 
 
 def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bool:

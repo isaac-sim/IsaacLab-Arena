@@ -68,30 +68,6 @@ def get_idle_actions(env: gym.Env, env_cfg) -> torch.Tensor:
     return torch.zeros(env.action_space.shape, device=device)
 
 
-def get_fired_termination_terms(env: gym.Env) -> dict[str, list[int]]:
-    """Return environment IDs for every termination term that fired this step."""
-    termination_manager = env.unwrapped.termination_manager
-    fired_terms: dict[str, list[int]] = {}
-    for term_name in termination_manager.active_terms:
-        term_env_ids = termination_manager.get_term(term_name).nonzero(as_tuple=False).flatten().tolist()
-        if term_env_ids:
-            fired_terms[term_name] = term_env_ids
-    return fired_terms
-
-
-def log_fired_termination_terms(env: gym.Env, terminated: torch.Tensor, truncated: torch.Tensor) -> None:
-    """Print the named terms responsible for an automatic environment reset."""
-    if not (terminated | truncated).any().item():
-        return
-
-    fired_terms = get_fired_termination_terms(env)
-    for term_name, env_ids in fired_terms.items():
-        print(
-            f"[environment_runner] Termination '{term_name}' fired for env IDs {env_ids}; environment reset.",
-            flush=True,
-        )
-
-
 def enable_mouse_interaction() -> None:
     """Enable Shift-drag physics interaction using a D6 joint grab."""
     import carb
@@ -142,8 +118,7 @@ def run_environment(
     try:
         with torch.inference_mode():
             while simulation_app.is_running() and not simulation_app.is_exiting():
-                _, _, terminated, truncated, _ = env.step(idle_actions)
-                log_fired_termination_terms(env, terminated, truncated)
+                env.step(idle_actions)
                 rate_limiter.sleep()
     except KeyboardInterrupt:
         print("\n[environment_runner] Exiting.", flush=True)
