@@ -473,7 +473,6 @@ def extract_trimesh_from_usd_at_joint_pos(
     usd_path: str,
     joint_pos: Mapping[str, float],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-    library_folder: str | None = None,
 ) -> trimesh.Trimesh:
     """Extract an articulation's mesh posed at joint_pos, in its default prim's local frame.
 
@@ -485,14 +484,11 @@ def extract_trimesh_from_usd_at_joint_pos(
         usd_path: Path to the articulation's .usd/.usda/.usdc file.
         joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
         scale: Spawn-time scale passed to ``UsdFileCfg``.
-        library_folder: Robot's folder in the published library, or None to skip the published lookup.
 
     Returns:
         Combined trimesh in the scaled default-prim frame.
     """
-    return _extract_trimesh_from_usd_at_joint_pos(
-        usd_path, tuple(sorted(joint_pos.items())), tuple(scale), library_folder
-    )
+    return _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
 
 
 # NOTE(zihaox, 2026-07-28): Cache here rather than on the asset. Isaac Lab reaches assets through
@@ -503,11 +499,10 @@ def _extract_trimesh_from_usd_at_joint_pos(
     usd_path: str,
     joint_pos_items: tuple[tuple[str, float], ...],
     scale: tuple[float, float, float],
-    library_folder: str | None,
 ) -> trimesh.Trimesh:
     """Cacheable body of ``extract_trimesh_from_usd_at_joint_pos``, keyed by hashable arguments."""
     joint_pos = dict(joint_pos_items)
-    stored = load_mesh(usd_path, joint_pos, scale, library_folder)
+    stored = load_mesh(usd_path, joint_pos, scale)
     if stored is not None:
         return stored
 
@@ -520,7 +515,7 @@ def _extract_trimesh_from_usd_at_joint_pos(
 
     # Store at unit scale so one artifact serves every spawn scale of the asset.
     unscaled = extract_trimesh_from_prim(stage, default_prim_path, (1.0, 1.0, 1.0), prim_world_deltas=deltas)
-    save_mesh(usd_path, joint_pos, unscaled, library_folder=library_folder)
+    save_mesh(usd_path, joint_pos, unscaled)
     return scaled_mesh(unscaled, scale)
 
 

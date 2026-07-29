@@ -47,7 +47,6 @@ class G1EmbodimentBase(EmbodimentBase):
 
     name = "g1"
     default_arm_mode = ArmMode.DUAL_ARM
-    robot_library_folder = "g1"
 
     def __init__(
         self,

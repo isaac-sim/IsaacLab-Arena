@@ -79,40 +79,6 @@ class IsaacSimDebugDraw:
             else:
                 print(f"Skipping {obj.name}: no bbox coordinates")
 
-    def draw_line_segments(
-        self,
-        start_points: list[tuple[float, float, float]],
-        end_points: list[tuple[float, float, float]],
-        color: tuple[float, float, float, float] = DEFAULT_COLOR,
-        thickness: float = 3.0,
-    ) -> None:
-        """Draw one line per (start, end) pair, for wireframes ``draw_bbox`` cannot express.
-
-        Args:
-            start_points: Segment start positions in world coordinates.
-            end_points: Segment end positions, matching start_points element-wise.
-            color: RGBA colour applied to every segment.
-            thickness: Line thickness in pixels.
-        """
-        assert len(start_points) == len(end_points), "each start point needs a matching end point"
-        count = len(start_points)
-        self._draw.draw_lines(start_points, end_points, [color] * count, [thickness] * count)
-
-    def draw_points(
-        self,
-        points: list[tuple[float, float, float]],
-        color: tuple[float, float, float, float] = DEFAULT_COLOR,
-        size: float = 5.0,
-    ) -> None:
-        """Draw a point cloud, for geometry such as mesh vertices.
-
-        Args:
-            points: Positions in world coordinates.
-            color: RGBA colour applied to every point.
-            size: Point size in pixels.
-        """
-        self._draw.draw_points(points, [color] * len(points), [size] * len(points))
-
     def clear(self) -> None:
         """Clear all debug drawings."""
         self._draw.clear_lines()

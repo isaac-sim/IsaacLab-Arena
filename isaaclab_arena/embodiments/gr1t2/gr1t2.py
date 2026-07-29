@@ -87,7 +87,6 @@ class GR1T2EmbodimentBase(EmbodimentBase):
 
     name = "gr1"
     default_arm_mode = ArmMode.RIGHT
-    robot_library_folder = "gr1t2"
 
     def __init__(
         self,

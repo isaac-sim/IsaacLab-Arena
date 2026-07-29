@@ -15,9 +15,8 @@ Nucleus, which holds one published artifact per robot at the pose that robot spa
 ``scripts/export_ready_pose_collision_meshes.py``. A miss falls back to extraction.
 
 Artifacts are named and validated by the source USD's stem, so a file exported on one machine loads
-on another even though Arena composes the robot-on-stand USDs into a per-user cache directory. The
-stem only has to be unique within a robot's folder, and a full export refuses to write a pair that
-would collide there, since at a shared pose one robot would otherwise be served the other's mesh.
+on another even though Arena composes the robot-on-stand USDs into a per-user cache directory.
+``ROBOT_LIBRARY_FOLDERS`` maps that stem to the robot's published folder.
 """
 
 from __future__ import annotations
@@ -35,6 +34,35 @@ from pxr import Usd, UsdGeom
 
 from isaaclab_arena.assets.asset_cache import get_arena_usd_cache_dir
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+
+ROBOT_LIBRARY_FOLDERS = {
+    "A2D_physics": "agibot_a2d",
+    "droid_franka_robotiq_on_stand_1.350": "droid",
+    "franka_panda_on_stand_0.875": "franka",
+    "g1_29dof_with_hand_rev_1_0": "g1",
+    "galbot_one_charlie": "galbot",
+    "GR1T2_fourier_hand_6dof": "gr1t2",
+    "kuka": "kuka",
+}
+"""Folder each robot publishes its collision mesh to, keyed by the stem of the USD Arena spawns.
+
+Robots differing only in action space share a USD and so one artifact. The robots Arena composes
+onto a stand key by the composed stem, stand height included, because a robot at another stand
+height is different geometry that nothing has published; it falls back to extraction.
+"""
+
+ARENA_ROBOT_LIBRARY_DIR = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library"
+"""Nucleus robot library, holding each robot's assets in a folder of its own."""
+
+ROBOT_LIBRARY_DIR_ENV_VAR = "ISAACLAB_ARENA_ROBOT_LIBRARY_DIR"
+"""Environment variable redirecting which robot library published artifacts are read from."""
+
+CACHE_BUDGET_BYTES = 1 << 30
+"""Disk the local cache may occupy before its least recently used artifacts are dropped.
+
+A robot's mesh runs 1-9 MB, so this holds a few hundred: every robot Arena ships at several poses
+each, while bounding what a run against throwaway USDs can leave behind.
+"""
 
 _MESH_PRIM_PATH = "/CollisionMesh"
 """Prim the merged mesh is authored at, also the artifact's default prim."""
@@ -54,12 +82,6 @@ _ZERO_POSE_KEY = "zero"
 _READY_POSE_SUFFIX = "_ready_pose.usd"
 """Suffix naming a published artifact, one per robot, at the pose that robot spawns in."""
 
-ROBOT_LIBRARY_DIR_ENV_VAR = "ISAACLAB_ARENA_ROBOT_LIBRARY_DIR"
-"""Environment variable redirecting which robot library published artifacts are read from."""
-
-ARENA_ROBOT_LIBRARY_DIR = f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library"
-"""Nucleus robot library, holding each robot's assets in a folder of its own."""
-
 _LOCAL_CACHE_DIR = "collision_mesh"
 """Local cache root under ``get_arena_usd_cache_dir()``, with one subfolder per robot when known."""
 
@@ -70,17 +92,133 @@ Staging has to share the destination's directory for the rename to stay atomic, 
 to stay a USD one for ``Usd.Stage.CreateNew``, so the prefix is what keeps the two apart.
 """
 
-CACHE_BUDGET_BYTES = 1 << 30
-"""Disk the local cache may occupy before its least recently used artifacts are dropped.
 
-A robot's mesh runs 1-9 MB, so this holds a few hundred: every robot Arena ships at several poses
-each, while bounding what a run against throwaway USDs can leave behind.
-"""
+def load_mesh(
+    source_usd_path: str, joint_pos: Mapping[str, float], scale: tuple[float, float, float]
+) -> trimesh.Trimesh | None:
+    """Return the stored mesh for a robot USD at joint_pos scaled to scale, or None if unavailable.
+
+    Reads the local cache first and the published robot library second, copying a published hit into
+    the local cache on the way out. An artifact recording another asset or another pose is ignored
+    rather than trusted.
+
+    Args:
+        source_usd_path: Robot USD the mesh should describe.
+        joint_pos: Joint positions the mesh should be posed at.
+        scale: Per-axis scale to apply to the stored vertices.
+    """
+    expected = {"expected_asset": _asset_key(source_usd_path), "expected_pose": _pose_key(joint_pos)}
+
+    cached = _cache_path(source_usd_path, joint_pos)
+    mesh = _read_mesh_usd(str(cached), **expected)
+    if mesh is not None:
+        # Mark the artifact used, so trimming evicts by last use rather than by write time.
+        with contextlib.suppress(OSError):
+            os.utime(cached)
+        return scaled_mesh(mesh, scale)
+
+    published = _published_path(source_usd_path)
+    if published is None:
+        return None
+    mesh = _read_mesh_usd(published, **expected)
+    if mesh is None:
+        return None
+    # Copy the published artifact locally, so only the first process pays the Nucleus round trip.
+    with contextlib.suppress(OSError):
+        save_mesh(source_usd_path, joint_pos, mesh)
+    return scaled_mesh(mesh, scale)
 
 
-def local_collision_mesh_cache_dir() -> Path:
+def save_mesh(source_usd_path: str, joint_pos: Mapping[str, float], mesh: trimesh.Trimesh) -> Path:
+    """Write a robot USD's unscaled mesh at joint_pos to the local cache and return its path.
+
+    Least recently used artifacts are dropped to keep the cache within ``CACHE_BUDGET_BYTES``.
+
+    Args:
+        source_usd_path: Robot USD the mesh was extracted from, recorded for validation on load.
+        joint_pos: Joint positions the mesh was posed at, recorded for validation on load.
+        mesh: Merged mesh at unit scale, in the robot's default-prim frame.
+    """
+    out_path = _write_mesh_usd(_cache_path(source_usd_path, joint_pos), source_usd_path, joint_pos, mesh)
+    _trim_cache(_local_cache_dir())
+    return out_path
+
+
+def export_ready_pose_mesh(
+    source_usd_path: str, joint_pos: Mapping[str, float], mesh: trimesh.Trimesh, out_dir: Path
+) -> Path:
+    """Write a robot's ready-pose mesh into out_dir under its published name, for upload.
+
+    Args:
+        source_usd_path: Robot USD the mesh was extracted from, which must be a published robot.
+        joint_pos: The robot's configured joint positions, recorded for validation on load.
+        mesh: Merged mesh at unit scale, in the robot's default-prim frame.
+        out_dir: Staging directory whose layout mirrors ``ARENA_ROBOT_LIBRARY_DIR`` for upload as-is.
+    """
+    relative_path = published_relative_path(source_usd_path)
+    assert (
+        relative_path is not None
+    ), f"{_asset_key(source_usd_path)} has no entry in ROBOT_LIBRARY_FOLDERS, so there is no folder to publish it to"
+    return _write_mesh_usd(out_dir / relative_path, source_usd_path, joint_pos, mesh)
+
+
+def published_relative_path(source_usd_path: str) -> str | None:
+    """Return a robot USD's artifact path within the robot library, or None if it publishes none."""
+    folder = ROBOT_LIBRARY_FOLDERS.get(_asset_key(source_usd_path))
+    if folder is None:
+        return None
+    return f"{folder}/{_asset_key(source_usd_path)}{_READY_POSE_SUFFIX}"
+
+
+def _published_path(source_usd_path: str) -> str | None:
+    """Return the full path a robot USD's ready-pose mesh is read from, or None if it publishes none.
+
+    Defaults to the Arena Nucleus robot library and is redirected by
+    ``ISAACLAB_ARENA_ROBOT_LIBRARY_DIR``, which lets an export be checked locally before upload.
+    """
+    relative_path = published_relative_path(source_usd_path)
+    if relative_path is None:
+        return None
+    library_dir = os.environ.get(ROBOT_LIBRARY_DIR_ENV_VAR) or ARENA_ROBOT_LIBRARY_DIR
+    return f"{library_dir.rstrip('/')}/{relative_path}"
+
+
+def _cache_path(source_usd_path: str, joint_pos: Mapping[str, float]) -> Path:
+    """Return the local cache path for a robot USD's mesh at joint_pos.
+
+    Published robots mirror their library folder, and everything else, such as a throwaway test
+    fixture, sits at the cache root. The full source path is hashed into the filename so assets
+    sharing a stem stay distinct on one machine even though they would share a published name.
+    """
+    source_digest = hashlib.sha1(str(source_usd_path).encode()).hexdigest()[:12]
+    name = f"{_asset_key(source_usd_path)}_{source_digest}_collision_{_pose_key(joint_pos)}_pose.usd"
+    folder = ROBOT_LIBRARY_FOLDERS.get(_asset_key(source_usd_path))
+    return _local_cache_dir() / folder / name if folder else _local_cache_dir() / name
+
+
+def _local_cache_dir() -> Path:
     """Return the local collision-mesh cache root (``~/.cache/.../usd/collision_mesh``)."""
     return get_arena_usd_cache_dir() / _LOCAL_CACHE_DIR
+
+
+def _asset_key(source_usd_path: str) -> str:
+    """Return the identity a published artifact is named and validated by: the source USD's stem."""
+    # The stem rather than the full path, so an artifact exported from a per-user cache directory
+    # still matches elsewhere. Stems already spell out the variant: droid_franka_robotiq_on_stand_1.350.
+    return Path(str(source_usd_path)).stem
+
+
+def _pose_key(joint_pos: Mapping[str, float]) -> str:
+    """Return a filename-safe key identifying a joint pose.
+
+    Keys are derived from the joint names and values as given, so two spellings of one pose, a regex
+    and the names it expands to, key differently and are extracted separately.
+    """
+    # Omitted joints are posed at zero, so an empty mapping is the zero pose, not the authored one.
+    if all(float(value) == 0.0 for value in joint_pos.values()):
+        return _ZERO_POSE_KEY
+    canonical = ";".join(f"{name}={float(value) + 0.0:.9g}" for name, value in sorted(joint_pos.items()))
+    return hashlib.sha1(canonical.encode()).hexdigest()[:12]
 
 
 def scaled_mesh(mesh: trimesh.Trimesh, scale: tuple[float, float, float]) -> trimesh.Trimesh:
@@ -96,136 +234,6 @@ def scaled_mesh(mesh: trimesh.Trimesh, scale: tuple[float, float, float]) -> tri
     return trimesh.Trimesh(
         vertices=mesh.vertices * np.asarray(scale, dtype=np.float64), faces=mesh.faces, process=False
     )
-
-
-def is_zero_pose(joint_pos: Mapping[str, float]) -> bool:
-    """Whether joint_pos poses every joint at zero, including by naming no joints at all.
-
-    Omitted joints are posed at zero, so an empty mapping is the zero pose rather than the asset's
-    authored configuration.
-    """
-    return all(float(value) == 0.0 for value in joint_pos.values())
-
-
-def pose_key(joint_pos: Mapping[str, float]) -> str:
-    """Return a filename-safe key identifying a joint pose.
-
-    Keys are derived from the joint names and values as given, so two spellings of one pose, a regex
-    and the names it expands to, key differently and are extracted separately.
-    """
-    if is_zero_pose(joint_pos):
-        return _ZERO_POSE_KEY
-    canonical = ";".join(f"{name}={float(value) + 0.0:.9g}" for name, value in sorted(joint_pos.items()))
-    return hashlib.sha1(canonical.encode()).hexdigest()[:12]
-
-
-def asset_key(source_usd_path: str) -> str:
-    """Return the identity a published artifact is named and validated by: the source USD's stem."""
-    # The stem rather than the full path, so an artifact exported from a per-user cache directory
-    # still matches elsewhere. Stems already spell out the variant: droid_franka_robotiq_on_stand_1.350.
-    return Path(str(source_usd_path)).stem
-
-
-def ready_pose_artifact_name(source_usd_path: str) -> str:
-    """Return the filename a robot USD's ready-pose mesh is published under."""
-    return f"{asset_key(source_usd_path)}{_READY_POSE_SUFFIX}"
-
-
-def published_ready_pose_dir() -> str:
-    """Return the robot library that published ready-pose artifacts are read from.
-
-    Defaults to the Arena Nucleus robot library and is redirected by
-    ``ISAACLAB_ARENA_ROBOT_LIBRARY_DIR``, which lets an export be checked locally before upload.
-    """
-    return os.environ.get(ROBOT_LIBRARY_DIR_ENV_VAR) or ARENA_ROBOT_LIBRARY_DIR
-
-
-def published_ready_pose_path(source_usd_path: str, library_folder: str) -> str:
-    """Return the full path a robot USD's ready-pose mesh is published at.
-
-    The artifact sits in the robot's own library folder rather than beside its source USD, because a
-    robot that spawns a composed asset sources from a per-user cache path that is nobody else's.
-    """
-    return f"{published_ready_pose_dir().rstrip('/')}/{library_folder}/{ready_pose_artifact_name(source_usd_path)}"
-
-
-def mesh_cache_path(source_usd_path: str, joint_pos: Mapping[str, float], library_folder: str | None = None) -> Path:
-    """Return the local cache path for a robot USD's mesh at joint_pos.
-
-    Layout is ``collision_mesh/{library_folder}/{filename}`` when ``library_folder`` is set (the
-    embodiment's ``robot_library_folder``), otherwise ``collision_mesh/{filename}`` for throwaway
-    fixtures that have no published robot folder. The full source path is hashed into the filename
-    so assets sharing a stem stay distinct on one machine even though they would share a published
-    name.
-    """
-    source_digest = hashlib.sha1(str(source_usd_path).encode()).hexdigest()[:12]
-    name = f"{asset_key(source_usd_path)}_{source_digest}_collision_{pose_key(joint_pos)}_pose.usd"
-    cache_root = local_collision_mesh_cache_dir()
-    if library_folder:
-        return cache_root / library_folder / name
-    return cache_root / name
-
-
-def load_mesh(
-    source_usd_path: str,
-    joint_pos: Mapping[str, float],
-    scale: tuple[float, float, float],
-    library_folder: str | None = None,
-) -> trimesh.Trimesh | None:
-    """Return the stored mesh for a robot USD at joint_pos scaled to scale, or None if unavailable.
-
-    Reads the local cache first and the published robot library second, copying a published hit
-    into the local cache on the way out. An artifact recording another asset or another pose is
-    ignored rather than trusted.
-
-    Args:
-        source_usd_path: Robot USD the mesh should describe.
-        joint_pos: Joint positions the mesh should be posed at.
-        scale: Per-axis scale to apply to the stored vertices.
-        library_folder: Robot's folder in the published library (and local cache), or None to
-            skip the published lookup and use the flat local-cache path.
-    """
-    cached = mesh_cache_path(source_usd_path, joint_pos, library_folder)
-    mesh = _read_mesh_usd(str(cached), expected_asset=asset_key(source_usd_path), expected_pose=pose_key(joint_pos))
-    if mesh is not None:
-        # Mark the artifact used, so trimming evicts by last use rather than by write time.
-        with contextlib.suppress(OSError):
-            os.utime(cached)
-        return scaled_mesh(mesh, scale)
-
-    if library_folder is None:
-        return None
-    published = published_ready_pose_path(source_usd_path, library_folder)
-    mesh = _read_mesh_usd(published, expected_asset=asset_key(source_usd_path), expected_pose=pose_key(joint_pos))
-    if mesh is None:
-        return None
-    # Copy the published artifact locally, so only the first process pays the Nucleus round trip.
-    with contextlib.suppress(OSError):
-        save_mesh(source_usd_path, joint_pos, mesh, library_folder)
-    return scaled_mesh(mesh, scale)
-
-
-def save_mesh(
-    source_usd_path: str,
-    joint_pos: Mapping[str, float],
-    mesh: trimesh.Trimesh,
-    library_folder: str | None = None,
-) -> Path:
-    """Write a robot USD's unscaled mesh at joint_pos to the local cache and return its path.
-
-    Least recently used artifacts are dropped to keep the cache within ``CACHE_BUDGET_BYTES``.
-
-    Args:
-        source_usd_path: Robot USD the mesh was extracted from, recorded for validation on load.
-        joint_pos: Joint positions the mesh was posed at, recorded for validation on load.
-        mesh: Merged mesh at unit scale, in the robot's default-prim frame.
-        library_folder: Robot's folder under the local cache, or None for a flat cache path.
-    """
-    out_path = _write_mesh_usd(
-        mesh_cache_path(source_usd_path, joint_pos, library_folder), source_usd_path, joint_pos, mesh
-    )
-    _trim_cache(local_collision_mesh_cache_dir())
-    return out_path
 
 
 def _trim_cache(cache_dir: Path) -> None:
@@ -255,23 +263,6 @@ def _last_used(path: Path) -> float:
         return 0.0
 
 
-def export_ready_pose_mesh(
-    source_usd_path: str, joint_pos: Mapping[str, float], mesh: trimesh.Trimesh, out_dir: Path, library_folder: str
-) -> Path:
-    """Write a robot's ready-pose mesh into out_dir under its published name, for upload.
-
-    Args:
-        source_usd_path: Robot USD the mesh was extracted from.
-        joint_pos: The robot's configured joint positions, recorded for validation on load.
-        mesh: Merged mesh at unit scale, in the robot's default-prim frame.
-        out_dir: Staging directory whose layout mirrors ``ARENA_ROBOT_LIBRARY_DIR`` for upload as-is.
-        library_folder: Robot's folder in the published library, created under out_dir.
-    """
-    artifact_path = out_dir / library_folder / ready_pose_artifact_name(source_usd_path)
-    artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    return _write_mesh_usd(artifact_path, source_usd_path, joint_pos, mesh)
-
-
 def _write_mesh_usd(
     out_path: Path, source_usd_path: str, joint_pos: Mapping[str, float], mesh: trimesh.Trimesh
 ) -> Path:
@@ -289,8 +280,8 @@ def _write_mesh_usd(
         mesh_prim.GetPointsAttr().Set(np.asarray(mesh.vertices, dtype=np.float32))
         mesh_prim.GetFaceVertexCountsAttr().Set([3] * len(faces))
         mesh_prim.GetFaceVertexIndicesAttr().Set(faces.reshape(-1))
-        mesh_prim.GetPrim().SetCustomDataByKey(_ASSET_KEY, asset_key(source_usd_path))
-        mesh_prim.GetPrim().SetCustomDataByKey(_POSE_KEY, pose_key(joint_pos))
+        mesh_prim.GetPrim().SetCustomDataByKey(_ASSET_KEY, _asset_key(source_usd_path))
+        mesh_prim.GetPrim().SetCustomDataByKey(_POSE_KEY, _pose_key(joint_pos))
         mesh_prim.GetPrim().SetCustomDataByKey(_SOURCE_KEY, str(source_usd_path))
         assert stage.GetRootLayer().Save(), f"failed to save collision mesh to {tmp_path}"
         os.replace(tmp_path, out_path)
