@@ -5,6 +5,7 @@
 
 
 from abc import ABC
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -20,6 +21,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
+from isaaclab_arena.assets import displayport_insertion_geometry as displayport_geometry
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
@@ -31,6 +33,11 @@ from isaaclab_arena.assets.object_utils import (
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+_LOCAL_ASSET_DIR = Path(__file__).resolve().parent / "usd"
+_DISPLAYPORT_ASSET_DIR = _LOCAL_ASSET_DIR / "displayport_insertion"
+_DISPLAYPORT_PLUG_USD = str(_DISPLAYPORT_ASSET_DIR / "display_port_plug_fixed_sdf.usd")
+_DISPLAYPORT_SOCKET_USD = str(_DISPLAYPORT_ASSET_DIR / "display_port_socket_fixed_sdf_noprotrusions.usd")
 
 
 class LibraryObject(Object):
@@ -46,6 +53,7 @@ class LibraryObject(Object):
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
+    activate_contact_sensors: bool | None = None
 
     def __init__(
         self,
@@ -53,10 +61,14 @@ class LibraryObject(Object):
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
+        activate_contact_sensors: bool | None = None,
         **kwargs,
     ):
         name = instance_name if instance_name is not None else self.name
         scale = scale if scale is not None else self.scale
+        activate_contact_sensors = (
+            self.activate_contact_sensors if activate_contact_sensors is None else activate_contact_sensors
+        )
         super().__init__(
             name=name,
             prim_path=prim_path,
@@ -65,6 +77,7 @@ class LibraryObject(Object):
             object_type=self.object_type,
             scale=scale,
             initial_pose=initial_pose,
+            activate_contact_sensors=activate_contact_sensors,
             spawn_cfg_addon=self.spawn_cfg_addon,
             asset_cfg_addon=self.asset_cfg_addon,
             **kwargs,
@@ -366,6 +379,72 @@ class Sphere(LibraryObject):
             scale=scale,
             spawner_cfg=spawner_cfg,
         )
+
+
+@register_asset
+class DisplayPortPlug(LibraryObject):
+    """Right-angle DisplayPort plug used by connector insertion simulations."""
+
+    name = "displayport_plug"
+    tags = ["object", "connector", "displayport"]
+    usd_path = _DISPLAYPORT_PLUG_USD
+    activate_contact_sensors = True
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            kinematic_enabled=False,
+            max_depenetration_velocity=0.5,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=3666.0,
+            enable_gyroscopic_forces=True,
+            solver_position_iteration_count=128,
+            solver_velocity_iteration_count=1,
+            max_contact_impulse=None,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.03),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.00001, rest_offset=-0.00005),
+    }
+    asset_cfg_addon = {
+        "init_state": RigidObjectCfg.InitialStateCfg(
+            pos=displayport_geometry.DEFAULT_PLUG_ROOT_POS,
+            rot=displayport_geometry.DEFAULT_PLUG_ROT,
+        ),
+    }
+
+
+@register_asset
+class DisplayPortSocket(LibraryObject):
+    """Fixed DisplayPort socket used by connector insertion simulations."""
+
+    name = "displayport_socket"
+    tags = ["object", "connector", "displayport"]
+    usd_path = _DISPLAYPORT_SOCKET_USD
+    activate_contact_sensors = False
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            kinematic_enabled=True,
+            max_depenetration_velocity=5.0,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=3666.0,
+            enable_gyroscopic_forces=True,
+            solver_position_iteration_count=128,
+            solver_velocity_iteration_count=1,
+            max_contact_impulse=1e32,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=None),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.0001, rest_offset=-0.0001),
+    }
+    asset_cfg_addon = {
+        "init_state": RigidObjectCfg.InitialStateCfg(
+            pos=displayport_geometry.DEFAULT_SOCKET_ROOT_POS,
+            rot=displayport_geometry.DEFAULT_SOCKET_ROT,
+        ),
+    }
 
 
 class LightBase(LibraryObject, ABC):
