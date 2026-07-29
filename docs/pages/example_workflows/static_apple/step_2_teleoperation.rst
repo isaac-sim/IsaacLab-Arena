@@ -1,43 +1,43 @@
 Teleoperation Data Collection
 -----------------------------
 
-This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using **Meta Quest 3** or **Pico 4 Ultra** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
+This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using **Meta Quest 3** or **PICO 4 Ultra** supported by `NVIDIA IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
 .. note::
 
-   For supported IsaacTeleop hardware devices, see `Supported Input Devices
+   For supported IsaacTeleop hardware devices, refer to `Supported Input Devices
    <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
    Before starting teleoperation, also review the `IsaacTeleop system requirements
    <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
 
 .. important::
 
-   A stable network connection meeting the `CloudXR network requirements
+   Ensure you have a stable network connection meeting the `CloudXR network requirements
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
-   is required before starting the steps below.
+   before starting the steps below.
 
-.. admonition:: No teleoperation hardware?
+.. admonition:: Working without teleoperation hardware
    :class: tip
 
-   The static task drops the locomotion / squat / turn channels but still needs bimanual end-effector
+   The static task drops the locomotion, squat, and turn channels but still needs bimanual end-effector
    control, so a keyboard or SpaceMouse is not practical. If you don't have an XR headset, you can
    still smoke-test the pipeline with the
    `Immersive Web Emulator Runtime (IWER)
    <https://github.com/meta-quest/immersive-web-emulator>`_. Open
-   `<https://nvidia.github.io/IsaacTeleop/client>`_ in desktop Chrome (instead of the Quest browser);
-   the page auto-loads IWER and emulates a Quest 3 with your mouse and keyboard, per the
+   `<https://nvidia.github.io/IsaacTeleop/client>`_ in desktop Chrome (instead of the Quest browser).
+   The page auto-loads IWER and emulates a Quest 3 with your mouse and keyboard, according to the
    `IsaacTeleop Quick Start
-   <https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html>`_. Follow Steps 1--4
-   below unchanged; the only difference is that Step 3 is done from a desktop browser tab. Because
+   <https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html>`_. Follow Steps 1-4
+   below unchanged. The only difference is that Step 3 is done from a desktop browser tab. Because
    the static task is upper-body-only, IWER drives it noticeably better than the loco-manipulation
-   variant — you can plausibly complete a few demos with just mouse + keyboard, though a real Quest
+   variant. You can plausibly complete a few demos with a mouse and keyboard, though a real Quest
    3 still gives much smoother demonstrations.
 
 
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type. The example below uses ``ufw`` (Ubuntu); on other distributions use the equivalent firewall tooling (e.g. ``firewalld`` on Fedora/RHEL, ``pf`` on macOS).
+#. On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type. The example below uses ``ufw`` (Ubuntu). On other distributions, use the equivalent firewall tooling (for example, ``firewalld`` on Fedora/RHEL, ``pf`` on macOS).
 
    .. code-block:: bash
 
@@ -56,8 +56,8 @@ Step 1: Start the CloudXR Runtime
 
 .. attention::
 
-   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
-   To accept the EULA, reply ``Yes`` when prompted with the below message:
+   The first run prompts you to accept the NVIDIA CloudXR License Agreement.
+   To accept the EULA, reply ``Yes`` when prompted with the following message:
 
    .. code:: bash
 
@@ -80,7 +80,7 @@ Step 2: Start Arena Teleop
       source ~/.cloudxr/run/cloudxr.env
 
    .. important::
-      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
+      **Order matters.** In the terminal where you run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
       and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
 
 #. Run the teleop script:
@@ -108,14 +108,21 @@ Step 2: Start Arena Teleop
 Step 2b: Monitor Recording with a Second Viewport (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For higher-quality datasets, we recommend a two-person workflow when collecting demonstrations in
-Step 4: one person teleoperates from the headset, while a second person watches the host monitor
-to confirm each trajectory stays inside the robot's head-camera field of view. Anything that
-drifts outside the recording FOV is absent from the saved HDF5 and absent from the policy's view
-at training time, so catching it live saves a re-record.
+For higher-quality datasets, use a two-person workflow when collecting demonstrations in
+Step 4:
 
-The Arena application's default viewport shows the *teleoperator's* stereoscopic perspective —
-what the headset wearer sees, not what ``record_demos.py`` will store.
+- One person teleoperates from the headset.
+- A second person watches the host monitor to confirm that each trajectory stays inside the robot's head-camera field of view (FOV).
+
+Anything that drifts outside the recording FOV is absent from:
+
+- the saved HDF5
+- the policy's view at training time
+
+Catching it live saves you from having to re-record.
+
+The Arena application's default viewport shows the *teleoperator's* stereoscopic perspective.
+This is what the headset wearer sees, not what ``record_demos.py`` stores.
 
 .. figure:: ../../../images/xr-dual-viewport-start.jpg
    :width: 100%
@@ -124,14 +131,14 @@ what the headset wearer sees, not what ``record_demos.py`` will store.
 
    The default single viewport shows the teleoperator's stereoscopic XR perspective.
 
-To watch both perspectives side-by-side, open a second viewport bound to the robot's head camera:
+To watch both perspectives side by side, open a second viewport bound to the robot's head camera:
 
 #. In the running Arena application, open the **Window** menu and toggle on **Viewport 2**.
 
 #. In the new Viewport 2, click the camera selector in the viewport toolbar and choose the
    robot's head-mounted camera (``RobotHeadCam``, under
    ``/World/envs/env_0/Robot/head_link``). This is the camera that ``record_demos.py`` writes
-   to the HDF5 file in Step 4, so any motion that leaves this frame will be absent from the
+   to the HDF5 file in Step 4, so any motion that leaves this frame is absent from the
    dataset.
 
    .. figure:: ../../../images/xr-dual-viewport-menu.jpg
@@ -141,7 +148,7 @@ To watch both perspectives side-by-side, open a second viewport bound to the rob
 
       Choose ``RobotHeadCam`` from the Viewport 2 camera selector.
 
-Both viewports now update live — the left shows the teleoperator's stereoscopic view and the
+Both viewports now update live. The left shows the teleoperator's stereoscopic view, and the
 right shows exactly what ``record_demos.py`` records:
 
 .. figure:: ../../../images/xr-dual-viewport-result.jpg
@@ -149,24 +156,27 @@ right shows exactly what ``record_demos.py`` records:
    :alt: Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right).
    :align: center
 
-   Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator's perspective,
-   and the head-camera view (right) is what the dataset captures. The observer keeps every
-   grasp and placement inside the right viewport and gives the teleoperator live feedback
-   ("move a touch to your right — your hand is at the edge of frame").
+   Dual-viewport layout:
+
+   - The stereoscopic XR view (left) is the teleoperator's perspective
+   - The head-camera view (right) is what the dataset captures
+
+   The observer keeps every grasp and placement inside the right viewport and gives the teleoperator
+   live feedback ("move a touch to your right, your hand is at the edge of frame").
 
 .. note::
 
    ``RobotHeadCam`` is only spawned when ``--enable_cameras`` is set. The ``record_demos.py``
-   command in Step 4 enables it by default, so the camera shows up in the camera selector once
-   you are recording. The smoke-test ``teleop.py`` command above omits ``--enable_cameras`` for
-   performance; pass it there too if you want to validate the dual-viewport layout before
+   command in Step 4 enables it by default, so the camera shows up in the camera selector after
+   you start recording. The smoke-test ``teleop.py`` command above omits ``--enable_cameras`` for
+   performance. Pass it there too if you want to validate the dual-viewport layout before
    entering VR.
 
 
-Step 3: Connect from the headset device
+Step 3: Connect from the Headset Device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For detailed instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
+For detailed instructions, refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
 
 #. Open the browser on your headset and navigate to `<https://nvidia.github.io/IsaacTeleop/client>`_.
 
@@ -179,7 +189,7 @@ For detailed instructions please refer to `Connect an XR Device <https://isaac-s
 #. Click **Connect** to begin teleoperation.
 
    .. note::
-      Once you press **Connect** in the web browser, you should see the following control panel. Press **Play** to start teleoperation.
+      After you press **Connect** in the web browser, you should see the following control panel. Press **Play** to start teleoperation.
       You can also reset the scene by pressing the **Reset** button.
 
       If the control panel is not visible (for example, behind a solid wall in the simulated environment), you can put the headset on
@@ -195,7 +205,7 @@ For detailed instructions please refer to `Connect an XR Device <https://isaac-s
       If the robot does not align with your body direction after connecting the headset, reset the
       headset view before recording. On Meta Quest, hold the Meta/Oculus button or use
       **Quick controls** > **Reset view**. On PICO 4 Ultra, look straight ahead and hold the
-      controller **Home** button for at least 1 second. See Meta's
+      controller **Home** button for at least one second. Refer to Meta's
       `Quest guide <https://www.meta.com/help/quest/149215193811647/>`_ and the
       `PICO 4 Ultra User Guide
       <https://p16-platform-static-va.ibyteimg.com/tos-maliva-i-jo6vmmv194-us/pico4-ultra-user-guide-apac.pdf>`_.
@@ -209,7 +219,7 @@ For detailed instructions please refer to `Connect an XR Device <https://isaac-s
 
 .. note::
 
-   If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.
+   If the simulation runs at too low a frame rate and makes the teleoperation feel laggy, you can try to reduce the XR resolution from **XR tab > Advanced Settings > Render Resolution**.
 
    .. figure:: ../../../images/xr_resolution.png
       :width: 40%
@@ -218,7 +228,7 @@ For detailed instructions please refer to `Connect an XR Device <https://isaac-s
 
       Reducing render resolution from 1 (default) to 0.2.
 
-Step 4: Record with the headset device
+Step 4: Record with the Headset Device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. note::
@@ -257,7 +267,7 @@ Step 4: Record with the headset device
 #. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. After a successful placement, wait for the demo to
-   end automatically and for the environment to reset automatically. The script saves
+   end and the environment to reset automatically. The script saves
    successful runs to the HDF5 file above. Pressing **Reset** early can save an
    incomplete or failed demonstration.
 
@@ -267,7 +277,7 @@ Step 4: Record with the headset device
 .. important::
 
    High-quality seed demonstrations are required because these recordings are converted directly to
-   LeRobot format and used for policy post-training (see :doc:`step_3_policy_training`). The command
+   LeRobot format and used for policy post-training (refer to :doc:`step_3_policy_training`). The command
    above records ``--num_demos 10`` for a fast tutorial pass. For better inference results, change it
    to ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes
    extra stable frames after the success condition is triggered.
@@ -278,7 +288,7 @@ Step 4: Record with the headset device
 
    Follow this protocol while collecting data:
 
-   * **Warm-up:** complete about 5 practice runs before recording the main dataset so you
+   * **Warm-up:** complete about five practice runs before recording the main dataset so you
      are used to XR latency and the apple's contact behavior.
    * **Smoothness:** move consistently and avoid jerky motions. Jerky seed demonstrations lead to
      poor synthetic augmentations and unstable policy behavior.
@@ -290,7 +300,7 @@ Step 4: Record with the headset device
      placement, and no recovery motions that would confuse the policy.
    * **Wait for success freeze:** after releasing the apple onto the plate, keep the scene stable and
      wait until the recording auto-terminates/freezes. Only reset after that happens.
-   * **Trajectory length:** aim for demonstrations around 200--400 timesteps. Very long episodes slow
+   * **Trajectory length:** aim for demonstrations around 200-400 timesteps. Very long episodes slow
      down downstream data processing, while very short episodes tend to contain abrupt motion.
    * **Replay validation:** after recording, replay the HDF5 with Step 5 and inspect camera frames,
      action smoothness, trajectory consistency, and overall task quality before training.
@@ -303,7 +313,7 @@ Step 4: Record with the headset device
       shelf/table surface if possible, to reduce visual clutter and self-occlusion.
    #. **Move to the apple:** approach the apple smoothly with the left arm, primarily along a horizontal
       path. A side approach is a good default trajectory for clean demonstrations.
-   #. **Grasp execution:** once the hand is aligned with the apple, close the gripper/fingers firmly
+   #. **Grasp execution:** after the hand is aligned with the apple, close the gripper or fingers firmly
       to establish a stable grasp.
    #. **Lift motion:** lift the apple straight upward before translating toward the plate. Avoid
       backtracking along the original approach path because it makes it harder for GR00T to distinguish
@@ -329,9 +339,9 @@ Step 4: Record with the headset device
 Step 4b: Merge Multiple Recording Sessions (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue,
+Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue
 and the realities of stopping and starting the Arena app for breaks. The
-recommended workflow is to record one HDF5 per session by pointing ``--dataset_file`` at a fresh
+recommended workflow is to record one HDF5 for each session by pointing ``--dataset_file`` at a fresh
 path each time:
 
 .. code-block:: bash
@@ -378,9 +388,9 @@ geometry, and prints a per-file summary with the demo and step counts:
    input files are listed, so list the sessions chronologically if you want the merged file to
    reflect the order of collection.
 
-If a session was recorded against a slightly different environment (e.g. a different physics
-timestep) the merge will warn but still proceed. Schema-level differences (different action
-dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
+If a session was recorded against a slightly different environment (for example, a different physics
+timestep), the merge warns but still proceeds. Schema-level differences (different action
+dimensions, missing observation keys, different camera resolutions) are hard errors. Re-record
 the offending session against the canonical environment instead.
 
 
@@ -388,13 +398,13 @@ Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
-check on the environment: it drives the env from the recorded actions and needs no teleoperation
+check on the environment. It drives the environment from the recorded actions and needs no teleoperation
 device, so you can visually verify the scene, embodiment, and asset placements without launching
 CloudXR.
 
 .. note::
 
-   ``replay_demos.py`` replays the captured **actions** in simulation; it is not exact trajectory
+   ``replay_demos.py`` replays the captured *actions* in simulation. It is not exact trajectory
    or video playback. Because this is open-loop replay, small differences in contact dynamics,
    physics backend, timing, environment configuration, or the apple's randomized initial pose can
    make replay miss or drop the apple even when the original recorded demo succeeded. Treat replay

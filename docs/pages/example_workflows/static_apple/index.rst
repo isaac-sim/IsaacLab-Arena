@@ -1,7 +1,12 @@
 Unitree G1 Static Apple-to-Plate Task
 =====================================
 
-This example demonstrates the complete workflow for the **Unitree G1 static (no-locomotion) apple-to-plate task** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3 or Pico 4 Ultra), policy post-training directly on the recorded teleop demonstrations, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **Unitree G1 static (no-locomotion) apple-to-plate task** in Isaac Lab-Arena. It covers:
+
+- Environment setup and validation
+- Teleoperation data collection (OpenXR with Meta Quest 3 or PICO 4 Ultra)
+- Policy post-training directly on the recorded teleop demonstrations
+- Closed-loop evaluation
 
 .. image:: ../../../images/static_apple_pick_and_place.gif
    :align: center
@@ -9,12 +14,12 @@ This example demonstrates the complete workflow for the **Unitree G1 static (no-
 
 The training step uses a **standalone clone of NVIDIA's Isaac-GR00T (N1.7) repository** rather than
 the GR00T submodule pinned inside Arena, and evaluation runs over Arena's
-**server-client (remote-policy) architecture**: the GR00T server hosts the finetuned checkpoint in
-its own venv, and Arena's client runs the simulation in the standard Arena container and queries the
+**server-client (remote-policy) architecture**. The GR00T server hosts the fine-tuned checkpoint in
+its own ``venv``, and Arena's client runs the simulation in the standard Arena container and queries the
 server over ZeroMQ. This decoupling means you can iterate on the model side without bumping Arena's
 submodule or rebuilding the Arena container.
 
-This workflow is the no-locomotion sibling of the :doc:`Unitree G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`. The robot stands in place using the same Whole Body Controller (WBC) for balance, but the destination plate sits on the *same* shelf as the apple — within arm's reach — so the lower body never moves. If you want a tabletop manipulation surface for upper-body data collection without the complexity of full-body locomotion, this is the workflow to use.
+This workflow is the no-locomotion sibling of the :doc:`Unitree G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`. The robot stands in place using the same Whole Body Controller (WBC) for balance, but the destination plate sits on the *same* shelf as the apple, within arm's reach, so that the lower body never moves. If you want a tabletop manipulation surface for upper-body data collection without the complexity of full-body locomotion, this is the workflow to use.
 
 Task Overview
 -------------
@@ -23,7 +28,7 @@ Task Overview
 
 **Task Description:** The Unitree G1 humanoid robot stands in front of a shelf and uses its arms to pick up
 an apple and place it onto a plate sitting on the same shelf, within arm's reach. WBC actively
-balances the standing pose (no locomotion, no squat), and PinkIK drives the upper body via the same
+balances the standing pose (no locomotion, no squat), and PinkIK drives the upper body using the same
 23-D action layout used by the loco-manipulation variant.
 
 **Key Specifications:**
@@ -44,10 +49,10 @@ balances the standing pose (no locomotion, no squat), and PinkIK drives the uppe
      - LeRobot dataset format (direct from teleop HDF5)
    * - **Scene**
      - Galileo Lab Environment (single shelf, no second table)
-   * - **Manipulated Object(s)**
+   * - **Manipulated Objects**
      - Apple (rigid body), Clay plate (destination, same-shelf placement)
    * - **Policy**
-     - GR00T N1.7 (vision-language-action foundation model, finetuned via standalone Isaac-GR00T)
+     - GR00T N1.7 (vision-language-action foundation model, fine-tuned using standalone Isaac-GR00T)
    * - **Post-training**
      - Imitation Learning
    * - **Dataset**
@@ -55,9 +60,9 @@ balances the standing pose (no locomotion, no squat), and PinkIK drives the uppe
    * - **Checkpoint**
      - `GN1x-Tuned-Arena-G1-Static-PickNPlace <https://huggingface.co/nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace>`_
    * - **Physics**
-     - PhysX (200Hz @ 4 decimation)
+     - PhysX (200 Hz at 4 decimation)
    * - **Closed-loop**
-     - Yes (50Hz control)
+     - Yes (50 Hz control)
    * - **Metrics**
      - Success rate
 
@@ -65,11 +70,11 @@ balances the standing pose (no locomotion, no squat), and PinkIK drives the uppe
 Workflow
 --------
 
-This tutorial covers the pipeline between creating an environment, collecting teleoperation
+This tutorial covers the pipeline across creating an environment, collecting teleoperation
 demonstrations, fine-tuning a policy (GR00T N1.7, from a standalone Isaac-GR00T checkout) directly
 on the recorded HDF5, and evaluating the policy in closed-loop over Arena's server-client
-architecture. Follow the steps in order from environment setup through closed-loop evaluation;
-each step consumes the artifacts produced by the previous one.
+architecture. Follow the steps in order from environment setup through closed-loop evaluation.
+Each step consumes the artifacts produced by the previous one.
 
 .. note::
 
@@ -109,17 +114,17 @@ Open another terminal outside the Arena Base Docker container and set up the nat
 `GR00T installation guide
 <https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/README.md#installation-guide>`_.
 
-This venv is **separate** from Arena's container, but Arena's policy runner still imports the
+This ``venv`` is **separate** from Arena's container, but Arena's policy runner still imports the
 GR00T ``PolicyClient`` from the Arena-pinned ``submodules/Isaac-GR00T`` checkout. Keep the
 standalone GR00T checkout at the pinned commit above for this workflow. If you move the standalone
 checkout to a newer GR00T commit, the GR00T server and Arena's GR00T client may be incompatible
-unless Arena's GR00T client/submodule is updated as well.
+unless Arena's GR00T client and submodule are updated as well.
 
 
 Workflow Steps
 ^^^^^^^^^^^^^^
 
-Follow the following steps to complete the workflow:
+Follow these steps to complete the workflow:
 
 - :doc:`step_1_environment_setup`
 - :doc:`step_2_teleoperation`
