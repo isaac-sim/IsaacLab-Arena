@@ -37,7 +37,6 @@ class _FakePlacementPool:
     def __init__(self, layouts, objects=None) -> None:
         self._layouts = layouts
         self._objects = objects or []
-        self.released_mesh_resources = False
 
     @property
     def objects(self):
@@ -45,9 +44,6 @@ class _FakePlacementPool:
 
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
-
-    def release_mesh_collision_resources(self) -> None:
-        self.released_mesh_resources = True
 
 
 def _fallback_layout(positions):
@@ -163,7 +159,6 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
     )
 
     assert "placement_pool" in event_cfg.params
-    assert placement_pool.released_mesh_resources
     from isaaclab_arena.relations.placement_events import PlacementPoolHandle, resolve_placement_pool
 
     assert isinstance(event_cfg.params["placement_pool"], PlacementPoolHandle)

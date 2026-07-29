@@ -48,8 +48,7 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
-        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
-        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._no_collision_strategy = NoCollisionLossStrategy()
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
@@ -59,13 +58,6 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
-
-    def release_mesh_collision_resources(self) -> None:
-        """Drop warp mesh caches so CUDA BVHs are not held across Kit startup/reset."""
-        self._mesh_manager = None
-        self._mesh_cache = None
-        self._mesh_collision_enabled = False
-        self._mesh_orientations = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.

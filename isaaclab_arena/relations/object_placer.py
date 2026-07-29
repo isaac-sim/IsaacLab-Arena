@@ -80,12 +80,6 @@ class ObjectPlacer:
         self._solver = RelationSolver(params=self.params.solver_params)
         self._validators: list[PlacementValidator] = build_validators(self.params)
 
-    def release_mesh_collision_resources(self) -> None:
-        """Drop warp mesh caches held for placement solving and validation."""
-        self._solver.release_mesh_collision_resources()
-        for validator in self._validators:
-            validator.release_mesh_collision_resources()
-
     def place(
         self,
         objects: list[PlaceableAsset],
