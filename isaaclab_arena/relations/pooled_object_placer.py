@@ -217,10 +217,6 @@ class PooledObjectPlacer:
         if fallback_envs:
             print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
 
-    def release_mesh_collision_resources(self) -> None:
-        """Drop warp mesh caches held by the underlying placer."""
-        self._placer.release_mesh_collision_resources()
-
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------

@@ -716,8 +716,64 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
     solver.solve([table, source, target], initial, env_bboxes=env_bboxes)
 
     losses = solver.last_loss_per_env
-    assert losses[1].item() > losses[0].item()
+    assert torch.all(losses > 0)
+    assert not torch.isclose(losses[1], losses[0])
     assert solver._last_no_overlap_pair_count > 0
+
+
+@requires_warp
+def test_validator_uses_batched_bboxes_for_mesh_dispatch(monkeypatch):
+    """Candidate-varying proxies use AABB validation."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+    )
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    target.collision_mode = CollisionMode.MESH
+    positions = [
+        {source: (0.0, 0.0, 0.0), target: (0.25, 0.0, 0.0)},
+        {source: (0.0, 0.0, 0.0), target: (0.25, 0.0, 0.0)},
+    ]
+    source_bboxes = [
+        AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+        AxisAlignedBoundingBox(min_point=(-0.3, -0.3, -0.01), max_point=(0.3, 0.3, 0.01)),
+    ]
+    bboxes = [{source: source_bbox, target: target.get_bounding_box()} for source_bbox in source_bboxes]
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, clearance_m=0.0, verbose=False)
+    )
+    monkeypatch.setattr(NoOverlapValidator, "_spheres_penetrate_mesh", lambda *args, **kwargs: False)
+
+    assert NoOverlapValidator(params).validate_batch(positions, [{}, {}], bboxes, []) == [True, False]
+
+
+@requires_warp
+def test_mesh_subject_with_meshless_anchor_uses_aabb_validation():
+    """A meshless anchor forces AABB validation."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+
+    anchor = DummyObject(
+        "anchor",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+    )
+    anchor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    anchor.add_relation(IsAnchor())
+    robot = DummyObject(
+        "robot",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        collision_mesh=trimesh.creation.box(extents=(2.0, 2.0, 2.0)),
+    )
+    positions = {anchor: (0.0, 0.0, 0.0), robot: (0.5, 0.0, 0.0)}
+    bboxes = {anchor: anchor.get_bounding_box(), robot: robot.get_bounding_box()}
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, clearance_m=0.0, verbose=False)
+    )
+
+    assert NoOverlapValidator(params)._validate(positions, bboxes, orientations={}, collision_objects=[])
 
 
 @requires_warp

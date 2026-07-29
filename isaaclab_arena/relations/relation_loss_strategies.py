@@ -12,7 +12,6 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.loss_primitives import (
-    interval_overlap_axis_loss,
     linear_band_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,
@@ -458,15 +457,13 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
 
 class NoCollisionLossStrategy:
-    """AABB no-overlap loss between object pairs."""
+    """Size-normalized AABB penetration loss."""
 
-    def __init__(
-        self,
-        slope: float = 10.0,
-    ):
-        """
+    def __init__(self, slope: float = 10.0):
+        """Initialize the loss.
+
         Args:
-            slope: Gradient magnitude for overlap loss.
+            slope: Weight for normalized penetration.
         """
         self.slope = slope
 
@@ -478,7 +475,7 @@ class NoCollisionLossStrategy:
         obstacle_min: torch.Tensor,
         obstacle_max: torch.Tensor,
     ) -> torch.Tensor:
-        """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
+        """Compute size-normalized penetration from world-space box extents.
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
@@ -493,16 +490,24 @@ class NoCollisionLossStrategy:
         assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
         obstacle_min = obstacle_min - clearance_m
         obstacle_max = obstacle_max + clearance_m
-        overlap_x = interval_overlap_axis_loss(
-            subject_min[..., 0], subject_max[..., 0], obstacle_min[..., 0], obstacle_max[..., 0]
-        )
-        overlap_y = interval_overlap_axis_loss(
-            subject_min[..., 1], subject_max[..., 1], obstacle_min[..., 1], obstacle_max[..., 1]
-        )
-        overlap_z = interval_overlap_axis_loss(
-            subject_min[..., 2], subject_max[..., 2], obstacle_min[..., 2], obstacle_max[..., 2]
-        )
-        return self.slope * (overlap_x * overlap_y * overlap_z)
+        subject_center = (subject_min + subject_max) / 2
+        obstacle_center = (obstacle_min + obstacle_max) / 2
+
+        # Pick the nearest separating face on each axis. Alternating pair tie-breaks keep the
+        # two directed passes of a coincident dynamic pair moving in opposite directions.
+        pair_index = torch.arange(subject_min.shape[0], device=subject_min.device)
+        tie_direction = torch.where(pair_index.remainder(2) == 0, -1.0, 1.0).view(-1, 1, 1)
+        center_delta = subject_center - obstacle_center
+        direction = torch.where(center_delta == 0, tie_direction, torch.sign(center_delta))
+        depth_toward_negative = subject_max - obstacle_min
+        depth_toward_positive = obstacle_max - subject_min
+        axis_depth = torch.where(direction < 0, depth_toward_negative, depth_toward_positive)
+
+        # A pair is collision-free if any axis is separated.
+        separation_depth = torch.relu(axis_depth.min(dim=-1).values)
+        subject_scale = (subject_max - subject_min).amax(dim=-1)
+        assert torch.all(subject_scale > 0), "Subject bounding boxes must have positive size."
+        return self.slope * separation_depth / subject_scale
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
