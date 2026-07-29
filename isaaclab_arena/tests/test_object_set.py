@@ -216,7 +216,7 @@ def _run_pick_and_place_object_set_test(
             assert obj_set.get_initial_pose() is not None, "Initial pose is None"
         assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
         assert (
-            env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+            env.unwrapped.scene.sensors[f"{obj_set.name}_contact_sensor"].data.force_matrix_w is not None
         ), "Contact sensor data is None"
         return True
     except Exception as e:
@@ -303,7 +303,7 @@ def _test_single_object_in_one_object_set(simulation_app):
 
         assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
         assert (
-            env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+            env.unwrapped.scene.sensors[f"{obj_set.name}_contact_sensor"].data.force_matrix_w is not None
         ), "Contact sensor data is None"
     except Exception as e:
         print(f"Error: {e}")
@@ -359,7 +359,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 
     assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
     assert (
-        env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+        env.unwrapped.scene.sensors[f"{obj_set.name}_contact_sensor"].data.force_matrix_w is not None
     ), "Contact sensor data is None"
 
     # replace * in OBJECT_SET_PRIM_PATH with env_index
