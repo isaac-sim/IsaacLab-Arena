@@ -26,10 +26,11 @@ from __future__ import annotations
 import argparse
 import torch
 from dataclasses import dataclass
+from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
-from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
+from isaaclab_arena.analysis.sensitivity.plotting import plot_corner, plot_importance, plot_marginals
 
 
 @dataclass(frozen=True)
@@ -188,8 +189,13 @@ def _demo():
     analyzer.fit()
     observation = dataset.default_observation()
     samples = analyzer.sample_posterior(observation)
-    plot_marginals(samples, dataset, observation, output_path=args.output)
-    print(f"[INFO] Wrote synthetic sensitivity report → {args.output}")
+
+    # Render all three report plots from the one posterior sample, each to a name-suffixed file.
+    output = Path(args.output)
+    for name, render in (("marginals", plot_marginals), ("importance", plot_importance), ("corner", plot_corner)):
+        plot_path = output if name == "marginals" else output.with_stem(f"{output.stem}_{name}")
+        render(samples, dataset, observation, output_path=str(plot_path))
+        print(f"[INFO] Wrote synthetic {name} plot → {plot_path}")
 
 
 if __name__ == "__main__":
