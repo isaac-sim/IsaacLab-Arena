@@ -87,15 +87,6 @@ def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
     environment_runner.assert_interactive_runner_args(_interactive_runner_args())
 
 
-def test_assert_gui_environment_rejects_headless_environment_variable(monkeypatch):
-    monkeypatch.setenv("HEADLESS", "1")
-    with pytest.raises(AssertionError, match="unset HEADLESS"):
-        environment_runner.assert_gui_environment()
-
-    monkeypatch.setenv("HEADLESS", "0")
-    environment_runner.assert_gui_environment()
-
-
 @pytest.mark.parametrize(
     ("argument_overrides", "expected_message"),
     [
@@ -367,7 +358,6 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     )
     monkeypatch.setattr(environment_runner, "SimulationAppContext", FakeSimulationAppContext)
     monkeypatch.setattr(environment_runner, "assert_hydra_overrides", lambda overrides, received_parser: None)
-    monkeypatch.setattr(environment_runner, "assert_gui_environment", lambda: None)
     monkeypatch.setattr(
         environment_runner,
         "get_arena_builder_from_cli",

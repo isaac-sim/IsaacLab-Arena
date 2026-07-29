@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import torch
 from typing import TYPE_CHECKING
 
@@ -38,11 +37,6 @@ def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.presets != "newton", "environment_runner mouse interaction currently requires PhysX"
     assert not args_cli.list_variations, "environment_runner does not support --list_variations"
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
-
-
-def assert_gui_environment() -> None:
-    """Check that environment variables do not force Isaac Sim into headless mode."""
-    assert os.environ.get("HEADLESS", "0") == "0", "environment_runner requires the Kit GUI; unset HEADLESS"
 
 
 def disable_timeout_terminations(env_cfg) -> list[str]:
@@ -163,7 +157,6 @@ def main() -> None:
     app_args, _ = args_parser.parse_known_args()
     use_kit_visualizer_by_default(app_args)
     assert_interactive_runner_args(app_args)
-    assert_gui_environment()
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(app_args) as simulation_app:
