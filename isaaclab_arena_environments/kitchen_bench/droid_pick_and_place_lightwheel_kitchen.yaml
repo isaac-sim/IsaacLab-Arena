@@ -13,7 +13,9 @@ embodiment:
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
 - id: mustard_bottle
   registry_name: mustard_bottle_hope_robolab
