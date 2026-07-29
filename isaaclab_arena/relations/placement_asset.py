@@ -28,15 +28,19 @@ class PlaceableAsset(Asset, ABC):
     """Asset whose root pose can be constrained by spatial relations."""
 
     def __init__(self, name: str, tags: list[str] | None = None, **kwargs) -> None:
+        collision_mode = kwargs.pop("collision_mode", None)
+        repair_collision_mesh_non_watertight = kwargs.pop("repair_collision_mesh_non_watertight", True)
         super().__init__(name=name, tags=tags, **kwargs)
         self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self._pose_event_cfg: EventTermCfg | None = None
         """Reset event restoring this asset's root pose; ``None`` until a pose with a reset event is set."""
         self.relations: list[RelationBase] = []
         # None delegates collision-mode selection to the solver.
-        self.collision_mode: CollisionMode | None = None
+        if collision_mode is not None:
+            collision_mode = CollisionMode(collision_mode)
+        self.collision_mode: CollisionMode | None = collision_mode
         # Whether to replace a non-watertight collision mesh with its convex hull.
-        self.repair_collision_mesh_non_watertight = True
+        self.repair_collision_mesh_non_watertight = repair_collision_mesh_non_watertight
 
     def add_relation(self, relation: RelationBase) -> None:
         """Attach a relation to the asset."""
