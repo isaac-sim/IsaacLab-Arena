@@ -60,20 +60,6 @@ class _FakeEnvironment:
         self.close_count += 1
 
 
-def test_use_kit_visualizer_by_default_selects_kit_only_when_visualizer_was_omitted():
-    default_args = argparse.Namespace(visualizer=None, visualizer_explicit=False, headless=False)
-    environment_runner.use_kit_visualizer_by_default(default_args)
-    assert default_args.visualizer == ["kit"]
-
-    explicit_none_args = argparse.Namespace(visualizer=None, visualizer_explicit=True, headless=False)
-    environment_runner.use_kit_visualizer_by_default(explicit_none_args)
-    assert explicit_none_args.visualizer is None
-
-    headless_args = argparse.Namespace(visualizer=None, visualizer_explicit=False, headless=True)
-    environment_runner.use_kit_visualizer_by_default(headless_args)
-    assert headless_args.visualizer is None
-
-
 def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
     environment_runner.assert_interactive_runner_args(_interactive_runner_args())
 
@@ -175,34 +161,23 @@ def test_mouse_interaction_uses_d6_grab_for_current_stage():
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
-    app_args = _interactive_runner_args(visualizer=None, visualizer_explicit=False, device="cuda:0")
-    full_args = _interactive_runner_args(
+    args_cli = _interactive_runner_args(
         visualizer=None,
         visualizer_explicit=False,
         device="cuda:0",
         example_environment="gr1_open_microwave",
     )
 
-    class SequencedArgumentParser:
+    class FakeArgumentParser:
         def __init__(self) -> None:
             self.allow_abbrev = True
-            self._parse_results = [(app_args, ["gr1_open_microwave"]), (full_args, [])]
-            self.received_namespaces = []
 
         def set_defaults(self, **defaults) -> None:
-            for parsed_args, _ in self._parse_results:
-                for argument_name, default_value in defaults.items():
-                    setattr(parsed_args, argument_name, default_value)
+            for argument_name, default_value in defaults.items():
+                setattr(args_cli, argument_name, default_value)
 
-        def parse_known_args(self, namespace=None):
-            self.received_namespaces.append(namespace)
-            parsed_args, unknown_args = self._parse_results.pop(0)
-            if namespace is None:
-                return parsed_args, unknown_args
-            for argument_name, argument_value in vars(parsed_args).items():
-                if not hasattr(namespace, argument_name):
-                    setattr(namespace, argument_name, argument_value)
-            return namespace, unknown_args
+        def parse_known_args(self):
+            return args_cli, []
 
     class FakeSimulationAppContext:
         def __init__(self, received_app_args) -> None:
@@ -240,7 +215,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
             assert received_env_kwargs == {"example_kwarg": "value"}
             return env
 
-    parser = SequencedArgumentParser()
+    parser = FakeArgumentParser()
     monkeypatch.setattr(environment_runner, "get_isaaclab_arena_cli_parser", lambda: parser)
     monkeypatch.setattr(
         environment_runner,
@@ -270,9 +245,8 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
         environment_runner.main()
 
     assert parser.allow_abbrev is False
-    assert app_args.visualizer == ["kit"]
-    assert app_args.device == "cpu"
-    assert app_args.example_environment == "gr1_open_microwave"
-    assert parser.received_namespaces == [None, app_args]
+    assert args_cli.visualizer == ["kit"]
+    assert args_cli.device == "cpu"
+    assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1

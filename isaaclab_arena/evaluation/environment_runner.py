@@ -19,13 +19,6 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
 
-def use_kit_visualizer_by_default(args_cli: argparse.Namespace) -> None:
-    """Select the Kit visualizer when the user did not select a visualizer."""
-    visualizer_was_explicit = getattr(args_cli, "visualizer_explicit", False)
-    if args_cli.visualizer is None and not visualizer_was_explicit and not args_cli.headless:
-        args_cli.visualizer = ["kit"]
-
-
 def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     """Check that command-line arguments describe one interactive Kit environment."""
     assert not args_cli.headless, "environment_runner requires the Kit GUI; remove --headless"
@@ -103,20 +96,15 @@ def run_environment(
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
     args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu")
+    args_parser.set_defaults(device="cpu", visualizer=["kit"])
     args_parser.allow_abbrev = False
-    args_cli, _ = args_parser.parse_known_args()
-    use_kit_visualizer_by_default(args_cli)
+    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+    args_cli, hydra_overrides = args_parser.parse_known_args()
+    assert_hydra_overrides(hydra_overrides, args_parser)
     assert_interactive_runner_args(args_cli)
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(args_cli) as simulation_app:
-        # Environment registration imports Isaac Sim modules, so add its subparsers after app startup.
-        # Reuse the validated namespace so the full parse preserves the interactive app settings.
-        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        args_cli, hydra_overrides = args_parser.parse_known_args(namespace=args_cli)
-        assert_hydra_overrides(hydra_overrides, args_parser)
-
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
         env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
         env_cfg.sim.enable_scene_query_support = True
