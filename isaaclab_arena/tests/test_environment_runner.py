@@ -205,20 +205,33 @@ def test_mouse_interaction_uses_d6_grab_for_current_stage():
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     app_args = _interactive_runner_args(visualizer=None, visualizer_explicit=False, device="cuda:0")
-    full_args = _interactive_runner_args(visualizer=None, visualizer_explicit=False, device="cuda:0")
+    full_args = _interactive_runner_args(
+        visualizer=None,
+        visualizer_explicit=False,
+        device="cuda:0",
+        example_environment="gr1_open_microwave",
+    )
 
     class SequencedArgumentParser:
         def __init__(self) -> None:
             self.allow_abbrev = True
             self._parse_results = [(app_args, ["gr1_open_microwave"]), (full_args, [])]
+            self.received_namespaces = []
 
         def set_defaults(self, **defaults) -> None:
             for parsed_args, _ in self._parse_results:
                 for argument_name, default_value in defaults.items():
                     setattr(parsed_args, argument_name, default_value)
 
-        def parse_known_args(self):
-            return self._parse_results.pop(0)
+        def parse_known_args(self, namespace=None):
+            self.received_namespaces.append(namespace)
+            parsed_args, unknown_args = self._parse_results.pop(0)
+            if namespace is None:
+                return parsed_args, unknown_args
+            for argument_name, argument_value in vars(parsed_args).items():
+                if not hasattr(namespace, argument_name):
+                    setattr(namespace, argument_name, argument_value)
+            return namespace, unknown_args
 
     class FakeSimulationAppContext:
         def __init__(self, received_app_args) -> None:
@@ -241,8 +254,8 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     env = _FakeEnvironment()
 
     class FakeArenaBuilder:
-        def __init__(self) -> None:
-            self.cfg = SimpleNamespace(device=full_args.device)
+        def __init__(self, received_args) -> None:
+            self.cfg = SimpleNamespace(device=received_args.device)
 
         def compose_manager_cfg(self):
             return env_cfg, {"example_kwarg": "value"}
@@ -269,7 +282,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     monkeypatch.setattr(
         environment_runner,
         "get_arena_builder_from_cli",
-        lambda args_cli, hydra_overrides: FakeArenaBuilder(),
+        lambda args_cli, hydra_overrides: FakeArenaBuilder(args_cli),
     )
     monkeypatch.setattr(
         environment_runner,
@@ -288,8 +301,8 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
 
     assert parser.allow_abbrev is False
     assert app_args.visualizer == ["kit"]
-    assert full_args.visualizer == ["kit"]
     assert app_args.device == "cpu"
-    assert full_args.device == "cpu"
+    assert app_args.example_environment == "gr1_open_microwave"
+    assert parser.received_namespaces == [None, app_args]
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1

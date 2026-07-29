@@ -129,16 +129,16 @@ def main() -> None:
     args_parser = get_isaaclab_arena_cli_parser()
     args_parser.set_defaults(device="cpu")
     args_parser.allow_abbrev = False
-    app_args, _ = args_parser.parse_known_args()
-    use_kit_visualizer_by_default(app_args)
-    assert_interactive_runner_args(app_args)
+    args_cli, _ = args_parser.parse_known_args()
+    use_kit_visualizer_by_default(args_cli)
+    assert_interactive_runner_args(args_cli)
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
-    with SimulationAppContext(app_args) as simulation_app:
+    with SimulationAppContext(args_cli) as simulation_app:
+        # Environment registration imports Isaac Sim modules, so add its subparsers after app startup.
+        # Reuse the validated namespace so the full parse preserves the interactive app settings.
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        args_cli, hydra_overrides = args_parser.parse_known_args()
-        use_kit_visualizer_by_default(args_cli)
-        assert_interactive_runner_args(args_cli)
+        args_cli, hydra_overrides = args_parser.parse_known_args(namespace=args_cli)
         assert_hydra_overrides(hydra_overrides, args_parser)
 
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
