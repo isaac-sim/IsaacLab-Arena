@@ -15,15 +15,17 @@
 # The pinned commit lives in the COSMOS_COMMIT file next to this script. To bump
 # it, edit that file and rebuild with -r.
 #
-# Requires HF_TOKEN in the environment: the checkpoint is pulled from the gated
-# nvidia/Cosmos3-Edge-Policy-DROID HuggingFace repo on first run.
+# The DROID checkpoint is baked into the image at build time, so running the server needs no
+# HF_TOKEN. Building the image does (build_server_image.sh downloads the gated checkpoint once).
+# Pass -c <hf-repo-or-path> to serve a different checkpoint; an ungated one still needs no token.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="cosmos_server"
 
-CHECKPOINT="nvidia/Cosmos3-Edge-Policy-DROID"
+# Path the checkpoint is baked to inside the image (see build_server_image.sh BAKED_CHECKPOINT_PATH).
+CHECKPOINT="/workspace/baked_checkpoint"
 PORT="8000"
 FORCE_REBUILD=false
 
@@ -36,11 +38,12 @@ Usage:
 
 Options:
   -r              Force rebuilding of the server image.
-  -c <checkpoint> HuggingFace checkpoint to serve (default: ${CHECKPOINT}).
+  -c <checkpoint> Checkpoint to serve (default: the baked-in ${CHECKPOINT}).
   -p <port>       Port to serve on (default: ${PORT}).
   -h              Show this help and exit.
 
-Requires HF_TOKEN in the environment to download the gated checkpoint.
+The default checkpoint is baked into the image, so no HF_TOKEN is needed to run. Building the
+image needs HF_TOKEN (build_server_image.sh); serving a different gated checkpoint via -c does too.
 EOF
 }
 
@@ -55,11 +58,6 @@ while getopts ":rc:p:h" opt; do
     esac
 done
 
-if [ -z "${HF_TOKEN:-}" ]; then
-    echo "HF_TOKEN is not set. Export a token from https://huggingface.co/settings/tokens" >&2
-    exit 1
-fi
-
 if [ "$FORCE_REBUILD" = true ] || \
    [ -z "$(docker images -q "${IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null)" ]; then
     "${SCRIPT_DIR}/build_server_image.sh"
@@ -67,16 +65,20 @@ else
     echo "Image ${IMAGE_NAME}:${IMAGE_TAG} already exists. Not rebuilding (use -r to force)."
 fi
 
-# Cache the checkpoint that the server pulls from HuggingFace across runs.
-HF_CACHE_DIR="${HF_CACHE_DIR:-$HOME/.cache/huggingface}"
-mkdir -p "$HF_CACHE_DIR"
+# The default checkpoint is baked into the image and needs no token; forward HF_TOKEN and a cache
+# mount only when set, so a gated ``-c`` override can still download.
+hf_docker_args=()
+if [ -n "${HF_TOKEN:-}" ]; then
+    HF_CACHE_DIR="${HF_CACHE_DIR:-$HOME/.cache/huggingface}"
+    mkdir -p "$HF_CACHE_DIR"
+    hf_docker_args=(-e HF_TOKEN="${HF_TOKEN}" -e HF_HOME=/root/.cache/huggingface \
+                    -v "${HF_CACHE_DIR}:/root/.cache/huggingface")
+fi
 
 echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (checkpoint: ${CHECKPOINT}, port: ${PORT})"
 
 docker run --rm -it --gpus all --network=host \
-    -e HF_TOKEN="${HF_TOKEN}" \
-    -e HF_HOME=/root/.cache/huggingface \
-    -v "${HF_CACHE_DIR}:/root/.cache/huggingface" \
+    "${hf_docker_args[@]}" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     python -m cosmos_framework.scripts.action_policy_server_robolab \
         --checkpoint_path "${CHECKPOINT}" \
