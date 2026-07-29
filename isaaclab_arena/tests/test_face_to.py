@@ -340,8 +340,14 @@ def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
     placer = ObjectPlacer(params)
     received = {}
 
-    def _capture_orientations(candidate_positions, env_bboxes, candidate_orientations=None, collision_objects=None):
-        received.update(candidate_orientations or {})
+    def _capture_orientations(
+        positions,
+        env_bboxes,
+        orientations=None,
+        collision_objects=None,
+        batch_bboxes=None,
+    ):
+        received.update(orientations or {})
         return True
 
     no_overlap_validator = next(v for v in placer._validators if isinstance(v, NoOverlapValidator))
