@@ -59,11 +59,24 @@ def _test_object_of_type_base(simulation_app):
     try:
 
         args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+        args_cli.num_envs = 2
         env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
         env = env_builder.make_registered()
         env.reset()
 
-        position_before_simulation = torch.tensor(cone.get_initial_pose().position_xyz)
+        expected_relative_pose = (
+            cone.get_initial_pose().to_tensor(device=env.unwrapped.device).expand(env.unwrapped.num_envs, 7)
+        )
+        actual_relative_pose = cone.get_object_pose(env, is_relative=True)
+        torch.testing.assert_close(actual_relative_pose, expected_relative_pose)
+
+        expected_world_pose = expected_relative_pose.clone()
+        expected_world_pose[:, :3] += env.unwrapped.scene.env_origins
+        actual_world_pose = cone.get_object_pose(env, is_relative=False)
+        torch.testing.assert_close(actual_world_pose, expected_world_pose)
+
+        position_before_simulation, _ = env.unwrapped.scene["cone_no_physics"].get_world_poses()
+        position_before_simulation = position_before_simulation.torch.clone().cpu()
 
         # Run some zero actions.
         for _ in tqdm.tqdm(range(NUM_STEPS)):
@@ -73,7 +86,7 @@ def _test_object_of_type_base(simulation_app):
 
             # Check the the object is floating.
             position_after_simulation, _ = env.unwrapped.scene["cone_no_physics"].get_world_poses()
-            movement = position_after_simulation.cpu() - position_before_simulation.cpu()
+            movement = position_after_simulation.torch.cpu() - position_before_simulation
             assert torch.norm(movement).item() < MOVEMENT_EPS, "Object moved. Should not have physics."
 
     except Exception as e:
