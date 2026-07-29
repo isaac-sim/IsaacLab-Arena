@@ -13,6 +13,16 @@ setup(
     version=ISAACLAB_ARENA_VERSION_NUMBER,
     description="Isaac Lab - Arena. An Isaac Lab extension for robotic policy evaluation. ",
     packages=find_packages(include=["isaaclab_arena*", "isaaclab_arena_g1*", "isaaclab_arena_gr00t*"]),
+    install_requires=[
+        "pytest",
+        "jupyter",
+        "typing_extensions",
+        "onnxruntime",
+        "qpsolvers==4.8.1",
+        "vuer[all]",
+        "lightwheel-sdk",
+        "huggingface-hub[cli]",
+    ],
     python_requires=">=3.10",
     zip_safe=False,
 )

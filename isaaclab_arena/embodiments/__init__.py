@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from .fii.fii import *
 from .franka.franka import *
 from .g1.g1 import *
 from .gr1t2.gr1t2 import *

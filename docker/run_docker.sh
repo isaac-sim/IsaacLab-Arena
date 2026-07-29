@@ -140,12 +140,15 @@ else
                     "-v" "./isaaclab_arena_g1:${WORKDIR}/isaaclab_arena_g1"
                     "-v" "./isaaclab_arena_gr00t:${WORKDIR}/isaaclab_arena_gr00t"
                     "-v" "./submodules/IsaacLab:${WORKDIR}/submodules/IsaacLab"
+                    "-v" "/home/darrelldai/Projects/Python/IsaacLab-Arena/.vscode:/workspaces/isaaclab_arena/.vscode"
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
                     $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
                     $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.cache:/home/$(id -un)/.cache"
+                    "-v" "$HOME/.cursor:/home/$(id -un)/.cursor"
+                    "-v" "$HOME/.cursor-server-root:/root/.cursor-server"
                     "-v" "/tmp:/tmp"
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"
                     "-v" "/var/run/docker.sock:/var/run/docker.sock"
