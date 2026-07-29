@@ -36,6 +36,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
@@ -67,8 +68,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     which changes how far the stand extends below the root link.
     When manually placing the robot on floor, ``set_initial_pose`` z value and
     ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
-    ``placement_bbox_stand_only`` uses the stand footprint for ``On`` / ``NextTo`` placement
-    instead of the full robot+stand USD bounds.
+    ``placement_bbox_stand_only`` uses the stand footprint for relation and collision placement
+    instead of the full robot+stand USD geometry.
     """
 
     name = "droid"
@@ -87,6 +88,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.stand_height_m = stand_height_m
         self.placement_bbox_stand_only = placement_bbox_stand_only
+        if placement_bbox_stand_only:
+            self.collision_mode = CollisionMode.BBOX
         self.scene_config = DroidSceneCfg()
         self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
             _DROID_ROBOT_PRIM,

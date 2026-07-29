@@ -648,9 +648,6 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
                 for env_id in range(count)
             ]
 
-        def release_mesh_collision_resources(self) -> None:
-            pass
-
     anchor = MinimalObject("desk")
     box = MinimalObject("box")
     pool = EnvIndexedPool()
