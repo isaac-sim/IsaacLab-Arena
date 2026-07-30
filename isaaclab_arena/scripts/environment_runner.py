@@ -3,11 +3,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run an Arena environment interactively for manual debugging.
+r"""Run an Arena environment interactively for manual debugging.
 
 Loads a registered Arena environment or an environment graph spec and continuously steps it in Kit. Use it to
 physically manipulate objects with Shift + left-drag, inspect their placement and interactions, and verify
 termination-triggered resets.
+
+Run a registered environment:
+
+    python isaaclab_arena/scripts/environment_runner.py \
+        pick_and_place_maple_table \
+        --embodiment droid_rel_joint_pos \
+        --pick_up_object banana_ycb_robolab \
+        --destination_location bowl_ycb_robolab
+
+Run an environment graph spec:
+
+    python isaaclab_arena/scripts/environment_runner.py \
+        --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
 """
 
 from __future__ import annotations
