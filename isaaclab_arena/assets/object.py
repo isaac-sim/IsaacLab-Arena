@@ -98,12 +98,10 @@ class Object(ObjectBase):
         # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
         # For these objects we just (try to) add the contact sensor to the root prim.
         usd_path = usd_path or self.usd_path
-        spawn_variants = (self.spawn_cfg_addon or {}).get("variants")
         rigid_body_relative_path = find_shallowest_rigid_body(
             usd_path,
             relative_to_root=True,
-            variants=spawn_variants,
-            prefer_body_when_tied=bool(spawn_variants),
+            variants=(self.spawn_cfg_addon or {}).get("variants"),
         )
         assert (
             rigid_body_relative_path is not None
@@ -118,12 +116,10 @@ class Object(ObjectBase):
             assert (
                 contact_against_object.object_type == ObjectType.RIGID
             ), "Contact sensor is only supported for rigid objects"
-            against_variants = (contact_against_object.spawn_cfg_addon or {}).get("variants")
             contact_against_relative_path = find_shallowest_rigid_body(
                 contact_against_object.usd_path,
                 relative_to_root=True,
-                variants=against_variants,
-                prefer_body_when_tied=bool(against_variants),
+                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
             )
             assert contact_against_relative_path is not None, (
                 f"No rigid body found in {contact_against_object.name} USD file: {contact_against_object.usd_path}."

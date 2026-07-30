@@ -60,17 +60,13 @@ def test_find_shallowest_rigid_body_requires_physics_variant(tmp_path: Path):
     usd_path = tmp_path / "prop.usda"
     _write_physics_variant_usd(usd_path)
 
+    # No physics until the variant is selected, and then two bodies tie for shallowest.
     assert find_shallowest_rigid_body(str(usd_path)) is None
-    path = find_shallowest_rigid_body(
-        str(usd_path),
-        relative_to_root=True,
-        variants={"Physics": "physics"},
-        prefer_body_when_tied=True,
-    )
-    assert path == "/Geometry/body_obj"
+    with pytest.raises(ValueError, match="Expected only one"):
+        find_shallowest_rigid_body(str(usd_path), relative_to_root=True, variants={"Physics": "physics"})
 
 
-def test_find_shallowest_rigid_body_from_stage_raises_without_preference(tmp_path: Path):
+def test_find_shallowest_rigid_body_from_stage_raises_on_a_tie(tmp_path: Path):
     from pxr import Usd
 
     usd_path = tmp_path / "prop.usda"

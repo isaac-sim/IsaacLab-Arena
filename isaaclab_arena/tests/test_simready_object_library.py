@@ -45,5 +45,4 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
     assert spawn.variants == {"Physics": "physics"}
-    # One body already, so the object keeps the file it was given.
     assert obj.usd_path == usd_path

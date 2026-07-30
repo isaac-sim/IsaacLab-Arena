@@ -9,29 +9,8 @@ from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
 from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 from isaaclab_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
-
-
-def _detect_type_from_joints(stage: Usd.Stage, found_depth: int) -> ObjectType:
-    """Decide the type of an asset that has several rigid bodies side by side.
-
-    The number of bodies alone does not say much: SimReady props give each part its own body and
-    join the parts back together. Only the joints say whether the parts can still move.
-    """
-    structure = get_physics_structure(stage)
-    if structure.is_single_rigid_body:
-        # Nothing can move, so the asset behaves like a single rigid body.
-        return ObjectType.RIGID
-    if structure.moving_joints:
-        return ObjectType.ARTICULATION
-    raise ValueError(
-        f"Found {len(structure.rigid_body_paths)} rigid bodies at depth {found_depth} in"
-        f" {len(structure.body_groups)} groups that are not connected to each other:"
-        f" {structure.body_groups}. Expected one rigid body, bodies held together by fixed joints,"
-        " or an articulation."
-    )
 
 
 def detect_object_type(
@@ -45,9 +24,7 @@ def detect_object_type(
     on the presence of a RigidBodyAPI or ArticulationRootAPI at the shallowest depth
     in which one of these APIs is present.
 
-    When that depth holds several rigid bodies, the joints decide: bodies that fixed joints hold
-    together count as one rigid body, and anything with a joint that still moves is an
-    articulation.
+    Note that if more than one API is present on that shallowest depth, we raise an error.
 
     Args:
         usd_path: The path to the USD file to inspect. Either this or stage must be provided.
@@ -66,27 +43,33 @@ def detect_object_type(
     apply_usd_variant_selections(stage, variants)
     # We do a Breadth First Search (BFS) through the prims, until we find either
     # a rigid body or an articulation root. At that point, we continue searching
-    # the rest of the prims at that depth, to collect everything else at that depth.
+    # the rest of the prims at that depth, to ensure that there's nothing else.
+    # If we find more than one, we raise an error.
     open_prims = [stage.GetPseudoRoot()]
+    found = False
     found_depth = -1
-    found_prims = []
+    interesting_prim = None
     while len(open_prims) > 0:
         # Update the DFS list
         prim = open_prims.pop(0)
         open_prims.extend(prim.GetChildren())
-        if found_prims and get_prim_depth(prim) > found_depth:
-            break
         # Check if we found an interesting prim on this level
         if is_articulation_root(prim) or is_rigid_body(prim):
+            if found:
+                raise ValueError(f"Found multiple rigid body or articulation roots at depth {get_prim_depth(prim)}")
             found_depth = get_prim_depth(prim)
-            found_prims.append(prim)
-    if not found_prims:
+            found = True
+            interesting_prim = prim
+        if found and get_prim_depth(prim) > found_depth:
+            break
+    if not found:
         return ObjectType.BASE
-    if len(found_prims) == 1:
-        return ObjectType.RIGID if is_rigid_body(found_prims[0]) else ObjectType.ARTICULATION
-    if any(is_articulation_root(prim) for prim in found_prims):
-        raise ValueError(f"Found multiple rigid body or articulation roots at depth {found_depth}")
-    return _detect_type_from_joints(stage, found_depth)
+    if found and is_rigid_body(interesting_prim):
+        return ObjectType.RIGID
+    if found and is_articulation_root(interesting_prim):
+        return ObjectType.ARTICULATION
+    else:
+        raise ValueError("This should not happen. There is an unknown USD type in the tree.")
 
 
 # Predefined rigid body property configurations for assembly tasks

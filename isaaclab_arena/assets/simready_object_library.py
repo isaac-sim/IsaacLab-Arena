@@ -13,7 +13,6 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
 
 # SimReady GA props author collision/rigid APIs under the Physics=physics variant.
 # Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
@@ -44,9 +43,6 @@ class SimReadyUsdObject(Object):
         kwargs.pop("tags", None)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
-        # A prop made of several parts held together by fixed joints only spawns after its parts
-        # are merged into one body. Any other prop comes back unchanged.
-        usd_path = weld_usd_rigid_bodies(usd_path, spawn_cfg_addon.get("variants"))
         super().__init__(
             name=instance_name or self.name,
             prim_path=prim_path,

@@ -21,7 +21,7 @@ def _test_detect_object_type(simulation_app):
 
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
-    from isaaclab_arena.tests.utils.usd_stages import add_body, hinged_bodies_stage, new_stage, welded_bodies_stage
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 
     # ObjectType.BASE
     print("Detecting ObjectType.BASE")
@@ -48,22 +48,14 @@ def _test_detect_object_type(simulation_app):
     stage.DefinePrim("/articulation_root/child_2", "Xform")
     assert detect_object_type(stage=stage) == ObjectType.ARTICULATION
 
-    # ObjectType.RIGID - side by side bodies that a fixed joint holds together
-    print("Detecting ObjectType.RIGID for bodies joined by a fixed joint")
-    assert detect_object_type(stage=welded_bodies_stage()) == ObjectType.RIGID
-
-    # ObjectType.ARTICULATION - side by side bodies that a hinge lets move
-    print("Detecting ObjectType.ARTICULATION for bodies joined by a hinge")
-    assert detect_object_type(stage=hinged_bodies_stage()) == ObjectType.ARTICULATION
-
-    # Expect FAIL - side by side bodies with no joint between them
-    print("Expect Fail: Detecting bodies that are not joined to each other")
+    # Expect FAIL - side by side rigid bodies, whatever holds them together
+    print("Expect Fail: Detecting several rigid bodies at the same depth")
     stage = new_stage()
     add_body(stage, "body_01")
     add_body(stage, "body_02")
     with pytest.raises(ValueError) as exception_info:
         detect_object_type(stage=stage)
-    assert "not connected to each other" in str(exception_info.value)
+    assert "Found multiple rigid body or articulation roots at depth" in str(exception_info.value)
 
     # Expect FAIL - multiple object types at the same depth
     print("Expect Fail: Detecting multiple object types at the same depth")
