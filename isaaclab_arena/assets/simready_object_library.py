@@ -14,6 +14,17 @@ from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
+SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
+"""Registry name a generated spec uses to spawn a searched SimReady asset."""
+
+ISAAC_SIMREADY_GA_S3_URL = (
+    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"
+)
+"""Bucket holding the SimReady props that ship with Isaac Sim."""
+
+DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
+"""Hosted SimReady search, used as a fallback when the bucket has no hit."""
+
 # SimReady GA props author collision/rigid APIs under the Physics=physics variant.
 # Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
 # PickAndPlace contact sensors fail with "No rigid body found".
@@ -24,7 +35,7 @@ SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics"}
 class SimReadyUsdObject(Object):
     """Spawn a SimReady asset from an explicit USD path supplied in graph params."""
 
-    name = "simready_usd_object"
+    name = SIMREADY_USD_OBJECT_REGISTRY_NAME
     tags = ["object", "sim-ready"]
 
     object_type: ObjectType | None = None

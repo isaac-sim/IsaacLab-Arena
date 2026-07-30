@@ -67,22 +67,19 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
         root = stage.DefinePrim("/Asset", "Xform")
         root.GetReferences().AddReference(retrieve_file_path(usd_path))
         stage.SetDefaultPrim(root)
-        apply_usd_variant_selections(stage, variants)
+        if variants:
+            apply_usd_variant_selections(stage, variants)
         _RIGID_BODY_PATHS_BY_ASSET[key] = get_all_rigid_body_prim_paths_from_stage(stage)
     return list(_RIGID_BODY_PATHS_BY_ASSET[key])
 
 
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str] | None) -> None:
+def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> None:
     """Select USD variants on the stage's default prim.
-
-    Variant sets and selections that the asset does not have are skipped.
 
     Args:
         stage: Open USD stage.
         variants: Variant set name to the variant to select.
     """
-    if not variants:
-        return
     root = stage.GetDefaultPrim()
     if not root:
         return
@@ -181,5 +178,6 @@ def find_shallowest_rigid_body(
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
-    apply_usd_variant_selections(stage, variants)
+    if variants:
+        apply_usd_variant_selections(stage, variants)
     return find_shallowest_rigid_body_from_stage(stage, relative_to_root)

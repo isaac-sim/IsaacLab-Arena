@@ -22,8 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import ISAAC_SIMREADY_GA_S3_URL
 from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
+from isaaclab_arena.assets.simready_object_library import ISAAC_SIMREADY_GA_S3_URL
 
 _STOPWORDS = {
     "a01",

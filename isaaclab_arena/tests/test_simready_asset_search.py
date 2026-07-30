@@ -10,7 +10,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    SIMREADY_USD_OBJECT_REGISTRY_NAME,
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
     SimReadySearchConfig,
@@ -22,6 +21,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     search_simready_objects,
     simready_search_config_from_cli,
 )
+from isaaclab_arena.assets.simready_object_library import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_d01_01.usd"
 GREY_CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_grey_d01_01.usd"

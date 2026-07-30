@@ -13,12 +13,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
-
-ISAAC_SIMREADY_GA_S3_URL = (
-    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"
+from isaaclab_arena.assets.simready_object_library import (
+    DEFAULT_SIMREADY_SERVICE_URL,
+    ISAAC_SIMREADY_GA_S3_URL,
+    SIMREADY_PHYSICS_VARIANTS,
+    SIMREADY_USD_OBJECT_REGISTRY_NAME,
 )
-DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 
 MAX_INSPECTED_MATCHES_PER_PHRASE = 5
 """How many hits per object are read to see whether they can be a rigid object, unless more
@@ -199,7 +199,6 @@ def _rigid_object_rejection_reason(usd_path: str) -> str | None:
         A phrase naming the problem, for example "it has no rigid body", or None if the asset is
         usable as a rigid object.
     """
-    from isaaclab_arena.assets.simready_object_library import SIMREADY_PHYSICS_VARIANTS
     from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 
     try:
