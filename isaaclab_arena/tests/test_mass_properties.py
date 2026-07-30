@@ -11,6 +11,12 @@ import numpy as np
 
 from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 
+_IDENTITY_ROTATION = (0.0, 0.0, 0.0, 1.0)
+"""A rotation that leaves the principal axes alone, as ``(x, y, z, w)``."""
+
+_QUARTER_TURN_ABOUT_Z = (0.0, 0.0, 2**-0.5, 2**-0.5)
+"""A rotation that is not the identity, so the ``(x, y, z, w)`` order is worth getting right."""
+
 
 def _identity():
     """A transform that leaves a part where it is."""
@@ -21,10 +27,9 @@ def _identity():
 
 def _inertia_tensor(properties) -> np.ndarray:
     """Rebuild the full inertia tensor from the principal moments and their rotation."""
-    from pxr import Gf
+    from isaaclab_arena.utils.usd.mass_properties import _quaternion_to_matrix
 
-    real, x, y, z = properties.principal_axes
-    rotation = np.array(Gf.Matrix3d(Gf.Rotation(Gf.Quatd(real, Gf.Vec3d(x, y, z))))).T
+    rotation = _quaternion_to_matrix(properties.principal_axes)
     return rotation @ np.diag(properties.diagonal_inertia) @ rotation.T
 
 
@@ -35,7 +40,7 @@ def test_one_part_keeps_its_properties():
         mass=2.0,
         center_of_mass=(0.1, 0.2, 0.3),
         diagonal_inertia=(3.0, 5.0, 7.0),
-        principal_axes=(1.0, 0.0, 0.0, 0.0),
+        principal_axes=_IDENTITY_ROTATION,
     )
 
     combined = combine_mass_properties([(part, _identity())])
@@ -49,8 +54,8 @@ def test_one_part_keeps_its_properties():
 def test_masses_add_up_and_centres_average():
     from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
 
-    left = MassProperties(1.0, (-2.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
-    right = MassProperties(3.0, (2.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
+    left = MassProperties(1.0, (-2.0, 0.0, 0.0), (0.0, 0.0, 0.0), _IDENTITY_ROTATION)
+    right = MassProperties(3.0, (2.0, 0.0, 0.0), (0.0, 0.0, 0.0), _IDENTITY_ROTATION)
 
     combined = combine_mass_properties([(left, _identity()), (right, _identity())])
 
@@ -63,8 +68,8 @@ def test_parts_apart_resist_spinning_more():
     """Two weightless points 2 apart spin like a dumbbell: I = sum of mass times distance squared."""
     from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
 
-    left = MassProperties(1.0, (-1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
-    right = MassProperties(1.0, (1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
+    left = MassProperties(1.0, (-1.0, 0.0, 0.0), (0.0, 0.0, 0.0), _IDENTITY_ROTATION)
+    right = MassProperties(1.0, (1.0, 0.0, 0.0), (0.0, 0.0, 0.0), _IDENTITY_ROTATION)
 
     combined = combine_mass_properties([(left, _identity()), (right, _identity())])
 
@@ -77,7 +82,7 @@ def test_part_transform_moves_its_centre_of_mass():
 
     from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
 
-    part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0, 0.0, 0.0))
+    part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), _IDENTITY_ROTATION)
     moved = Gf.Matrix4d(1.0)
     moved.SetTranslateOnly(Gf.Vec3d(0.0, 0.0, 5.0))
 
@@ -93,7 +98,7 @@ def test_rotating_a_part_rotates_its_inertia():
 
     from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
 
-    part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
+    part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 2.0, 3.0), _IDENTITY_ROTATION)
     turned = Gf.Matrix4d(1.0)
     turned.SetRotateOnly(Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), 90.0))
 
@@ -108,7 +113,7 @@ def test_reading_back_what_was_written():
 
     stage = new_stage()
     body_path = add_body(stage, "body_01")
-    written = MassProperties(1.5, (0.1, 0.2, 0.3), (4.0, 5.0, 6.0), (1.0, 0.0, 0.0, 0.0))
+    written = MassProperties(1.5, (0.1, 0.2, 0.3), (4.0, 5.0, 6.0), _QUARTER_TURN_ABOUT_Z)
 
     write_mass_properties(stage.GetPrimAtPath(body_path), written)
     read = read_mass_properties(stage.GetPrimAtPath(body_path))
@@ -116,6 +121,7 @@ def test_reading_back_what_was_written():
     assert read.mass == 1.5
     assert np.allclose(read.center_of_mass, written.center_of_mass)
     assert np.allclose(read.diagonal_inertia, written.diagonal_inertia)
+    assert np.allclose(read.principal_axes, written.principal_axes), read.principal_axes
 
 
 def test_a_part_that_does_not_say_what_it_weighs():

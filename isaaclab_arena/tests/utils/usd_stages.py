@@ -91,7 +91,7 @@ def add_joint(
     joint.CreateJointEnabledAttr(enabled)
 
 
-def welded_bodies_stage() -> Any:
+def fixed_joint_bodies_stage() -> Any:
     """Two bodies joined by a fixed joint, like a spray bottle and its cap."""
     stage = new_stage()
     body = add_body(stage, "body_01")

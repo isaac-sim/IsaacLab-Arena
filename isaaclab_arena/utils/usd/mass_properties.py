@@ -3,14 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read and combine the mass properties of USD rigid bodies.
-
-A USD asset can say what a part weighs in two places: on the part itself, and again on each of
-the part's collision shapes. PhysX reads whichever one sits on the prim that is actually the
-rigid body. So merging several parts into one body changes which numbers PhysX reads, and the
-two sets do not always agree. Combining the part numbers here and writing them on the merged
-body keeps the asset weighing and spinning the way it did before.
-"""
+"""Read and combine the mass properties from multiple rigid bodies in a USD asset."""
 
 from __future__ import annotations
 
@@ -34,7 +27,7 @@ class MassProperties:
     """Moments of inertia about the principal axes."""
 
     principal_axes: tuple[float, float, float, float]
-    """Rotation from the principal axes to the body's frame, as ``(w, x, y, z)``."""
+    """Rotation from the principal axes to the body's frame, as ``(x, y, z, w)``."""
 
 
 def read_mass_properties(prim: Usd.Prim) -> MassProperties | None:
@@ -60,7 +53,8 @@ def read_mass_properties(prim: Usd.Prim) -> MassProperties | None:
         mass=float(mass_attribute.Get()),
         center_of_mass=tuple(float(value) for value in center_attribute.Get()),
         diagonal_inertia=tuple(float(value) for value in inertia_attribute.Get()),
-        principal_axes=(float(axes.GetReal()), *(float(value) for value in imaginary)),
+        # x, y, z, w
+        principal_axes=tuple(float(value) for value in imaginary) + (float(axes.GetReal()),),
     )
 
 
@@ -75,28 +69,25 @@ def write_mass_properties(prim: Usd.Prim, properties: MassProperties) -> None:
     api.CreateMassAttr().Set(float(properties.mass))
     api.CreateCenterOfMassAttr().Set(Gf.Vec3f(*properties.center_of_mass))
     api.CreateDiagonalInertiaAttr().Set(Gf.Vec3f(*properties.diagonal_inertia))
-    real, *imaginary = properties.principal_axes
+    *imaginary, real = properties.principal_axes
     api.CreatePrincipalAxesAttr().Set(Gf.Quatf(real, Gf.Vec3f(*imaginary)))
 
 
 def _quaternion_to_matrix(quaternion: tuple[float, float, float, float]) -> np.ndarray:
-    """Turn a ``(w, x, y, z)`` quaternion into a rotation matrix."""
-    real, x, y, z = quaternion
-    return np.array([
-        [1 - 2 * (y * y + z * z), 2 * (x * y - z * real), 2 * (x * z + y * real)],
-        [2 * (x * y + z * real), 1 - 2 * (x * x + z * z), 2 * (y * z - x * real)],
-        [2 * (x * z - y * real), 2 * (y * z + x * real), 1 - 2 * (x * x + y * y)],
-    ])
+    """Turn an ``(x, y, z, w)`` quaternion into a rotation matrix."""
+    x, y, z, real = quaternion
+    # Gf stores matrices the other way round from numpy, so transpose what it hands back.
+    return np.array(Gf.Matrix3d(Gf.Rotation(Gf.Quatd(real, Gf.Vec3d(x, y, z))))).T
 
 
 def _matrix_to_quaternion(matrix: np.ndarray) -> tuple[float, float, float, float]:
-    """Turn a rotation matrix into a ``(w, x, y, z)`` quaternion."""
+    """Turn a rotation matrix into an ``(x, y, z, w)`` quaternion."""
     # Gf stores matrices the other way round from numpy, so hand it the transpose.
     gf_matrix = Gf.Matrix4d(1.0)
     gf_matrix.SetRotateOnly(Gf.Matrix3d(*matrix.T.flatten().tolist()))
     quaternion = gf_matrix.ExtractRotationQuat()
     imaginary = quaternion.GetImaginary()
-    return (float(quaternion.GetReal()), *(float(value) for value in imaginary))
+    return tuple(float(value) for value in imaginary) + (float(quaternion.GetReal()),)
 
 
 def _to_principal_axes(inertia: np.ndarray) -> tuple[tuple[float, float, float], tuple[float, ...]]:

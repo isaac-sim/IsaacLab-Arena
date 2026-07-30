@@ -21,7 +21,7 @@ def _test_detect_object_type(simulation_app):
 
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
-    from isaaclab_arena.tests.utils.usd_stages import add_body, hinged_bodies_stage, new_stage, welded_bodies_stage
+    from isaaclab_arena.tests.utils.usd_stages import add_body, fixed_joint_bodies_stage, hinged_bodies_stage, new_stage
 
     # ObjectType.BASE
     print("Detecting ObjectType.BASE")
@@ -50,7 +50,7 @@ def _test_detect_object_type(simulation_app):
 
     # ObjectType.RIGID - side by side bodies that a fixed joint holds together
     print("Detecting ObjectType.RIGID for bodies joined by a fixed joint")
-    assert detect_object_type(stage=welded_bodies_stage()) == ObjectType.RIGID
+    assert detect_object_type(stage=fixed_joint_bodies_stage()) == ObjectType.RIGID
 
     # ObjectType.ARTICULATION - side by side bodies that a hinge lets move
     print("Detecting ObjectType.ARTICULATION for bodies joined by a hinge")

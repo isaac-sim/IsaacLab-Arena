@@ -10,13 +10,18 @@ from __future__ import annotations
 from isaaclab_arena.tests.utils.usd_stages import add_body, add_joint, new_stage
 
 
-def test_single_rigid_body_is_one_group():
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+def _structure(stage):
+    """Look at a stage, importing here so pxr does not load during pytest collection."""
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
 
+    return get_physics_structure_from_usd(stage)
+
+
+def test_single_rigid_body_is_one_group():
     stage = new_stage()
     add_body(stage, "body_01")
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert len(structure.rigid_body_paths) == 1
     assert structure.is_single_rigid_body
@@ -24,14 +29,12 @@ def test_single_rigid_body_is_one_group():
 
 def test_fixed_joint_puts_bodies_in_one_group():
     """Shaped like the disinfectant bottle: a cap fixed to a body cannot move."""
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
     body = add_body(stage, "body_01")
     cup = add_body(stage, "cup_01")
     add_joint(stage, "joint_cup_01", "fixed", body, cup)
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert len(structure.rigid_body_paths) == 2
     assert structure.body_groups == ((body, cup),)
@@ -41,8 +44,6 @@ def test_fixed_joint_puts_bodies_in_one_group():
 
 def test_revolute_joints_keep_bodies_apart():
     """Shaped like the cabinet: handles are fixed to doors, but the doors still swing."""
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
     carcass = add_body(stage, "body_01")
     doors = [add_body(stage, f"part_0{index}") for index in (1, 2, 4)]
@@ -52,7 +53,7 @@ def test_revolute_joints_keep_bodies_apart():
     for handle, door in zip(handles, doors[1:]):
         add_joint(stage, f"joint_handle_{handle}", "fixed", door, handle)
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert len(structure.rigid_body_paths) == 6
     # The frame, the door with no handle, and two door plus handle pairs.
@@ -62,14 +63,12 @@ def test_revolute_joints_keep_bodies_apart():
 
 
 def test_disabled_joint_groups_nothing():
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
     body = add_body(stage, "body_01")
     cup = add_body(stage, "cup_01")
     add_joint(stage, "joint_cup_01", "fixed", body, cup, enabled=False)
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert structure.joints == ()
     assert len(structure.body_groups) == 2
@@ -77,37 +76,31 @@ def test_disabled_joint_groups_nothing():
 
 
 def test_unjoined_bodies_stay_separate():
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
     add_body(stage, "body_01")
     add_body(stage, "body_02")
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert len(structure.body_groups) == 2
     assert not structure.is_single_rigid_body
 
 
 def test_joint_attached_to_world_has_one_body():
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
     body = add_body(stage, "body_01")
     add_joint(stage, "joint_world", "fixed", None, body)
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert structure.joints[0].body_paths == (body,)
     assert structure.is_single_rigid_body
 
 
 def test_stage_without_physics_has_no_bodies():
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-
     stage = new_stage()
 
-    structure = get_physics_structure(stage)
+    structure = _structure(stage)
 
     assert structure.rigid_body_paths == ()
     assert structure.body_groups == ()

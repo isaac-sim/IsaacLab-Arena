@@ -9,9 +9,13 @@ from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
-from isaaclab_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
+from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
+from isaaclab_arena.utils.usd_helpers import (
+    apply_usd_variant_selections,
+    get_prim_depth,
+    is_articulation_root,
+    is_rigid_body,
+)
 
 
 def _detect_type_from_joints(stage: Usd.Stage, found_depth: int) -> ObjectType:
@@ -20,7 +24,7 @@ def _detect_type_from_joints(stage: Usd.Stage, found_depth: int) -> ObjectType:
     The number of bodies alone does not say much: SimReady props give each part its own body and
     join the parts back together. Only the joints say whether the parts can still move.
     """
-    structure = get_physics_structure(stage)
+    structure = get_physics_structure_from_usd(stage)
     if structure.is_single_rigid_body:
         # Nothing can move, so the asset behaves like a single rigid body.
         return ObjectType.RIGID

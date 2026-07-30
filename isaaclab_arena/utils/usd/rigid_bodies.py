@@ -40,28 +40,6 @@ def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
     return get_all_rigid_body_prim_paths_from_stage(stage)
 
 
-def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str] | None) -> None:
-    """Select USD variants on the stage's default prim.
-
-    Variant sets and selections that the asset does not have are skipped.
-
-    Args:
-        stage: Open USD stage.
-        variants: Variant set name to the variant to select.
-    """
-    if not variants:
-        return
-    root = stage.GetDefaultPrim()
-    if not root:
-        return
-    variant_sets = root.GetVariantSets()
-    for set_name, selection in variants.items():
-        if set_name in variant_sets.GetNames():
-            variant_set = variant_sets.GetVariantSet(set_name)
-            if selection in variant_set.GetVariantNames():
-                variant_set.SetVariantSelection(selection)
-
-
 def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bool = False) -> str | None:
     """
     Find the shallowest (closest to root) prim that is a rigid body.

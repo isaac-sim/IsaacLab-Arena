@@ -133,6 +133,26 @@ def open_stage(path):
         del stage
 
 
+def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str] | None) -> None:
+    """Select USD variants on the stage's default prim if provided.
+
+    Args:
+        stage: Open USD stage.
+        variants: Variant set name to the variant to select. e.g. {"physics": "physics"}
+    """
+    if not variants:
+        return
+    root = stage.GetDefaultPrim()
+    if not root:
+        return
+    variant_sets = root.GetVariantSets()
+    for set_name, selection in variants.items():
+        if set_name in variant_sets.GetNames():
+            variant_set = variant_sets.GetVariantSet(set_name)
+            if selection in variant_set.GetVariantNames():
+                variant_set.SetVariantSelection(selection)
+
+
 def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str | None:
     """Get the USD path from a prim path, that is referring to an asset."""
     # Note (xinjieyao, 2025.12.12): preferred way to get the composed asset path is to ask the Usd.Prim object itself,

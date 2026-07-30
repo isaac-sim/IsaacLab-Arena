@@ -71,11 +71,7 @@ def _is_joint_enabled(prim: Usd.Prim) -> bool:
 
 
 def _find_body_for_prim(prim_path: str, rigid_body_paths: frozenset[str]) -> str | None:
-    """Return the closest rigid body at or above prim_path.
-
-    Joints usually point at a mesh inside a body rather than at the body itself, so we walk up
-    the path until we hit a body.
-    """
+    """Return the closest rigid body at or above prim_path."""
     path = prim_path
     while path not in ("", "/"):
         if path in rigid_body_paths:
@@ -120,10 +116,8 @@ def _group_bodies_by_fixed_joints(
     return tuple(sorted(tuple(sorted(group)) for group in groups.values()))
 
 
-def get_physics_structure(stage: Usd.Stage) -> PhysicsStructure:
+def get_physics_structure_from_usd(stage: Usd.Stage) -> PhysicsStructure:
     """Find the rigid bodies, joints, and body groups in an open stage.
-
-    Select any physics variant on the stage first. See ``apply_usd_variant_selections``.
 
     Args:
         stage: Open USD stage to look at.
@@ -134,6 +128,7 @@ def get_physics_structure(stage: Usd.Stage) -> PhysicsStructure:
     rigid_body_paths: list[str] = []
     articulation_root_paths: list[str] = []
     joint_prims: list[Usd.Prim] = []
+    # Traverse the stage and find all the rigid bodies, articulation roots, and joints.
     for prim in stage.Traverse():
         path = str(prim.GetPath())
         if prim.HasAPI(UsdPhysics.RigidBodyAPI):

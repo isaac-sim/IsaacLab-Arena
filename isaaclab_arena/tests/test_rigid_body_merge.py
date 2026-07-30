@@ -26,7 +26,7 @@ def _export(stage, directory, name: str) -> str:
     return path
 
 
-def _test_weld_usd_rigid_bodies(simulation_app):
+def _test_merge_to_one_rigid_body_if_needed(simulation_app):
     import tempfile
     from pathlib import Path
 
@@ -34,37 +34,59 @@ def _test_weld_usd_rigid_bodies(simulation_app):
 
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
-    from isaaclab_arena.tests.utils.usd_stages import add_body, hinged_bodies_stage, new_stage, welded_bodies_stage
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-    from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
+    from isaaclab_arena.tests.utils.usd_stages import add_body, fixed_joint_bodies_stage, hinged_bodies_stage, new_stage
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
+    from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
     with tempfile.TemporaryDirectory() as directory_name:
         directory = Path(directory_name)
 
         # Bodies held together by a fixed joint become one body, like a bottle and its cap.
-        source = _export(welded_bodies_stage(), directory, "welded")
-        welded_path = weld_usd_rigid_bodies(source)
-        assert welded_path != source, "expected a new file for bodies tied by a fixed joint"
-        structure = get_physics_structure(Usd.Stage.Open(welded_path))
+        source = _export(fixed_joint_bodies_stage(), directory, "fixed_joint")
+        merged_path = merge_to_one_rigid_body_if_needed(source)
+        assert merged_path != source, "expected a new file for bodies tied by a fixed joint"
+        structure = get_physics_structure_from_usd(Usd.Stage.Open(merged_path))
         assert structure.rigid_body_paths == ("/Prop",), structure.rigid_body_paths
         assert not structure.joints, "the joints should be switched off"
-        assert detect_object_type(usd_path=welded_path) == ObjectType.RIGID
+        assert detect_object_type(usd_path=merged_path) == ObjectType.RIGID
 
         # The new file points at the source instead of copying its geometry, so it stays small.
-        assert Path(welded_path).stat().st_size < 8192
-
-        # Asking twice returns the same cached file.
-        assert weld_usd_rigid_bodies(source) == welded_path
+        assert Path(merged_path).stat().st_size < 8192
 
         # An asset whose parts can move is left alone.
         hinged = _export(hinged_bodies_stage(), directory, "hinged")
-        assert weld_usd_rigid_bodies(hinged) == hinged
+        assert merge_to_one_rigid_body_if_needed(hinged) == hinged
 
         # So is an asset that already has exactly one rigid body.
         single_stage = new_stage()
         add_body(single_stage, "body_01")
         single = _export(single_stage, directory, "single")
-        assert weld_usd_rigid_bodies(single) == single
+        assert merge_to_one_rigid_body_if_needed(single) == single
+
+    return True
+
+
+def _test_merge_remembers_its_answers(simulation_app):
+    """An asset is only merged once: the answer is kept in memory, the merged file on disk."""
+    import tempfile
+    from pathlib import Path
+
+    from isaaclab_arena.tests.utils.usd_stages import fixed_joint_bodies_stage
+    from isaaclab_arena.utils.usd import rigid_body_merge
+    from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
+
+    with tempfile.TemporaryDirectory() as directory_name:
+        source = _export(fixed_joint_bodies_stage(), Path(directory_name), "remembered")
+        merged_path = merge_to_one_rigid_body_if_needed(source)
+        written_at = Path(merged_path).stat().st_mtime_ns
+
+        # Asking again gives the same file back.
+        assert merge_to_one_rigid_body_if_needed(source) == merged_path
+
+        # With the answer forgotten, the file already on disk is used instead of being written again.
+        rigid_body_merge._merged_paths.clear()
+        assert merge_to_one_rigid_body_if_needed(source) == merged_path
+        assert Path(merged_path).stat().st_mtime_ns == written_at, "the merged asset was written twice"
 
     return True
 
@@ -78,19 +100,19 @@ def _test_auto_detected_object_spawns_from_merged_asset(simulation_app):
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
-    from isaaclab_arena.tests.utils.usd_stages import hinged_bodies_stage, welded_bodies_stage
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+    from isaaclab_arena.tests.utils.usd_stages import fixed_joint_bodies_stage, hinged_bodies_stage
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
 
     with tempfile.TemporaryDirectory() as directory_name:
         directory = Path(directory_name)
 
         # Calling an asset rigid is only true once its parts are merged, so the object has to
         # come away pointing at the merged file rather than the one it was given.
-        source = _export(welded_bodies_stage(), directory, "auto_welded")
+        source = _export(fixed_joint_bodies_stage(), directory, "auto_fixed_joint")
         merged = Object(name="bottle", prim_path="{ENV_REGEX_NS}/bottle", object_type=None, usd_path=source)
         assert merged.object_type == ObjectType.RIGID
         assert merged.usd_path != source, "the object still points at the asset with two bodies"
-        assert get_physics_structure(Usd.Stage.Open(merged.usd_path)).rigid_body_paths == ("/Prop",)
+        assert get_physics_structure_from_usd(Usd.Stage.Open(merged.usd_path)).rigid_body_paths == ("/Prop",)
 
         # An articulation is left with the asset it was given, since nothing was merged.
         hinged = _export(hinged_bodies_stage(), directory, "auto_hinged")
@@ -105,7 +127,7 @@ def _open_simready(usd_path: str):
     """Open a SimReady asset with its physics turned on."""
     from pxr import Usd
 
-    from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
+    from isaaclab_arena.utils.usd_helpers import apply_usd_variant_selections
 
     stage = Usd.Stage.Open(usd_path)
     apply_usd_variant_selections(stage, SIMREADY_VARIANTS)
@@ -133,29 +155,29 @@ def _collision_meshes(stage) -> dict[str, int]:
     return meshes
 
 
-def _test_weld_keeps_shape_and_mass(simulation_app):
+def _test_merge_keeps_shape_and_mass(simulation_app):
     """The merged bottle fills the same space, keeps its collision meshes, and weighs the same."""
     from isaaclab_arena.utils.usd.mass_properties import read_mass_properties
-    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
-    from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
+    from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
     source_stage = _open_simready(SIMREADY_BOTTLE_USD)
-    welded_stage = _open_simready(weld_usd_rigid_bodies(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS))
+    merged_stage = _open_simready(merge_to_one_rigid_body_if_needed(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS))
 
     # Nothing was moved or thrown away, so the bottle still fills the same space.
-    assert _bounding_box(welded_stage) == _bounding_box(source_stage)
+    assert _bounding_box(merged_stage) == _bounding_box(source_stage)
 
     # Both parts still collide, with the same meshes as before.
-    assert _collision_meshes(welded_stage) == _collision_meshes(source_stage)
-    assert len(_collision_meshes(welded_stage)) == 2
+    assert _collision_meshes(merged_stage) == _collision_meshes(source_stage)
+    assert len(_collision_meshes(merged_stage)) == 2
 
     parts = [
         read_mass_properties(source_stage.GetPrimAtPath(path))
-        for path in get_physics_structure(source_stage).rigid_body_paths
+        for path in get_physics_structure_from_usd(source_stage).rigid_body_paths
     ]
     assert len(parts) == 2 and all(part is not None for part in parts)
 
-    merged = read_mass_properties(welded_stage.GetPrimAtPath("/Prop"))
+    merged = read_mass_properties(merged_stage.GetPrimAtPath("/Prop"))
     assert merged is not None, "the merged bottle should say what it weighs"
 
     # The cap and the bottle together weigh what they weighed apart.
@@ -172,24 +194,24 @@ def _test_weld_keeps_shape_and_mass(simulation_app):
     return True
 
 
-def _test_welded_mass_reaches_physx(simulation_app):
+def _test_merged_mass_reaches_physx(simulation_app):
     """PhysX gives the spawned bottle the mass and centre of mass the merged asset asked for."""
     import isaaclab.sim as sim_utils
     from isaaclab.assets import RigidObject, RigidObjectCfg
 
     from isaaclab_arena.utils.usd.mass_properties import read_mass_properties
-    from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
+    from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
-    welded_path = weld_usd_rigid_bodies(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS)
+    merged_path = merge_to_one_rigid_body_if_needed(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS)
     # Hold on to the stage, or the prim read from it goes stale.
-    welded_stage = _open_simready(welded_path)
-    expected = read_mass_properties(welded_stage.GetPrimAtPath("/Prop"))
+    merged_stage = _open_simready(merged_path)
+    expected = read_mass_properties(merged_stage.GetPrimAtPath("/Prop"))
 
     simulation = sim_utils.SimulationContext(sim_utils.SimulationCfg(dt=0.01))
     bottle = RigidObject(
         RigidObjectCfg(
             prim_path="/World/bottle",
-            spawn=sim_utils.UsdFileCfg(usd_path=welded_path, variants=SIMREADY_VARIANTS),
+            spawn=sim_utils.UsdFileCfg(usd_path=merged_path, variants=SIMREADY_VARIANTS),
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 1.0)),
         )
     )
@@ -207,35 +229,43 @@ def _test_welded_mass_reaches_physx(simulation_app):
     return True
 
 
-def _test_weld_simready_asset(simulation_app):
+def _test_merge_simready_asset(simulation_app):
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
-    from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
+    from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
-    # Without the weld, the bottle has two bodies and Isaac Lab refuses to spawn it.
+    # Without merging, the bottle has two bodies and Isaac Lab refuses to spawn it.
     assert detect_object_type(usd_path=SIMREADY_BOTTLE_USD, variants=SIMREADY_VARIANTS) == ObjectType.RIGID
-    bottle_path = weld_usd_rigid_bodies(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS)
+    bottle_path = merge_to_one_rigid_body_if_needed(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS)
     assert bottle_path != SIMREADY_BOTTLE_USD, "expected the bottle and its cap to be merged"
     assert detect_object_type(usd_path=bottle_path, variants=SIMREADY_VARIANTS) == ObjectType.RIGID
 
     # The cabinet doors swing, so it stays an articulation and is left alone.
     assert detect_object_type(usd_path=SIMREADY_CABINET_USD, variants=SIMREADY_VARIANTS) == ObjectType.ARTICULATION
-    assert weld_usd_rigid_bodies(SIMREADY_CABINET_USD, SIMREADY_VARIANTS) == SIMREADY_CABINET_USD
+    assert merge_to_one_rigid_body_if_needed(SIMREADY_CABINET_USD, SIMREADY_VARIANTS) == SIMREADY_CABINET_USD
 
     return True
 
 
-def test_weld_usd_rigid_bodies():
+def test_merge_to_one_rigid_body_if_needed():
     result = run_simulation_app_function(
-        _test_weld_usd_rigid_bodies,
+        _test_merge_to_one_rigid_body_if_needed,
         headless=HEADLESS,
     )
     assert result, "Test failed"
 
 
-def test_weld_simready_asset():
+def test_merge_remembers_its_answers():
     result = run_simulation_app_function(
-        _test_weld_simready_asset,
+        _test_merge_remembers_its_answers,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
+def test_merge_simready_asset():
+    result = run_simulation_app_function(
+        _test_merge_simready_asset,
         headless=HEADLESS,
     )
     assert result, "Test failed"
@@ -249,24 +279,26 @@ def test_auto_detected_object_spawns_from_merged_asset():
     assert result, "Test failed"
 
 
-def test_weld_keeps_shape_and_mass():
+def test_merge_keeps_shape_and_mass():
     result = run_simulation_app_function(
-        _test_weld_keeps_shape_and_mass,
+        _test_merge_keeps_shape_and_mass,
         headless=HEADLESS,
     )
     assert result, "Test failed"
 
 
-def test_welded_mass_reaches_physx():
+def test_merged_mass_reaches_physx():
     result = run_simulation_app_function(
-        _test_welded_mass_reaches_physx,
+        _test_merged_mass_reaches_physx,
         headless=HEADLESS,
     )
     assert result, "Test failed"
 
 
 if __name__ == "__main__":
-    test_weld_usd_rigid_bodies()
-    test_weld_simready_asset()
-    test_weld_keeps_shape_and_mass()
-    test_welded_mass_reaches_physx()
+    test_merge_to_one_rigid_body_if_needed()
+    test_merge_remembers_its_answers()
+    test_auto_detected_object_spawns_from_merged_asset()
+    test_merge_simready_asset()
+    test_merge_keeps_shape_and_mass()
+    test_merged_mass_reaches_physx()
