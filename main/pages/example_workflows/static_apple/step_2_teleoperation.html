@@ -733,18 +733,21 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$DATASET
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Record demonstrations with OpenXR teleop</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--xr<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-auto_launch_cloudxr<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_demos<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--disable_full_sim_buffer_reset<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-reset_sim_buffer_each_episode<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--teleop_device<span class="w"> </span>openxr
+<span class="w">  </span>--arena_teleop_device<span class="w"> </span>openxr
 </pre></div>
 </div>
 </li>
@@ -823,11 +826,11 @@ and the realities of stopping and starting the Arena app for breaks. The
 recommended workflow is to record one HDF5 per session by pointing <code class="docutils literal notranslate"><span class="pre">--dataset_file</span></code> at a fresh
 path each time:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Session 1 (e.g. morning)</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_a.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
 
 <span class="c1"># Session 2 (after lunch)</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_b.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
 </pre></div>
 </div>
@@ -881,11 +884,12 @@ make replay miss or drop the apple even when the original recorded demo succeede
 as an action-level sanity check, and inspect the recorded camera data before recollecting data.</p>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay from the recorded HDF5 dataset</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/tools/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab
 </pre></div>

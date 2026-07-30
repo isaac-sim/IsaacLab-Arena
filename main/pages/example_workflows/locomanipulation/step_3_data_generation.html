@@ -545,13 +545,14 @@ such that the annotation step can be skipped.</p>
 </div>
 </div>
 </details><p>To start the annotation process, run the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/annotate_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_locomanip_pick_and_place
 </pre></div>
 </div>
 <p>Follow the instructions described on the CLI to complete the annotation.</p>
@@ -577,7 +578,7 @@ such that the data generation step can be skipped.</p>
 </div>
 </details><p>Generate the dataset:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate 100 demonstrations</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
@@ -585,24 +586,25 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/generate
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--generation_num_trials<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
 </pre></div>
 </div>
 <p>Data generation takes 1-4 hours depending on your CPU/GPU.
-You can remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code> and add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code>
-(before specifying the task name <code class="docutils literal notranslate"><span class="pre">galileo_g1_locomanip_pick_and_place</span></code>) to visualize during data generation.</p>
+You can remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code> and add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to visualize during data generation.</p>
 </section>
 <section id="step-3-validate-generated-dataset-optional">
 <h2>Step 3: Validate Generated Dataset (Optional)<a class="headerlink" href="#step-3-validate-generated-dataset-optional" title="Link to this heading">#</a></h2>
 <p>To visualize the data produced, you can replay the dataset using the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/tools/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
 </pre></div>

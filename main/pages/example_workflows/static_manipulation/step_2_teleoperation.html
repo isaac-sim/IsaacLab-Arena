@@ -628,14 +628,17 @@ and <em>before</em> you start the Arena app. The Arena app must inherit the Isaa
 </div>
 </li>
 <li><p>Run the recording script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--xr<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-auto_launch_cloudxr<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_demos<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--teleop_device<span class="w"> </span>openxr
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--arena_teleop_device<span class="w"> </span>openxr
 </pre></div>
 </div>
 </li>
