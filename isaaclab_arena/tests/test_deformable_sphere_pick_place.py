@@ -174,7 +174,7 @@ def test_deformable_environment_in_cli_registry() -> None:
 
 
 def test_deformable_physics_backend_selection() -> None:
-    """ArenaEnvBuilder defaults deformable scenes to Newton VBD and rejects the rigid ``newton`` preset."""
+    """ArenaEnvBuilder defaults generic deformable scenes to Newton VBD and validates explicit presets."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -185,17 +185,19 @@ def test_deformable_physics_backend_selection() -> None:
     assert builder._scene_needs_soft_body() is True
 
     # Non-soft-body presets fail before launch with a clear error.
-    for preset in ("default", "newton", "physx"):
+    for preset in ("default", "newton"):
         with pytest.raises(NotImplementedError, match="soft-body"):
             builder._select_backend_preset(preset, needs_soft_body=True)
     with pytest.raises(NotImplementedError, match="does not support"):
         builder._select_backend_preset("newton_mjwarp_vbd_surface", needs_soft_body=True)
 
-    # No preset on a soft-body scene -> Newton VBD (the PhysX deformable path is unstable).
+    # No preset on a generic soft-body scene -> the global Newton VBD default.
     assert builder._select_backend_preset(None, needs_soft_body=True) == "newton_mjwarp_vbd"
 
-    # The validated soft-body preset is passed through unchanged.
+    # Validated volume soft-body presets are passed through unchanged.
+    assert builder._select_backend_preset("physx", needs_soft_body=True) == "physx"
     assert builder._select_backend_preset("newton_mjwarp_vbd", needs_soft_body=True) == "newton_mjwarp_vbd"
+    assert builder._select_backend_preset("newton_mjwarp_vbd_proxy", needs_soft_body=True) == "newton_mjwarp_vbd_proxy"
 
     # Rigid-only scenes with no preset stay on the stock PhysX spawn.
     assert builder._select_backend_preset(None, needs_soft_body=False) is None
@@ -360,6 +362,58 @@ def _test_surface_cable_and_volume_newton_smoke(simulation_app) -> bool:
     return True
 
 
+def _test_physx_deformable_visual_proxy_tracks_sim(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    registry = AssetRegistry()
+    ground = registry.get_asset_by_name("ground_plane")()
+    block = registry.get_asset_by_name("procedural_deformable_volume_block")()
+    block.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.35)))
+    embodiment = registry.get_asset_by_name("franka_joint_pos")()
+
+    def enable_physx_visual_sync(env_cfg):
+        env_cfg.sync_deformable_visual_meshes_from_sim = True
+        return env_cfg
+
+    arena_env = IsaacLabArenaEnvironment(
+        name="minimal_physx_deformable_visual_proxy",
+        scene=Scene([ground, block]),
+        embodiment=embodiment,
+        env_cfg_callback=enable_physx_visual_sync,
+    )
+    env = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=1, solve_relations=False, presets="physx"),
+    ).make_registered(render_mode="rgb_array")
+    base = env.unwrapped
+    try:
+        env.reset()
+        syncs = base._deformable_visual_mesh_syncs  # noqa: SLF001
+        assert len(syncs) == 1
+        assert len(syncs[0].proxy_prims) == 1
+        assert len(syncs[0].proxy_translate_ops) == 1
+
+        start_translate = syncs[0].proxy_translate_ops[0].Get()
+        start_z = float(start_translate[2])
+        action = torch.zeros(env.action_space.shape, device=base.device)
+        for _ in range(45):
+            env.step(action)
+
+        after_translate = syncs[0].proxy_translate_ops[0].Get()
+        after_z = float(after_translate[2])
+        assert after_z < start_z - 0.01, f"PhysX visual proxy did not follow falling deformable: {start_z} -> {after_z}"
+    finally:
+        env.close()
+    return True
+
+
 @pytest.mark.with_subprocess
 def test_deformable_sphere_newton_smoke() -> None:
     assert run_simulation_app_function(
@@ -373,4 +427,13 @@ def test_surface_cable_and_volume_newton_smoke() -> None:
     assert run_simulation_app_function(
         _test_surface_cable_and_volume_newton_smoke,
         headless=HEADLESS,
+    )
+
+
+@pytest.mark.with_subprocess
+def test_physx_deformable_visual_proxy_tracks_sim() -> None:
+    assert run_simulation_app_function(
+        _test_physx_deformable_visual_proxy_tracks_sim,
+        headless=HEADLESS,
+        enable_cameras=True,
     )

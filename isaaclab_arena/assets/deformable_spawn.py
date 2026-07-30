@@ -71,10 +71,10 @@ def lame_parameters(youngs_modulus: float, poissons_ratio: float) -> tuple[float
 class PhysxDeformableTuning:
     """PhysX-specific deformable body and material knobs."""
 
-    rest_offset: float = 0.0
-    contact_offset: float = 0.002
+    rest_offset: float | None = 0.0
+    contact_offset: float | None = 0.002
     solver_position_iteration_count: int = 16
-    linear_damping: float = 0.01
+    linear_damping: float | None = 0.01
     static_friction: float = 0.25
     dynamic_friction: float = 0.25
     elasticity_damping: float = 0.005

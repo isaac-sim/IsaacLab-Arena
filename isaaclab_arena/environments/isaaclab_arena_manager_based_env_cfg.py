@@ -40,6 +40,10 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Task language description
     task_description: str | None = None
 
+    # PhysX volume deformables can update TensorAPI state while Kit keeps the bound visual mesh static.
+    # Enable this only for evaluation scenes that need viewport/video parity with the deformable tensors.
+    sync_deformable_visual_meshes_from_sim: bool = False
+
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     sim: SimulationCfg = SimulationCfg(

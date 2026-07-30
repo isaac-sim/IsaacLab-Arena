@@ -90,7 +90,7 @@ _NEWTON_MJWARP_CFG = NewtonCfg(
     debug_mode=False,
 )
 
-# Newton rigid (MJWarp) coupled with the VBD soft-body solver -- the only soft-capable preset today.
+# Newton rigid (MJWarp) coupled with the VBD soft-body solver for generic volume/surface deformables.
 _NEWTON_MJWARP_VBD_CFG = DeformableNewtonCfg(
     solver_cfg=CoupledMJWarpVBDSolverCfg(
         # Rigid solver settings favor contact-rich manipulation: a high contact budget
@@ -135,6 +135,38 @@ _NEWTON_MJWARP_VBD_CFG = DeformableNewtonCfg(
     debug_mode=False,
 )
 
+_NEWTON_MJWARP_VBD_PROXY_CFG = DeformableNewtonCfg(
+    solver_cfg=CoupledMJWarpVBDSolverCfg(
+        rigid_solver_cfg=MJWarpSolverCfg(
+            njmax=40,
+            nconmax=20,
+            ls_iterations=20,
+            cone="pyramidal",
+            impratio=1,
+            ls_parallel=False,
+            integrator="implicitfast",
+            ccd_iterations=100,
+        ),
+        soft_solver_cfg=VBDSolverCfg(
+            iterations=10,
+            integrate_with_external_rigid_solver=True,
+            particle_enable_self_contact=False,
+            particle_collision_detection_interval=-1,
+        ),
+        coupling_mode="two_way",
+    ),
+    model_cfg=NewtonModelCfg(
+        soft_contact_ke=1.0e4,
+        soft_contact_kd=1.0e-5,
+        soft_contact_mu=5.0,
+        shape_material_ke=4.0e4,
+        shape_material_kd=1.0e-5,
+        shape_material_mu=5.0,
+    ),
+    num_substeps=10,
+    use_cuda_graph=True,
+)
+
 _NEWTON_MJWARP_VBD_SURFACE_CFG = DeformableNewtonCfg(
     solver_cfg=CoupledMJWarpVBDSolverCfg(
         rigid_solver_cfg=MJWarpSolverCfg(
@@ -177,6 +209,15 @@ _PHYSX_PRESET = PhysicsPreset(
     name="physx",
     backend=SimulationBackend.PHYSX,
     cfg=_PHYSX_CFG,
+    supports_soft_body=True,
+    soft_body_kinds=frozenset({"volume"}),
+    replicate_physics=False,
+)
+
+_DEFAULT_PRESET = PhysicsPreset(
+    name="default",
+    backend=SimulationBackend.PHYSX,
+    cfg=_PHYSX_CFG,
     supports_soft_body=False,
     soft_body_kinds=frozenset(),
     replicate_physics=None,
@@ -200,6 +241,14 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         soft_body_kinds=frozenset({"volume", "surface"}),
         replicate_physics=True,
     ),
+    "newton_mjwarp_vbd_proxy": PhysicsPreset(
+        name="newton_mjwarp_vbd_proxy",
+        backend=SimulationBackend.NEWTON,
+        cfg=_NEWTON_MJWARP_VBD_PROXY_CFG,
+        supports_soft_body=True,
+        soft_body_kinds=frozenset({"volume"}),
+        replicate_physics=True,
+    ),
     "newton_mjwarp_vbd_surface": PhysicsPreset(
         name="newton_mjwarp_vbd_surface",
         backend=SimulationBackend.NEWTON,
@@ -208,8 +257,8 @@ ARENA_PHYSICS_PRESETS: dict[str, PhysicsPreset] = {
         soft_body_kinds=frozenset({"surface"}),
         replicate_physics=True,
     ),
-    # ``default`` mirrors ``physx`` (the stock backend used when no preset is selected).
-    "default": _PHYSX_PRESET,
+    # ``default`` keeps the stock rigid-only path used when no preset is selected.
+    "default": _DEFAULT_PRESET,
 }
 
 DEFAULT_PRESET = "physx"

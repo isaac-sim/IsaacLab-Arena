@@ -37,9 +37,10 @@ def test_registry_metadata_matrix() -> None:
 
     expected = {
         # name: (backend, supports_soft_body, soft_body_kinds, replicate_physics)
-        "physx": (SimulationBackend.PHYSX, False, frozenset(), None),
+        "physx": (SimulationBackend.PHYSX, True, frozenset({"volume"}), False),
         "newton": (SimulationBackend.NEWTON, False, frozenset(), True),
         "newton_mjwarp_vbd": (SimulationBackend.NEWTON, True, frozenset({"volume", "surface"}), True),
+        "newton_mjwarp_vbd_proxy": (SimulationBackend.NEWTON, True, frozenset({"volume"}), True),
         "newton_mjwarp_vbd_surface": (SimulationBackend.NEWTON, True, frozenset({"surface"}), True),
         "default": (SimulationBackend.PHYSX, False, frozenset(), None),
     }
@@ -51,10 +52,13 @@ def test_registry_metadata_matrix() -> None:
         assert preset.soft_body_kinds == soft_body_kinds
         assert preset.replicate_physics is replicate
 
-    assert soft_body_presets() == frozenset({"newton_mjwarp_vbd", "newton_mjwarp_vbd_surface"})
-    assert is_soft_body_preset("newton_mjwarp_vbd") and not is_soft_body_preset("physx")
+    assert soft_body_presets() == frozenset(
+        {"physx", "newton_mjwarp_vbd", "newton_mjwarp_vbd_proxy", "newton_mjwarp_vbd_surface"}
+    )
+    assert is_soft_body_preset("newton_mjwarp_vbd") and is_soft_body_preset("physx")
+    assert not is_soft_body_preset("default")
     assert DEFAULT_PRESET == "physx" and DEFAULT_SOFT_BODY_PRESET == "newton_mjwarp_vbd"
-    # default mirrors physx (same cfg instance)
+    # ``default`` shares stock PhysX cfg values but keeps rigid-only metadata.
     assert ARENA_PHYSICS_PRESETS["default"].cfg is ARENA_PHYSICS_PRESETS["physx"].cfg
 
 
@@ -63,16 +67,21 @@ def test_backend_object_preset_soft_only_fields() -> None:
     from isaaclab_tasks.utils.hydra import resolve_presets
 
     from isaaclab_arena.assets.deformable_spawn import backend_object_preset
-    from isaaclab_arena.environments.physics_presets import SimulationBackend, soft_body_presets
+    from isaaclab_arena.environments.physics_presets import (
+        DEFAULT_SOFT_BODY_PRESET,
+        SimulationBackend,
+        preset_backend,
+        soft_body_presets,
+    )
 
     marker = {SimulationBackend.PHYSX: "physx-cfg", SimulationBackend.NEWTON: "newton-cfg"}
     preset_cfg = backend_object_preset(lambda backend: marker[backend], soft_body_only=True)
 
     fields = set(preset_cfg.__dataclass_fields__)
     assert fields == soft_body_presets() | {"default"}
-    # Every soft preset (and default) maps to the Newton build; no PhysX field exists.
-    for name in fields:
-        assert resolve_presets(preset_cfg, selected=(name,)) == "newton-cfg"
+    for name in soft_body_presets():
+        assert resolve_presets(preset_cfg, selected=(name,)) == marker[preset_backend(name)]
+    assert resolve_presets(preset_cfg, selected=("default",)) == marker[preset_backend(DEFAULT_SOFT_BODY_PRESET)]
 
 
 def _reference_spawns(usd_path, youngs, poissons, density, physx_tuning, newton_particle_radius, color):

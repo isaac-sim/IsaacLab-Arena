@@ -137,10 +137,10 @@ class ArenaEnvBuilder:
     def _select_backend_preset(self, presets: str | None, needs_soft_body: bool) -> str | None:
         """Return the effective physics preset name for the scene.
 
-        Soft-body scenes with no explicit preset default to the soft-body preset (the stock PhysX
-        path is unstable for Arena soft-body scenes). An explicit preset that does not support soft
-        bodies is rejected. Both facts are read from the physics-preset registry -- no backend or
-        variant name is hardcoded here.
+        Selection order is: explicit builder preset, environment default preset, then the global
+        soft-body default when a soft-body scene still has no preset. An explicit/default preset that
+        does not support the scene's soft-body kinds is rejected. These facts are read from the
+        physics-preset registry -- no backend or variant name is hardcoded here.
         """
         from isaaclab_arena.environments.physics_presets import (
             ARENA_PHYSICS_PRESETS,
@@ -149,23 +149,24 @@ class ArenaEnvBuilder:
             soft_body_presets,
         )
 
-        if presets is None:
+        selected = presets if presets is not None else getattr(self.arena_env, "default_physics_preset", None)
+
+        if selected is None:
             return DEFAULT_SOFT_BODY_PRESET if needs_soft_body else None
-        if needs_soft_body and not is_soft_body_preset(presets):
+        if needs_soft_body and not is_soft_body_preset(selected):
             raise NotImplementedError(
-                f"Soft-body scenes need a soft-body physics preset ({sorted(soft_body_presets())}); "
-                f"got --presets {presets}."
+                f"Soft-body scenes need a soft-body physics preset ({sorted(soft_body_presets())}); got {selected!r}."
             )
         if needs_soft_body:
             required_kinds = self._scene_soft_body_kinds()
-            supported_kinds = ARENA_PHYSICS_PRESETS[presets].soft_body_kinds
+            supported_kinds = ARENA_PHYSICS_PRESETS[selected].soft_body_kinds
             unsupported = required_kinds - supported_kinds
             if unsupported:
                 raise NotImplementedError(
-                    f"Preset {presets!r} does not support soft-body kinds {sorted(unsupported)}; "
+                    f"Preset {selected!r} does not support soft-body kinds {sorted(unsupported)}; "
                     f"supported kinds are {sorted(supported_kinds)}."
                 )
-        return presets
+        return selected
 
     def _configure_physics_for_scene(self, env_cfg: Any, presets: str | None) -> Any:
         """Select the physics backend preset and set ``replicate_physics`` for the composed scene.
