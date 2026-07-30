@@ -88,7 +88,7 @@ def run_environment(
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
     args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu", visualizer=["kit"])
+    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
     args_parser.allow_abbrev = False
     args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
     args_cli, hydra_overrides = args_parser.parse_known_args()

@@ -24,6 +24,7 @@ def _interactive_runner_args(**overrides) -> argparse.Namespace:
         "presets": None,
         "list_variations": False,
         "device": "cpu",
+        "disable_fabric": False,
     }
     argument_values.update(overrides)
     return argparse.Namespace(**argument_values)
@@ -236,6 +237,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     assert parser.allow_abbrev is False
     assert args_cli.visualizer == ["kit"]
     assert args_cli.device == "cpu"
+    assert args_cli.disable_fabric
     assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1
