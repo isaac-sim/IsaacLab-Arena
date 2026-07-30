@@ -22,7 +22,7 @@ runs:
     environment_builder: &env_builder
       num_envs: 1
     rollout_limit:
-      num_episodes: 1
+      num_episodes: 5
     variations: &hdr_image_variation
       light:
         hdr_image:

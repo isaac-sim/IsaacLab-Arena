@@ -142,11 +142,15 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG
             )
 
         def env_cfg_callback(env_cfg):
-            return _apply_legacy_datagen_name_override(
+            env_cfg = _apply_legacy_datagen_name_override(
                 env_cfg,
                 pick_up_object_name=pick_up_object.name,
                 destination_name=destination.name,
             )
+            # 50 Hz control (sim dt 1/200, decimation 4), required by the whole-body controller (WBC).
+            env_cfg.sim.dt = 1 / 200
+            env_cfg.decimation = 4
+            return env_cfg
 
         def _build_g1_pick_and_place_mimic_cfg(arm_mode):
             return G1PickAndPlaceMimicEnvCfg(
