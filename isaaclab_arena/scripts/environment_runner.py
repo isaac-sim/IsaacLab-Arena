@@ -3,6 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Run an Arena environment interactively for manual debugging.
+
+Loads a registered Arena environment or an environment graph spec and continuously steps it in Kit. Use it to
+physically manipulate objects with Shift + left-drag, inspect their placement and interactions, and verify
+termination-triggered resets.
+"""
+
 from __future__ import annotations
 
 import argparse
