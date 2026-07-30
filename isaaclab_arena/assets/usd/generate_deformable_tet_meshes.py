@@ -108,6 +108,9 @@ def main() -> None:
     pts, tets = _structured_box_tets(length=0.08, half_width=0.02, half_height=0.02, num_segments=4)
     _write_tet_usd(pts, tets, _OUT_DIR / "procedural_deformable_volume_block_tet.usda", "DeformableVolumeBlock")
 
+    pts, tets = _structured_box_tets(length=0.3, half_width=0.025, half_height=0.025, num_segments=15)
+    _write_tet_usd(pts, tets, _OUT_DIR / "franka_soft_lift_block_tet.usda", "FrankaSoftLiftBlock")
+
     pts, tets = _structured_box_tets(length=0.4, half_width=0.012, half_height=0.012, num_segments=8)
     _write_tet_usd(pts, tets, _OUT_DIR / "procedural_deformable_cable_tet.usda", "DeformableCable")
 

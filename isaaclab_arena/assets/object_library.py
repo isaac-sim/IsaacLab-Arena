@@ -50,6 +50,16 @@ _DEFORMABLE_SPHERE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_spher
 _DEFORMABLE_CUBE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cube_tet.usda")
 _DEFORMABLE_VOLUME_BLOCK_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_volume_block_tet.usda")
 _DEFORMABLE_CABLE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cable_tet.usda")
+_FRANKA_SOFT_LIFT_BLOCK_TET_USD = str(_LOCAL_ASSET_DIR / "franka_soft_lift_block_tet.usda")
+
+_FRANKA_SOFT_LIFT_YOUNGS_MODULUS = 8.0e4
+_FRANKA_SOFT_LIFT_POISSONS_RATIO = 0.25
+_FRANKA_SOFT_LIFT_BLOCK_SIZE = (0.3, 0.05, 0.05)
+_FRANKA_SOFT_LIFT_BLOCK_INITIAL_POSE = Pose(position_xyz=(0.5, 0.0, 0.05))
+_FRANKA_SOFT_LIFT_TABLE_INITIAL_POSE = Pose(
+    position_xyz=(0.5, 0.0, 0.0),
+    rotation_xyzw=(0.0, 0.0, 0.707, 0.707),
+)
 
 
 class LibraryObject(Object):
@@ -347,6 +357,31 @@ class GroundPlane(LibraryObject):
 
 
 @register_asset
+class FrankaSoftLiftTable(LibraryObject):
+    """Seattle lab table used by Isaac-Lift-Soft-Franka."""
+
+    name = "franka_soft_lift_table"
+    tags = ["object", "table", "franka_soft_lift"]
+    usd_path = None
+    table_usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
+    object_type = ObjectType.BASE
+    default_prim_path = "{ENV_REGEX_NS}/Table"
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+    ):
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose if initial_pose is not None else _FRANKA_SOFT_LIFT_TABLE_INITIAL_POSE,
+            spawner_cfg=sim_utils.UsdFileCfg(usd_path=self.table_usd_path),
+        )
+
+
+@register_asset
 class Sphere(LibraryObject):
     """
     A sphere with rigid body physics (dynamic by default).
@@ -510,6 +545,51 @@ class ProceduralDeformableVolumeBlock(DeformableObject):
             ),
             initial_pose=initial_pose,
         )
+
+
+@register_asset
+class FrankaSoftLiftBlock(DeformableObject):
+    """Volume-deformable cuboid used by Isaac-Lift-Soft-Franka."""
+
+    name = "franka_soft_lift_block"
+    tags = ["object", "procedural", "deformable", "volume", "franka_soft_lift"]
+    default_prim_path = "{ENV_REGEX_NS}/Deformable"
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        from isaaclab_arena.variations.deformable_initial_pose_variation import DeformableInitialPoseVariation
+
+        half_extents = tuple(size * 0.5 for size in _FRANKA_SOFT_LIFT_BLOCK_SIZE)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path if prim_path is not None else self.default_prim_path,
+            usd_path=_FRANKA_SOFT_LIFT_BLOCK_TET_USD,
+            material=DeformableMaterial(
+                youngs_modulus=_FRANKA_SOFT_LIFT_YOUNGS_MODULUS,
+                poissons_ratio=_FRANKA_SOFT_LIFT_POISSONS_RATIO,
+                density=300.0,
+                physx=PhysxDeformableTuning(
+                    rest_offset=None,
+                    contact_offset=None,
+                    linear_damping=None,
+                    static_friction=10.0,
+                    dynamic_friction=5.0,
+                ),
+                newton=NewtonDeformableTuning(particle_radius=0.01),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=tuple(-extent for extent in half_extents),
+                max_point=half_extents,
+            ),
+            initial_pose=initial_pose if initial_pose is not None else _FRANKA_SOFT_LIFT_BLOCK_INITIAL_POSE,
+        )
+        self.add_variation(DeformableInitialPoseVariation(self.name))
 
 
 _PROCEDURAL_DEFORMABLE_CLOTH_SIZE = (0.22, 0.22)

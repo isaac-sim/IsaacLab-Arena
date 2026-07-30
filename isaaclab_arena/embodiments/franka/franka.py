@@ -262,6 +262,85 @@ class FrankaCameraCfg(ArenaCameraCfg):
 
 
 @configclass
+class FrankaSoftLiftSceneCfg:
+    """Source-parity Franka scene config for Isaac-Lift-Soft-Franka."""
+
+    robot: ArticulationCfg = FRANKA_PANDA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+    ee_frame: FrameTransformerCfg = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+        debug_vis=False,
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/panda_hand",
+                name="end_effector",
+                offset=OffsetCfg(pos=[0.0, 0.0, 0.1034]),
+            ),
+        ],
+    )
+
+    def __post_init__(self) -> None:
+        self.robot.spawn.usd_path = _FRANKA_ROBOT_PRIM.robot_usd_path
+        self.robot.spawn.rigid_props.disable_gravity = True
+        self.robot.actuators["panda_hand"].effort_limit_sim = 500.0
+        self.robot.actuators["panda_hand"].stiffness = 1000.0
+        self.robot.actuators["panda_hand"].damping = 100.0
+
+
+@configclass
+class FrankaSoftLiftActionCfg:
+    """Absolute pose IK plus binary gripper for Isaac-Lift-Soft-Franka."""
+
+    arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        body_name="panda_hand",
+        controller=DifferentialIKControllerCfg(
+            command_type="pose",
+            use_relative_mode=False,
+            ik_method="dls",
+            ik_params={"lambda_val": 0.6},
+        ),
+        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
+    )
+
+    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_finger.*"],
+        open_command_expr={"panda_finger_.*": 0.05},
+        close_command_expr={"panda_finger_.*": 0.0},
+    )
+
+
+@register_asset
+class FrankaSoftLiftPandaEmbodiment(EmbodimentBase):
+    """Plain Franka Panda embodiment for the soft-lift evaluation scene."""
+
+    name = "franka_soft_lift_panda"
+    tags = ["embodiment", "franka", "franka_soft_lift"]
+    default_arm_mode = ArmMode.SINGLE_ARM
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.scene_config = FrankaSoftLiftSceneCfg()
+        self.action_config = FrankaSoftLiftActionCfg()
+        self.camera_config = FrankaCameraCfg()
+        self.add_camera_variations(self.camera_config)
+
+    def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        return "ee_frame"
+
+    def get_command_body_name(self) -> str:
+        return self.action_config.arm_action.body_name
+
+
+@configclass
 class FrankaObservationsCfg:
     """Observation specifications for the MDP."""
 
