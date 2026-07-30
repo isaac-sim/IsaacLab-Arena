@@ -1,0 +1,267 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Drop-pose generation for clutter placement.
+
+A pile cannot be produced by the relation solver: ``On`` requires each child's whole
+footprint to rest on one Z plane and a global pairwise no-overlap loss forbids contact,
+whereas a pile is defined by objects touching and resting on one another. Clutter is
+therefore placed by dropping objects into a region and letting the simulator settle them.
+
+This module computes the *drop* poses only -- the pre-settle layout. It is pure geometry
+with no simulator dependency, so it is cheap and directly testable. Poses are guaranteed
+free of mutual penetration at spawn, which lets them double as the scene's spawn poses.
+
+The two properties that make the layout safe:
+
+* Each object's sampled XY is constrained so its yaw-rotated footprint lies inside the
+  region, rather than only its origin.
+* Objects are lifted only over the footprints they actually overlap (a per-column ladder),
+  so an object with a clear column starts just above the floor instead of above the whole
+  pile. This keeps drop heights -- and therefore impact energy and scatter -- small.
+"""
+
+from __future__ import annotations
+
+import math
+import torch
+from dataclasses import dataclass
+from enum import Enum
+
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.random import get_random_rotation
+
+
+class XySampling(str, Enum):
+    """How XY positions are drawn from the region."""
+
+    UNIFORM = "uniform"
+    """Sample each object independently. Objects may co-locate and occlude one another."""
+
+    GRID_CELLS = "grid_cells"
+    """Give each object its own jittered cell, so the group spreads across the region."""
+
+
+class DropOrder(str, Enum):
+    """Order in which objects are dropped, which decides what ends up underneath."""
+
+    AS_LISTED = "as_listed"
+    """Keep the caller's order."""
+
+    FLATTEST_FIRST = "flattest_first"
+    """Shortest object first. Flat objects reach the floor before the region gets lumpy,
+    which keeps them lying flat instead of coming to rest on an edge."""
+
+    SHUFFLE = "shuffle"
+    """Randomise, so no object is systematically at the bottom across layouts."""
+
+
+@dataclass(frozen=True)
+class ClutterRegion:
+    """Axis-aligned XY region with a floor, in the frame drop poses are returned in."""
+
+    min_x: float
+    min_y: float
+    max_x: float
+    max_y: float
+    floor_z: float
+    """Z of the surface objects are dropped onto."""
+
+    def __post_init__(self) -> None:
+        assert self.max_x > self.min_x, f"region needs max_x > min_x, got {self.min_x}, {self.max_x}"
+        assert self.max_y > self.min_y, f"region needs max_y > min_y, got {self.min_y}, {self.max_y}"
+
+    def scaled(self, factor: float) -> ClutterRegion:
+        """Return this region scaled about its centre. Lower factors heap the pile tighter."""
+        assert factor > 0.0, f"scale factor must be positive, got {factor}"
+        cx, cy = (self.min_x + self.max_x) * 0.5, (self.min_y + self.max_y) * 0.5
+        half_x = (self.max_x - self.min_x) * 0.5 * factor
+        half_y = (self.max_y - self.min_y) * 0.5 * factor
+        return ClutterRegion(cx - half_x, cy - half_y, cx + half_x, cy + half_y, self.floor_z)
+
+
+@dataclass(frozen=True)
+class ClutterDropParams:
+    """Tuning for :func:`compute_drop_poses`."""
+
+    clutter_spread: float = 1.0
+    """Scales the usable region about its centre; below 1.0 concentrates the pile."""
+
+    xy_sampling: XySampling = XySampling.GRID_CELLS
+    drop_order: DropOrder = DropOrder.AS_LISTED
+
+    clearance_m: float = 0.01
+    """Gap between an object's lowest point and the surface it is dropped onto."""
+
+    gap_m: float = 0.03
+    """Extra vertical gap when an object must clear one already placed below it."""
+
+    random_yaw: bool = True
+    """Sample a random Z-yaw per object. Disable for reproducible axis-aligned layouts."""
+
+
+@dataclass(frozen=True)
+class DropPose:
+    """A pre-settle pose for one object."""
+
+    position: tuple[float, float, float]
+    rotation_xyzw: tuple[float, float, float, float]
+    drop_index: int
+    """Position in the drop sequence; 0 is dropped first and tends to end up lowest."""
+
+
+def _yaw_to_quat_xyzw(yaw: float) -> tuple[float, float, float, float]:
+    """Z-axis yaw (radians) as an ``(x, y, z, w)`` quaternion."""
+    half = yaw * 0.5
+    return (0.0, 0.0, math.sin(half), math.cos(half))
+
+
+def _footprint_half_extents(bbox: AxisAlignedBoundingBox) -> tuple[float, float]:
+    """Half-width and half-depth of a bounding box's XY footprint."""
+    size = bbox.size[0]
+    return float(size[0]) * 0.5, float(size[1]) * 0.5
+
+
+def _resolve_order(
+    bounding_boxes: list[AxisAlignedBoundingBox],
+    drop_order: DropOrder,
+    generator: torch.Generator | None,
+) -> list[int]:
+    """Return indices into ``bounding_boxes`` in the order they should be dropped."""
+    indices = list(range(len(bounding_boxes)))
+    if drop_order is DropOrder.AS_LISTED:
+        return indices
+    if drop_order is DropOrder.FLATTEST_FIRST:
+        return sorted(indices, key=lambda i: float(bounding_boxes[i].size[0][2]))
+    permutation = torch.randperm(len(indices), generator=generator)
+    return [indices[int(i)] for i in permutation]
+
+
+def _grid_cell_centres(
+    count: int, region: ClutterRegion, generator: torch.Generator | None
+) -> list[tuple[float, float]]:
+    """One cell centre per object, tiling the region and shuffled.
+
+    The grid is chosen to keep cells as square as the region allows, so neither axis is
+    over-subdivided. Shuffling stops objects listed together from landing side by side.
+    """
+    width, depth = region.max_x - region.min_x, region.max_y - region.min_y
+    num_cols = max(1, min(count, round(math.sqrt(count * width / depth)))) if depth > 0.0 else count
+    num_rows = math.ceil(count / num_cols)
+
+    centres = []
+    for i in range(count):
+        row, col = divmod(i, num_cols)
+        centres.append((
+            region.min_x + width * (col + 0.5) / num_cols,
+            region.min_y + depth * (row + 0.5) / num_rows,
+        ))
+    permutation = torch.randperm(count, generator=generator)
+    return [centres[int(i)] for i in permutation]
+
+
+def _sample_xy(
+    centre: tuple[float, float] | None,
+    half_x: float,
+    half_y: float,
+    region: ClutterRegion,
+    generator: torch.Generator | None,
+) -> tuple[float, float]:
+    """Sample an XY whose footprint stays inside ``region``.
+
+    The admissible box is the region inset by the object's own half-extents, so the whole
+    footprint lands inside rather than just the origin. When a cell centre is given the
+    sample is drawn around it and then clamped into that admissible box.
+    """
+    min_x, max_x = region.min_x + half_x, region.max_x - half_x
+    min_y, max_y = region.min_y + half_y, region.max_y - half_y
+    assert min_x <= max_x and min_y <= max_y, (
+        f"object footprint {2 * half_x:.3f}x{2 * half_y:.3f} m does not fit in region "
+        f"{region.max_x - region.min_x:.3f}x{region.max_y - region.min_y:.3f} m"
+    )
+
+    unit = torch.rand(2, generator=generator)
+    if centre is None:
+        x = min_x + float(unit[0]) * (max_x - min_x)
+        y = min_y + float(unit[1]) * (max_y - min_y)
+    else:
+        # Jitter by half a footprint so cell-mates stay distinguishable without escaping.
+        x = centre[0] + (float(unit[0]) - 0.5) * half_x
+        y = centre[1] + (float(unit[1]) - 0.5) * half_y
+    return min(max(x, min_x), max_x), min(max(y, min_y), max_y)
+
+
+def _footprints_overlap(
+    a_centre: tuple[float, float],
+    a_half: tuple[float, float],
+    b_centre: tuple[float, float],
+    b_half: tuple[float, float],
+) -> bool:
+    """Whether two axis-aligned XY footprints overlap."""
+    return (
+        abs(a_centre[0] - b_centre[0]) < a_half[0] + b_half[0]
+        and abs(a_centre[1] - b_centre[1]) < a_half[1] + b_half[1]
+    )
+
+
+def compute_drop_poses(
+    bounding_boxes: list[AxisAlignedBoundingBox],
+    region: ClutterRegion,
+    params: ClutterDropParams | None = None,
+    generator: torch.Generator | None = None,
+) -> list[DropPose]:
+    """Compute pre-settle drop poses for one pile.
+
+    Objects are placed so that no two overlap in 3D: an object whose footprint is clear
+    starts just above the floor, and one that would sit over an already-placed object is
+    lifted to clear it. The simulator turns this layout into a pile by settling it.
+
+    Args:
+        bounding_boxes: Object-local bounding box per object, single-environment (``N=1``).
+        region: Where objects may land, in the frame the returned poses use.
+        params: Tuning; defaults to :class:`ClutterDropParams`.
+        generator: Seeded RNG for reproducible layouts.
+
+    Returns:
+        One :class:`DropPose` per input object, in input order.
+    """
+    assert bounding_boxes, "compute_drop_poses needs at least one bounding box"
+    for i, bbox in enumerate(bounding_boxes):
+        assert bbox.num_envs == 1, f"bounding_boxes[{i}] must be single-env (N=1), got N={bbox.num_envs}"
+    params = params or ClutterDropParams()
+
+    usable = region.scaled(params.clutter_spread)
+    order = _resolve_order(bounding_boxes, params.drop_order, generator)
+    centres = (
+        _grid_cell_centres(len(order), usable, generator)
+        if params.xy_sampling is XySampling.GRID_CELLS
+        else [None] * len(order)
+    )
+
+    poses: list[DropPose | None] = [None] * len(bounding_boxes)
+    placed: list[tuple[tuple[float, float], tuple[float, float], float]] = []
+
+    for drop_index, (object_index, centre) in enumerate(zip(order, centres)):
+        yaw = get_random_rotation(generator) if params.random_yaw else 0.0
+        rotation = _yaw_to_quat_xyzw(yaw)
+        # Refit the box to the sampled yaw so the footprint and height match the placed object.
+        rotated = bounding_boxes[object_index].rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+
+        half_x, half_y = _footprint_half_extents(rotated)
+        x, y = _sample_xy(centre, half_x, half_y, usable, generator)
+
+        # Lift only over the footprints actually overlapped, not over everything placed so far.
+        support_z = region.floor_z + params.clearance_m
+        for other_centre, other_half, other_top_z in placed:
+            if _footprints_overlap((x, y), (half_x, half_y), other_centre, other_half):
+                support_z = max(support_z, other_top_z + params.gap_m)
+
+        # Offset the origin so the object's lowest point sits at support_z.
+        z = support_z - float(rotated.bottom_surface_z[0])
+        placed.append(((x, y), (half_x, half_y), z + float(rotated.top_surface_z[0])))
+        poses[object_index] = DropPose(position=(x, y, z), rotation_xyzw=rotation, drop_index=drop_index)
+
+    assert all(pose is not None for pose in poses), "every object must receive a drop pose"
+    return [pose for pose in poses if pose is not None]
