@@ -147,12 +147,10 @@ def compute_no_overlap_loss_mesh(
         else:
             active_centers = local_centers + offsets[active_sphere_pair_id]
         active_radii = mesh_cache.all_radii[active_idx]
-        active_mesh_idx = mesh_cache.sphere_mesh_idx[active_idx].contiguous()
 
-        active_mesh_indices_wp = wp.from_torch(active_mesh_idx, dtype=wp.int32)
-        sdf_values = multi_mesh_sdf(active_centers, mesh_cache.mesh_id_array, active_mesh_indices_wp)
-        mesh_manager.warn_sdf_sentinel(sdf_values)
-        sdf_values = clamp_sdf_sentinel(sdf_values)
+        sdf_values = _query_component_union_sdf(
+            active_centers, active_idx, sphere_active_mask, mesh_cache, mesh_manager
+        )
         penetration = torch.relu(active_radii + clearance_m - sdf_values)
 
         pair_sum = torch.zeros(num_pairs, device=device, dtype=penetration.dtype)
@@ -165,6 +163,42 @@ def compute_no_overlap_loss_mesh(
         print(f"  [NoOverlap MESH] total_loss={total_loss.tolist()}")
 
     return total_loss
+
+
+def _query_component_union_sdf(
+    active_centers: torch.Tensor,
+    active_sphere_idx: torch.Tensor,
+    sphere_active_mask: torch.Tensor,
+    mesh_cache: MeshPairCache,
+    mesh_manager: WarpMeshAndSphereCache,
+) -> torch.Tensor:
+    """Query each obstacle component and return the minimum SDF per active sphere.
+
+    Keeping overlapping closed components separate avoids the ambiguous closest-face sign produced
+    by concatenating them into one topologically watertight mesh. Their pointwise minimum is the SDF
+    of the component union.
+    """
+    query_active_mask = sphere_active_mask[mesh_cache.query_sphere_id]
+    query_sphere_id = mesh_cache.query_sphere_id[query_active_mask]
+    query_active_id = torch.searchsorted(active_sphere_idx, query_sphere_id)
+    query_mesh_idx = mesh_cache.query_mesh_idx[query_active_mask].contiguous()
+    query_mesh_indices_wp = wp.from_torch(query_mesh_idx, dtype=wp.int32)
+    query_sdf = multi_mesh_sdf(
+        active_centers[query_active_id],
+        mesh_cache.mesh_id_array,
+        query_mesh_indices_wp,
+    )
+    mesh_manager.warn_sdf_sentinel(query_sdf)
+    query_sdf = clamp_sdf_sentinel(query_sdf)
+
+    union_sdf = torch.full(
+        (len(active_sphere_idx),),
+        torch.inf,
+        dtype=query_sdf.dtype,
+        device=active_centers.device,
+    )
+    union_sdf.scatter_reduce_(0, query_active_id, query_sdf, reduce="amin", include_self=True)
+    return union_sdf
 
 
 def prepare_mesh_collision_cache(
@@ -223,10 +257,10 @@ def _collect_mesh_pairs(
 
     for i, child in enumerate(non_anchor_objects):
         child_uses_mesh = object_uses_mesh_collision(child, default_collision_mode)
-        child_mesh = manager.get_collision_mesh(child) if child_uses_mesh else None
+        child_meshes = manager.get_collision_meshes(child) if child_uses_mesh else ()
         child_bbox = state.get_bbox(child).to(device)
         child_bbox_is_invariant = child_bbox.is_batch_invariant()
-        if child_uses_mesh and child_mesh is None and child.name not in warned_no_mesh:
+        if child_uses_mesh and not child_meshes and child.name not in warned_no_mesh:
             warned_no_mesh.add(child.name)
             fallback = (
                 "using an AABB-sphere approximation for mesh-obstacle pairs"
@@ -234,21 +268,21 @@ def _collect_mesh_pairs(
                 else "pair will use AABB fallback for varying per-env bboxes"
             )
             print(f"[NoCollision] '{child.name}' has no collision mesh; {fallback}.")
-        child_spheres = _get_subject_spheres(child_mesh, child_bbox, child, manager, device)
-        child_applies_yaw = child_mesh is not None or not bboxes_include_yaw
-        c_bbox_min = child_bbox.min_point.expand(state.batch_size, 3)
-        c_bbox_max = child_bbox.max_point.expand(state.batch_size, 3)
+        child_spheres = _get_subject_spheres(child_meshes, child_bbox, child, manager, device)
+        child_applies_yaw = bool(child_meshes) or not bboxes_include_yaw
+        c_bbox_min, c_bbox_max = _collision_bounds(child_meshes, child_bbox, state.batch_size, device)
+        child_bbox_includes_yaw = bboxes_include_yaw and not child_meshes
 
         # child's spheres → fixed obstacle mesh (anchors plus passive background)
         for obstacle in fixed_obstacles:
             if (id(child), id(obstacle)) in on_pairs:
                 continue
-            obstacle_mesh = (
-                manager.get_collision_mesh(obstacle)
+            obstacle_meshes = (
+                manager.get_collision_meshes(obstacle)
                 if object_uses_mesh_collision(obstacle, default_collision_mode)
-                else None
+                else ()
             )
-            if obstacle_mesh is None:
+            if not obstacle_meshes:
                 if object_uses_mesh_collision(obstacle, default_collision_mode) and obstacle.name not in warned_no_mesh:
                     warned_no_mesh.add(obstacle.name)
                     print(f"[NoCollision] '{obstacle.name}' has no collision mesh; pair will use AABB fallback.")
@@ -265,6 +299,9 @@ def _collect_mesh_pairs(
             if child_spheres is None:
                 continue
             obstacle_bbox = obstacle.get_bounding_box().to(device)
+            obstacle_bbox_min, obstacle_bbox_max = _collision_bounds(
+                obstacle_meshes, obstacle_bbox, state.batch_size, device
+            )
             pairs.append(
                 MeshPairEntry(
                     subject=child,
@@ -277,11 +314,11 @@ def _collect_mesh_pairs(
                     radii=child_spheres[:, 3],
                     subject_bbox_min=c_bbox_min,
                     subject_bbox_max=c_bbox_max,
-                    subject_bbox_includes_yaw=bboxes_include_yaw,
-                    obstacle_bbox_min=obstacle_bbox.min_point.expand(state.batch_size, 3),
-                    obstacle_bbox_max=obstacle_bbox.max_point.expand(state.batch_size, 3),
+                    subject_bbox_includes_yaw=child_bbox_includes_yaw,
+                    obstacle_bbox_min=obstacle_bbox_min,
+                    obstacle_bbox_max=obstacle_bbox_max,
                     obstacle_bbox_includes_yaw=False,
-                    warp_mesh=manager.get_warp_mesh(obstacle_mesh, obj=obstacle),
+                    warp_meshes=tuple(manager.get_warp_mesh(mesh, obj=obstacle) for mesh in obstacle_meshes),
                 )
             )
 
@@ -291,10 +328,10 @@ def _collect_mesh_pairs(
             if (id(child), id(other)) in on_pairs:
                 continue
             other_uses_mesh = object_uses_mesh_collision(other, default_collision_mode)
-            other_mesh = manager.get_collision_mesh(other) if other_uses_mesh else None
+            other_meshes = manager.get_collision_meshes(other) if other_uses_mesh else ()
             other_bbox = state.get_bbox(other).to(device)
             other_bbox_is_invariant = other_bbox.is_batch_invariant()
-            if other_mesh is None and child_mesh is None:
+            if not other_meshes and not child_meshes:
                 if other_uses_mesh and other.name not in warned_no_mesh:
                     warned_no_mesh.add(other.name)
                     fallback = (
@@ -304,10 +341,10 @@ def _collect_mesh_pairs(
                     )
                     print(f"[NoCollision] '{other.name}' has no collision mesh; {fallback}.")
                 continue
-            o_bbox_min = other_bbox.min_point.expand(state.batch_size, 3)
-            o_bbox_max = other_bbox.max_point.expand(state.batch_size, 3)
+            o_bbox_min, o_bbox_max = _collision_bounds(other_meshes, other_bbox, state.batch_size, device)
+            other_bbox_includes_yaw = bboxes_include_yaw and not other_meshes
 
-            if other_mesh is not None and child_spheres is not None:
+            if other_meshes and child_spheres is not None:
                 # forward: child's mesh/spheres or AABB-sphere approximation → other's mesh
                 pairs.append(
                     MeshPairEntry(
@@ -321,20 +358,20 @@ def _collect_mesh_pairs(
                         radii=child_spheres[:, 3],
                         subject_bbox_min=c_bbox_min,
                         subject_bbox_max=c_bbox_max,
-                        subject_bbox_includes_yaw=bboxes_include_yaw,
+                        subject_bbox_includes_yaw=child_bbox_includes_yaw,
                         obstacle_bbox_min=o_bbox_min,
                         obstacle_bbox_max=o_bbox_max,
-                        obstacle_bbox_includes_yaw=bboxes_include_yaw,
-                        warp_mesh=manager.get_warp_mesh(other_mesh, obj=other),
+                        obstacle_bbox_includes_yaw=other_bbox_includes_yaw,
+                        warp_meshes=tuple(manager.get_warp_mesh(mesh, obj=other) for mesh in other_meshes),
                     )
                 )
 
-            if child_mesh is not None:
+            if child_meshes:
                 # reverse: other's mesh/spheres or AABB-sphere approximation → child's mesh
-                other_spheres = _get_subject_spheres(other_mesh, other_bbox, other, manager, device)
+                other_spheres = _get_subject_spheres(other_meshes, other_bbox, other, manager, device)
                 if other_spheres is None:
                     continue
-                other_applies_yaw = other_mesh is not None or not bboxes_include_yaw
+                other_applies_yaw = bool(other_meshes) or not bboxes_include_yaw
                 pairs.append(
                     MeshPairEntry(
                         subject=other,
@@ -347,11 +384,11 @@ def _collect_mesh_pairs(
                         radii=other_spheres[:, 3],
                         subject_bbox_min=o_bbox_min,
                         subject_bbox_max=o_bbox_max,
-                        subject_bbox_includes_yaw=bboxes_include_yaw,
+                        subject_bbox_includes_yaw=other_bbox_includes_yaw,
                         obstacle_bbox_min=c_bbox_min,
                         obstacle_bbox_max=c_bbox_max,
-                        obstacle_bbox_includes_yaw=bboxes_include_yaw,
-                        warp_mesh=manager.get_warp_mesh(child_mesh, obj=child),
+                        obstacle_bbox_includes_yaw=child_bbox_includes_yaw,
+                        warp_meshes=tuple(manager.get_warp_mesh(mesh, obj=child) for mesh in child_meshes),
                     )
                 )
 
@@ -359,15 +396,15 @@ def _collect_mesh_pairs(
 
 
 def _get_subject_spheres(
-    mesh: trimesh.Trimesh | None,
+    meshes: tuple[trimesh.Trimesh, ...],
     bbox: AxisAlignedBoundingBox,
     obj: PlaceableAsset,
     manager: WarpMeshAndSphereCache,
     device: torch.device,
 ) -> torch.Tensor | None:
     """Return (S, 4) query spheres; return None for varying meshless bboxes."""
-    if mesh is not None:
-        return manager.get_query_spheres(mesh, obj=obj).to(device)
+    if meshes:
+        return manager.get_query_spheres_for_meshes(meshes, obj=obj).to(device)
     if not bbox.is_batch_invariant():
         return None
     center = bbox.center[0].detach().cpu().numpy()
@@ -377,6 +414,22 @@ def _get_subject_spheres(
     return manager.get_query_spheres(box_mesh).to(device)
 
 
+def _collision_bounds(
+    meshes: tuple[trimesh.Trimesh, ...],
+    fallback_bbox: AxisAlignedBoundingBox,
+    batch_size: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return local broadphase bounds covering the collision representation."""
+    if not meshes:
+        return fallback_bbox.min_point.expand(batch_size, 3), fallback_bbox.max_point.expand(batch_size, 3)
+
+    component_bounds = np.stack([mesh.bounds for mesh in meshes])
+    bbox_min = torch.tensor(component_bounds[:, 0].min(axis=0), dtype=torch.float32, device=device)
+    bbox_max = torch.tensor(component_bounds[:, 1].max(axis=0), dtype=torch.float32, device=device)
+    return bbox_min.expand(batch_size, 3), bbox_max.expand(batch_size, 3)
+
+
 def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> MeshPairCache | None:
     """Stack collected pair entries into a MeshPairCache; None when no pairs qualify."""
     if not entries:
@@ -384,17 +437,21 @@ def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> 
 
     mesh_id_map: dict[int, int] = {}
     mesh_id_values: list[int] = []
-    mesh_idx_per_sphere: list[int] = []
+    query_sphere_ids: list[int] = []
+    mesh_idx_per_query: list[int] = []
     pair_slices: list[tuple[int, int]] = []
     offset = 0
 
     for entry in entries:
         n_spheres = entry.centers_local.shape[0]
-        mesh_key = id(entry.warp_mesh)
-        if mesh_key not in mesh_id_map:
-            mesh_id_map[mesh_key] = len(mesh_id_values)
-            mesh_id_values.append(entry.warp_mesh.id)
-        mesh_idx_per_sphere.extend([mesh_id_map[mesh_key]] * n_spheres)
+        sphere_ids = list(range(offset, offset + n_spheres))
+        for warp_mesh in entry.warp_meshes:
+            mesh_key = id(warp_mesh)
+            if mesh_key not in mesh_id_map:
+                mesh_id_map[mesh_key] = len(mesh_id_values)
+                mesh_id_values.append(warp_mesh.id)
+            query_sphere_ids.extend(sphere_ids)
+            mesh_idx_per_query.extend([mesh_id_map[mesh_key]] * n_spheres)
         pair_slices.append((offset, offset + n_spheres))
         offset += n_spheres
 
@@ -418,7 +475,8 @@ def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> 
         pair_obstacle_bbox_includes_yaw=[e.obstacle_bbox_includes_yaw for e in entries],
         pair_max_radius=torch.tensor([e.radii.max().item() for e in entries], device=device),
         sphere_pair_id=sphere_pair_id,
-        sphere_mesh_idx=torch.tensor(mesh_idx_per_sphere, dtype=torch.int32, device=device),
+        query_sphere_id=torch.tensor(query_sphere_ids, dtype=torch.long, device=device),
+        query_mesh_idx=torch.tensor(mesh_idx_per_query, dtype=torch.int32, device=device),
         pair_sphere_count=pair_sphere_count,
         mesh_id_array=wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=str(device)),
         num_pairs=len(entries),

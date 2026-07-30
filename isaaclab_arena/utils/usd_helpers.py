@@ -468,16 +468,19 @@ def extract_trimesh_from_usd_path(
     return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
 
 
-def extract_trimesh_from_usd_at_joint_pos(
+def extract_link_bbox_meshes_from_usd_at_joint_pos(
     usd_path: str,
     joint_pos: Mapping[str, float],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-) -> trimesh.Trimesh:
-    """Extract an articulation's mesh posed at joint_pos, in its default prim's local frame.
+) -> tuple[trimesh.Trimesh, ...]:
+    """Return posed box meshes grouped by rigid body, in the default prim's local frame.
 
     Joints the articulation has but joint_pos omits are posed at zero, so the result depends only on
-    joint_pos and not on the configuration the asset happens to be authored in. Cached in process
-    and shared with every other caller, so treat the result as read-only.
+    joint_pos and not on the configuration the asset happens to be authored in. Each box encloses all
+    default-purpose geometry attached to one rigid body in that body's local frame, then follows the
+    body's posed transform. Geometry not attached to a rigid body is represented by one root box.
+
+    Results are cached in process and shared with every other caller, so treat them as read-only.
 
     Args:
         usd_path: Path to the articulation's .usd/.usda/.usdc file.
@@ -485,29 +488,134 @@ def extract_trimesh_from_usd_at_joint_pos(
         scale: Spawn-time scale passed to ``UsdFileCfg``.
 
     Returns:
-        Combined trimesh in the scaled default-prim frame.
+        Watertight link-box meshes in the scaled default-prim frame.
     """
-    return _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
+    return _extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
 
 
 # NOTE(zihaox, 2026-07-28): Cache here rather than on the asset. Isaac Lab reaches assets through
 # EventTermCfg params, and configclass's validation walk tracks no visited set, so a trimesh held by
 # an asset sends it recursing through trimesh's internal back-references until the stack overflows.
 @functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _extract_link_bbox_meshes_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+) -> tuple[trimesh.Trimesh, ...]:
+    """Cacheable body of ``extract_link_bbox_meshes_from_usd_at_joint_pos``."""
+    assert all(
+        component > 0 for component in scale
+    ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
+    joint_pos = dict(joint_pos_items)
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+    return _posed_link_bbox_meshes(stage, default_prim, deltas, scale)
+
+
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
 def _extract_trimesh_from_usd_at_joint_pos(
     usd_path: str,
     joint_pos_items: tuple[tuple[str, float], ...],
     scale: tuple[float, float, float],
 ) -> trimesh.Trimesh:
-    """Cacheable body of ``extract_trimesh_from_usd_at_joint_pos``, keyed by hashable arguments."""
-    joint_pos = dict(joint_pos_items)
-    stage = Usd.Stage.Open(usd_path)
-    assert stage is not None, f"could not open USD: {usd_path}"
-    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-    default_prim_path = default_prim.GetPath().pathString
-    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
-    deltas = compute_posed_prim_world_deltas(stage, default_prim_path, resolved)
-    return extract_trimesh_from_prim(stage, default_prim_path, scale, prim_world_deltas=deltas)
+    """Return a cached mesh containing all of an articulation's link boxes."""
+    meshes = _extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, joint_pos_items, scale)
+    return trimesh.util.concatenate(meshes)
+
+
+def extract_trimesh_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Return one mesh containing all of an articulation's posed link boxes."""
+    return _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
+
+
+def _nearest_rigid_body_ancestor(prim: Usd.Prim, root_prim: Usd.Prim) -> Usd.Prim | None:
+    """Return the nearest rigid-body ancestor at or below root_prim."""
+    candidate = prim
+    root_path = root_prim.GetPath()
+    while candidate and candidate.IsValid() and candidate.GetPath().HasPrefix(root_path):
+        if candidate.HasAPI(UsdPhysics.RigidBodyAPI):
+            return candidate
+        if candidate == root_prim:
+            break
+        candidate = candidate.GetParent()
+    return None
+
+
+def _untransformed_gprim_corners(
+    prim: Usd.Prim,
+    bbox_cache: UsdGeom.BBoxCache,
+) -> np.ndarray | None:
+    """Return a Gprim's local homogeneous bound corners, or None for an empty bound."""
+    local_range = bbox_cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+    if local_range.IsEmpty():
+        return None
+    low, high = local_range.GetMin(), local_range.GetMax()
+    return np.array(
+        [[x, y, z, 1.0] for x in (low[0], high[0]) for y in (low[1], high[1]) for z in (low[2], high[2])],
+        dtype=np.float64,
+    )
+
+
+def _posed_link_bbox_meshes(
+    stage: Usd.Stage,
+    default_prim: Usd.Prim,
+    body_deltas: Mapping[str, np.ndarray],
+    scale: tuple[float, float, float],
+) -> tuple[trimesh.Trimesh, ...]:
+    """Build and pose one local bounding box per rigid body or static root."""
+    time = Usd.TimeCode.Default()
+    bbox_cache = UsdGeom.BBoxCache(time, includedPurposes=[UsdGeom.Tokens.default_])
+    root_world_tf = np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(time))
+    root_world_tf_inv = np.linalg.inv(root_world_tf)
+    scale_np = np.asarray(scale, dtype=np.float64)
+
+    frames: dict[str, Usd.Prim] = {}
+    corners_by_frame: dict[str, list[np.ndarray]] = {}
+    for prim in Usd.PrimRange(default_prim, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Gprim):
+            continue
+        local_corners = _untransformed_gprim_corners(prim, bbox_cache)
+        if local_corners is None:
+            continue
+        body_prim = _nearest_rigid_body_ancestor(prim, default_prim)
+        frame_prim = body_prim or default_prim
+        frame_path = frame_prim.GetPath().pathString
+        frames.setdefault(frame_path, frame_prim)
+        frame_world_tf = np.array(UsdGeom.Xformable(frame_prim).ComputeLocalToWorldTransform(time))
+        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(time))
+        corners_by_frame.setdefault(frame_path, []).append(
+            local_corners @ (prim_world_tf @ np.linalg.inv(frame_world_tf))
+        )
+
+    meshes: list[trimesh.Trimesh] = []
+    for frame_path, local_corners in corners_by_frame.items():
+        stacked = np.vstack(local_corners)[:, :3]
+        low, high = stacked.min(axis=0), stacked.max(axis=0)
+        extents = high - low
+        assert np.all(extents > 0.0), f"degenerate geometry under {frame_path}: extents={extents}"
+        box = trimesh.creation.box(extents=extents)
+        box.apply_translation((low + high) / 2.0)
+
+        frame_prim = frames[frame_path]
+        posed_frame_world_tf = np.array(UsdGeom.Xformable(frame_prim).ComputeLocalToWorldTransform(time))
+        delta = body_deltas.get(frame_path)
+        if delta is not None:
+            posed_frame_world_tf = posed_frame_world_tf @ delta
+        frame_to_root = posed_frame_world_tf @ root_world_tf_inv
+        vertices_h = np.column_stack([box.vertices, np.ones(len(box.vertices))])
+        vertices = (vertices_h @ frame_to_root)[:, :3] * scale_np
+        meshes.append(trimesh.Trimesh(vertices=vertices, faces=box.faces, process=False))
+
+    assert meshes, f"no bounded geometry found under {default_prim.GetPath()}"
+    return tuple(meshes)
 
 
 def compute_local_bounding_box_from_usd_at_joint_pos(

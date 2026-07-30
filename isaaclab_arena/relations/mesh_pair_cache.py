@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class MeshPairEntry(NamedTuple):
     """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh).
 
-    Dimensions: S = sphere count for this pair's subject, B = batch_size.
+    Dimensions: S = subject sphere count, B = batch size, C = obstacle component count.
     """
 
     subject: PlaceableAsset
@@ -66,8 +66,8 @@ class MeshPairEntry(NamedTuple):
     obstacle_bbox_includes_yaw: bool
     """True when obstacle bbox extents are already yaw-expanded."""
 
-    warp_mesh: wp.Mesh
-    """Warp mesh asset for the obstacle."""
+    warp_meshes: tuple[wp.Mesh, ...]
+    """(C,) Warp mesh components for the obstacle."""
 
 
 @dataclass(slots=True)
@@ -77,6 +77,7 @@ class MeshPairCache:
     Dimensions: P = num_pairs (ordered subject/obstacle pairs), B = batch_size (num envs),
     S = total_spheres (sum of sphere counts across all P pairs; each subject object is decomposed
     into multiple covering spheres via greedy_sphere_decomposition),
+    Q = total sphere/component SDF queries,
     M = num_unique_meshes (distinct collision meshes referenced by the pairs).
     """
 
@@ -128,8 +129,11 @@ class MeshPairCache:
     sphere_pair_id: torch.Tensor
     """(S,) pair index for each sphere."""
 
-    sphere_mesh_idx: torch.Tensor
-    """(S,) per-sphere index into mesh_id_array."""
+    query_sphere_id: torch.Tensor
+    """(Q,) logical sphere index for each sphere/component SDF query."""
+
+    query_mesh_idx: torch.Tensor
+    """(Q,) per-query index into mesh_id_array."""
 
     pair_sphere_count: torch.Tensor
     """(P,) number of spheres for each pair."""
@@ -141,7 +145,7 @@ class MeshPairCache:
     """Total number of active object pairs."""
 
     total_spheres: int
-    """Total number of sphere queries across all pairs."""
+    """Total number of logical spheres across all pairs."""
 
     def __post_init__(self) -> None:
         assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
@@ -157,7 +161,7 @@ class MeshPairCache:
         assert self.all_centers_local.shape[0] == self.total_spheres, "all_centers_local size mismatch"
         assert self.all_radii.shape[0] == self.total_spheres, "all_radii size mismatch"
         assert self.sphere_pair_id.shape[0] == self.total_spheres, "sphere_pair_id size mismatch"
-        assert self.sphere_mesh_idx.shape[0] == self.total_spheres, "sphere_mesh_idx size mismatch"
+        assert self.query_sphere_id.shape == self.query_mesh_idx.shape, "query arrays size mismatch"
         assert int(self.pair_sphere_count.sum().item()) == self.total_spheres, "pair_sphere_count sum mismatch"
         for i, (is_fixed, pos) in enumerate(zip(self.pair_obstacle_is_fixed, self.pair_fixed_obstacle_pos)):
             assert not is_fixed or pos is not None, f"pair {i}: obstacle_is_fixed=True but fixed_obstacle_pos is None"

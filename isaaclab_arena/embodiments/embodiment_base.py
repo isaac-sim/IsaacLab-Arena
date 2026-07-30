@@ -104,16 +104,24 @@ class EmbodimentBase(PlaceableAsset):
         )
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return the robot's collision mesh, posed at its configured initial joint positions.
-
-        The mesh matches the robot as spawned even when its USD was authored in another joint
-        configuration. Shared and cached across callers, so treat the result as read-only.
-        """
+        """Return one mesh containing all posed link boxes."""
         # Import locally because USD/pxr is available only after simulation initialization.
         from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
         source = self.get_placement_geometry_source()
         return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
+
+    def get_collision_meshes(self) -> tuple[trimesh.Trimesh, ...]:
+        """Return independently closed posed link-box meshes.
+
+        One box covers each rigid body's geometry; static root geometry gets another. Results are
+        cached and read-only.
+        """
+        # Import locally because USD/pxr is available only after simulation initialization.
+        from isaaclab_arena.utils.usd_helpers import extract_link_bbox_meshes_from_usd_at_joint_pos
+
+        source = self.get_placement_geometry_source()
+        return extract_link_bbox_meshes_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; the construction pose is applied in ``get_scene_cfg``."""

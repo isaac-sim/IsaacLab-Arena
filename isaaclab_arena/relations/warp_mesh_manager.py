@@ -150,7 +150,8 @@ class WarpMeshAndSphereCache:
         if not isinstance(obj, Object) or obj.usd_path is None:
             return obj.get_collision_mesh()
         usd_path = obj.usd_path
-        scale = tuple(obj.scale)
+        scale_x, scale_y, scale_z = obj.scale
+        scale = (scale_x, scale_y, scale_z)
         key = (usd_path, scale)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
@@ -166,6 +167,19 @@ class WarpMeshAndSphereCache:
                 print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
                 return None
         return self._trimesh_cache[key]
+
+    def get_collision_meshes(self, obj: CollisionObject) -> tuple[trimesh.Trimesh, ...]:
+        """Return an object's collision mesh components."""
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+        if isinstance(obj, Object):
+            mesh = self.get_collision_mesh(obj)
+            return () if mesh is None else (mesh,)
+        if isinstance(obj, PlaceableAsset):
+            return obj.get_collision_meshes()
+        mesh = obj.get_collision_mesh()
+        return () if mesh is None else (mesh,)
 
     @property
     def device(self) -> str:
@@ -211,12 +225,40 @@ class WarpMeshAndSphereCache:
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
-        key = self._cache_key(mesh, obj)
+        return self._get_query_spheres(mesh, obj, self._num_spheres)
+
+    def _get_query_spheres(
+        self,
+        mesh: trimesh.Trimesh,
+        obj: CollisionObject | None,
+        num_spheres: int,
+    ) -> torch.Tensor:
+        """Return a cached sphere decomposition with an explicit component budget."""
+        key = (*self._cache_key(mesh, obj), "spheres", num_spheres)
         if key not in self._sphere_cache:
             spheres_np = greedy_sphere_decomposition(
                 mesh,
-                num_spheres=self._num_spheres,
+                num_spheres=num_spheres,
                 sphere_radius=self._sphere_radius,
             )
             self._sphere_cache[key] = torch.from_numpy(spheres_np).float()
         return self._sphere_cache[key]
+
+    def get_query_spheres_for_meshes(
+        self,
+        meshes: tuple[trimesh.Trimesh, ...],
+        obj: CollisionObject | None = None,
+    ) -> torch.Tensor:
+        """Decompose each collision component separately, then combine its query spheres."""
+        assert meshes, "at least one collision component is required"
+        if len(meshes) == 1:
+            return self.get_query_spheres(meshes[0], obj=obj)
+
+        minimum_per_component = 4
+        total_budget = max(self._num_spheres, minimum_per_component * len(meshes))
+        base_budget, remainder = divmod(total_budget, len(meshes))
+        spheres = [
+            self._get_query_spheres(mesh, obj, base_budget + int(index < remainder))
+            for index, mesh in enumerate(meshes)
+        ]
+        return torch.cat(spheres)

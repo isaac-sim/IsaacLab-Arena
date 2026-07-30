@@ -146,3 +146,8 @@ class PlaceableAsset(Asset, ABC):
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """
+
+    def get_collision_meshes(self) -> tuple[trimesh.Trimesh, ...]:
+        """Return independently queried collision mesh components."""
+        mesh = self.get_collision_mesh()
+        return () if mesh is None else (mesh,)

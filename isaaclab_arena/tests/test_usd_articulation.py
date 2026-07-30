@@ -172,12 +172,15 @@ def _test_joint_pos_patterns_expand_to_joint_names(simulation_app) -> bool:
 
 
 def _test_droid_geometry_tracks_configured_joint_positions(simulation_app) -> bool:
-    """Posing the real Droid at its configured joints reproduces its authored geometry, zero does not."""
+    """Droid's configured and zero joint positions produce different conservative link-box proxies."""
     from pxr import Usd
 
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.utils.usd_articulation import articulation_joint_prims
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos, extract_trimesh_from_usd_path
+    from isaaclab_arena.utils.usd_helpers import (
+        compute_local_bounding_box_from_usd_at_joint_pos,
+        extract_trimesh_from_usd_at_joint_pos,
+    )
 
     robot = DroidAbsoluteJointPositionEmbodiment().scene_config.robot
     usd_path = robot.spawn.usd_path
@@ -188,22 +191,19 @@ def _test_droid_geometry_tracks_configured_joint_positions(simulation_app) -> bo
 
     # Passed verbatim, so the config's regex keys (e.g. "right_outer.*") must resolve to real joints.
     configured = robot.init_state.joint_pos
-    authored = extract_trimesh_from_usd_path(usd_path)
     posed = extract_trimesh_from_usd_at_joint_pos(usd_path, configured)
-    np.testing.assert_allclose(posed.extents, authored.extents, atol=2e-3)
+    posed_bbox = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, configured)
+    np.testing.assert_allclose(posed.extents, posed_bbox.size.numpy()[0], atol=2e-3)
 
-    # At zero the arm stands straight up, so it is taller and narrower than the authored pose.
+    # At zero the arm stands straight up, so it is taller and narrower than the configured pose.
     zero = extract_trimesh_from_usd_at_joint_pos(usd_path, {})
-    assert zero.extents[2] > authored.extents[2] + 0.2, f"zero pose should stand taller: {zero.extents}"
-    assert zero.extents[0] < authored.extents[0] - 0.2, f"zero pose should be narrower: {zero.extents}"
+    assert zero.extents[2] > posed.extents[2] + 0.2, f"zero pose should stand taller: {zero.extents}"
+    assert zero.extents[0] < posed.extents[0] - 0.2, f"zero pose should be narrower: {zero.extents}"
     return True
 
 
 def _test_droid_posed_bounding_box_covers_all_geometry(simulation_app) -> bool:
-    """The posed bbox covers every gprim, not just the meshes.
-
-    Deriving bounds from the posed mesh instead drops analytic gprims such as ``gripper_adapter``.
-    """
+    """The link-box proxy covers every posed Gprim, including analytic geometry."""
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.utils.usd_helpers import (
         compute_local_bounding_box_from_usd,
@@ -220,12 +220,12 @@ def _test_droid_posed_bounding_box_covers_all_geometry(simulation_app) -> bool:
     np.testing.assert_allclose(posed.size.numpy()[0], authored.size.numpy()[0], atol=2e-3)
     np.testing.assert_allclose(posed.min_point.numpy()[0], authored.min_point.numpy()[0], atol=2e-3)
 
-    # The bbox must be at least as large as the mesh, since it also covers the non-mesh gprims.
+    # Both paths include every Gprim. Link-local boxes are conservative, so their aggregate can be
+    # larger than the exact posed bound but must never be smaller.
     mesh_extents = extract_trimesh_from_usd_at_joint_pos(usd_path, configured).extents
     posed_size = posed.size.numpy()[0]
-    assert np.all(posed_size >= mesh_extents - 1e-6), f"bbox {posed_size} smaller than mesh {mesh_extents}"
-    # Droid's dropped gripper_adapter makes this a strict difference, so a mesh-only bbox would fail.
-    assert np.any(posed_size > mesh_extents + 1e-3), "expected non-mesh geometry to widen the bbox"
+    assert np.all(mesh_extents >= posed_size - 1e-6), f"proxy {mesh_extents} does not cover bbox {posed_size}"
+    assert np.all(mesh_extents - posed_size < 0.2), f"link-local proxy is unexpectedly loose: {mesh_extents}"
     return True
 
 
@@ -331,6 +331,7 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
 
     from isaaclab_arena.utils.usd_helpers import (
         compute_local_bounding_box_from_usd_at_joint_pos,
+        extract_link_bbox_meshes_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
     )
 
@@ -347,6 +348,16 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
     with tempfile.TemporaryDirectory() as tmp_dir:
         usd_path = f"{tmp_dir}/arm_with_instanced_mount.usda"
         stage.Export(usd_path)
+
+        components = extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, {})
+        assert len(components) == 2, "the base and forearm must each produce exactly one collision component"
+        assert all(component.is_watertight for component in components)
+        try:
+            extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, {}, scale=(-1.0, 1.0, 1.0))
+        except AssertionError as error:
+            assert "positive" in str(error)
+        else:
+            raise AssertionError("negative spawn scale must be rejected before it flips SDF signs")
 
         # The mount reaches 1.7 along +X: forearm at 1.0, mount offset 0.5, half extent 0.2.
         rest = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {})

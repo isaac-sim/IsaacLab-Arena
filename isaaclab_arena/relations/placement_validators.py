@@ -440,14 +440,8 @@ class NoOverlapValidator(PlacementValidator):
                 if (id(a), id(b)) in on_pairs:
                     continue
                 if mesh_manager is not None and (
-                    (
-                        object_uses_mesh_collision(a, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(a) is not None
-                    )
-                    or (
-                        object_uses_mesh_collision(b, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(b) is not None
-                    )
+                    (object_uses_mesh_collision(a, default_collision_mode) and mesh_manager.get_collision_meshes(a))
+                    or (object_uses_mesh_collision(b, default_collision_mode) and mesh_manager.get_collision_meshes(b))
                 ):
                     continue
                 yield a, b
@@ -484,7 +478,7 @@ class NoOverlapValidator(PlacementValidator):
                 if (
                     mesh_manager is not None
                     and object_uses_mesh_collision(background, default_collision_mode)
-                    and mesh_manager.get_collision_mesh(background) is not None
+                    and mesh_manager.get_collision_meshes(background)
                 ):
                     continue
                 if obj_world.overlaps(background_world, margin=margin).item():
@@ -523,11 +517,11 @@ class NoOverlapValidator(PlacementValidator):
         for a, b in self._non_skip_pairs(positions):
             a_uses_mesh = object_uses_mesh_collision(a, default_collision_mode)
             b_uses_mesh = object_uses_mesh_collision(b, default_collision_mode)
-            a_mesh = mesh_manager.get_collision_mesh(a) if a_uses_mesh else None
-            b_mesh = mesh_manager.get_collision_mesh(b) if b_uses_mesh else None
-            if a_mesh is None and b_mesh is None:
-                for obj, uses_mesh, mesh in [(a, a_uses_mesh, a_mesh), (b, b_uses_mesh, b_mesh)]:
-                    if uses_mesh and mesh is None and obj.name not in warned_no_mesh:
+            a_meshes = mesh_manager.get_collision_meshes(a) if a_uses_mesh else ()
+            b_meshes = mesh_manager.get_collision_meshes(b) if b_uses_mesh else ()
+            if not a_meshes and not b_meshes:
+                for obj, uses_mesh, meshes in [(a, a_uses_mesh, a_meshes), (b, b_uses_mesh, b_meshes)]:
+                    if uses_mesh and not meshes and obj.name not in warned_no_mesh:
                         warned_no_mesh.add(obj.name)
                         print(
                             f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
@@ -538,15 +532,15 @@ class NoOverlapValidator(PlacementValidator):
             a_pos = torch.tensor(positions[a], dtype=torch.float32)
             b_pos = torch.tensor(positions[b], dtype=torch.float32)
 
-            if b_mesh is not None and self._spheres_penetrate_mesh(
+            if b_meshes and self._spheres_penetrate_mesh(
                 a,
-                self._collision_mesh_or_aabb_proxy(a_mesh, env_bboxes[a]),
-                a if a_mesh is not None else None,
-                a_mesh is not None,
+                self._collision_meshes_or_aabb_proxy(a_meshes, env_bboxes[a]),
+                a if a_meshes else None,
+                bool(a_meshes),
                 a.is_anchor,
                 a_pos,
                 b,
-                b_mesh,
+                b_meshes,
                 b_pos,
                 b.is_anchor,
                 mesh_manager,
@@ -554,15 +548,15 @@ class NoOverlapValidator(PlacementValidator):
                 orientations,
             ):
                 return False
-            if a_mesh is not None and self._spheres_penetrate_mesh(
+            if a_meshes and self._spheres_penetrate_mesh(
                 b,
-                self._collision_mesh_or_aabb_proxy(b_mesh, env_bboxes[b]),
-                b if b_mesh is not None else None,
-                b_mesh is not None,
+                self._collision_meshes_or_aabb_proxy(b_meshes, env_bboxes[b]),
+                b if b_meshes else None,
+                bool(b_meshes),
                 b.is_anchor,
                 b_pos,
                 a,
-                a_mesh,
+                a_meshes,
                 a_pos,
                 a.is_anchor,
                 mesh_manager,
@@ -574,19 +568,19 @@ class NoOverlapValidator(PlacementValidator):
         for source in positions:
             if source.is_anchor:
                 continue
-            source_mesh = (
-                mesh_manager.get_collision_mesh(source)
+            source_meshes = (
+                mesh_manager.get_collision_meshes(source)
                 if object_uses_mesh_collision(source, default_collision_mode)
-                else None
+                else ()
             )
             source_pos = torch.tensor(positions[source], dtype=torch.float32)
             for background in collision_objects:
-                target_mesh = (
-                    mesh_manager.get_collision_mesh(background)
+                target_meshes = (
+                    mesh_manager.get_collision_meshes(background)
                     if object_uses_mesh_collision(background, default_collision_mode)
-                    else None
+                    else ()
                 )
-                if target_mesh is None:
+                if not target_meshes:
                     continue
                 target_pose = background.get_initial_pose()
                 assert isinstance(
@@ -595,13 +589,13 @@ class NoOverlapValidator(PlacementValidator):
                 target_pos = torch.tensor(target_pose.position_xyz, dtype=torch.float32)
                 if self._spheres_penetrate_mesh(
                     source,
-                    self._collision_mesh_or_aabb_proxy(source_mesh, env_bboxes[source]),
-                    source if source_mesh is not None else None,
-                    source_mesh is not None,
+                    self._collision_meshes_or_aabb_proxy(source_meshes, env_bboxes[source]),
+                    source if source_meshes else None,
+                    bool(source_meshes),
                     source.is_anchor,
                     source_pos,
                     background,
-                    target_mesh,
+                    target_meshes,
                     target_pos,
                     True,
                     mesh_manager,
@@ -613,27 +607,27 @@ class NoOverlapValidator(PlacementValidator):
         return True
 
     @staticmethod
-    def _collision_mesh_or_aabb_proxy(
-        mesh: trimesh.Trimesh | None,
+    def _collision_meshes_or_aabb_proxy(
+        meshes: tuple[trimesh.Trimesh, ...],
         bbox: AxisAlignedBoundingBox,
-    ) -> trimesh.Trimesh:
-        """Return an object's collision mesh, or a box mesh matching the candidate AABB."""
-        if mesh is not None:
-            return mesh
+    ) -> tuple[trimesh.Trimesh, ...]:
+        """Return an object's collision components, or one box matching the candidate AABB."""
+        if meshes:
+            return meshes
         box_mesh = trimesh.creation.box(extents=bbox.size[0].detach().cpu().numpy())
         box_mesh.apply_translation(bbox.center[0].detach().cpu().numpy())
-        return box_mesh
+        return (box_mesh,)
 
     def _spheres_penetrate_mesh(
         self,
         source: PlaceableAsset,
-        source_mesh: trimesh.Trimesh,
+        source_meshes: tuple[trimesh.Trimesh, ...],
         source_sphere_cache_obj: PlaceableAsset | None,
         source_applies_yaw: bool,
         source_uses_pose_yaw: bool,
         source_pos: torch.Tensor,
         target: PlaceableAsset | CollisionObject,
-        target_mesh: trimesh.Trimesh,
+        target_meshes: tuple[trimesh.Trimesh, ...],
         target_pos: torch.Tensor,
         target_uses_pose_yaw: bool,
         mesh_manager: WarpMeshAndSphereCache,
@@ -645,8 +639,7 @@ class NoOverlapValidator(PlacementValidator):
         source_applies_yaw describes whether sphere centers need sampled-yaw rotation.
         *_uses_pose_yaw controls whether fixed anchors/passive obstacles contribute pose yaw.
         """
-        spheres = mesh_manager.get_query_spheres(source_mesh, obj=source_sphere_cache_obj)
-        warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target)
+        spheres = mesh_manager.get_query_spheres_for_meshes(source_meshes, obj=source_sphere_cache_obj)
         centers = self._centers_in_target_frame(
             spheres[:, :3],
             source,
@@ -658,10 +651,14 @@ class NoOverlapValidator(PlacementValidator):
             source_uses_pose_yaw=source_uses_pose_yaw,
             target_uses_pose_yaw=target_uses_pose_yaw,
         )
-        sdf = mesh_sdf(centers, warp_mesh)
-        mesh_manager.warn_sdf_sentinel(sdf)
-        if has_sdf_sentinel(sdf):
-            return True
+        component_sdfs = [
+            mesh_sdf(centers, mesh_manager.get_warp_mesh(target_mesh, obj=target)) for target_mesh in target_meshes
+        ]
+        for component_sdf in component_sdfs:
+            mesh_manager.warn_sdf_sentinel(component_sdf)
+            if has_sdf_sentinel(component_sdf):
+                return True
+        sdf = torch.stack(component_sdfs).amin(dim=0)
         if (sdf < spheres[:, 3] + tolerance).any():
             if self._params.verbose:
                 print(f"  Mesh overlap between '{source.name}' and '{target.name}'")

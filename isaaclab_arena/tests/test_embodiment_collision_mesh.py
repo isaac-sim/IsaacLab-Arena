@@ -19,6 +19,10 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         mesh = emb.get_collision_mesh()
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"
         assert len(mesh.vertices) > 0
+        components = emb.get_collision_meshes()
+        assert len(components) > 1, "an articulated robot must retain separate per-link components"
+        assert all(component.is_watertight for component in components)
+        assert len(mesh.split(only_watertight=False)) == len(components)
 
         # The spawn USD composes robot and stand, so the mesh spans the whole assembly: 1.46 x 0.91 x
         # 2.10 m as measured, the tallest axis being the arm on its 1.35 m stand. A leaked 50 m ground
@@ -41,6 +45,8 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         # shares it.
         assert emb.get_collision_mesh() is mesh
         assert DroidAbsoluteJointPositionEmbodiment().get_collision_mesh() is mesh
+        assert emb.get_collision_meshes() is components
+        assert DroidAbsoluteJointPositionEmbodiment().get_collision_meshes() is components
         assert emb.get_bounding_box() is bbox
         assert DroidAbsoluteJointPositionEmbodiment().get_bounding_box() is bbox
 

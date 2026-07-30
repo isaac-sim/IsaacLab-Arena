@@ -103,7 +103,7 @@ def test_object_placer_aabb_proxy_uses_candidate_bbox():
     from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 
     bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
-    proxy = NoOverlapValidator._collision_mesh_or_aabb_proxy(None, bbox)
+    (proxy,) = NoOverlapValidator._collision_meshes_or_aabb_proxy((), bbox)
 
     np.testing.assert_allclose(proxy.extents, [0.4, 0.2, 0.1], atol=1e-6)
 
@@ -129,6 +129,41 @@ def test_mesh_broadphase_rotates_bbox_about_object_origin():
 
     torch.testing.assert_close(min_point, expected.min_point)
     torch.testing.assert_close(max_point, expected.max_point)
+
+
+def test_mesh_broadphase_uses_component_proxy_bounds():
+    """Broadphase bounds cover conservative collision components, not only exact geometry."""
+    from isaaclab_arena.relations.no_overlap_mesh import _collision_bounds
+
+    exact_bbox = AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1))
+    proxy = trimesh.creation.box(extents=(0.4, 0.2, 0.2))
+    proxy.apply_translation((0.3, 0.0, 0.0))
+
+    bbox_min, bbox_max = _collision_bounds((proxy,), exact_bbox, batch_size=2, device=torch.device("cpu"))
+    torch.testing.assert_close(bbox_min, torch.tensor([[0.1, -0.1, -0.1]]).expand(2, 3))
+    torch.testing.assert_close(bbox_max, torch.tensor([[0.5, 0.1, 0.1]]).expand(2, 3))
+
+
+def test_component_sphere_decomposition_keeps_meshes_separate(monkeypatch):
+    """Each collision component receives its own sphere-decomposition budget."""
+    import isaaclab_arena.relations.warp_mesh_manager as warp_mesh_manager
+
+    calls: list[tuple[int, int]] = []
+
+    def _fake_decomposition(mesh, num_spheres, **kwargs):
+        calls.append((len(mesh.vertices), num_spheres))
+        return np.zeros((num_spheres, 4))
+
+    monkeypatch.setattr(warp_mesh_manager, "greedy_sphere_decomposition", _fake_decomposition)
+    manager = WarpMeshAndSphereCache(num_spheres=8, device="cpu")
+    meshes = (
+        trimesh.creation.box(extents=(0.2, 0.2, 0.2)),
+        trimesh.creation.box(extents=(0.4, 0.2, 0.2)),
+    )
+
+    spheres = manager.get_query_spheres_for_meshes(meshes)
+    assert calls == [(8, 4), (8, 4)]
+    assert spheres.shape == (8, 4)
 
 
 @requires_warp
@@ -547,6 +582,59 @@ def test_mesh_sdf_backward_gradient():
     grad = points.grad[0]
     assert grad[0].item() > 0.0, f"Gradient X should be positive (toward +X face), got {grad[0].item()}"
     assert abs(grad[0].item()) > abs(grad[1].item()), "X component should dominate (closest to +X face)"
+
+
+@requires_warp
+def test_overlapping_components_use_minimum_separate_sdf():
+    """Separate box SDFs preserve the union sign where a concatenated mesh picks the wrong face."""
+    from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
+
+    left = trimesh.creation.box(extents=(1.0, 1.0, 1.0))
+    left.apply_translation((-0.25, 0.0, 0.0))
+    right = trimesh.creation.box(extents=(1.0, 1.0, 1.0))
+    right.apply_translation((0.25, 0.0, 0.0))
+    point = torch.tensor([[-0.30, 0.0, 0.0]], dtype=torch.float32)
+    manager = WarpMeshAndSphereCache(device="cpu")
+
+    aggregate = trimesh.util.concatenate((left, right))
+    assert aggregate.is_watertight
+    aggregate_sdf = mesh_sdf(point, manager.get_warp_mesh(aggregate))
+    assert aggregate_sdf.item() > 0.0, "the closest face belongs to the component the point is outside"
+
+    union_sdf = torch.stack([
+        mesh_sdf(point, manager.get_warp_mesh(left)),
+        mesh_sdf(point, manager.get_warp_mesh(right)),
+    ]).amin()
+    assert union_sdf.item() < 0.0, "the point is inside the union through the left component"
+
+
+@requires_warp
+def test_component_union_sdf_penalizes_a_mixed_sentinel(monkeypatch):
+    """A failed component query remains conservative even when another component returns a valid SDF."""
+    from types import SimpleNamespace
+
+    import isaaclab_arena.relations.no_overlap_mesh as no_overlap_mesh
+
+    monkeypatch.setattr(
+        no_overlap_mesh,
+        "multi_mesh_sdf",
+        lambda centers, mesh_ids, mesh_indices: torch.tensor([1.0e6, 0.5]),
+    )
+    cache = SimpleNamespace(
+        query_sphere_id=torch.tensor([0, 0]),
+        query_mesh_idx=torch.tensor([0, 1], dtype=torch.int32),
+        mesh_id_array=None,
+    )
+    manager = SimpleNamespace(warn_sdf_sentinel=lambda sdf: None)
+
+    union_sdf = no_overlap_mesh._query_component_union_sdf(
+        active_centers=torch.zeros((1, 3)),
+        active_sphere_idx=torch.tensor([0]),
+        sphere_active_mask=torch.tensor([True]),
+        mesh_cache=cache,
+        mesh_manager=manager,
+    )
+    assert union_sdf.item() == 0.0
 
 
 @requires_warp
