@@ -22,6 +22,20 @@ import argparse
 
 def add_experiment_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--objects", type=int, default=8, help="Number of clutter objects to pour.")
+    parser.add_argument(
+        "--region",
+        type=str,
+        default="bin",
+        help="Where to pour: 'bin' (grey bin) or 'floor' (open ground, sized by --region_size).",
+    )
+    parser.add_argument(
+        "--region_size",
+        type=float,
+        nargs=2,
+        default=(1.0, 1.0),
+        metavar=("X", "Y"),
+        help="Floor region size in metres; only used with --region floor.",
+    )
     parser.add_argument("--settle_steps", type=int, default=400, help="Physics steps to settle for.")
     parser.add_argument("--report_every", type=int, default=50, help="Steps between velocity reports.")
     parser.add_argument("--lin_vel_thresh", type=float, default=0.1, help="Settled linear speed (m/s).")
@@ -30,6 +44,23 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--xy_sampling", type=str, default="grid_cells", help="grid_cells|uniform")
     parser.add_argument("--clutter_spread", type=float, default=1.0, help="Scales the usable region.")
     parser.add_argument("--layout_seed", type=int, default=0, help="Layout seed.")
+    parser.add_argument(
+        "--render_settle",
+        action="store_true",
+        help="Render every settle step so the pour is visible. Use with --viz kit.",
+    )
+    parser.add_argument(
+        "--hold_seconds",
+        type=float,
+        default=0.0,
+        help="Keep stepping after settling so the result stays on screen. Use with --viz kit.",
+    )
+    parser.add_argument(
+        "--pause_before_pour",
+        type=float,
+        default=0.0,
+        help="Seconds to hold the pre-pour scene, so the drop layout is visible before it falls.",
+    )
 
 
 # Grocery-sized props standing in for tools: a mix of flat, bulky and elongated shapes.
@@ -61,14 +92,20 @@ def _build_environment(args_cli):
     light = registry.get_asset_by_name("light")(spawner_cfg=sim_utils.DomeLightCfg(intensity=1500.0))
     ground = registry.get_asset_by_name("ground_plane")()
 
+    # The bin is always the solver's anchor (the ground plane has no bounding box); in floor
+    # mode it is parked well clear of the pour region so objects land on open ground.
+    bin_position = BIN_POSITION if args_cli.region == "bin" else (5.0, 0.0, 0.0)
     bin_asset = registry.get_asset_by_name(BIN_ASSET)()
-    bin_asset.set_initial_pose(Pose(position_xyz=BIN_POSITION, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    bin_asset.set_initial_pose(Pose(position_xyz=bin_position, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     bin_asset.add_relation(IsAnchor())
 
     # Park the clutter off to one side; the experiment writes their real poses after reset.
+    # The palette repeats for large counts, so each repeat needs its own instance name --
+    # duplicates would otherwise resolve to a single scene prim.
     objects = []
-    for index, asset_name in enumerate(CLUTTER_ASSETS[: args_cli.objects]):
-        obj = registry.get_asset_by_name(asset_name)()
+    for index in range(args_cli.objects):
+        asset_name = CLUTTER_ASSETS[index % len(CLUTTER_ASSETS)]
+        obj = registry.get_asset_by_name(asset_name)(instance_name=f"{asset_name}_{index}")
         obj.add_relation(AtPosition(x=1.5 + 0.3 * index, y=0.0, z=0.1))
         objects.append(obj)
 
@@ -109,15 +146,20 @@ def _run(simulation_app, args_cli) -> bool:
     device = env.unwrapped.device
 
     # Drop from just above the bin rim so objects fall in regardless of interior geometry.
-    bin_bbox = get_bounding_box_per_env(bin_asset, 1)
-    bin_size = bin_bbox.size[0]
-    floor_z = BIN_POSITION[2] + float(bin_bbox.top_surface_z[0])
-    half_x = float(bin_size[0]) * 0.5 * BIN_INTERIOR_FRACTION
-    half_y = float(bin_size[1]) * 0.5 * BIN_INTERIOR_FRACTION
-    print(
-        f"bin outer size = {float(bin_size[0]):.3f} x {float(bin_size[1]):.3f} x {float(bin_size[2]):.3f} m; "
-        f"usable half-extents = {half_x:.3f} x {half_y:.3f} m; rim z = {floor_z:.3f}"
-    )
+    if args_cli.region == "bin":
+        bin_bbox = get_bounding_box_per_env(bin_asset, 1)
+        bin_size = bin_bbox.size[0]
+        floor_z = BIN_POSITION[2] + float(bin_bbox.top_surface_z[0])
+        half_x = float(bin_size[0]) * 0.5 * BIN_INTERIOR_FRACTION
+        half_y = float(bin_size[1]) * 0.5 * BIN_INTERIOR_FRACTION
+        print(
+            f"bin outer size = {float(bin_size[0]):.3f} x {float(bin_size[1]):.3f} x {float(bin_size[2]):.3f} m; "
+            f"usable half-extents = {half_x:.3f} x {half_y:.3f} m; rim z = {floor_z:.3f}"
+        )
+    else:
+        half_x, half_y = float(args_cli.region_size[0]) * 0.5, float(args_cli.region_size[1]) * 0.5
+        floor_z = 0.0
+        print(f"floor region = {args_cli.region_size[0]:.2f} x {args_cli.region_size[1]:.2f} m at z = {floor_z:.3f}")
 
     region = ClutterRegion(
         min_x=BIN_POSITION[0] - half_x,
@@ -159,12 +201,16 @@ def _run(simulation_app, args_cli) -> bool:
         asset.write_root_state_to_sim(state)
     scene.write_data_to_sim()
 
+    if args_cli.pause_before_pour > 0.0:
+        print(f"\n=== holding drop layout for {args_cli.pause_before_pour:.0f}s (objects frozen mid-air) ===")
+        _hold(env, args_cli.pause_before_pour, freeze=names)
+
     print(f"\n=== settling ({args_cli.settle_steps} steps) ===")
     steps_done = 0
     settled_at = None
     while steps_done < args_cli.settle_steps:
         chunk = min(args_cli.report_every, args_cli.settle_steps - steps_done)
-        physics_settle.step_physics(env, chunk)
+        physics_settle.step_physics(env, chunk, render=args_cli.render_settle)
         steps_done += chunk
         settled = physics_settle.are_all_objects_settled_per_env(
             env, [0], names, args_cli.lin_vel_thresh, args_cli.ang_vel_thresh
@@ -190,8 +236,34 @@ def _run(simulation_app, args_cli) -> bool:
         print(f"  {name:22s} final xyz=({position[0]:6.3f},{position[1]:6.3f},{position[2]:6.3f}) in_region={inside}")
 
     print(f"\n  escaped: {len(escaped)}/{len(names)}" + (f" -> {escaped}" if escaped else ""))
+
+    if args_cli.hold_seconds > 0.0:
+        print(f"\n=== holding result for {args_cli.hold_seconds:.0f}s ===")
+        _hold(env, args_cli.hold_seconds)
+
     env.close()
     return settled_at is not None and not escaped
+
+
+def _hold(env, seconds: float, freeze: list[str] | None = None) -> None:
+    """Keep the viewer alive, optionally re-freezing objects so they stay put on screen."""
+    import time
+    import torch
+
+    from isaaclab_arena.utils import physics_settle
+
+    deadline = time.time() + seconds
+    frozen = None
+    if freeze:
+        frozen = {name: env.unwrapped.scene[name].data.root_state_w[0:1].clone() for name in freeze}
+    while time.time() < deadline:
+        if frozen:
+            for name, state in frozen.items():
+                held = state.clone()
+                held[0, 7:13] = torch.zeros(6, device=held.device)
+                env.unwrapped.scene[name].write_root_state_to_sim(held)
+            env.unwrapped.scene.write_data_to_sim()
+        physics_settle.step_physics(env, 1, render=True)
 
 
 def _max_speeds(scene, names):
