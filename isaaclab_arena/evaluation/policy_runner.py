@@ -14,17 +14,16 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.policy_runner_cli import (
-    add_policy_cli_args,
-    add_policy_runner_arguments,
-    build_policy_from_cli,
-)
 from isaaclab_arena.evaluation.datagen_collector import (
     DatagenCollectorBase,
     EpisodeOutcome,
     NoOpDatagenCollector,
 )
-from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.evaluation.policy_runner_cli import (
+    add_policy_cli_args,
+    add_policy_runner_arguments,
+    build_policy_from_cli,
+)
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -176,6 +175,15 @@ def rollout_policy(
         return None
 
 
+def list_variations(args_parser: argparse.ArgumentParser) -> None:
+    """Print the Hydra-configurable variations for the selected environment."""
+    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+    args_cli, hydra_overrides = args_parser.parse_known_args()
+    assert_hydra_overrides(hydra_overrides, args_parser)
+    arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+    print(arena_builder.get_variations_catalogue_as_string())
+
+
 def main():
     """Run an IsaacLab Arena environment with a policy.
     Use --distributed with torchrun command for one process per GPU on multi-GPU machines. AppLauncher uses LOCAL_RANK for device.
@@ -201,7 +209,13 @@ def main():
         add_policy_runner_arguments(args_parser)
         args_cli, _ = args_parser.parse_known_args()
 
+        # --list_variations only inspects the environment, so short-circuit reading other args.
+        if args_cli.list_variations:
+            list_variations(args_parser)
+            return
+
         # Get the policy class from the policy type
+        assert args_cli.policy_type is not None, "--policy_type is required."
         policy_cls = get_policy_cls(args_cli.policy_type)
         print(
             f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
@@ -227,10 +241,6 @@ def main():
 
         # Build scene. Use rgb_array render mode when recording so the recorders can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
-
-        if args_cli.list_variations:
-            print(arena_builder.get_variations_catalogue_as_string())
-            return
 
         output_dir = timestamped_run_dir(args_cli.output_base_dir)
         video_cfg = VideoRecordingCfg(

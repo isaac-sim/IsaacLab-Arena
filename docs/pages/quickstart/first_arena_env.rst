@@ -210,7 +210,7 @@ The task defines what *success* and *failure* mean. ``PickAndPlaceTask`` declare
 - **success** — the pick-up object is resting on the destination (contact + low velocity).
 - **failure (object dropped)** — the object falls below the table surface.
 
-It also attaches metrics (``SuccessRateMetric``, ``ObjectMovedRateMetric``) that ``eval_runner.py``
+It also attaches metrics (``SuccessRateMetric``, ``ObjectMovedRateMetric``) that ``experiment_runner.py``
 collects at the end of each episode. These metrics will report the proportion of successful episodes,
 as well as the proportion of episodes in which the object was moved.
 

@@ -10,7 +10,7 @@ from isaaclab.envs.mdp.recorders.recorders_cfg import (
     PreStepFlatPolicyObservationsRecorderCfg,
 )
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     NAVIGATE_CMD_END_IDX,

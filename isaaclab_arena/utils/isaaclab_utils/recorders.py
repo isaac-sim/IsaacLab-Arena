@@ -5,7 +5,7 @@
 
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 
 class PreStepFlatCameraObservationsRecorder(RecorderTerm):

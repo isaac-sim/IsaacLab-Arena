@@ -6,13 +6,13 @@
 import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING
+from functools import partial
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import agent_ready, register_task
@@ -21,11 +21,15 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
+from isaaclab_arena.tasks.predicates.object_settling import objects_settled
+from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
-from isaaclab_arena.tasks.terminations import SuccessMode, check_success, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.terminations import SuccessMode, check_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.utils.configclass import make_configclass
 
 
 @agent_ready
@@ -66,11 +70,8 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.scene_config = SceneCfg(
-            pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-                contact_against_object=self.destination_location,
-            ),
-        )
+        self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
+        self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
         if max_separation is not None:
@@ -85,6 +86,20 @@ class PickAndPlaceTask(TaskBase):
             else task_description
         )
 
+    def apply_reachability_constraints(self) -> None:
+        """The robot must reach the object it picks up and the location it places onto."""
+        self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
+
+    def make_scene_cfg(self):
+        contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
+            contact_against_object=self.destination_location,
+        )
+        scene_cfg_type = make_configclass(
+            "SceneCfg",
+            [(self.contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg)],
+        )
+        return scene_cfg_type()
+
     def get_scene_cfg(self):
         return self.scene_config
 
@@ -97,7 +112,7 @@ class PickAndPlaceTask(TaskBase):
                 func=object_on_destination,
                 params={
                     "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
                 },
@@ -160,6 +175,31 @@ class PickAndPlaceTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
+    def get_progress_objectives(self) -> list[ProgressObjective]:
+        return [
+            ProgressObjective(
+                name="pick_and_place",
+                predicate_groups=[
+                    partial(
+                        objects_settled,
+                        object_names=[self.pick_up_object.name],
+                    ),
+                    partial(
+                        object_is_above_height,
+                        object_name=self.pick_up_object.name,
+                        use_settled_state=True,
+                    ),
+                    partial(
+                        object_on_destination,
+                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                        contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
+                        force_threshold=self.force_threshold,
+                        velocity_threshold=self.velocity_threshold,
+                    ),
+                ],
+            ),
+        ]
+
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
@@ -177,13 +217,6 @@ class PickAndPlaceTask(TaskBase):
             subject=pick_up_object,
             effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
-
-
-@configclass
-class SceneCfg:
-    """Scene configuration for the pick and place task."""
-
-    pick_up_object_contact_sensor: ContactSensorCfg = MISSING
 
 
 @configclass

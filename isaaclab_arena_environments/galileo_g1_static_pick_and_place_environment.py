@@ -150,7 +150,6 @@ def _asset_scale(asset_name: str) -> tuple[float, float, float]:
 class GalileoG1StaticPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the static-base Galileo G1 pick-and-place environment."""
 
-    enable_cameras: bool = False
     object: str = TUNED_PICK_UP_OBJECT_NAME
     destination: str = TUNED_DESTINATION_NAME
     embodiment: str = "g1_wbc_agile_pink"

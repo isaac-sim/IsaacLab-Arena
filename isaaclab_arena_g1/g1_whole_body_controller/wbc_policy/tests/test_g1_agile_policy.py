@@ -28,7 +28,7 @@ ENABLE_CAMERAS = True
 def _get_agile_test_env(num_envs: int = 1):
     """Create a G1 robot with the AGILE WBC policy in an empty scene."""
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCAgileJointEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -45,7 +45,7 @@ def _get_agile_test_env(num_envs: int = 1):
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(env, args_cli)
+    env_builder = ArenaEnvBuilder(env, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
     return env

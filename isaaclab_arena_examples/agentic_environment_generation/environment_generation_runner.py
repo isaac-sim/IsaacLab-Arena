@@ -7,12 +7,18 @@
 
 Usage::
 
-    # Resolve an environment intent spec into an initial environment graph spec and a linked environment graph spec:
+    # Print the Pydantic ArenaEnvGraphSpec JSON schema (no agent call, no Isaac Sim):
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode schema
+
+    # Print the catalog sent to the agent (no agent call, no Isaac Sim):
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode catalog
+
+    # Resolve a prompt into an environment graph spec YAML (no Isaac Sim):
     python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode resolve --prompt ...
 
-    # Build a gym env from a linked environment graph spec YAML and run the zero-action policy:
+    # Build a gym env from a graph spec YAML and run the zero-action policy:
     python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode build --headless \\
-        --num_envs 1 --linked_env_graph_spec_yaml <env>_linked.yaml
+        --num_envs 1 --env_graph_spec_yaml <env>_env_graph.yaml
 
     # Resolve and build in one process:
     python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode full --headless \\
@@ -26,15 +32,18 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_specs
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.agentic_environment_generation.spec_io import (
+    DEFAULT_AGENTIC_OUTPUT_DIR,
+    write_env_graph_dict,
+    write_env_graph_spec,
+)
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, ArenaEnvInitialGraphSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 
@@ -44,18 +53,14 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     group.add_argument(
         "--mode",
         type=str,
-        choices=("full", "resolve", "build"),
+        choices=("full", "resolve", "build", "schema", "catalog"),
         default="full",
         help=(
-            "Which phases to run: 'resolve' (no Isaac Sim), 'build' (needs --linked_env_graph_spec_yaml), "
-            "or 'full' (resolve and build in one process; default)."
+            "Which phases to run: 'schema' (print the spec JSON schema and exit), "
+            "'catalog' (print the agent catalog and exit), 'resolve' (prompt -> spec YAML, no Isaac Sim), "
+            "'build' (needs --env_graph_spec_yaml), or 'full' (resolve and build in one process; default). "
+            "'schema' and 'catalog' make no agent call."
         ),
-    )
-    group.add_argument(
-        "--linked_env_graph_spec_yaml",
-        type=Path,
-        default=None,
-        help="Linked environment graph spec YAML to build from (required for --mode build).",
     )
     group.add_argument(
         "--prompt",
@@ -89,8 +94,8 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     )
 
 
-def generate_env_intent_spec(args_cli: argparse.Namespace) -> EnvironmentIntentSpec:
-    """Generate an environment intent spec from a prompt."""
+def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
+    """Resolve a prompt into an environment graph spec YAML."""
     from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
         EnvironmentGenerationAgent,
         build_asset_catalogue,
@@ -104,83 +109,108 @@ def generate_env_intent_spec(args_cli: argparse.Namespace) -> EnvironmentIntentS
     relation_catalog = build_relation_catalogue()
     task_catalog = build_task_catalogue()
 
-    agent_kwargs = {"model": args_cli.model} if args_cli.model else {}
+    agent_kwargs: dict = {"temperature": args_cli.temperature}
+    if args_cli.model:
+        agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    intent_spec, _raw_response = agent.generate_spec(
+    env_graph_spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
-        temperature=args_cli.temperature,
     )
-    print(f"[runner] agent reasoning: {intent_spec.reasoning}", flush=True)
-    return intent_spec
-
-
-def compile_env_intent_spec(env_intent_spec: EnvironmentIntentSpec) -> ArenaEnvInitialGraphSpec:
-    """Compile an EnvironmentIntentSpec into an initial environment graph spec."""
-    from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
-
-    compiler = IntentCompiler()
-    initial_env_graph_spec = compiler.compile(env_intent_spec)
-
+    # agent.traces holds one line per failure, e.g.
+    #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
+    #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
+    if env_graph_spec is None:
+        print("\n[runner] validation traces:", flush=True)
+        for line in agent.traces:
+            print(f"  {line}", flush=True)
+        invalid_path = write_env_graph_dict(data, args_cli.out_dir)
+        print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
+        assert False, f"Agent returned an invalid spec. Validation traces: {agent.traces}"
+    print_env_graph(env_graph_spec)
     print(
-        f"[runner] compiled → {len(initial_env_graph_spec.nodes)} nodes, "
-        f"{len(initial_env_graph_spec.tasks)} tasks, "
-        f"env_name={initial_env_graph_spec.env_name!r}",
+        f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
         flush=True,
     )
-
-    if compiler.has_resolution_errors:
-        print("[runner] WARNING: resolution errors detected:", flush=True)
-        for event in compiler.resolution_errors:
-            chosen = event.chosen or "<none>"
-            print(f"  {event.stage:34s} {event.query!s:24s} -> {chosen}", flush=True)
-    else:
-        print("[runner] all assets resolved without errors.", flush=True)
-
-    return initial_env_graph_spec
+    path = write_env_graph_spec(env_graph_spec, args_cli.out_dir)
+    print(f"[runner] wrote environment graph spec → {path}", flush=True)
+    return path
 
 
-def link_env_graph_spec(initial_env_graph_spec: ArenaEnvInitialGraphSpec) -> ArenaEnvGraphSpec:
-    """Link an initial environment graph spec into a fully wired environment graph spec."""
-    linked_env_graph_spec = initial_env_graph_spec.link()
-    print(
-        f"[runner] linked → {len(linked_env_graph_spec.state_specs)} state specs,"
-        f" {len(linked_env_graph_spec.tasks)} wired tasks",
-        flush=True,
+def print_schema() -> None:
+    """Print the Pydantic ArenaEnvGraphSpec JSON schema."""
+    import json
+
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+    print(json.dumps(ArenaEnvGraphSpec.model_json_schema(), indent=2))
+
+
+def print_catalog() -> None:
+    """Print the asset, relation, and task catalogs sent to the agent."""
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+        build_asset_catalogue,
+        build_relation_catalogue,
+        build_task_catalogue,
     )
-    return linked_env_graph_spec
+
+    print(build_asset_catalogue().to_catalog_string())
+    print()
+    print(build_relation_catalogue().to_catalog_string())
+    print()
+    print(build_task_catalogue().to_catalog_string())
 
 
-def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
-    """Resolve an environment intent spec into an initial environment graph spec and a linked environment graph spec."""
-    # step 1: generate the environment intent spec
-    env_intent_spec = generate_env_intent_spec(args_cli)
-    # step 2: compile the environment intent spec into an initial environment graph spec
-    initial_env_graph_spec = compile_env_intent_spec(env_intent_spec)
-    # step 3: link the initial environment graph spec into a fully wired environment graph spec
-    linked_env_graph_spec = link_env_graph_spec(initial_env_graph_spec)
-    # step 4: write the initial and linked environment graph specs to YAML files
-    initial_path, linked_path = write_env_graph_specs(initial_env_graph_spec, linked_env_graph_spec, args_cli.out_dir)
-    print(f"[runner] wrote initial environment graph spec → {initial_path}", flush=True)
-    print(f"[runner] wrote linked environment graph spec  → {linked_path}", flush=True)
-    return linked_path
+def _iter_printable_assets(spec: ArenaEnvGraphSpec):
+    yield "embodiment", spec.embodiment.id, spec.embodiment.registry_name, spec.embodiment.params
+    yield "background", spec.background.id, spec.background.registry_name, spec.background.params
+    for obj in spec.objects:
+        yield "object", obj.id, obj.registry_name, obj.params
 
 
-def build_env_from_linked_env_graph_spec(
-    linked_env_graph_spec_path: Path, args_cli: argparse.Namespace
-) -> ManagerBasedEnv:
-    """Build a gymnasium env from a linked environment graph spec YAML."""
+def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
+    """Print the generated graph in a human-readable tabular layout."""
+    print(f"\n=== ArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
+
+    print("\nassets:")
+    for role, asset_id, registry_name, params in _iter_printable_assets(spec):
+        params_str = f"  params={params}" if params else ""
+        print(f"  {asset_id:24s} role={role:18s} registry_name={registry_name}{params_str}")
+
+    if spec.object_references:
+        print("\nobject_references:")
+        for ref in spec.object_references:
+            params_str = f"  params={ref.params}" if ref.params else ""
+            print(f"  {ref.id:24s} parent={ref.parent_id}  prim_path={ref.prim_path}{params_str}")
+
+    print("\nrelations:")
+    for relation in spec.relations:
+        ref_str = f"  reference={relation.reference}" if relation.reference is not None else ""
+        params_str = f"  params={relation.params}" if relation.params else ""
+        print(f"  {relation.kind:16s} subject={relation.subject}{ref_str}{params_str}")
+
+    print(f"\ntask: composition={spec.task.composition}")
+    print(f"  description: {spec.task.description}")
+    for i, task in enumerate(spec.task.subtasks):
+        print(f"  [{i}] kind={task.kind}")
+        print(f"    params: {task.params}")
+
+
+def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.Namespace) -> ManagerBasedEnv:
+    """Build a gymnasium env from an environment graph spec YAML."""
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
-    loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(linked_env_graph_spec_path)
+    loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
     arena_env = loaded_env_graph_spec.to_arena_env()
-    builder = ArenaEnvBuilder(arena_env, args_cli)
+    # TODO(cvolk, 2026-07-06): [typed-config-migration] Pass ArenaEnvBuilderCfg into this function after this
+    # runner stops carrying all configuration in one argparse Namespace.
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()
     print(
-        f"[runner] built env {arena_env.name!r} from linked environment graph spec {linked_env_graph_spec_path}",
+        f"[runner] built env {arena_env.name!r} from environment graph spec {env_graph_spec_path}",
         flush=True,
     )
     return env
@@ -207,17 +237,18 @@ def run_zero_action_policy(env: ManagerBasedEnv, num_steps: int) -> None:
     print("[runner] done.", flush=True)
 
 
-def build_env_and_run_policy(linked_env_graph_spec_path: Path, args_cli: argparse.Namespace) -> None:
-    """Run steps 5-6: reload the linked spec, build the gym env, run the zero-action policy.
-
-    Must be called inside an active :class:`SimulationAppContext`: ``to_arena_env`` opens USD
-    assets and ``make_registered`` creates the simulation context.
-    """
-    # step 5: build the gym env from the linked environment graph spec
-    env = build_env_from_linked_env_graph_spec(linked_env_graph_spec_path, args_cli)
-
-    # step 6: run the zero-action policy for the given number of steps
+def build_env_and_run_policy(env_graph_spec_path: Path, args_cli: argparse.Namespace) -> None:
+    """Build the gym env from a graph spec YAML and run the zero-action policy."""
+    env = build_env_from_env_graph_spec(env_graph_spec_path, args_cli)
     run_zero_action_policy(env, args_cli.num_steps)
+
+
+def _resolved_graph_spec_yaml(args_cli: argparse.Namespace) -> Path:
+    path_arg = args_cli.env_graph_spec_yaml
+    assert path_arg is not None, "--mode build requires --env_graph_spec_yaml"
+    path = Path(path_arg)
+    assert path.is_file(), f"env graph spec YAML not found: {path}"
+    return path
 
 
 def main() -> int:
@@ -225,24 +256,26 @@ def main() -> int:
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()
 
+    if args_cli.mode == "schema":
+        print_schema()
+        return 0
+
+    if args_cli.mode == "catalog":
+        print_catalog()
+        return 0
+
     if args_cli.mode == "resolve":
         resolve_env_spec(args_cli)
         return 0
 
-    elif args_cli.mode == "build":
-        assert args_cli.linked_env_graph_spec_yaml is not None, "--mode build requires --linked_env_graph_spec_yaml"
-        assert (
-            args_cli.linked_env_graph_spec_yaml.is_file()
-        ), f"--linked_env_graph_spec_yaml not found: {args_cli.linked_env_graph_spec_yaml}"
+    if args_cli.mode == "build":
         with SimulationAppContext(args_cli):
-            build_env_and_run_policy(args_cli.linked_env_graph_spec_yaml, args_cli)
+            build_env_and_run_policy(_resolved_graph_spec_yaml(args_cli), args_cli)
         return 0
 
-    # resolve and build in one process.
-    else:
-        with SimulationAppContext(args_cli):
-            linked_env_graph_spec_path = resolve_env_spec(args_cli)
-            build_env_and_run_policy(linked_env_graph_spec_path, args_cli)
+    with SimulationAppContext(args_cli):
+        env_graph_spec_path = resolve_env_spec(args_cli)
+        build_env_and_run_policy(env_graph_spec_path, args_cli)
     return 0
 
 

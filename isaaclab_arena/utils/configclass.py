@@ -10,7 +10,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 
 # NOTE(alexmillane, 2025-07-24): This is copied from dataclasses.py, but altered in the final line

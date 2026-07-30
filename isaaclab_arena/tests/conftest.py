@@ -10,6 +10,10 @@
 # when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
 # prior to closing the simulation app, in order to generate the correct exit code.
 
+from __future__ import annotations
+
+# Expose agentic LLM test fixtures (``stub_openai``, etc.) to the suite.
+pytest_plugins = ["isaaclab_arena.tests.utils.agentic_environment_generation"]
 
 PYTEST_SESSION = None
 

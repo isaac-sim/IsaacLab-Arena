@@ -14,7 +14,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots.agibot import AGIBOT_A2D_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_joint_state
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame

@@ -74,6 +74,16 @@ def test_rotated_around_z_off_center_arbitrary_angle():
     torch.testing.assert_close(rot.max_point, torch.tensor([[max(xs), max(ys), 0.5]]), atol=1e-6, rtol=0)
 
 
+def test_rotated_by_quat_encloses_pitched_box():
+    """A 90° pitch about Y swaps the X and Z extents, unlike the Z-only rotated_around_z."""
+    box = AxisAlignedBoundingBox(min_point=(-0.1, -0.2, -0.5), max_point=(0.1, 0.2, 0.5))
+    # Pitch quaternion about Y by 90°, as (x, y, z, w).
+    pitch_quat = (0.0, math.sin(math.pi / 4), 0.0, math.cos(math.pi / 4))
+    rotated = box.rotated_by_quat(pitch_quat)
+    torch.testing.assert_close(rotated.min_point, torch.tensor([[-0.5, -0.2, -0.1]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point, torch.tensor([[0.5, 0.2, 0.1]]), atol=1e-6, rtol=0)
+
+
 def test_rotated_around_z_batched_angles_broadcasts_single_box():
     """An (M,) angle tensor broadcasts an N=1 box to M enclosing boxes (one per angle)."""
     aabb = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, 0.0), max_point=(0.2, 0.1, 0.5))

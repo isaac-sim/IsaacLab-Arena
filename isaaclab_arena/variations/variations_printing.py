@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # Shown when the whole environment has no variations.
 _EMPTY_MESSAGE = "No variations attached to this environment.\n"
 # Shown under an asset header when that asset has no variations.
-_NO_ASSET_VARIATIONS = "  (no Hydra-configurable variations)"
+_NO_ASSET_VARIATIONS = "  (no variations)"
 
 
 def get_variations_catalogue_as_string(
@@ -61,7 +61,7 @@ def get_variations_catalogue_as_string(
     resolved_variations_cfg: Any | None = variations_hydra.compose_variations_cfg_and_apply_overrides(
         variations, hydra_overrides or []
     )
-    lines = ["Hydra-configurable variations", "=" * 32, ""]
+    lines = ["Variations (Hydra-configurable)", "=" * 32, ""]
     # Sort so the catalog is deterministic regardless of dict insertion order.
     for asset_name in sorted(variations.keys()):
         asset_variations: list[VariationBase] = variations[asset_name]
@@ -190,6 +190,10 @@ def _format_value(value: Any) -> str:
     if isinstance(value, list):
         inner = ",".join(_format_value(item) for item in value)
         return f"[{inner}]"
+    if isinstance(value, float):
+        # Round to at most 3 significant figures, then re-parse so the repr stays
+        # in plain (non-scientific) form for the ranges seen here (e.g. 3.14, 2000.0).
+        return repr(float(f"{value:.3g}"))
     return repr(value)
 
 

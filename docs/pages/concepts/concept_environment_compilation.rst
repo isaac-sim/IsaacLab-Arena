@@ -23,7 +23,7 @@ component contributes and merging them into a single
        task=task,
    )
 
-   env_builder = ArenaEnvBuilder(environment, args_cli)
+   env_builder = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg())
    env = env_builder.make_registered()
 
 How it works

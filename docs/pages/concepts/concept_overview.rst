@@ -33,7 +33,7 @@ In code, this looks like:
        teleop_device=teleop_device,  # optional
    )
 
-   env = ArenaEnvBuilder(environment, args_cli).make_registered()
+   env = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg()).make_registered()
 
 ``ArenaEnvBuilder`` compiles the scene, embodiment, and task configurations into
 a single Isaac Lab ``ManagerBasedRLEnv``. The ``make_registered()`` call registers

@@ -11,7 +11,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.assets.register import register_task

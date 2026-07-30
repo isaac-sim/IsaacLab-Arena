@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class TableTopPlaceUprightEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the tabletop place-upright environment."""
 
-    enable_cameras: bool = False
     object: str = "mug"
     background: str = "table"
     embodiment: str = "agibot"
@@ -40,7 +39,7 @@ class TableTopPlaceUprightEnvironment(ArenaEnvironmentFactory[TableTopPlaceUprig
         import isaaclab.envs.mdp as mdp
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
-        from isaaclab.utils import configclass
+        from isaaclab.utils.configclass import configclass
         from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode

@@ -42,14 +42,14 @@ def get_test_environment(*, enabled: bool):
 
 
 def _test_disabled_light_intensity_variation_not_applied(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(enabled=False)
     light = arena_env.scene.assets[TEST_LIGHT_NAME]
     default_intensity = light.object_cfg.spawn.intensity
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     assert light.object_cfg.spawn.intensity == default_intensity, (
         f"Disabled build-time variation must not mutate '{TEST_LIGHT_NAME}.object_cfg.spawn.intensity'; "
@@ -59,13 +59,13 @@ def _test_disabled_light_intensity_variation_not_applied(simulation_app):
 
 
 def _test_enabled_light_intensity_variation_applied(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(enabled=True)
     light = arena_env.scene.assets[TEST_LIGHT_NAME]
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     assert light.object_cfg.spawn.intensity == pytest.approx(TEST_APPLIED_INTENSITY, abs=1e-6), (
         f"Enabled build-time variation must mutate '{TEST_LIGHT_NAME}.object_cfg.spawn.intensity' "

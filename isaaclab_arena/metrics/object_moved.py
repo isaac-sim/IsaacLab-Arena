@@ -9,7 +9,7 @@ from dataclasses import MISSING
 import warp as wp
 from isaaclab.envs.manager_based_rl_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.metric_base import MetricBase

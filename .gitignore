@@ -75,6 +75,10 @@ TAGS
 # Agent generated environments
 *isaaclab_arena_environments/agent_generated/
 
+# Local planning files
+/CONTEXT.md
+/CONTEXT-MAP.md
+
 # Datasets
 *datasets/
 
@@ -93,3 +97,6 @@ core.*
 
 # Development and cache folders
 /__*
+
+# uv venv (Arena native install)
+.venv*/

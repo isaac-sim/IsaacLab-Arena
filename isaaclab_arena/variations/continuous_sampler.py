@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 from abc import abstractmethod
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 

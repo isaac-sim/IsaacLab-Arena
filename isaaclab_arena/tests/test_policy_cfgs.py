@@ -20,7 +20,7 @@ from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy, Repla
 from isaaclab_arena.policy.rsl_rl_action_policy import RslRlActionPolicy, RslRlActionPolicyCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
 
-# TODO(cvolk, 2026-07-03): Delete the CLI compatibility tests when policy_runner
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete the CLI compatibility tests when policy_runner
 # receives typed policy configs directly.
 
 
@@ -36,6 +36,11 @@ def test_core_policies_register_typed_configs(policy_type, cfg_type):
     """Check that each core policy is registered with its concrete config."""
     assert PolicyRegistry().get_policy_cfg_type(policy_type) is cfg_type
     assert issubclass(cfg_type, PolicyCfg)
+
+
+def test_policy_registration_resolves_policy_from_concrete_config():
+    """Resolve runtime policy construction from an experiment's concrete config."""
+    assert PolicyRegistry().get_policy_type_for_cfg(ZeroActionPolicyCfg()) is ZeroActionPolicy
 
 
 @dataclass

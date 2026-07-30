@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import datetime
 import gymnasium as gym
 from typing import Any
@@ -19,8 +18,10 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
+import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -45,7 +46,7 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances, make
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -55,49 +56,62 @@ class ArenaEnvBuilder:
     def __init__(
         self,
         arena_env: IsaacLabArenaEnvironment,
-        args: argparse.Namespace,
+        cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
     ):
         self.arena_env = arena_env
-        self.args = args
+        self.cfg = cfg
         self.hydra_overrides = hydra_overrides
         self.interactive_scene_cfg = InteractiveSceneCfg(
-            num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
+            num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
 
     def _solve_relations(self) -> None:
-        """Solve spatial relations for objects in the scene.
+        """Solve spatial relations for scene objects and the embodiment.
 
         This method:
-        1. Collects all objects from the scene that have relations
-        2. Builds an object-placement pool
-        3. Reuses the object-only relation placer
-        4. Applies solved positions either by writing fixed per-object initial poses
+        1. Collects placement assets that have relations
+        2. Builds a placement pool
+        3. Applies solved positions either by writing fixed initial poses
            or by registering a pooled reset placement event
 
-        Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
-        (overridable from CLI with --resolve_on_reset / --no-resolve_on_reset):
+        Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
+        When the environment does not provide placer parameters, the builder creates
+        them from ``ArenaEnvBuilderCfg``.
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment so per-object reset
-          events restore the same layout every time.
+        * **False** — assigns one fixed layout per environment. Every non-anchor
+          placement asset (objects and the embodiment alike) stores its solved
+          per-environment pose and owns its own reset event.
         """
-        objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        # Reachability constraints are defined in the task, so apply them before placement.
+        if self.arena_env.task is not None:
+            self.arena_env.task.apply_reachability_constraints()
+        placement_assets = self.arena_env.scene.get_objects_with_relations()
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.get_relations():
+            placement_assets.append(embodiment)
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
             placer_params = ObjectPlacerParams(
-                placement_seed=self.args.placement_seed,
                 solver_params=RelationSolverParams(verbose=False, save_position_history=False),
             )
-            if self.args.resolve_on_reset is not None:
-                placer_params.resolve_on_reset = self.args.resolve_on_reset
+        if self.cfg.placement_seed is not None:
+            placer_params.placement_seed = self.cfg.placement_seed
+        if self.cfg.resolve_on_reset is not None:
+            placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+
+        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
+        placer_params.reachability_config.embodiment = self.arena_env.embodiment
         self._placement_event_cfg = solve_and_apply_relation_placement(
-            objects_with_relations,
-            num_envs=self.args.num_envs,
+            placement_assets,
+            num_envs=self.cfg.num_envs,
             placer_params=placer_params,
+            scene_assets=self.arena_env.scene.assets.values(),
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -143,7 +157,7 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _apply_build_time_variations(self) -> None:
-        """Sample and apply every enabled :class:`BuildTimeVariationBase`.
+        """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
 
         These mutate asset configs in place (e.g. a dome light's spawner
         texture), so this must run before ``scene_cfg`` is materialised.
@@ -152,9 +166,7 @@ class ArenaEnvBuilder:
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                if not isinstance(variation, BuildTimeVariationBase):
-                    continue
-                variation.apply()
+                variation.configure_at_build_time()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -200,7 +212,7 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Solve relations before building scene config so positions are captured correctly.
-        if self.args.solve_relations:
+        if self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
@@ -315,12 +327,10 @@ class ArenaEnvBuilder:
 
         episode_length_s = task.get_episode_length_s()
 
-        # Language instruction is optionally overridden on the CLI.
-        language_instruction = getattr(self.args, "language_instruction", None)
-        task_description = language_instruction or task.get_task_description()
+        task_description = self.cfg.language_instruction or task.get_task_description()
 
         # Build the environment configuration
-        if not self.args.mimic:
+        if not self.cfg.mimic:
             env_cfg = IsaacLabArenaManagerBasedRLEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -339,8 +349,8 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
-            if episode_length_s is not None:
-                env_cfg.episode_length_s = episode_length_s
+            # Tasks always resolve to a concrete episode length.
+            env_cfg.episode_length_s = episode_length_s
         else:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
@@ -376,11 +386,10 @@ class ArenaEnvBuilder:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
         # Set seed for Isaac Lab env.
-        env_cfg.seed = self.args.seed
+        env_cfg.seed = self.cfg.seed
 
-        # Apply the --presets CLI flag (e.g. --presets newton).
-        # This runs after the callback so the user's CLI choice is the final authority.
-        presets = getattr(self.args, "presets", None)
+        # Apply the requested physics backend after the callback so it remains the final authority.
+        presets = self.cfg.presets
         if presets is not None:
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
@@ -397,7 +406,7 @@ class ArenaEnvBuilder:
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
-        if self.args.mimic:
+        if self.cfg.mimic:
             embodiment = self.arena_env.embodiment
             assert embodiment is not None and not isinstance(
                 embodiment, NoEmbodiment
@@ -443,9 +452,9 @@ class ArenaEnvBuilder:
         )
         cfg = parse_env_cfg(
             name,
-            device=self.args.device,
-            num_envs=self.args.num_envs,
-            use_fabric=not self.args.disable_fabric,
+            device=self.cfg.device,
+            num_envs=self.cfg.num_envs,
+            use_fabric=not self.cfg.disable_fabric,
         )
         return name, cfg, env_kwargs
 

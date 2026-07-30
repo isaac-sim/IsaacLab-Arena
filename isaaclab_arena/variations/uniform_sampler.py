@@ -9,7 +9,7 @@ import torch
 from collections.abc import Sequence
 from dataclasses import field
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, ContinuousSamplerCfg
 

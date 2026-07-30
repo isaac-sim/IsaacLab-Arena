@@ -62,7 +62,7 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     Loads the checkpoint and agent config (``params/agent.yaml``) produced by
     IsaacLab's ``train.py``. No separate JSON config file is required.
 
-    Example configuration for eval runner:
+    Example configuration for Experiment Runner:
 
     .. code-block:: json
 

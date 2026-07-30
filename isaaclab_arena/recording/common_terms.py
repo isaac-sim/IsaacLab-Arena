@@ -10,7 +10,7 @@ import torch
 from collections.abc import Callable
 from typing import Any
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 

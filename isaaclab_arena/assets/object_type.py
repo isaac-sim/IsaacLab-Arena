@@ -18,7 +18,7 @@ working with a single source of truth.
 from enum import Enum
 
 
-class ObjectType(Enum):
+class ObjectType(str, Enum):
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"

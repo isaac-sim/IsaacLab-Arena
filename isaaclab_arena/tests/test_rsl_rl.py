@@ -42,6 +42,7 @@ def run_rl_train(
         str(num_envs),
         "--max_iterations",
         str(max_iterations),
+        "--headless",
     ]
     if embodiment is not None:
         args += ["--embodiment", embodiment]

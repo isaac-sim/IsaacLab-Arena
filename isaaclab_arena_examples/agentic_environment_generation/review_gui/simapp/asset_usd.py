@@ -3,114 +3,73 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve graph nodes to USD paths and local AABB dimensions (no Kit viewport)."""
+"""Resolve instantiated graph assets to USD paths and local AABB dimensions (no Kit viewport)."""
 
 from __future__ import annotations
 
 import hashlib
 import sys
+from typing import Any
 
-from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
-
-# Registry-backed nodes with a root USD. ``object_reference`` nodes point at a prim
-# inside a parent background and need parent-stage framing — not supported yet.
-RENDERABLE_NODE_TYPES = frozenset({
-    ArenaEnvGraphNodeType.EMBODIMENT,
-    ArenaEnvGraphNodeType.BACKGROUND,
-    ArenaEnvGraphNodeType.OBJECT,
-})
+from isaaclab_arena.assets.object_base import ObjectBase
 
 AabbDimensionsM = tuple[float, float, float]
 
 
-def usd_cache_key(usd_path: str) -> str:
-    """Return a stable short hash for caching PNGs keyed by USD path."""
-    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
-
-
-def resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
-    """Map ``node.id → usd_path`` via :class:`AssetRegistry`."""
-    registry = AssetRegistry()
-    paths: dict[str, str] = {}
-    for node in spec.nodes:
-        if node.type not in RENDERABLE_NODE_TYPES:
-            continue
-        try:
-            if not registry.is_registered(node.name):
-                print(f"[asset_usd]   {node.id}: asset '{node.name}' not registered, skipping.", file=sys.stderr)
-                continue
-            cls = registry.get_asset_by_name(node.name)
-            usd_path = extract_usd_path(cls)
-            if not usd_path:
-                print(f"[asset_usd]   {node.id}: '{node.name}' has no usd_path, skipping.", file=sys.stderr)
-                continue
-            paths[node.id] = usd_path
-        except Exception as exc:
-            print(f"[asset_usd]   {node.id}: lookup failed for '{node.name}': {exc}", file=sys.stderr)
-    return paths
-
-
-def extract_usd_path(cls) -> str | None:
-    """Return the asset's root USD path, or ``None`` if not extractable."""
-    usd_path = getattr(cls, "usd_path", None)
-    if usd_path:
-        return usd_path
-
+def aabb_dimensions_from_asset(asset: ObjectBase) -> AabbDimensionsM | None:
+    """Return local axis-aligned bounding box size (x, y, z) in meters for one live asset."""
     try:
-        instance = cls()
-    except Exception:
-        return None
-    scene_config = getattr(instance, "scene_config", None)
-    robot = getattr(scene_config, "robot", None) if scene_config is not None else None
-    spawn = getattr(robot, "spawn", None) if robot is not None else None
-    return getattr(spawn, "usd_path", None) if spawn is not None else None
-
-
-def scale_for_asset_node(node, asset_cls) -> tuple[float, float, float]:
-    """Return spawn scale for a graph node, preferring spec params over library defaults."""
-    param_scale = node.params.get("scale")
-    if param_scale is not None:
-        return (float(param_scale[0]), float(param_scale[1]), float(param_scale[2]))
-    class_scale = getattr(asset_cls, "scale", None)
-    if class_scale is not None:
-        return (float(class_scale[0]), float(class_scale[1]), float(class_scale[2]))
-    return (1.0, 1.0, 1.0)
-
-
-def aabb_dimensions_from_usd(
-    usd_path: str,
-    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-) -> AabbDimensionsM | None:
-    """Return local axis-aligned bounding box size (x, y, z) in meters for a USD asset."""
-    try:
-        bbox = compute_local_bounding_box_from_usd(usd_path, scale)
+        bbox = asset.get_bounding_box()
         size = bbox.size[0]
         return (float(size[0]), float(size[1]), float(size[2]))
     except Exception as exc:
-        print(f"[asset_usd]   bbox failed for {usd_path}: {exc}", file=sys.stderr)
+        name = getattr(asset, "name", "?")
+        print(f"[asset_usd]   {name}: bbox failed: {exc}", file=sys.stderr)
         return None
 
 
-def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
-    """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
-    registry = AssetRegistry()
+def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, AabbDimensionsM]:
+    """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references)."""
     dimensions: dict[str, AabbDimensionsM] = {}
-    for node in spec.nodes:
-        if node.type not in RENDERABLE_NODE_TYPES:
+    for node_id, asset in assets_by_node_id.items():
+        if not isinstance(asset, ObjectBase):
             continue
-        try:
-            if not registry.is_registered(node.name):
-                continue
-            asset_cls = registry.get_asset_by_name(node.name)
-            usd_path = extract_usd_path(asset_cls)
-            if not usd_path:
-                continue
-            dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_node(node, asset_cls))
-            if dims is not None:
-                dimensions[node.id] = dims
-        except Exception as exc:
-            print(f"[asset_usd]   {node.id}: bbox lookup failed for '{node.name}': {exc}", file=sys.stderr)
+        dims = aabb_dimensions_from_asset(asset)
+        if dims is not None:
+            dimensions[node_id] = dims
     return dimensions
+
+
+def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[str]) -> dict[str, str]:
+    """Map each requested ``node_id`` to its ``usd_path``, skipping assets without one."""
+    paths: dict[str, str] = {}
+    for node_id in node_ids:
+        asset = assets_by_node_id.get(node_id)
+        if asset is None:
+            print(f"[asset_usd]   {node_id}: not found in instantiated assets, skipping.", file=sys.stderr)
+            continue
+        usd_path = getattr(asset, "usd_path", None)
+        if usd_path:
+            paths[node_id] = usd_path
+    return paths
+
+
+def usd_cache_key(usd_path: str) -> str:
+    """Return a stable short hash for caching thumbnails keyed by USD path."""
+    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+
+
+def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
+    """Return a stable cache key for an object_reference subtree snapshot."""
+    return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
+
+
+def absolute_prim_path(stage, relative_suffix: str) -> str:
+    """Join a default-prim-relative suffix to the stage default prim."""
+    default_prim = stage.GetDefaultPrim()
+    if not default_prim or not default_prim.IsValid():
+        raise RuntimeError("USD stage has no default prim")
+    base = str(default_prim.GetPath())
+    if not relative_suffix:
+        return base
+    return f"{base}/{relative_suffix.lstrip('/')}"

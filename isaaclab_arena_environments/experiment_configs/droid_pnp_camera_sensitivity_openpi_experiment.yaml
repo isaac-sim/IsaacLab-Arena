@@ -1,0 +1,30 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  droid_pnp_camera_sensitivity_openpi:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_abs_joint_pos
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      hdr: home_office_robolab
+    environment_builder:
+      language_instruction: Pick up the Rubik's cube and place it in the bowl.
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+    rollout_limit:
+      num_episodes: 5
+    # The variations to enable for this run.
+    variations:
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.01, -0.01, -0.01]
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.01, 0.01, 0.01]

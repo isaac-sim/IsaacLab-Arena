@@ -15,7 +15,7 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
     """Sim-preview controls and viewport frame display in the right column."""
     st.subheader("Sim preview")
     st.caption(
-        "Runs link → to_arena_env → relation solver, then zero-action steps. "
+        "Runs to_arena_env → relation solver, then zero-action steps. "
         "Viewport captures use a world-frame overview of the full env grid."
     )
 
@@ -50,9 +50,9 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         )
 
     if st.button(
-        "Run link + relation solver preview",
+        "Run relation solver preview",
         type="secondary",
-        use_container_width=True,
+        width="stretch",
         disabled=not validation.is_valid,
         help="Requires valid YAML and a healthy SimApp. This may take several minutes.",
     ):
@@ -80,7 +80,7 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         frame_cols = st.columns(2)
         with frame_cols[0]:
             st.caption("Viewport — frame 1 (after reset)")
-            st.image(first_frame, use_container_width=True)
+            st.image(first_frame, width="stretch")
         with frame_cols[1]:
             st.caption(f"Viewport — frame 2 (after {displayed_steps} zero-action steps)")
-            st.image(last_frame, use_container_width=True)
+            st.image(last_frame, width="stretch")

@@ -44,7 +44,7 @@ def timestamped_run_dir(base_dir: str) -> str:
     """Append a reverse-dated subdirectory to ``base_dir``, e.g. ``base_dir/2026-06-16_14-42-54``.
 
     Mirrors Isaac Lab's log layout so repeated runs land in distinct folders. Call once per run and
-    share the result across recorders (and, for the eval runner, across jobs).
+    share the result across recorders (and, for the Experiment Runner, across jobs).
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return os.path.join(base_dir, timestamp)

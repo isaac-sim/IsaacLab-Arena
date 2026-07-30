@@ -19,7 +19,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -51,7 +51,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
         task=TurnKnobTask(turnable_object=stand_mixer, target_level=RESET_TARGET_LEVEL, reset_level=-1),
     )
 
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_knob_state_event:
         cfg.events.reset_knob_state = None

@@ -26,7 +26,6 @@ class RigidObjectSet(Object):
         name: str,
         objects: list[Object],
         prim_path: str | None = None,
-        scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         random_choice: bool = False,
         initial_pose: Pose | None = None,
         **kwargs,
@@ -37,8 +36,6 @@ class RigidObjectSet(Object):
             objects: The list of objects to be included in the object set.
             prim_path: The prim path of the object set. Note that for all environments, the object set
                 prim path must be the same.
-            scale: The scale of the object set. Note all objects can only have the same scale, if
-                different scales are needed, considering scaling the object USD file.
             random_choice: Whether to randomly choose an object from the object set to spawn in
                 each environment. If False, variants are assigned by repeating
                 the member order across environments.
@@ -50,17 +47,10 @@ class RigidObjectSet(Object):
         # Isaac Lab support for MultiUsdFileCfg is limited. It applies the same scale and pose to all objects.
         # Furthermore it relies on the rigid body being at the root of the USD file, or at the same
         # path in all files. To expand our support in Arena, we modify the USDs to be compatible with each other.
-        # In particular, we rescale the assets and rename the rigid bodies to have the same name.
-        # We then save the resulting modified USDs to a cache.
+        # In particular, we rescale the assets, rename the rigid bodies to have the same name, and
+        # move a root-level rigid body under a container so members that nest theirs at different
+        # depths still end up at the same path. We save the resulting modified USDs to a cache.
         if self._is_asset_modification_needed(objects):
-            if not self._asset_modification_possible(objects):
-                depths = self._get_all_rigid_body_depths(objects)
-                per_asset = [f"{obj.name}=depth_{d} ({obj.usd_path})" for obj, d in zip(objects, depths)]
-                raise ValueError(
-                    "Asset modification is not possible for object sets: all objects must have their shallowest "
-                    "rigid body at the same depth so paths match after rename. "
-                    f"Rigid body depths by asset: {per_asset}."
-                )
             self.member_usd_paths: list[str] = self._modify_assets(objects)
             print(f"Modified object USD paths: {self.member_usd_paths}")
         else:
@@ -234,12 +224,6 @@ class RigidObjectSet(Object):
             return False
         # Otherwise, we need to modify the assets
         return True
-
-    def _asset_modification_possible(self, objects: list[Object]) -> bool:
-        # If all assets have their rigid bodies at the same depth,
-        # we can modify the assets to be compatible with each other.
-        depths = self._get_all_rigid_body_depths(objects)
-        return all(depth == depths[0] for depth in depths)
 
     def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[int]:
         depths = []

@@ -86,6 +86,9 @@ def test_foo():  # pytest-visible outer function
     assert result
 ```
 
+- **Don't** call CLI paths that may invoke `sys.exit`—such as argparse `--help`, invalid arguments, or `parser.error()`—directly inside pytest. After Isaac Sim starts, catching `SystemExit` still leaves Kit shutdown queued.
+- **Instead**, run the CLI with `subprocess.run([TestConstants.python_path, ...])` and assert the child result. Use `with_subprocess` only when the child starts Isaac Sim; the marker does not create a child process.
+
 ## Boundaries
 
 - **Never** force-push to `main` or `release/*`. **Instead**, push to a `<username>/<type>/<short-description>` branch (`<type>` ∈ `feature`, `fix`, `docs`, `refactor`, `chore`, `ci`) and open a PR against `main`.

@@ -40,7 +40,7 @@ In a second terminal, run the policy runner with the generated environment graph
       --num_steps 1000 \
       --env_spacing 1.5 \
       --enable_cameras \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
 
 Important flags:
 
@@ -48,7 +48,7 @@ Important flags:
   selects the OpenPI remote policy client.
 * ``--enable_cameras`` is required because OpenPI consumes visual observations.
 * ``--env_graph_spec_yaml`` points the runner at the agentically generated
-  linked environment graph.
+  environment graph spec.
 
 Add a language instruction when you want to make the OpenPI task explicit:
 
@@ -62,7 +62,7 @@ Add a language instruction when you want to make the OpenPI task explicit:
       --env_spacing 1.5 \
       --enable_cameras \
       --language_instruction "Pick up the red raisin box and place it in the grey bin." \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
 
 To use with variations, append the variation overrides after the environment source, e.g. to enable camera extrinsics variations:
 
@@ -75,7 +75,7 @@ To use with variations, append the variation overrides after the environment sou
       --num_steps 1000 \
       --env_spacing 1.5 \
       --enable_cameras \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml \
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
 .. note::
@@ -83,11 +83,11 @@ To use with variations, append the variation overrides after the environment sou
     ``droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true``, can be appended
     after the environment source.
 
-Run with Eval Runner
---------------------
+Run with Experiment Runner
+--------------------------------
 
 For repeatable evaluation, put the generated environment graph spec YAML in an
-eval jobs config. The ``environment`` field points at the linked YAML, and the
+eval jobs config. The ``environment`` field points at the graph spec YAML, and the
 OpenPI connection options go in ``policy_config_dict``:
 
 .. code-block:: json
@@ -98,7 +98,7 @@ OpenPI connection options go in ``policy_config_dict``:
                "name": "agentic_openpi_butter_raisin_box_grey_bin",
                "arena_env_args": {
                    "enable_cameras": true,
-                   "environment": "isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml"
+                   "environment": "isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml"
                },
                "num_steps": 100,
                "language_instruction": "Pick up the red raisin box and place it in the grey bin.",
@@ -119,11 +119,11 @@ OpenPI connection options go in ``policy_config_dict``:
        ]
    }
 
-Then run the sequential batch evaluation runner:
+Then run the Experiment Runner:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
       --viz kit \
       --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/agentic_openpi_jobs_config.json
 

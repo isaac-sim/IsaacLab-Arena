@@ -11,10 +11,11 @@ from typing import Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
+from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
 _PROGRESS_TRACKER_ATTR = "_progress_tracker"
 
@@ -427,6 +428,7 @@ def progress_tracking_reset_func(env, env_ids, progress_objectives: list[Progres
     elif torch.is_tensor(env_ids):
         env_ids = env_ids.tolist()
     progress_tracker.reset(env_ids)
+    reset_rest_pose_recorder(env, env_ids)
 
 
 @configclass

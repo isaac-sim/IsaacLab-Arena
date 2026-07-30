@@ -66,12 +66,39 @@ Arena solves this by making environment variation a first-class concept. Swap an
 
 - Linux (Ubuntu 22.04+)
 - NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html))
-- Docker and NVIDIA Container Toolkit
+- [uv](https://docs.astral.sh/uv/) (for the native install), or Docker and the NVIDIA Container Toolkit (for the container install)
 - Git
 
 ### Installation
 
-Isaac Lab-Arena currently supports **installation from source inside a Docker container**.
+**Native developer setup with uv:**
+
+```bash
+# 1. Clone the repository
+git clone --recurse-submodules git@github.com:isaac-sim/IsaacLab-Arena.git
+cd IsaacLab-Arena
+
+# 2. Create the locked environment (Isaac Lab from source, plus the Isaac Sim, PyTorch, and Newton wheels)
+uv sync
+
+# 3. Activate the environment and accept the Isaac Sim EULA
+source .venv/bin/activate
+export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+
+# 4. Verify the installation with a short zero-action rollout
+python isaaclab_arena/evaluation/policy_runner.py \
+  --policy_type zero_action --num_steps 20 cube_goal_pose
+
+# 4b. (Optional) Watch the rollout in the GUI visualizer
+python isaaclab_arena/evaluation/policy_runner.py \
+  --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
+```
+
+> **Note:** See our
+> [installation docs](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html)
+> for more details and installation flavors.
+
+**Source install inside Docker:**
 
 ```bash
 # 1. Clone the repository
@@ -86,8 +113,13 @@ git submodule update --init --recursive
 #    Or with GR00T dependencies (for policy training/evaluation):
 ./docker/run_docker.sh -g
 
-# 3. Verify the installation
-/isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+# 3. Verify the installation with a short zero-action rollout
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+  --policy_type zero_action --num_steps 20 cube_goal_pose
+
+# 3b. (Optional) Watch the rollout in the GUI visualizer
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+  --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.
@@ -100,8 +132,7 @@ Compose a Franka arm in a kitchen scene with a couple of objects:
 
 ```python
 from isaaclab_arena.assets.asset_registry import AssetRegistry
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder, ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 
@@ -121,11 +152,15 @@ env_cfg = IsaacLabArenaEnvironment(
     scene=scene,
 )
 
-args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-env_builder = ArenaEnvBuilder(env_cfg, args_cli)
+builder_cfg = ArenaEnvBuilderCfg()
+env_builder = ArenaEnvBuilder(env_cfg, builder_cfg)
 env = env_builder.make_registered()
 env.reset()
 ```
+
+Python callers set builder options directly on `ArenaEnvBuilderCfg`. Runner scripts
+continue to accept the same options as CLI flags, such as `--num_envs 4 --seed 7`,
+and translate them into an `ArenaEnvBuilderCfg` before building the environment.
 
 Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html), including:
 
@@ -159,7 +194,7 @@ IsaacLab-Arena/
 ├── docs/                              # Sphinx documentation source
 ├── osmo/                              # Cloud deployment configs (OSMO)
 ├── submodules/                        # Git submodules (Isaac Lab, etc.)
-├── setup.py                           # Package installation
+├── pyproject.toml                     # Package metadata, dependencies, and uv config
 ├── CONTRIBUTING.md                    # Contribution guidelines
 └── LICENSE.md                         # Apache 2.0 license
 ```
@@ -183,8 +218,7 @@ Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
 |-----------------|---------|
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
-| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, enhanced heterogeneity across parallel evaluations and pip install support are planned but not yet implemented. |
-| **Docker-only install** | Source installation in a Docker container is the only supported method. |
+| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, and enhanced heterogeneity across parallel evaluations are planned but not yet implemented. |
 | **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.2.0` for the most stable experience. |
 
 

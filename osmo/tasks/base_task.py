@@ -9,11 +9,16 @@ Child classes define the task-specific entry script, inputs, image, and credenti
 assembles the dict that OSMO consumes under ``workflow.groups[*].tasks``.
 """
 
-import argparse
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
-from workflows.utils.yaml_utils import block_literal_str
+from osmo.workflows.utils.yaml_utils import block_literal_str
+
+
+@dataclass
+class TaskCfg:
+    """Base config for an OSMO task. Server-style tasks that need no parameters use this as-is."""
 
 
 class BaseTask(ABC):
@@ -21,39 +26,40 @@ class BaseTask(ABC):
 
     def __init__(
         self,
-        workflow_args: argparse.Namespace,
-        task_args: argparse.Namespace,
+        task_cfg: TaskCfg | None = None,
         lead: bool | None = None,
+        *,
+        task_name: str,
+        resource: str | None = None,
     ) -> None:
-        self.workflow_args = workflow_args
-        self.task_args = task_args
+        assert isinstance(task_name, str) and task_name, "Task name must be a non-empty string"
+        self.task_name = task_name
+        self.task_cfg = task_cfg
         self.lead = lead
-
-    @staticmethod
-    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
-        """Register the CLI arguments this task needs.
-
-        Subclasses override this to declare their own arguments.
-
-        Args:
-            parser: The parser to add task-specific arguments to.
-        """
+        self.resource = resource
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
-        return {
-            "name": self.get_task_name(),
+        task = {
+            "name": self.task_name,
             "args": ["/tmp/entry.sh"],
             "command": ["bash"],
             "credentials": self._get_credentials(),
             "downloadType": "download",
             "environment": self._get_environment(),
-            "files": [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}],
+            "files": self._get_files_to_create(),
             "image": self._get_image(),
             "inputs": self._get_inputs(),
             "outputs": self._get_outputs(),
             "lead": self.lead,
         }
+        if self.resource is not None:
+            task["resource"] = self.resource
+        return task
+
+    def _get_files_to_create(self) -> list[dict[str, Any]]:
+        """Return files OSMO creates in the task container before starting it."""
+        return [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}]
 
     def _get_environment(self) -> dict[str, str]:
         """Return environment variables for the task."""
@@ -75,14 +81,10 @@ class BaseTask(ABC):
         }
 
     @staticmethod
-    @abstractmethod
-    def get_task_name() -> str:
-        """Return the task name."""
-
-    @classmethod
-    def host_token(cls) -> str:
+    def host_token(task_name: str) -> str:
         """Return the OSMO ``{{host:<task>}}`` token that resolves to this task's runtime host/IP."""
-        return "{{host:" + cls.get_task_name() + "}}"
+        assert isinstance(task_name, str) and task_name, "Host token task name must be a non-empty string"
+        return "{{host:" + task_name + "}}"
 
     @abstractmethod
     def _get_image(self) -> str:

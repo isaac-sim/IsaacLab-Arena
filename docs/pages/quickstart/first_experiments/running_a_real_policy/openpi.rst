@@ -45,7 +45,8 @@ Terminal 2 — arena policy runner
 
 **Run pi05 closed-loop**
 
-Open a second terminal and point the arena policy runner at the server:
+Open a second terminal, enter the Arena container with ``./docker/run_docker.sh``, and
+point the arena policy runner at the server:
 
 .. code-block:: bash
 
@@ -82,9 +83,9 @@ To measure success rates across several variations of the environment in a singl
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
 
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
@@ -153,15 +154,15 @@ for a cross-model comparison.
 Viewing rollouts as an HTML report
 ----------------------------------
 
-Both ``policy_runner.py`` and ``eval_runner.py`` can collect the rollouts into a browsable
+Both ``policy_runner.py`` and ``experiment_runner.py`` can collect the rollouts into a browsable
 HTML evaluation report. For visualization add ``--record_camera_video`` to record one mp4 per camera, per
 episode; the runner writes an ``index.html`` which is then served over HTTP.
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
      --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 

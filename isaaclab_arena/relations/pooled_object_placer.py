@@ -16,7 +16,8 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 @dataclass
@@ -63,14 +64,17 @@ class PooledObjectPlacer:
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
         num_envs: Number of simulation environments.
+        collision_objects: Fixed background obstacles avoided during placement but never
+            optimized or relation-constrained.
     """
 
     def __init__(
         self,
-        objects: list[ObjectBase],
+        objects: list[PlaceableAsset],
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
         num_envs: int | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
@@ -80,11 +84,13 @@ class PooledObjectPlacer:
         assert self._num_envs >= 1, f"num_envs must be >= 1, got {self._num_envs}"
 
         self._objects = list(objects)
+        self._collision_objects = list(collision_objects) if collision_objects else []
         # Pool construction ranks several candidate layouts per env and applies
         # poses only when a sampled layout is used.
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
+        self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
@@ -139,7 +145,7 @@ class PooledObjectPlacer:
                 return
 
             batch_size = max_missing * self._num_envs
-            allow_fallback = batch_idx == max_solve_batches - 1
+            allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
             ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
             self._store_env_matched_results(
                 ranked_results_per_env,
@@ -174,6 +180,7 @@ class PooledObjectPlacer:
                 self._objects,
                 num_envs=self._num_envs,
                 results_per_env=layouts_per_env,
+                collision_objects=self._collision_objects,
             )
 
         return ranked_results_per_env, layouts_per_env
@@ -192,7 +199,6 @@ class PooledObjectPlacer:
         An env that has at least one valid layout never falls back to best-loss,
         even if it has fewer valid layouts than target_num_layouts_per_env.
         """
-        total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
@@ -200,11 +206,7 @@ class PooledObjectPlacer:
             missing = target_num_layouts_per_env - self._env_pools[cur_env].available
             if valid_results:
                 if missing > 0:
-                    enqueued = valid_results[:missing]
-                    total_valid += len(enqueued)
-                    self._env_pools[cur_env].extend(enqueued)
-                else:
-                    total_valid += len(valid_results)
+                    self._env_pools[cur_env].extend(valid_results[:missing])
             elif allow_fallback and missing > 0:
                 fallback = env_results[:missing]
                 if fallback:
@@ -212,15 +214,8 @@ class PooledObjectPlacer:
                     fallback_envs.append(cur_env)
                     self._had_fallbacks = True
 
-        total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
-        if total_valid < total_solved or fallback_envs:
-            msg = (
-                f"Placement pool solved {total_solved} candidates,"
-                f" {total_valid} valid, {total_solved - total_valid} failed validation"
-            )
-            if fallback_envs:
-                msg += f". Falling back to best-loss layouts for envs: {fallback_envs}"
-            print(msg)
+        if fallback_envs:
+            print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
 
     # ------------------------------------------------------------------
     # Public API
@@ -319,7 +314,7 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     @property
-    def objects(self) -> list[ObjectBase]:
+    def objects(self) -> list[PlaceableAsset]:
         """All objects (including anchors) participating in relation solving."""
         return self._objects
 

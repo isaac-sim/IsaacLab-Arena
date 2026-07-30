@@ -6,14 +6,11 @@
 
 import torch
 from abc import ABC
-from dataclasses import MISSING
-from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.assets.asset_base_cfg import AssetBaseCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import (
     BinaryJointPositionActionCfg,
@@ -28,20 +25,35 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
-from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-from isaaclab.utils import configclass
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+
+_DROID_ROBOT_PRIM = RobotPrimSpec(
+    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+    root_prim_path="/panda",
+    robot_base_prim_name="panda_link0",
+    stand_prim_name="stand_instanceable",
+)
+_DROID_STAND_PRIM = StandPrimSpec(
+    stand_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda",
+    ref_prim_path="/World/franka_table",
+    payload_child_name="franka_table",
+    footprint_translate_xyz=(-0.05, 0.0, 0.0),
+    footprint_scale_xy=(1.2, 1.2),
+    stand_default_height=1.35,
+)
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -49,6 +61,14 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     Includes Franka with robotiq gripper and specific set of cameras.
     Subclasses must set ``self.action_config`` to a concrete action configuration.
+
+    ``initial_pose`` / ``set_initial_pose`` set the base of the robot in world frame.
+    ``stand_height_m`` sets the height of the stand mesh under the robot base link,
+    which changes how far the stand extends below the root link.
+    When manually placing the robot on floor, ``set_initial_pose`` z value and
+    ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
+    ``placement_bbox_stand_only`` uses the stand footprint for ``On`` / ``NextTo`` placement
+    instead of the full robot+stand USD bounds.
     """
 
     name = "droid"
@@ -61,9 +81,19 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.stand_height_m = stand_height_m
+        self.placement_bbox_stand_only = placement_bbox_stand_only
         self.scene_config = DroidSceneCfg()
+        self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
+            _DROID_ROBOT_PRIM,
+            _DROID_STAND_PRIM,
+            stand_height_m=stand_height_m,
+            output_basename="droid_franka_robotiq_on_stand",
+        )
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -72,18 +102,16 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = None
         self.mimic_env = None
-        self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
+        self.add_camera_variations(self.camera_config)
 
-    def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # We override the default initial pose setting function in order to also set
-        # the initial pose of the stand.
-        scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_xyzw
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative placement bounds from the composed on-stand USD spawn.
 
-        return scene_config
+        When ``placement_bbox_stand_only`` is True, bounds exclude the robot arm and cover
+        the stand footprint only.
+        """
+        prim_path = _DROID_ROBOT_PRIM.stand_prim_path if self.placement_bbox_stand_only else None
+        return super().get_bounding_box(prim_path=prim_path)
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
@@ -109,8 +137,18 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+            placement_bbox_stand_only,
+        )
         self.action_config = DroidDifferentialIKActionsCfg()
 
 
@@ -128,8 +166,18 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+            placement_bbox_stand_only,
+        )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
 
@@ -148,20 +196,34 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        placement_bbox_stand_only: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_height_m,
+            placement_bbox_stand_only,
+        )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
 
 @configclass
 class DroidSceneCfg:
-    """Additions to the scene configuration coming from the Franka embodiment."""
+    """Additions to the scene configuration coming from the Droid embodiment.
 
-    # The robot
+    The robot USD path is overwritten at embodiment construction via
+    ``compose_on_stand_usd`` (cached local robot+stand assembly).
+    """
+
+    # The robot (stand is baked into the local on-stand USD, not a separate prim).
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+            usd_path=_DROID_ROBOT_PRIM.robot_usd_path,
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,
@@ -213,19 +275,6 @@ class DroidSceneCfg:
                 velocity_limit=1.0,
             ),
         },
-    )
-    # The stand for the franka
-    # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
-    stand: AssetBaseCfg = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
-        spawn=UsdFileCfg(
-            usd_path=(
-                f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
-            ),
-            scale=(1.2, 1.2, 1.7),
-            activate_contact_sensors=False,
-        ),
     )
 
     # The end-effector frame marker
@@ -393,57 +442,47 @@ class DroidEventCfg:
 
 
 @configclass
-class DroidCameraCfg:
+class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
-    external_camera: CameraCfg | TiledCameraCfg = MISSING
-    external_camera_2: CameraCfg | TiledCameraCfg = MISSING
-    wrist_camera: CameraCfg | TiledCameraCfg = MISSING
-
-    def __post_init__(self):
-        # Get configuration from private attributes set by embodiment constructor
-        # These use getattr with defaults to avoid scene parser treating them as assets
-        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
-
-        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
-        OffsetClass = CameraClass.OffsetCfg
-
-        self.external_camera = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/external_camera",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.1,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
-        )
-        self.external_camera_2 = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.1,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
-        )
-        self.wrist_camera = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.8,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=OffsetClass(pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"),
-        )
+    external_camera: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.1,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
+    )
+    external_camera_2: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera_2",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.1,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
+    )
+    wrist_camera: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.8,
+            focus_distance=28.0,
+            horizontal_aperture=5.376,
+            vertical_aperture=3.024,
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
+        ),
+    )

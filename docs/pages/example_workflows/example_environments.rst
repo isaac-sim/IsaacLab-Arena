@@ -10,7 +10,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   subclass and registered with the global ``EnvironmentRegistry``. The
   registered ``Task ID`` is passed as the positional ``example_environment``
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
-* **Environment graph YAML specs**: linked graph specs that describe the same
+* **Environment graph YAML specs**: ``ArenaEnvGraphSpec`` files that describe the same
   scene, embodiment, task, objects, and relations declaratively. These are
   passed with ``--env_graph_spec_yaml`` and can be generated from prompts by the
   :doc:`agentic_env_gen/index` workflow.
@@ -103,7 +103,7 @@ as the introductory ``First Arena Environment`` walkthrough.
    * - **Task Class**
      - ``PickAndPlaceTask`` (episode_length_s = 20)
    * - **Object Placement**
-     - Relations: ``On(table)``, ``PositionLimits(x=0.55..0.70, y=-0.4..-0.1)``
+     - Relations: ``On(table)``, ``PositionLimitsBox(x=0.55..0.70, y=-0.4..-0.1)``
    * - **CLI Args**
      - ``--pick_up_object``, ``--destination_location``, ``--additional_table_objects``, ``--embodiment``, ``--teleop_device``, ``--hdr``, ``--light_intensity``
 

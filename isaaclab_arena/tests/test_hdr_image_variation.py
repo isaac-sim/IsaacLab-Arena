@@ -37,12 +37,12 @@ def get_test_environment(*, enabled: bool):
 
 
 def _test_enabled_hdr_variation_in_compiled_scene(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    env_cfg, _ = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     light_scene_cfg = getattr(env_cfg.scene, TEST_DOME_LIGHT_NAME)
     texture_file = light_scene_cfg.spawn.texture_file

@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: butter_above_raisin
+external_yaml: ../scenes/butter_raisin_box.yaml
+task:
+  composition: atomic
+  description: pick up the butter box and place it on top of the raisin box
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: butter_hope_robolab
+      destination_location: raisin_box_hope_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

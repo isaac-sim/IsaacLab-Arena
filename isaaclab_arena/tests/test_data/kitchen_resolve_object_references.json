@@ -1,0 +1,19 @@
+{
+  "object_references": [
+    {
+      "id": "counter_top",
+      "parent_id": "lightwheel_robocasa_kitchen",
+      "prim_path": "counter_right_main_group/top_geometry",
+      "object_type": "base"
+    },
+    {
+      "id": "fridge",
+      "parent_id": "lightwheel_robocasa_kitchen",
+      "prim_path": "fridge_main_group",
+      "object_type": "articulation",
+      "params": {
+        "openable_joint_name": "fridge_door_joint"
+      }
+    }
+  ]
+}

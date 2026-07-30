@@ -37,7 +37,7 @@ class PressButtonEnvironment(ArenaEnvironmentFactory[PressButtonEnvironmentCfg])
         from isaaclab_arena.tasks.press_button_task import PressButtonTask
         from isaaclab_arena.utils.pose import Pose
 
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
         background = self.asset_registry.get_asset_by_name("packing_table")()
         press_object = self.asset_registry.get_asset_by_name("coffee_machine")()

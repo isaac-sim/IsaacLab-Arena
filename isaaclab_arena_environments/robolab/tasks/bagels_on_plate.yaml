@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: bagels_on_plate
+external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
+task:
+  composition: parallel
+  description: Put the bagels on the plate
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: bagel_1
+      destination_location: plate
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: bagel_2
+      destination_location: plate
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

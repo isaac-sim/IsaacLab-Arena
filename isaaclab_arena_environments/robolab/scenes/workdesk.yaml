@@ -1,0 +1,114 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: computer_mouse
+  registry_name: computer_mouse_hot3d_robolab
+  params: {}
+- id: keyboard
+  registry_name: keyboard_hot3d_robolab
+  params: {}
+- id: ceramic_mug
+  registry_name: ceramic_mug_hot3d_robolab
+  params: {}
+- id: glasses
+  registry_name: glasses_hot3d_robolab
+  params: {}
+- id: lizard_figurine
+  registry_name: lizard_figurine_hot3d_robolab
+  params: {}
+- id: marker
+  registry_name: marker_hot3d_robolab
+  params: {}
+- id: remote_control
+  registry_name: remote_control_hot3d_robolab
+  params: {}
+- id: rubiks_cube
+  registry_name: rubiks_cube_hot3d_robolab
+  params: {}
+- id: smartphone
+  registry_name: smartphone_hot3d_robolab
+  params: {}
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params:
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
+- id: yogurt_cup
+  registry_name: yogurt_cup_hope_robolab
+  params: {}
+- id: oatmeal_raisin_cookies
+  registry_name: oatmeal_raisin_cookies_hope_robolab
+  params: {}
+- id: granola_bar
+  registry_name: granola_bars_hope_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: computer_mouse
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: keyboard
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: ceramic_mug
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: glasses
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: lizard_figurine
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: marker
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: remote_control
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: rubiks_cube
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: smartphone
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: wooden_bowl
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: yogurt_cup
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: oatmeal_raisin_cookies
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: granola_bar
+  reference: maple_table_robolab
+  params: {}

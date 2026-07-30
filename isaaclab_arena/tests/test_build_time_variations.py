@@ -6,7 +6,7 @@
 from dataclasses import field
 
 import pytest
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -39,7 +39,7 @@ class TestBuildTimeVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg(), name=name)
         self._asset = asset
 
-    def apply(self) -> None:
+    def _realize_at_build_time(self) -> None:
         assert self.sampler is not None
         self._asset.object_cfg.spawn.radius = float(self.sampler.sample(num_samples=1)[0, 0])
 
@@ -66,14 +66,14 @@ def get_test_environment(*, enabled: bool):
 
 
 def _test_disabled_build_time_variation_not_applied(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(enabled=False)
     sphere = arena_env.scene.assets[TEST_ASSET_NAME]
     default_radius = sphere.object_cfg.spawn.radius
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     assert sphere.object_cfg.spawn.radius == default_radius, (
         f"Disabled build-time variation must not mutate '{TEST_ASSET_NAME}.object_cfg.spawn.radius'; "
@@ -83,13 +83,13 @@ def _test_disabled_build_time_variation_not_applied(simulation_app):
 
 
 def _test_enabled_build_time_variation_applied(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(enabled=True)
     sphere = arena_env.scene.assets[TEST_ASSET_NAME]
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     # The radius is stored on SphereCfg as a float32, so compare with a tolerance
     # rather than against the Python double TEST_APPLIED_RADIUS.

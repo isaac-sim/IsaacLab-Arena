@@ -66,7 +66,7 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.managers import RecorderTerm, RecorderTermCfg, TerminationTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.datasets import EpisodeData, HDF5DatasetFileHandler
 
 is_paused = False

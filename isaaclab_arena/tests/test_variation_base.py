@@ -13,7 +13,7 @@ from dataclasses import field
 
 import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.variations.uniform_sampler import UniformSampler, UniformSamplerCfg

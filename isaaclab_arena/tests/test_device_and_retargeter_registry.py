@@ -7,7 +7,7 @@ import gymnasium as gym
 import torch
 import tqdm
 
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
@@ -55,7 +55,7 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
             args_parser = get_isaaclab_arena_cli_parser()
             args_cli = args_parser.parse_args([])
 
-            builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+            builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
 
             env = builder.make_registered()
 

@@ -14,7 +14,7 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots.galbot import GALBOT_ONE_CHARLIE_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_joint_state
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame, franka_stack_events

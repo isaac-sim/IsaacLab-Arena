@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Streamlit UI for the initial-graph live editor.
+"""Streamlit UI for the environment graph spec live editor.
 
 Launch via gui_runner (see that module for CLI usage).
 """
@@ -37,16 +37,16 @@ def parse_args() -> argparse.Namespace:
     """Parse Streamlit CLI args forwarded after ``--`` by gui_runner."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--env_initial_graph_spec",
+        "--env_graph_spec_yaml",
         type=Path,
         default=None,
-        help="Optional path to an ArenaEnvInitialGraphSpec YAML to open in the editor.",
+        help="Optional path to an ArenaEnvGraphSpec YAML to open in the editor.",
     )
     parser.add_argument(
         "--out_dir",
         type=Path,
         default=DEFAULT_AGENTIC_OUTPUT_DIR,
-        help="Directory for generated initial/linked spec YAML files.",
+        help="Directory for generated env graph spec YAML files.",
     )
     return parser.parse_args()
 
@@ -71,7 +71,7 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
         st.session_state["original_text"] = ""
         st.session_state["edited_text"] = ""
         st.session_state["last_rendered_text"] = ""
-        st.session_state["rendered_html"] = ""
+        st.session_state["rendered_visualization"] = None
         st.session_state["save_path"] = ""
         return
 
@@ -80,20 +80,20 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state["original_text"] = original_text
     st.session_state["edited_text"] = original_text
     st.session_state["last_rendered_text"] = ""
-    st.session_state["rendered_html"] = ""
+    st.session_state["rendered_visualization"] = None
     st.session_state["save_path"] = str(yaml_path)
 
 
 def main() -> None:
     """Build the two-column Streamlit layout for generation, editing, and preview."""
     st.set_page_config(
-        page_title="ArenaEnvInitialGraphSpec live editor",
+        page_title="ArenaEnvGraphSpec live editor",
         layout="wide",
         initial_sidebar_state="collapsed",
     )
 
     args = parse_args()
-    yaml_path = args.env_initial_graph_spec.resolve() if args.env_initial_graph_spec is not None else None
+    yaml_path = args.env_graph_spec_yaml.resolve() if args.env_graph_spec_yaml is not None else None
     if yaml_path is not None and not yaml_path.exists():
         st.error(f"YAML file not found: {yaml_path}", icon="🛑")
         st.stop()
@@ -110,7 +110,16 @@ def main() -> None:
             icon="⚠️",
         )
 
-    st.markdown("### ArenaEnvInitialGraphSpec live editor")
+    st.markdown("### ArenaEnvGraphSpec live editor")
+
+    feedback = st.session_state.pop("_generation_feedback", None)
+    if feedback is not None:
+        kind, message = feedback
+        if kind == "warning":
+            st.warning(message, icon="⚠️")
+        elif kind == "success":
+            st.success(message, icon="✅")
+
     left, right = st.columns([2, 3], gap="large")
     with left:
         render_generation_panel()

@@ -84,12 +84,14 @@ HETERO_FIXED_OBJECTS = [
     ("lime01_fruits_veggies_robolab", 0.5, 0.15),
 ]
 
+# The GR1 embodiments that are compatible with this environment.
+GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
+
 
 @dataclass
 class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 table multi-object environment."""
 
-    enable_cameras: bool = False
     objects: list[str] | None = None
     embodiment: str = "gr1_joint"
     teleop_device: str | None = None
@@ -117,6 +119,8 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
+        from isaaclab.sensors import CameraCfg
+
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor
@@ -128,11 +132,16 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
             position_xyz=(0.12515, 0.0, 0.06776),
             rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
-            enable_cameras=cfg.enable_cameras,
-            camera_offset=camera_offset,
-            use_tiled_camera=(cfg.num_envs > 1),
+        assert (
+            cfg.embodiment in GR1_EMBODIMENTS
+        ), f"{self.name} only supports GR1 embodiments {GR1_EMBODIMENTS}, got '{cfg.embodiment}'."
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_xyzw,
+            convention="opengl",
         )
+        embodiment.camera_config.set_use_tiled_camera(cfg.num_envs > 1)
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),

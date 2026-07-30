@@ -5,7 +5,7 @@
 
 """End-to-end test for graph-spec -> live IsaacLabArenaEnvironment conversion.
 
-Lives apart from ``test_arena_env_graph_spec.py`` on purpose: that file's in-process tests call
+Lives apart from in-process graph-spec validation tests on purpose: those call
 ``spec.validate()``, which transitively imports ``pxr`` (relation-class resolution). The
 persistent in-process ``SimulationApp`` here cannot start if ``pxr`` was imported first, so the
 sim test must not share a process with those pxr-importing tests. Keeping it solo lets the app
@@ -16,7 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import (
+    AssetSpec,
+    CompositeTaskSpec,
+    TaskCompositionType,
+    TaskSpec,
+)
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
@@ -30,7 +36,7 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
     assert arena_env.name == "pick_and_place_maple_table_default"
     assert isinstance(arena_env.task, SequentialTaskBase)
-    assert arena_env.task.desired_subtask_success_state == [True, True]
+    assert arena_env.task.desired_subtask_success_state is None
     assert len(arena_env.task.subtasks) == 2
     assert all(isinstance(subtask, PickAndPlaceTask) for subtask in arena_env.task.subtasks)
     assert arena_env.task.subtasks[0].pick_up_object.name == "rubiks_cube_hot3d_robolab"
@@ -42,7 +48,6 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
 
 def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
-    pytest.importorskip("isaaclab.app")
 
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -68,15 +73,14 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
     # The flags the YAML declares under `cli_override_specs` are registered dynamically by the
     # environments parser (not hardcoded). Confirm --object parses through that real parser
-    # path and that apply_cli_override_args swaps the declared target node's asset name.
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-
+    # path and that apply_cli_override_args swaps the declared target asset's registry_name.
     sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path, "--object", "dex_cube"]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
     assert args.object == "dex_cube"
     spec = ArenaEnvGraphSpec.from_yaml(yaml_path)
     spec.apply_cli_override_args(args)
-    assert spec.nodes_by_id["rubiks_cube_hot3d_robolab"].name == "dex_cube"
+    cube = next(obj for obj in spec.objects if obj.id == "rubiks_cube_hot3d_robolab")
+    assert cube.registry_name == "dex_cube"
 
     # A non-existent --env_graph_spec_yaml fails with a clear "not found" assertion from the YAML
     # loader, not an opaque FileNotFoundError. The parser hits it while building, when it reads the
@@ -97,7 +101,6 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
 
 def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
-    pytest.importorskip("isaaclab.app")
 
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -105,43 +108,80 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     assert result
 
 
-def _test_default_light_is_injected_when_scene_has_none(simulation_app):
-    from isaaclab_arena.assets.object_library import DomeLight
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
+def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
+    from isaaclab_arena.assets.object_set import RigidObjectSet
 
-    # A single YCB object with no light node and no light baked into its USD: the converter
-    # must inject a default light so the env does not render black.
-    spec = ArenaEnvGraphSpec(
-        env_name="lighting_injection_test",
-        nodes=[ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT)],
-    )
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml")
     arena_env = spec.to_arena_env()
 
-    # The injected light is tracked as a real LIGHTING node (so the augmented graph stays faithful)
-    # and materializes as a DomeLight scene asset.
-    light_nodes = [node for node in spec.nodes if node.type == ArenaEnvGraphNodeType.LIGHTING]
-    assert len(light_nodes) == 1, f"expected one injected light node, got {light_nodes}"
+    object_set = arena_env.scene.assets["pick_up_object_set"]
+    assert isinstance(object_set, RigidObjectSet)
+    assert len(object_set.objects) == 2
+    assert len(object_set.member_usd_paths) == 2
+    assert object_set.random_choice
+
+    # The set is a single node: the task manipulates it, and each env gets one of its members.
+    assert arena_env.task.pick_up_object is object_set
+    object_set.assign_variants(num_envs=4)
+    assert len(object_set.object_usd_paths) == 4
+
+    return True
+
+
+def test_arena_env_graph_conversion_builds_object_set_node():
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_object_set_node)
+    assert result
+
+
+def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
+    return ArenaEnvGraphSpec(
+        env_name="lighting_test",
+        embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
+        background=AssetSpec(id="background", registry_name="maple_table_robolab"),
+        objects=objects,
+        task=CompositeTaskSpec(
+            composition=TaskCompositionType.ATOMIC,
+            description="noop task",
+            subtasks=[
+                TaskSpec(
+                    kind="PickAndPlaceTask",
+                    params={
+                        "pick_up_object": objects[0].id,
+                        "destination_location": objects[0].id,
+                        "background_scene": "background",
+                    },
+                )
+            ],
+        ),
+    )
+
+
+def _test_default_light_is_injected_when_scene_has_none(simulation_app):
+    from isaaclab_arena.assets.object_library import DomeLight
+
+    # A single YCB object with no light asset and no light baked into its USD: the converter
+    # must inject a default light so the env does not render black.
+    spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
+    arena_env = spec.to_arena_env()
+
     assert any(isinstance(asset, DomeLight) for asset in arena_env.scene.assets.values())
 
     # An explicit light suppresses injection — no double-lighting.
-    explicit = ArenaEnvGraphSpec(
-        env_name="lighting_explicit_test",
-        nodes=[
-            ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT),
-            ArenaEnvGraphNodeSpec(id="my_light", name="light", type=ArenaEnvGraphNodeType.LIGHTING),
-        ],
+    explicit = _minimal_scene_spec(
+        objects=[
+            AssetSpec(id="mug", registry_name="mug_ycb_robolab"),
+            AssetSpec(id="my_light", registry_name="light"),
+        ]
     )
-    num_nodes_before = len(explicit.nodes)
     explicit_env = explicit.to_arena_env()
-    assert len(explicit.nodes) == num_nodes_before, "must not inject a light when one is already declared"
     assert sum(isinstance(asset, DomeLight) for asset in explicit_env.scene.assets.values()) == 1
 
     return True
 
 
 def test_default_light_is_injected_when_scene_has_none():
-    pytest.importorskip("isaaclab.app")
-
     from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
     result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)

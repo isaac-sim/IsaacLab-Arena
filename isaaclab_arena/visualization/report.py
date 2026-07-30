@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
 
-# Matches the per-episode results filename written by EpisodeRecorderManager.write. The eval runner
+# Matches the per-episode results filename written by EpisodeRecorderManager.write. The Experiment Runner
 # writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
 # per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
 _RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")
@@ -108,7 +108,7 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     """Recursively scan ``root`` for episode results and recorder mp4s and group them by job.
 
     Intended for use with two different output folder structures:
-    - The eval_runner.py writes one per-job sub-directory under ``root``.
+    - The experiment_runner.py writes one per-job sub-directory under ``root``.
     - The policy_runner.py writes directly under ``root``.
 
     Files that do not match the recorder's naming pattern are ignored.

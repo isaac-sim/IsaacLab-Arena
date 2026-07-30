@@ -42,7 +42,7 @@ EOF
 
 Branch naming: `<username>/<type>/<short-description>` where `<type>` is one of `feature`, `fix`, `docs`, `refactor`, `chore`, `ci`, and `<short-description>` is kebab-case.
 
-Examples: `<username>/feature/video-recording`, `<username>/fix/eval-runner-teardown`, `<username>/docs/update-readme`.
+Examples: `<username>/feature/video-recording`, `<username>/fix/experiment-runner-teardown`, `<username>/docs/update-readme`.
 
 Do not use top-level type prefixes that omit the username (e.g. `feature/foo`, `fix/bar`).
 

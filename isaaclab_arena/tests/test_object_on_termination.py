@@ -21,7 +21,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -49,15 +49,16 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     scene = Scene(assets=[background, cracker_box, destination_location])
 
+    task = PickAndPlaceTask(cracker_box, destination_location, background)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
         embodiment=FrankaIKEmbodiment(),
         scene=scene,
-        task=PickAndPlaceTask(cracker_box, destination_location, background),
+        task=task,
     )
 
     # Compile an IsaacLab compatible arena environment configuration
-    builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()
     env.reset()
 
@@ -69,7 +70,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         velocities_vec = []
         success_vec = []
         terminated_vec = []
-        sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
+        sensor = env.unwrapped.scene.sensors[task.contact_sensor_name]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

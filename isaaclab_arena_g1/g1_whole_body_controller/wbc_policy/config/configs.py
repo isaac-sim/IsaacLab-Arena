@@ -6,7 +6,7 @@
 from dataclasses import MISSING, asdict, dataclass
 from typing import Literal
 
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 
 
 @dataclass
@@ -61,7 +61,7 @@ class HomieV2Config(BaseConfig):
     """Version of the whole body controller."""
 
     wbc_model_path: str = (
-        f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/stand.onnx,{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/walk.onnx"
+        f"{ARENA_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/stand.onnx,{ARENA_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/walk.onnx"
     )
     """Path to WBC model file"""
 

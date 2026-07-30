@@ -8,8 +8,11 @@ from __future__ import annotations
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
-from isaaclab.utils import configclass
-from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCfg
+from isaaclab.utils.configclass import configclass
+
+# Import from the package root so this resolves whether MJWarpSolverCfg lives in
+# newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
+from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
@@ -77,11 +80,15 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         render=RenderCfg(
             carb_settings={
                 "/rtx/sceneDb/ambientLightIntensity": 0.0,
+                # Workaround for IsaacLab #6424: stop the physx-tensors filter matcher from
+                # recursing into leaf collision shapes so a contact filter pointing at a rigid
+                # body with multiple collision shapes resolves to a single entry (otherwise the
+                # view fails with "expected 1, found N").
+                "/physics/tensors/recursiveLeafPatternMatch": False,
             },
         ),
     )
     decimation: int = 4
-    episode_length_s: float = 50.0
     wait_for_textures: bool = False
     # Force at least one RTX sensor refresh after reset. The IsaacLab default (0)
     # leaves camera buffers stale on the first frame of every episode after the
@@ -99,4 +106,7 @@ class IsaacArenaManagerBasedMimicEnvCfg(IsaacLabArenaManagerBasedRLEnvCfg, Mimic
     # datagen_config: DataGenConfig = DataGenConfig()
     # subtask_configs: dict[str, list[SubTaskConfig]] = {}
     # task_constraint_configs: list[SubTaskConstraintConfig] = []
-    pass
+
+    # Data generation keeps the longer historical default so demos are not truncated; the task's
+    # (shorter) episode length is only applied to non-mimic RL/eval envs by the env builder.
+    episode_length_s: float = 50.0

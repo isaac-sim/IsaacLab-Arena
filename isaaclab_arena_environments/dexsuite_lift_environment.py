@@ -58,7 +58,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")()
+        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")(enable_cameras=cfg.enable_cameras)
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
         task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)

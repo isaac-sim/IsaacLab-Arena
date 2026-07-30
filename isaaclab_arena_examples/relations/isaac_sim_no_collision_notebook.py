@@ -47,8 +47,7 @@ def run_isaac_sim_no_collision_demo(
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder, ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.relations import IsAnchor, On
@@ -91,8 +90,7 @@ def run_isaac_sim_no_collision_demo(
     )
 
     # Build without solving relations so objects start overlapping in the sim; we run the solver after reset.
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--no-solve-relations"])
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, ArenaEnvBuilderCfg(solve_relations=False))
     env = env_builder.make_registered()
 
     objects_with_relations = [tabletop_reference, cracker_box, mug, tomato_soup_can]

@@ -38,7 +38,7 @@ EMBODIMENT = "g1_wbc_joint"
 NUM_STEPS = 17
 SINGLE_ENV_COUNT = 1
 MULTI_ENV_COUNT = 3
-EVAL_RUNNER_NUM_STEPS = 2
+EXPERIMENT_RUNNER_NUM_STEPS = 2
 
 
 def _get_gr00t_remote_server() -> tuple[str, int, int]:
@@ -90,7 +90,7 @@ def _write_eval_jobs_config(tmp_path, remote_host: str, remote_port: int) -> str
                 "object": OBJECT_NAME,
                 "embodiment": EMBODIMENT,
             },
-            "num_steps": EVAL_RUNNER_NUM_STEPS,
+            "num_steps": EXPERIMENT_RUNNER_NUM_STEPS,
             "policy_type": POLICY_TYPE,
             "policy_config_dict": {
                 "policy_config_yaml_path": POLICY_CONFIG,
@@ -100,7 +100,7 @@ def _write_eval_jobs_config(tmp_path, remote_host: str, remote_port: int) -> str
             },
         },
     ]
-    config_path = tmp_path / "test_gr00t_remote_closedloop_eval_runner.json"
+    config_path = tmp_path / "test_gr00t_remote_closedloop_experiment_runner.json"
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump({"jobs": jobs}, f, indent=4)
     return str(config_path)
@@ -118,14 +118,14 @@ def test_policy_runner_with_gr00t_remote_closedloop_policy_multi_env():
     _run_policy_runner(remote_host, remote_port, timeout_sec, num_envs=MULTI_ENV_COUNT)
 
 
-def test_eval_runner_with_gr00t_remote_closedloop_policy(tmp_path):
-    """Run eval_runner with the GR00T remote closed-loop policy."""
+def test_experiment_runner_with_gr00t_remote_closedloop_policy(tmp_path):
+    """Run the Experiment Runner with the GR00T remote closed-loop policy."""
     remote_host, remote_port, timeout_sec = _get_gr00t_remote_server()
     config_path = _write_eval_jobs_config(tmp_path, remote_host, remote_port)
 
     args = [
         TestConstants.python_path,
-        f"{TestConstants.evaluation_dir}/eval_runner.py",
+        f"{TestConstants.evaluation_dir}/experiment_runner.py",
         "--eval_jobs_config",
         config_path,
         "--headless",

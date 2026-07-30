@@ -8,17 +8,14 @@ from __future__ import annotations
 import streamlit as st
 
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
-    render_dashboard_with_thumbnails,
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.visualization_widgets import (
+    render_visualization_widgets,
 )
-
-_IFRAME_HEIGHT_PX = 1100
-
-_BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
-    font-family: ui-monospace, monospace;
-    background:#15181d; color:#e4e6eb; padding:24px; margin:0;">
-<p>No visualization yet — fix the YAML errors to auto-render.</p>
-</body></html>"""
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+    build_asset_cards_with_thumbnails,
+    clear_asset_cards_cache,
+    clear_snapshot_render_caches,
+)
 
 
 def reset_viz_render_state() -> None:
@@ -27,36 +24,51 @@ def reset_viz_render_state() -> None:
 
 
 def render_visualization_panel(validation: SpecParseResult) -> None:
-    """Embed the rendered dashboard HTML in the right column."""
+    """Render the visualization panel in the right column as native Streamlit widgets."""
     st.subheader("Visualization")
+
+    if st.button(
+        "Clear cache & rerender",
+        help="Delete cached snapshot PNGs on disk and render this spec again.",
+    ):
+        removed = clear_snapshot_render_caches()
+        clear_asset_cards_cache()
+        st.session_state["last_rendered_text"] = ""
+        st.toast(f"Cleared {removed} cached snapshot(s).", icon="🗑️")
+        st.rerun()
 
     edited_text = st.session_state.get("edited_text", "").strip()
     if not edited_text:
         st.caption("Generate or enter valid YAML to see the visualization.")
-    elif not validation.is_valid:
+        return
+
+    if not validation.is_valid:
         pending = st.session_state["edited_text"] != st.session_state.get("last_rendered_text", "")
         if pending:
-            st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
+            st.session_state["rendered_visualization"] = None
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.caption("Fix YAML errors to see the visualization.")
-    else:
-        pending = st.session_state["edited_text"] != st.session_state.get("last_rendered_text", "")
-        if pending:
-            if st.session_state.get("_defer_viz_render"):
-                st.caption("Rendering visualization…")
-            else:
-                with st.spinner("Rendering node snapshots…"):
-                    st.session_state["rendered_html"] = render_dashboard_with_thumbnails(validation.spec)
-                st.session_state["last_rendered_text"] = st.session_state["edited_text"]
-                st.toast("Visualization updated.", icon="🔄")
+        return
 
-        html = st.session_state.get("rendered_html", "")
-        if html:
-            st.caption("Updates automatically when the YAML is valid.")
-            st.components.v1.html(
-                html,
-                height=_IFRAME_HEIGHT_PX,
-                scrolling=True,
-            )
-        elif not st.session_state.get("_defer_viz_render"):
+    pending = st.session_state["edited_text"] != st.session_state.get("last_rendered_text", "")
+    if pending:
+        if st.session_state.get("_defer_viz_render"):
             st.caption("Rendering visualization…")
+        else:
+            with st.spinner("Rendering node snapshots…"):
+                asset_cards, prim_tree = build_asset_cards_with_thumbnails(validation.spec)
+            st.session_state["rendered_visualization"] = asset_cards
+            st.session_state["rendered_prim_tree"] = prim_tree
+            st.session_state["last_rendered_text"] = st.session_state["edited_text"]
+            st.toast("Visualization updated.", icon="🔄")
+
+    asset_cards = st.session_state.get("rendered_visualization")
+    if isinstance(asset_cards, list):
+        st.caption("Updates automatically when the YAML is valid.")
+        render_visualization_widgets(
+            validation.spec,
+            asset_cards,
+            st.session_state.get("rendered_prim_tree", []),
+        )
+    elif not st.session_state.get("_defer_viz_render"):
+        st.caption("Rendering visualization…")

@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 from isaaclab.envs.manager_based_rl_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.object_base import ObjectBase

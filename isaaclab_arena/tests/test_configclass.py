@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.utils.configclass import combine_configclasses
 
@@ -94,7 +94,7 @@ def test_combine_configclasses_with_post_init():
 
 def test_combine_configclass_instances_preserves_default_factory_nested_config():
     """Merged classes must not assign raw ``default_factory`` callables as field defaults (see ``get_field_info``)."""
-    from isaaclab.utils import configclass
+    from isaaclab.utils.configclass import configclass
 
     from isaaclab_arena.utils.configclass import combine_configclass_instances
 

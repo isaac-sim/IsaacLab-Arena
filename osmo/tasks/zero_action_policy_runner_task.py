@@ -5,7 +5,7 @@
 
 """Zero-action policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
-from tasks.policy_runner_task import PolicyRunnerTask
+from osmo.tasks.policy_runner_task import PolicyRunnerTask
 
 
 class ZeroActionPolicyRunnerTask(PolicyRunnerTask):

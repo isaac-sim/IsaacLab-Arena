@@ -5,15 +5,21 @@ ISAACLAB_ARENA_IMAGE_NAME='isaaclab_arena'
 TAG_NAME=latest
 CONTAINER_ID=""
 PUSH_TO_NGC=false
+INSTALL_CUROBO="false"
 WORKDIR="/workspaces/isaaclab_arena"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
+while getopts ":t:cn:vn:pn:Rn:hn:" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
             echo "Tag name is ${TAG_NAME}."
+            ;;
+        c)
+            INSTALL_CUROBO="true"
+            TAG_NAME='curobo'
+            echo "INSTALL_CUROBO is ${INSTALL_CUROBO}."
             ;;
         v)
             set -x
@@ -35,12 +41,15 @@ while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
             echo "Examples:"
             echo "- Build without cache and push to NGC:"
             echo "    ${script_name} -R -p -t <tag_name>"
+            echo "- Build without cache and push to NGC with cuRobo dependencies:"
+            echo "    ${script_name} -R -p -t <tag_name> -c"
             echo "- See help message:"
             echo "    ${script_name} -h"
             echo ""
             echo "Options:"
             echo "  -p - Push the image to NGC."
             echo "  -t - Tag name of the image."
+            echo "  -c - Install cuRobo motion-planning library (compiles CUDA extensions)."
             echo '  -R - Do not use cache when building the image.'
             echo "  -v - Verbose output."
             echo "  -h - Help (this output)"
@@ -52,11 +61,14 @@ done
 # Get the NGC path.
 DOCKER_IMAGE_NAME=${ISAACLAB_ARENA_IMAGE_NAME}:${TAG_NAME}
 NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
+echo "DOCKER_IMAGE_NAME is ${DOCKER_IMAGE_NAME}."
+echo "NGC_PATH is ${NGC_PATH}."
 
 # Build the image.
 docker build --pull \
     $NO_CACHE \
     --build-arg WORKDIR="${WORKDIR}" \
+    --build-arg INSTALL_CUROBO=$INSTALL_CUROBO \
     -t ${DOCKER_IMAGE_NAME} \
     --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
     $SCRIPT_DIR/..

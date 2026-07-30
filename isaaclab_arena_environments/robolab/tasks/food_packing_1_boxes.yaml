@@ -1,0 +1,18 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: food_packing_1_boxes
+external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
+task:
+  composition: atomic
+  description: pick up the cheez it box and place it into the bin
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cheez_it_box
+      destination_location: bin_a06
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]

@@ -272,7 +272,7 @@ just over-fitting to a single object mesh.
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``eval_runner.py`` script.
+A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``experiment_runner.py`` script.
 It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
 The evaluation batch can be specified in a config file, with examples shown below.
 
@@ -326,7 +326,7 @@ Run the batch evaluation:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 

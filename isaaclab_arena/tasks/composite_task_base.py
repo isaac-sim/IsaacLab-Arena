@@ -12,10 +12,11 @@ from dataclasses import MISSING
 from functools import partial
 from typing import Any
 
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -117,6 +118,7 @@ class CompositeTaskBase(TaskBase):
     Args:
         subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
         episode_length_s: Maximum duration of a single episode in seconds. If None, no time limit is enforced.
+        task_description: (Optional) Natural-language summary of the overall composite task.
         desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
             Can be used to enforce a specific current state for each subtask at the end of the episode.
     """
@@ -125,9 +127,10 @@ class CompositeTaskBase(TaskBase):
         self,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
+        task_description: str | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        super().__init__(episode_length_s)
+        super().__init__(episode_length_s, task_description)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
         self.subtasks = subtasks
 
@@ -139,6 +142,15 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""
+        return self.subtasks[0].get_viewer_cfg()
+
+    def apply_reachability_constraints(self) -> None:
+        """Apply RequiresReachability relations to each subtask's reachability targets."""
+        for subtask in self.subtasks:
+            subtask.apply_reachability_constraints()
 
     @staticmethod
     def _add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
