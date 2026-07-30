@@ -4,13 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import functools
 import torch
+import warnings
 from abc import ABC
+from typing import TYPE_CHECKING, Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.assets.asset_base_cfg import AssetBaseCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import (
     BinaryJointPositionActionCfg,
@@ -26,6 +30,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
@@ -35,25 +40,34 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
-from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, translate_by_xyz_offset
 
-_DROID_ROBOT_PRIM = RobotPrimSpec(
-    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
-    root_prim_path="/panda",
-    robot_base_prim_name="panda_link0",
-    stand_prim_name="stand_instanceable",
-)
-_DROID_STAND_PRIM = StandPrimSpec(
-    stand_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda",
-    ref_prim_path="/World/franka_table",
-    payload_child_name="franka_table",
-    footprint_translate_xyz=(-0.05, 0.0, 0.0),
-    footprint_scale_xy=(1.2, 1.2),
-    stand_default_height=1.35,
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.collision_object import CollisionComponent
+
+# The base stand's x/y footprint.
+_STAND_FOOTPRINT_SCALE_XY: tuple[float, float] = (1.2, 1.2)
+# The default stand height.
+_DEFAULT_STAND_HEIGHT_M: float = 1.35
+_FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
+_STAND_LOCAL_POSE = Pose(position_xyz=(-0.05, 0.0, 0.0))
+_DROID_JOINT_ORDER = (
+    "panda_joint1",
+    "panda_joint2",
+    "panda_joint3",
+    "panda_joint4",
+    "panda_joint5",
+    "panda_joint6",
+    "panda_joint7",
+    "finger_joint",
+    "right_outer_knuckle_joint",
+    "right_inner_finger_joint",
+    "right_inner_finger_knuckle_joint",
+    "left_inner_finger_knuckle_joint",
+    "left_inner_finger_joint",
 )
 
 
@@ -62,14 +76,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     Includes Franka with robotiq gripper and specific set of cameras.
     Subclasses must set ``self.action_config`` to a concrete action configuration.
-
-    ``initial_pose`` / ``set_initial_pose`` set the base of the robot in world frame.
-    ``stand_height_m`` sets the height of the stand mesh under the robot base link,
-    which changes how far the stand extends below the root link.
-    When manually placing the robot on floor, ``set_initial_pose`` z value and
-    ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
-    ``placement_bbox_stand_only`` uses the stand footprint for relation and collision placement
-    instead of the full robot+stand USD geometry.
     """
 
     name = "droid"
@@ -82,21 +88,32 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
         placement_bbox_stand_only: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
-        self.stand_height_m = stand_height_m
+        self.scene_config = DroidSceneCfg()
         self.placement_bbox_stand_only = placement_bbox_stand_only
         if placement_bbox_stand_only:
-            self.collision_mode = CollisionMode.BBOX
-        self.scene_config = DroidSceneCfg()
-        self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
-            _DROID_ROBOT_PRIM,
-            _DROID_STAND_PRIM,
-            stand_height_m=stand_height_m,
-            output_basename="droid_franka_robotiq_on_stand",
-        )
+            self.collision_mode = CollisionMode.MESH
+            self.optimization_collision_mode = CollisionMode.BBOX
+        # ``stand_height_m`` is an absolute height in meters; convert it to the z-scale the USD needs.
+        stand_unit_height = _stand_unit_height_m(self.scene_config.stand.spawn.usd_path)
+        self.scene_config.stand.spawn.scale = (*_STAND_FOOTPRINT_SCALE_XY, stand_height_m / stand_unit_height)
+        # Lift the robot base (and stand) so a taller/shorter stand keeps its bottom on the floor.
+        self._robot_base_offset = (0.0, 0.0, stand_height_m - _DEFAULT_STAND_HEIGHT_M)
+        if self.initial_pose is None:
+            # No explicit base pose: lift the default robot and stand init states so the robot sits atop
+            # the lifted stand.
+            self.scene_config.robot.init_state.pos = translate_by_xyz_offset(
+                self.scene_config.robot.init_state.pos, self._robot_base_offset
+            )
+            self.scene_config.stand.init_state.pos = translate_by_xyz_offset(
+                self.scene_config.stand.init_state.pos, self._robot_base_offset
+            )
+        else:
+            # Explicit base pose: lift it via set_initial_pose; get_scene_cfg writes the scene config later.
+            self.set_initial_pose(self.initial_pose)
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -107,16 +124,77 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return root-relative placement bounds from the composed on-stand USD spawn.
+    def _translate_pose(self, pose: Pose | PosePerEnv) -> Pose | PosePerEnv:
+        """Lift a base pose (or per-env poses) by the stand-height offset to match the spawned base."""
+        if isinstance(pose, PosePerEnv):
+            return PosePerEnv(poses=[p.translate(self._robot_base_offset) for p in pose.poses])
+        return pose.translate(self._robot_base_offset)
 
-        When ``placement_bbox_stand_only`` is True, bounds exclude the robot arm and cover
-        the stand footprint only.
+    def set_initial_pose(self, pose: Pose | PosePerEnv, create_reset_event: bool = True) -> None:
+        """Store the requested base pose(s), lifted by the stand-height offset to match the spawned base."""
+        super().set_initial_pose(self._translate_pose(pose), create_reset_event=create_reset_event)
+
+    def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
+        """Move the robot and stand together while preserving their local offset."""
+        return [("robot", layout_pose), ("stand", layout_pose.multiply(_STAND_LOCAL_POSE))]
+
+    def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
+        # ``pose`` is already lifted by the stand-height offset (see __init__ / set_initial_pose), so the
+        # base implementation sets the robot base as-is; we only add the stand placement here.
+        scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
+        stand_pose = pose.multiply(_STAND_LOCAL_POSE)
+        scene_config.stand.init_state.pos = stand_pose.position_xyz
+        scene_config.stand.init_state.rot = stand_pose.rotation_xyzw
+        return scene_config
+
+    def get_relation_bounding_box(self) -> "AxisAlignedBoundingBox":
+        """Use the stand footprint for ``On``/``NextTo``, not the arm's wider envelope.
+
+        The stand is the part of the mobile base that sits against the support surface, so its
+        footprint is what a proximity/support relation should measure. The arm reaches out well
+        beyond it, and a union box padded to the arm's extent would place the base too far away.
         """
-        prim_path = _DROID_ROBOT_PRIM.stand_prim_path if self.placement_bbox_stand_only else None
-        return super().get_bounding_box(prim_path=prim_path)
+        stand_box = self._stand_bounding_box().translated(_STAND_LOCAL_POSE.position_xyz)
+        if self.placement_bbox_stand_only:
+            return stand_box
+        return AxisAlignedBoundingBox.union([self.get_bounding_box(), stand_box])
+
+    def get_collision_components(self) -> list["CollisionComponent"]:
+        """Return the posed robot mesh and offset stand box as separate collision components."""
+        from isaaclab_arena.relations.collision_object import CollisionComponent
+
+        return [
+            CollisionComponent(
+                name="robot",
+                local_pose=Pose.identity(),
+                bounding_box=self.get_bounding_box(),
+                mesh=self.get_collision_mesh(),
+            ),
+            CollisionComponent(
+                name="stand",
+                local_pose=_STAND_LOCAL_POSE,
+                bounding_box=self._stand_bounding_box(),
+                mesh=None,
+            ),
+        ]
+
+    def _stand_bounding_box(self) -> "AxisAlignedBoundingBox":
+        """Return the stand's root-relative bounds from its scaled USD geometry."""
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        spawn = self.scene_config.stand.spawn
+        assert spawn.usd_path is not None, "scene_config.stand must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
+        """Set the shared articulation spawn, reset, and placement-geometry joint pose."""
+        assert len(initial_joint_pose) <= len(
+            _DROID_JOINT_ORDER
+        ), f"Droid joint pose has {len(initial_joint_pose)} values; expected at most {len(_DROID_JOINT_ORDER)}."
+        self.scene_config.robot.init_state = self.scene_config.robot.init_state.replace(
+            joint_pos=dict(zip(_DROID_JOINT_ORDER, initial_joint_pose, strict=False))
+        )
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
@@ -140,7 +218,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
         placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
@@ -169,7 +247,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
         placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
@@ -199,7 +277,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_height_m: float = _DEFAULT_STAND_HEIGHT_M,
         placement_bbox_stand_only: bool = False,
     ):
         super().__init__(
@@ -216,17 +294,13 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
 
 @configclass
 class DroidSceneCfg:
-    """Additions to the scene configuration coming from the Droid embodiment.
+    """Additions to the scene configuration coming from the Franka embodiment."""
 
-    The robot USD path is overwritten at embodiment construction via
-    ``compose_on_stand_usd`` (cached local robot+stand assembly).
-    """
-
-    # The robot (stand is baked into the local on-stand USD, not a separate prim).
+    # The robot
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=_DROID_ROBOT_PRIM.robot_usd_path,
+            usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,
@@ -278,6 +352,19 @@ class DroidSceneCfg:
                 velocity_limit=1.0,
             ),
         },
+    )
+    # The stand for the franka
+    # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
+    stand: AssetBaseCfg = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Robot_Stand",
+        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
+        spawn=UsdFileCfg(
+            usd_path=(
+                f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
+            ),
+            scale=(*_STAND_FOOTPRINT_SCALE_XY, _DEFAULT_STAND_HEIGHT_M / _FALLBACK_STAND_UNIT_HEIGHT_M),
+            activate_contact_sensors=False,
+        ),
     )
 
     # The end-effector frame marker
@@ -449,7 +536,7 @@ class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera",
+        prim_path="{ENV_REGEX_NS}/Robot/external_camera",
         height=720,
         width=1280,
         data_types=["rgb"],
@@ -462,7 +549,7 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
     )
     external_camera_2: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera_2",
+        prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
         height=720,
         width=1280,
         data_types=["rgb"],
@@ -489,3 +576,27 @@ class DroidCameraCfg(ArenaCameraCfg):
             pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
         ),
     )
+
+
+@functools.cache
+def _stand_unit_height_m(usd_path: str) -> float:
+    """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
+
+    Falls back to ``_FALLBACK_STAND_UNIT_HEIGHT_M`` if the asset cannot be opened or measured.
+    """
+    try:
+        from pxr import Usd, UsdGeom
+
+        stage = Usd.Stage.Open(usd_path)
+        assert stage is not None, f"could not open stand USD: {usd_path}"
+        root_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+        bound = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]).ComputeWorldBound(root_prim)
+        height = bound.ComputeAlignedRange().GetSize()[2]
+        assert height > 0.0, f"non-positive stand height {height} from {usd_path}"
+        return height
+    except Exception as exc:  # noqa: BLE001 - any failure falls back to the measured constant
+        warnings.warn(
+            f"Falling back to {_FALLBACK_STAND_UNIT_HEIGHT_M} m for the stand height; "
+            f"could not measure {usd_path}: {exc!r}"
+        )
+        return _FALLBACK_STAND_UNIT_HEIGHT_M

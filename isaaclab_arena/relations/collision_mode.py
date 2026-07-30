@@ -34,6 +34,20 @@ def object_uses_mesh_collision(obj: CollisionObject, default: CollisionMode) -> 
     return get_object_collision_mode(obj, default) == CollisionMode.MESH
 
 
+def get_optimization_collision_mode(obj: CollisionObject, default: CollisionMode) -> CollisionMode:
+    """Return the collision mode used inside differentiable placement optimization."""
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+    if isinstance(obj, PlaceableAsset) and obj.optimization_collision_mode is not None:
+        return obj.optimization_collision_mode
+    return get_object_collision_mode(obj, default)
+
+
+def object_uses_mesh_collision_during_optimization(obj: CollisionObject, default: CollisionMode) -> bool:
+    """Return True when placement optimization should include this object's mesh."""
+    return get_optimization_collision_mode(obj, default) == CollisionMode.MESH
+
+
 def pair_is_covered_by_mesh_collision(
     subject: CollisionObject,
     obstacle: CollisionObject,
@@ -42,15 +56,22 @@ def pair_is_covered_by_mesh_collision(
     mesh_manager: WarpMeshAndSphereCache,
     default_collision_mode: CollisionMode,
     obstacle_is_fixed: bool,
+    during_optimization: bool = False,
 ) -> bool:
     """Return whether the mesh loss represents a collision pair."""
+    if during_optimization:
+        from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+        if (isinstance(subject, PlaceableAsset) and subject.optimization_collision_mode == CollisionMode.BBOX) or (
+            isinstance(obstacle, PlaceableAsset) and obstacle.optimization_collision_mode == CollisionMode.BBOX
+        ):
+            return False
+    uses_mesh = object_uses_mesh_collision_during_optimization if during_optimization else object_uses_mesh_collision
     subject_has_mesh = (
-        object_uses_mesh_collision(subject, default_collision_mode)
-        and mesh_manager.get_collision_mesh(subject) is not None
+        uses_mesh(subject, default_collision_mode) and mesh_manager.get_collision_mesh(subject) is not None
     )
     obstacle_has_mesh = (
-        object_uses_mesh_collision(obstacle, default_collision_mode)
-        and mesh_manager.get_collision_mesh(obstacle) is not None
+        uses_mesh(obstacle, default_collision_mode) and mesh_manager.get_collision_mesh(obstacle) is not None
     )
     subject_has_mesh_or_invariant_bbox = subject_has_mesh or subject_bbox.is_batch_invariant()
     if obstacle_is_fixed:

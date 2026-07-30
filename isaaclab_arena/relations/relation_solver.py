@@ -9,7 +9,7 @@ import time
 import torch
 from typing import TYPE_CHECKING, cast
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
+from isaaclab_arena.relations.collision_mode import CollisionMode, get_optimization_collision_mode
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
 from isaaclab_arena.relations.relation_loss_strategies import (
@@ -58,6 +58,13 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+
+    def release_mesh_collision_resources(self) -> None:
+        """Drop warp mesh caches so CUDA BVHs are not held across Kit startup/reset."""
+        self._mesh_manager = None
+        self._mesh_cache = None
+        self._mesh_collision_enabled = False
+        self._mesh_orientations = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
@@ -331,11 +338,13 @@ class RelationSolver:
         return state.get_final_positions()
 
     def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
-        """Return True when the default mode or any object's override resolves to MESH."""
+        """Return True when an optimized or anchor asset requests mesh loss."""
         if self.params.collision_mode == CollisionMode.MESH:
             return True
-        objects = [*state.optimizable_objects, *state.anchor_objects, *state.collision_objects]
-        return any(get_object_collision_mode(obj, self.params.collision_mode) == CollisionMode.MESH for obj in objects)
+        objects = [*state.optimizable_objects, *state.anchor_objects]
+        return any(
+            get_optimization_collision_mode(obj, self.params.collision_mode) == CollisionMode.MESH for obj in objects
+        )
 
     @property
     def last_loss_history(self) -> list[float]:

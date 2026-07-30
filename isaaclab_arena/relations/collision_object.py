@@ -8,11 +8,36 @@
 from __future__ import annotations
 
 import trimesh
+from dataclasses import dataclass
 from typing import Protocol
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+
+@dataclass(frozen=True)
+class CollisionComponent:
+    """A rigid sub-volume of a placement asset, fixed relative to the asset root.
+
+    A simple asset has one component; a compound asset (e.g. a robot on a stand)
+    has several. Each component's geometry lives in its own frame. With ``N`` the
+    number of environments, ``bounding_box`` is per-env ((N, 3) min/max points),
+    whereas ``local_pose`` is a single transform shared across all N (``Pose`` is
+    tuple-backed, not batched).
+    """
+
+    name: str
+    """Identifier for this component within the owning asset."""
+
+    local_pose: Pose
+    """Transform from the asset root frame to this component's frame, shared across all N envs."""
+
+    bounding_box: AxisAlignedBoundingBox
+    """Axis-aligned component-frame extents, per env ((N, 3) min and max points)."""
+
+    mesh: trimesh.Trimesh | None = None
+    """Collision mesh in the component frame; None means use ``bounding_box``."""
 
 
 class CollisionObject(Protocol):

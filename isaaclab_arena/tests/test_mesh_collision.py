@@ -662,6 +662,29 @@ def test_object_collision_mode_can_enable_mesh_in_bbox_solver():
 
 
 @requires_warp
+def test_bbox_optimization_override_does_not_access_collision_components(monkeypatch):
+    """BBOX-only optimization leaves validation mesh geometry lazy."""
+    table = _make_table()
+    bbox_only = _make_cylinder("bbox_only", radius=0.05)
+    mesh_object = _make_cylinder("mesh_object", radius=0.05)
+    bbox_only.collision_mode = CollisionMode.MESH
+    bbox_only.optimization_collision_mode = CollisionMode.BBOX
+    mesh_object.collision_mode = CollisionMode.MESH
+
+    def fail_on_collision_components():
+        raise AssertionError("optimization accessed validation geometry")
+
+    monkeypatch.setattr(bbox_only, "get_collision_components", fail_on_collision_components)
+
+    initial = [{table: (0.0, 0.0, -1.0), bbox_only: (0.0, 0.0, 0.2), mesh_object: (0.02, 0.0, 0.2)}]
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve([table, bbox_only, mesh_object], initial)
+
+    assert solver._mesh_manager is not None
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
 def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
     """AABB-only subjects paired with mesh targets use the candidate/env bbox, not the default bbox."""
     table = _make_table()

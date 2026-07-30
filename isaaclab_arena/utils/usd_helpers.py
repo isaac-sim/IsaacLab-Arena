@@ -5,15 +5,24 @@
 
 from __future__ import annotations
 
+import functools
 import numpy as np
 import trimesh
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.usd_articulation import (
+    articulation_joint_prims,
+    compute_posed_prim_world_deltas,
+    resolve_joint_pos_patterns,
+    resolve_prim_world_delta,
+)
+
+_POSED_GEOMETRY_CACHE_SIZE = 16
 
 
 class NoCollisionMeshError(ValueError):
@@ -364,7 +373,11 @@ def extract_trimesh_from_usd(
     if all_verts:
         if skipped_gprims:
             print(f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}")
-        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+        return trimesh.Trimesh(
+            vertices=np.vstack(all_verts),
+            faces=np.array(all_faces, dtype=np.int32),
+            process=False,
+        )
     if skipped_gprims:
         raise UnsupportedCollisionGeometryError(
             f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
@@ -378,10 +391,14 @@ def extract_trimesh_from_prim(
     stage: Usd.Stage,
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    prim_world_deltas: Mapping[str, np.ndarray] | None = None,
+    convex_hull_mesh_prims: bool = False,
 ) -> trimesh.Trimesh:
     """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
 
     Other Gprim geometry is rejected, not silently dropped.
+    Optionally replace each mesh prim with its convex hull to obtain lightweight,
+    watertight collision geometry while preserving articulated link transforms.
     """
     assert all(
         s > 0 for s in scale
@@ -399,10 +416,11 @@ def extract_trimesh_from_prim(
 
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
+    mesh_parts: list[trimesh.Trimesh] = []
     skipped_gprims: list[str] = []
     offset = 0
 
-    for prim in Usd.PrimRange(root_prim):
+    for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
@@ -415,24 +433,47 @@ def extract_trimesh_from_prim(
             continue
 
         prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        if prim_world_deltas is not None:
+            delta = resolve_prim_world_delta(str(prim.GetPath()), prim_world_deltas)
+            if delta is not None:
+                prim_world_tf = prim_world_tf @ delta
         prim_to_root_tf = prim_world_tf @ root_world_tf_inv
         verts = np.asarray(points, dtype=np.float64)
         verts_h = np.hstack([verts, np.ones((len(verts), 1))])
         verts_root = (verts_h @ prim_to_root_tf)[:, :3] * scale_np
 
+        prim_faces: list[list[int]] = []
         idx = 0
         for count in face_vertex_counts:
             for k in range(1, count - 1):
-                all_faces.append([
-                    face_vertex_indices[idx] + offset,
-                    face_vertex_indices[idx + k] + offset,
-                    face_vertex_indices[idx + k + 1] + offset,
+                prim_faces.append([
+                    face_vertex_indices[idx],
+                    face_vertex_indices[idx + k],
+                    face_vertex_indices[idx + k + 1],
                 ])
             idx += count
 
+        if convex_hull_mesh_prims:
+            prim_mesh = trimesh.Trimesh(
+                vertices=verts_root,
+                faces=np.asarray(prim_faces, dtype=np.int32),
+                process=False,
+            )
+            if len(prim_mesh.vertices) < 4:
+                continue
+            prim_mesh = prim_mesh.convex_hull
+            assert prim_mesh.is_watertight, f"Could not repair USD mesh prim {prim.GetPath()}."
+            mesh_parts.append(prim_mesh)
+            continue
+
         all_verts.append(verts_root)
+        all_faces.extend([[vertex_idx + offset for vertex_idx in face] for face in prim_faces])
         offset += len(verts_root)
 
+    if mesh_parts:
+        if skipped_gprims:
+            print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
+        return trimesh.util.concatenate(mesh_parts)
     if all_verts:
         if skipped_gprims:
             print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
@@ -444,16 +485,110 @@ def extract_trimesh_from_prim(
     raise NoCollisionMeshError(f"No mesh geometry found under {prim_path}")
 
 
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
 def extract_trimesh_from_usd_path(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    convex_hull_mesh_prims: bool = False,
 ) -> trimesh.Trimesh:
     """Extract the mesh under a USD file's default prim into that prim's local frame.
 
     Scoping extraction to the default prim excludes sibling scene props (ground planes, stray
-    objects) baked into some flattened articulation USDs.
+    objects) baked into some flattened articulation USDs. The result is shared
+    across callers and must be treated as read-only.
     """
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-    return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+    return extract_trimesh_from_prim(
+        stage,
+        default_prim.GetPath().pathString,
+        scale,
+        convex_hull_mesh_prims=convex_hull_mesh_prims,
+    )
+
+
+def extract_trimesh_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Extract an articulation mesh posed at its configured joint positions."""
+    return _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
+
+
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _extract_trimesh_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+) -> trimesh.Trimesh:
+    """Cache posed mesh extraction by source, joint positions, and scale."""
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), dict(joint_pos_items))
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+    return extract_trimesh_from_prim(
+        stage,
+        root_path,
+        scale,
+        prim_world_deltas=deltas,
+        convex_hull_mesh_prims=True,
+    )
+
+
+def compute_local_bounding_box_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos: Mapping[str, float],
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> AxisAlignedBoundingBox:
+    """Return articulation bounds posed at its configured joint positions."""
+    return _compute_local_bounding_box_from_usd_at_joint_pos(
+        usd_path,
+        tuple(sorted(joint_pos.items())),
+        tuple(scale),
+    )
+
+
+@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
+def _compute_local_bounding_box_from_usd_at_joint_pos(
+    usd_path: str,
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+) -> AxisAlignedBoundingBox:
+    """Cache posed articulation bounds by source, joint positions, and scale."""
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), dict(joint_pos_items))
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    root_world_tf_inv = np.linalg.inv(
+        np.array(UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    )
+    scale_np = np.asarray(scale, dtype=np.float64)
+    corners: list[np.ndarray] = []
+
+    for prim in Usd.PrimRange(default_prim, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Gprim):
+            continue
+        local_range = bbox_cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+        if local_range.IsEmpty():
+            continue
+        low, high = local_range.GetMin(), local_range.GetMax()
+        box_corners = np.array(
+            [[x, y, z, 1.0] for x in (low[0], high[0]) for y in (low[1], high[1]) for z in (low[2], high[2])]
+        )
+        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        delta = resolve_prim_world_delta(str(prim.GetPath()), deltas)
+        if delta is not None:
+            prim_world_tf = prim_world_tf @ delta
+        corners.append((box_corners @ (prim_world_tf @ root_world_tf_inv))[:, :3] * scale_np)
+
+    assert corners, f"no bounded geometry found under {root_path} in {usd_path}"
+    stacked = np.vstack(corners)
+    return AxisAlignedBoundingBox(min_point=tuple(stacked.min(axis=0)), max_point=tuple(stacked.max(axis=0)))

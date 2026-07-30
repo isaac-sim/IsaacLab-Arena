@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import warp as wp
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
+from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision_during_optimization
 from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache, MeshPairEntry
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
@@ -232,9 +232,11 @@ def _collect_mesh_pairs(
     pairs: list[MeshPairEntry] = []
 
     for i, child in enumerate(non_anchor_objects):
-        child_uses_mesh = object_uses_mesh_collision(child, default_collision_mode)
+        if child.optimization_collision_mode == CollisionMode.BBOX:
+            continue
+        child_uses_mesh = object_uses_mesh_collision_during_optimization(child, default_collision_mode)
         child_mesh = manager.get_collision_mesh(child) if child_uses_mesh else None
-        child_bbox = state.get_bbox(child).to(device)
+        child_bbox = state.get_collision_bbox(child)
         child_bbox_is_invariant = child_bbox.is_batch_invariant()
         if child_uses_mesh and child_mesh is None and child.name not in warned_no_mesh:
             warned_no_mesh.add(child.name)
@@ -246,6 +248,7 @@ def _collect_mesh_pairs(
             print(f"[NoCollision] '{child.name}' has no collision mesh; {fallback}.")
         child_spheres = _get_subject_spheres(child_mesh, child_bbox, child, manager, device)
         child_applies_yaw = child_mesh is not None or not bboxes_include_yaw
+        child_is_compound = child_mesh is not None and len(child.get_collision_components()) > 1
         c_bbox_min = child_bbox.min_point.expand(state.batch_size, 3)
         c_bbox_max = child_bbox.max_point.expand(state.batch_size, 3)
 
@@ -255,11 +258,14 @@ def _collect_mesh_pairs(
                 continue
             obstacle_mesh = (
                 manager.get_collision_mesh(obstacle)
-                if object_uses_mesh_collision(obstacle, default_collision_mode)
+                if object_uses_mesh_collision_during_optimization(obstacle, default_collision_mode)
                 else None
             )
             if obstacle_mesh is None:
-                if object_uses_mesh_collision(obstacle, default_collision_mode) and obstacle.name not in warned_no_mesh:
+                if (
+                    object_uses_mesh_collision_during_optimization(obstacle, default_collision_mode)
+                    and obstacle.name not in warned_no_mesh
+                ):
                     warned_no_mesh.add(obstacle.name)
                     print(f"[NoCollision] '{obstacle.name}' has no collision mesh; pair will use AABB fallback.")
                 continue
@@ -300,10 +306,13 @@ def _collect_mesh_pairs(
             other = non_anchor_objects[j]
             if (id(child), id(other)) in on_pairs:
                 continue
-            other_uses_mesh = object_uses_mesh_collision(other, default_collision_mode)
+            if other.optimization_collision_mode == CollisionMode.BBOX:
+                continue
+            other_uses_mesh = object_uses_mesh_collision_during_optimization(other, default_collision_mode)
             other_mesh = manager.get_collision_mesh(other) if other_uses_mesh else None
-            other_bbox = state.get_bbox(other).to(device)
+            other_bbox = state.get_collision_bbox(other)
             other_bbox_is_invariant = other_bbox.is_batch_invariant()
+            other_is_compound = other_mesh is not None and len(other.get_collision_components()) > 1
             if other_mesh is None and child_mesh is None:
                 if other_uses_mesh and other.name not in warned_no_mesh:
                     warned_no_mesh.add(other.name)
@@ -317,7 +326,7 @@ def _collect_mesh_pairs(
             o_bbox_min = other_bbox.min_point.expand(state.batch_size, 3)
             o_bbox_max = other_bbox.max_point.expand(state.batch_size, 3)
 
-            if other_mesh is not None and child_spheres is not None:
+            if other_mesh is not None and child_spheres is not None and (not other_is_compound or child_is_compound):
                 # forward: child's mesh/spheres or AABB-sphere approximation → other's mesh
                 pairs.append(
                     MeshPairEntry(
@@ -339,7 +348,7 @@ def _collect_mesh_pairs(
                     )
                 )
 
-            if child_mesh is not None:
+            if child_mesh is not None and not child_is_compound:
                 # reverse: other's mesh/spheres or AABB-sphere approximation → child's mesh
                 other_spheres = _get_subject_spheres(other_mesh, other_bbox, other, manager, device)
                 if other_spheres is None:

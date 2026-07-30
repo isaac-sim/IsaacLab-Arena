@@ -55,7 +55,7 @@ def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedB
     if isinstance(obj, RigidObjectSet):
         return obj.get_bounding_box_per_env(num_envs)
 
-    bbox = obj.get_bounding_box()
+    bbox = obj.get_relation_bounding_box()
     return AxisAlignedBoundingBox(
         min_point=bbox.min_point.expand(num_envs, 3),
         max_point=bbox.max_point.expand(num_envs, 3),

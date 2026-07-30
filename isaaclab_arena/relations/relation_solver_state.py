@@ -111,9 +111,11 @@ class RelationSolverState:
         # Anchors and background collision objects are fixed, so their world bounding boxes are
         # constant during the solve. Cache them once instead of recomputing every gradient step.
         self._fixed_obstacle_world_bboxes: dict[PlaceableAsset | CollisionObject, AxisAlignedBoundingBox] = {
-            obj: obj.get_world_bounding_box().to(self._device)
-            for obj in (*self._anchor_objects, *self._collision_objects)
+            obj: obj.get_collision_world_bounding_box().to(self._device) for obj in self._anchor_objects
         }
+        self._fixed_obstacle_world_bboxes.update(
+            {obj: obj.get_world_bounding_box().to(self._device) for obj in self._collision_objects}
+        )
 
     @property
     def device(self) -> torch.device:
@@ -177,10 +179,19 @@ class RelationSolverState:
         return self._fixed_obstacle_world_bboxes[obj]
 
     def get_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
-        """Return the local bounding box for obj, moved to the state's device."""
+        """Return the relation bounding box for obj, moved to the state's device."""
         if self._env_bboxes is not None and obj in self._env_bboxes:
             return self._env_bboxes[obj].to(self._device)
-        return obj.get_bounding_box().to(self._device)
+        return obj.get_relation_bounding_box().to(self._device)
+
+    def get_collision_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
+        """Return collision-component bounds expanded to the solver batch."""
+        candidate_bbox = self._env_bboxes.get(obj) if self._env_bboxes is not None else None
+        bbox = obj.get_collision_bounding_box(candidate_bbox).to(self._device)
+        return AxisAlignedBoundingBox(
+            min_point=bbox.min_point.expand(self._batch_size, 3),
+            max_point=bbox.max_point.expand(self._batch_size, 3),
+        )
 
     def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
         """Get detached copy of all positions for history tracking.

@@ -56,6 +56,9 @@ class PlacementValidator(ABC):
     def __init__(self, params: ObjectPlacerParams) -> None:
         self._params = params
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop any warp/mesh caches held by this validator (no-op by default)."""
+
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
         """Whether this validator can run for these params at build time; unavailable ones are delisted.
@@ -359,6 +362,7 @@ class NoOverlapValidator(PlacementValidator):
     """
 
     check = PlacementCheck.NO_OVERLAP
+    run_after_inexpensive_checks = True
 
     def __init__(self, params: ObjectPlacerParams) -> None:
         super().__init__(params)
@@ -371,11 +375,18 @@ class NoOverlapValidator(PlacementValidator):
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        batch_bboxes = self._stack_candidate_bboxes(bboxes)
+        if not positions:
+            return []
+
+        collision_bboxes = [
+            {obj: obj.get_collision_bounding_box(candidate_bboxes[obj]) for obj in candidate_bboxes}
+            for candidate_bboxes in bboxes
+        ]
+        batch_bboxes = self._stack_candidate_bboxes(collision_bboxes)
         return [
             self._validate(
                 positions[i],
-                bboxes[i],
+                collision_bboxes[i],
                 orientations[i],
                 collision_objects,
                 batch_bboxes=batch_bboxes,
@@ -549,6 +560,10 @@ class NoOverlapValidator(PlacementValidator):
             )
         return self._cpu_mesh_manager
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop the CPU warp mesh cache."""
+        self._cpu_mesh_manager = None
+
     def _validate_no_overlap_mesh(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
@@ -581,40 +596,50 @@ class NoOverlapValidator(PlacementValidator):
             b_uses_mesh = object_uses_mesh_collision(b, default_collision_mode)
             a_mesh = mesh_manager.get_collision_mesh(a) if a_uses_mesh else None
             b_mesh = mesh_manager.get_collision_mesh(b) if b_uses_mesh else None
+            a_is_compound = len(a.get_collision_components()) > 1
+            b_is_compound = len(b.get_collision_components()) > 1
 
             a_pos = torch.tensor(positions[a], dtype=torch.float32)
             b_pos = torch.tensor(positions[b], dtype=torch.float32)
 
-            if b_mesh is not None and self._spheres_penetrate_mesh(
-                a,
-                self._collision_mesh_or_aabb_proxy(a_mesh, env_bboxes[a]),
-                a if a_mesh is not None else None,
-                a_mesh is not None,
-                a.is_anchor,
-                a_pos,
-                b,
-                b_mesh,
-                b_pos,
-                b.is_anchor,
-                mesh_manager,
-                tolerance,
-                orientations,
+            if (
+                b_mesh is not None
+                and (not b_is_compound or a_is_compound)
+                and self._spheres_penetrate_mesh(
+                    a,
+                    self._collision_mesh_or_aabb_proxy(a_mesh, env_bboxes[a]),
+                    a if a_mesh is not None else None,
+                    a_mesh is not None,
+                    a.is_anchor,
+                    a_pos,
+                    b,
+                    b_mesh,
+                    b_pos,
+                    b.is_anchor,
+                    mesh_manager,
+                    tolerance,
+                    orientations,
+                )
             ):
                 return False
-            if a_mesh is not None and self._spheres_penetrate_mesh(
-                b,
-                self._collision_mesh_or_aabb_proxy(b_mesh, env_bboxes[b]),
-                b if b_mesh is not None else None,
-                b_mesh is not None,
-                b.is_anchor,
-                b_pos,
-                a,
-                a_mesh,
-                a_pos,
-                a.is_anchor,
-                mesh_manager,
-                tolerance,
-                orientations,
+            if (
+                a_mesh is not None
+                and not a_is_compound
+                and self._spheres_penetrate_mesh(
+                    b,
+                    self._collision_mesh_or_aabb_proxy(b_mesh, env_bboxes[b]),
+                    b if b_mesh is not None else None,
+                    b_mesh is not None,
+                    b.is_anchor,
+                    b_pos,
+                    a,
+                    a_mesh,
+                    a_pos,
+                    a.is_anchor,
+                    mesh_manager,
+                    tolerance,
+                    orientations,
+                )
             ):
                 return False
 

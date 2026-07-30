@@ -192,6 +192,8 @@ def _apply_dynamic_spawn_pose(
     [construction_layout] = placement_pool.sample_with_replacement(1)
     _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
 
+    placement_pool.release_mesh_collision_resources()
+
     return EventTermCfg(
         func=solve_and_place_objects,
         mode="reset",

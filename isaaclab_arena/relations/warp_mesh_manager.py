@@ -21,11 +21,23 @@ from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sent
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:
     """Content-based hash for a trimesh. Safe across GC cycles unlike id()."""
     return hash((mesh.vertices.tobytes(), mesh.faces.tobytes()))
+
+
+def _repair_non_watertight_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+    """Repair connected components independently without filling gaps between them."""
+    repaired_components = [
+        component if component.is_watertight else component.convex_hull
+        for component in mesh.split(only_watertight=False)
+        if component.is_watertight or len(component.vertices) >= 4
+    ]
+    assert repaired_components, "Collision mesh has no volumetric components to repair."
+    return trimesh.util.concatenate(repaired_components)
 
 
 def greedy_sphere_decomposition(
@@ -35,6 +47,7 @@ def greedy_sphere_decomposition(
     n_candidates: int = 200,
     n_surface: int = 1000,
     seed: int = 42,
+    repair_non_watertight: bool = True,
 ) -> np.ndarray:
     """Decompose a mesh into bounding spheres via greedy set-cover.
 
@@ -45,6 +58,7 @@ def greedy_sphere_decomposition(
         n_candidates: Number of candidate sphere centers sampled.
         n_surface: Number of surface points for coverage tracking.
         seed: RNG seed for reproducible surface sampling.
+        repair_non_watertight: Repair each non-watertight connected component with its convex hull.
 
     Returns:
         (K, 4) array of [cx, cy, cz, radius] in mesh-local frame. K <= num_spheres.
@@ -56,7 +70,7 @@ def greedy_sphere_decomposition(
     points = trimesh.sample.sample_surface(mesh, n_surface, seed=rng)[0]
     cloud = trimesh.PointCloud(points)
 
-    work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
+    work_mesh = mesh if mesh.is_watertight or not repair_non_watertight else _repair_non_watertight_mesh(mesh)
     candidates = points[:n_candidates]
     try:
         centers, radii = trimesh.proximity.max_tangent_sphere(work_mesh, candidates)
@@ -151,6 +165,14 @@ class WarpMeshAndSphereCache:
     ) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
         from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+        if isinstance(obj, PlaceableAsset) and not isinstance(obj, Object):
+            assert not excluded_prim_paths, "USD prim exclusions do not apply to placeable collision components."
+            key = ("components", id(obj))
+            if key not in self._trimesh_cache:
+                self._trimesh_cache[key] = self._combine_mesh_collision_components(obj)
+            return self._trimesh_cache[key]
 
         if not isinstance(obj, Object) or obj.usd_path is None:
             assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
@@ -190,6 +212,27 @@ class WarpMeshAndSphereCache:
                 return None
         return self._trimesh_cache[key]
 
+    @staticmethod
+    def _combine_mesh_collision_components(obj: PlaceableAsset) -> trimesh.Trimesh | None:
+        """Combine only mesh-backed components in the asset root frame."""
+        meshes = WarpMeshAndSphereCache._collision_component_meshes(obj)
+        return trimesh.util.concatenate(meshes) if meshes else None
+
+    @staticmethod
+    def _collision_component_meshes(obj: PlaceableAsset) -> list[trimesh.Trimesh]:
+        """Return mesh-backed collision components transformed into the asset frame."""
+        meshes: list[trimesh.Trimesh] = []
+        for component in obj.get_collision_components():
+            if component.mesh is None:
+                continue
+            mesh = component.mesh.copy()
+            x, y, z, w = component.local_pose.rotation_xyzw
+            transform = trimesh.transformations.quaternion_matrix((w, x, y, z))
+            transform[:3, 3] = component.local_pose.position_xyz
+            mesh.apply_transform(transform)
+            meshes.append(mesh)
+        return meshes
+
     @property
     def device(self) -> str:
         """Target Warp device string (e.g. 'cuda:0', 'cpu')."""
@@ -217,14 +260,14 @@ class WarpMeshAndSphereCache:
             if not mesh.is_watertight and repair_non_watertight:
                 name = obj.name if obj is not None else repr(mesh)
                 print(
-                    f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
-                    " be filled)"
+                    f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — "
+                    "repairing each connected component with its convex hull"
                 )
             if not mesh.is_watertight and not repair_non_watertight and key not in self._raw_open_mesh_warned:
                 self._raw_open_mesh_warned.add(key)
                 name = obj.name if obj is not None else repr(mesh)
                 print(f"  [WarpMeshAndSphereCache] '{name}' raw mesh is not watertight; SDF signs may be unreliable.")
-            work_mesh = mesh if mesh.is_watertight or not repair_non_watertight else mesh.convex_hull
+            work_mesh = mesh if mesh.is_watertight or not repair_non_watertight else _repair_non_watertight_mesh(mesh)
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device
@@ -234,12 +277,38 @@ class WarpMeshAndSphereCache:
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+        if isinstance(obj, PlaceableAsset) and not isinstance(obj, Object):
+            key = ("component_spheres", id(obj), self._num_spheres, self._sphere_radius)
+            if key not in self._sphere_cache:
+                self._sphere_cache[key] = torch.from_numpy(self._decompose_collision_components(obj)).float()
+            return self._sphere_cache[key]
+
         key = self._cache_key(mesh, obj)
         if key not in self._sphere_cache:
             spheres_np = greedy_sphere_decomposition(
                 mesh,
                 num_spheres=self._num_spheres,
                 sphere_radius=self._sphere_radius,
+                repair_non_watertight=obj.repair_collision_mesh_non_watertight if obj is not None else True,
             )
             self._sphere_cache[key] = torch.from_numpy(spheres_np).float()
         return self._sphere_cache[key]
+
+    def _decompose_collision_components(self, obj: PlaceableAsset) -> np.ndarray:
+        """Build query spheres per collision component without flattening their geometry."""
+        component_meshes = self._collision_component_meshes(obj)
+        assert component_meshes, f"Collision object '{obj.name}' has no collision components."
+        base_budget, remainder = divmod(self._num_spheres, len(component_meshes))
+        spheres = [
+            greedy_sphere_decomposition(
+                component_mesh,
+                num_spheres=max(1, base_budget + (component_idx < remainder)),
+                sphere_radius=self._sphere_radius,
+                repair_non_watertight=obj.repair_collision_mesh_non_watertight,
+            )
+            for component_idx, component_mesh in enumerate(component_meshes)
+        ]
+        return np.concatenate(spheres)

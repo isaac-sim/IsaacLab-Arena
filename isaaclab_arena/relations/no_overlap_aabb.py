@@ -11,7 +11,12 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, pair_is_covered_by_mesh_collision
+from isaaclab_arena.relations.collision_mode import (
+    CollisionMode,
+    get_optimization_collision_mode,
+    object_uses_mesh_collision,
+    pair_is_covered_by_mesh_collision,
+)
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
@@ -86,7 +91,11 @@ def compute_no_overlap_loss_aabb(
     extents: dict[PlaceableAsset | CollisionObject, tuple[torch.Tensor, torch.Tensor]] = {}
     for obj in non_anchor_objects:
         pos = state.get_position(obj)
-        bbox = state.get_bbox(obj)
+        bbox = (
+            state.get_bbox(obj)
+            if get_optimization_collision_mode(obj, default_collision_mode) == CollisionMode.BBOX
+            else state.get_collision_bbox(obj)
+        )
         extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
     for obstacle in fixed_obstacles:
         obstacle_world_bbox = state.get_fixed_obstacle_world_bbox(obstacle)
@@ -102,6 +111,10 @@ def compute_no_overlap_loss_aabb(
         child_min, child_max = extents[child]
         for obstacle in fixed_obstacles:
             if (id(child), id(obstacle)) in on_pairs:
+                continue
+            obstacle_uses_mesh = object_uses_mesh_collision(obstacle, default_collision_mode)
+            if obstacle_uses_mesh and (not skip_mesh_pairs or child.optimization_collision_mode == CollisionMode.BBOX):
+                # Fixed mesh obstacles are handled by mesh validation after a BBOX-only solve.
                 continue
             if (
                 skip_mesh_pairs
@@ -163,14 +176,17 @@ def _fixed_pair_is_covered_by_mesh_collision(
     default_collision_mode: CollisionMode,
 ) -> bool:
     """Return True when MESH loss handles subject vs fixed obstacle."""
+    if subject.optimization_collision_mode == CollisionMode.BBOX:
+        return object_uses_mesh_collision(obstacle, default_collision_mode)
     return pair_is_covered_by_mesh_collision(
         subject,
         obstacle,
-        state.get_bbox(subject),
+        state.get_collision_bbox(subject),
         obstacle.get_bounding_box(),
         mesh_manager,
         default_collision_mode,
         obstacle_is_fixed=True,
+        during_optimization=True,
     )
 
 
@@ -182,12 +198,15 @@ def _dynamic_pair_is_covered_by_mesh_collision(
     default_collision_mode: CollisionMode,
 ) -> bool:
     """Return True when MESH loss handles a non-anchor object pair."""
+    if a.optimization_collision_mode == CollisionMode.BBOX or b.optimization_collision_mode == CollisionMode.BBOX:
+        return False
     return pair_is_covered_by_mesh_collision(
         a,
         b,
-        state.get_bbox(a),
-        state.get_bbox(b),
+        state.get_collision_bbox(a),
+        state.get_collision_bbox(b),
         mesh_manager,
         default_collision_mode,
         obstacle_is_fixed=False,
+        during_optimization=True,
     )

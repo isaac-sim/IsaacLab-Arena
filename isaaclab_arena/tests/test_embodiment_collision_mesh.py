@@ -18,7 +18,20 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         emb = DroidAbsoluteJointPositionEmbodiment()
         stand_only_emb = DroidAbsoluteJointPositionEmbodiment(placement_bbox_stand_only=True)
         assert emb.collision_mode is None
-        assert stand_only_emb.collision_mode == CollisionMode.BBOX
+        assert stand_only_emb.collision_mode == CollisionMode.MESH
+        components = stand_only_emb.get_collision_components()
+        assert [component.name for component in components] == ["robot", "stand"]
+        assert components[0].mesh is not None
+        assert components[0].mesh.is_watertight
+        assert components[1].mesh is None
+        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+        mesh_manager = WarpMeshAndSphereCache(device="cpu")
+        compound_mesh = mesh_manager.get_collision_mesh(stand_only_emb)
+        assert compound_mesh is not None
+        assert compound_mesh.is_watertight
+        query_spheres = mesh_manager.get_query_spheres(compound_mesh, stand_only_emb)
+        assert 0 < len(query_spheres) <= 30
 
         mesh = emb.get_collision_mesh()
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"

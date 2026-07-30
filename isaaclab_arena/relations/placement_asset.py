@@ -12,16 +12,15 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.collision_object import CollisionComponent
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
-from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 if TYPE_CHECKING:
     import trimesh
 
     from isaaclab.managers import EventTermCfg
-
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlaceableAsset(Asset, ABC):
@@ -35,6 +34,8 @@ class PlaceableAsset(Asset, ABC):
         self.relations: list[RelationBase] = []
         # None delegates collision-mode selection to the solver.
         self.collision_mode: CollisionMode | None = None
+        self.optimization_collision_mode: CollisionMode | None = None
+        """Optional cheaper mode used only while optimizing candidate positions."""
         # Whether to replace a non-watertight collision mesh with its convex hull.
         self.repair_collision_mesh_non_watertight = True
 
@@ -116,14 +117,23 @@ class PlaceableAsset(Asset, ABC):
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Return the ``(scene entity name, env-local pose)`` writes that realize a solved layout pose.
 
-        A simple asset places only its own root. Compound assets that still spawn auxiliary prims
-        outside that root override this to emit additional writes.
+        A simple asset places only its own root; a compound asset (e.g. a robot on a separate
+        stand) overrides this to also place auxiliary prims that move with the root.
         """
         return [(self.get_scene_key(), layout_pose)]
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
         return self._pose_event_cfg is not None
+
+    def has_unplaced_auxiliary_prims(self) -> bool:
+        """Whether this asset owns auxiliary scene prims that per-environment reset does not reposition.
+
+        Defaults to False. A compound asset whose ``layout_pose_to_scene_writes`` does not yet emit
+        writes for all of its prims (e.g. Droid's static stand) overrides this to True so relation
+        placement can reject it loudly instead of silently orphaning those prims.
+        """
+        return False
 
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
@@ -146,3 +156,47 @@ class PlaceableAsset(Asset, ABC):
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """
+
+    def get_relation_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return the root-relative bounds a solver constrains against; subclasses may narrow the plain bounding box."""
+        return self.get_bounding_box()
+
+    def get_collision_components(self) -> list[CollisionComponent]:
+        """Return the asset's collision sub-volumes; a simple asset yields one identity-posed component."""
+        return [
+            CollisionComponent(
+                name=self.name,
+                local_pose=Pose.identity(),
+                bounding_box=self.get_bounding_box(),
+                mesh=self.get_collision_mesh(),
+            )
+        ]
+
+    def get_collision_bounding_box(
+        self, candidate_bounding_box: AxisAlignedBoundingBox | None = None
+    ) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds enclosing collision geometry.
+
+        Args:
+            candidate_bounding_box: Optional per-candidate geometry for assets whose
+                relation and collision bounds are identical.
+        """
+        components = self.get_collision_components()
+        if candidate_bounding_box is not None and len(components) == 1:
+            return candidate_bounding_box
+        component_boxes = [
+            component.bounding_box.rotated_by_quat(component.local_pose.rotation_xyzw).translated(
+                component.local_pose.position_xyz
+            )
+            for component in components
+        ]
+        return AxisAlignedBoundingBox.union(component_boxes)
+
+    def get_collision_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return collision-component bounds transformed by a fixed root pose."""
+        bounding_box = self.get_collision_bounding_box()
+        initial_pose = self.get_initial_pose()
+        if not isinstance(initial_pose, Pose):
+            return bounding_box
+        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
+        return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
