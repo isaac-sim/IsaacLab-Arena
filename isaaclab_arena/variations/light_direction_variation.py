@@ -83,6 +83,14 @@ class LightDirectionVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightDirectionVariationCfg(), name=name)
         self._light = light
 
+    def _prepare_at_build_time(self) -> None:
+        """Turn the (auto-injected, off) directional light on so the sampled direction is visible.
+
+        Only runs while this variation is enabled (see ``VariationBase.configure_at_build_time``), so
+        the directional light stays dark for scenes that don't vary its direction.
+        """
+        self._light.on()
+
     def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
         azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()

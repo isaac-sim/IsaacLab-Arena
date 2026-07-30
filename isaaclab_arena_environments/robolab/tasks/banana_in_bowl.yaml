@@ -5,10 +5,6 @@
 
 env_name: banana_in_bowl
 external_yaml: ../scenes/banana_bowl.yaml
-# Match RoboLab's DROID env (no directional light); skip the auto-injected sun light and
-# brighten the dome to compensate (default dome intensity is 500; tune to taste).
-inject_directional_light: false
-dome_light_intensity: 1500.0
 task:
   composition: atomic
   description: pick up the banana and place it in the bowl

@@ -70,10 +70,10 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
 
     A dome light is injected when the scene would otherwise render black (as before). A
     directional light (registry ``directional_light``) is then added on top so directional-lighting
-    variations (``directional_light.direction.*`` / ``directional_light.intensity.*``) have a target;
-    it is additive to whatever ambient or baked-in lighting the scene already has. Directional
-    injection is skipped when the spec sets ``inject_directional_light: false`` (e.g. to match a
-    reference env with no directional light).
+    variations (``directional_light.direction.*`` / ``directional_light.intensity.*``) have a target.
+    The directional light is off by default and contributes no illumination unless a variation turns
+    it on at build time (see LightDirectionVariation), so scenes with no lighting variation are lit
+    only by their ambient/baked-in lighting.
     """
     if not _scene_already_has_light(graph_spec, assets_by_node_id):
         dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
@@ -93,12 +93,18 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
             f" '{dome_node_id}'{intensity_note}."
         )
 
-    if graph_spec.inject_directional_light and not _scene_has_asset_named(
-        assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME
-    ):
+    if not _scene_has_asset_named(assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME):
         directional_node_id = _unique_node_id(set(assets_by_node_id), _DIRECTIONAL_LIGHT_NODE_ID)
-        assets_by_node_id[directional_node_id] = AssetRegistry().get_asset_by_name(_DIRECTIONAL_LIGHT_ASSET_NAME)()
-        print(f"INFO: injected directional light '{directional_node_id}' for directional-lighting variations.")
+        light_cls = AssetRegistry().get_asset_by_name(_DIRECTIONAL_LIGHT_ASSET_NAME)
+        # Fresh per-instance spawner cfg so off()/on() mutate only this light, never the shared class
+        # default (which would otherwise light up later, variation-free builds).
+        directional_light = light_cls(spawner_cfg=copy.deepcopy(light_cls.default_spawner_cfg))
+        directional_light.off()  # a lighting-direction variation turns it back on at build time
+        assets_by_node_id[directional_node_id] = directional_light
+        print(
+            f"INFO: injected directional light '{directional_node_id}'"
+            " (off unless a lighting-direction variation activates it)."
+        )
 
 
 def _scene_has_asset_named(assets_by_node_id: dict[str, Any], asset_name: str) -> bool:
