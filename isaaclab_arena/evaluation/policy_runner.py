@@ -14,6 +14,11 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.datagen_collector import (
+    DatagenCollectorBase,
+    EpisodeOutcome,
+    NoOpDatagenCollector,
+)
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
@@ -63,14 +68,44 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
+def _datagen_episode_outcome(env, truncated) -> EpisodeOutcome:
+    """Best-effort outcome for an auto-reset datagen episode from the termination manager.
+
+    Right after the auto-reset inside step(), the termination manager still holds the buffers
+    that triggered it: a fired success term maps to "success", a truncation to "timeout", and
+    anything else (e.g. object dropped) to "failure".
+    """
+    try:
+        termination_manager = env.unwrapped.termination_manager
+        if "success" in termination_manager.active_terms and bool(
+            termination_manager.get_term("success")[0]
+        ):
+            return "success"
+    except Exception:  # best-effort provenance: never fail a rollout on outcome labelling
+        pass
+    return "timeout" if bool(torch.as_tensor(truncated)[0]) else "failure"
+
+
 def rollout_policy(
     env,
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
+    language_instruction: str | None = None,
+    collector: DatagenCollectorBase | None = None,
 ) -> MetricsDataCollection | None:
+    """Roll out *policy* in *env*.
+
+    Args:
+        collector: Data collector driven during the rollout, defaulting to a no-op. on_step
+            runs after every env step, on_episode_end when the env resets, and finalize when
+            the rollout finishes. On a done step the returned obs is already the next episode's
+            first frame, so the finished episode is closed before that obs is recorded. See
+            DatagenCollectorBase.
+    """
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
+    collector = collector or NoOpDatagenCollector()
 
     pbar = None
     try:
@@ -92,33 +127,34 @@ def rollout_policy(
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
 
-                if terminated.any() or truncated.any():
-                    # Only reset policy for those envs that are terminated or truncated
-                    print(
-                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
-                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
+            done = bool(terminated.any() or truncated.any())
+
+            if done:
+                # Close the finished episode before recording obs: the auto-reset already made
+                # it the next episode's first frame, so it must be attributed there, not here.
+                collector.on_episode_end(env, outcome=_datagen_episode_outcome(env, truncated))
+                env_ids = (terminated | truncated).nonzero().flatten()
+                policy.reset(env_ids=env_ids)
+                completed_episodes = env_ids.shape[0]
+                num_episodes_completed += completed_episodes
+                if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+                    metrics = env.unwrapped.compute_metrics()
+                    tqdm.tqdm.write(
+                        f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
+                        f" {metrics_to_plain_python_types(metrics)}"
                     )
-                    env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
-                    # Break if number of episodes is reached
-                    completed_episodes = env_ids.shape[0]
-                    num_episodes_completed += completed_episodes
-                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        metrics = env.unwrapped.compute_metrics()
-                        tqdm.tqdm.write(
-                            f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
-                            f" {metrics_to_plain_python_types(metrics)}"
-                        )
-                    if num_episodes is not None:
-                        pbar.update(completed_episodes)
-                        if num_episodes_completed >= num_episodes:
-                            break
-                # Break if number of steps is reached
-                num_steps_completed += 1
-                if num_steps is not None:
-                    pbar.update(1)
-                    if num_steps_completed >= num_steps:
+                if num_episodes is not None:
+                    pbar.update(completed_episodes)
+                    if num_episodes_completed >= num_episodes:
                         break
+
+            collector.on_step(env, obs, actions, num_steps_completed)
+
+            num_steps_completed += 1
+            if num_steps is not None:
+                pbar.update(1)
+                if num_steps_completed >= num_steps:
+                    break
 
         pbar.close()
 
@@ -128,6 +164,9 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
+
+        # Persist and close any datagen dataset before returning.
+        collector.finalize(env)
 
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
@@ -200,7 +239,7 @@ def main():
         if args_cli.record_camera_video:
             args_cli.enable_cameras = True
 
-        # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
+        # Build scene. Use rgb_array render mode when recording so the recorders can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
 
         output_dir = timestamped_run_dir(args_cli.output_base_dir)
@@ -240,7 +279,13 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
+        metrics = rollout_policy(
+            env,
+            policy,
+            num_steps,
+            num_episodes,
+            args_cli.language_instruction,
+        )
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
