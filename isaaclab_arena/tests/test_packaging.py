@@ -27,6 +27,7 @@ PACKAGE_ROOTS = (
 
 DISCOVERABLE_MODULES = (
     "isaaclab_arena.evaluation.policy_runner",
+    "isaaclab_arena.evaluation.protocol",
     "isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task",
 )
 
