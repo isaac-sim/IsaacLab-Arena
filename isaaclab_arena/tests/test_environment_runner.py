@@ -61,7 +61,7 @@ class _FakeEnvironment:
 
 
 def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
-    environment_runner.assert_interactive_runner_args(_interactive_runner_args())
+    environment_runner._assert_interactive_runner_args(_interactive_runner_args())
 
 
 @pytest.mark.parametrize(
@@ -79,7 +79,7 @@ def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
 )
 def test_assert_interactive_runner_args_rejects_unsupported_configuration(argument_overrides, expected_message):
     with pytest.raises(AssertionError, match=expected_message):
-        environment_runner.assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
+        environment_runner._assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
 
 
 @pytest.mark.parametrize(
@@ -136,7 +136,7 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
     import omni.physx.bindings._physx as physx_bindings
     import omni.usd
 
-    environment_runner.enable_mouse_interaction()
+    environment_runner._enable_mouse_interaction()
 
     extension_manager = omni.kit.app.get_app().get_extension_manager()
     assert extension_manager.is_extension_enabled("omni.physx.ui")
@@ -231,7 +231,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     )
     monkeypatch.setattr(
         environment_runner,
-        "enable_mouse_interaction",
+        "_enable_mouse_interaction",
         lambda: lifecycle_events.append("enable_mouse_interaction"),
     )
 

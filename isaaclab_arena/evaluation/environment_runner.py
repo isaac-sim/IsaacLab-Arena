@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
 
-def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
+def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     """Check that command-line arguments describe one interactive Kit environment."""
     assert not args_cli.headless, "environment_runner requires the Kit GUI; remove --headless"
     assert (
@@ -32,7 +32,7 @@ def assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 
 
-def enable_mouse_interaction() -> None:
+def _enable_mouse_interaction() -> None:
     """Enable Shift-drag physics interaction using a D6 joint grab."""
     import carb
     import omni.kit.app
@@ -101,7 +101,7 @@ def main() -> None:
     args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
     args_cli, hydra_overrides = args_parser.parse_known_args()
     assert_hydra_overrides(hydra_overrides, args_parser)
-    assert_interactive_runner_args(args_cli)
+    _assert_interactive_runner_args(args_cli)
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(args_cli) as simulation_app:
@@ -113,7 +113,7 @@ def main() -> None:
 
         env = arena_builder.make_registered(env_cfg, env_kwargs)
         try:
-            enable_mouse_interaction()
+            _enable_mouse_interaction()
             run_environment(simulation_app, env, env_cfg)
         finally:
             env.close()
