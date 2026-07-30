@@ -96,13 +96,26 @@ def reapply_viewer_cfg(env) -> None:
 
     ViewportCameraController calls sim.set_camera_view() during __init__, but visualizers
     (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
-    After gym.make() returns the visualizers are ready, so we call update_view_location()
-    again to apply the configured eye/lookat position.
+    After gym.make() returns the visualizers are ready, so we update through the controller's
+    configured origin mode to apply the configured eye/lookat position.
     """
     unwrapped = env.unwrapped
     vcc = getattr(unwrapped, "viewport_camera_controller", None)
-    if vcc is not None:
-        vcc.update_view_location()
+    if vcc is None:
+        return
+
+    origin_type = vcc.cfg.origin_type
+    if origin_type == "env":
+        vcc.update_view_to_env()
+    elif origin_type == "asset_root":
+        assert vcc.cfg.asset_name is not None, "Asset-root viewer config requires asset_name."
+        vcc.update_view_to_asset_root(vcc.cfg.asset_name)
+    elif origin_type == "asset_body":
+        assert vcc.cfg.asset_name is not None, "Asset-body viewer config requires asset_name."
+        assert vcc.cfg.body_name is not None, "Asset-body viewer config requires body_name."
+        vcc.update_view_to_asset_body(vcc.cfg.asset_name, vcc.cfg.body_name)
+    else:
+        vcc.update_view_to_world()
 
 
 def _kill_child_processes() -> None:
