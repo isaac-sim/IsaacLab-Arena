@@ -50,9 +50,26 @@ import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.teleop_device_factory import create_teleop_device
+from isaaclab.managers import DatasetExportMode
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
 from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
+
+
+def _disable_dataset_export(env_cfg) -> None:
+    """Stop the recorder manager from opening a dataset file.
+
+    Teleoperation is interactive rather than a recording session. Unlike ``record_demos.py``
+    this script never overrides the recorder config, so without this it inherits
+    ``RecorderManagerBaseCfg``'s defaults (``EXPORT_ALL`` into ``/tmp/isaaclab/logs``) and
+    aborts environment creation with a permission error whenever that directory is not
+    writable by the current user -- it is commonly left root-owned by earlier container runs.
+
+    Args:
+        env_cfg: The environment configuration to disable dataset export on.
+    """
+    if getattr(env_cfg, "recorders", None) is not None:
+        env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_NONE
 
 
 def main() -> None:
@@ -70,6 +87,7 @@ def main() -> None:
     env_name, env_cfg, env_kwargs = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
+    _disable_dataset_export(env_cfg)
     if "Lift" in args_cli.example_environment:
         # set the resampling time range to large number to avoid resampling
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
