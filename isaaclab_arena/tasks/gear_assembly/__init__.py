@@ -6,7 +6,6 @@
 """Arena Gear Assembly task package."""
 
 from .assets import *  # noqa: F403
-from .grippers import *  # noqa: F403
 from .rewards import *  # noqa: F403
 from .specs import *  # noqa: F403
 from .task import *  # noqa: F403

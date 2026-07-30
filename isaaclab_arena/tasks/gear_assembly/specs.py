@@ -8,11 +8,11 @@
 from __future__ import annotations
 
 import math
+import torch
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from isaaclab_arena.tasks.gear_assembly.grippers import set_finger_joint_pos_robotiq_2f85
 from isaaclab_arena.utils.pose import Pose
 
 DroidGearAssemblyEmbodiment = Literal["droid_abs_joint_pos", "droid_rel_joint_pos", "droid_differential_ik"]
@@ -67,7 +67,7 @@ class GearAssemblyRobotSpec:
     gear_offsets_grasp: dict[str, list[float]]
     hand_grasp_width: dict[str, float]
     hand_close_width: dict[str, float]
-    gripper_joint_setter_func: Callable
+    gripper_joint_setter_func: Callable[[torch.Tensor, list[int], list[int], float], None]
     state_space: int
     observation_space: int
     startup_materials: dict[str, tuple[float, float, float]]
@@ -90,7 +90,7 @@ def get_droid_robot_spec() -> GearAssemblyRobotSpec:
         },
         hand_grasp_width={"gear_small": 0.64, "gear_medium": 0.46, "gear_large": 0.4},
         hand_close_width={"gear_small": 0.69, "gear_medium": 0.51, "gear_large": 0.45},
-        gripper_joint_setter_func=set_finger_joint_pos_robotiq_2f85,
+        gripper_joint_setter_func=_set_droid_gripper_joint_pos,
         state_space=28,
         observation_space=21,
         startup_materials={
@@ -108,3 +108,20 @@ def get_droid_robot_spec() -> GearAssemblyRobotSpec:
 def gear_pose_for_mode(mode: GearAssemblyMode) -> Pose:
     """Return the construction gear/base pose for Droid Gear Assembly."""
     return DROID_BASE_GEAR_POSE
+
+
+def _set_droid_gripper_joint_pos(
+    joint_pos: torch.Tensor,
+    reset_ind_joint_pos: list[int],
+    gripper_joints: list[int],
+    joint_position: float,
+) -> None:
+    """Set Droid's Robotiq gripper joints for the source reset term."""
+    assert len(gripper_joints) >= 6, f"Droid gripper requires at least 6 gripper joints, got {len(gripper_joints)}"
+    for idx in reset_ind_joint_pos:
+        joint_pos[idx, gripper_joints[0]] = joint_position
+        joint_pos[idx, gripper_joints[1]] = joint_position
+        joint_pos[idx, gripper_joints[2]] = -joint_position
+        joint_pos[idx, gripper_joints[3]] = joint_position
+        joint_pos[idx, gripper_joints[4]] = -joint_position
+        joint_pos[idx, gripper_joints[5]] = -joint_position
