@@ -83,6 +83,8 @@ def object_on_destination(
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
+    destination_cfg: SceneEntityCfg | None = None,
+    max_horizontal_distance: float | None = None,
 ) -> torch.Tensor:
     object: RigidObject = env.unwrapped.scene[object_cfg.name]
     sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
@@ -102,6 +104,16 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+
+    # Clean-by-construction containment (optional): require the object to settle horizontally
+    # within the destination footprint, not merely make contact. Rejects placements where the
+    # object touches the destination but comes to rest off-target (e.g. beside a plate).
+    if destination_cfg is not None and max_horizontal_distance is not None:
+        destination: RigidObject = env.unwrapped.scene[destination_cfg.name]
+        object_xy = wp.to_torch(object.data.root_pos_w)[:, :2]
+        destination_xy = wp.to_torch(destination.data.root_pos_w)[:, :2]
+        horizontal_distance = torch.norm(object_xy - destination_xy, dim=-1)
+        condition_met = torch.logical_and(condition_met, horizontal_distance < max_horizontal_distance)
 
     return condition_met
 

@@ -13,6 +13,10 @@ DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
+# Robot G1 USD file to mount into the container (exposed at /robot/g1.usda).
+# Set G1_USD_PATH=/robot/g1.usda inside the container, or override G1_USD_HOST_PATH
+# to point at a different USD on the host. Leave empty to use the stock Nucleus asset.
+G1_USD_HOST_PATH="${G1_USD_HOST_PATH:-$HOME/Code/robot_menagerie/unitree/g1/generated/g1/usd/g1.usda}"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
@@ -147,6 +151,7 @@ else
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
                     $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
                     $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
+                    $([ -f "$G1_USD_HOST_PATH" ] && echo "-v $G1_USD_HOST_PATH:/robot/g1.usda:ro")
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"

@@ -58,6 +58,7 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
+        max_horizontal_distance: float | None = None,
         max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
@@ -73,6 +74,7 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        self.max_horizontal_distance = max_horizontal_distance
         if max_separation is not None:
             assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
         self.max_separation = max_separation
@@ -100,6 +102,12 @@ class PickAndPlaceTask(TaskBase):
                     "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
+                    "destination_cfg": (
+                        SceneEntityCfg(self.destination_location.name)
+                        if self.max_horizontal_distance is not None
+                        else None
+                    ),
+                    "max_horizontal_distance": self.max_horizontal_distance,
                 },
             ),
         ]

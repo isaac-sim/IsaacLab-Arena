@@ -349,7 +349,14 @@ def annotate_episode_in_auto_mode(
         annotated_episode = env.recorder_manager.get_episode(0)
         subtask_term_signal_dict = annotated_episode.data["obs"]["datagen_info"]["subtask_term_signals"]
         for signal_name, signal_flags in subtask_term_signal_dict.items():
-            if not torch.any(signal_flags):
+            # PATCHED: the recorder stores per-step signal flags as a Python list,
+            # so torch.any(list) raises a TypeError. Reduce over the episode to
+            # "did the signal ever fire" with a tensor-safe check.
+            if isinstance(signal_flags, (list, tuple)):
+                fired = any(bool(torch.as_tensor(f).any()) for f in signal_flags)
+            else:
+                fired = bool(torch.any(torch.as_tensor(signal_flags)))
+            if not fired:
                 is_episode_annotated_successfully = False
                 print(f'\tDid not detect completion for the subtask "{signal_name}".')
     return is_episode_annotated_successfully

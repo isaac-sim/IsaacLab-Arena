@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import os
 import torch
 from collections.abc import Sequence
 from dataclasses import MISSING
@@ -63,13 +64,21 @@ class G1EmbodimentBase(EmbodimentBase):
         self.event_config = MISSING
         self.mimic_env = G1MimicEnv
 
-        # XR settings
-        # Anchor to the robot's pelvis for first-person view that follows the robot
+        # XR settings.
+        # STATIC anchor (2026-07-14): FOLLOW_PRIM_SMOOTHED crashed XR anchor-prim
+        # creation on this Isaac Lab build -- isaaclab_teleop calls
+        # PhysxManager._get_backend_utils(), which was removed -- so the anchor
+        # failed and the headset defaulted to the world origin (scene off-screen).
+        # The robot is stationary for this manipulation task, so a FIXED world
+        # anchor at the pelvis viewpoint (matches the old follow pose: pelvis
+        # (0.25,0,0.75) with fixed height + (0,0,-1)) gives the same first-person
+        # view and avoids the broken prim-follow path (anchor_prim_path=None takes
+        # the static branch in xr_anchor_utils, no PhysX backend query).
         self.xr: XrCfg = XrCfg(
-            anchor_pos=(0.0, 0.0, -1.0),
+            anchor_pos=(0.25, 0.0, -0.25),
             anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
-            anchor_prim_path="/World/envs/env_0/Robot/pelvis",
-            anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
+            anchor_prim_path=None,
+            anchor_rotation_mode=XrAnchorRotationMode.FIXED,
             fixed_anchor_height=True,
         )
 
@@ -238,7 +247,12 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
 # ``scene_config`` in each embodiment constructor.
 G1_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
+        # Overridable robot asset: set G1_USD_PATH to point at an alternative G1 USD
+        # (e.g. the robot_menagerie generated model). Default is the stock Nucleus
+        # asset, byte-identical behavior when the variable is unset.
+        usd_path=os.environ.get(
+            "G1_USD_PATH", f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd"
+        ),
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -517,19 +531,25 @@ class G1CameraCfg:
         is_tiled_camera = getattr(self, "_is_tiled_camera", True)
         camera_offset = getattr(self, "_camera_offset", _DEFAULT_G1_CAMERA_OFFSET)
 
+        # Optional per-env camera overrides (same private-attr pattern as above;
+        # defaults preserve the stock behavior for every existing environment).
+        parent_link = getattr(self, "_parent_link", "head_link")
+        horizontal_aperture = getattr(self, "_horizontal_aperture", None)
+        clipping_range = getattr(self, "_clipping_range", (0.1, 5))
+
         CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
         OffsetClass = CameraClass.OffsetCfg
 
+        spawn_kwargs = dict(focal_length=15.0, clipping_range=clipping_range)
+        if horizontal_aperture is not None:
+            spawn_kwargs["horizontal_aperture"] = horizontal_aperture
         common_kwargs = dict(
-            prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
+            prim_path="{ENV_REGEX_NS}/Robot/" + parent_link + "/RobotHeadCam",
             update_period=0.0,
             height=480,
             width=640,
             data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=15,
-                clipping_range=(0.1, 5),
-            ),
+            spawn=sim_utils.PinholeCameraCfg(**spawn_kwargs),
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
@@ -835,6 +855,40 @@ class G1WBCPinkEventCfg:
 class G1MimicEnv(ManagerBasedRLMimicEnv):
     """Configuration for G1 Mimic."""
 
+    # PATCHED (ported from WIP 896b921ea): automatic subtask-boundary signals for
+    # the static single-left-arm pick-and-place task (annotate_demos.py --auto and
+    # Mimic generation). The signal flips true while the left palm is on the
+    # pick-up object with the fingers flexed.
+    def get_subtask_term_signals(self, env_ids=None):
+        import warp as _wp
+
+        def _t(x):
+            return _wp.to_torch(x) if isinstance(x, _wp.array) else x
+
+        if env_ids is None:
+            env_ids = slice(None)
+        robot = self.scene["robot"]
+        if not hasattr(self, "_mimic_sig_cache"):
+            body_names = list(robot.data.body_names)
+            joint_names = list(robot.data.joint_names)
+            pickup = None
+            for cfgs in self.cfg.subtask_configs.values():
+                if cfgs and cfgs[0].object_ref:
+                    pickup = cfgs[0].object_ref
+                    break
+            self._mimic_sig_cache = {
+                "palm_idx": body_names.index("left_hand_palm_link"),
+                "finger_jidx": [i for i, n in enumerate(joint_names) if "left_hand" in n],
+                "pickup": pickup,
+            }
+        c = self._mimic_sig_cache
+        palm_w = _t(robot.data.body_pos_w)[env_ids, c["palm_idx"]]
+        obj_w = _t(self.scene[c["pickup"]].data.root_pos_w)[env_ids]
+        near = torch.linalg.norm(palm_w - obj_w, dim=-1) < 0.15
+        jp = _t(robot.data.joint_pos)[env_ids][:, c["finger_jidx"]]
+        closed = jp.abs().mean(dim=-1) > 0.25
+        return {"grasp_left": torch.logical_and(near, closed)}
+
     def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:
         """
         Get current robot end effector pose. Should be the same frame as used by the robot end-effector controller.
@@ -902,15 +956,18 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             target_left_eef_rot_quat += quat_noise_left
             target_right_eef_rot_quat += quat_noise_right
 
+        # PATCHED (ported from WIP 896b921ea): the waypoint executor may hand
+        # batched (1,N) pose pieces alongside scalar gripper entries; flatten every
+        # piece so the 23-D action assembles.
         return torch.cat(
             (
-                left_gripper_action,
-                right_gripper_action,
-                target_left_eef_pos,
-                target_left_eef_rot_quat,
-                target_right_eef_pos,
-                target_right_eef_rot_quat,
-                body_gripper_action,
+                left_gripper_action.reshape(-1),
+                right_gripper_action.reshape(-1),
+                target_left_eef_pos.reshape(-1),
+                target_left_eef_rot_quat.reshape(-1),
+                target_right_eef_pos.reshape(-1),
+                target_right_eef_rot_quat.reshape(-1),
+                body_gripper_action.reshape(-1),
             ),
             dim=0,
         )
