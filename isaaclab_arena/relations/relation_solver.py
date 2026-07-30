@@ -13,13 +13,15 @@ from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_co
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
 from isaaclab_arena.relations.relation_loss_strategies import (
+    Direction,
     NoCollisionLossStrategy,
     RelationLossStrategy,
+    SIDE_CONFIGS,
     UnaryRelationLossStrategy,
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import NextTo, On, Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -59,6 +61,13 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+
+    def release_mesh_collision_resources(self) -> None:
+        """Drop Warp mesh caches held by this solver."""
+        self._mesh_manager = None
+        self._mesh_cache = None
+        self._mesh_collision_enabled = False
+        self._mesh_orientations = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
@@ -273,6 +282,7 @@ class RelationSolver:
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
+        self._project_anchor_next_to_constraints(state)
 
         # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
         with torch.no_grad():
@@ -295,6 +305,7 @@ class RelationSolver:
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
+                self._project_anchor_next_to_constraints(state)
 
             if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
@@ -330,6 +341,27 @@ class RelationSolver:
         self._last_position_history = position_history
 
         return state.get_final_positions()
+
+    @staticmethod
+    @torch.no_grad()
+    def _project_anchor_next_to_constraints(state: RelationSolverState) -> None:
+        """Set each anchor-relative NextTo primary coordinate to its exact target."""
+        for child in state.optimizable_objects:
+            child_bbox = state.get_bbox(child)
+            for relation in child.get_spatial_relations():
+                if not isinstance(relation, NextTo) or relation.parent not in state.anchor_objects:
+                    continue
+                config = SIDE_CONFIGS[relation.side]
+                axis = config.primary_axis
+                parent_bbox = state.get_fixed_obstacle_world_bbox(relation.parent)
+                if config.direction == Direction.POSITIVE:
+                    parent_edge = parent_bbox.max_point[:, axis]
+                    child_offset = child_bbox.min_point[:, axis]
+                else:
+                    parent_edge = parent_bbox.min_point[:, axis]
+                    child_offset = child_bbox.max_point[:, axis]
+                target = parent_edge + config.direction * relation.distance_m - child_offset
+                state.get_position(child)[:, axis].copy_(target)
 
     def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
         """Return True when the default mode or any object's override resolves to MESH."""

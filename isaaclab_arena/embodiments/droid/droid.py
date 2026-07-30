@@ -37,6 +37,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
@@ -85,6 +86,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         placement_bbox_stand_only: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.collision_mode = CollisionMode.MESH
         self.stand_height_m = stand_height_m
         self.placement_bbox_stand_only = placement_bbox_stand_only
         self.scene_config = DroidSceneCfg()

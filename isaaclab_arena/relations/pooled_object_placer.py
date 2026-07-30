@@ -221,6 +221,10 @@ class PooledObjectPlacer:
     # Public API
     # ------------------------------------------------------------------
 
+    def release_mesh_collision_resources(self) -> None:
+        """Drop mesh caches held by the underlying placer."""
+        self._placer.release_mesh_collision_resources()
+
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
         """Return the next count layouts as complete env rounds.
 

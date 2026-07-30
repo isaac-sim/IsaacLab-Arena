@@ -26,6 +26,26 @@ IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
+class PlacementPoolHandle:
+    """Opaque event parameter that shares a live placement pool across deep copies."""
+
+    __slots__ = ("pool",)
+
+    def __init__(self, pool: PooledObjectPlacer) -> None:
+        self.pool = pool
+
+    def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
+        """Return this handle without copying its runtime pool."""
+        return self
+
+
+def resolve_placement_pool(value: PooledObjectPlacer | PlacementPoolHandle) -> PooledObjectPlacer:
+    """Return the runtime pool represented by value."""
+    if isinstance(value, PlacementPoolHandle):
+        return value.pool
+    return value
+
+
 def get_placement_pool(env) -> PooledObjectPlacer | None:
     """Return the pooled placer stored on the env reset event, or ``None`` when absent.
 
@@ -39,7 +59,10 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    return term_cfg.params.get("placement_pool")
+    placement_pool = term_cfg.params.get("placement_pool")
+    if placement_pool is None:
+        return None
+    return resolve_placement_pool(placement_pool)
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -113,8 +136,8 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    assets: list[PlaceableAsset],
-    placement_pool: PooledObjectPlacer,
+    placement_pool: PooledObjectPlacer | PlacementPoolHandle,
+    assets: list[PlaceableAsset] | None = None,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -125,17 +148,20 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        assets: Assets participating in relation solving.
         placement_pool: Runtime pool of solved placement layouts.
+        assets: Assets participating in relation solving. Defaults to the pool's assets.
     """
     if env_ids is None or len(env_ids) == 0:
         return
+    runtime_pool = resolve_placement_pool(placement_pool)
+    if assets is None:
+        assets = runtime_pool.objects
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
-        placement_pool.num_envs == num_scene_envs
-    ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-    results_by_env = placement_pool.sample_for_envs(reset_env_ids)
+        runtime_pool.num_envs == num_scene_envs
+    ), f"Placement pool has {runtime_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+    results_by_env = runtime_pool.sample_for_envs(reset_env_ids)
     anchor_assets = set(get_anchor_objects(assets))
     base_rotations = get_base_rotation_per_asset(assets)
 

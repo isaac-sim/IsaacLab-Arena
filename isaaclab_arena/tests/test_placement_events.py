@@ -650,6 +650,9 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
                 for env_id in range(count)
             ]
 
+        def release_mesh_collision_resources(self) -> None:
+            pass
+
     anchor = MinimalObject("desk")
     box = MinimalObject("box")
     pool = EnvIndexedPool()
@@ -982,6 +985,8 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     assert params.reachability_config.embodiment is embodiment
     # ...while the pool the reset event captured no longer references the embodiment -- on the placer params
     # and on every built validator alike -- so configclass never deep-copies or recurses into it.
-    pool = event.params["placement_pool"]
+    from isaaclab_arena.relations.placement_events import resolve_placement_pool
+
+    pool = resolve_placement_pool(event.params["placement_pool"])
     assert pool._placer.params.reachability_config.embodiment is None
     assert all(v._params.reachability_config.embodiment is None for v in pool._placer._validators)

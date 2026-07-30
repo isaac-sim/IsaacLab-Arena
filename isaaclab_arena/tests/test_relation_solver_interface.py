@@ -5,6 +5,8 @@
 
 """Tests for the relation placement orchestration API."""
 
+from copy import deepcopy
+
 import pytest
 
 
@@ -36,9 +38,13 @@ def _make_box(name: str = "box"):
 class _FakePlacementPool:
     def __init__(self, layouts) -> None:
         self._layouts = layouts
+        self.released_mesh_resources = False
 
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
+
+    def release_mesh_collision_resources(self) -> None:
+        self.released_mesh_resources = True
 
 
 def _fallback_layout(positions):
@@ -137,8 +143,9 @@ def test_dynamic_spawn_pose_rejects_layout_missing_non_anchor():
         )
 
 
-def test_dynamic_spawn_pose_event_params_use_runtime_assets():
+def test_dynamic_spawn_pose_event_params_use_opaque_pool_handle():
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, resolve_placement_pool
 
     desk = _make_desk()
     box = _make_box()
@@ -150,8 +157,12 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
         anchor_assets={desk},
     )
 
-    assert [asset.name for asset in event_cfg.params["assets"]] == ["desk", "box"]
-    assert "placement_pool" in event_cfg.params
+    assert set(event_cfg.params) == {"placement_pool"}
+    pool_handle = event_cfg.params["placement_pool"]
+    assert isinstance(pool_handle, PlacementPoolHandle)
+    assert deepcopy(pool_handle) is pool_handle
+    assert resolve_placement_pool(pool_handle) is placement_pool
+    assert placement_pool.released_mesh_resources
 
 
 def test_static_embodiment_placement_stores_per_env_poses():

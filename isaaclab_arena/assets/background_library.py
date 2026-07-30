@@ -13,6 +13,7 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -172,6 +173,7 @@ class LightwheelKitchenBackground(LibraryBackground):
     usd_path = None
     initial_pose = Pose.identity()
     object_min_z = -0.2
+    collision_mode = CollisionMode.MESH
 
     def __init__(self, layout_id: int = 1, style_id: int = 1):
         from lightwheel_sdk.loader import floorplan_loader
