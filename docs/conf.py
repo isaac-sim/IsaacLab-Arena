@@ -25,7 +25,7 @@ import sys
 
 # Modify PYTHONPATH so we can import the helpers module.
 sys.path.insert(0, os.path.abspath("."))
-from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
+from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired, version_sort
 
 # NOTE(alexmillane, 2025-04-24): This file is in a separate folder to avoid
 # duplicate configuration errors coming from mypy. The only way I could find
@@ -168,3 +168,12 @@ isaaclab_arena_docs_config = {
     "internal_code_link_base_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "external_code_link_base_url": "UNDECIDED",
 }
+
+
+def setup(app):
+    """Expose the version_sort filter to the version-switcher template."""
+
+    def register_filters(app):
+        app.builder.templates.environment.filters["version_sort"] = version_sort
+
+    app.connect("builder-inited", register_filters)

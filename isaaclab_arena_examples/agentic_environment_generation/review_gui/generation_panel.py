@@ -168,7 +168,7 @@ def render_generation_panel() -> None:
     if agent_error:
         st.info(f"LLM agent unavailable: {agent_error}", icon="ℹ️")
 
-    if st.button("Generate spec", type="primary", use_container_width=True):
+    if st.button("Generate spec", type="primary", width="stretch"):
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:

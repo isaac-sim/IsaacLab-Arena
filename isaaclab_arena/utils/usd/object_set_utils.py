@@ -13,6 +13,9 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
 from isaaclab_arena.utils.usd_helpers import open_stage
 
+CONTAINER_PRIM_NAME = "object_set_member"
+"""Name of the Xform inserted above a root-level rigid body to give it a container to hang under."""
+
 
 def get_object_set_asset_cache_path(asset: Asset, scale: tuple[float, float, float] | None = None) -> pathlib.Path:
     cache_dir = get_arena_asset_cache_dir()
@@ -117,24 +120,41 @@ def _rewrite_path_targets_in_root_layer(
         stage.SetEditTarget(edit_target)
 
 
-def _set_default_prim_for_object_set_cache(stage: Usd.Stage) -> None:
-    """Set the stage default prim so Isaac Lab's activate_contact_sensors finds a rigid body.
+def _wrap_root_rigid_body_in_container(stage: Usd.Stage) -> None:
+    """Reparent a root-level rigid body under a container Xform, leaving deeper ones alone."""
+    rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
+    assert rigid_body_path is not None, "No rigid body found in stage"
+    if rigid_body_path.count("/") > 1:
+        return
 
-    The spawner calls activate_contact_sensors(prim_path) which looks for rigid bodies *under*
-    that prim. So the default prim must be a container that has the rigid body as a direct child,
-    not the rigid body itself. For depth 0 we set default to the rigid body (it is the only root).
-    For depth >= 1 we set default to the rigid body's parent so the referenced prim is a scope
-    with rigid_body as child.
+    old_path = Sdf.Path(rigid_body_path)
+    container_path = Sdf.Path(f"/{CONTAINER_PRIM_NAME}")
+    assert not stage.GetPrimAtPath(container_path), f"Stage already has a prim at {container_path}"
+    new_path = container_path.AppendChild(old_path.name)
+
+    layer = stage.GetRootLayer()
+    container_spec = Sdf.CreatePrimInLayer(layer, container_path)
+    container_spec.specifier = Sdf.SpecifierDef
+    container_spec.typeName = "Xform"
+    assert Sdf.CopySpec(layer, old_path, layer, new_path), f"Failed to reparent {old_path} under {container_path}"
+    del layer.rootPrims[old_path.name]
+
+    stage.SetDefaultPrim(stage.GetPrimAtPath(container_path))
+    # The copied specs still carry targets pointing at the pre-move path; keep them in scope.
+    _rewrite_path_targets_in_root_layer(stage, str(old_path), str(new_path))
+
+
+def _set_default_prim_for_object_set_cache(stage: Usd.Stage) -> None:
+    """Set the stage default prim to the rigid body's parent.
+
+    Referencing this file exposes the default prim, so putting the parent there leaves every member
+    with its rigid body at the same path, "/rigid_body". It also gives activate_contact_sensors what
+    it looks for: a prim with the rigid body under it, rather than the rigid body itself.
     """
     rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
     assert rigid_body_path is not None, "No rigid body found in stage"
-    depth = rigid_body_path.count("/") - 1
-    if depth == 0:
-        # Single root prim: referenced prim is the rigid body; activate_contact_sensors finds it directly
-        default_prim_path = rigid_body_path
-    else:
-        # Child of root: set default to parent so referenced prim is a scope and rigid_body is under it
-        default_prim_path = str(Sdf.Path(rigid_body_path).GetParentPath())
+    assert rigid_body_path.count("/") > 1, f"Rigid body {rigid_body_path!r} must be wrapped in a container first"
+    default_prim_path = str(Sdf.Path(rigid_body_path).GetParentPath())
     prim = stage.GetPrimAtPath(default_prim_path)
     assert prim.IsValid(), f"Default prim path {default_prim_path!r} is not valid"
     stage.SetDefaultPrim(prim)
@@ -144,15 +164,18 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     """Export a scaled, compatible USD to the asset cache for use in object sets.
 
     Object sets need all member USDs to share the same structure (same rigid-body path) and
-    scale. This function: (1) rescales the root, (2) renames the shallowest rigid body to
-    "rigid_body", (3) rewrites relationship/connection targets to use that path so they remain
-    valid when the file is referenced, (4) sets the default prim to the rigid body, (5) exports
-    to the cache. Without step (3), material bindings and shader connections would point at the
-    old root path and be ignored by USD, causing grey/missing materials.
+    scale. This function: (1) rescales the root, (2) moves a root-level rigid body under a
+    container so every member nests it the same way, (3) renames the shallowest rigid body to
+    "rigid_body", (4) rewrites relationship/connection targets to use that path so they remain
+    valid when the file is referenced, (5) sets the default prim to the rigid body's parent,
+    (6) exports to the cache. Without step (4), material bindings and shader connections would
+    point at the old root path and be ignored by USD, causing grey/missing materials.
     """
     cache_path = get_object_set_asset_cache_path(asset, asset.scale)
     with open_stage(asset.usd_path) as stage:
         rescale_root(stage, asset)
+        # Move root-level rigid body under a container so every member nests it the same way.
+        _wrap_root_rigid_body_in_container(stage)
         # Unify name; need old path for rewrite
         old_rb_path = rename_rigid_body(stage, new_name="rigid_body")
         # Path after rename (e.g. /rigid_body or /root/rigid_body)

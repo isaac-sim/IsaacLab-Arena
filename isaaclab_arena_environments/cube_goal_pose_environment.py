@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class CubeGoalPoseEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the cube goal-pose environment."""
 
-    enable_cameras: bool = False
     object: str = "dex_cube"
     background: str = "table"
     embodiment: str = "franka_ik"

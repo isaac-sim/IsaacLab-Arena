@@ -43,6 +43,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     build_asset_cards,
+    object_set_member_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
     estimate_mermaid_height_px,
@@ -112,6 +113,29 @@ class TestBuildAssetCards:
         card_ids = {card.spec.id for card in build_asset_cards(spec)}
         assert card_ids
         assert any(ref.id in card_ids for ref in spec.object_references)
+
+    def test_object_set_yields_one_card_per_member(self):
+        spec = ArenaEnvGraphSpec.from_yaml(
+            _REPO_ROOT / "isaaclab_arena/tests/test_data/object_set_maple_table_env_graph.yaml"
+        )
+        (object_set,) = spec.object_sets
+        sweet_potato_key = object_set_member_key(object_set.id, "sweet_potato")
+        cards = build_asset_cards(
+            spec,
+            thumbnails={sweet_potato_key: b"fake"},
+            aabb_dimensions_m={sweet_potato_key: (0.1, 0.1, 0.2)},
+        )
+
+        member_cards = [card for card in cards if card.role == "object_set"]
+        assert [card.spec.registry_name for card in member_cards] == object_set.members
+        assert all(card.spec.id == object_set.id for card in member_cards)
+
+        # Snapshots are keyed per member, so one member's thumbnail never leaks onto its siblings.
+        sweet_potato = next(card for card in member_cards if card.spec.registry_name == "sweet_potato")
+        assert sweet_potato.thumbnail_bytes == b"fake"
+        assert sweet_potato.aabb_dimensions_m == (0.1, 0.1, 0.2)
+        jug = next(card for card in member_cards if card.spec.registry_name == "jug")
+        assert jug.thumbnail_bytes is None
 
 
 class TestMermaidHtml:

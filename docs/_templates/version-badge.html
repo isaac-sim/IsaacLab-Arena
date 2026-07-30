@@ -20,11 +20,7 @@ sphinx-multiversion's git-derived `current_version`.
   </button>
   <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
     {%- if versions %}
-    {%- for item in versions.branches %}
-    <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
-       href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
-    {%- endfor %}
-    {%- for item in versions.tags|reverse %}
+    {%- for item in (versions.branches + versions.tags) | version_sort %}
     <a class="list-group-item list-group-item-action py-1{% if item == current_version %} active{% endif %}"
        href="{{ item.url }}" role="option"{% if item == current_version %} aria-current="true"{% endif %}>{{ version_label(item.name) }}</a>
     {%- endfor %}

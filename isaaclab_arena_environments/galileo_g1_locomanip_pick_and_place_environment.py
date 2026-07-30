@@ -65,7 +65,6 @@ def _apply_legacy_datagen_name_override(
 class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Galileo G1 locomotion-and-manipulation environment."""
 
-    enable_cameras: bool = False
     object: str = "brown_box"
     destination: str = "blue_sorting_bin"
     embodiment: str = "g1_wbc_pink"

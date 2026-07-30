@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class TableTopSortCubesEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the tabletop cube-sorting environment."""
 
-    enable_cameras: bool = False
     objects: list[str] = field(default_factory=lambda: ["red_cube", "green_cube"])
     destinations: list[str] = field(default_factory=lambda: ["red_container", "green_container"])
     background: str = "table"

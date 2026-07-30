@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 class PegInsertEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the peg-insert assembly environment."""
 
-    enable_cameras: bool = False
     object: str = "peg"
     destination_object: str = "hole"
     background: str = "table"

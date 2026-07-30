@@ -14,10 +14,11 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
-from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimitsBox, PositionLimitsCylindrical
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
+_OBJECT_SET_GRAPH = TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml"
 
 
 def test_graph_spec_loads_pick_and_place_yaml():
@@ -52,10 +53,15 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
     cube_limits = spec.relations[2]
-    assert cube_limits.kind == "position_limits"
+    assert cube_limits.kind == "position_limits_box"
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
     assert cube_limits.reference is None
-    assert cube_limits.params == {"x_min": 0.55, "x_max": 0.7, "y_min": -0.4, "y_max": -0.1}
+    assert cube_limits.params == {
+        "x_min": 0.55,
+        "x_max": 0.7,
+        "y_min": -0.4,
+        "y_max": -0.1,
+    }
 
     mug_position = spec.relations[5]
     assert mug_position.kind == "at_position"
@@ -67,12 +73,109 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert table_anchor.kind == "is_anchor"
     assert table_anchor.subject == "maple_table_robolab_table"
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(table_anchor.kind) is IsAnchor
-    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimits
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimitsBox
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(mug_position.kind) is AtPosition
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
+def test_graph_spec_parses_radial_position_limits():
+    """Graph specs preserve cylindrical position-limit parameters for relation construction."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = [{
+        "kind": "position_limits_cylindrical",
+        "subject": "cube",
+        "params": {"center_x": 0.5, "center_y": -0.25, "radius_min": 0.1, "radius_max": 0.3},
+    }]
+
+    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
+    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
+    relation = relation_class(**relation_spec.params)
+
+    assert isinstance(relation, PositionLimitsCylindrical)
+    assert relation.center_x == 0.5
+    assert relation.center_y == -0.25
+    assert relation.radius_min == 0.1
+    assert relation.radius_max == 0.3
+
+
+def test_graph_spec_accepts_legacy_position_limits_box_name():
+    """The legacy YAML relation name continues to construct a box relation."""
+
+    data = _minimal_env_graph_data()
+    data["relations"] = [{
+        "kind": "position_limits",
+        "subject": "cube",
+        "params": {"x_min": 0.1, "x_max": 0.3},
+    }]
+
+    (relation_spec,) = ArenaEnvGraphSpec.from_dict(data).relations
+    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation_spec.kind)
+    relation = relation_class(**relation_spec.params)
+
+    assert relation_class is PositionLimitsBox
+    assert isinstance(relation, PositionLimitsBox)
+
+
+def test_graph_spec_loads_object_set_yaml():
+    spec = ArenaEnvGraphSpec.from_yaml(_OBJECT_SET_GRAPH)
+
+    assert len(spec.object_sets) == 1
+    object_set = spec.object_sets[0]
+    assert object_set.id == "pick_up_object_set"
+    assert object_set.members == ["sweet_potato", "jug"]
+    assert object_set.random_choice
+    assert object_set.params == {}
+
+    # An object set is one scene node: relations and task params address it by id like an object.
+    on_relation = next(relation for relation in spec.relations if relation.subject == "pick_up_object_set")
+    assert on_relation.kind == "on"
+    assert on_relation.reference == "maple_table_robolab"
+    assert spec.task.subtasks[0].params["pick_up_object"] == "pick_up_object_set"
+
+
+def test_graph_spec_rejects_object_set_id_colliding_with_object():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "cube", "members": ["sweet_potato", "jug"]}]
+    with pytest.raises(ValidationError, match="Duplicate graph asset ids"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_graph_spec_rejects_object_set_without_valid_members():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": []}]
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+    data["object_sets"] = [{"id": "variants", "members": ["not_a_real_asset"]}]
+    with pytest.raises(ValidationError, match="Unknown asset registry_name"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_graph_spec_rejects_non_rigid_object_set_member():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "ground_plane"]}]
+    with pytest.raises(ValidationError, match="must be a rigid object"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_graph_spec_rejects_object_set_params_shadowing_spec_fields():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato"], "params": {"objects": []}}]
+    with pytest.raises(ValidationError, match="params must not set"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_graph_spec_rejects_relation_referencing_unknown_object_set():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "jug"]}]
+    data["relations"].append({"kind": "on", "subject": "other_variants", "reference": "table"})
+    with pytest.raises(ValidationError, match="unknown subject"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_parses_at_position():
+
     data = _minimal_env_graph_data()
     data["relations"] = [{
         "kind": "at_position",
@@ -280,6 +383,7 @@ def test_graph_spec_accepts_missing_optional_fields():
     data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references is None
+    assert spec.object_sets is None
     assert spec.cli_override_specs is None
 
 
@@ -288,8 +392,10 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
     data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
+    data["object_sets"] = []
     spec = ArenaEnvGraphSpec.from_dict(data)
     dumped = spec.to_dict()
     assert "object_references" not in dumped
+    assert "object_sets" not in dumped
     assert "cli_override_specs" not in dumped
     assert spec.cli_override_specs is None
