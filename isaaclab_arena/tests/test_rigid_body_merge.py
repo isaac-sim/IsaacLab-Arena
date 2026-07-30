@@ -157,8 +157,8 @@ def _collision_meshes(stage) -> dict[str, int]:
 
 def _test_merge_keeps_shape_and_mass(simulation_app):
     """The merged bottle fills the same space, keeps its collision meshes, and weighs the same."""
-    from isaaclab_arena.utils.usd.mass_properties import read_mass_properties
     from isaaclab_arena.utils.usd.physics_structure import get_physics_structure_from_usd
+    from isaaclab_arena.utils.usd.rigid_body_mass import read_rigid_body_mass
     from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
     source_stage = _open_simready(SIMREADY_BOTTLE_USD)
@@ -172,12 +172,12 @@ def _test_merge_keeps_shape_and_mass(simulation_app):
     assert len(_collision_meshes(merged_stage)) == 2
 
     parts = [
-        read_mass_properties(source_stage.GetPrimAtPath(path))
+        read_rigid_body_mass(source_stage.GetPrimAtPath(path))
         for path in get_physics_structure_from_usd(source_stage).rigid_body_paths
     ]
     assert len(parts) == 2 and all(part is not None for part in parts)
 
-    merged = read_mass_properties(merged_stage.GetPrimAtPath("/Prop"))
+    merged = read_rigid_body_mass(merged_stage.GetPrimAtPath("/Prop"))
     assert merged is not None, "the merged bottle should say what it weighs"
 
     # The cap and the bottle together weigh what they weighed apart.
@@ -199,13 +199,13 @@ def _test_merged_mass_reaches_physx(simulation_app):
     import isaaclab.sim as sim_utils
     from isaaclab.assets import RigidObject, RigidObjectCfg
 
-    from isaaclab_arena.utils.usd.mass_properties import read_mass_properties
+    from isaaclab_arena.utils.usd.rigid_body_mass import read_rigid_body_mass
     from isaaclab_arena.utils.usd.rigid_body_merge import merge_to_one_rigid_body_if_needed
 
     merged_path = merge_to_one_rigid_body_if_needed(SIMREADY_BOTTLE_USD, SIMREADY_VARIANTS)
     # Hold on to the stage, or the prim read from it goes stale.
     merged_stage = _open_simready(merged_path)
-    expected = read_mass_properties(merged_stage.GetPrimAtPath("/Prop"))
+    expected = read_rigid_body_mass(merged_stage.GetPrimAtPath("/Prop"))
 
     simulation = sim_utils.SimulationContext(sim_utils.SimulationCfg(dt=0.01))
     bottle = RigidObject(

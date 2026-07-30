@@ -3,11 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build small in-memory USD stages shaped like SimReady props.
-
-pxr is imported inside each function, so importing this module is safe during pytest collection,
-before Isaac Sim has started.
-"""
+"""Build small in-memory USD stages shaped like SimReady props."""
 
 from __future__ import annotations
 
