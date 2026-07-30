@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
 
 def get_object_world_pose_from_layout(
@@ -78,6 +79,17 @@ class ReachabilityValidator(PlacementValidator):
         self._base_quat_xyzw = base_pose.rotation_xyzw
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
+        self._visualizer = params.debug_visualizer
+        self._rerun_layer = self._make_rerun_layer(params)
+
+    @staticmethod
+    def _make_rerun_layer(params: ObjectPlacerParams) -> ReachabilityRerunLayer | None:
+        """Return this check's layer of the placement debug view, or None when that view is off."""
+        if params.debug_visualizer is None:
+            return None
+        from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+
+        return ReachabilityRerunLayer(params.debug_visualizer)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -99,12 +111,13 @@ class ReachabilityValidator(PlacementValidator):
         bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+        return [self._validate(positions[i], orientations[i], batch_slot=i) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
+        batch_slot: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
@@ -149,12 +162,23 @@ class ReachabilityValidator(PlacementValidator):
             )
             for obj in targets
         ])
-        feasible, _, _ = solve_ik_feasibility(
+        feasible, position_error, rotation_error = solve_ik_feasibility(
             self._solver,
             grasp_poses,
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
         )
+        if self._rerun_layer is not None:
+            self._rerun_layer.log_candidate(
+                candidate_index=self._visualizer.candidate_index_for_slot(batch_slot),
+                base_pos=self._base_pos,
+                base_quat_xyzw=self._base_quat_xyzw,
+                target_names=[obj.name for obj in targets],
+                grasp_poses_base_frame=grasp_poses,
+                feasible=feasible,
+                position_error=position_error,
+                rotation_error=rotation_error,
+            )
         return bool(feasible.all().item())
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
