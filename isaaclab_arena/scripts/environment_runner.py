@@ -3,9 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-r"""Run an Arena environment interactively for manual debugging.
-
-Loads a registered Arena environment or an environment graph spec and continuously steps it in Kit. Use it to
+r"""Load a registered Arena environment or an environment graph spec and continuously step it in Kit. Use it to
 physically manipulate objects with Shift + left-drag, inspect their placement and interactions, and verify
 termination-triggered resets.
 
@@ -81,6 +79,19 @@ def _enable_mouse_interaction() -> None:
     stage.GetRootLayer().customLayerData = custom_layer_data
 
 
+def _create_interactive_environment(
+    args_cli: argparse.Namespace,
+    hydra_overrides: list[str],
+) -> gym.Env:
+    """Create an Arena environment configured for interactive manipulation."""
+    arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+    env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
+    env_cfg.sim.enable_scene_query_support = True
+    env_cfg.recorders = {}
+    env_cfg.episode_recorders = {}
+    return arena_builder.make_registered(env_cfg, env_kwargs)
+
+
 def run_environment(
     simulation_app: SimulationAppContext,
     env: gym.Env,
@@ -117,13 +128,7 @@ def main() -> None:
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(args_cli) as simulation_app:
-        arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
-        env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
-        env_cfg.sim.enable_scene_query_support = True
-        env_cfg.recorders = {}
-        env_cfg.episode_recorders = {}
-
-        env = arena_builder.make_registered(env_cfg, env_kwargs)
+        env = _create_interactive_environment(args_cli, hydra_overrides)
         try:
             _enable_mouse_interaction()
             run_environment(simulation_app, env)
