@@ -73,25 +73,18 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
     variations (``directional_light.direction.*`` / ``directional_light.intensity.*``) have a target.
     The directional light is off by default and contributes no illumination unless a variation turns
     it on at build time (see LightDirectionVariation), so scenes with no lighting variation are lit
-    only by their ambient/baked-in lighting.
+    only by their ambient/baked-in lighting. When the directional light is turned on, its direction
+    variation also dims the injected dome so the directional light's shadows are visible.
     """
+    dome_light = None
     if not _scene_already_has_light(graph_spec, assets_by_node_id):
         dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
-        light_cls = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)
-        light_kwargs: dict[str, Any] = {}
-        if graph_spec.dome_light_intensity is not None:
-            # Deep-copy the class default so we don't mutate the shared spawner cfg every dome uses.
-            spawner_cfg = copy.deepcopy(light_cls.default_spawner_cfg)
-            spawner_cfg.intensity = graph_spec.dome_light_intensity
-            light_kwargs["spawner_cfg"] = spawner_cfg
-        assets_by_node_id[dome_node_id] = light_cls(**light_kwargs)
-        intensity_note = (
-            "" if graph_spec.dome_light_intensity is None else f" at intensity {graph_spec.dome_light_intensity}"
-        )
-        print(
-            "INFO: no light found in scene or background USD(s); injected default light"
-            f" '{dome_node_id}'{intensity_note}."
-        )
+        dome_cls = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)
+        # Fresh per-instance spawner cfg so a direction variation dimming this dome mutates only it,
+        # never the shared class default (which would darken later, variation-free builds).
+        dome_light = dome_cls(spawner_cfg=copy.deepcopy(dome_cls.default_spawner_cfg))
+        assets_by_node_id[dome_node_id] = dome_light
+        print(f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'.")
 
     if not _scene_has_asset_named(assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME):
         directional_node_id = _unique_node_id(set(assets_by_node_id), _DIRECTIONAL_LIGHT_NODE_ID)
@@ -100,6 +93,9 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
         # default (which would otherwise light up later, variation-free builds).
         directional_light = light_cls(spawner_cfg=copy.deepcopy(light_cls.default_spawner_cfg))
         directional_light.off()  # a lighting-direction variation turns it back on at build time
+        if dome_light is not None:
+            # Let the direction variation dim this dome when it activates, so shadows show.
+            directional_light.set_dome_light(dome_light)
         assets_by_node_id[directional_node_id] = directional_light
         print(
             f"INFO: injected directional light '{directional_node_id}'"

@@ -22,12 +22,15 @@ runs:
     environment_builder: &env_builder
       num_envs: 1
     rollout_limit:
-      num_episodes: 3
+      num_episodes: 1
     variations: &hdr_image_variation
       light:
         hdr_image:
           enabled: true
           hdr_names: ["home_office_robolab"]
+      directional_light:
+        direction:
+          enabled: false
 
 
 

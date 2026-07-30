@@ -527,6 +527,14 @@ class DirectionalLight(LightBase):
         self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()
 
+    def set_dome_light(self, dome_light: LightBase) -> None:
+        """Register a dome light for the direction variation to dim when it activates.
+
+        Dimming the (bright) dome while the directional light is on lets its shadows show. Forwarded
+        to the ``direction`` variation; a no-op on illumination unless that variation is enabled.
+        """
+        self.get_variation("direction").set_dome_light(dome_light)
+
 
 @register_asset
 class DexCube(LibraryObject):

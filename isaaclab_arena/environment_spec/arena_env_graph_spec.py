@@ -35,14 +35,6 @@ class ArenaEnvGraphSpec(BaseModel):
     embodiment: AssetSpec = Field(description="The robot that performs the tasks.")
     background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
     objects: list[AssetSpec] = Field(default_factory=list, description="Movable scene objects, including distractors.")
-    dome_light_intensity: float | None = Field(
-        default=None,
-        description=(
-            "Override intensity for the auto-injected dome light (None keeps the dome's own default of"
-            " 500). Raise it to brighten scenes that rely on the dome, e.g. after disabling the"
-            " directional light. Only affects the injected dome, not a light baked into the scene USD."
-        ),
-    )
     object_references: list[ObjectReferenceSpec] | None = Field(
         default=None, description="Optional prims inside the background exposed as assets (e.g. a table surface)."
     )
