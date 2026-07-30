@@ -16,6 +16,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.predicates.predicate_utils import ArenaAssetHandle
 from isaaclab_arena.tasks.predicates.spatial import objects_on_destinations
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import root_height_below_minimum_multi_objects
@@ -38,6 +39,8 @@ class SortMultiObjectTask(TaskBase):
 
         self.pick_up_object_list = pick_up_object_list
         self.destination_location_list = destination_location_list
+        self.pick_up_object_handle_list = [ArenaAssetHandle(asset) for asset in pick_up_object_list]
+        self.destination_location_handle_list = [ArenaAssetHandle(asset) for asset in destination_location_list]
         self.background_scene = background_scene
 
         self.pick_up_object_contact_sensor_list = []
@@ -79,6 +82,8 @@ class SortMultiObjectTask(TaskBase):
             params={
                 "object_cfg_list": object_cfg_list,
                 "contact_sensor_cfg_list": contact_sensor_cfg_list,
+                "object_asset_handle_list": self.pick_up_object_handle_list,
+                "destination_asset_handle_list": self.destination_location_handle_list,
                 "force_threshold": 1.0,
                 "velocity_threshold": 0.1,
             },
