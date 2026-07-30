@@ -14,13 +14,12 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
-from isaaclab.utils.math import combine_frame_transforms, quat_inv, quat_mul, subtract_frame_transforms
+from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
 
 from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import (
     ArenaAssetHandle,
-    get_asset_pose_w,
     get_env,
     get_root_lin_vel_w,
     get_root_pos_w,
@@ -28,7 +27,7 @@ from isaaclab_arena.tasks.predicates.predicate_utils import (
 )
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 def object_is_above_height(
@@ -130,8 +129,8 @@ def object_in_container(
 
 def _object_centroid_in_container_bounds(
     env: ManagerBasedRLEnv,
-    object_asset: PlaceableAsset,
-    container_asset: PlaceableAsset,
+    object_asset: ObjectBase,
+    container_asset: ObjectBase,
 ) -> torch.Tensor:
     """Check whether an object's bounding-box centroid is within open-top container bounds.
 
@@ -143,8 +142,8 @@ def _object_centroid_in_container_bounds(
     object_bounding_box = get_bounding_box_per_env(object_asset, unwrapped_env.num_envs).to(unwrapped_env.device)
     container_bounding_box = get_bounding_box_per_env(container_asset, unwrapped_env.num_envs).to(unwrapped_env.device)
 
-    object_bounding_box_pose_w = _get_bounding_box_pose_w(unwrapped_env, object_asset)
-    container_bounding_box_pose_w = _get_bounding_box_pose_w(unwrapped_env, container_asset)
+    object_bounding_box_pose_w = object_asset.get_bounding_box_pose(unwrapped_env, is_relative=False)
+    container_bounding_box_pose_w = container_asset.get_bounding_box_pose(unwrapped_env, is_relative=False)
     object_centroid_w, _ = combine_frame_transforms(
         object_bounding_box_pose_w[:, :3],
         object_bounding_box_pose_w[:, 3:],
@@ -164,22 +163,6 @@ def _object_centroid_in_container_bounds(
     )
     above_bottom = object_centroid_container[:, 2] >= container_bounding_box.min_point[:, 2]
     return inside_x & inside_y & above_bottom
-
-
-def _get_bounding_box_pose_w(env, asset: PlaceableAsset) -> torch.Tensor:
-    """Get the world pose of the frame in which an asset's bounding box is expressed."""
-
-    asset_pose_w = get_asset_pose_w(env, asset)
-    pose_relative_to_parent = getattr(asset, "initial_pose_relative_to_parent", None)
-    if pose_relative_to_parent is None:
-        return asset_pose_w
-
-    # ObjectReference bounds are aligned with the parent USD frame. Remove the reference's
-    # authored local rotation so those cached bounds retain that alignment at runtime.
-    unwrapped_env = get_env(env)
-    relative_pose = pose_relative_to_parent.to_tensor(device=unwrapped_env.device).expand(unwrapped_env.num_envs, 7)
-    bounding_box_quaternion_w = quat_mul(asset_pose_w[:, 3:], quat_inv(relative_pose[:, 3:]))
-    return torch.cat((asset_pose_w[:, :3], bounding_box_quaternion_w), dim=-1)
 
 
 def contact_force_is_upward_support(
