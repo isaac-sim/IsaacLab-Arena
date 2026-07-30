@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import functools
+
+from isaaclab.utils.assets import retrieve_file_path
 from pxr import Usd, UsdPhysics
 
 
@@ -38,6 +41,33 @@ def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
     return get_all_rigid_body_prim_paths_from_stage(stage)
+
+
+def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None = None) -> list[str]:
+    """Get the prim paths of the rigid bodies in an asset, fetching it first if it is remote.
+
+    The asset is referenced into a throwaway stage rather than opened, so selecting a variant
+    leaves the asset itself untouched.
+
+    Args:
+        usd_path: Path to the USD file to analyze, local or remote.
+        variants: USD variants to select before looking for rigid bodies. SimReady props need
+            ``{"Physics": "physics"}``, or they have no physics at all.
+
+    Returns:
+        Prim paths of the asset's rigid bodies, empty if it has none.
+    """
+    return list(_read_asset_rigid_body_paths(usd_path, tuple(sorted((variants or {}).items()))))
+
+
+@functools.cache
+def _read_asset_rigid_body_paths(usd_path: str, variant_items: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/Asset", "Xform")
+    root.GetReferences().AddReference(retrieve_file_path(usd_path))
+    stage.SetDefaultPrim(root)
+    apply_usd_variant_selections(stage, dict(variant_items))
+    return tuple(get_all_rigid_body_prim_paths_from_stage(stage))
 
 
 def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str] | None) -> None:

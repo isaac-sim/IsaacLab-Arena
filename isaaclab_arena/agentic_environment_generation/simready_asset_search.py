@@ -20,6 +20,11 @@ ISAAC_SIMREADY_GA_S3_URL = (
 )
 DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 
+MAX_INSPECTED_MATCHES_PER_PHRASE = 5
+"""How many hits per object are read to see whether they can be a rigid object, unless more
+results than this were asked for. Each read fetches the asset, so a phrase that matches half the
+library is not worth chasing to the end."""
+
 
 class SimReadySourceKind(str, Enum):
     """Configured SimReady search backend."""
@@ -69,17 +74,20 @@ class SimReadyCandidateCatalogue:
 
     candidates: list[SimReadyObjectCandidate] = field(default_factory=list)
 
+    unmatched_phrases: list[str] = field(default_factory=list)
+    """Objects SimReady has nothing usable for, so the agent has to look elsewhere."""
+
     def to_catalog_string(self) -> str:
         """Format candidates as the SIMREADY_OBJECT_CANDIDATES prompt block."""
-        if not self.candidates:
-            return ""
-        lines = [
-            f"SIMREADY_OBJECT_CANDIDATES ({len(self.candidates)}):",
-            (
-                "When a desired object matches a candidate below, use "
-                f"registry_name={SIMREADY_USD_OBJECT_REGISTRY_NAME!r} and copy params exactly."
-            ),
-        ]
+        lines: list[str] = []
+        if self.candidates:
+            lines.extend([
+                f"SIMREADY_OBJECT_CANDIDATES ({len(self.candidates)}):",
+                (
+                    "When a desired object matches a candidate below, use "
+                    f"registry_name={SIMREADY_USD_OBJECT_REGISTRY_NAME!r} and copy params exactly."
+                ),
+            ])
         for index, candidate in enumerate(self.candidates, start=1):
             tag_text = ", ".join(candidate.tags)
             score = f" relevance={candidate.relevance_score:.2f}" if candidate.relevance_score is not None else ""
@@ -89,6 +97,13 @@ class SimReadyCandidateCatalogue:
                 "  params:\n"
                 f"    usd_path: {candidate.usd_path}\n"
                 f"    tags: [{tag_text}]"
+            )
+        if self.unmatched_phrases:
+            phrases = ", ".join(repr(phrase) for phrase in self.unmatched_phrases)
+            lines.append(
+                f"NO_SIMREADY_MATCH ({len(self.unmatched_phrases)}): {phrases}\n"
+                "SimReady has no object that can be picked up for these, so take them from the"
+                " OBJECTS catalog instead, and leave registry_name empty if nothing there fits either."
             )
         return "\n".join(lines)
 
@@ -139,28 +154,63 @@ def _count_matching_words(phrase: str, asset_path: str) -> int:
 
 
 def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
-    """Keep only results that share a whole word with the phrase, best matches first.
+    """Keep only results named after the object being asked for, best matches first.
 
-    ``SearchFilterPathContains`` matches any substring, so searching for "bin" returns every
-    cabinet in the library. Asking for whole words drops those results.
+    ``SearchFilterPathContains`` matches any substring, so searching for "grey bin" returns every
+    cabinet in the library, on the "bin" inside "Cabinets". Whole words alone are not enough
+    either, because a grey cabinet still shares "grey" with the phrase. What decides is the last
+    word, which is the object itself: the words in front of it only describe it.
     """
-    scored = [(_count_matching_words(phrase, str(match.asset_path)), match) for match in matches]
-    kept = [entry for entry in scored if entry[0] > 0]
+    words = _phrase_words(phrase)
+    if not words:
+        return list(matches)
+    object_word = words[-1]
+    kept = [
+        (_count_matching_words(phrase, str(match.asset_path)), match)
+        for match in matches
+        if _is_word_in_path(object_word, _split_path_into_words(str(match.asset_path)))
+    ]
     # The sort is stable, so results with the same number of matching words keep their order.
     kept.sort(key=lambda entry: entry[0], reverse=True)
     return [match for _, match in kept]
 
 
-def _select_matches(matches: list[Any], max_results: int) -> list[Any]:
-    if not matches:
-        return []
+def _rank_matches(matches: list[Any]) -> list[Any]:
+    """Order search hits best first, keeping the word-overlap order when there are no scores."""
     if matches and getattr(matches[0], "relevance_score", None) is not None:
-        matches = sorted(
+        return sorted(
             matches,
             key=lambda match: match.relevance_score if match.relevance_score is not None else 0.0,
             reverse=True,
         )
-    return matches[:max_results]
+    return list(matches)
+
+
+def _rigid_object_rejection_reason(usd_path: str) -> str | None:
+    """Say why a SimReady asset cannot be used as a rigid object, or None if it can.
+
+    A rigid object is exactly one rigid body. A prop made of several bodies is turned down
+    whatever holds them together, and so is a prop with no rigid body at all.
+
+    Args:
+        usd_path: The asset to look at, local or remote.
+
+    Returns:
+        A phrase naming the problem, for example "it has no rigid body", or None if the asset is
+        usable as a rigid object.
+    """
+    from isaaclab_arena.assets.simready_object_library import SIMREADY_PHYSICS_VARIANTS
+    from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+
+    try:
+        rigid_body_paths = read_asset_rigid_body_paths(usd_path, SIMREADY_PHYSICS_VARIANTS)
+    except Exception as exc:
+        return f"its USD could not be read: {exc}"
+    if len(rigid_body_paths) == 1:
+        return None
+    if not rigid_body_paths:
+        return "it has no rigid body"
+    return f"it has {len(rigid_body_paths)} rigid bodies"
 
 
 async def _configure_asset_library(config: SimReadySearchConfig, traces: list[str]) -> Any | None:
@@ -194,6 +244,17 @@ async def _configure_asset_library(config: SimReadySearchConfig, traces: list[st
     return None
 
 
+def _candidate_from_match(match: Any, phrase: str) -> SimReadyObjectCandidate:
+    tags = ("sim-ready", *_slugify_phrase(phrase).split("_"))
+    tags = tuple(dict.fromkeys(tag for tag in tags if tag))
+    return SimReadyObjectCandidate(
+        search_phrase=phrase,
+        usd_path=str(match.asset_path),
+        tags=tags,
+        relevance_score=getattr(match, "relevance_score", None),
+    )
+
+
 async def _search_phrase_async(
     library: Any,
     phrase: str,
@@ -201,6 +262,7 @@ async def _search_phrase_async(
     use_service_phrase: bool,
     service_url: str,
     max_results: int,
+    traces: list[str],
 ) -> list[SimReadyObjectCandidate]:
     from simready.search import AssetLibrary, SearchFilterPhrase
 
@@ -208,21 +270,26 @@ async def _search_phrase_async(
     if not matches and use_service_phrase:
         service_library = AssetLibrary()
         service_library.add_service_source(service_url)
-        matches = service_library.search(include_all=[SearchFilterPhrase(phrase)])
+        # The service answers with whatever it finds closest, so its hits are held to the same
+        # naming rule: a cabinet is not an answer for a bin here either.
+        matches = _keep_whole_word_matches(service_library.search(include_all=[SearchFilterPhrase(phrase)]), phrase)
+
+    # Reading an asset means fetching it, so only the best few hits are worth checking before we
+    # give up on the phrase and let the agent fall back to the Arena asset registry.
+    ranked = _rank_matches(matches)[: max(MAX_INSPECTED_MATCHES_PER_PHRASE, max_results)]
+    if len(ranked) < len(matches):
+        traces.append(f"simready search checked the best {len(ranked)} of {len(matches)} hits for {phrase!r}")
 
     candidates: list[SimReadyObjectCandidate] = []
-    for match in _select_matches(matches, max_results):
+    for match in ranked:
         usd_path = str(match.asset_path)
-        tags = ("sim-ready", *_slugify_phrase(phrase).split("_"))
-        tags = tuple(dict.fromkeys(tag for tag in tags if tag))
-        candidates.append(
-            SimReadyObjectCandidate(
-                search_phrase=phrase,
-                usd_path=usd_path,
-                tags=tags,
-                relevance_score=getattr(match, "relevance_score", None),
-            )
-        )
+        rejection_reason = _rigid_object_rejection_reason(usd_path)
+        if rejection_reason is None:
+            candidates.append(_candidate_from_match(match, phrase))
+            if len(candidates) >= max_results:
+                break
+        else:
+            traces.append(f"simready rejected {usd_path} for {phrase!r}: {rejection_reason}")
     return candidates
 
 
@@ -231,7 +298,12 @@ async def search_simready_objects_async(
     config: SimReadySearchConfig,
     traces: list[str],
 ) -> SimReadyCandidateCatalogue:
-    """Query SimReady for each normalized object phrase."""
+    """Query SimReady for each normalized object phrase.
+
+    Hits that cannot be spawned as a rigid object are turned down, and the next hit is tried in
+    their place. A phrase left with nothing is listed as unmatched, so the agent knows to pick
+    that object from the Arena asset registry instead.
+    """
     phrases = [phrase.strip() for phrase in object_phrases if phrase.strip()]
     if not phrases:
         return SimReadyCandidateCatalogue()
@@ -241,6 +313,7 @@ async def search_simready_objects_async(
         return SimReadyCandidateCatalogue()
 
     candidates: list[SimReadyObjectCandidate] = []
+    unmatched_phrases: list[str] = []
     for phrase in phrases:
         try:
             hits = await _search_phrase_async(
@@ -249,16 +322,18 @@ async def search_simready_objects_async(
                 use_service_phrase=config.use_service_fallback or config.source == SimReadySourceKind.SERVICE,
                 service_url=config.service_url,
                 max_results=config.max_results_per_object,
+                traces=traces,
             )
         except Exception as exc:
             traces.append(f"simready search failed for {phrase!r}: {exc}")
-            continue
-        if not hits:
-            traces.append(f"simready search returned no matches for {phrase!r}")
-            continue
-        candidates.extend(hits)
+            hits = []
+        if hits:
+            candidates.extend(hits)
+        else:
+            traces.append(f"simready search found no usable asset for {phrase!r}")
+            unmatched_phrases.append(phrase)
 
-    return SimReadyCandidateCatalogue(candidates=candidates)
+    return SimReadyCandidateCatalogue(candidates=candidates, unmatched_phrases=unmatched_phrases)
 
 
 def search_simready_objects(

@@ -17,13 +17,21 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadySourceKind,
     _count_matching_words,
     _keep_whole_word_matches,
+    _rigid_object_rejection_reason,
     _split_path_into_words,
     search_simready_objects,
     simready_search_config_from_cli,
 )
 
 CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_d01_01.usd"
+GREY_CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_grey_d01_01.usd"
 TRASH_CAN_PATH = "SimReady/Residential/Garage/sm_trashCan_wheeled_green_a01_01.usd"
+PLAIN_TRASH_CAN_PATH = "SimReady/Residential/Kitchen/sm_trashCan_a01_01.usd"
+
+REJECTION_REASON_TARGET = (
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._rigid_object_rejection_reason"
+)
+RIGID_BODY_PATHS_TARGET = "isaaclab_arena.utils.usd.rigid_bodies.read_asset_rigid_body_paths"
 
 
 class _FakeMatch:
@@ -71,10 +79,77 @@ def test_keep_whole_word_matches_filters_and_ranks():
 
 
 def test_keep_whole_word_matches_orders_by_word_overlap():
-    cabinet = _FakeMatch(CABINET_PATH)
-    trash_can = _FakeMatch(TRASH_CAN_PATH)
-    ranked = _keep_whole_word_matches([cabinet, trash_can], "kitchen green trash can")
-    assert ranked == [trash_can, cabinet]
+    green_can = _FakeMatch(TRASH_CAN_PATH)
+    plain_can = _FakeMatch(PLAIN_TRASH_CAN_PATH)
+    ranked = _keep_whole_word_matches([plain_can, green_can], "green trash can")
+    assert ranked == [green_can, plain_can]
+
+
+def test_keep_whole_word_matches_rejects_an_asset_that_only_shares_a_describing_word():
+    grey_cabinet = _FakeMatch(GREY_CABINET_PATH)
+    # A grey cabinet is not a grey bin: the colour matches but the object itself does not, and
+    # handing back the cabinet is how a bin became a cabinet in a generated environment.
+    assert _keep_whole_word_matches([grey_cabinet], "grey bin") == []
+    assert _keep_whole_word_matches([grey_cabinet], "grey cabinet") == [grey_cabinet]
+
+
+def test_rigid_object_rejection_reason_accepts_a_single_rigid_body():
+    with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle"]):
+        assert _rigid_object_rejection_reason("s3://bucket/bottle.usd") is None
+
+
+def test_rigid_object_rejection_reason_turns_down_several_rigid_bodies():
+    # A bottle and its cap are two bodies even though a fixed joint holds them together.
+    with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle", "/Asset/cap"]):
+        assert _rigid_object_rejection_reason("s3://bucket/bottle.usd") == "it has 2 rigid bodies"
+
+
+def test_rigid_object_rejection_reason_turns_down_an_asset_without_physics():
+    with patch(RIGID_BODY_PATHS_TARGET, return_value=[]):
+        assert _rigid_object_rejection_reason("s3://bucket/decoration.usd") == "it has no rigid body"
+
+
+def test_rigid_object_rejection_reason_turns_down_an_unreadable_asset():
+    with patch(RIGID_BODY_PATHS_TARGET, side_effect=FileNotFoundError("no such file")):
+        reason = _rigid_object_rejection_reason("s3://bucket/missing.usd")
+    assert reason is not None
+    assert "could not be read" in reason
+
+
+@patch(
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
+    new_callable=AsyncMock,
+)
+def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure):
+    mock_configure.return_value = _FakeLibrary([_FakeMatch(TRASH_CAN_PATH), _FakeMatch(PLAIN_TRASH_CAN_PATH)])
+    traces: list[str] = []
+    # The green one is named after more of the phrase, so it is looked at first and turned down.
+    reasons = {TRASH_CAN_PATH: "it has 2 rigid bodies", PLAIN_TRASH_CAN_PATH: None}
+    with patch(REJECTION_REASON_TARGET, side_effect=lambda usd_path: reasons[usd_path]):
+        catalog = search_simready_objects(["green trash can"], SimReadySearchConfig(enabled=True), traces)
+    assert [candidate.usd_path for candidate in catalog.candidates] == [PLAIN_TRASH_CAN_PATH]
+    assert catalog.unmatched_phrases == []
+    assert any(TRASH_CAN_PATH in line and "2 rigid bodies" in line for line in traces)
+
+
+@patch(
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
+    new_callable=AsyncMock,
+)
+def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure):
+    mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
+    traces: list[str] = []
+    with patch(REJECTION_REASON_TARGET, return_value="it has no rigid body"):
+        catalog = search_simready_objects(["kitchen cabinet"], SimReadySearchConfig(enabled=True), traces)
+    assert catalog.candidates == []
+    assert catalog.unmatched_phrases == ["kitchen cabinet"]
+    assert any("no usable asset" in line for line in traces)
+
+
+def test_catalog_string_tells_the_agent_which_objects_have_no_simready_match():
+    block = SimReadyCandidateCatalogue(unmatched_phrases=["grey bin"]).to_catalog_string()
+    assert "NO_SIMREADY_MATCH (1): 'grey bin'" in block
+    assert "OBJECTS catalog" in block
 
 
 def test_simready_candidate_catalogue_to_catalog_string():
@@ -192,4 +267,5 @@ def test_search_simready_objects_records_no_matches(mock_configure, mock_search_
         traces,
     )
     assert catalog.candidates == []
-    assert any("no matches" in line for line in traces)
+    assert catalog.unmatched_phrases == ["missing object"]
+    assert any("no usable asset" in line for line in traces)
