@@ -1,0 +1,148 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Read and combine the mass properties of USD rigid bodies.
+
+A USD asset can say what a part weighs in two places: on the part itself, and again on each of
+the part's collision shapes. PhysX reads whichever one sits on the prim that is actually the
+rigid body. So merging several parts into one body changes which numbers PhysX reads, and the
+two sets do not always agree. Combining the part numbers here and writing them on the merged
+body keeps the asset weighing and spinning the way it did before.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from dataclasses import dataclass
+
+from pxr import Gf, Usd, UsdPhysics
+
+
+@dataclass(frozen=True)
+class MassProperties:
+    """What a rigid body weighs and how it resists spinning."""
+
+    mass: float
+    """Mass in kilograms."""
+
+    center_of_mass: tuple[float, float, float]
+    """Centre of mass, in the body's own frame."""
+
+    diagonal_inertia: tuple[float, float, float]
+    """Moments of inertia about the principal axes."""
+
+    principal_axes: tuple[float, float, float, float]
+    """Rotation from the principal axes to the body's frame, as ``(w, x, y, z)``."""
+
+
+def read_mass_properties(prim: Usd.Prim) -> MassProperties | None:
+    """Read a prim's mass properties, or None if the asset did not spell all of them out.
+
+    Args:
+        prim: Prim to read from.
+
+    Returns:
+        The mass properties, or None if mass, centre of mass, or inertia is missing.
+    """
+    if not prim.HasAPI(UsdPhysics.MassAPI):
+        return None
+    api = UsdPhysics.MassAPI(prim)
+    mass_attribute = api.GetMassAttr()
+    center_attribute = api.GetCenterOfMassAttr()
+    inertia_attribute = api.GetDiagonalInertiaAttr()
+    if not all(attribute.HasAuthoredValue() for attribute in (mass_attribute, center_attribute, inertia_attribute)):
+        return None
+    axes = api.GetPrincipalAxesAttr().Get() or Gf.Quatf(1.0)
+    imaginary = axes.GetImaginary()
+    return MassProperties(
+        mass=float(mass_attribute.Get()),
+        center_of_mass=tuple(float(value) for value in center_attribute.Get()),
+        diagonal_inertia=tuple(float(value) for value in inertia_attribute.Get()),
+        principal_axes=(float(axes.GetReal()), *(float(value) for value in imaginary)),
+    )
+
+
+def write_mass_properties(prim: Usd.Prim, properties: MassProperties) -> None:
+    """Write mass properties onto a prim, overriding anything its shapes would have implied.
+
+    Args:
+        prim: Prim to write to.
+        properties: Mass properties to write.
+    """
+    api = UsdPhysics.MassAPI.Apply(prim)
+    api.CreateMassAttr().Set(float(properties.mass))
+    api.CreateCenterOfMassAttr().Set(Gf.Vec3f(*properties.center_of_mass))
+    api.CreateDiagonalInertiaAttr().Set(Gf.Vec3f(*properties.diagonal_inertia))
+    real, *imaginary = properties.principal_axes
+    api.CreatePrincipalAxesAttr().Set(Gf.Quatf(real, Gf.Vec3f(*imaginary)))
+
+
+def _quaternion_to_matrix(quaternion: tuple[float, float, float, float]) -> np.ndarray:
+    """Turn a ``(w, x, y, z)`` quaternion into a rotation matrix."""
+    real, x, y, z = quaternion
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * real), 2 * (x * z + y * real)],
+        [2 * (x * y + z * real), 1 - 2 * (x * x + z * z), 2 * (y * z - x * real)],
+        [2 * (x * z - y * real), 2 * (y * z + x * real), 1 - 2 * (x * x + y * y)],
+    ])
+
+
+def _matrix_to_quaternion(matrix: np.ndarray) -> tuple[float, float, float, float]:
+    """Turn a rotation matrix into a ``(w, x, y, z)`` quaternion."""
+    # Gf stores matrices the other way round from numpy, so hand it the transpose.
+    gf_matrix = Gf.Matrix4d(1.0)
+    gf_matrix.SetRotateOnly(Gf.Matrix3d(*matrix.T.flatten().tolist()))
+    quaternion = gf_matrix.ExtractRotationQuat()
+    imaginary = quaternion.GetImaginary()
+    return (float(quaternion.GetReal()), *(float(value) for value in imaginary))
+
+
+def _to_principal_axes(inertia: np.ndarray) -> tuple[tuple[float, float, float], tuple[float, ...]]:
+    """Split an inertia tensor into moments about its principal axes and their rotation."""
+    moments, axes = np.linalg.eigh(inertia)
+    # eigh can hand back a mirrored frame, which is not a rotation. Flip one axis to fix it.
+    if np.linalg.det(axes) < 0:
+        axes[:, 0] = -axes[:, 0]
+    return tuple(float(value) for value in moments), _matrix_to_quaternion(axes)
+
+
+def combine_mass_properties(parts: list[tuple[MassProperties, Gf.Matrix4d]]) -> MassProperties:
+    """Work out what several parts weigh and how they spin once treated as one solid piece.
+
+    Args:
+        parts: Each part's mass properties, and the transform from the part's frame into the
+            merged body's frame.
+
+    Returns:
+        Mass properties of the parts taken together.
+    """
+    assert parts, "cannot combine the mass properties of nothing"
+    total_mass = sum(properties.mass for properties, _ in parts)
+    assert total_mass > 0.0, f"the parts add up to a mass of {total_mass}"
+
+    centers = []
+    rotations = []
+    for properties, transform in parts:
+        point = transform.Transform(Gf.Vec3d(*properties.center_of_mass))
+        centers.append(np.array([point[0], point[1], point[2]]))
+        rotation = np.array(transform.ExtractRotationMatrix()).T
+        rotations.append(rotation @ _quaternion_to_matrix(properties.principal_axes))
+
+    center_of_mass = sum(properties.mass * center for (properties, _), center in zip(parts, centers)) / total_mass
+
+    inertia = np.zeros((3, 3))
+    for (properties, _), center, rotation in zip(parts, centers, rotations):
+        part_inertia = rotation @ np.diag(properties.diagonal_inertia) @ rotation.T
+        # Move each part's inertia to the shared centre of mass before adding it in.
+        offset = center - center_of_mass
+        inertia += part_inertia + properties.mass * (offset @ offset * np.eye(3) - np.outer(offset, offset))
+
+    moments, axes = _to_principal_axes(inertia)
+    return MassProperties(
+        mass=float(total_mass),
+        center_of_mass=tuple(float(value) for value in center_of_mass),
+        diagonal_inertia=moments,
+        principal_axes=axes,
+    )

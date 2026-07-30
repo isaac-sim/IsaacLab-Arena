@@ -24,22 +24,41 @@ def new_stage() -> Any:
     return stage
 
 
-def add_body(stage: Any, name: str) -> str:
+def add_body(
+    stage: Any,
+    name: str,
+    mass: float | None = None,
+    center_of_mass: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    diagonal_inertia: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    translation: tuple[float, float, float] | None = None,
+) -> str:
     """Add a rigid body shaped like SimReady authors them: an Xform with a mesh under it.
 
     Args:
         stage: Stage to add to.
         name: Part name, for example ``body_01``.
+        mass: Mass to write on the body. No MassAPI is applied when this is None.
+        center_of_mass: Centre of mass, in the body's own frame.
+        diagonal_inertia: Moments of inertia about the body's own axes.
+        translation: Where to put the body, if not at the origin.
 
     Returns:
         Prim path of the body with the RigidBodyAPI.
     """
-    from pxr import UsdGeom, UsdPhysics
+    from pxr import Gf, UsdGeom, UsdPhysics
 
     body_path = f"/Root/Geometry/{name}_obj_00"
     body = UsdGeom.Xform.Define(stage, body_path)
     UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
-    UsdGeom.Mesh.Define(stage, f"{body_path}/{name}_mesh_00")
+    if translation is not None:
+        body.AddTranslateOp().Set(Gf.Vec3d(*translation))
+    if mass is not None:
+        mass_api = UsdPhysics.MassAPI.Apply(body.GetPrim())
+        mass_api.CreateMassAttr().Set(mass)
+        mass_api.CreateCenterOfMassAttr().Set(Gf.Vec3f(*center_of_mass))
+        mass_api.CreateDiagonalInertiaAttr().Set(Gf.Vec3f(*diagonal_inertia))
+    mesh = UsdGeom.Mesh.Define(stage, f"{body_path}/{name}_mesh_00")
+    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
     return body_path
 
 
