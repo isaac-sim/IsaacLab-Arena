@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import environment_runner
+from isaaclab_arena.scripts import environment_runner
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 
