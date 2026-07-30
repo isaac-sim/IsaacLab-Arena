@@ -8,9 +8,9 @@
 # A template for adding Cosmos Runs to the larger robolab experiments.
 runs:
 
-  banana_on_plate_cosmos:
+  banana_in_bowl_cosmos:
     environment:
-      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
       enable_cameras: true
     # This YAML anchor keeps the shared Cosmos policy configuration in one place.
     policy: &cosmos_policy
@@ -18,17 +18,25 @@ runs:
       cosmos_embodiment_adapter: droid
       policy_device: cuda:0
       remote_host: 127.0.0.1
-      remote_port: 8001
+      remote_port: 8000
     environment_builder: &env_builder
-      num_envs: 5
+      num_envs: 1
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 3
+    variations: &hdr_image_variation
+      light:
+        hdr_image:
+          enabled: true
+          hdr_names: ["home_office_robolab"]
 
-  banana_in_bowl_cosmos:
-    environment:
-      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
-      enable_cameras: true
-    policy: *cosmos_policy
-    environment_builder: *env_builder
-    rollout_limit:
-      num_episodes: 100
+
+
+  # banana_on_plate_cosmos:
+  #   environment:
+  #     type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+  #     enable_cameras: true
+  #   policy: *cosmos_policy
+  #   environment_builder: *env_builder
+  #   rollout_limit:
+  #     num_episodes: 1
+  #   variations: *hdr_image_variation

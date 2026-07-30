@@ -31,3 +31,11 @@ relations:
   subject: banana
   reference: maple_table_robolab
   params: {}
+# Pin the banana to a fixed, central spot on the table (robot-relative x, y; the `on` relation
+# above still sets z on the table surface). Removes the banana's placement randomization.
+- kind: at_position
+  subject: banana
+  reference: null
+  params:
+    x: 0.65
+    y: 0.0

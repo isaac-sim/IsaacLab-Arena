@@ -168,11 +168,15 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
 
 
 def _render_video_cell(src: str) -> str:
-    """Render a single grid cell containing an inline, controllable video."""
+    """Render a grid cell with an inline video whose source is loaded lazily.
+
+    The path is held in ``data-src`` and the ``<source>`` has no ``src``, so nothing is fetched
+    until the enclosing policy section is first expanded and the report template's script assigns it.
+    """
     return (
         "<td>"
         '<video controls preload="metadata" muted playsinline>'
-        f'<source src="{html.escape(src)}" type="video/mp4">'
+        f'<source data-src="{html.escape(src)}" type="video/mp4">'
         "</video>"
         "</td>"
     )
@@ -234,23 +238,68 @@ def _render_row(episode: EpisodeVideos, cameras: list[str]) -> str:
     return "<tr>" + "".join(cells) + "</tr>"
 
 
-def _render_job_section(job: JobReport) -> str:
-    """Render one job as a heading (when named) followed by its env x episode video grid."""
-    heading = f"<h2>{html.escape(job.name)}</h2>" if job.name else ""
+def _split_job(job: str) -> tuple[str, str]:
+    """Split a job name into ``(task, policy)`` for grouping.
+
+    Experiment-runner jobs are named ``<task>_<policy>`` (e.g. ``banana_in_bowl_pi0``); the policy is
+    the text after the final underscore of the job's last path segment, so tasks that themselves
+    contain underscores (``food_packing_1_cans_cosmos``) still split correctly. A job with no
+    underscore (e.g. the policy runner's single unnamed job) yields an empty policy.
+    """
+    parent, _, leaf = job.rpartition("/")
+    task_leaf, separator, policy = leaf.rpartition("_")
+    if not separator or not task_leaf:
+        return job, ""
+    return (f"{parent}/{task_leaf}" if parent else task_leaf), policy
+
+
+def _job_success_count(job: JobReport) -> int:
+    """Number of episodes in ``job`` whose recorded result is a success."""
+    return sum(1 for episode in job.episodes if episode.record.get("success") is True)
+
+
+def _render_job_table(job: JobReport) -> str:
+    """Render a job's env x episode video grid as a standalone table (no heading)."""
     header_cells = "".join(f"<th>{html.escape(camera)}</th>" for camera in job.cameras)
     body_rows = "\n".join(_render_row(episode, job.cameras) for episode in job.episodes)
     return (
-        f"<section>{heading}<table>"
+        "<table>"
         f'<thead><tr><th class="rowlabel">env / episode</th>{header_cells}<th>details</th></tr></thead>'
-        f"<tbody>\n{body_rows}\n</tbody></table></section>"
+        f"<tbody>\n{body_rows}\n</tbody></table>"
     )
 
 
+def _render_policy_details(job: JobReport, policy: str) -> str:
+    """Render one policy (job) as a collapsed ``<details>`` whose videos load when it is opened."""
+    label = policy or job.name or "results"
+    successes, total = _job_success_count(job), len(job.episodes)
+    rate = f" ({100.0 * successes / total:.0f}%)" if total else ""
+    count = f'<span class="count">{successes}/{total} success{rate} &middot; {total} episode(s)</span>'
+    return f'<details class="policy"><summary>{html.escape(label)} {count}</summary>{_render_job_table(job)}</details>'
+
+
+def _render_task_section(task: str, jobs: list[JobReport]) -> str:
+    """Render one task as a collapsed ``<details>`` grouping its per-policy sub-sections."""
+    total_episodes = sum(len(job.episodes) for job in jobs)
+    count = f'<span class="count">{len(jobs)} policy(ies) &middot; {total_episodes} episode(s)</span>'
+    inner = "".join(_render_policy_details(job, _split_job(job.name)[1]) for job in jobs)
+    return f'<details class="task"><summary>{html.escape(task or "results")} {count}</summary>{inner}</details>'
+
+
 def render_report(report: EvaluationReport) -> str:
-    """Render ``report`` into a self-contained HTML document using the report template."""
+    """Render ``report`` into a self-contained HTML document using the report template.
+
+    Jobs are grouped into collapsed task -> policy sections; a section's rollout videos are only
+    fetched when it is expanded, so opening the report (and each click) loads a subset rather than
+    every job's videos at once.
+    """
     num_episodes = sum(len(job.episodes) for job in report.jobs)
     summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
-    sections = "\n".join(_render_job_section(job) for job in report.jobs) or "<p>No results recorded yet.</p>"
+    tasks: dict[str, list[JobReport]] = {}
+    for job in report.jobs:
+        tasks.setdefault(_split_job(job.name)[0], []).append(job)
+    sections = "\n".join(_render_task_section(task, jobs) for task, jobs in tasks.items())
+    sections = sections or "<p>No results recorded yet.</p>"
     template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
     return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
 

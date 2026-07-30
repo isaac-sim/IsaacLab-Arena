@@ -74,8 +74,12 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
+    # NOTE(temporary): dt + decimation set to match RoboLab's DROID eval (sim dt 1/120, decimation 8
+    # -> 15 Hz control), the native rate the DROID policies (pi0/Cosmos) were trained at. Running the
+    # policy faster replays the action chunk too quickly (arm lags, gripper closes early). Global for
+    # now; scope this to the DROID eval path later.
     sim: SimulationCfg = SimulationCfg(
-        dt=1 / 200,
+        dt=1 / 120,
         render_interval=2,
         render=RenderCfg(
             carb_settings={
@@ -88,7 +92,7 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
             },
         ),
     )
-    decimation: int = 4
+    decimation: int = 8  # temporary: with dt=1/120 gives 15 Hz control to match RoboLab's DROID eval
     wait_for_textures: bool = False
 
 

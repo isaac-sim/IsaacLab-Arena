@@ -259,7 +259,7 @@ class DroidSceneCfg:
                 joint_names_expr=["finger_joint"],
                 stiffness=None,
                 damping=None,
-                velocity_limit=1.0,
+                velocity_limit=5.0,  # match RoboLab's DROID gripper (was 1.0 -> gripper closed ~5x too slowly)
             ),
         },
     )
@@ -472,7 +472,10 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
     )
     wrist_camera: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
+        # Spawn a fresh "wrist_cam" prim rather than reusing the "wrist_camera" prim baked into the
+        # robot USD (which has different intrinsics), so our PinholeCameraCfg focal_length=2.8 (the
+        # policy-calibrated value) actually takes effect. Matches RoboLab's DROID wrist camera.
+        prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_cam",
         height=720,
         width=1280,
         data_types=["rgb"],

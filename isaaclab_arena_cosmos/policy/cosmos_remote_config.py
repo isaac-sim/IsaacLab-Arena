@@ -33,11 +33,9 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     remote_port: int = 8000
     """Port the Cosmos policy server listens on."""
 
-    open_loop_horizon: int = 32
+    open_loop_horizon: int = 16
     """Number of action steps to replay per server inference call before refetching.
-    Defaults to the full 32-step chunk, matching the released Cosmos DROID client
-    (RoboLab ``policies/cosmos3/client.py``, ``OPEN_LOOP_HORIZON = 32``). Must not exceed
-    the server's ``action_chunk_size`` (32 for the released DROID policies)."""
+    Taken from https://huggingface.co/nvidia/Cosmos3-Edge-Policy-DROID"""
 
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""

@@ -24,11 +24,34 @@
   .meta { font-size: 0.75rem; color: #444; white-space: nowrap; }
   .meta .k { color: #888; }
   .meta .subitem { margin-left: 0.75rem; }
+  details.task { border: 1px solid #ddd; border-radius: 6px; background: #fff; margin-bottom: 0.75rem; }
+  details.task > summary { font-size: 1.05rem; font-weight: 600; padding: 0.6rem 0.8rem; cursor: pointer; }
+  details.policy { border-left: 3px solid #ccc; margin: 0.4rem 0.8rem 0.8rem; }
+  details.policy > summary { font-size: 0.95rem; font-weight: 600; padding: 0.4rem 0.6rem; cursor: pointer; }
+  details.policy table { margin: 0.3rem 0.6rem 0.7rem; }
+  summary { user-select: none; }
+  summary .count { color: #888; font-weight: 400; font-size: 0.8rem; margin-left: 0.5rem; }
 </style>
 </head>
 <body>
 <h1>$title</h1>
 <div class="summary">$summary</div>
 $sections
+<script>
+  // Load a policy section's rollout videos only the first time it is expanded, so the initial page
+  // (and each subsequent click) fetches just that subset instead of every job's videos at once.
+  // `toggle` does not bubble, so we listen in the capture phase to catch every <details> element.
+  document.addEventListener("toggle", function (event) {
+    var section = event.target;
+    if (!section.open || !section.classList || !section.classList.contains("policy")) return;
+    var sources = section.querySelectorAll("video source[data-src]");
+    for (var i = 0; i < sources.length; i++) {
+      var source = sources[i];
+      source.src = source.getAttribute("data-src");
+      source.removeAttribute("data-src");
+      source.parentNode.load();
+    }
+  }, true);
+</script>
 </body>
 </html>

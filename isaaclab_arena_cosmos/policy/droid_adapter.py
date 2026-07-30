@@ -68,10 +68,10 @@ class CosmosDroidAdapter(EmbodimentAdapter):
         )
 
     def pack_request(self, extracted: DroidObservation, language_instruction: str) -> dict[str, Any]:
+        concat_view = _compose_concat_view(extracted.wrist_image, extracted.left_image, extracted.right_image)
+        _debug_dump_concat_view(concat_view)  # TEMP DEBUG HACK (remove later)
         return {
-            "observation/image": _compose_concat_view(
-                extracted.wrist_image, extracted.left_image, extracted.right_image
-            ),
+            "observation/image": concat_view,
             "observation/joint_position": extracted.joint_position,
             "observation/gripper_position": extracted.gripper_position,
             "prompt": language_instruction,
@@ -100,3 +100,34 @@ def _resize_bilinear(image: np.ndarray, size: tuple[int, int]) -> np.ndarray:
     tensor = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).float()
     resized = F.interpolate(tensor, size=size, mode="bilinear")
     return resized.squeeze(0).permute(1, 2, 0).numpy().astype(image.dtype)
+
+
+# ---------------------------------------------------------------------------------------------------
+# TEMP DEBUG HACK (remove later): dump every composed Cosmos observation image to disk so we can
+# eyeball exactly what the policy sees. Configurable via env vars:
+#   COSMOS_DEBUG_IMAGE_DIR  output folder (default /tmp/cosmos_obs_debug)
+#   COSMOS_DEBUG_IMAGE_MAX  stop after this many images to protect disk (default 2000; 0 = unlimited)
+_DEBUG_IMAGE_COUNTER = 0
+
+
+def _debug_dump_concat_view(image: np.ndarray) -> None:
+    global _DEBUG_IMAGE_COUNTER
+    import os
+
+    from PIL import Image
+
+    out_dir = os.environ.get("COSMOS_DEBUG_IMAGE_DIR", "/tmp/cosmos_obs_debug")
+    limit = int(os.environ.get("COSMOS_DEBUG_IMAGE_MAX", "2000"))
+    if limit and _DEBUG_IMAGE_COUNTER >= limit:
+        if _DEBUG_IMAGE_COUNTER == limit:
+            print(f"[CosmosDroidAdapter][DEBUG] hit COSMOS_DEBUG_IMAGE_MAX={limit}; not writing more.")
+            _DEBUG_IMAGE_COUNTER += 1
+        return
+    os.makedirs(out_dir, exist_ok=True)
+    Image.fromarray(image).save(os.path.join(out_dir, f"concat_view_{_DEBUG_IMAGE_COUNTER:06d}.png"))
+    if _DEBUG_IMAGE_COUNTER == 0:
+        print(f"[CosmosDroidAdapter][DEBUG] writing observation images to {out_dir}")
+    _DEBUG_IMAGE_COUNTER += 1
+
+
+# ---------------------------------------------------------------------------------------------------

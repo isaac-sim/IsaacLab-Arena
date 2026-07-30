@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -70,14 +71,31 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
     A dome light is injected when the scene would otherwise render black (as before). A
     directional light (registry ``directional_light``) is then added on top so directional-lighting
     variations (``directional_light.direction.*`` / ``directional_light.intensity.*``) have a target;
-    it is additive to whatever ambient or baked-in lighting the scene already has.
+    it is additive to whatever ambient or baked-in lighting the scene already has. Directional
+    injection is skipped when the spec sets ``inject_directional_light: false`` (e.g. to match a
+    reference env with no directional light).
     """
     if not _scene_already_has_light(graph_spec, assets_by_node_id):
         dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
-        assets_by_node_id[dome_node_id] = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)()
-        print(f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'.")
+        light_cls = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)
+        light_kwargs: dict[str, Any] = {}
+        if graph_spec.dome_light_intensity is not None:
+            # Deep-copy the class default so we don't mutate the shared spawner cfg every dome uses.
+            spawner_cfg = copy.deepcopy(light_cls.default_spawner_cfg)
+            spawner_cfg.intensity = graph_spec.dome_light_intensity
+            light_kwargs["spawner_cfg"] = spawner_cfg
+        assets_by_node_id[dome_node_id] = light_cls(**light_kwargs)
+        intensity_note = (
+            "" if graph_spec.dome_light_intensity is None else f" at intensity {graph_spec.dome_light_intensity}"
+        )
+        print(
+            "INFO: no light found in scene or background USD(s); injected default light"
+            f" '{dome_node_id}'{intensity_note}."
+        )
 
-    if not _scene_has_asset_named(assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME):
+    if graph_spec.inject_directional_light and not _scene_has_asset_named(
+        assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME
+    ):
         directional_node_id = _unique_node_id(set(assets_by_node_id), _DIRECTIONAL_LIGHT_NODE_ID)
         assets_by_node_id[directional_node_id] = AssetRegistry().get_asset_by_name(_DIRECTIONAL_LIGHT_ASSET_NAME)()
         print(f"INFO: injected directional light '{directional_node_id}' for directional-lighting variations.")
