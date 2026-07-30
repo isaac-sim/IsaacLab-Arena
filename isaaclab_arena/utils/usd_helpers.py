@@ -15,7 +15,6 @@ from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.collision_mesh_store import load_mesh, save_mesh, scaled_mesh
 from isaaclab_arena.utils.usd_articulation import (
     articulation_joint_prims,
     compute_posed_prim_world_deltas,
@@ -477,8 +476,8 @@ def extract_trimesh_from_usd_at_joint_pos(
     """Extract an articulation's mesh posed at joint_pos, in its default prim's local frame.
 
     Joints the articulation has but joint_pos omits are posed at zero, so the result depends only on
-    joint_pos and not on the configuration the asset happens to be authored in. Cached in process and
-    on disk, and shared with every other caller, so treat the result as read-only.
+    joint_pos and not on the configuration the asset happens to be authored in. Cached in process
+    and shared with every other caller, so treat the result as read-only.
 
     Args:
         usd_path: Path to the articulation's .usd/.usda/.usdc file.
@@ -502,21 +501,13 @@ def _extract_trimesh_from_usd_at_joint_pos(
 ) -> trimesh.Trimesh:
     """Cacheable body of ``extract_trimesh_from_usd_at_joint_pos``, keyed by hashable arguments."""
     joint_pos = dict(joint_pos_items)
-    stored = load_mesh(usd_path, joint_pos, scale)
-    if stored is not None:
-        return stored
-
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
     default_prim_path = default_prim.GetPath().pathString
     resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
     deltas = compute_posed_prim_world_deltas(stage, default_prim_path, resolved)
-
-    # Store at unit scale so one artifact serves every spawn scale of the asset.
-    unscaled = extract_trimesh_from_prim(stage, default_prim_path, (1.0, 1.0, 1.0), prim_world_deltas=deltas)
-    save_mesh(usd_path, joint_pos, unscaled)
-    return scaled_mesh(unscaled, scale)
+    return extract_trimesh_from_prim(stage, default_prim_path, scale, prim_world_deltas=deltas)
 
 
 def compute_local_bounding_box_from_usd_at_joint_pos(
