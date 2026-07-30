@@ -39,8 +39,8 @@ class SpecInference:
         relation_catalog: Any,
         task_catalog: Any,
         *,
-        normalized_prompt_block: str | None = None,
-        simready_candidate_catalog: Any | None = None,
+        simready_enabled: bool = False,
+        unavailable_objects: list[str] | None = None,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Generate an ArenaEnvGraphSpec from a natural-language prompt.
 
@@ -50,8 +50,10 @@ class SpecInference:
             asset_catalog: Embodiment, background, and object vocabulary for the user message.
             relation_catalog: Relation vocabulary for the user message.
             task_catalog: Task vocabulary for the user message.
-            normalized_prompt_block: Optional normalized section descriptions from pass 0.
-            simready_candidate_catalog: Optional SimReady hits for prompt-scoped object params.
+            simready_enabled: When ``True``, objects the catalog does not cover may be left to a
+                SimReady search that runs after this pass.
+            unavailable_objects: Object ids from an earlier answer that no asset could be found
+                for. They are named back to the model so it replaces them with something spawnable.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and ``data`` is the
@@ -62,14 +64,13 @@ class SpecInference:
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,
-                system=self._system_prompt(has_simready_candidates=bool(simready_candidate_catalog)),
+                system=self._system_prompt(simready_enabled=simready_enabled),
                 user=self._user_message(
                     prompt,
                     asset_catalog,
                     relation_catalog,
                     task_catalog,
-                    normalized_prompt_block=normalized_prompt_block,
-                    simready_candidate_catalog=simready_candidate_catalog,
+                    unavailable_objects=unavailable_objects,
                 ),
                 retry_label="generate_spec",
             )
@@ -89,33 +90,33 @@ class SpecInference:
         relation_catalog: Any,
         task_catalog: Any,
         *,
-        normalized_prompt_block: str | None = None,
-        simready_candidate_catalog: Any | None = None,
+        unavailable_objects: list[str] | None = None,
     ) -> str:
-        blocks = [
+        vocabulary = "\n\n".join([
             asset_catalog.to_catalog_string(),
             relation_catalog.to_catalog_string(),
             task_catalog.to_catalog_string(),
-        ]
-        if simready_candidate_catalog is not None:
-            simready_block = simready_candidate_catalog.to_catalog_string()
-            if simready_block:
-                blocks.append(simready_block)
-        if normalized_prompt_block:
-            blocks.append(normalized_prompt_block)
-        vocabulary = "\n\n".join(blocks)
-        return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+        ])
+        message = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+        if unavailable_objects:
+            message += (
+                "\n\nUNAVAILABLE OBJECTS:\n"
+                f"An earlier answer asked for {', '.join(unavailable_objects)}, and no asset exists for them.\n"
+                "Do not use those ids again. Replace each one with the closest OBJECTS catalog entry, or with a\n"
+                "plainer, more common object name, and keep the relations and task params consistent with the swap."
+            )
+        return message
 
     @staticmethod
-    def _system_prompt(*, has_simready_candidates: bool = False) -> str:
+    def _system_prompt(*, simready_enabled: bool = False) -> str:
         simready_rules = ""
-        if has_simready_candidates:
+        if simready_enabled:
             simready_rules = f"""
-- When an object matches a SIMREADY_OBJECT_CANDIDATES entry, use
-  ``registry_name: {SIMREADY_USD_OBJECT_REGISTRY_NAME!r}`` and copy that candidate's
-  ``params`` exactly (including ``usd_path`` and ``tags``).
-- Prefer a SimReady candidate over inventing a new OBJECTS registry name when the candidate
-  clearly matches the requested object phrase.
+- Prefer an OBJECTS entry whenever one reasonably matches. Only when the catalog covers no
+  suitable object, use ``registry_name: {SIMREADY_USD_OBJECT_REGISTRY_NAME!r}`` and leave its
+  ``params`` empty — a SimReady asset is searched for it after this pass.
+- Such an object's ``id`` is the search phrase, so name it after the object and the words that
+  distinguish it, most specific last (e.g. ``green_trash_can``, not ``object_1``).
 """
         return f"""\
 You are an environment-generator for robot manipulation tasks.
@@ -135,8 +136,8 @@ GUIDANCE:
   suffixes in ``id``.
 - Use ``object_sets`` only when one object varies across environments; list its variants as ``members``.
   Every member must be an OBJECTS entry marked ``type=rigid``.
-- Only populate ``object_references`` when the prompt (or NORMALIZED PROMPT) names a distinct
-  sub-part or appliance *inside* a multi-prim background (e.g. counter top, fridge door).
+- Only populate ``object_references`` when the prompt names a distinct sub-part or appliance
+  *inside* a multi-prim background (e.g. counter top, fridge door).
   A background name such as "maple table" is the resting surface itself — do not add an
   ``object_reference`` for it; anchor ``is_anchor`` on the background asset instead.
 - For each ``object_reference``, leave ``prim_path`` empty.

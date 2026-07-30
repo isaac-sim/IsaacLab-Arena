@@ -7,25 +7,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
-from isaaclab_arena.agentic_environment_generation.prompt_normalization import (
-    PromptNormalizationInference,
-    format_normalized_prompt_block,
-)
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    SimReadyCandidateCatalogue,
     SimReadySearchConfig,
     search_simready_objects,
 )
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_object_library import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
+
+SIMREADY_RETRY_ATTEMPTS = 1
+"""How many extra inference passes are spent naming the objects no asset was found for. One is
+enough to swap a missing object for a catalog one; more just re-rolls the same prompt."""
 
 # ---------------------------------------------------------------------------
 # Environment generation agent
@@ -63,7 +63,8 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
-            enable_simready_search: When ``True``, run SimReady search on normalized object phrases.
+            enable_simready_search: When ``True``, search SimReady for objects the asset catalog
+                does not cover.
             simready_config: Optional SimReady search configuration.
         """
         inference_backend = InferenceBackend(
@@ -74,17 +75,22 @@ class EnvironmentGenerationAgent:
             max_tokens=max_tokens,
             max_retries=max_retries,
         )
-        self.prompt_normalization = PromptNormalizationInference(inference_backend)
         self.spec_inference = SpecInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
         self.enable_simready_search = enable_simready_search
         self.simready_config = simready_config or SimReadySearchConfig(enabled=enable_simready_search)
         self._traces: list[str] = []
+        self._unavailable_objects: list[str] = []
 
     @property
     def traces(self) -> tuple[str, ...]:
         """Diagnostic lines from the most recent :meth:`generate_spec` call."""
         return tuple(self._traces)
+
+    @property
+    def unavailable_objects(self) -> tuple[str, ...]:
+        """Ids the most recent :meth:`generate_spec` call could find no asset for."""
+        return tuple(self._unavailable_objects)
 
     def generate_spec(
         self,
@@ -110,55 +116,78 @@ class EnvironmentGenerationAgent:
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and
             ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
-            When validation fails, ``agent.traces`` holds the diagnostic trace.
+            When validation fails, ``agent.traces`` holds the diagnostic trace, and when the failure
+            is a missing asset, ``agent.unavailable_objects`` names the objects nothing was found for.
         """
         self._traces = []
-        normalized = self.prompt_normalization.infer(prompt, self._traces)
-        if normalized is None:
-            return None, None
-
-        normalized_block = format_normalized_prompt_block(normalized)
-        self._traces.append(normalized_block)
-
+        self._unavailable_objects = []
         use_simready = self.enable_simready_search if enable_simready_search is None else enable_simready_search
-        simready_catalog: SimReadyCandidateCatalogue | None = None
-        if use_simready:
-            simready_config = SimReadySearchConfig(
-                enabled=True,
-                source=self.simready_config.source,
-                s3_url=self.simready_config.s3_url,
-                service_url=self.simready_config.service_url,
-                project_config_path=self.simready_config.project_config_path,
-                indexed_path=self.simready_config.indexed_path,
-                indexed_directory_type=self.simready_config.indexed_directory_type,
-                max_results_per_object=self.simready_config.max_results_per_object,
-                use_service_fallback=self.simready_config.use_service_fallback,
-            )
-            simready_catalog = search_simready_objects(normalized.objects, simready_config, self._traces)
-            simready_block = simready_catalog.to_catalog_string()
-            if simready_block:
-                self._traces.append(simready_block)
-
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
-        spec, data = self.spec_inference.infer(
-            prompt,
-            self._traces,
-            asset_catalog=asset_catalog,
-            relation_catalog=relation_catalog,
-            task_catalog=task_catalog,
-            normalized_prompt_block=normalized_block,
-            simready_candidate_catalog=simready_catalog,
-        )
-        if spec is None:
-            return None, data
+        attempts_left = SIMREADY_RETRY_ATTEMPTS
+        while True:
+            spec, data = self.spec_inference.infer(
+                prompt,
+                self._traces,
+                asset_catalog=asset_catalog,
+                relation_catalog=relation_catalog,
+                task_catalog=task_catalog,
+                simready_enabled=use_simready,
+                unavailable_objects=self._unavailable_objects,
+            )
+            if spec is None:
+                return None, data
+            if not use_simready:
+                break
+            self._unavailable_objects = self._resolve_simready_objects(spec)
+            if not self._unavailable_objects:
+                break
+            if attempts_left == 0:
+                self._traces.append(f"no asset available for: {', '.join(self._unavailable_objects)}")
+                return None, spec.to_dict()
+            attempts_left -= 1
+            self._traces.append(f"asking for a replacement of: {', '.join(self._unavailable_objects)}")
         if spec.object_references:
             resolved = self.prim_path_inference.infer(spec, self._traces)
             if resolved is None:
                 return None, spec.to_dict()
             spec = resolved
         return spec, None
+
+    def _resolve_simready_objects(self, spec: ArenaEnvGraphSpec) -> list[str]:
+        """Fill in the USD path of every object spec inference left to SimReady.
+
+        Objects the asset catalog could not cover carry the SimReady registry name and no
+        ``usd_path``. Each one is searched for by its ``id``, read as a phrase, and the winning
+        asset's path and tags are written back into its ``params``.
+
+        Args:
+            spec: Spec to patch in place.
+
+        Returns:
+            The ids of the objects SimReady has no usable asset for, empty when all were resolved.
+        """
+        pending = [
+            asset
+            for asset in spec.objects
+            if asset.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME and not asset.params.get("usd_path")
+        ]
+        if not pending:
+            return []
+        phrases = [asset.id.replace("_", " ") for asset in pending]
+        catalogue = search_simready_objects(phrases, replace(self.simready_config, enabled=True), self._traces)
+        candidates = {candidate.search_phrase: candidate for candidate in catalogue.candidates}
+        unavailable: list[str] = []
+        for asset, phrase in zip(pending, phrases):
+            candidate = candidates.get(phrase)
+            if candidate is None:
+                self._traces.append(f"no SimReady asset for object {asset.id!r}; it cannot be spawned")
+                unavailable.append(asset.id)
+            else:
+                asset.params["usd_path"] = candidate.usd_path
+                asset.params.setdefault("tags", list(candidate.tags))
+        return unavailable
 
 
 # ---------------------------------------------------------------------------

@@ -19,16 +19,15 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
+from isaaclab_arena.assets.simready_object_library import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     catalog,
     chat_response,
-    kitchen_normalized_dict,
     kitchen_pass1_dict,
     kitchen_prim_tree,
     kitchen_resolve_response,
-    minimal_normalized_dict,
     minimal_spec_dict,
     relation_catalog,
 )
@@ -57,7 +56,6 @@ class TestGenerateSpec:
     def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
         agent_obj, client = agent
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(minimal_normalized_dict())),
             chat_response(content=json.dumps(minimal_spec_dict())),
         ]
         with (
@@ -86,7 +84,6 @@ class TestGenerateSpec:
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(kitchen_normalized_dict())),
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(kitchen_resolve_response())),
         ]
@@ -98,7 +95,7 @@ class TestGenerateSpec:
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        assert client.chat.completions.create.call_count == 3
+        assert client.chat.completions.create.call_count == 2
         assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
@@ -116,7 +113,6 @@ class TestGenerateSpec:
             }]
         }
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(kitchen_normalized_dict())),
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(bad_resolve)),
         ]
@@ -128,23 +124,59 @@ class TestGenerateSpec:
         )
         assert spec is None
         assert isinstance(data, dict)
-        assert client.chat.completions.create.call_count == 3
+        assert client.chat.completions.create.call_count == 2
         assert any("is not in the background prim tree" in line for line in agent_obj.traces)
 
+    @staticmethod
+    def _spec_dict_needing_simready() -> dict:
+        """The minimal spec plus one object the asset catalog could not cover."""
+        data = minimal_spec_dict()
+        data["objects"].append({
+            "id": "green_trash_can",
+            "registry_name": SIMREADY_USD_OBJECT_REGISTRY_NAME,
+            "params": {},
+        })
+        return data
+
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_runs_normalization_then_simready_then_spec(self, mock_search, agent):
+    def test_generate_spec_resolves_simready_objects_after_spec_inference(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
                 SimReadyObjectCandidate(
-                    search_phrase="red hammer",
-                    usd_path="s3://bucket/red_hammer.usd",
+                    search_phrase="green trash can",
+                    usd_path="s3://bucket/trash_can.usd",
+                    tags=("sim-ready", "green", "trash", "can"),
                 )
             ]
         )
-        agent_obj.enable_simready_search = True
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(minimal_normalized_dict())),
+            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+        ]
+        spec, data = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        assert data is None
+        # The object's id is what gets searched for, and the winning asset lands in its params.
+        assert mock_search.call_args.args[0] == ["green trash can"]
+        searched = next(asset for asset in spec.objects if asset.id == "green_trash_can")
+        assert searched.params["usd_path"] == "s3://bucket/trash_can.usd"
+        assert searched.params["tags"] == ["sim-ready", "green", "trash", "can"]
+        # One LLM call, not two: the search no longer needs a normalization pass to feed it.
+        assert client.chat.completions.create.call_count == 1
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_asks_again_without_the_object_that_has_no_asset(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"])
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+            # The retry drops the object nothing was found for and keeps to the catalog.
             chat_response(content=json.dumps(minimal_spec_dict())),
         ]
         spec, data = agent_obj.generate_spec(
@@ -156,11 +188,50 @@ class TestGenerateSpec:
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        mock_search.assert_called_once()
-        search_phrases = mock_search.call_args.args[0]
-        assert search_phrases == minimal_normalized_dict()["objects"]
-        assert any("SIMREADY_OBJECT_CANDIDATES" in line for line in agent_obj.traces)
+        assert agent_obj.unavailable_objects == ()
         assert client.chat.completions.create.call_count == 2
+        # The second call names the object back to the model rather than failing on the first answer.
+        retry_user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "UNAVAILABLE OBJECTS" in retry_user_msg
+        assert "green_trash_can" in retry_user_msg
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_reports_the_object_as_unavailable_when_the_retry_repeats_it(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"])
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+        ]
+        spec, data = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
+        assert spec is None
+        assert isinstance(data, dict)
+        # The caller is told which object cannot be spawned, not just that the spec is invalid.
+        assert agent_obj.unavailable_objects == ("green_trash_can",)
+        assert any("no asset available for: green_trash_can" in line for line in agent_obj.traces)
+        assert client.chat.completions.create.call_count == 2
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_skips_the_search_when_every_object_came_from_the_catalog(self, mock_search, agent):
+        agent_obj, client = agent
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(minimal_spec_dict())),
+        ]
+        spec, _ = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        mock_search.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

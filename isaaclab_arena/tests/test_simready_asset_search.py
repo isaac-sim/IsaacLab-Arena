@@ -10,7 +10,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
     SimReadySearchConfig,
     SimReadySourceKind,
@@ -146,26 +145,6 @@ def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_confi
     assert any("no usable asset" in line for line in traces)
 
 
-def test_catalog_string_tells_the_agent_which_objects_have_no_simready_match():
-    block = SimReadyCandidateCatalogue(unmatched_phrases=["grey bin"]).to_catalog_string()
-    assert "NO_SIMREADY_MATCH (1): 'grey bin'" in block
-    assert "OBJECTS catalog" in block
-
-
-def test_simready_candidate_catalogue_to_catalog_string():
-    candidate = SimReadyObjectCandidate(
-        search_phrase="red hammer",
-        usd_path="s3://bucket/red_hammer.usd",
-        tags=("sim-ready", "red", "hammer"),
-        relevance_score=0.9,
-    )
-    block = SimReadyCandidateCatalogue(candidates=[candidate]).to_catalog_string()
-    assert "SIMREADY_OBJECT_CANDIDATES" in block
-    assert SIMREADY_USD_OBJECT_REGISTRY_NAME in block
-    assert "red hammer" in block
-    assert "s3://bucket/red_hammer.usd" in block
-
-
 def test_simready_search_config_from_cli_defaults():
     config = simready_search_config_from_cli(
         enabled=True,
@@ -175,7 +154,6 @@ def test_simready_search_config_from_cli_defaults():
         project_config_path=None,
         indexed_path=None,
         max_results_per_object=2,
-        use_service_fallback=False,
     )
     assert config.enabled is True
     assert config.source == SimReadySourceKind.ISAAC_SIM_GA

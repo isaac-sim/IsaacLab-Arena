@@ -97,7 +97,7 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     group.add_argument(
         "--enable_simready_search",
         action="store_true",
-        help="Run SimReady search on normalized object phrases before spec inference.",
+        help="Search SimReady for objects the Arena asset catalog does not cover.",
     )
     group.add_argument(
         "--simready_source",
@@ -116,7 +116,7 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         "--simready_service_url",
         type=str,
         default=None,
-        help="Override hosted USD Search service URL for simready service fallback.",
+        help="Override hosted USD Search service URL for the simready service source.",
     )
     group.add_argument(
         "--simready_project_config",
@@ -134,17 +134,12 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         "--simready_max_results_per_object",
         type=int,
         default=1,
-        help="Maximum SimReady hits to keep per normalized object phrase (default: 1).",
-    )
-    group.add_argument(
-        "--simready_service_fallback",
-        action="store_true",
-        help="Fall back to hosted phrase search when the primary SimReady source returns no hits.",
+        help="Maximum SimReady hits to keep per searched object (default: 1).",
     )
 
 
-def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
-    """Resolve a prompt into an environment graph spec YAML."""
+def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
+    """Resolve a prompt into an environment graph spec YAML, or None when the prompt cannot be met."""
     from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
         EnvironmentGenerationAgent,
         build_asset_catalogue,
@@ -167,7 +162,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
         project_config_path=args_cli.simready_project_config,
         indexed_path=args_cli.simready_indexed_dir,
         max_results_per_object=args_cli.simready_max_results_per_object,
-        use_service_fallback=args_cli.simready_service_fallback,
     )
     agent_kwargs: dict = {
         "temperature": args_cli.temperature,
@@ -188,13 +182,22 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
+        if agent.unavailable_objects:
+            print(
+                f"\n[runner] no asset is available for: {', '.join(agent.unavailable_objects)}.\n"
+                "[runner] the agent was already asked once for a replacement and could not find one. "
+                "Rephrase the prompt with a more common object, or register the asset in Arena.",
+                flush=True,
+            )
+        else:
+            print("\n[runner] the agent returned an invalid spec.", flush=True)
         print("\n[runner] validation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
         if data is not None:
             invalid_path = write_env_graph_dict(data, args_cli.out_dir)
             print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
-        assert False, f"Agent returned an invalid spec. Validation traces: {agent.traces}"
+        return None
     if args_cli.enable_simready_search and agent.traces:
         print("\n[runner] generation traces:", flush=True)
         for line in agent.traces:
@@ -335,8 +338,7 @@ def main() -> int:
         return 0
 
     if args_cli.mode == "resolve":
-        resolve_env_spec(args_cli)
-        return 0
+        return 0 if resolve_env_spec(args_cli) is not None else 1
 
     if args_cli.mode == "build":
         with SimulationAppContext(args_cli):
@@ -345,6 +347,8 @@ def main() -> int:
 
     with SimulationAppContext(args_cli):
         env_graph_spec_path = resolve_env_spec(args_cli)
+        if env_graph_spec_path is None:
+            return 1
         build_env_and_run_policy(env_graph_spec_path, args_cli)
     return 0
 

@@ -68,7 +68,6 @@ def _simready_config_from_session() -> tuple[bool, object]:
         project_config_path=st.session_state.get("simready_project_config") or None,
         indexed_path=st.session_state.get("simready_indexed_dir") or None,
         max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
-        use_service_fallback=bool(st.session_state.get("simready_service_fallback", False)),
     )
     return enabled, config
 
@@ -87,7 +86,6 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
         simready_config.project_config_path,
         simready_config.indexed_path,
         simready_config.max_results_per_object,
-        simready_config.use_service_fallback,
     )
     agent = st.session_state.get(agent_key)
     if agent is not None:
@@ -173,9 +171,15 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     if spec is None:
         traces = "\n".join(agent.traces) or "unknown validation error"
-        error = f"Agent returned an invalid spec:\n{traces}"
-        _apply_generated_yaml(yaml_text, validation_error=error)
-        return True, f"Invalid spec loaded into the YAML editor.\n{traces}"
+        if agent.unavailable_objects:
+            headline = (
+                f"No asset is available for: {', '.join(agent.unavailable_objects)}. "
+                "Rephrase the prompt with a more common object, or register the asset in Arena."
+            )
+        else:
+            headline = "Agent returned an invalid spec."
+        _apply_generated_yaml(yaml_text, validation_error=f"{headline}\n{traces}")
+        return True, f"{headline}\nLoaded into the YAML editor.\n{traces}"
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
@@ -212,7 +216,7 @@ def render_generation_panel() -> None:
         st.session_state["enable_simready_search"] = st.checkbox(
             "Enable SimReady search",
             value=bool(st.session_state.get("enable_simready_search", False)),
-            help="Search Isaac Sim GA SimReady props for normalized object phrases before spec inference.",
+            help="Search Isaac Sim GA SimReady props for objects the Arena asset catalog does not cover.",
         )
         source_options = [kind.value for kind in SimReadySourceKind]
         st.session_state["simready_source"] = st.selectbox(
@@ -225,10 +229,6 @@ def render_generation_panel() -> None:
             min_value=1,
             max_value=10,
             value=int(st.session_state.get("simready_max_results_per_object", 1)),
-        )
-        st.session_state["simready_service_fallback"] = st.checkbox(
-            "Use hosted phrase-search fallback",
-            value=bool(st.session_state.get("simready_service_fallback", False)),
         )
         st.session_state["simready_s3_url"] = st.text_input(
             "S3 URL override",
