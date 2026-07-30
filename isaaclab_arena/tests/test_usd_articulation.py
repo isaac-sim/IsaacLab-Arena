@@ -329,7 +329,6 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
 
     from pxr import Gf, UsdGeom
 
-    from isaaclab_arena.utils.collision_mesh_store import _cache_path
     from isaaclab_arena.utils.usd_helpers import (
         compute_local_bounding_box_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
@@ -358,10 +357,6 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
         swung = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {"elbow": math.pi / 2.0})
         np.testing.assert_allclose(swung.max_point.numpy()[0][1], 1.7, atol=1e-6)
         np.testing.assert_allclose(swung.max_point.numpy()[0][0], 0.2, atol=1e-6)
-
-        # The temp USD is unique per run, so its stored meshes would otherwise pile up in the cache.
-        for joint_pos in ({}, {"elbow": math.pi / 2.0}):
-            _cache_path(usd_path, joint_pos).unlink(missing_ok=True)
     return True
 
 

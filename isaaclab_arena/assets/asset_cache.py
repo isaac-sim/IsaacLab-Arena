@@ -13,11 +13,3 @@ def get_arena_asset_cache_dir() -> pathlib.Path:
     if not asset_cache_dir.exists():
         asset_cache_dir.mkdir(parents=True, exist_ok=True)
     return asset_cache_dir
-
-
-def get_arena_usd_cache_dir() -> pathlib.Path:
-    """Return the cache root for USDs Arena generates, such as composed and baked-geometry assets.
-
-    The directory is not created, so callers that only compute a path do not leave one behind.
-    """
-    return pathlib.Path.home() / ".cache" / "isaaclab_arena" / "usd"
