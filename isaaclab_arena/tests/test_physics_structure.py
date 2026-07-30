@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 from isaaclab_arena.tests.utils.usd_stages import add_body, add_joint, new_stage
-from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
 
 
 def test_single_rigid_body_is_one_group():
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     add_body(stage, "body_01")
 
@@ -23,6 +24,8 @@ def test_single_rigid_body_is_one_group():
 
 def test_fixed_joint_puts_bodies_in_one_group():
     """Shaped like the disinfectant bottle: a cap fixed to a body cannot move."""
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     body = add_body(stage, "body_01")
     cup = add_body(stage, "cup_01")
@@ -38,6 +41,8 @@ def test_fixed_joint_puts_bodies_in_one_group():
 
 def test_revolute_joints_keep_bodies_apart():
     """Shaped like the cabinet: handles are fixed to doors, but the doors still swing."""
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     carcass = add_body(stage, "body_01")
     doors = [add_body(stage, f"part_0{index}") for index in (1, 2, 4)]
@@ -57,6 +62,8 @@ def test_revolute_joints_keep_bodies_apart():
 
 
 def test_disabled_joint_groups_nothing():
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     body = add_body(stage, "body_01")
     cup = add_body(stage, "cup_01")
@@ -70,6 +77,8 @@ def test_disabled_joint_groups_nothing():
 
 
 def test_unjoined_bodies_stay_separate():
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     add_body(stage, "body_01")
     add_body(stage, "body_02")
@@ -81,6 +90,8 @@ def test_unjoined_bodies_stay_separate():
 
 
 def test_joint_attached_to_world_has_one_body():
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
     body = add_body(stage, "body_01")
     add_joint(stage, "joint_world", "fixed", None, body)
@@ -92,6 +103,8 @@ def test_joint_attached_to_world_has_one_body():
 
 
 def test_stage_without_physics_has_no_bodies():
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
     stage = new_stage()
 
     structure = get_physics_structure(stage)

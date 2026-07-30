@@ -18,6 +18,7 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+from isaaclab_arena.utils.usd.rigid_body_weld import weld_usd_rigid_bodies
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
@@ -50,6 +51,10 @@ class Object(ObjectBase):
                 " object type"
             )
             object_type = detect_object_type(usd_path=usd_path)
+            if object_type == ObjectType.RIGID:
+                # For an asset made of parts held together by fixed joints, the object type is only true once those parts are merged into one
+                # body.
+                usd_path = weld_usd_rigid_bodies(usd_path)
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
         self.spawner_cfg = spawner_cfg

@@ -69,6 +69,38 @@ def _test_weld_usd_rigid_bodies(simulation_app):
     return True
 
 
+def _test_auto_detected_object_spawns_from_merged_asset(simulation_app):
+    """An object that works out its own type gets a path it can actually spawn from."""
+    import tempfile
+    from pathlib import Path
+
+    from pxr import Usd
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.tests.utils.usd_stages import hinged_bodies_stage, welded_bodies_stage
+    from isaaclab_arena.utils.usd.physics_structure import get_physics_structure
+
+    with tempfile.TemporaryDirectory() as directory_name:
+        directory = Path(directory_name)
+
+        # Calling an asset rigid is only true once its parts are merged, so the object has to
+        # come away pointing at the merged file rather than the one it was given.
+        source = _export(welded_bodies_stage(), directory, "auto_welded")
+        merged = Object(name="bottle", prim_path="{ENV_REGEX_NS}/bottle", object_type=None, usd_path=source)
+        assert merged.object_type == ObjectType.RIGID
+        assert merged.usd_path != source, "the object still points at the asset with two bodies"
+        assert get_physics_structure(Usd.Stage.Open(merged.usd_path)).rigid_body_paths == ("/Prop",)
+
+        # An articulation is left with the asset it was given, since nothing was merged.
+        hinged = _export(hinged_bodies_stage(), directory, "auto_hinged")
+        swinging = Object(name="cabinet", prim_path="{ENV_REGEX_NS}/cabinet", object_type=None, usd_path=hinged)
+        assert swinging.object_type == ObjectType.ARTICULATION
+        assert swinging.usd_path == hinged
+
+    return True
+
+
 def _open_simready(usd_path: str):
     """Open a SimReady asset with its physics turned on."""
     from pxr import Usd
@@ -204,6 +236,14 @@ def test_weld_usd_rigid_bodies():
 def test_weld_simready_asset():
     result = run_simulation_app_function(
         _test_weld_simready_asset,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
+def test_auto_detected_object_spawns_from_merged_asset():
+    result = run_simulation_app_function(
+        _test_auto_detected_object_spawns_from_merged_asset,
         headless=HEADLESS,
     )
     assert result, "Test failed"

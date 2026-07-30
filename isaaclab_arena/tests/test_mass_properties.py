@@ -9,27 +9,28 @@ from __future__ import annotations
 
 import numpy as np
 
-from pxr import Gf
-
 from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
-from isaaclab_arena.utils.usd.mass_properties import (
-    MassProperties,
-    combine_mass_properties,
-    read_mass_properties,
-    write_mass_properties,
-)
-
-IDENTITY = Gf.Matrix4d(1.0)
 
 
-def _inertia_tensor(properties: MassProperties) -> np.ndarray:
+def _identity():
+    """A transform that leaves a part where it is."""
+    from pxr import Gf
+
+    return Gf.Matrix4d(1.0)
+
+
+def _inertia_tensor(properties) -> np.ndarray:
     """Rebuild the full inertia tensor from the principal moments and their rotation."""
+    from pxr import Gf
+
     real, x, y, z = properties.principal_axes
     rotation = np.array(Gf.Matrix3d(Gf.Rotation(Gf.Quatd(real, Gf.Vec3d(x, y, z))))).T
     return rotation @ np.diag(properties.diagonal_inertia) @ rotation.T
 
 
 def test_one_part_keeps_its_properties():
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
+
     part = MassProperties(
         mass=2.0,
         center_of_mass=(0.1, 0.2, 0.3),
@@ -37,7 +38,7 @@ def test_one_part_keeps_its_properties():
         principal_axes=(1.0, 0.0, 0.0, 0.0),
     )
 
-    combined = combine_mass_properties([(part, IDENTITY)])
+    combined = combine_mass_properties([(part, _identity())])
 
     assert combined.mass == 2.0
     assert np.allclose(combined.center_of_mass, (0.1, 0.2, 0.3))
@@ -46,10 +47,12 @@ def test_one_part_keeps_its_properties():
 
 
 def test_masses_add_up_and_centres_average():
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
+
     left = MassProperties(1.0, (-2.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
     right = MassProperties(3.0, (2.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
 
-    combined = combine_mass_properties([(left, IDENTITY), (right, IDENTITY)])
+    combined = combine_mass_properties([(left, _identity()), (right, _identity())])
 
     assert combined.mass == 4.0
     # The heavier part pulls the centre of mass towards itself: (1 * -2 + 3 * 2) / 4.
@@ -58,16 +61,22 @@ def test_masses_add_up_and_centres_average():
 
 def test_parts_apart_resist_spinning_more():
     """Two weightless points 2 apart spin like a dumbbell: I = sum of mass times distance squared."""
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
+
     left = MassProperties(1.0, (-1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
     right = MassProperties(1.0, (1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0))
 
-    combined = combine_mass_properties([(left, IDENTITY), (right, IDENTITY)])
+    combined = combine_mass_properties([(left, _identity()), (right, _identity())])
 
     # Nothing resists spinning about the line through both points, and both resist the other two.
     assert np.allclose(_inertia_tensor(combined), np.diag([0.0, 2.0, 2.0]))
 
 
 def test_part_transform_moves_its_centre_of_mass():
+    from pxr import Gf
+
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
+
     part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0, 0.0, 0.0))
     moved = Gf.Matrix4d(1.0)
     moved.SetTranslateOnly(Gf.Vec3d(0.0, 0.0, 5.0))
@@ -80,6 +89,10 @@ def test_part_transform_moves_its_centre_of_mass():
 
 
 def test_rotating_a_part_rotates_its_inertia():
+    from pxr import Gf
+
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, combine_mass_properties
+
     part = MassProperties(1.0, (0.0, 0.0, 0.0), (1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
     turned = Gf.Matrix4d(1.0)
     turned.SetRotateOnly(Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), 90.0))
@@ -91,6 +104,8 @@ def test_rotating_a_part_rotates_its_inertia():
 
 
 def test_reading_back_what_was_written():
+    from isaaclab_arena.utils.usd.mass_properties import MassProperties, read_mass_properties, write_mass_properties
+
     stage = new_stage()
     body_path = add_body(stage, "body_01")
     written = MassProperties(1.5, (0.1, 0.2, 0.3), (4.0, 5.0, 6.0), (1.0, 0.0, 0.0, 0.0))
@@ -104,6 +119,8 @@ def test_reading_back_what_was_written():
 
 
 def test_a_part_that_does_not_say_what_it_weighs():
+    from isaaclab_arena.utils.usd.mass_properties import read_mass_properties
+
     stage = new_stage()
     body_path = add_body(stage, "body_01")
 
