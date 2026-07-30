@@ -50,6 +50,19 @@ def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 
 
+def _parse_interactive_runner_args() -> tuple[argparse.Namespace, list[str]]:
+    """Parse and validate arguments for interactive environment inspection."""
+    args_parser = get_isaaclab_arena_cli_parser()
+    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
+    args_parser.allow_abbrev = False
+    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+
+    args_cli, hydra_overrides = args_parser.parse_known_args()
+    assert_hydra_overrides(hydra_overrides, args_parser)
+    _assert_interactive_runner_args(args_cli)
+    return args_cli, hydra_overrides
+
+
 def _enable_mouse_interaction() -> None:
     """Enable Shift-drag physics interaction using a D6 joint grab."""
     import carb
@@ -118,13 +131,7 @@ def run_environment(
 
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
-    args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
-    args_parser.allow_abbrev = False
-    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-    args_cli, hydra_overrides = args_parser.parse_known_args()
-    assert_hydra_overrides(hydra_overrides, args_parser)
-    _assert_interactive_runner_args(args_cli)
+    args_cli, hydra_overrides = _parse_interactive_runner_args()
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(args_cli) as simulation_app:
