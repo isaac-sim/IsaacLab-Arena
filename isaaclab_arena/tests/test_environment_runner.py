@@ -34,11 +34,9 @@ class _FakeEnvironment:
         self,
         *,
         action_space_shape: tuple[int, ...] = (1, 2),
-        num_envs: int = 1,
     ) -> None:
         self.unwrapped = SimpleNamespace(
             device="cpu",
-            num_envs=num_envs,
             step_dt=0.02,
         )
         self.action_space = SimpleNamespace(shape=action_space_shape)
@@ -82,17 +80,7 @@ def test_assert_interactive_runner_args_rejects_unsupported_configuration(argume
         environment_runner._assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
 
 
-@pytest.mark.parametrize(
-    ("configured_idle_action", "expected_actions"),
-    [
-        (None, torch.zeros((1, 2))),
-        (torch.tensor([[0.25, -0.5]]), torch.tensor([[0.25, -0.5], [0.25, -0.5]])),
-    ],
-)
-def test_run_environment_resets_and_steps_once_before_the_application_stops(
-    configured_idle_action,
-    expected_actions,
-):
+def test_run_environment_resets_and_steps_once_before_the_application_stops(monkeypatch):
     class OneIterationSimulationApp:
         def __init__(self) -> None:
             self.running_checks = 0
@@ -111,22 +99,23 @@ def test_run_environment_resets_and_steps_once_before_the_application_stops(
         def sleep(self) -> None:
             self.sleep_count += 1
 
-    env = _FakeEnvironment(action_space_shape=expected_actions.shape, num_envs=expected_actions.shape[0])
-    env_cfg = SimpleNamespace()
-    if configured_idle_action is not None:
-        env_cfg.idle_action = configured_idle_action
+    env = _FakeEnvironment()
     rate_limiter = CountingRateLimiter()
+
+    def create_rate_limiter(period_seconds):
+        assert period_seconds == env.unwrapped.step_dt
+        return rate_limiter
+
+    monkeypatch.setattr(environment_runner, "RateLimiter", create_rate_limiter)
 
     environment_runner.run_environment(
         OneIterationSimulationApp(),
         env,
-        env_cfg,
-        rate_limiter=rate_limiter,
     )
 
     assert env.reset_count == 1
     assert len(env.step_actions) == 1
-    assert torch.equal(env.step_actions[0], expected_actions)
+    assert torch.equal(env.step_actions[0], torch.zeros((1, 2)))
     assert rate_limiter.sleep_count == 1
 
 
@@ -235,7 +224,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
         lambda: lifecycle_events.append("enable_mouse_interaction"),
     )
 
-    def fail_during_environment_run(simulation_app, received_env, received_env_cfg):
+    def fail_during_environment_run(simulation_app, received_env):
         lifecycle_events.append("run_environment")
         raise RuntimeError("run failed")
 

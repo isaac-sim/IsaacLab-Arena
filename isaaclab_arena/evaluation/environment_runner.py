@@ -64,19 +64,11 @@ def _enable_mouse_interaction() -> None:
 def run_environment(
     simulation_app: SimulationAppContext,
     env: gym.Env,
-    env_cfg,
-    rate_limiter: RateLimiter | None = None,
 ) -> None:
-    """Reset once, then run one environment with idle actions until Kit closes."""
+    """Reset once, then run one environment with zero actions until Kit closes."""
     env.reset()
-    device = torch.device(env.unwrapped.device)
-    configured_idle_action = getattr(env_cfg, "idle_action", None)
-    if configured_idle_action is not None:
-        idle_actions = configured_idle_action.repeat(env.unwrapped.num_envs, 1).to(device)
-    else:
-        idle_actions = torch.zeros(env.action_space.shape, device=device)
-    if rate_limiter is None:
-        rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)
+    zero_actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+    rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)
 
     print(
         "[environment_runner] Environment running. Hold Shift, then left-drag a physics object.",
@@ -87,7 +79,7 @@ def run_environment(
     try:
         with torch.inference_mode():
             while simulation_app.is_running() and not simulation_app.is_exiting():
-                env.step(idle_actions)
+                env.step(zero_actions)
                 rate_limiter.sleep()
     except KeyboardInterrupt:
         print("\n[environment_runner] Exiting.", flush=True)
@@ -114,7 +106,7 @@ def main() -> None:
         env = arena_builder.make_registered(env_cfg, env_kwargs)
         try:
             _enable_mouse_interaction()
-            run_environment(simulation_app, env, env_cfg)
+            run_environment(simulation_app, env)
         finally:
             env.close()
 
