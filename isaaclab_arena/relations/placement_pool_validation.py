@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
@@ -80,11 +81,44 @@ def _compute_physics_settled_and_add_to_validation_results(
     return validation_results_all_envs
 
 
+def _capture_settled_poses_into_layouts(
+    env: ManagerBasedEnv,
+    layouts: list[tuple[int, PlacementResult]],
+    assets: list[PlaceableAsset],
+    anchor_assets: set,
+) -> None:
+    """Overwrite each non-anchor asset's layout pose with where it came to rest.
+
+    Settling moves objects, so a layout that is replayed later has to carry the resting
+    poses rather than the poses it was dropped from. Non-finite poses are left alone, so a
+    diverged step cannot poison a layout.
+    """
+    scene = env.unwrapped.scene
+    env_origins = scene.env_origins
+    for env_id, layout in layouts:
+        for asset in assets:
+            if asset in anchor_assets:
+                continue
+            root_state = scene[asset.get_scene_key()].data.root_state_w[env_id]
+            if not bool(torch.isfinite(root_state[:7]).all()):
+                continue
+            position = root_state[:3] - env_origins[env_id]
+            rotation = root_state[3:7]
+            layout.positions[asset] = (float(position[0]), float(position[1]), float(position[2]))
+            layout.rotations[asset] = (
+                float(rotation[0]),
+                float(rotation[1]),
+                float(rotation[2]),
+                float(rotation[3]),
+            )
+
+
 def validate_pool_layouts(
     env: ManagerBasedEnv,
     placement_pool: PooledObjectPlacer | None = None,
     settle_params: PhysicsSettleParams | None = None,
     render: bool = False,
+    capture_settled_poses: bool = False,
 ) -> list[tuple[int, int, PlacementValidationResults]] | None:
     """Physics-validate every layout in a placement pool, recording the result on its validation results.
 
@@ -98,6 +132,9 @@ def validate_pool_layouts(
         settle_params: Settle-check tuning params. Defaults to
             ``PhysicsSettleParams()`` when omitted.
         render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
+        capture_settled_poses: When True, write each object's resting pose back into its layout.
+            Required for layouts whose value is the settled arrangement itself. Defaults to False,
+            which leaves solved layouts untouched.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
@@ -141,6 +178,8 @@ def validate_pool_layouts(
         )
         if layouts:
             physics_settle.step_physics(env, num_physics_steps, render=render)
+            if capture_settled_poses:
+                _capture_settled_poses_into_layouts(env, layouts, assets, anchor_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
                 env, layouts, movable_object_names, settle_params
             )
