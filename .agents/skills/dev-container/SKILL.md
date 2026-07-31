@@ -19,7 +19,7 @@ git submodule update --init --recursive
 pre-commit install
 ```
 
-Then start the container and verify the Arena import using the workflows below. Run `pre-commit install` on the host, not inside the container.
+Then start the container and use the Arena import check below as the setup smoke test. Do not run the pytest suite as part of fresh-clone setup unless the user explicitly asks for tests. Run `pre-commit install` on the host, not inside the container.
 
 If a host prerequisite is missing, report the failed command and the required recovery. Do not install or change GPU drivers, Docker, the NVIDIA Container Toolkit, or other system packages without explicit user approval.
 
