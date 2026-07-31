@@ -20,7 +20,6 @@ SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
 ISAAC_SIMREADY_GA_S3_URL = (
     "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"
 )
-"""Bucket holding the SimReady props that ship with Isaac Sim."""
 
 DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 """Hosted SimReady search, used as a fallback when the bucket has no hit."""

@@ -216,6 +216,47 @@ class TestGenerateSpec:
         assert agent_obj.unavailable_objects == ("green_trash_can",)
         assert any("no asset available for: green_trash_can" in line for line in agent_obj.traces)
         assert client.chat.completions.create.call_count == 2
+        # The id is the search phrase, so repeating it cannot find anything the first search missed.
+        mock_search.assert_called_once()
+        assert any("not searching again" in line for line in agent_obj.traces)
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_only_searches_for_the_objects_it_has_not_searched_for(self, mock_search, agent):
+        agent_obj, client = agent
+        retry_dict = self._spec_dict_needing_simready()
+        retry_dict["objects"].append({
+            "id": "chrome_watering_can",
+            "registry_name": SIMREADY_USD_OBJECT_REGISTRY_NAME,
+            "params": {},
+        })
+        mock_search.side_effect = [
+            SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"]),
+            SimReadyCandidateCatalogue(
+                candidates=[
+                    SimReadyObjectCandidate(
+                        search_phrase="chrome watering can",
+                        usd_path="s3://bucket/watering_can.usd",
+                    )
+                ]
+            ),
+        ]
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+            # The retry keeps the id that has no asset and adds one that was never searched for.
+            chat_response(content=json.dumps(retry_dict)),
+        ]
+        spec, _ = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
+        assert spec is None
+        assert agent_obj.unavailable_objects == ("green_trash_can",)
+        # The repeated id is dropped from the second search; the new one is still looked up.
+        assert mock_search.call_args_list[0].args[0] == ["green trash can"]
+        assert mock_search.call_args_list[1].args[0] == ["chrome watering can"]
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_skips_the_search_when_every_object_came_from_the_catalog(self, mock_search, agent):

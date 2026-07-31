@@ -14,8 +14,8 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadySearchConfig,
     SimReadySourceKind,
     _count_matching_words,
+    _get_rigid_object_rejection_reason,
     _keep_whole_word_matches,
-    _rigid_object_rejection_reason,
     _split_path_into_words,
     search_simready_objects,
     simready_search_config_from_cli,
@@ -28,7 +28,7 @@ TRASH_CAN_PATH = "SimReady/Residential/Garage/sm_trashCan_wheeled_green_a01_01.u
 PLAIN_TRASH_CAN_PATH = "SimReady/Residential/Kitchen/sm_trashCan_a01_01.usd"
 
 REJECTION_REASON_TARGET = (
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._rigid_object_rejection_reason"
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._get_rigid_object_rejection_reason"
 )
 RIGID_BODY_PATHS_TARGET = "isaaclab_arena.utils.usd.rigid_bodies.read_asset_rigid_body_paths"
 
@@ -92,25 +92,25 @@ def test_keep_whole_word_matches_rejects_an_asset_that_only_shares_a_describing_
     assert _keep_whole_word_matches([grey_cabinet], "grey cabinet") == [grey_cabinet]
 
 
-def test_rigid_object_rejection_reason_accepts_a_single_rigid_body():
+def test_get_rigid_object_rejection_reason_accepts_a_single_rigid_body():
     with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle"]):
-        assert _rigid_object_rejection_reason("s3://bucket/bottle.usd") is None
+        assert _get_rigid_object_rejection_reason("s3://bucket/bottle.usd") is None
 
 
-def test_rigid_object_rejection_reason_turns_down_several_rigid_bodies():
+def test_get_rigid_object_rejection_reason_turns_down_several_rigid_bodies():
     # A bottle and its cap are two bodies even though a fixed joint holds them together.
     with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle", "/Asset/cap"]):
-        assert _rigid_object_rejection_reason("s3://bucket/bottle.usd") == "it has 2 rigid bodies"
+        assert _get_rigid_object_rejection_reason("s3://bucket/bottle.usd") == "it has 2 rigid bodies"
 
 
-def test_rigid_object_rejection_reason_turns_down_an_asset_without_physics():
+def test_get_rigid_object_rejection_reason_turns_down_an_asset_without_physics():
     with patch(RIGID_BODY_PATHS_TARGET, return_value=[]):
-        assert _rigid_object_rejection_reason("s3://bucket/decoration.usd") == "it has no rigid body"
+        assert _get_rigid_object_rejection_reason("s3://bucket/decoration.usd") == "it has no rigid body"
 
 
-def test_rigid_object_rejection_reason_turns_down_an_unreadable_asset():
+def test_get_rigid_object_rejection_reason_turns_down_an_unreadable_asset():
     with patch(RIGID_BODY_PATHS_TARGET, side_effect=FileNotFoundError("no such file")):
-        reason = _rigid_object_rejection_reason("s3://bucket/missing.usd")
+        reason = _get_rigid_object_rejection_reason("s3://bucket/missing.usd")
     assert reason is not None
     assert "could not be read" in reason
 

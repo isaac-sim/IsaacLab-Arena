@@ -25,6 +25,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
+from isaaclab_arena.assets.simready_object_library import DEFAULT_SIMREADY_SERVICE_URL
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
@@ -130,6 +131,20 @@ def _apply_generated_yaml(
         st.session_state.pop("_validation_result", None)
 
 
+def _finish(severity: str, message: str) -> tuple[bool, str]:
+    """Record the banner severity for the generate button and return its ``(ok, message)`` pair.
+
+    The severity is decided here, where the outcome is known, rather than read back out of the
+    message text — a reworded message must not silently turn a failure green.
+
+    Args:
+        severity: Streamlit banner level, ``"success"`` or ``"warning"``.
+        message: Text shown in the banner.
+    """
+    st.session_state["_generation_severity"] = severity
+    return True, message
+
+
 def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     """Call the LLM and load the returned environment graph spec YAML into the editor."""
     prompt = prompt.strip()
@@ -179,7 +194,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         else:
             headline = "Agent returned an invalid spec."
         _apply_generated_yaml(yaml_text, validation_error=f"{headline}\n{traces}")
-        return True, f"{headline}\nLoaded into the YAML editor.\n{traces}"
+        return _finish("warning", f"{headline}\nLoaded into the YAML editor.\n{traces}")
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
@@ -189,10 +204,12 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     if simready_enabled and agent.traces:
         trace_suffix = "\n\nGeneration traces:\n" + "\n".join(agent.traces)
     if error is not None:
-        return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}{trace_suffix}"
+        return _finish(
+            "warning", f"Spec generated and loaded into the YAML editor, but save failed: {error}{trace_suffix}"
+        )
 
     st.session_state["save_path"] = str(path)
-    return True, f"Spec generated, loaded into the YAML editor, and saved to {path}.{trace_suffix}"
+    return _finish("success", f"Spec generated, loaded into the YAML editor, and saved to {path}.{trace_suffix}")
 
 
 def render_generation_panel() -> None:
@@ -230,29 +247,41 @@ def render_generation_panel() -> None:
             max_value=10,
             value=int(st.session_state.get("simready_max_results_per_object", 1)),
         )
-        st.session_state["simready_s3_url"] = st.text_input(
-            "S3 URL override",
-            value=st.session_state.get("simready_s3_url", ""),
-            placeholder="Leave empty for Isaac Sim 6.0 GA SimReady default",
-        )
-        st.session_state["simready_project_config"] = st.text_input(
-            "project_config.toml path",
-            value=st.session_state.get("simready_project_config", ""),
-        )
-        st.session_state["simready_indexed_dir"] = st.text_input(
-            "Indexed directory or S3 prefix",
-            value=st.session_state.get("simready_indexed_dir", ""),
-        )
+        # Each source reads exactly one location, so only that one is offered. Showing all four
+        # invites filling in a field the search then ignores.
+        source = st.session_state["simready_source"]
+        if source == SimReadySourceKind.S3.value:
+            st.session_state["simready_s3_url"] = st.text_input(
+                "S3 URL",
+                value=st.session_state.get("simready_s3_url", ""),
+                placeholder="Leave empty for the Isaac Sim 6.0 GA SimReady bucket",
+            )
+        elif source == SimReadySourceKind.SERVICE.value:
+            st.session_state["simready_service_url"] = st.text_input(
+                "Service URL",
+                value=st.session_state.get("simready_service_url", ""),
+                placeholder=DEFAULT_SIMREADY_SERVICE_URL,
+            )
+        elif source == SimReadySourceKind.CACHE.value:
+            st.session_state["simready_project_config"] = st.text_input(
+                "project_config.toml path",
+                value=st.session_state.get("simready_project_config", ""),
+                help="Manifest describing the layout of an already-cached SimReady workspace.",
+            )
+        elif source == SimReadySourceKind.INDEXED.value:
+            st.session_state["simready_indexed_dir"] = st.text_input(
+                "Indexed directory or S3 prefix",
+                value=st.session_state.get("simready_indexed_dir", ""),
+            )
+        else:
+            st.caption("Searches the Isaac Sim 6.0 GA SimReady library — no further configuration needed.")
 
     if st.button("Generate spec", type="primary", width="stretch"):
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:
-            lowered = message.lower()
-            if "invalid spec" in lowered or "save failed" in lowered:
-                st.session_state["_generation_feedback"] = ("warning", message)
-            else:
-                st.session_state["_generation_feedback"] = ("success", message)
+            severity = st.session_state.pop("_generation_severity", "success")
+            st.session_state["_generation_feedback"] = (severity, message)
             st.rerun()
         else:
             st.error(f"Generation failed\n\n```\n{message}\n```", icon="🛑")

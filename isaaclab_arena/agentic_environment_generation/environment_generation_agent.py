@@ -89,7 +89,12 @@ class EnvironmentGenerationAgent:
 
     @property
     def unavailable_objects(self) -> tuple[str, ...]:
-        """Ids the most recent :meth:`generate_spec` call could find no asset for."""
+        """Ids of objects the most recent ``generate_spec`` call could find no asset for.
+
+        These are always objects left to SimReady. An object taken from the asset catalog names a
+        registry entry that is known to exist, so it can only be wrong, not missing; SimReady is
+        the one path where the spec is valid and the asset still turns out not to be there.
+        """
         return tuple(self._unavailable_objects)
 
     def generate_spec(
@@ -140,7 +145,9 @@ class EnvironmentGenerationAgent:
                 return None, data
             if not use_simready:
                 break
-            self._unavailable_objects = self._resolve_simready_objects(spec)
+            self._unavailable_objects = self._resolve_simready_objects(
+                spec, known_unavailable=frozenset(self._unavailable_objects)
+            )
             if not self._unavailable_objects:
                 break
             if attempts_left == 0:
@@ -155,7 +162,11 @@ class EnvironmentGenerationAgent:
             spec = resolved
         return spec, None
 
-    def _resolve_simready_objects(self, spec: ArenaEnvGraphSpec) -> list[str]:
+    def _resolve_simready_objects(
+        self,
+        spec: ArenaEnvGraphSpec,
+        known_unavailable: frozenset[str] = frozenset(),
+    ) -> list[str]:
         """Fill in the USD path of every object spec inference left to SimReady.
 
         Objects the asset catalog could not cover carry the SimReady registry name and no
@@ -164,6 +175,8 @@ class EnvironmentGenerationAgent:
 
         Args:
             spec: Spec to patch in place.
+            known_unavailable: Ids an earlier pass already searched for and found nothing for. The
+                id is the search phrase, so repeating one would repeat the same failed search.
 
         Returns:
             The ids of the objects SimReady has no usable asset for, empty when all were resolved.
@@ -173,13 +186,16 @@ class EnvironmentGenerationAgent:
             for asset in spec.objects
             if asset.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME and not asset.params.get("usd_path")
         ]
-        if not pending:
-            return []
-        phrases = [asset.id.replace("_", " ") for asset in pending]
+        unavailable = [asset.id for asset in pending if asset.id in known_unavailable]
+        for asset_id in unavailable:
+            self._traces.append(f"object {asset_id!r} was searched for already and has no asset; not searching again")
+        searchable = [asset for asset in pending if asset.id not in known_unavailable]
+        if not searchable:
+            return unavailable
+        phrases = [asset.id.replace("_", " ") for asset in searchable]
         catalogue = search_simready_objects(phrases, replace(self.simready_config, enabled=True), self._traces)
         candidates = {candidate.search_phrase: candidate for candidate in catalogue.candidates}
-        unavailable: list[str] = []
-        for asset, phrase in zip(pending, phrases):
+        for asset, phrase in zip(searchable, phrases):
             candidate = candidates.get(phrase)
             if candidate is None:
                 self._traces.append(f"no SimReady asset for object {asset.id!r}; it cannot be spawned")

@@ -103,7 +103,8 @@ class SpecInference:
                 "\n\nUNAVAILABLE OBJECTS:\n"
                 f"An earlier answer asked for {', '.join(unavailable_objects)}, and no asset exists for them.\n"
                 "Do not use those ids again. Replace each one with the closest OBJECTS catalog entry, or with a\n"
-                "plainer, more common object name, and keep the relations and task params consistent with the swap."
+                "plainer, more common object name. Everything that named the old object must name the new one:\n"
+                "its relations, the task params, the task description, and ``env_name``."
             )
         return message
 

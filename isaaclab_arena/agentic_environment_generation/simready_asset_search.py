@@ -19,6 +19,7 @@ from isaaclab_arena.assets.simready_object_library import (
     SIMREADY_PHYSICS_VARIANTS,
     SIMREADY_USD_OBJECT_REGISTRY_NAME,
 )
+from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 
 MAX_INSPECTED_MATCHES_PER_PHRASE = 5
 """How many hits per object are read to see whether they can be a rigid object, unless more
@@ -138,11 +139,8 @@ def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
     return kept
 
 
-def _rigid_object_rejection_reason(usd_path: str) -> str | None:
+def _get_rigid_object_rejection_reason(usd_path: str) -> str | None:
     """Say why a SimReady asset cannot be used as a rigid object, or None if it can.
-
-    A rigid object is exactly one rigid body. A prop made of several bodies is turned down
-    whatever holds them together, and so is a prop with no rigid body at all.
 
     Args:
         usd_path: The asset to look at, local or remote.
@@ -151,12 +149,11 @@ def _rigid_object_rejection_reason(usd_path: str) -> str | None:
         A phrase naming the problem, for example "it has no rigid body", or None if the asset is
         usable as a rigid object.
     """
-    from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
-
     try:
         rigid_body_paths = read_asset_rigid_body_paths(usd_path, SIMREADY_PHYSICS_VARIANTS)
     except Exception as exc:
         return f"its USD could not be read: {exc}"
+    # Only one RigidBodyAPI is allowed on a USD asset.
     if len(rigid_body_paths) == 1:
         return None
     if not rigid_body_paths:
@@ -188,7 +185,7 @@ async def _configure_asset_library(config: SimReadySearchConfig, traces: list[st
     return library
 
 
-def _candidate_from_match(match: Any, phrase: str) -> SimReadyObjectCandidate:
+def _build_simready_object_candidate_from_match(match: Any, phrase: str) -> SimReadyObjectCandidate:
     return SimReadyObjectCandidate(
         search_phrase=phrase,
         usd_path=str(match.asset_path),
@@ -215,9 +212,11 @@ async def _search_phrase_async(
     candidates: list[SimReadyObjectCandidate] = []
     for match in ranked:
         usd_path = str(match.asset_path)
-        rejection_reason = _rigid_object_rejection_reason(usd_path)
+        # Check if the asset can be used as a rigid object.
+        rejection_reason = _get_rigid_object_rejection_reason(usd_path)
+        # Assume the asset is usable as a rigid object unless it has a rejection reason.
         if rejection_reason is None:
-            candidates.append(_candidate_from_match(match, phrase))
+            candidates.append(_build_simready_object_candidate_from_match(match, phrase))
             if len(candidates) >= max_results:
                 break
         else:
