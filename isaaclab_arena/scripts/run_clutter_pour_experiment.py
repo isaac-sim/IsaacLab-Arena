@@ -18,6 +18,7 @@ This is a diagnostic, not part of the placement pipeline.
 from __future__ import annotations
 
 import argparse
+import math
 
 
 def add_experiment_args(parser: argparse.ArgumentParser) -> None:
@@ -39,11 +40,37 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--settle_steps", type=int, default=400, help="Physics steps to settle for.")
     parser.add_argument("--report_every", type=int, default=50, help="Steps between velocity reports.")
     parser.add_argument("--lin_vel_thresh", type=float, default=0.1, help="Settled linear speed (m/s).")
-    parser.add_argument("--ang_vel_thresh", type=float, default=0.1, help="Settled angular speed (rad/s).")
+    parser.add_argument(
+        "--ang_vel_thresh",
+        type=float,
+        default=0.8,
+        help=(
+            "Settled angular speed (rad/s), reported only. Objects in stable contact keep "
+            "micro-rocking at 0.25-0.65 rad/s indefinitely, so this cannot decide settling."
+        ),
+    )
+    parser.add_argument(
+        "--move_thresh_m",
+        type=float,
+        default=0.002,
+        help="Settled when no object translates more than this between checks.",
+    )
+    parser.add_argument(
+        "--turn_thresh_deg",
+        type=float,
+        default=2.0,
+        help="Settled when no object rotates more than this between checks.",
+    )
     parser.add_argument("--drop_order", type=str, default="flattest_first", help="as_listed|flattest_first|shuffle")
     parser.add_argument("--xy_sampling", type=str, default="grid_cells", help="grid_cells|uniform")
     parser.add_argument("--clutter_spread", type=float, default=1.0, help="Scales the usable region.")
     parser.add_argument("--layout_seed", type=int, default=0, help="Layout seed.")
+    parser.add_argument(
+        "--layers",
+        type=int,
+        default=1,
+        help="Pour in this many batches, settling between each so a later layer lands on the real pile.",
+    )
     parser.add_argument(
         "--render_settle",
         action="store_true",
@@ -177,50 +204,70 @@ def _run(simulation_app, args_cli) -> bool:
     bboxes = [get_bounding_box_per_env(obj, 1) for obj in objects]
     generator = torch.Generator()
     generator.manual_seed(args_cli.layout_seed)
-    poses = compute_drop_poses(bboxes, region, params, generator)
 
     names = [obj.name for obj in objects]
-    print(f"\n=== drop layout (floor_z={floor_z:.3f}, backend={args_cli.presets or 'physx'}) ===")
-    highest = 0.0
-    for name, bbox, pose in zip(names, bboxes, poses):
-        rotated = bbox.rotated_by_quat(torch.tensor([pose.rotation_xyzw], dtype=torch.float32))
-        bottom = pose.position[2] + float(rotated.bottom_surface_z[0])
-        highest = max(highest, pose.position[2] + float(rotated.top_surface_z[0]))
-        print(f"  {name:22s} xy=({pose.position[0]:6.3f},{pose.position[1]:6.3f}) bottom_z={bottom:.3f}")
-    print(f"  layout spans {highest - floor_z:.3f} m above the floor")
+    layers = max(1, args_cli.layers)
+    per_layer = math.ceil(len(objects) / layers)
+    steps_per_layer = max(1, args_cli.settle_steps // layers)
+    print(f"\n=== pouring {len(objects)} objects in {layers} layer(s), backend={args_cli.presets or 'physx'} ===")
 
-    # Write the drop layout into the sim.
-    for name, pose in zip(names, poses):
-        asset = scene[name]
-        root = asset.data.default_root_state.clone()[0:1] if hasattr(asset.data, "default_root_state") else None
-        state = torch.zeros((1, 13), device=device) if root is None else root
-        state[0, 0:3] = torch.tensor(pose.position, device=device)
-        x, y, z, w = pose.rotation_xyzw
-        state[0, 3:7] = torch.tensor([x, y, z, w], device=device)
-        state[0, 7:13] = 0.0
-        asset.write_root_state_to_sim(state)
-    scene.write_data_to_sim()
-
-    if args_cli.pause_before_pour > 0.0:
-        print(f"\n=== holding drop layout for {args_cli.pause_before_pour:.0f}s (objects frozen mid-air) ===")
-        _hold(env, args_cli.pause_before_pour, freeze=names)
-
-    print(f"\n=== settling ({args_cli.settle_steps} steps) ===")
     steps_done = 0
     settled_at = None
-    while steps_done < args_cli.settle_steps:
-        chunk = min(args_cli.report_every, args_cli.settle_steps - steps_done)
-        physics_settle.step_physics(env, chunk, render=args_cli.render_settle)
-        steps_done += chunk
-        settled = physics_settle.are_all_objects_settled_per_env(
-            env, [0], names, args_cli.lin_vel_thresh, args_cli.ang_vel_thresh
-        )[0]
-        max_lin, max_ang, worst = _max_speeds(scene, names)
-        print(
-            f"  step {steps_done:4d}: settled={settled!s:5s} max_lin={max_lin:6.3f} max_ang={max_ang:6.3f}  ({worst})"
+
+    for layer_index in range(layers):
+        lo, hi = layer_index * per_layer, min((layer_index + 1) * per_layer, len(objects))
+        if lo >= hi:
+            break
+        layer_names, layer_bboxes = names[lo:hi], bboxes[lo:hi]
+
+        # Later layers land on the pile the earlier ones actually formed, read from the sim,
+        # so the stack interleaves instead of reserving worst-case height up front.
+        layer_floor = floor_z if layer_index == 0 else _pile_top(scene, names[:lo], bboxes[:lo])
+        layer_region = ClutterRegion(region.min_x, region.min_y, region.max_x, region.max_y, layer_floor)
+        poses = compute_drop_poses(layer_bboxes, layer_region, params, generator)
+
+        highest = max(
+            pose.position[2] + float(bbox.rotated_by_quat(torch.tensor([pose.rotation_xyzw])).top_surface_z[0])
+            for bbox, pose in zip(layer_bboxes, poses)
         )
-        if settled and settled_at is None:
-            settled_at = steps_done
+        print(
+            f"\n--- layer {layer_index + 1}/{layers}: {len(layer_names)} objects, "
+            f"floor_z={layer_floor:.3f}, spans {highest - layer_floor:.3f} m ---"
+        )
+
+        for name, pose in zip(layer_names, poses):
+            asset = scene[name]
+            state = asset.data.default_root_state.clone()[0:1]
+            state[0, 0:3] = torch.tensor(pose.position, device=device)
+            state[0, 3:7] = torch.tensor(list(pose.rotation_xyzw), device=device)
+            state[0, 7:13] = 0.0
+            asset.write_root_state_to_sim(state)
+        scene.write_data_to_sim()
+
+        if args_cli.pause_before_pour > 0.0:
+            _hold(env, args_cli.pause_before_pour, freeze=layer_names)
+
+        # A new layer changes the object set, so the previous snapshot no longer lines up.
+        previous_poses = None
+        layer_steps = 0
+        while layer_steps < steps_per_layer:
+            chunk = min(args_cli.report_every, steps_per_layer - layer_steps)
+            physics_settle.step_physics(env, chunk, render=args_cli.render_settle)
+            layer_steps += chunk
+            steps_done += chunk
+
+            current = _read_poses(scene, names[:hi])
+            moved, turned = _pose_delta(previous_poses, current) if previous_poses else (float("inf"), float("inf"))
+            previous_poses = current
+            settled = moved <= args_cli.move_thresh_m and turned <= args_cli.turn_thresh_deg
+            max_lin, max_ang, worst = _max_speeds(scene, names[:hi])
+            print(
+                f"  step {steps_done:4d}: settled={settled!s:5s} "
+                f"moved={moved:7.4f}m turned={turned:6.2f}deg  |  "
+                f"max_lin={max_lin:6.3f} max_ang={max_ang:6.3f} ({worst})"
+            )
+            if settled and settled_at is None and layer_index == layers - 1:
+                settled_at = steps_done
 
     print("\n=== result ===")
     print(f"  settled first observed at: {settled_at if settled_at is not None else 'NOT SETTLED'}")
@@ -266,6 +313,52 @@ def _hold(env, seconds: float, freeze: list[str] | None = None) -> None:
         physics_settle.step_physics(env, 1, render=True)
 
 
+def _read_poses(scene, names):
+    """Current world positions and orientations, as CPU tensors."""
+    import torch
+
+    import warp as wp
+
+    positions = torch.stack([wp.to_torch(scene[name].data.root_pos_w)[0].cpu() for name in names])
+    rotations = torch.stack([wp.to_torch(scene[name].data.root_quat_w)[0].cpu() for name in names])
+    return positions, rotations
+
+
+def _pose_delta(previous, current) -> tuple[float, float]:
+    """Largest translation (m) and rotation (deg) any object underwent between two snapshots.
+
+    Preferred over a velocity threshold: an object wedged in a pile keeps micro-rocking at a
+    non-trivial angular speed indefinitely while going nowhere, so angular velocity never
+    crosses a strict threshold even though the layout is stable. Displacement measures what
+    actually matters -- whether the pile is still changing.
+    """
+    import torch
+
+    previous_positions, previous_rotations = previous
+    positions, rotations = current
+    moved = float((positions - previous_positions).norm(dim=1).max())
+    # Angle between unit quaternions, sign-invariant because q and -q are the same rotation.
+    dots = (rotations * previous_rotations).sum(dim=1).abs().clamp(max=1.0)
+    turned = float(torch.rad2deg(2.0 * torch.acos(dots)).max())
+    return moved, turned
+
+
+def _pile_top(scene, names, bboxes) -> float:
+    """Highest point of the objects already poured, as they currently rest."""
+    import torch
+
+    import warp as wp
+
+    top = 0.0
+    for name, bbox in zip(names, bboxes):
+        data = scene[name].data
+        z = float(wp.to_torch(data.root_pos_w)[0][2])
+        quat = wp.to_torch(data.root_quat_w)[0]
+        rotated = bbox.rotated_by_quat(torch.tensor([quat.tolist()], dtype=torch.float32))
+        top = max(top, z + float(rotated.top_surface_z[0]))
+    return top
+
+
 def _max_speeds(scene, names):
     """Largest linear/angular speed across the clutter, and which object holds it."""
     import warp as wp
@@ -293,7 +386,10 @@ def main() -> None:
 
     parser = get_isaaclab_arena_cli_parser()
     add_experiment_args(parser)
-    args_cli, _ = parser.parse_known_args()
+    # Reject unknown flags rather than ignoring them: a silently-dropped option looks like a
+    # feature that ran and did nothing.
+    args_cli, unknown = parser.parse_known_args()
+    assert not unknown, f"unrecognised arguments: {unknown}"
 
     with SimulationAppContext(args_cli) as simulation_app:
         ok = _run(simulation_app, args_cli)

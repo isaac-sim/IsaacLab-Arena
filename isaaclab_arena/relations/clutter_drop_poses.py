@@ -101,6 +101,11 @@ class ClutterDropParams:
     random_yaw: bool = True
     """Sample a random Z-yaw per object. Disable for reproducible axis-aligned layouts."""
 
+    max_yaw_attempts: int = 8
+    """How many yaws to try before declaring an object unplaceable. A long object turned
+    diagonally needs much more room than the same object axis-aligned, so an unlucky draw
+    should be resampled rather than failing the whole layout."""
+
 
 @dataclass(frozen=True)
 class DropPose:
@@ -162,6 +167,44 @@ def _grid_cell_centres(
     return [centres[int(i)] for i in permutation]
 
 
+def _footprint_fits(half_x: float, half_y: float, region: ClutterRegion) -> bool:
+    """Whether a footprint of these half-extents can sit wholly inside ``region``."""
+    return region.min_x + half_x <= region.max_x - half_x and region.min_y + half_y <= region.max_y - half_y
+
+
+def _sample_orientation_that_fits(
+    bbox: AxisAlignedBoundingBox,
+    region: ClutterRegion,
+    params: ClutterDropParams,
+    generator: torch.Generator | None,
+) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, float, float]:
+    """Sample a yaw whose rotated footprint fits the region, retrying unlucky draws.
+
+    Yaw changes an elongated object's footprint substantially -- a long object turned
+    diagonally can need far more room than the same object axis-aligned -- so a single
+    unlucky draw is not evidence that the object cannot be placed. Retry before giving up,
+    and only fail when no sampled orientation fits.
+    """
+    attempts = params.max_yaw_attempts if params.random_yaw else 1
+    widest = None
+    for _ in range(attempts):
+        yaw = get_random_rotation(generator) if params.random_yaw else 0.0
+        rotation = _yaw_to_quat_xyzw(yaw)
+        # Refit the box to the sampled yaw so footprint and height match the placed object.
+        rotated = bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+        half_x, half_y = _footprint_half_extents(rotated)
+        if _footprint_fits(half_x, half_y, region):
+            return rotation, rotated, half_x, half_y
+        widest = (half_x, half_y) if widest is None else widest
+
+    half_x, half_y = widest if widest is not None else (0.0, 0.0)
+    raise AssertionError(
+        f"object footprint {2 * half_x:.3f}x{2 * half_y:.3f} m does not fit in region "
+        f"{region.max_x - region.min_x:.3f}x{region.max_y - region.min_y:.3f} m "
+        f"after {attempts} orientation attempt(s)"
+    )
+
+
 def _sample_xy(
     centre: tuple[float, float] | None,
     half_x: float,
@@ -177,11 +220,6 @@ def _sample_xy(
     """
     min_x, max_x = region.min_x + half_x, region.max_x - half_x
     min_y, max_y = region.min_y + half_y, region.max_y - half_y
-    assert min_x <= max_x and min_y <= max_y, (
-        f"object footprint {2 * half_x:.3f}x{2 * half_y:.3f} m does not fit in region "
-        f"{region.max_x - region.min_x:.3f}x{region.max_y - region.min_y:.3f} m"
-    )
-
     unit = torch.rand(2, generator=generator)
     if centre is None:
         x = min_x + float(unit[0]) * (max_x - min_x)
@@ -244,12 +282,9 @@ def compute_drop_poses(
     placed: list[tuple[tuple[float, float], tuple[float, float], float]] = []
 
     for drop_index, (object_index, centre) in enumerate(zip(order, centres)):
-        yaw = get_random_rotation(generator) if params.random_yaw else 0.0
-        rotation = _yaw_to_quat_xyzw(yaw)
-        # Refit the box to the sampled yaw so the footprint and height match the placed object.
-        rotated = bounding_boxes[object_index].rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
-
-        half_x, half_y = _footprint_half_extents(rotated)
+        rotation, rotated, half_x, half_y = _sample_orientation_that_fits(
+            bounding_boxes[object_index], usable, params, generator
+        )
         x, y = _sample_xy(centre, half_x, half_y, usable, generator)
 
         # Lift only over the footprints actually overlapped, not over everything placed so far.
