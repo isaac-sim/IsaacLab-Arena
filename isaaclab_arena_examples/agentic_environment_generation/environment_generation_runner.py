@@ -182,15 +182,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
-        if agent.unavailable_objects:
-            print(
-                f"\n[runner] no asset is available for: {', '.join(agent.unavailable_objects)}.\n"
-                "[runner] the agent was already asked once for a replacement and could not find one. "
-                "Rephrase the prompt with a more common object, or register the asset in Arena.",
-                flush=True,
-            )
-        else:
-            print("\n[runner] the agent returned an invalid spec.", flush=True)
+        print("\n[runner] the agent returned an invalid spec.", flush=True)
         print("\n[runner] validation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
@@ -202,6 +194,15 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         print("\n[runner] generation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
+    # The spec is valid either way: an object no asset was found for was never offered to spec
+    # inference, so it was built without it. Say so, or the substitution goes unnoticed.
+    if agent.unavailable_objects:
+        print(
+            f"\n[runner] no asset was found for: {', '.join(agent.unavailable_objects)}.\n"
+            "[runner] the spec was built without them. Rephrase the prompt with a more common "
+            "object, or register the asset in Arena.",
+            flush=True,
+        )
     print_env_graph(env_graph_spec)
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",

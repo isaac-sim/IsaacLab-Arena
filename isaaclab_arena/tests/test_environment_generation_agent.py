@@ -19,7 +19,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -128,18 +128,21 @@ class TestGenerateSpec:
         assert any("is not in the background prim tree" in line for line in agent_obj.traces)
 
     @staticmethod
-    def _spec_dict_needing_simready() -> dict:
-        """The minimal spec plus one object the asset catalog could not cover."""
-        data = minimal_spec_dict()
-        data["objects"].append({
-            "id": "green_trash_can",
-            "registry_name": SIMREADY_USD_OBJECT_REGISTRY_NAME,
-            "params": {},
-        })
-        return data
+    def _missing_objects_response(*phrases: str):
+        """The answer of the pass that names what the asset catalog does not cover."""
+        return chat_response(content=json.dumps({"search_phrases": list(phrases)}))
+
+    def _generate_with_simready(self, agent_obj, asset_catalog=None):
+        return agent_obj.generate_spec(
+            "p",
+            asset_catalog=asset_catalog or catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_resolves_simready_objects_after_spec_inference(self, mock_search, agent):
+    def test_generate_spec_catalogues_what_the_search_finds_before_inferring_the_spec(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
@@ -151,115 +154,51 @@ class TestGenerateSpec:
             ]
         )
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
+            self._missing_objects_response("green trash can"),
+            chat_response(content=json.dumps(minimal_spec_dict())),
         ]
-        spec, data = agent_obj.generate_spec(
-            "p",
-            asset_catalog=catalog("catalog"),
-            relation_catalog=relation_catalog("RELATIONS"),
-            task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
-        )
+        spec, data = self._generate_with_simready(agent_obj)
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        # The object's id is what gets searched for, and the winning asset lands in its params.
         assert mock_search.call_args.args[0] == ["green trash can"]
-        searched = next(asset for asset in spec.objects if asset.id == "green_trash_can")
-        assert searched.params["usd_path"] == "s3://bucket/trash_can.usd"
-        assert searched.params["tags"] == ["sim-ready", "green", "trash", "can"]
-        # One LLM call, not two: the search no longer needs a normalization pass to feed it.
-        assert client.chat.completions.create.call_count == 1
+        # The found asset reaches spec inference as an ordinary OBJECTS entry, so the model picks
+        # it by name and the spec needs no usd_path of its own.
+        spec_user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "simready_green_trash_can" in spec_user_msg
+        assert "s3://bucket/trash_can.usd" not in spec_user_msg
+        assert AssetRegistry().is_registered("simready_green_trash_can")
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_asks_again_without_the_object_that_has_no_asset(self, mock_search, agent):
+    def test_generate_spec_builds_the_spec_without_an_object_no_asset_was_found_for(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"])
         client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
-            # The retry drops the object nothing was found for and keeps to the catalog.
+            self._missing_objects_response("green trash can"),
             chat_response(content=json.dumps(minimal_spec_dict())),
         ]
-        spec, data = agent_obj.generate_spec(
-            "p",
-            asset_catalog=catalog("catalog"),
-            relation_catalog=relation_catalog("RELATIONS"),
-            task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
-        )
+        spec, data = self._generate_with_simready(agent_obj)
+        # Nothing to walk back: the object was never offered, so the first answer is usable.
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
+        assert client.chat.completions.create.call_count == 2
+        # The caller is still told what the prompt asked for and could not get.
+        assert agent_obj.unavailable_objects == ("green trash can",)
+        assert any("no SimReady asset for 'green trash can'" in line for line in agent_obj.traces)
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_skips_the_search_when_the_catalog_covers_the_prompt(self, mock_search, agent):
+        agent_obj, client = agent
+        client.chat.completions.create.side_effect = [
+            self._missing_objects_response(),
+            chat_response(content=json.dumps(minimal_spec_dict())),
+        ]
+        spec, _ = self._generate_with_simready(agent_obj)
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        mock_search.assert_not_called()
         assert agent_obj.unavailable_objects == ()
-        assert client.chat.completions.create.call_count == 2
-        # The second call names the object back to the model rather than failing on the first answer.
-        retry_user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-        assert "UNAVAILABLE OBJECTS" in retry_user_msg
-        assert "green_trash_can" in retry_user_msg
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_reports_the_object_as_unavailable_when_the_retry_repeats_it(self, mock_search, agent):
-        agent_obj, client = agent
-        mock_search.return_value = SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"])
-        client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
-            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
-        ]
-        spec, data = agent_obj.generate_spec(
-            "p",
-            asset_catalog=catalog("catalog"),
-            relation_catalog=relation_catalog("RELATIONS"),
-            task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
-        )
-        assert spec is None
-        assert isinstance(data, dict)
-        # The caller is told which object cannot be spawned, not just that the spec is invalid.
-        assert agent_obj.unavailable_objects == ("green_trash_can",)
-        assert any("no asset available for: green_trash_can" in line for line in agent_obj.traces)
-        assert client.chat.completions.create.call_count == 2
-        # The id is the search phrase, so repeating it cannot find anything the first search missed.
-        mock_search.assert_called_once()
-        assert any("not searching again" in line for line in agent_obj.traces)
-
-    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_only_searches_for_the_objects_it_has_not_searched_for(self, mock_search, agent):
-        agent_obj, client = agent
-        retry_dict = self._spec_dict_needing_simready()
-        retry_dict["objects"].append({
-            "id": "chrome_watering_can",
-            "registry_name": SIMREADY_USD_OBJECT_REGISTRY_NAME,
-            "params": {},
-        })
-        mock_search.side_effect = [
-            SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"]),
-            SimReadyCandidateCatalogue(
-                candidates=[
-                    SimReadyObjectCandidate(
-                        search_phrase="chrome watering can",
-                        usd_path="s3://bucket/watering_can.usd",
-                    )
-                ]
-            ),
-        ]
-        client.chat.completions.create.side_effect = [
-            chat_response(content=json.dumps(self._spec_dict_needing_simready())),
-            # The retry keeps the id that has no asset and adds one that was never searched for.
-            chat_response(content=json.dumps(retry_dict)),
-        ]
-        spec, _ = agent_obj.generate_spec(
-            "p",
-            asset_catalog=catalog("catalog"),
-            relation_catalog=relation_catalog("RELATIONS"),
-            task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
-        )
-        assert spec is None
-        assert agent_obj.unavailable_objects == ("green_trash_can",)
-        # The repeated id is dropped from the second search; the new one is still looked up.
-        assert mock_search.call_args_list[0].args[0] == ["green trash can"]
-        assert mock_search.call_args_list[1].args[0] == ["chrome watering can"]
-
-    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_generate_spec_skips_the_search_when_every_object_came_from_the_catalog(self, mock_search, agent):
+    def test_generate_spec_leaves_the_inference_path_alone_when_the_search_is_off(self, mock_search, agent):
         agent_obj, client = agent
         client.chat.completions.create.side_effect = [
             chat_response(content=json.dumps(minimal_spec_dict())),
@@ -269,9 +208,11 @@ class TestGenerateSpec:
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
             task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
+            enable_simready_search=False,
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
+        # One call and one only: no pass asking what the catalog misses.
+        assert client.chat.completions.create.call_count == 1
         mock_search.assert_not_called()
 
 

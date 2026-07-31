@@ -40,8 +40,6 @@ def _infer(
     asset_catalog=None,
     relation_catalog=None,
     task_catalog=None,
-    simready_enabled: bool = False,
-    unavailable_objects: list[str] | None = None,
     traces: list[str] | None = None,
 ):
     traces = traces if traces is not None else []
@@ -51,8 +49,6 @@ def _infer(
         asset_catalog=asset_catalog or make_catalog("catalog"),
         relation_catalog=relation_catalog or make_relation_catalog("RELATIONS"),
         task_catalog=task_catalog or make_task_catalog("TASKS"),
-        simready_enabled=simready_enabled,
-        unavailable_objects=unavailable_objects,
     )
 
 
@@ -112,28 +108,12 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert any("registry_name" in line for line in traces)
 
 
-def test_infer_names_unavailable_objects_back_to_the_model(spec_inference):
+def test_infer_never_mentions_the_asset_search(spec_inference):
+    # Searching for assets is a separate pass that extends the catalog before this one runs, so
+    # every object here is spawnable and spec inference has nothing to say about where it came from.
     inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
-
     _infer(inference, client)
-    assert "UNAVAILABLE OBJECTS" not in client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-
-    _infer(inference, client, unavailable_objects=["green_trash_can"])
-    user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-    assert "UNAVAILABLE OBJECTS" in user_msg
-    assert "green_trash_can" in user_msg
-
-
-def test_infer_offers_the_simready_registry_name_only_when_the_search_is_enabled(spec_inference):
-    inference, client = spec_inference
-    client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
-
-    _infer(inference, client, simready_enabled=False)
-    system_msg = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
-    assert SIMREADY_USD_OBJECT_REGISTRY_NAME not in system_msg
-
-    _infer(inference, client, simready_enabled=True)
-    system_msg = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
-    # The model is told to fall back to SimReady, not handed candidates to copy.
-    assert SIMREADY_USD_OBJECT_REGISTRY_NAME in system_msg
+    messages = client.chat.completions.create.call_args.kwargs["messages"]
+    assert SIMREADY_USD_OBJECT_REGISTRY_NAME not in messages[0]["content"]
+    assert "simready" not in messages[0]["content"].lower()

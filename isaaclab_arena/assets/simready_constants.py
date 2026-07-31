@@ -12,7 +12,11 @@ importing those loads pxr, and a pxr import before SimulationApp starts breaks t
 from __future__ import annotations
 
 SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
-"""Registry name a generated spec uses to spawn a searched SimReady asset."""
+"""Registry name for spawning a SimReady asset from a usd_path given in the spec's params."""
+
+SIMREADY_SEARCH_REGISTRY_PREFIX = "simready_"
+"""Prefix of the catalogue name a searched SimReady asset is registered under. It marks the entry
+as search-derived and keeps it from colliding with a first-party asset of the same object."""
 
 ISAAC_SIMREADY_GA_S3_URL = (
     "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"

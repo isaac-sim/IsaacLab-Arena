@@ -165,7 +165,7 @@ async def _configure_asset_library(config: SimReadySearchConfig, traces: list[st
     try:
         from simready.search import AssetLibrary
     except ImportError:
-        traces.append("simready-search is not installed; install with pip install 'isaaclab_arena[simready]'")
+        traces.append("simready-search is not installed; install with pip install 'isaaclab_arena[dev]'")
         return None
 
     library = AssetLibrary()

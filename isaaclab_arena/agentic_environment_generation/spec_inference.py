@@ -20,7 +20,6 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     format_validation_error,
 )
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
@@ -38,9 +37,6 @@ class SpecInference:
         asset_catalog: Any,
         relation_catalog: Any,
         task_catalog: Any,
-        *,
-        simready_enabled: bool = False,
-        unavailable_objects: list[str] | None = None,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Generate an ArenaEnvGraphSpec from a natural-language prompt.
 
@@ -50,10 +46,6 @@ class SpecInference:
             asset_catalog: Embodiment, background, and object vocabulary for the user message.
             relation_catalog: Relation vocabulary for the user message.
             task_catalog: Task vocabulary for the user message.
-            simready_enabled: When ``True``, objects the catalog does not cover may be left to a
-                SimReady search that runs after this pass.
-            unavailable_objects: Object ids from an earlier answer that no asset could be found
-                for. They are named back to the model so it replaces them with something spawnable.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and ``data`` is the
@@ -64,14 +56,8 @@ class SpecInference:
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,
-                system=self._system_prompt(simready_enabled=simready_enabled),
-                user=self._user_message(
-                    prompt,
-                    asset_catalog,
-                    relation_catalog,
-                    task_catalog,
-                    unavailable_objects=unavailable_objects,
-                ),
+                system=self._system_prompt(),
+                user=self._user_message(prompt, asset_catalog, relation_catalog, task_catalog),
                 retry_label="generate_spec",
             )
         )
@@ -84,42 +70,17 @@ class SpecInference:
         return spec, data
 
     @staticmethod
-    def _user_message(
-        prompt: str,
-        asset_catalog: Any,
-        relation_catalog: Any,
-        task_catalog: Any,
-        *,
-        unavailable_objects: list[str] | None = None,
-    ) -> str:
+    def _user_message(prompt: str, asset_catalog: Any, relation_catalog: Any, task_catalog: Any) -> str:
         vocabulary = "\n\n".join([
             asset_catalog.to_catalog_string(),
             relation_catalog.to_catalog_string(),
             task_catalog.to_catalog_string(),
         ])
-        message = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
-        if unavailable_objects:
-            message += (
-                "\n\nUNAVAILABLE OBJECTS:\n"
-                f"An earlier answer asked for {', '.join(unavailable_objects)}, and no asset exists for them.\n"
-                "Do not use those ids again. Replace each one with the closest OBJECTS catalog entry, or with a\n"
-                "plainer, more common object name. Everything that named the old object must name the new one:\n"
-                "its relations, the task params, the task description, and ``env_name``."
-            )
-        return message
+        return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
 
     @staticmethod
-    def _system_prompt(*, simready_enabled: bool = False) -> str:
-        simready_rules = ""
-        if simready_enabled:
-            simready_rules = f"""
-- Prefer an OBJECTS entry whenever one reasonably matches. Only when the catalog covers no
-  suitable object, use ``registry_name: {SIMREADY_USD_OBJECT_REGISTRY_NAME!r}`` and leave its
-  ``params`` empty — a SimReady asset is searched for it after this pass.
-- Such an object's ``id`` is the search phrase, so name it after the object and the words that
-  distinguish it, most specific last (e.g. ``green_trash_can``, not ``object_1``).
-"""
-        return f"""\
+    def _system_prompt() -> str:
+        return """\
 You are an environment-generator for robot manipulation tasks.
 Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
@@ -145,4 +106,4 @@ GUIDANCE:
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.
-{simready_rules}"""
+"""

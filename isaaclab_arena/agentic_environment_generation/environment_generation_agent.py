@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadySearchConfig,
@@ -19,13 +20,8 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
-
-SIMREADY_RETRY_ATTEMPTS = 1
-"""How many extra inference passes are spent naming the objects no asset was found for. One is
-enough to swap a missing object for a catalog one; more just re-rolls the same prompt."""
 
 # ---------------------------------------------------------------------------
 # Environment generation agent
@@ -76,6 +72,7 @@ class EnvironmentGenerationAgent:
             max_retries=max_retries,
         )
         self.spec_inference = SpecInference(inference_backend)
+        self.missing_object_inference = MissingObjectInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
         self.enable_simready_search = enable_simready_search
         self.simready_config = simready_config or SimReadySearchConfig(enabled=enable_simready_search)
@@ -89,11 +86,11 @@ class EnvironmentGenerationAgent:
 
     @property
     def unavailable_objects(self) -> tuple[str, ...]:
-        """Ids of objects the most recent ``generate_spec`` call could find no asset for.
+        """Objects the most recent ``generate_spec`` call wanted and no asset could be found for.
 
-        These are always objects left to SimReady. An object taken from the asset catalog names a
-        registry entry that is known to exist, so it can only be wrong, not missing; SimReady is
-        the one path where the spec is valid and the asset still turns out not to be there.
+        Only the SimReady search can report these. A catalog object names a registry entry that is
+        known to exist, so it can only be wrong, not missing. The generated spec is still valid:
+        spec inference was never offered these objects, so it built the scene without them.
         """
         return tuple(self._unavailable_objects)
 
@@ -121,8 +118,8 @@ class EnvironmentGenerationAgent:
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and
             ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
-            When validation fails, ``agent.traces`` holds the diagnostic trace, and when the failure
-            is a missing asset, ``agent.unavailable_objects`` names the objects nothing was found for.
+            When validation fails, ``agent.traces`` holds the diagnostic trace. ``agent.unavailable_objects``
+            names any object the search found nothing for; the spec is built without it.
         """
         self._traces = []
         self._unavailable_objects = []
@@ -130,31 +127,17 @@ class EnvironmentGenerationAgent:
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
-        attempts_left = SIMREADY_RETRY_ATTEMPTS
-        while True:
-            spec, data = self.spec_inference.infer(
-                prompt,
-                self._traces,
-                asset_catalog=asset_catalog,
-                relation_catalog=relation_catalog,
-                task_catalog=task_catalog,
-                simready_enabled=use_simready,
-                unavailable_objects=self._unavailable_objects,
-            )
-            if spec is None:
-                return None, data
-            if not use_simready:
-                break
-            self._unavailable_objects = self._resolve_simready_objects(
-                spec, known_unavailable=frozenset(self._unavailable_objects)
-            )
-            if not self._unavailable_objects:
-                break
-            if attempts_left == 0:
-                self._traces.append(f"no asset available for: {', '.join(self._unavailable_objects)}")
-                return None, spec.to_dict()
-            attempts_left -= 1
-            self._traces.append(f"asking for a replacement of: {', '.join(self._unavailable_objects)}")
+        if use_simready:
+            asset_catalog = self._extend_catalogue_with_simready(prompt, asset_catalog)
+        spec, data = self.spec_inference.infer(
+            prompt,
+            self._traces,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+        )
+        if spec is None:
+            return None, data
         if spec.object_references:
             resolved = self.prim_path_inference.infer(spec, self._traces)
             if resolved is None:
@@ -162,48 +145,45 @@ class EnvironmentGenerationAgent:
             spec = resolved
         return spec, None
 
-    def _resolve_simready_objects(
-        self,
-        spec: ArenaEnvGraphSpec,
-        known_unavailable: frozenset[str] = frozenset(),
-    ) -> list[str]:
-        """Fill in the USD path of every object spec inference left to SimReady.
+    def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
+        """Search SimReady for the objects the catalog misses and add what it finds to the catalog.
 
-        Objects the asset catalog could not cover carry the SimReady registry name and no
-        ``usd_path``. Each one is searched for by its ``id``, read as a phrase, and the winning
-        asset's path and tags are written back into its ``params``.
+        Everything found is registered as an ordinary asset, so spec inference picks it by name
+        like any other object and needs to know nothing about SimReady. Anything not found is
+        simply never offered, which is what leaves the model free to build the scene without it.
 
         Args:
-            spec: Spec to patch in place.
-            known_unavailable: Ids an earlier pass already searched for and found nothing for. The
-                id is the search phrase, so repeating one would repeat the same failed search.
+            prompt: Natural-language env description, used to work out what the catalog misses.
+            asset_catalog: Registered asset vocabulary to extend.
 
         Returns:
-            The ids of the objects SimReady has no usable asset for, empty when all were resolved.
+            The catalog with one added object per asset found, or the argument itself when the
+            catalog already covers the prompt and nothing was searched for.
         """
-        pending = [
-            asset
-            for asset in spec.objects
-            if asset.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME and not asset.params.get("usd_path")
-        ]
-        unavailable = [asset.id for asset in pending if asset.id in known_unavailable]
-        for asset_id in unavailable:
-            self._traces.append(f"object {asset_id!r} was searched for already and has no asset; not searching again")
-        searchable = [asset for asset in pending if asset.id not in known_unavailable]
-        if not searchable:
-            return unavailable
-        phrases = [asset.id.replace("_", " ") for asset in searchable]
-        catalogue = search_simready_objects(phrases, replace(self.simready_config, enabled=True), self._traces)
-        candidates = {candidate.search_phrase: candidate for candidate in catalogue.candidates}
-        for asset, phrase in zip(searchable, phrases):
-            candidate = candidates.get(phrase)
-            if candidate is None:
-                self._traces.append(f"no SimReady asset for object {asset.id!r}; it cannot be spawned")
-                unavailable.append(asset.id)
-            else:
-                asset.params["usd_path"] = candidate.usd_path
-                asset.params.setdefault("tags", list(candidate.tags))
-        return unavailable
+        # Imported here rather than at module scope: it pulls in the asset base classes, which
+        # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
+        from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
+
+        phrases = self.missing_object_inference.infer(prompt, asset_catalog, self._traces)
+        if not phrases:
+            return asset_catalog
+        found = search_simready_objects(phrases, replace(self.simready_config, enabled=True), self._traces)
+        self._unavailable_objects = list(found.unmatched_phrases)
+        for phrase in self._unavailable_objects:
+            self._traces.append(f"no SimReady asset for {phrase!r}; the spec is built without it")
+        if not found.candidates:
+            return asset_catalog
+        extended = replace(asset_catalog, objects=list(asset_catalog.objects))
+        for candidate in found.candidates:
+            asset_cls = register_searched_simready_object(candidate.search_phrase, candidate.usd_path, candidate.tags)
+            tags = [tag for tag in asset_cls.tags if tag != "object"]
+            extended.objects.append({
+                "name": asset_cls.name,
+                "tags": tags,
+                "object_type": asset_cls.object_type.value,
+            })
+            self._traces.append(f"catalogued {asset_cls.name!r} for {candidate.search_phrase!r}: {candidate.usd_path}")
+        return extended
 
 
 # ---------------------------------------------------------------------------

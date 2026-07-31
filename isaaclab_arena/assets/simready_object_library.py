@@ -7,13 +7,22 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from typing import Any
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS, SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.assets.simready_constants import (
+    SIMREADY_PHYSICS_VARIANTS,
+    SIMREADY_SEARCH_REGISTRY_PREFIX,
+    SIMREADY_USD_OBJECT_REGISTRY_NAME,
+)
 from isaaclab_arena.utils.pose import Pose
+
+_NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
 
 @register_asset
@@ -50,3 +59,48 @@ class SimReadyUsdObject(Object):
             spawn_cfg_addon=spawn_cfg_addon,
             **kwargs,
         )
+
+
+def simready_search_registry_name(search_phrase: str) -> str:
+    """Return the catalogue name a SimReady asset found for ``search_phrase`` is registered under."""
+    slug = _NON_IDENTIFIER_CHARACTERS.sub("_", search_phrase.strip().lower()).strip("_")
+    assert slug, f"search phrase {search_phrase!r} has no characters usable in a registry name"
+    return f"{SIMREADY_SEARCH_REGISTRY_PREFIX}{slug}"
+
+
+def register_searched_simready_object(
+    search_phrase: str,
+    usd_path: str,
+    tags: Sequence[str] = (),
+) -> type[SimReadyUsdObject]:
+    """Register a searched SimReady asset so it can be picked like any other catalogue object.
+
+    Args:
+        search_phrase: Phrase the asset was found for; it determines the catalogue name.
+        usd_path: USD path or URL of the found asset.
+        tags: Extra catalogue tags to expose alongside the SimReady ones.
+
+    Returns:
+        The registered asset class.
+    """
+    registry_name = simready_search_registry_name(search_phrase)
+    registry = AssetRegistry()
+    if registry.is_registered(registry_name, ensure_loaded=False):
+        return registry.get_asset_by_name(registry_name)
+    found_usd_path = usd_path
+    merged_tags = list(dict.fromkeys([*SimReadyUsdObject.tags, *tags]))
+
+    class SearchedSimReadyObject(SimReadyUsdObject):
+        """A SimReady asset the search found for one prompt's object."""
+
+        name = registry_name
+        tags = merged_tags
+        # Limited to rigid objects for now.
+        object_type = ObjectType.RIGID
+
+        def __init__(self, **kwargs: Any):
+            kwargs.setdefault("usd_path", found_usd_path)
+            super().__init__(**kwargs)
+
+    registry.register(SearchedSimReadyObject, registry_name)
+    return SearchedSimReadyObject

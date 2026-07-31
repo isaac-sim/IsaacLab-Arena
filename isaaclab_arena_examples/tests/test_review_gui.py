@@ -361,6 +361,8 @@ class TestRunGenerationPipeline:
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
         mock_agent.generate_spec.return_value = (valid_spec, None)
+        # Explicit, because a MagicMock attribute is truthy and would read as a missing asset.
+        mock_agent.unavailable_objects = ()
 
         with (
             _patch_generation_agent(mock_agent),
@@ -377,12 +379,15 @@ class TestRunGenerationPipeline:
         assert session_state["save_path"]
         assert Path(session_state["save_path"]).is_file()
 
-    def test_names_the_objects_no_asset_was_found_for(self, session_state, tmp_path: Path):
+    def test_names_the_objects_no_asset_was_found_for(
+        self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path
+    ):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_agent.generate_spec.return_value = (None, {"env_name": "pick_up_a_cube"})
-        mock_agent.unavailable_objects = ("green_trash_can",)
-        mock_agent.traces = ("no asset available for: green_trash_can",)
+        # The spec is valid: the object nothing was found for was never offered to spec inference.
+        mock_agent.generate_spec.return_value = (valid_spec, None)
+        mock_agent.unavailable_objects = ("green trash can",)
+        mock_agent.traces = ("no SimReady asset for 'green trash can'; the spec is built without it",)
 
         with (
             _patch_generation_agent(mock_agent),
@@ -394,19 +399,20 @@ class TestRunGenerationPipeline:
             ok, message = run_generation_pipeline("pick up a cube")
 
         assert ok
-        # The banner names the object rather than reporting a generic invalid spec.
-        assert "No asset is available for: green_trash_can" in message
-        assert "invalid spec" not in message.lower()
-        # A missing asset is a failed generation, so the banner must not come out green.
+        # The banner names what the prompt asked for and did not get, so the swap is not silent.
+        assert "No asset was found for: green trash can" in message
+        assert "built without them" in message
+        # A silently substituted object is not a clean success, so the banner must not be green.
         assert session_state["_generation_severity"] == "warning"
-        # The unusable spec still lands in the editor so it can be fixed by hand.
         assert session_state["edited_text"]
-        assert session_state["_validation_result"].spec is None
+        assert session_state["save_path"]
 
     def test_save_failure_still_reports_success(self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
         mock_agent.generate_spec.return_value = (valid_spec, None)
+        # Explicit, because a MagicMock attribute is truthy and would read as a missing asset.
+        mock_agent.unavailable_objects = ()
 
         with (
             _patch_generation_agent(mock_agent),

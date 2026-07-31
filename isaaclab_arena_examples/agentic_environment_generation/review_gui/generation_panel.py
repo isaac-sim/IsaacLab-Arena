@@ -186,13 +186,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     if spec is None:
         traces = "\n".join(agent.traces) or "unknown validation error"
-        if agent.unavailable_objects:
-            headline = (
-                f"No asset is available for: {', '.join(agent.unavailable_objects)}. "
-                "Rephrase the prompt with a more common object, or register the asset in Arena."
-            )
-        else:
-            headline = "Agent returned an invalid spec."
+        headline = "Agent returned an invalid spec."
         _apply_generated_yaml(yaml_text, validation_error=f"{headline}\n{traces}")
         return _finish("warning", f"{headline}\nLoaded into the YAML editor.\n{traces}")
 
@@ -203,13 +197,26 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     trace_suffix = ""
     if simready_enabled and agent.traces:
         trace_suffix = "\n\nGeneration traces:\n" + "\n".join(agent.traces)
+    # The spec is valid either way: an object no asset was found for was never offered to spec
+    # inference, so it was built without it. Say so, or the substitution goes unnoticed.
+    missing_notice = ""
+    if agent.unavailable_objects:
+        missing_notice = (
+            f"\n\nNo asset was found for: {', '.join(agent.unavailable_objects)}. "
+            "The spec was built without them — rephrase the prompt with a more common object, "
+            "or register the asset in Arena."
+        )
     if error is not None:
         return _finish(
-            "warning", f"Spec generated and loaded into the YAML editor, but save failed: {error}{trace_suffix}"
+            "warning",
+            f"Spec generated and loaded into the YAML editor, but save failed: {error}{missing_notice}{trace_suffix}",
         )
 
     st.session_state["save_path"] = str(path)
-    return _finish("success", f"Spec generated, loaded into the YAML editor, and saved to {path}.{trace_suffix}")
+    return _finish(
+        "warning" if missing_notice else "success",
+        f"Spec generated, loaded into the YAML editor, and saved to {path}.{missing_notice}{trace_suffix}",
+    )
 
 
 def render_generation_panel() -> None:
