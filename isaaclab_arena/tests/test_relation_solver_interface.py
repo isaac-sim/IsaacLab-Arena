@@ -159,10 +159,10 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
     )
 
     assert "placement_pool" in event_cfg.params
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, resolve_placement_pool
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle
 
     assert isinstance(event_cfg.params["placement_pool"], PlacementPoolHandle)
-    assert [asset.name for asset in resolve_placement_pool(event_cfg.params["placement_pool"]).objects] == [
+    assert [asset.name for asset in event_cfg.params["placement_pool"].pool.objects] == [
         "desk",
         "box",
     ]

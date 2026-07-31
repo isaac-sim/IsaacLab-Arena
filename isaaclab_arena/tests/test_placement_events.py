@@ -151,9 +151,9 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
 
 def _solve_and_place_with_pool(env, env_ids, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
 
-    return solve_and_place_objects(env, env_ids, placement_pool=pool)
+    return solve_and_place_objects(env, env_ids, placement_pool=PlacementPoolHandle(pool))
 
 
 def test_solve_and_place_objects_writes_poses_to_sim():
@@ -186,7 +186,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
 
 def test_solve_and_place_objects_uses_runtime_pool():
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -217,7 +217,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
     solve_and_place_objects(
         env,
         torch.tensor([0]),
-        placement_pool=Pool(),
+        placement_pool=PlacementPoolHandle(Pool()),
     )
 
     assert "desk" not in env._assets
@@ -298,9 +298,6 @@ def test_get_placement_pool_returns_runtime_pool():
 
     pool = Pool()
     env = MagicMock()
-    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
-    assert get_placement_pool(env) is pool
-
     env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": PlacementPoolHandle(pool)}
     assert get_placement_pool(env) is pool
 
@@ -982,11 +979,11 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     # and on every built validator alike -- so configclass never deep-copies or recurses into it.
     from isaaclab.utils.configclass import _validate
 
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, resolve_placement_pool
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle
 
     pool_handle = event.params["placement_pool"]
     assert isinstance(pool_handle, PlacementPoolHandle)
     _validate(event, prefix="")
-    pool = resolve_placement_pool(pool_handle)
+    pool = pool_handle.pool
     assert pool._placer.params.reachability_config.embodiment is None
     assert all(v._params.reachability_config.embodiment is None for v in pool._placer._validators)

@@ -27,35 +27,29 @@ PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
 class PlacementPoolHandle:
-    """Opaque EventTermCfg param holding a runtime placement pool.
+    """Opaque holder for a runtime placement pool to bypass EventTermCfg param deepcopy/validation errors.
 
-    Isaac Lab ``configclass._validate`` recursively walks any object with ``__dict__`` and has no
-    cycle guard. A live ``PooledObjectPlacer`` reaches placement assets (including embodiments with
-    cyclic scene configs) and overflows validation when stored directly in event params.
+    PooledObjectPlacer is used as an EventTermCfg param to set the initial spawn pose. Isaac Lab deep-copies
+    and validates the configclass param, leading to two crashes: deepcopy fails for the Warp GPU cache
+    wp.Mesh BVHs ("ctypes objects containing pointers cannot be pickled"); validation hits RecursionError
+    when recursively walking all dicts and reaches placement assets (including embodiments with cyclic
+    scene configs).
 
-    This handle is the EventTermCfg-facing token: it intentionally has no ``__dict__`` so validation
-    stops here, while ``PooledObjectPlacer`` itself stays a normal class. Deep-copies share the same
-    pool instance (runtime state, not config).
+    This handle wraps PooledObjectPlacer with overrides for deepcopy and validation, while
+    PooledObjectPlacer itself stays a normal class. EventTermCfg params use this handle.
     """
 
     __slots__ = ("pool",)
+    """Store pool in a slot instead of an instance dictionary; ``hasattr(handle, "__dict__")`` is false,
+    so ``_validate(handle)`` stops traversing into PooledObjectPlacer ."""
 
     def __init__(self, pool: PooledObjectPlacer) -> None:
         self.pool = pool
 
     def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
-        """Share the live pool across ``copy.deepcopy`` of EventTermCfg params."""
+        """Share the live pool across ``copy.deepcopy`` to avoid deep-copying the Warp cache BVHs."""
         memo[id(self)] = self
         return self
-
-
-def resolve_placement_pool(value: PooledObjectPlacer | PlacementPoolHandle | None) -> PooledObjectPlacer | None:
-    """Return the underlying pool, unwrapping a handle when present."""
-    if value is None:
-        return None
-    if isinstance(value, PlacementPoolHandle):
-        return value.pool
-    return value
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
@@ -71,7 +65,9 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    return resolve_placement_pool(term_cfg.params.get("placement_pool"))
+    handle = term_cfg.params.get("placement_pool")
+    assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_pool parameter."
+    return handle.pool
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -145,7 +141,7 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    placement_pool: PooledObjectPlacer | PlacementPoolHandle,
+    placement_pool: PlacementPoolHandle,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -156,20 +152,19 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        placement_pool: Runtime pool of solved placement layouts (or opaque handle).
-            Layout assets come from ``placement_pool.objects``.
+        placement_pool: Opaque handle to the runtime pool of solved placement layouts.
+            Layout assets come from ``placement_pool.pool.objects``.
     """
-    placement_pool = resolve_placement_pool(placement_pool)
-    assert placement_pool is not None, "placement_reset event is missing its placement pool."
+    pool = placement_pool.pool
     if env_ids is None or len(env_ids) == 0:
         return
-    assets = placement_pool.objects
+    assets = pool.objects
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
-        placement_pool.num_envs == num_scene_envs
-    ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-    results_by_env = placement_pool.sample_for_envs(reset_env_ids)
+        pool.num_envs == num_scene_envs
+    ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+    results_by_env = pool.sample_for_envs(reset_env_ids)
     anchor_assets = set(get_anchor_objects(assets))
     base_rotations = get_base_rotation_per_asset(assets)
 

@@ -27,9 +27,14 @@ if TYPE_CHECKING:
 class PlaceableAsset(Asset, ABC):
     """Asset whose root pose can be constrained by spatial relations."""
 
-    def __init__(self, name: str, tags: list[str] | None = None, **kwargs) -> None:
-        collision_mode = kwargs.pop("collision_mode", None)
-        repair_collision_mesh_non_watertight = kwargs.pop("repair_collision_mesh_non_watertight", True)
+    def __init__(
+        self,
+        name: str,
+        tags: list[str] | None = None,
+        collision_mode: CollisionMode | str | None = None,
+        repair_collision_mesh_non_watertight: bool = True,
+        **kwargs,
+    ) -> None:
         super().__init__(name=name, tags=tags, **kwargs)
         self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self._pose_event_cfg: EventTermCfg | None = None
@@ -38,7 +43,7 @@ class PlaceableAsset(Asset, ABC):
         # None delegates collision-mode selection to the solver.
         if collision_mode is not None:
             collision_mode = CollisionMode(collision_mode)
-        self.collision_mode: CollisionMode | None = collision_mode
+        self.collision_mode = collision_mode
         # Whether to replace a non-watertight collision mesh with its convex hull.
         self.repair_collision_mesh_non_watertight = repair_collision_mesh_non_watertight
 
