@@ -12,22 +12,8 @@ from typing import Any
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.simready_constants import SIMREADY_PHYSICS_VARIANTS, SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.utils.pose import Pose
-
-SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
-"""Registry name a generated spec uses to spawn a searched SimReady asset."""
-
-ISAAC_SIMREADY_GA_S3_URL = (
-    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"
-)
-
-DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
-"""Hosted SimReady search, used when the ``service`` source is selected."""
-
-# SimReady GA props author collision/rigid APIs under the Physics=physics variant.
-# Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
-# PickAndPlace contact sensors fail with "No rigid body found".
-SIMREADY_PHYSICS_VARIANTS: dict[str, str] = {"Physics": "physics"}
 
 
 @register_asset

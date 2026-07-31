@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from isaaclab_arena.assets.simready_object_library import (
+from isaaclab_arena.assets.simready_constants import (
     DEFAULT_SIMREADY_SERVICE_URL,
     ISAAC_SIMREADY_GA_S3_URL,
     SIMREADY_PHYSICS_VARIANTS,

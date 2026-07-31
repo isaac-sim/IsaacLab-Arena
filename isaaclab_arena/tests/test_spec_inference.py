@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
-from isaaclab_arena.assets.simready_object_library import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import (

@@ -20,7 +20,7 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     format_validation_error,
 )
-from isaaclab_arena.assets.simready_object_library import SIMREADY_USD_OBJECT_REGISTRY_NAME
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
