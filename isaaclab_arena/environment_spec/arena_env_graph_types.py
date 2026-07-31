@@ -312,7 +312,7 @@ class PlacementValidatorSpec(BaseModel):
         description=(
             "Stream every candidate layout the checks evaluate to a spawned Rerun viewer window. Debug "
             "aid, off by default; needs a reachable display. The viewer is its own process, so this "
-            "never starts Isaac Sim."
+            "never starts Isaac Sim, and it closes with the run."
         ),
     )
     debug_visualize_rrd_path: str | None = Field(

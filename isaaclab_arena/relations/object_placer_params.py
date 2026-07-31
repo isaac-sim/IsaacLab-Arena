@@ -90,9 +90,9 @@ class ObjectPlacerParams:
     """If True, stream every validated candidate layout to a spawned Rerun viewer window.
 
     Debug aid, off by default. Needs the ``rerun-sdk`` package and a reachable display (the container
-    forwards ``DISPLAY``); the viewer is its own process, so this never starts Isaac Sim. Checks that
-    can say more about a candidate add their own layer -- the cuRobo reachability check draws the
-    grasps it solved and the robot's collision spheres."""
+    forwards ``DISPLAY``); the viewer is its own process, so this never starts Isaac Sim, and it is
+    closed when the run exits. Checks that can say more about a candidate add their own layer -- the
+    cuRobo reachability check draws the grasps it solved and the robot's collision spheres."""
 
     debug_visualize_rrd_path: str | None = None
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs.

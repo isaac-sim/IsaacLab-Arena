@@ -12,13 +12,19 @@ window comes up while layouts are being solved, before any simulation exists. En
 Every candidate layout is one frame of the ``candidate`` timeline, so scrubbing it shows what was
 solved and which checks rejected it. Checks that know more about a candidate than its boxes add their
 own layer under ``world/robot`` (see the cuRobo reachability check).
+
+The spawned window belongs to the run: it comes up during placement, stays up for the rest of the
+run, and dies with the process that spawned it. Record to an ``.rrd`` to inspect layouts afterwards.
 """
 
 from __future__ import annotations
 
 import math
+import socket
+import subprocess
+import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -46,6 +52,18 @@ ACCEPTED_COLOR = (40, 200, 80)
 
 REJECTED_COLOR = (220, 50, 50)
 """Color marking a candidate at least one check rejected."""
+
+VIEWER_HOST = "127.0.0.1"
+"""Interface the spawned viewer is reached on; it always runs alongside the process that logs to it."""
+
+VIEWER_PORT = 9876
+"""Port the spawned viewer serves on; Rerun's default, so ``rerun --connect`` finds it unprompted."""
+
+VIEWER_SHUTDOWN_TIMEOUT_S = 10.0
+"""How long an explicit close() waits for the viewer window to go away before giving up on it."""
+
+VIEWER_STARTUP_TIMEOUT_S = 20.0
+"""How long spawning waits for the viewer window to start serving before letting placement run on."""
 
 _ACTIVE_VISUALIZER: PlacementRerunVisualizer | None = None
 """The process's live view. Placement builds several placers (pool, per-reset solves) that would
@@ -80,12 +98,52 @@ def find_rerun_viewer_executable() -> str | None:
     return str(executable) if executable.is_file() else None
 
 
-class PlacementRerunVisualizer:
-    """Streams every validated candidate layout to Rerun, one frame per candidate.
+def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
+    """Spawn a viewer window that dies with this process; return it and the sink that streams to it.
 
-    Holds only plain attributes (the recording itself is Rerun's process-global stream) so the
-    placement event config can deep-copy the pool that owns it.
+    ``setpriv --pdeathsig`` rather than ``rerun.spawn()``, which detaches the viewer and drops its
+    pid: the kernel then closes the window even on the hard ``os._exit`` Isaac Sim shuts down with.
     """
+    import rerun as rr
+
+    executable = find_rerun_viewer_executable()
+    assert executable is not None, "rerun-sdk ships no viewer binary here; record to an .rrd instead."
+    viewer_process = subprocess.Popen([
+        "setpriv",
+        "--pdeathsig",
+        "TERM",
+        "--",
+        executable,
+        f"--port={VIEWER_PORT}",
+        "--memory-limit=75%",
+        "--server-memory-limit=1GiB",
+        # Wait for this run's recording instead of opening on the welcome screen.
+        "--expect-data-soon",
+    ])
+    _wait_until_viewer_serves(viewer_process)
+    return viewer_process, rr.GrpcSink(url=f"rerun+http://{VIEWER_HOST}:{VIEWER_PORT}/proxy")
+
+
+def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
+    """Block until the spawned viewer answers on its port, so the first candidates are not lost.
+
+    Never fatal -- a view that fails to come up does not stop the run it was only meant to explain.
+    """
+    deadline = time.monotonic() + VIEWER_STARTUP_TIMEOUT_S
+    while time.monotonic() < deadline:
+        if viewer_process.poll() is not None:
+            print("WARNING: the Rerun viewer exited while starting; placement will not be visualized.")
+            return
+        with socket.socket() as probe:
+            probe.settimeout(0.2)
+            if probe.connect_ex((VIEWER_HOST, VIEWER_PORT)) == 0:
+                return
+        time.sleep(0.1)
+    print(f"WARNING: the Rerun viewer did not serve within {VIEWER_STARTUP_TIMEOUT_S:.0f}s; layouts may be missing.")
+
+
+class PlacementRerunVisualizer:
+    """Streams every validated candidate layout to Rerun, one frame per candidate."""
 
     def __init__(self, app_id: str = "arena_placement", spawn: bool = True, rrd_path: str | None = None) -> None:
         """Start the recording and, unless recording headlessly, spawn a viewer window.
@@ -99,10 +157,10 @@ class PlacementRerunVisualizer:
 
         rr.init(app_id, spawn=False)
         sinks: list = []
+        self._viewer_process: subprocess.Popen | None = None
         if spawn:
-            # connect=False: the sink is set below, so spawn only has to bring the viewer process up.
-            rr.spawn(connect=False, executable_path=find_rerun_viewer_executable())
-            sinks.append(rr.GrpcSink())
+            self._viewer_process, viewer_sink = spawn_viewer_process()
+            sinks.append(viewer_sink)
         if rrd_path is not None:
             Path(rrd_path).parent.mkdir(parents=True, exist_ok=True)
             sinks.append(rr.FileSink(rrd_path))
@@ -233,10 +291,18 @@ class PlacementRerunVisualizer:
             rr.log(f"checks/{check}", rr.Scalars(float(passed)))
 
     def close(self) -> None:
-        """Flush pending data so a recorded ``.rrd`` is readable without waiting for interpreter exit.
+        """Flush pending data and shut down the viewer window this run spawned. Idempotent.
 
-        A spawned viewer keeps running afterwards, so the layouts stay inspectable.
+        Only needed to close the window early -- a run that just exits leaves it to the viewer's
+        parent-death signal.
         """
         import rerun as rr
 
-        rr.get_global_data_recording().flush()
+        # None once Rerun's own shutdown hook has torn the recording down ahead of this call.
+        recording = rr.get_global_data_recording()
+        if recording is not None:
+            recording.flush()
+        viewer_process, self._viewer_process = self._viewer_process, None
+        if viewer_process is not None:
+            viewer_process.terminate()
+            viewer_process.wait(timeout=VIEWER_SHUTDOWN_TIMEOUT_S)

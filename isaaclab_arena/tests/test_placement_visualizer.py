@@ -90,6 +90,38 @@ def test_placement_shares_one_debug_view_across_placers(tmp_path):
     assert first.params.debug_visualizer is second.params.debug_visualizer
 
 
+class _FakeViewerProcess:
+    """Stands in for the spawned viewer window, so the test needs no display."""
+
+    def __init__(self) -> None:
+        self.terminate_calls = 0
+
+    def terminate(self) -> None:
+        self.terminate_calls += 1
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+
+def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch):
+    """The window belongs to the run, so closing the view takes it down instead of leaving it on the port."""
+    import rerun as rr
+
+    viewer = _FakeViewerProcess()
+    # Record where the viewer's live stream would go, so the test needs neither a display nor a port.
+    monkeypatch.setattr(
+        placement_visualizer,
+        "spawn_viewer_process",
+        lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
+    )
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+
+    visualizer.close()
+    visualizer.close()
+
+    assert viewer.terminate_calls == 1
+
+
 def test_candidate_frames_keep_counting_across_batches(tmp_path):
     """A pool that refills gets fresh frames, so a later batch does not overwrite an earlier one."""
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
