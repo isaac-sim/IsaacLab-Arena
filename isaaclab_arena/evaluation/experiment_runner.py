@@ -10,14 +10,13 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, build_runs_info_table
+from isaaclab_arena.evaluation.arena_run import build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
     run_legacy_json_in_chunks,
 )
-from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
@@ -49,20 +48,11 @@ def _experiment_requires_cameras(
 
 def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
     """Check that AppLauncher enabled camera support requested by typed Runs."""
-    camera_run_names = [
-        run_cfg.name for run_cfg in experiment_cfg.runs.values() if _run_environment_requires_cameras(run_cfg)
-    ]
+    camera_run_names = [run_cfg.name for run_cfg in experiment_cfg.runs.values() if run_cfg.environment.enable_cameras]
     assert not camera_run_names or enable_cameras, (
         f"Runs {camera_run_names} enable environment cameras but AppLauncher started without camera support. "
         "The camera requirements read from the Experiment before startup disagree with the composed Experiment."
     )
-
-
-def _run_environment_requires_cameras(run_cfg: ArenaRunCfg) -> bool:
-    """Return whether a Run's environment enables cameras, including graph-YAML environments."""
-    if isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
-        return "--enable_cameras" in run_cfg.environment.arena_env_args
-    return run_cfg.environment.enable_cameras
 
 
 def _assert_exact_experiment_output_directory_is_available(experiment_output_directory: Path) -> None:

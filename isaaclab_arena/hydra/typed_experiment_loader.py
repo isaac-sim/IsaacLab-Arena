@@ -23,6 +23,8 @@ from omegaconf.errors import OmegaConfBaseException
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -42,23 +44,19 @@ def load_arena_experiment_from_yaml(
     *,
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
-    graph_environment_cfg_factory: Callable[[str, dict[str, Any]], ArenaEnvironmentCfg] | None = None,
     overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
     Each entry in the runs mapping declares one Run using its key as the Run
-    name. The environment.type selector chooses from the supplied mapping,
-    policy.type is resolved when its Run is built. Hydra overrides can update
-    fields on Runs declared in YAML, but cannot add Runs.
+    name. The environment.type selector chooses from the supplied mapping, or
+    names a graph-spec YAML path; policy.type is resolved when its Run is built.
+    Hydra overrides can update fields on Runs declared in YAML, but cannot add Runs.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        graph_environment_cfg_factory: Function building an environment config when
-            environment.type is a graph-spec YAML path instead of a selector name. It
-            receives the path and the remaining environment values.
         overrides: Hydra field overrides for Runs already declared in YAML.
 
     Returns:
@@ -80,7 +78,6 @@ def load_arena_experiment_from_yaml(
                     run_values,
                     environment_cfg_types,
                     policy_cfg_type_resolver,
-                    graph_environment_cfg_factory,
                 )
                 for index, (run_name, run_values) in enumerate(run_values_by_name.items())
             }
@@ -156,7 +153,6 @@ def _build_arena_run_cfg_from_yaml_values(
     run_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
-    graph_environment_cfg_factory: Callable[[str, dict[str, Any]], ArenaEnvironmentCfg] | None,
 ) -> ArenaRunCfg:
     """Build one typed Arena Run from its unresolved YAML values.
 
@@ -168,8 +164,6 @@ def _build_arena_run_cfg_from_yaml_values(
         run_values: Unresolved values declared for the Run.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        graph_environment_cfg_factory: Function building an environment config from a
-            graph-spec YAML environment.type selector, or None if unsupported.
 
     Returns:
         The fully composed typed Run configuration.
@@ -181,26 +175,13 @@ def _build_arena_run_cfg_from_yaml_values(
     hydra_run_config_name = f"{hydra_config_namespace}_run_{index}"
     hydra_environment_config_name = f"{hydra_run_config_name}_environment"
     hydra_policy_config_name = f"{hydra_run_config_name}_policy"
-    graph_spec_yaml = _graph_spec_yaml_selector(environment_values)
-    if graph_spec_yaml is not None:
-        assert graph_environment_cfg_factory is not None, (
-            f"Run '{run_name}' selects graph-spec YAML environment '{graph_spec_yaml}', "
-            "but this loader was not given graph-YAML environment support"
-        )
-        environment_values_without_selector = {
-            field_name: value for field_name, value in environment_values.items() if field_name != "type"
-        }
-        environment = graph_environment_cfg_factory(graph_spec_yaml, environment_values_without_selector)
-    else:
-        environment = _compose_typed_config_from_yaml_selector(
-            config_store,
-            hydra_environment_config_name,
-            run_name,
-            "environment",
-            environment_values,
-            environment_cfg_types,
-            ArenaEnvironmentCfg,
-        )
+    environment = _build_environment_cfg_from_yaml_values(
+        config_store,
+        hydra_environment_config_name,
+        run_name,
+        environment_values,
+        environment_cfg_types,
+    )
     policy_cfg_types: dict[str, type[PolicyCfg]] = {}
     if isinstance(policy_values, dict):
         policy_selector = policy_values.get("type")
@@ -225,6 +206,56 @@ def _build_arena_run_cfg_from_yaml_values(
     run = OmegaConf.to_object(compose(config_name=hydra_run_config_name))
     assert isinstance(run, ArenaRunCfg)
     return run
+
+
+def _build_environment_cfg_from_yaml_values(
+    config_store: ConfigStore,
+    hydra_environment_config_name: str,
+    run_name: str,
+    environment_values: Any,
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+) -> ArenaEnvironmentCfg:
+    """Build a Run's environment from a graph-spec YAML path or a typed selector.
+
+    When environment.type names a graph-spec YAML file it is built on the temporary
+    argparse compatibility path; otherwise the type selects a registered typed config.
+    """
+    graph_spec_yaml = _graph_spec_yaml_selector(environment_values)
+    if graph_spec_yaml is not None:
+        environment_values_without_selector = {
+            field_name: value for field_name, value in environment_values.items() if field_name != "type"
+        }
+        return _graph_environment_cfg_from_yaml_values(graph_spec_yaml, environment_values_without_selector)
+    return _compose_typed_config_from_yaml_selector(
+        config_store,
+        hydra_environment_config_name,
+        run_name,
+        "environment",
+        environment_values,
+        environment_cfg_types,
+        ArenaEnvironmentCfg,
+    )
+
+
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
+# environments have a typed configuration and no longer use the argparse compatibility path.
+def _graph_environment_cfg_from_yaml_values(
+    env_graph_spec_yaml: str,
+    environment_values: dict[str, Any],
+) -> LegacyGraphEnvironmentCfg:
+    """Create the temporary graph-YAML compatibility config from typed YAML Run values.
+
+    The environment values are rendered as CLI tokens for the existing graph-environment
+    argparse path; the Run's environment_builder section stays typed and is applied
+    directly at execution (see build_arena_builder_from_legacy_graph).
+    """
+    arena_env_args: dict[str, Any] = {"environment": env_graph_spec_yaml, **environment_values}
+    return LegacyGraphEnvironmentCfg(
+        arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
+        enable_cameras=bool(environment_values.get("enable_cameras", False)),
+        env_graph_spec_yaml=env_graph_spec_yaml,
+        environment_values=dict(environment_values),
+    )
 
 
 def _graph_spec_yaml_selector(environment_values: Any) -> str | None:

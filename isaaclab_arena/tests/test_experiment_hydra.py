@@ -211,36 +211,47 @@ runs:
 """
 
 
-def test_graph_spec_yaml_environment_uses_injected_factory(tmp_path):
+def test_graph_spec_yaml_environment_builds_legacy_cfg(tmp_path):
     config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
-    factory_calls = []
 
-    def graph_environment_cfg_factory(graph_spec_yaml, environment_values):
-        factory_calls.append((graph_spec_yaml, environment_values))
-        return LegacyGraphEnvironmentCfg(arena_env_args=["--env_graph_spec_yaml", graph_spec_yaml])
-
-    experiment_cfg = load_arena_experiment_from_yaml(
-        config_path,
-        environment_cfg_types={},
-        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
-        graph_environment_cfg_factory=graph_environment_cfg_factory,
-    )
+    experiment_cfg = _load_experiment(config_path)
     run = experiment_cfg.runs["graph_run"]
 
-    assert factory_calls == [("robolab/tasks/banana_in_bowl.yaml", {"pick_up_object": "banana"})]
     assert run.environment == LegacyGraphEnvironmentCfg(
-        arena_env_args=["--env_graph_spec_yaml", "robolab/tasks/banana_in_bowl.yaml"]
+        arena_env_args=[
+            "--env_graph_spec_yaml",
+            "robolab/tasks/banana_in_bowl.yaml",
+            "--pick_up_object",
+            "banana",
+        ],
+        env_graph_spec_yaml="robolab/tasks/banana_in_bowl.yaml",
+        environment_values={"pick_up_object": "banana"},
     )
     assert run.policy == ZeroActionPolicyCfg()
     assert run.environment_builder.num_envs == 2
     assert run.rollout_limit.num_steps == 5
 
 
-def test_graph_spec_yaml_environment_requires_factory(tmp_path):
-    config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
+def test_graph_spec_yaml_environment_populates_enable_cameras(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+    policy:
+      type: zero_action
+""",
+    )
 
-    with pytest.raises(AssertionError, match="not given graph-YAML environment support"):
-        _load_experiment(config_path)
+    run = _load_experiment(config_path).runs["graph_run"]
+
+    # The typed enable_cameras field drives pre-startup camera detection; the CLI token
+    # drives the graph-environment argparse path. Both must reflect the YAML value.
+    assert run.environment.enable_cameras is True
+    assert "--enable_cameras" in run.environment.arena_env_args
 
 
 @pytest.mark.parametrize(
