@@ -111,6 +111,7 @@ RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/
 COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
+COPY isaaclab_arena_cosmos ${WORKDIR}/isaaclab_arena_cosmos
 COPY isaaclab_arena_curobo ${WORKDIR}/isaaclab_arena_curobo
 COPY isaaclab_arena_dreamzero ${WORKDIR}/isaaclab_arena_dreamzero
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
