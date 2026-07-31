@@ -2,9 +2,6 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-# Worked example of turning the placement Rerun debug view on from a graph YAML. Shipped envs leave
-# it off: it spawns a viewer window on every build.
 env_name: llm_gen_maple_table_robolab_PickAndPlaceTask
 embodiment:
   id: franka_ik
@@ -18,7 +15,7 @@ objects:
 - id: bowl_ycb_robolab
   registry_name: bowl_ycb_robolab
 placement_validators:
-  enabled_checks: [no_overlap, on_relation]
+  enabled_checks: [no_overlap, on_relation, ik_reachability]
   required_checks: [no_overlap, on_relation]
   debug_visualize: true
   debug_visualize_rrd_path: /tmp/placement_debug_view.rrd
