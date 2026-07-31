@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
@@ -26,8 +27,6 @@ DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:la
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 # Result interpreted by the downstream Experiment output collector.
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
-_COMPLETED_EXECUTION_STATUS = "completed"
-_FAILED_EXECUTION_STATUS = "failed"
 
 
 @dataclass
@@ -91,10 +90,10 @@ class ExperimentRunnerTask(BaseTask):
             "set -euo pipefail\n"
             f"if {shlex.join(command)}; then\n"
             "  experiment_runner_process_exit_code=0\n"
-            f"  experiment_runner_execution_status={_COMPLETED_EXECUTION_STATUS}\n"
+            f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}\n"
             "else\n"
             "  experiment_runner_process_exit_code=$?\n"
-            f"  experiment_runner_execution_status={_FAILED_EXECUTION_STATUS}\n"
+            f"  experiment_runner_execution_status={RunStatus.FAILED.value}\n"
             "fi\n"
             'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '

@@ -8,11 +8,13 @@
 import json
 from pathlib import Path
 
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
     build_experiment_output,
     collect_run_outputs_into_experiment_output,
     load_experiment_runner_output_directories_by_run_name,
+    load_experiment_runner_result,
 )
 
 
@@ -55,6 +57,15 @@ def test_loads_experiment_runner_output_directories_as_paths(tmp_path):
     )
 
     assert experiment_runner_output_directories_by_run_name == {"first": experiment_runner_output_directory}
+
+
+def test_loads_experiment_runner_result_as_run_status(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED.value, 0)
+
+    experiment_runner_result = load_experiment_runner_result(experiment_runner_output_directory, "first")
+
+    assert experiment_runner_result == (RunStatus.COMPLETED, 0)
 
 
 def test_skips_completed_experiment_runner_output_without_the_requested_run(tmp_path, capsys):

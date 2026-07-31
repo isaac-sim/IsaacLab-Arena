@@ -19,17 +19,16 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.visualization.report import build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
-_COMPLETED_EXECUTION_STATUS = "completed"
-_FAILED_EXECUTION_STATUS = "failed"
 
 
 def load_experiment_runner_result(
     experiment_runner_output_directory: Path,
     run_name: str,
-) -> tuple[str, int] | None:
+) -> tuple[RunStatus, int] | None:
     """Load a valid Experiment Runner result, or skip an unavailable result.
 
     Args:
@@ -50,11 +49,9 @@ def load_experiment_runner_result(
         print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' must contain a JSON object")
         return None
 
-    execution_status = experiment_runner_result.get("execution_status")
-    if not isinstance(execution_status, str) or execution_status not in {
-        _COMPLETED_EXECUTION_STATUS,
-        _FAILED_EXECUTION_STATUS,
-    }:
+    try:
+        execution_status = RunStatus(experiment_runner_result.get("execution_status"))
+    except (TypeError, ValueError):
         print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid execution_status")
         return None
 
@@ -64,7 +61,7 @@ def load_experiment_runner_result(
             f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid process_exit_code"
         )
         return None
-    if (execution_status == _COMPLETED_EXECUTION_STATUS) != (process_exit_code == 0):
+    if (execution_status is RunStatus.COMPLETED) != (process_exit_code == 0):
         print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' contains an inconsistent result")
         return None
     return execution_status, process_exit_code
@@ -120,7 +117,7 @@ def collect_run_outputs_into_experiment_output(
         execution_status, process_exit_code = experiment_runner_result
         destination_run_output_directory = experiment_output_directory / run_name
         experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
-        if execution_status == _FAILED_EXECUTION_STATUS:
+        if execution_status is RunStatus.FAILED:
             print(f"[WARNING] Excluding failed Run '{run_name}' with process exit code {process_exit_code}")
             destination_run_output_directory.mkdir(parents=True)
             shutil.copy2(
