@@ -277,6 +277,73 @@ class IsAnchor(RelationBase):
 
 
 @register_object_relation
+class ClutteredOn(RelationBase):
+    """Places this object as one member of a settled clutter group on a support surface.
+
+    Group members are positioned by dropping them above the support and letting physics
+    settle, rather than by the relation solver. A settled pile has objects touching and
+    resting at arbitrary tilts, which the solver cannot express: it forbids overlap
+    globally and optimises positions only.
+
+    Deriving from ``RelationBase`` rather than ``Relation`` is what keeps members out of
+    gradient descent, since only ``Relation`` and ``UnaryRelation`` reach the loss.
+
+    Usage:
+        table.add_relation(IsAnchor())
+        for tool in tools:
+            tool.add_relation(ClutteredOn(table, group="tools"))
+    """
+
+    name = "cluttered_on"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        group: str = "clutter",
+        spread: float = 1.0,
+        gap_m: float = 0.03,
+        clearance_m: float = 0.01,
+        random_yaw: bool = True,
+    ):
+        """
+        Args:
+            parent: The support asset the group comes to rest on.
+            group: Name tying members of one pile together. Assets sharing a parent and a
+                group are dropped as a single pile.
+            spread: Scales the usable fraction of the support's footprint about its centre.
+                Below 1.0 concentrates the pile; above 1.0 is rejected.
+            gap_m: Vertical gap left between an object and whatever it is dropped on top of.
+            clearance_m: Height above the support surface at which the lowest layer starts.
+            random_yaw: Whether to sample a yaw per object before dropping.
+        """
+        assert 0.0 < spread <= 1.0, f"spread must be in (0, 1], got {spread}"
+        assert gap_m >= 0.0, f"gap_m must be non-negative, got {gap_m}"
+        assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"
+        assert group, "group must be a non-empty name"
+        self.parent = parent
+        self.group = group
+        self.spread = spread
+        self.gap_m = gap_m
+        self.clearance_m = clearance_m
+        self.random_yaw = random_yaw
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return False
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Reject a clutter member whose support is absent or is itself clutter."""
+        assert (
+            self.parent in objects
+        ), f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is not part of the placement."
+        assert not self.parent.has_relation(ClutteredOn), (
+            f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is itself clutter. "
+            "Piles cannot be stacked on piles; give the group a settled support instead."
+        )
+
+
+@register_object_relation
 class RequiresReachability(RelationBase):
     """Indicates the robot shall be able to reach this object.
 
