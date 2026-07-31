@@ -225,7 +225,7 @@ def _test_direction_variation_lights_injected_directional_light(simulation_app):
 
 
 def test_direction_variation_lights_injected_directional_light():
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_direction_variation_lights_injected_directional_light)
+    result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result
