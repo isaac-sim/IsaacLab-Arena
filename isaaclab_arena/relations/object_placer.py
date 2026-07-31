@@ -321,11 +321,6 @@ class ObjectPlacer:
         its own pour, so a pool holds distinct piles rather than one pile repeated.
         """
         groups = get_clutter_groups(objects)
-        if self.params.verbose:
-            print(
-                f"[clutter] planning pours: groups={len(groups)} "
-                f"members={sum(len(group.members) for group in groups)} of {len(objects)} objects"
-            )
         if not groups:
             return
         assert self.params.placement_seed is not None, (
