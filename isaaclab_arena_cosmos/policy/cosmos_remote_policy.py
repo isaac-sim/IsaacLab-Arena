@@ -5,10 +5,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
 from isaaclab_arena_openpi.policy.remote_policy_base import RemoteChunkReplayPolicy
+
+if TYPE_CHECKING:
+    from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter
 
 # Cosmos serves over openpi's WebsocketPolicyServer, so this reuses the shared
 # openpi-protocol machinery (RemoteChunkReplayPolicy). It differs only in the response key
@@ -29,7 +34,7 @@ class CosmosRemotePolicy(RemoteChunkReplayPolicy, PolicyBase[CosmosRemotePolicyC
         super().__init__(config, adapter, config.open_loop_horizon)
 
 
-def _resolve_cosmos_embodiment_adapter(key: str):
+def _resolve_cosmos_embodiment_adapter(key: str) -> CosmosDroidAdapter:
     """Instantiate the adapter registered under ``key``.
 
     Imports are deferred to call time so adapter modules can import the shared
