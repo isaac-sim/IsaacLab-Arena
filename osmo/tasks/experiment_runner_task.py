@@ -47,6 +47,9 @@ class ExperimentRunnerTaskCfg(TaskCfg):
     watchdog_max_restarts: int = 3
     """Maximum number of stall-triggered relaunches before the task gives up."""
 
+    watchdog_swallow_failures: bool = False
+    """Exit 0 on a failed Run, leaving a 'run_failed.marker', so it does not fail the whole workflow."""
+
 
 class ExperimentRunnerTask(BaseTask):
     """Lead OSMO task that runs every Run in one effective Arena Experiment."""
@@ -110,7 +113,7 @@ class ExperimentRunnerTask(BaseTask):
         """Wrap the runner command so a stalled Run is killed and relaunched on a fresh output dir."""
         if self.task_cfg.watchdog_stall_timeout_seconds <= 0:
             return command
-        return [
+        watchdog_command = [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_WATCHDOG_SCRIPT,
             "--stall-timeout-seconds",
@@ -119,6 +122,7 @@ class ExperimentRunnerTask(BaseTask):
             str(self.task_cfg.watchdog_max_restarts),
             "--output-directory",
             OSMO_TASK_OUTPUT_DIR,
-            "--",
-            *command,
         ]
+        if self.task_cfg.watchdog_swallow_failures:
+            watchdog_command.append("--swallow-failures")
+        return [*watchdog_command, "--", *command]

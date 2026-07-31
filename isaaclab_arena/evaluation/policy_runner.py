@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 import torch
 import tqdm
 from importlib import import_module
@@ -30,6 +31,9 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 if TYPE_CHECKING:
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
+
+ROLLOUT_PROGRESS_INTERVAL_SECONDS = 60.0
+"""Seconds between rollout progress lines. Must stay well below any stall watchdog's timeout."""
 
 
 def get_policy_cls(policy_type: str) -> type[PolicyBase]:
@@ -86,6 +90,7 @@ def rollout_policy(
 
         num_episodes_completed = 0
         num_steps_completed = 0
+        last_progress_monotonic = time.monotonic()
 
         while True:
             with torch.inference_mode():
@@ -119,6 +124,17 @@ def rollout_policy(
                     pbar.update(1)
                     if num_steps_completed >= num_steps:
                         break
+
+                # This loop is otherwise silent between episodes, which for a slow policy can be
+                # many minutes. Print periodically so a long-running rollout keeps reporting that it
+                # is still stepping, rather than looking hung to anything watching this process.
+                if time.monotonic() - last_progress_monotonic >= ROLLOUT_PROGRESS_INTERVAL_SECONDS:
+                    last_progress_monotonic = time.monotonic()
+                    print(
+                        f"[Rank {get_local_rank()}/{get_world_size()}] Progress:"
+                        f" {num_steps_completed} steps and {num_episodes_completed} episodes completed.",
+                        flush=True,
+                    )
 
         pbar.close()
 

@@ -10,10 +10,11 @@ wrapped command as a subprocess, forwards its output, and treats a silence longe
 ``--stall-timeout-seconds`` as a hang: it kills the process group, clears the output directory,
 and relaunches, up to ``--max-restarts`` times.
 
-So one failing Run never fails the whole workflow, the watchdog always exits 0. On any failure
-(the command exits non-zero, or it stalls on every attempt) it clears the output directory and
-writes a marker file (``run_failed.marker``) recording why, so a downstream/aggregation job can
-still tell a failed Run apart from a successful one.
+A failure is reported as-is: the command's non-zero exit code is propagated, and stalling on
+every attempt exits 1. Pass ``--swallow-failures`` to instead exit 0 on any failure, clearing the
+output directory and writing a marker file (``run_failed.marker``) recording why, so one failing
+Run does not fail the whole workflow while a downstream/aggregation job can still tell a failed
+Run apart from a successful one.
 
 This is a stop-gap for the underlying stall; see BRANCH_CHANGES.md.
 """
@@ -59,6 +60,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="How often to check for a stall. Default 10.",
     )
     parser.add_argument(
+        "--swallow-failures",
+        action="store_true",
+        default=False,
+        help=(
+            "Exit 0 even when the command fails, clearing the output directory and writing a "
+            "'run_failed.marker' file instead, so one failing Run does not fail the whole workflow."
+        ),
+    )
+    parser.add_argument(
         "command",
         nargs=argparse.REMAINDER,
         help="The command to run, preceded by '--' (e.g. -- /isaac-sim/python.sh experiment_runner.py ...).",
@@ -90,8 +100,9 @@ _RUN_FAILED_MARKER_NAME = "run_failed.marker"
 def _mark_run_failed(output_directory: Path | None, reason: str) -> None:
     """Clear ``output_directory`` and drop a marker file recording why the Run failed.
 
-    Best-effort. The watchdog exits 0 regardless (so an upstream Run failure does not fail the whole
-    OSMO workflow); the marker lets a downstream job distinguish a failed Run from a successful one.
+    Best-effort, and only used under ``--swallow-failures``, where the watchdog exits 0 (so an
+    upstream Run failure does not fail the whole OSMO workflow) and the marker is what lets a
+    downstream job distinguish a failed Run from a successful one.
     """
     print(f"[watchdog] Run failed: {reason}.", flush=True)
     if output_directory is None:
@@ -218,11 +229,16 @@ def main() -> int:
             print(f"[watchdog] Command exited with code {return_code}.", flush=True)
             if return_code == 0:
                 return 0
-            # Swallow the failure so one failing Run does not fail the whole workflow.
+            if not args.swallow_failures:
+                return return_code
             _mark_run_failed(args.output_directory, f"command exited with code {return_code}")
             return 0
 
-    _mark_run_failed(args.output_directory, f"stalled on every attempt (>{args.max_restarts} restarts)")
+    stall_reason = f"stalled on every attempt (>{args.max_restarts} restarts)"
+    if not args.swallow_failures:
+        print(f"[watchdog] Command {stall_reason}; giving up.", flush=True)
+        return 1
+    _mark_run_failed(args.output_directory, stall_reason)
     return 0
 
 
