@@ -53,9 +53,9 @@ def _build_scene(seed: int):
 
 def _pour_and_settle(seed: int):
     """Build, settle, and return (region, settled_at, resting positions, member names)."""
-    import argparse
     import torch
 
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
     from isaaclab_arena.relations.clutter_pour import region_above_support
@@ -63,14 +63,14 @@ def _pour_and_settle(seed: int):
     from isaaclab_arena.utils import physics_settle
 
     arena_env, support, members = _build_scene(seed)
-    args = argparse.Namespace(
-        num_envs=1,
-        placement_seed=seed,
-        language_instruction=None,
-        mimic=False,
-        presets=None,
-        resolve_on_reset=None,
-    )
+    # Build args from the real parser rather than a hand-rolled Namespace: the builder reads
+    # more fields than are obvious, and a missing one fails only once the env is constructed.
+    args = get_isaaclab_arena_cli_parser().parse_args([])
+    args.num_envs = 1
+    args.placement_seed = seed
+    for name, default in (("language_instruction", None), ("mimic", False)):
+        if not hasattr(args, name):
+            setattr(args, name, default)
     env = ArenaEnvBuilder(arena_env, args).make_registered()
     env.reset()
 
