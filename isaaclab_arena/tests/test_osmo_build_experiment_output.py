@@ -46,6 +46,17 @@ def test_loads_experiment_runner_output_directories_as_paths(tmp_path):
     assert experiment_runner_output_directories_by_run_name == {"first": experiment_runner_output_directory}
 
 
+def test_loads_empty_experiment_runner_output_directories(tmp_path):
+    experiment_runner_output_directories_file_path = tmp_path / "experiment-runner-output-directories.json"
+    experiment_runner_output_directories_file_path.write_text("{}", encoding="utf-8")
+
+    experiment_runner_output_directories_by_run_name = load_experiment_runner_output_directories_by_run_name(
+        experiment_runner_output_directories_file_path
+    )
+
+    assert experiment_runner_output_directories_by_run_name == {}
+
+
 def test_rejects_experiment_runner_output_without_the_requested_run(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     (experiment_runner_output_directory / "another-run").mkdir(parents=True)
@@ -95,3 +106,14 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert "first" in report_contents
     assert "second" in report_contents
     assert "2 job(s)" in report_contents
+
+
+def test_builds_empty_experiment_output_when_no_run_completed(tmp_path):
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    report_path = build_experiment_output({}, experiment_output_directory)
+
+    assert report_path == experiment_output_directory / "index.html"
+    report_contents = report_path.read_text(encoding="utf-8")
+    assert "0 job(s)" in report_contents
+    assert "No results recorded yet." in report_contents

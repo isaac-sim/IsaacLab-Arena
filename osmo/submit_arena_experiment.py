@@ -52,7 +52,7 @@ class ArenaExperimentSubmissionCfg:
 
 
 def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int:
-    """Build and submit the OSMO workflow described by ``submission_cfg``.
+    """Build and submit the OSMO workflows described by ``submission_cfg``.
 
     Args:
         submission_cfg: Composed Experiment, task, server, and OSMO configuration.
@@ -122,7 +122,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
     parser = argparse.ArgumentParser(
         usage=f"%(prog)s [-h] --experiment_cfg PATH --policy_server {{{policy_server_choices}}} [OVERRIDE ...]",
-        description="Submit a typed Arena Experiment as an OSMO workflow.",
+        description="Submit a typed Arena Experiment to OSMO.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=r"""
 Example:
@@ -157,7 +157,7 @@ Hydra override precedence:
 
 
 def main(cli_args: list[str] | None = None) -> int:
-    """Load the Experiment, apply overrides, and submit its OSMO workflow."""
+    """Load the Experiment, apply overrides, and submit its OSMO workflows."""
     # Argparse resolves the Experiment path and server selector first; they determine
     # the concrete configs Hydra receives for its remaining overrides.
     parser = _create_argument_parser()

@@ -38,9 +38,9 @@ def load_experiment_runner_output_directories_by_run_name(
     ) as experiment_runner_output_directories_file:
         runner_output_directory_strings_by_run_name = json.load(experiment_runner_output_directories_file)
 
-    assert (
-        isinstance(runner_output_directory_strings_by_run_name, dict) and runner_output_directory_strings_by_run_name
-    ), "Experiment Runner output directories must be a non-empty JSON mapping"
+    assert isinstance(
+        runner_output_directory_strings_by_run_name, dict
+    ), "Experiment Runner output directories must be a JSON mapping"
     experiment_runner_output_directories_by_run_name: dict[str, Path] = {}
     for run_name, runner_output_directory_string in runner_output_directory_strings_by_run_name.items():
         assert isinstance(run_name, str) and run_name, "Run names must be non-empty strings"
@@ -62,7 +62,6 @@ def collect_run_outputs_into_experiment_output(
             directories. Each task output directory must contain a child directory with the corresponding Run name.
         experiment_output_directory: Destination Experiment directory containing one subdirectory per Run.
     """
-    assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
         source_run_output_directory = experiment_runner_output_directory / run_name
         assert source_run_output_directory.is_dir(), (

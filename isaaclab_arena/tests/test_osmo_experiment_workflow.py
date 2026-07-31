@@ -29,16 +29,28 @@ from osmo.submit_arena_experiment import (
     submit_arena_experiment,
 )
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.collect_experiment_outputs_task import (
+from osmo.tasks.experiment_output_coordinator_task import (
     _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
-    _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
-    experiment_runner_output_directory_input_token,
+    _REMOTE_COORDINATE_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    _REMOTE_COORDINATOR_SETTINGS_FILE_PATH,
 )
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
-from osmo.workflows.arena_experiment_workflow import Pi0ArenaExperimentWorkflow
+from osmo.workflows.arena_experiment_workflow import (
+    _DRY_RUN_SOURCE_WORKFLOW_ID,
+    ExperimentOutputCoordinatorWorkflow,
+    Pi0ArenaExperimentRunsWorkflow,
+    Pi0ArenaExperimentWorkflow,
+    _experiment_output_coordinator_exec_timeout,
+    _osmo_duration_seconds,
+)
 from osmo.workflows.workflow import WorkflowCfg
-from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
+from osmo.workflows.workflow_constants import (
+    DATASETS_HTTPS_URL,
+    DATASETS_SWIFT_URL,
+    OSMO_TASK_OUTPUT_DIR,
+    POLICY_SERVER_PORT,
+)
 
 # Composing complete Arena Experiments loads Isaac runtime modules, so these tests
 # must not share a pytest process with the persistent SimulationApp tests.
@@ -100,8 +112,13 @@ def _embedded_experiment(task: dict) -> dict:
     return yaml.safe_load(experiment_file["contents"])
 
 
+def _rendered_workflows(output: str) -> list[dict]:
+    marker = "[dry-run] Rendered workflow YAML:\n\n"
+    return [yaml.safe_load(rendered_yaml) for rendered_yaml in output.split(marker)[1:]]
+
+
 def _rendered_workflow(output: str) -> dict:
-    return yaml.safe_load(output[output.index("version: 2\n") :])
+    return _rendered_workflows(output)[0]
 
 
 def _workflow_groups(workflow: dict) -> list[dict]:
@@ -190,10 +207,10 @@ def test_policy_server_rejects_workflow_fields():
         ])
 
 
-def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_experiment_output():
-    """Render one independent Run group per Run and collect their outputs into one Experiment output."""
+def test_fans_out_single_run_experiments_with_dedicated_pi0_servers():
+    """Render one independent OSMO group for every Run."""
     source_experiment_cfg = _pi0_experiment_cfg()
-    workflow = Pi0ArenaExperimentWorkflow(
+    workflow = Pi0ArenaExperimentRunsWorkflow(
         workflow_cfg=WorkflowCfg(workflow_name="pi0-experiment"),
         experiment_cfg=source_experiment_cfg,
         server_task_cfg=Pi0ServerTaskCfg(),
@@ -206,7 +223,6 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
         "arena-run-0",
         "arena-run-1",
         "arena-run-2",
-        "arena-experiment-output",
     ]
     task_names = [task["name"] for group in groups for task in group["tasks"]]
     assert len(task_names) == len(set(task_names))
@@ -223,7 +239,6 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert [[task["lead"] for task in group["tasks"]] for group in groups] == [
         [True, False],
         [True, False],
-        [True],
         [True],
     ]
 
@@ -261,36 +276,88 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert f"scripts/serve_policy.py --port={POLICY_SERVER_PORT} policy:checkpoint" in server_command
     assert "--policy.config=pi05_droid_jointpos_polaris" in server_command
 
-    experiment_output_task = groups[3]["tasks"][0]
-    assert experiment_output_task["name"] == "collect-experiment-outputs"
-    assert experiment_output_task["resource"] == "experiment-output"
-    assert experiment_output_task["inputs"] == [
-        {"task": "experiment-runner-0"},
-        {"task": "experiment-runner-1"},
-        {"task": "experiment-runner-2"},
-    ]
-    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
-    experiment_runner_output_directories_by_run_name = json.loads(
-        _task_file(experiment_output_task, _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH)["contents"]
+
+def test_coordinator_collects_stored_outputs_without_runner_dependencies():
+    """Render an independent collector that reads OSMO outputs only after the source workflow finishes."""
+    source_workflow_id = "pi0-experiment-7"
+    published_output_url = f"{DATASETS_SWIFT_URL}/{source_workflow_id}"
+    coordinator_workflow_cfg = WorkflowCfg(
+        workflow_name="arena-experiment-output-coordinator",
+        cpus=2,
+        gpus=0,
+        memory="8Gi",
+        exec_timeout="345900s",
     )
-    assert experiment_runner_output_directories_by_run_name == {
-        "first": experiment_runner_output_directory_input_token("experiment-runner-0"),
-        "second": experiment_runner_output_directory_input_token("experiment-runner-1"),
-        "local": experiment_runner_output_directory_input_token("experiment-runner-2"),
+    workflow = ExperimentOutputCoordinatorWorkflow(
+        workflow_cfg=coordinator_workflow_cfg,
+        task_cfg=ExperimentRunnerTaskCfg(),
+        source_workflow_id=source_workflow_id,
+        experiment_runner_task_names_by_run_name={
+            "first": "experiment-runner-0",
+            "second": "experiment-runner-1",
+            "local": "experiment-runner-2",
+        },
+        published_output_url=published_output_url,
+    )
+
+    rendered_workflow = workflow.generate_workflow()
+    assert [group["name"] for group in _workflow_groups(rendered_workflow)] == ["arena-experiment-output"]
+    experiment_output_coordinator_task = _workflow_tasks(rendered_workflow)[0]
+    assert experiment_output_coordinator_task["name"] == "collect-successful-experiment-outputs"
+    assert experiment_output_coordinator_task["inputs"] == []
+    assert experiment_output_coordinator_task["outputs"] == [{"url": published_output_url}]
+
+    coordinator_settings = json.loads(
+        _task_file(experiment_output_coordinator_task, _REMOTE_COORDINATOR_SETTINGS_FILE_PATH)["contents"]
+    )
+    assert coordinator_settings["experiment_runner_task_names_by_run_name"] == {
+        "first": "experiment-runner-0",
+        "second": "experiment-runner-1",
+        "local": "experiment-runner-2",
     }
-    experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
-    assert "localpath" not in experiment_output_script_file
-    assert "def build_experiment_output" in experiment_output_script_file["contents"]
-    experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
-    assert experiment_output_command.startswith("set -euo pipefail")
-    assert _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
-    assert (
-        f"--experiment-runner-output-directories-file {_REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH}"
-        in experiment_output_command
+    assert coordinator_settings["poll_interval_seconds"] == 30
+
+    coordinate_experiment_output_script_file = _task_file(
+        experiment_output_coordinator_task,
+        _REMOTE_COORDINATE_EXPERIMENT_OUTPUT_SCRIPT_PATH,
     )
-    assert "--experiment-output-directory" in experiment_output_command
-    assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
-    assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
+    assert "localpath" not in coordinate_experiment_output_script_file
+    assert "def find_completed_experiment_runners" in coordinate_experiment_output_script_file["contents"]
+    assert "osmo workflow submit" not in coordinate_experiment_output_script_file["contents"]
+    assert "wget" in coordinate_experiment_output_script_file["contents"]
+    build_experiment_output_script_file = _task_file(
+        experiment_output_coordinator_task,
+        _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
+    )
+    assert "def build_experiment_output" in build_experiment_output_script_file["contents"]
+    coordinator_command = _task_file(experiment_output_coordinator_task, "/tmp/entry.sh")["contents"]
+    assert coordinator_command.startswith("set -euo pipefail")
+    assert _REMOTE_COORDINATE_EXPERIMENT_OUTPUT_SCRIPT_PATH in coordinator_command
+    assert f"--source-workflow-id {source_workflow_id}" in coordinator_command
+    assert _REMOTE_COORDINATOR_SETTINGS_FILE_PATH in coordinator_command
+    assert f"--experiment-output-directory '{OSMO_TASK_OUTPUT_DIR}'" in coordinator_command
+    coordinator_resource = rendered_workflow["workflow"]["resources"]["default"]
+    assert coordinator_resource == {
+        "cpu": 2,
+        "gpu": 0,
+        "memory": "8Gi",
+        "platform": "ovx-l40s",
+        "storage": "200Gi",
+    }
+
+
+@pytest.mark.parametrize(
+    ("duration", "expected_seconds"),
+    [("1d", 86400), ("250ms", 0.25), ("PT1H30M", 5400), ("P2DT1.5S", 172801.5)],
+)
+def test_parses_osmo_timeout_formats(duration, expected_seconds):
+    """Keep derived collector timeouts compatible with OSMO's accepted duration forms."""
+    assert _osmo_duration_seconds(duration) == expected_seconds
+
+
+def test_coordinator_timeout_covers_source_queue_execution_and_collection():
+    """Give the independent collector enough time to wait for the source and build its report."""
+    assert _experiment_output_coordinator_exec_timeout(WorkflowCfg(queue_timeout="2d", exec_timeout="1d")) == "345900s"
 
 
 def test_embeds_effective_experiment_yaml():
@@ -374,7 +441,9 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert return_code == 0
     rendered = capsys.readouterr().out
     assert "[dry-run] Rendered workflow YAML" in rendered
-    workflow = _rendered_workflow(rendered)
+    rendered_workflows = _rendered_workflows(rendered)
+    assert len(rendered_workflows) == 2
+    workflow, coordinator_workflow = rendered_workflows
     assert workflow["workflow"]["name"] == "overridden-experiment"
     tasks = _workflow_tasks(workflow)
     assert [task["name"] for task in tasks] == ["experiment-runner-0", "policy-server-0"]
@@ -395,12 +464,18 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert "--policy.config=overridden-pi0-config" in server_command
     assert "--policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos" in server_command
 
+    assert coordinator_workflow["workflow"]["name"] == "arena-experiment-output-coordinator"
+    coordinator_task = _workflow_tasks(coordinator_workflow)[0]
+    coordinator_command = _task_file(coordinator_task, "/tmp/entry.sh")["contents"]
+    assert f"--source-workflow-id {_DRY_RUN_SOURCE_WORKFLOW_ID}" in coordinator_command
+    assert coordinator_task["outputs"] == [{"url": f"{DATASETS_SWIFT_URL}/{_DRY_RUN_SOURCE_WORKFLOW_ID}"}]
+
 
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()
     assert isinstance(submission_cfg.policy_server, Pi0ServerTaskCfg)
-    workflow = Pi0ArenaExperimentWorkflow(
+    workflow = Pi0ArenaExperimentRunsWorkflow(
         workflow_cfg=submission_cfg.osmo,
         experiment_cfg=submission_cfg.experiment_cfg,
         server_task_cfg=submission_cfg.policy_server,
@@ -421,18 +496,16 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
         assert run_cfg.policy.ping_timeout == Pi0ServerTaskCfg.client_ping_timeout_s
 
 
-def test_submission_overrides_osmo_resources(monkeypatch):
+def test_submission_overrides_osmo_resources(monkeypatch, capsys):
     """Apply scheduler overrides after the typed workflow defaults."""
-    submitted_command = None
-    submitted_resources = None
+    submitted_commands_and_workflows = []
 
     def capture_submission(command, **kwargs):
-        nonlocal submitted_command, submitted_resources
         assert kwargs["text"] is True
-        submitted_command = command
         submitted_workflow = yaml.safe_load(Path(command[3]).read_text(encoding="utf-8"))
-        submitted_resources = submitted_workflow["workflow"]["resources"]
-        return SimpleNamespace(returncode=0, stdout="")
+        submitted_commands_and_workflows.append((command, submitted_workflow))
+        workflow_id = "source-workflow-7" if len(submitted_commands_and_workflows) == 1 else "coordinator-workflow-8"
+        return SimpleNamespace(returncode=0, stdout=f"Workflow ID - {workflow_id}\n")
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
 
@@ -443,14 +516,28 @@ def test_submission_overrides_osmo_resources(monkeypatch):
     ])
 
     assert return_code == 0
-    assert submitted_command is not None
-    pool_flag_index = submitted_command.index("--pool")
-    assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
-    assert submitted_resources["default"]["platform"] == "ovx-l40"
-    assert submitted_resources["default"]["memory"] == "120Gi"
-    assert submitted_resources["experiment-output"]["platform"] == "ovx-l40"
-    assert submitted_resources["experiment-output"]["memory"] == "120Gi"
-    assert submitted_resources["experiment-output"]["gpu"] == 0
+    assert len(submitted_commands_and_workflows) == 2
+    for submitted_command, _ in submitted_commands_and_workflows:
+        pool_flag_index = submitted_command.index("--pool")
+        assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
+
+    source_workflow = submitted_commands_and_workflows[0][1]
+    source_resource = source_workflow["workflow"]["resources"]["default"]
+    assert source_resource["platform"] == "ovx-l40"
+    assert source_resource["memory"] == "120Gi"
+    assert source_resource["gpu"] == 1
+
+    coordinator_workflow = submitted_commands_and_workflows[1][1]
+    coordinator_resource = coordinator_workflow["workflow"]["resources"]["default"]
+    assert coordinator_resource["platform"] == "ovx-l40"
+    assert coordinator_resource["memory"] == "8Gi"
+    assert coordinator_resource["gpu"] == 0
+    coordinator_task = _workflow_tasks(coordinator_workflow)[0]
+    assert "--source-workflow-id source-workflow-7" in _task_file(coordinator_task, "/tmp/entry.sh")["contents"]
+    assert (
+        f"Arena Experiment report (available after collection): {DATASETS_HTTPS_URL}/source-workflow-7/index.html"
+        in capsys.readouterr().out
+    )
 
 
 def test_cli_requires_experiment_cfg_path_and_policy_server(capsys):
