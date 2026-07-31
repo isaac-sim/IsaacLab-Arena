@@ -44,7 +44,7 @@ class ExperimentRunnerTaskCfg(TaskCfg):
     watchdog_stall_timeout_seconds: float = 600.0
     """Relaunch the runner if it emits no output for this long. Non-positive disables the watchdog."""
 
-    watchdog_max_restarts: int = 5
+    watchdog_max_restarts: int = 3
     """Maximum number of stall-triggered relaunches before the task gives up."""
 
 

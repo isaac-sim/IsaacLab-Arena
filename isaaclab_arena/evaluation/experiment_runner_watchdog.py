@@ -5,11 +5,15 @@
 
 """Stall-restart wrapper around a long-running command (e.g. ``experiment_runner.py``).
 
-A distributed Experiment fails whole when a single Run's process stalls with no output. This
-wrapper runs the wrapped command as a subprocess, forwards its output, and treats a silence
-longer than ``--stall-timeout-seconds`` as a hang: it kills the process group, clears the
-output directory, and relaunches, up to ``--max-restarts`` times. A clean exit (any return
-code) is propagated as-is and never restarted.
+A distributed Experiment fails whole when a single upstream Run fails. This wrapper runs the
+wrapped command as a subprocess, forwards its output, and treats a silence longer than
+``--stall-timeout-seconds`` as a hang: it kills the process group, clears the output directory,
+and relaunches, up to ``--max-restarts`` times.
+
+So one failing Run never fails the whole workflow, the watchdog always exits 0. On any failure
+(the command exits non-zero, or it stalls on every attempt) it clears the output directory and
+writes a marker file (``run_failed.marker``) recording why, so a downstream/aggregation job can
+still tell a failed Run apart from a successful one.
 
 This is a stop-gap for the underlying stall; see BRANCH_CHANGES.md.
 """
@@ -78,6 +82,28 @@ def _clear_directory_contents(directory: Path) -> None:
             shutil.rmtree(entry, ignore_errors=True)
         else:
             entry.unlink(missing_ok=True)
+
+
+_RUN_FAILED_MARKER_NAME = "run_failed.marker"
+
+
+def _mark_run_failed(output_directory: Path | None, reason: str) -> None:
+    """Clear ``output_directory`` and drop a marker file recording why the Run failed.
+
+    Best-effort. The watchdog exits 0 regardless (so an upstream Run failure does not fail the whole
+    OSMO workflow); the marker lets a downstream job distinguish a failed Run from a successful one.
+    """
+    print(f"[watchdog] Run failed: {reason}.", flush=True)
+    if output_directory is None:
+        return
+    try:
+        _clear_directory_contents(output_directory)
+        output_directory.mkdir(parents=True, exist_ok=True)
+        marker = output_directory / _RUN_FAILED_MARKER_NAME
+        marker.write_text(f"{reason}\n", encoding="utf-8")
+        print(f"[watchdog] Cleared output and wrote failure marker '{marker}'.", flush=True)
+    except OSError as exc:
+        print(f"[watchdog] Could not write failure marker in '{output_directory}': {exc}.", flush=True)
 
 
 def _terminate_process_group(process: subprocess.Popen) -> None:
@@ -190,13 +216,14 @@ def main() -> int:
 
         if not stalled:
             print(f"[watchdog] Command exited with code {return_code}.", flush=True)
-            return return_code if return_code is not None else 0
+            if return_code == 0:
+                return 0
+            # Swallow the failure so one failing Run does not fail the whole workflow.
+            _mark_run_failed(args.output_directory, f"command exited with code {return_code}")
+            return 0
 
-    print(
-        f"[watchdog] Command stalled on every attempt (>{args.max_restarts} restarts); giving up.",
-        flush=True,
-    )
-    return 1
+    _mark_run_failed(args.output_directory, f"stalled on every attempt (>{args.max_restarts} restarts)")
+    return 0
 
 
 if __name__ == "__main__":
