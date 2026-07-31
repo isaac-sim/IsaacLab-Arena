@@ -134,8 +134,6 @@ def _test_clutter_settles_on_its_support(simulation_app) -> bool:
 
 def _test_pile_is_already_settled_at_reset(simulation_app) -> bool:
     """A reset must place the resting pile, not the poses it was released from."""
-    import torch
-
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
     from isaaclab_arena.utils import physics_settle
 

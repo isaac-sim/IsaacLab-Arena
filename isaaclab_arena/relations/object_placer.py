@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
-from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+from isaaclab_arena.relations.clutter_groups import get_clutter_groups, is_clutter_member
 from isaaclab_arena.relations.clutter_pour import plan_clutter_drops
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -235,6 +235,12 @@ class ObjectPlacer:
         unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
+        # A pour positions clutter after solving, so any pose the optimiser gave it would be
+        # discarded. Leaving it in would make it a phantom obstacle: it carries no relation loss
+        # but does carry the global no-overlap term, so it would push the genuinely constrained
+        # objects around and inflate the loss that ranks candidates. Only its box is needed here.
+        solver_objects = [obj for obj in objects if not is_clutter_member(obj)]
+
         initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]] = []
         orientations_per_candidate: list[dict[PlaceableAsset, float]] = []
         for candidate_idx in range(num_candidates):
@@ -243,19 +249,19 @@ class ObjectPlacer:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             initial_positions.append(
-                self._generate_initial_positions(objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
+                self._generate_initial_positions(solver_objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
             )
             orientations_per_candidate.append(
-                self._generate_initial_orientations(objects, anchor_objects_set, generator)
+                self._generate_initial_orientations(solver_objects, anchor_objects_set, generator)
             )
 
         # Bake each candidate's yaw into a conservative enclosing bbox for overlap checks.
         candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
+            solver_objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
 
         all_positions = self._solver.solve(
-            objects,
+            solver_objects,
             initial_positions,
             env_bboxes=candidate_bboxes,
             env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
@@ -265,7 +271,7 @@ class ObjectPlacer:
         self._apply_face_to_orientations(all_positions, orientations_per_candidate)
         # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
         candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
+            solver_objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
