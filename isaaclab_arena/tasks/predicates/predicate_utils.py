@@ -18,7 +18,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, repr=False)
 class ArenaAssetHandle:
-    """Keep an Arena asset by identity when manager configurations are copied."""
+    """Keep an Arena asset by identity when manager configurations are copied.
+
+    Termination configurations are copied before per-environment variants and
+    relation-solved poses are finalized. Preserving this handle by identity keeps
+    predicates connected to the original asset and its finalized bounds metadata.
+    """
 
     asset: ObjectBase
 
