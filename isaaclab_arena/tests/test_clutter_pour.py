@@ -211,3 +211,54 @@ def test_oversized_member_is_rejected_rather_than_placed_outside():
         plan_clutter_drops(
             _Layout(), get_clutter_groups([support, huge]), bounding_boxes, torch.Generator().manual_seed(0)
         )
+
+
+def test_pour_avoids_an_object_already_on_the_support():
+    """A solver-placed object on the same surface must not be dropped into."""
+    from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
+
+    support, members, bounding_boxes = _scene(6)
+    resident = _Asset("resident")
+    bounding_boxes[resident] = _box(0.12, 0.12, 0.1)
+
+    layout = _Layout()
+    layout.positions[resident] = (0.0, 0.0, 0.2)
+    groups = get_clutter_groups([support, *members])
+
+    region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
+    occupied = occupied_footprints_in_region(region, layout.positions, bounding_boxes, exclude={support})
+    assert len(occupied) == 1, "the resident object should be seen as occupying the surface"
+
+    plan_clutter_drops(layout, groups, bounding_boxes, torch.Generator().manual_seed(0))
+
+    resident_top = 0.2 + 0.05
+    for member in members:
+        x, y, z = layout.positions[member]
+        overlaps = abs(x - 0.0) < 0.06 + 0.03 and abs(y - 0.0) < 0.06 + 0.03
+        if overlaps:
+            assert z > resident_top, f"{member.name} was dropped into the resident object at z={z:.3f}"
+
+
+def test_objects_below_the_support_surface_are_ignored():
+    """Something under the table is not in the way of a pile poured on top of it."""
+    from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
+
+    support, _members, bounding_boxes = _scene(2)
+    underneath = _Asset("underneath")
+    bounding_boxes[underneath] = _box(0.1, 0.1, 0.05)
+
+    region = region_above_support((0.0, 0.0, 0.5), bounding_boxes[support])
+    positions = {underneath: (0.0, 0.0, 0.0)}
+    assert occupied_footprints_in_region(region, positions, bounding_boxes, exclude=set()) == []
+
+
+def test_objects_outside_the_region_are_ignored():
+    from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
+
+    support, _members, bounding_boxes = _scene(2)
+    far_away = _Asset("far_away")
+    bounding_boxes[far_away] = _box(0.1, 0.1, 0.1)
+
+    region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
+    positions = {far_away: (5.0, 0.0, 0.2)}
+    assert occupied_footprints_in_region(region, positions, bounding_boxes, exclude=set()) == []
