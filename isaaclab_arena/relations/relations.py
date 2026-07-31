@@ -333,13 +333,29 @@ class ClutteredOn(RelationBase):
         return False
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Reject a clutter member whose support is absent or is itself clutter."""
+        """Reject a member whose support, own relations or anchoring make the pour meaningless."""
         assert (
             self.parent in objects
         ), f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is not part of the placement."
+        assert self.parent is not subject, f"Clutter member '{subject.name}' cannot rest on itself."
         assert not self.parent.has_relation(ClutteredOn), (
             f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is itself clutter. "
             "Piles cannot be stacked on piles; give the group a settled support instead."
+        )
+        # A pour assigns the member's pose, so anything else claiming to place it is a
+        # contradiction that would otherwise resolve silently to whichever ran last.
+        assert (
+            not subject.is_anchor
+        ), f"Clutter member '{subject.name}' is also an anchor. An anchor holds a fixed pose, but a pour assigns one."
+        clutter_relations = [relation for relation in subject.get_relations() if isinstance(relation, ClutteredOn)]
+        assert len(clutter_relations) == 1, (
+            f"Clutter member '{subject.name}' has {len(clutter_relations)} ClutteredOn relations; it belongs to one"
+            " pile."
+        )
+        spatial = [type(relation).__name__ for relation in subject.get_spatial_relations()]
+        assert not spatial, (
+            f"Clutter member '{subject.name}' also carries {spatial}, which constrain a pose the pour "
+            "discards. The layout would be validated against a pose that never reaches sim."
         )
 
 
