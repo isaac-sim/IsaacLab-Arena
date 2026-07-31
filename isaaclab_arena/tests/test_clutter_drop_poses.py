@@ -112,6 +112,42 @@ def test_object_too_large_for_region_fails_closed():
         compute_drop_poses([oversized], REGION, generator=seeded())
 
 
+def test_unlucky_yaw_is_resampled_rather_than_failing():
+    """A long object in a narrow region only fits near-axis-aligned; retry until it does.
+
+    A 0.28 x 0.04 m object fits lengthwise in a 0.36 x 0.12 m region but not turned much
+    past ~17 degrees, so most draws miss. Without retrying, four in five layouts would fail.
+    Attempts are raised well above the default because the odds compound: the default suits
+    ordinary regions, not a deliberately punishing one.
+    """
+    narrow = ClutterRegion(min_x=-0.18, min_y=-0.06, max_x=0.18, max_y=0.06, floor_z=0.0)
+    elongated = make_bbox(0.28, 0.04, 0.02)
+    params = ClutterDropParams(max_yaw_attempts=64)
+
+    for seed in range(5):
+        poses = compute_drop_poses([elongated], narrow, params, generator=seeded(seed))
+        half_x, half_y = footprint_half_extents(elongated, poses[0].rotation_xyzw)
+        assert half_y <= (narrow.max_y - narrow.min_y) / 2.0 + 1e-6, "chosen yaw must fit the narrow axis"
+        assert poses[0].position[1] - half_y >= narrow.min_y - 1e-6
+        assert poses[0].position[1] + half_y <= narrow.max_y + 1e-6
+
+
+def test_no_orientation_fits_reports_attempt_count():
+    """When no yaw can fit, the failure says so rather than blaming one unlucky draw."""
+    oversized = make_bbox(1.0, 1.0, 0.05)
+    params = ClutterDropParams(max_yaw_attempts=3)
+    with pytest.raises(AssertionError, match="after 3 orientation attempt"):
+        compute_drop_poses([oversized], REGION, params, generator=seeded())
+
+
+def test_axis_aligned_layouts_try_a_single_orientation():
+    """With random_yaw disabled there is only one orientation, so retrying is pointless."""
+    oversized = make_bbox(1.0, 1.0, 0.05)
+    params = ClutterDropParams(random_yaw=False, max_yaw_attempts=8)
+    with pytest.raises(AssertionError, match="after 1 orientation attempt"):
+        compute_drop_poses([oversized], REGION, params, generator=seeded())
+
+
 def test_clutter_spread_narrows_the_usable_area():
     bboxes = [make_bbox(0.02, 0.02, 0.02) for _ in range(8)]
     tight = ClutterDropParams(clutter_spread=0.25, xy_sampling=XySampling.UNIFORM)
