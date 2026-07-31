@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -20,10 +19,10 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
-_DEFAULT_LIGHT_ASSET_NAME = "light"
-_DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
-_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
-_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
+_DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
+_DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"
+_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
+_DEFAULT_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -67,46 +66,31 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:
-    """Ensure the scene has ambient lighting plus a directional light for lighting variations.
+    """Inject default lighting setup, if no lighting already exists.
 
-    A dome light is injected when the scene would otherwise render black (as before). A
-    directional light (registry ``directional_light``) is then added on top so directional-lighting
-    variations (``directional_light.direction.*`` / ``directional_light.intensity.*``) have a target.
-    The directional light is off by default and contributes no illumination unless a variation turns
-    it on at build time (see LightDirectionVariation), so scenes with no lighting variation are lit
-    only by their ambient/baked-in lighting. When the directional light is turned on, its direction
-    variation also dims the injected dome so the directional light's shadows are visible.
+    Injects:
+    - dome light
+    - directional light (default off). For lighting variations to act on.
     """
-    dome_light = None
-    if not _scene_already_has_light(graph_spec, assets_by_node_id):
-        dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
-        dome_cls = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)
-        # Fresh per-instance spawner cfg so a direction variation dimming this dome mutates only it,
-        # never the shared class default (which would darken later, variation-free builds).
-        dome_light = dome_cls(spawner_cfg=copy.deepcopy(dome_cls.default_spawner_cfg))
-        assets_by_node_id[dome_node_id] = dome_light
-        print(f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'.")
+    if _scene_already_has_light(graph_spec, assets_by_node_id):
+        return
 
-    if not _scene_has_asset_named(assets_by_node_id, _DIRECTIONAL_LIGHT_ASSET_NAME):
-        directional_node_id = _unique_node_id(set(assets_by_node_id), _DIRECTIONAL_LIGHT_NODE_ID)
-        light_cls = AssetRegistry().get_asset_by_name(_DIRECTIONAL_LIGHT_ASSET_NAME)
-        # Fresh per-instance spawner cfg so off()/on() mutate only this light, never the shared class
-        # default (which would otherwise light up later, variation-free builds).
-        directional_light = light_cls(spawner_cfg=copy.deepcopy(light_cls.default_spawner_cfg))
-        directional_light.off()  # a lighting-direction variation turns it back on at build time
-        if dome_light is not None:
-            # Let the direction variation dim this dome when it activates, so shadows show.
-            directional_light.set_dome_light(dome_light)
-        assets_by_node_id[directional_node_id] = directional_light
-        print(
-            f"INFO: injected directional light '{directional_node_id}'"
-            " (off unless a lighting-direction variation activates it)."
-        )
+    dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DOME_LIGHT_NODE_ID)
+    dome_light = AssetRegistry().get_asset_by_name(_DEFAULT_DOME_LIGHT_ASSET_NAME)()
+    assets_by_node_id[dome_node_id] = dome_light
 
+    directional_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DIRECTIONAL_LIGHT_NODE_ID)
+    directional_light = AssetRegistry().get_asset_by_name(_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME)()
+    directional_light.off()  # a lighting-direction variation turns it back on at build time
+    # Let the direction variation dim this dome when it activates, so shadows show.
+    directional_light.set_dome_light(dome_light)
+    assets_by_node_id[directional_node_id] = directional_light
 
-def _scene_has_asset_named(assets_by_node_id: dict[str, Any], asset_name: str) -> bool:
-    """Return whether any instantiated asset has the given registry name."""
-    return any(getattr(asset, "name", None) == asset_name for asset in assets_by_node_id.values())
+    print(
+        f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'"
+        f" and directional light '{directional_node_id}'"
+        " (off unless a lighting-direction variation activates it)."
+    )
 
 
 def _unique_node_id(existing_ids: set[str], base: str) -> str:

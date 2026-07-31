@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import copy
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
@@ -377,21 +378,20 @@ class LightBase(LibraryObject, ABC):
     object_type = ObjectType.BASE
     tags = ["light"]
 
-    _intensity_when_on: float | None = None
-    """Intensity stashed by :meth:`off` (while the light was lit) and restored by :meth:`on`."""
+    default_intensity: float
+    """Intensity the light is lit at by default, and the intensity ``on()`` restores."""
 
-    def on(self) -> None:
-        """Turn the light on, restoring the intensity it had before the last :meth:`off`.
+    def __init__(self, *args, spawner_cfg: sim_utils.LightCfg, **kwargs):
+        # Copy the spawner cfg so intensity/color changes stay on this instance rather than leaking
+        # into the shared class default (which is what callers get when they don't pass one).
+        super().__init__(*args, spawner_cfg=copy.deepcopy(spawner_cfg), **kwargs)
 
-        A no-op if the light was never turned off (it is already at its configured intensity).
-        """
-        if self._intensity_when_on is not None:
-            self.set_intensity(self._intensity_when_on)
+    def on(self, intensity: float | None = None) -> None:
+        """Turn the light on, at ``intensity`` if given, else at the class default intensity."""
+        self.set_intensity(intensity if intensity is not None else self.default_intensity)
 
     def off(self) -> None:
-        """Turn the light off (intensity 0), remembering the current intensity so :meth:`on` restores it."""
-        if self.spawner_cfg.intensity > 0.0:
-            self._intensity_when_on = self.spawner_cfg.intensity
+        """Turn the light off (intensity 0)."""
         self.set_intensity(0.0)
 
     def set_intensity(self, intensity: float) -> None:
@@ -440,7 +440,8 @@ class DomeLight(LightBase):
     name = "light"
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
+    default_intensity = 1500.0
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=default_intensity)
 
     spawner_cfg: sim_utils.DomeLightCfg
     """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
@@ -493,7 +494,8 @@ class DirectionalLight(LightBase):
 
     name = "directional_light"
     default_prim_path = "/World/DirectionalLight"
-    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=1000.0)
+    default_intensity = 1000.0
+    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=default_intensity)
     default_initial_pose = Pose(position_xyz=(0.0, 0.0, 5.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     spawner_cfg: sim_utils.DistantLightCfg
@@ -528,11 +530,7 @@ class DirectionalLight(LightBase):
         self.object_cfg = self._init_object_cfg()
 
     def set_dome_light(self, dome_light: LightBase) -> None:
-        """Register a dome light for the direction variation to dim when it activates.
-
-        Dimming the (bright) dome while the directional light is on lets its shadows show. Forwarded
-        to the ``direction`` variation; a no-op on illumination unless that variation is enabled.
-        """
+        """Register a dome light for the direction variation to dim when it activates."""
         self.get_variation("direction").set_dome_light(dome_light)
 
 

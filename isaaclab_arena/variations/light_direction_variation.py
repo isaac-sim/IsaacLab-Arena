@@ -65,9 +65,8 @@ class LightDirectionVariationCfg(VariationBaseCfg):
     dome_intensity_when_active: float = 500.0
     """Intensity the registered dome light (if any) is dimmed to while this variation is active.
 
-    The dome is bright by default (for shadow-free scenes); dimming it here lets the directional
-    light's shadows show through. Only applied when a dome light is registered via
-    :meth:`LightDirectionVariation.set_dome_light`.
+    Dimming the dome lets the directional light's shadows show through. Only applied when a dome
+    light is registered via ``set_dome_light``.
     """
 
 
@@ -93,20 +92,15 @@ class LightDirectionVariation(BuildTimeVariationBase):
         self._dome_light: LightBase | None = None
 
     def set_dome_light(self, dome_light: LightBase) -> None:
-        """Register a dome light to dim while this variation is active, so shadows are visible.
-
-        Optional: when set, :meth:`_prepare_at_build_time` lowers the dome to
-        ``cfg.dome_intensity_when_active``. When unset, the dome is left untouched.
-        """
+        """Register a dome light to dim while this variation is active, so shadows are visible."""
         self._dome_light = dome_light
 
     def _prepare_at_build_time(self) -> None:
-        """Turn the (auto-injected, off) directional light on so the sampled direction is visible.
+        """Prepare the scene for this variation, if activated.
 
-        Also dims the registered dome light (if any) so the directional light casts visible shadows.
-        Only runs while this variation is enabled (see ``VariationBase.configure_at_build_time``), so
-        the directional light stays dark and the dome stays bright for scenes that don't vary the
-        light direction.
+        Preparation:
+        - turns on directional light
+        - (optional) dims a dome light, if registered with this variation.
         """
         self._light.on()
         if self._dome_light is not None:
