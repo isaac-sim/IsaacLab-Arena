@@ -35,6 +35,10 @@ dev = [
     "tenacity",
     "streamlit>=1.56",
     "streamlit-ace>=0.1.1",
+    # Asset search for agentic environment generation. Kept here rather than behind an extra of
+    # its own: it adds one wheel, since Isaac Sim already brings everything it depends on, and an
+    # extra only bought a way to install the review GUI with its asset search missing.
+    "simready-search>=2026.4.2",
 ]
 
 # PEP 735 dependency groups for the native uv install: the sim stack the
@@ -143,11 +147,21 @@ index-strategy = "first-index"
 # Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
 # and isaacteleop[cloudxr] -- needed for teleop sessions in the
 # isaaclab-from-source flavor -- requires websockets>=14.
+# Pin the AWS/HTTP stack to the versions Isaac Sim requires: simready-search
+# asks for boto3==1.42.58, requests>=2.32.5 and s3transfer 0.16.x, all of which
+# are over-strict. The Docker image runs its S3 asset searches against the
+# boto3 1.40.61 / requests 2.32.3 / s3transfer 0.14.0 that isaacsim-kernel
+# pins. Without these overrides simready-search cannot resolve alongside either
+# sim-stack flavor at all, leaving the asset search with no installable runtime.
 override-dependencies = [
     "numpy==2.3.1",
     "coverage==7.4.4",
     "packaging==26.0",
     "websockets==16.1.1",
+    "boto3==1.40.61",
+    "botocore==1.40.61",
+    "requests==2.32.3",
+    "s3transfer==0.14.0",
 ]
 # Isaac Lab 3.0 Beta 2 does not correctly pin its dependencies: the published
 # wheel declares these transitive deps too broadly, so we constrain them to

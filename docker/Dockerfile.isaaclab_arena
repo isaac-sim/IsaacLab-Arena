@@ -121,8 +121,19 @@ COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
 
-# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml)
-RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
+# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml).
+# The second command applies the [tool.uv] override-dependencies by hand, because pip has no
+# override mechanism of its own: simready-search pins boto3==1.42.58, while Isaac Sim prebundles
+# boto3 1.40.61 and isaacsim-kernel pins that version. pip installs into a directory that precedes
+# the prebundle on sys.path, so without this the image would silently run its S3 asset searches
+# against an AWS stack Isaac Sim does not ship. Reinstalling the prebundled versions makes the
+# shadowing copies a no-op. pip warns that simready-search wanted the newer boto3; that warning is
+# the same assertion the uv overrides encode, and both stand or fall together.
+# --no-deps keeps the repair to these four: without it pip also reinstalls urllib3 and certifi,
+# which would shadow the prebundled ones in turn.
+RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]" \
+    && /isaac-sim/python.sh -m pip install --force-reinstall --no-deps \
+        boto3==1.40.61 botocore==1.40.61 s3transfer==0.14.0 requests==2.32.3
 
 ################################
 # Install cuRobo (optional)
