@@ -31,15 +31,7 @@ class EmbodimentAdapter(ABC):
 
     @abstractmethod
     def extract(self, observation: dict[str, Any], env_id: int) -> Any:
-        """Pull a single env's tensors out of the arena gym observation dict.
-
-        ``env_id`` selects which slice of each per-env tensor to read. The server's wire
-        format takes one observation per request, so the policy loops over envs and calls
-        this once per env to assemble the per-env requests.
-
-        Concrete return type is adapter-defined (typically a frozen dataclass); the policy
-        treats it as an opaque value to round-trip through :meth:`pack_request`.
-        """
+        """Pull a single env's tensors gym observation dict and pack into a dataclass."""
 
     @abstractmethod
     def pack_request(self, extracted: Any, language_instruction: str) -> dict[str, Any]:
@@ -47,25 +39,29 @@ class EmbodimentAdapter(ABC):
 
 
 class RemoteChunkReplayPolicy:
-    """Mixin implementing openpi-protocol closed-loop control, parameterized by an adapter.
+    """Mixin implementing openpi-protocol closed-loop control, parameterized by an embodiment adapter.
 
-    Action handling is straight chunk replay: fetch one ``(chunk, action_dim)`` prediction
-    per env, keep the first ``open_loop_horizon`` rows, and yield them in order before
-    refetching. The server takes one observation per request, so parallel envs are looped
-    over with one inference per env that needs a fresh chunk.
+    Action handling is chunk replay: fetch one ``(chunk, action_dim)`` prediction
+    per env, keep the first ``open_loop_horizon`` actions, and yield them in order before
+    refetching.
 
-    Concrete policies inherit ``(RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg])`` — the
-    explicit ``PolicyBase[ConcreteCfg]`` base is what the policy registry reads to map a
-    config back to its policy. Subclasses call :meth:`__init__` with the resolved adapter
-    and horizon, and override :attr:`server_response_actions_key` when the server names its
-    action chunk differently.
+    Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
+    The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
+    by a concrete Cfg class.
     """
 
-    server_response_actions_key: str = "actions"
-    """Key under which the server returns the action chunk (openpi: ``actions``)."""
+    server_response_actions_key: str | None = None
+    """Key under which the server returns the action chunk.
+
+    Subclasses override this to match the server's wire format.
+    """
 
     def __init__(self, config: PolicyCfg, adapter: EmbodimentAdapter, open_loop_horizon: int) -> None:
         super().__init__(config)  # PolicyBase.__init__ via the concrete class's MRO.
+        assert self.server_response_actions_key is not None, (
+            f"{type(self).__name__} must set server_response_actions_key to the key under which"
+            " the remote server returns the action chunk"
+        )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
         self.device = config.policy_device
