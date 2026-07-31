@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _test_task_registry_resolves_concrete_tasks(simulation_app):
@@ -33,5 +33,5 @@ def _test_task_registry_resolves_concrete_tasks(simulation_app):
 
 
 def test_task_registry_resolves_concrete_tasks():
-    result = run_simulation_app_function(_test_task_registry_resolves_concrete_tasks)
+    result = run_function_with_persistent_simulation_app(_test_task_registry_resolves_concrete_tasks)
     assert result

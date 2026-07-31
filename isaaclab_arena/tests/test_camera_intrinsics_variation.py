@@ -5,7 +5,7 @@
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 ENABLE_CAMERAS = True
@@ -133,7 +133,7 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
 
 @pytest.mark.with_cameras
 def test_disabled_camera_intrinsics_variation_not_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_disabled_camera_intrinsics_variation_not_in_events_cfg,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -142,7 +142,7 @@ def test_disabled_camera_intrinsics_variation_not_in_events_cfg():
 
 @pytest.mark.with_cameras
 def test_enabled_camera_intrinsics_variation_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_camera_intrinsics_variation_in_events_cfg,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -151,7 +151,7 @@ def test_enabled_camera_intrinsics_variation_in_events_cfg():
 
 @pytest.mark.with_cameras
 def test_disabled_camera_intrinsics_variation_keeps_tiled_camera():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_disabled_camera_intrinsics_variation_keeps_tiled_camera,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -160,7 +160,7 @@ def test_disabled_camera_intrinsics_variation_keeps_tiled_camera():
 
 @pytest.mark.with_cameras
 def test_enabled_camera_intrinsics_variation_forces_untiled_camera():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_camera_intrinsics_variation_forces_untiled_camera,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -169,7 +169,7 @@ def test_enabled_camera_intrinsics_variation_forces_untiled_camera():
 
 @pytest.mark.with_cameras
 def test_camera_intrinsics_variation_realized_at_runtime():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_camera_intrinsics_variation_realized_at_runtime,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,

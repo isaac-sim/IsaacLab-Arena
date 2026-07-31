@@ -7,7 +7,7 @@
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -101,23 +101,23 @@ def _test_builder_unknown_preset_raises(simulation_app) -> bool:
 
 
 def test_arena_physics_cfg_presets():
-    assert run_simulation_app_function(_test_arena_physics_cfg_presets, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_arena_physics_cfg_presets, headless=HEADLESS)
 
 
 def test_builder_no_presets_defaults_to_physx():
-    assert run_simulation_app_function(_test_builder_no_presets_defaults_to_physx, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_builder_no_presets_defaults_to_physx, headless=HEADLESS)
 
 
 def test_builder_physx_preset():
-    assert run_simulation_app_function(_test_builder_physx_preset, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_builder_physx_preset, headless=HEADLESS)
 
 
 def test_builder_newton_preset():
-    assert run_simulation_app_function(_test_builder_newton_preset, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_builder_newton_preset, headless=HEADLESS)
 
 
 def test_builder_unknown_preset_raises():
-    assert run_simulation_app_function(_test_builder_unknown_preset_raises, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_builder_unknown_preset_raises, headless=HEADLESS)
 
 
 if __name__ == "__main__":

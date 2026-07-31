@@ -5,7 +5,7 @@
 
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -721,75 +721,85 @@ def _test_task_base_progress_objective_hooks(simulation_app) -> bool:
 
 
 def test_predicate_groups_single_callable():
-    assert run_simulation_app_function(_test_predicate_groups_single_callable, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_predicate_groups_single_callable, headless=HEADLESS)
 
 
 def test_rest_pose_recorder_is_owned_by_env():
-    assert run_simulation_app_function(_test_rest_pose_recorder_is_owned_by_env, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_rest_pose_recorder_is_owned_by_env, headless=HEADLESS)
 
 
 def test_predicate_groups_list_of_callables():
-    assert run_simulation_app_function(_test_predicate_groups_list_of_callables, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_predicate_groups_list_of_callables, headless=HEADLESS)
 
 
 def test_predicate_groups_weighted_tuples():
-    assert run_simulation_app_function(_test_predicate_groups_weighted_tuples, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_predicate_groups_weighted_tuples, headless=HEADLESS)
 
 
 def test_predicate_groups_dict_groups():
-    assert run_simulation_app_function(_test_predicate_groups_dict_groups, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_predicate_groups_dict_groups, headless=HEADLESS)
 
 
 def test_predicate_groups_rejects_invalid_inputs():
-    assert run_simulation_app_function(_test_predicate_groups_rejects_invalid_inputs, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_predicate_groups_rejects_invalid_inputs, headless=HEADLESS)
 
 
 def test_state_machine_advances_sequentially():
-    assert run_simulation_app_function(_test_state_machine_advances_sequentially, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_state_machine_advances_sequentially, headless=HEADLESS)
 
 
 def test_state_machine_ignores_out_of_order_success():
-    assert run_simulation_app_function(_test_state_machine_ignores_out_of_order_success, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_state_machine_ignores_out_of_order_success, headless=HEADLESS
+    )
 
 
 def test_state_machine_logical_any():
-    assert run_simulation_app_function(_test_state_machine_logical_any, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_state_machine_logical_any, headless=HEADLESS)
 
 
 def test_state_machine_logical_all():
-    assert run_simulation_app_function(_test_state_machine_logical_all, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_state_machine_logical_all, headless=HEADLESS)
 
 
 def test_state_machine_logical_choose():
-    assert run_simulation_app_function(_test_state_machine_logical_choose, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_state_machine_logical_choose, headless=HEADLESS)
 
 
 def test_state_machine_reset_clears_state():
-    assert run_simulation_app_function(_test_state_machine_reset_clears_state, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_state_machine_reset_clears_state, headless=HEADLESS)
 
 
 def test_gating_advance_when_parent_subtask_idx_matches():
-    assert run_simulation_app_function(_test_gating_advance_when_parent_subtask_idx_matches, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_gating_advance_when_parent_subtask_idx_matches, headless=HEADLESS
+    )
 
 
 def test_gating_blocked_when_parent_subtask_idx_mismatches():
-    assert run_simulation_app_function(_test_gating_blocked_when_parent_subtask_idx_mismatches, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_gating_blocked_when_parent_subtask_idx_mismatches, headless=HEADLESS
+    )
 
 
 def test_gating_noop_when_env_has_no_current_subtask_idx():
-    assert run_simulation_app_function(_test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS
+    )
 
 
 def test_gating_sequential_task_end_to_end():
-    assert run_simulation_app_function(_test_gating_sequential_task_end_to_end, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_gating_sequential_task_end_to_end, headless=HEADLESS)
 
 
 def test_recorder_publishes_to_extras_and_records_nothing():
-    assert run_simulation_app_function(_test_recorder_publishes_to_extras_and_records_nothing, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_recorder_publishes_to_extras_and_records_nothing, headless=HEADLESS
+    )
 
 
 def test_task_base_progress_objective_hooks():
-    assert run_simulation_app_function(_test_task_base_progress_objective_hooks, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_task_base_progress_objective_hooks, headless=HEADLESS)
 
 
 if __name__ == "__main__":

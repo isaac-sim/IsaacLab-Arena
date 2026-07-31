@@ -7,7 +7,7 @@ import gymnasium as gym
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -236,15 +236,15 @@ def _test_close_door_with_reset(simulation_app) -> bool:
 
 # Test functions that will be called by pytest
 def test_close_door_microwave():
-    run_simulation_app_function(_test_close_door_microwave, headless=HEADLESS)
+    run_function_with_persistent_simulation_app(_test_close_door_microwave, headless=HEADLESS)
 
 
 def test_close_door_microwave_multiple_envs():
-    run_simulation_app_function(_test_close_door_microwave_multiple_envs, headless=HEADLESS)
+    run_function_with_persistent_simulation_app(_test_close_door_microwave_multiple_envs, headless=HEADLESS)
 
 
 def test_close_door_with_reset():
-    run_simulation_app_function(_test_close_door_with_reset, headless=HEADLESS)
+    run_function_with_persistent_simulation_app(_test_close_door_with_reset, headless=HEADLESS)
 
 
 if __name__ == "__main__":

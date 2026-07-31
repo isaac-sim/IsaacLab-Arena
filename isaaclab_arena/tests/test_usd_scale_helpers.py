@@ -14,7 +14,7 @@ import tempfile
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -428,48 +428,54 @@ def _test_both_paths_agree_origin_prim(simulation_app):
 
 
 def test_extract_trimesh_translated_child_nonuniform_scale():
-    result = run_simulation_app_function(_test_extract_trimesh_translated_child_nonuniform_scale, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(
+        _test_extract_trimesh_translated_child_nonuniform_scale, headless=HEADLESS
+    )
     assert result
 
 
 def test_extract_trimesh_from_prim_scales_in_root_frame():
-    result = run_simulation_app_function(_test_extract_trimesh_from_prim_scales_in_root_frame, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(
+        _test_extract_trimesh_from_prim_scales_in_root_frame, headless=HEADLESS
+    )
     assert result
 
 
 def test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry, headless=HEADLESS
     )
     assert result
 
 
 def test_extract_trimesh_from_prim_rejects_analytic_only_geometry():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_extract_trimesh_from_prim_rejects_analytic_only_geometry, headless=HEADLESS
     )
     assert result
 
 
 def test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry, headless=HEADLESS
     )
     assert result
 
 
 def test_extract_trimesh_from_usd_rejects_analytic_only_geometry():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_extract_trimesh_from_usd_rejects_analytic_only_geometry, headless=HEADLESS
     )
     assert result
 
 
 def test_bbox_translated_child_nonuniform_scale():
-    result = run_simulation_app_function(_test_bbox_translated_child_nonuniform_scale, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(
+        _test_bbox_translated_child_nonuniform_scale, headless=HEADLESS
+    )
     assert result
 
 
 def test_both_paths_agree_origin_prim():
-    result = run_simulation_app_function(_test_both_paths_agree_origin_prim, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_both_paths_agree_origin_prim, headless=HEADLESS)
     assert result

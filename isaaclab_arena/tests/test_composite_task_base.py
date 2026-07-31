@@ -5,7 +5,7 @@
 
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -243,7 +243,7 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
 
 
 def test_composite_desired_subtask_success_state_with_none():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_composite_desired_subtask_success_state_with_none,
         headless=HEADLESS,
     )
@@ -251,7 +251,7 @@ def test_composite_desired_subtask_success_state_with_none():
 
 
 def test_add_suffix_configclass_transform():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_add_suffix_configclass_transform,
         headless=HEADLESS,
     )
@@ -259,7 +259,7 @@ def test_add_suffix_configclass_transform():
 
 
 def test_remove_configclass_transform():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_remove_configclass_transform,
         headless=HEADLESS,
     )

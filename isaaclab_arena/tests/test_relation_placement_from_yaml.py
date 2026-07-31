@@ -8,7 +8,7 @@
 import traceback
 from pathlib import Path
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 _GRAPH = Path(__file__).parent / "test_data" / "pick_and_place_maple_table_env_graph.yaml"
 
@@ -71,7 +71,7 @@ def _test_yaml_spec_placement_satisfies_relations(simulation_app) -> bool:
 
 def test_yaml_spec_placement_satisfies_relations():
     """Pytest entry point: YAML spec -> built env -> solved placement honors relations."""
-    result = run_simulation_app_function(_test_yaml_spec_placement_satisfies_relations, headless=True)
+    result = run_function_with_persistent_simulation_app(_test_yaml_spec_placement_satisfies_relations, headless=True)
     assert result, f"Test {test_yaml_spec_placement_satisfies_relations.__name__} failed"
 
 

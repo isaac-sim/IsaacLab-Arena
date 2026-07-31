@@ -5,7 +5,7 @@
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
 HEADLESS = True
@@ -87,8 +87,12 @@ def _test_enabled_light_color_temperature_variation_applied(simulation_app):
 
 
 def test_disabled_light_color_temperature_variation_not_applied():
-    assert run_simulation_app_function(_test_disabled_light_color_temperature_variation_not_applied, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_disabled_light_color_temperature_variation_not_applied, headless=HEADLESS
+    )
 
 
 def test_enabled_light_color_temperature_variation_applied():
-    assert run_simulation_app_function(_test_enabled_light_color_temperature_variation_applied, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_enabled_light_color_temperature_variation_applied, headless=HEADLESS
+    )

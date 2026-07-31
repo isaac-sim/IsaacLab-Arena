@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 EPS = 1e-6
@@ -48,7 +48,7 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
 
 def test_get_prim_pose_in_default_prim_frame():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_get_prim_pose_in_default_prim_frame,
         headless=HEADLESS,
     )

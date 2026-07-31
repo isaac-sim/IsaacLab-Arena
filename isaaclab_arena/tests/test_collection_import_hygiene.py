@@ -12,7 +12,7 @@ delete/restore hack later mints a duplicate ``ArticulationCfg`` during Kit
 startup, and every robot-building test collected afterwards fails
 ``isinstance`` checks with "Unknown asset config type" (see IsaacLab #6514).
 Keep such imports inside the inner functions run via
-``run_simulation_app_function``.
+``run_function_with_persistent_simulation_app``.
 
 TODO(alexmillane, 2026-07-15): Remove this test once Isaac Lab #6514 is fixed.
 """
@@ -53,5 +53,5 @@ def test_no_isaaclab_cfg_imports_at_collection_time():
     assert not offenders, (
         "These test modules import Isaac Lab cfg modules at collection (module) time, which duplicates "
         f"ArticulationCfg once the SimulationApp launches: {offenders}. "
-        "Defer the imports into the inner function run via run_simulation_app_function."
+        "Defer the imports into the inner function run via run_function_with_persistent_simulation_app."
     )

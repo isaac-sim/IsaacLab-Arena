@@ -7,7 +7,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariationCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
@@ -344,56 +344,56 @@ def _test_object_mass_sample_below_floor_fails(simulation_app):
 
 
 def test_object_mass_variation_registration():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_mass_variation_registration,
         headless=HEADLESS,
     )
 
 
 def test_disabled_object_mass_variation_not_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_disabled_object_mass_variation_not_in_events_cfg,
         headless=HEADLESS,
     )
 
 
 def test_enabled_object_mass_variation_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_object_mass_variation_in_events_cfg,
         headless=HEADLESS,
     )
 
 
 def test_object_mass_variation_realized_and_recorded():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_mass_variation_realized_and_recorded,
         headless=HEADLESS,
     )
 
 
 def test_object_mass_variation_scales_inertia():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_mass_variation_scales_inertia,
         headless=HEADLESS,
     )
 
 
 def test_hydra_override_applies_object_mass_variation():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_hydra_override_applies_object_mass_variation,
         headless=HEADLESS,
     )
 
 
 def test_object_mass_variation_partial_reset_accepts_sequence_env_ids():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_mass_variation_partial_reset_accepts_sequence_env_ids,
         headless=HEADLESS,
     )
 
 
 def test_object_mass_sample_below_floor_fails():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_mass_sample_below_floor_fails,
         headless=HEADLESS,
     )

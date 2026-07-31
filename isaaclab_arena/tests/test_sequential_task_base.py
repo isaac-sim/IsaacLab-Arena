@@ -5,7 +5,7 @@
 
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -280,7 +280,7 @@ def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
 
 
 def test_sequential_success_advances_in_order():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sequential_success_advances_in_order,
         headless=HEADLESS,
     )
@@ -288,7 +288,7 @@ def test_sequential_success_advances_in_order():
 
 
 def test_sequential_success_latches():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sequential_success_latches,
         headless=HEADLESS,
     )
@@ -296,7 +296,7 @@ def test_sequential_success_latches():
 
 
 def test_sequential_desired_subtask_success_state():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sequential_desired_subtask_success_state,
         headless=HEADLESS,
     )
@@ -304,7 +304,7 @@ def test_sequential_desired_subtask_success_state():
 
 
 def test_sequential_desired_subtask_success_state_with_none():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sequential_desired_subtask_success_state_with_none,
         headless=HEADLESS,
     )
@@ -312,7 +312,7 @@ def test_sequential_desired_subtask_success_state_with_none():
 
 
 def test_sequential_reset_clears_state_and_index():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sequential_reset_clears_state_and_index,
         headless=HEADLESS,
     )

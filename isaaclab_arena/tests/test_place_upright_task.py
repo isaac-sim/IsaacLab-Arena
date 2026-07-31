@@ -6,7 +6,7 @@
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 5
 HEADLESS = True
@@ -181,7 +181,7 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
 
 
 def test_place_upright_mug_single():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_place_upright_mug_single,
         headless=HEADLESS,
     )
@@ -189,7 +189,7 @@ def test_place_upright_mug_single():
 
 
 def test_place_upright_mug_multi():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_place_upright_mug_multi,
         headless=HEADLESS,
     )
@@ -197,7 +197,7 @@ def test_place_upright_mug_multi():
 
 
 def test_place_upright_mug_condition():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_place_upright_mug_condition,
         headless=HEADLESS,
     )

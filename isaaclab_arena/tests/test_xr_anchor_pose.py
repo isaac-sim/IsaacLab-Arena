@@ -7,7 +7,7 @@
 
 import numpy as np
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -77,7 +77,7 @@ def _test_g1_wbc_pink_xr_anchor(simulation_app) -> bool:
 
 def test_gr1_pink_xr_anchor_pose():
     """GR1T2 Pink uses a fixed pelvis-relative XR anchor."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_gr1_pink_xr_anchor,
         headless=HEADLESS,
     )
@@ -86,7 +86,7 @@ def test_gr1_pink_xr_anchor_pose():
 
 def test_g1_wbc_pink_xr_anchor_pose():
     """G1 WBC Pink uses the same pelvis-relative XR anchor pattern as GR1T2."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_g1_wbc_pink_xr_anchor,
         headless=HEADLESS,
     )

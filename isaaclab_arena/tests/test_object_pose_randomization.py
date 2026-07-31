@@ -7,7 +7,7 @@ import torch
 import tqdm
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_RESETS = 10
 NUM_STEPS_PER_RESET = 1
@@ -101,7 +101,7 @@ def _test_object_pose_randomization(simulation_app):
 
 
 def test_object_pose_randomization():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_pose_randomization,
         headless=HEADLESS,
     )

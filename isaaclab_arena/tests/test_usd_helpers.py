@@ -5,7 +5,7 @@
 
 import pathlib
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 EPS = 1e-4
@@ -116,7 +116,7 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
 
 
 def test_compute_local_bounding_box_from_usd(tmp_path: pathlib.Path):
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_compute_local_bounding_box_from_usd,
         headless=HEADLESS,
         asset_dir=tmp_path,
@@ -125,7 +125,7 @@ def test_compute_local_bounding_box_from_usd(tmp_path: pathlib.Path):
 
 
 def test_compute_local_bounding_box_from_usd_prim_path(tmp_path: pathlib.Path):
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_compute_local_bounding_box_from_usd_prim_path,
         headless=HEADLESS,
         asset_dir=tmp_path,

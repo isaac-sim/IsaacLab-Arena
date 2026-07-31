@@ -5,7 +5,7 @@
 
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
@@ -50,7 +50,7 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
 
 def test_embodiment_provides_robot_collision_mesh():
     """Pytest entry point for the embodiment collision-mesh test."""
-    result = run_simulation_app_function(_test_embodiment_provides_robot_collision_mesh, headless=True)
+    result = run_function_with_persistent_simulation_app(_test_embodiment_provides_robot_collision_mesh, headless=True)
     assert result, f"Test {test_embodiment_provides_robot_collision_mesh.__name__} failed"
 
 

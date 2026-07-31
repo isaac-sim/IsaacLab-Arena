@@ -8,7 +8,7 @@
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 120
 HEADLESS = True
@@ -96,7 +96,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
 
 
 def test_object_on_microwave_tray_termination():
-    result = run_simulation_app_function(_test_object_on_microwave_tray_termination, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_object_on_microwave_tray_termination, headless=HEADLESS)
     assert result, "Test failed"
 
 

@@ -8,7 +8,7 @@ import traceback
 
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -321,7 +321,7 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
 
 def test_sorting_task_initial_state():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sorting_task_initial_state,
         headless=HEADLESS,
     )
@@ -329,7 +329,7 @@ def test_sorting_task_initial_state():
 
 
 def test_sorting_task_success():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sorting_task_success,
         headless=HEADLESS,
     )
@@ -337,7 +337,7 @@ def test_sorting_task_success():
 
 
 def test_sorting_task_partial_success():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sorting_task_partial_success,
         headless=HEADLESS,
     )
@@ -345,7 +345,7 @@ def test_sorting_task_partial_success():
 
 
 def test_sorting_task_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_sorting_task_multiple_envs,
         headless=HEADLESS,
     )
