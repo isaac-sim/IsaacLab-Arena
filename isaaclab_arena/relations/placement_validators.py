@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 import trimesh
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -124,7 +125,43 @@ class OnRelationValidator(PlacementValidator):
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+        verdicts = [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+        if os.environ.get("ARENA_RELATION_PROFILE") == "1":
+            violations = torch.tensor([
+                self._max_violation(positions[i], bboxes[i]) for i in range(len(positions))
+            ])
+            counts = ", ".join(
+                f"{tolerance_cm}cm={int((violations <= tolerance_cm / 100).sum())}/{len(violations)}"
+                for tolerance_cm in (1, 2, 5, 10)
+            )
+            print(
+                f"[NextTo diagnostic] pass by tolerance: {counts}; "
+                f"p50={violations.quantile(0.5).item():.4f}m "
+                f"p90={violations.quantile(0.9).item():.4f}m "
+                f"max={violations.max().item():.4f}m"
+            )
+        return verdicts
+
+    @staticmethod
+    def _max_violation(
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> float:
+        """Return the largest side or distance violation across NextTo relations."""
+        max_violation = 0.0
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, NextTo) or rel.parent not in positions:
+                    continue
+                cfg = SIDE_CONFIGS[rel.side]
+                child_bbox = env_bboxes[obj]
+                child_pos = child_bbox.min_point.new_tensor([positions[obj]])
+                parent_world = env_bboxes[rel.parent].translated(positions[rel.parent])
+                half_plane, distance = next_to_violations(
+                    cfg, child_pos, child_bbox, parent_world, rel.distance_m
+                )
+                max_violation = max(max_violation, half_plane.item(), distance.item())
+        return max_violation
 
     def _validate(
         self,

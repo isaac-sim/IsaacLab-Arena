@@ -37,7 +37,7 @@ def compute_no_overlap_loss_mesh(
     slope: float,
     debug: bool,
 ) -> torch.Tensor:
-    """Per-env sphere-to-SDF penetration loss.
+    """Compute per-environment sphere-to-SDF penetration loss in one batched query.
 
     Args:
         state: Current solver state with positions and batch info.
@@ -49,115 +49,93 @@ def compute_no_overlap_loss_mesh(
         debug: Print per-pair loss when True.
     """
     device = state.device
-    total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
+    batch_size = state.batch_size
+    total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
     if mesh_cache is None:
         return total_loss
 
     num_pairs = mesh_cache.num_pairs
+    num_spheres = mesh_cache.total_spheres
+    sphere_pair_id = mesh_cache.sphere_pair_id.long()
 
-    # Per-env loop: per-env yaw and active-pair masking produce a different sphere subset per env.
-    for b in range(state.batch_size):
-        subject_positions = torch.stack(
-            [state.get_position(mesh_cache.pair_subject_objs[p])[b] for p in range(num_pairs)]
-        )
-        obstacle_positions = torch.stack([
+    subject_positions = torch.stack(
+        [state.get_position(subject) for subject in mesh_cache.pair_subject_objs],
+        dim=1,
+    )
+    obstacle_positions = torch.stack(
+        [
             (
-                mesh_cache.pair_fixed_obstacle_pos[p]
+                mesh_cache.pair_fixed_obstacle_pos_tensor[p].expand(batch_size, 3)
                 if mesh_cache.pair_obstacle_is_fixed[p]
-                else state.get_position(mesh_cache.pair_obstacle_objs[p])[b].detach()
+                else state.get_position(mesh_cache.pair_obstacle_objs[p]).detach()
             )
             for p in range(num_pairs)
-        ])
+        ],
+        dim=1,
+    )
+    subject_yaws, obstacle_yaws, has_any_yaw = _get_batched_pair_yaws(mesh_cache, orientations, batch_size, device)
 
-        fixed_obstacle_yaws = mesh_cache.pair_fixed_obstacle_yaw
-        has_any_yaw = orientations is not None or any(y != 0.0 for y in fixed_obstacle_yaws)
-        if has_any_yaw:
-            ori_b = orientations[b] if orientations is not None else {}
-            subject_yaws = torch.tensor(
-                [
-                    ori_b.get(mesh_cache.pair_subject_objs[p], 0.0) if mesh_cache.pair_subject_applies_yaw[p] else 0.0
-                    for p in range(num_pairs)
-                ],
-                dtype=torch.float32,
-                device=device,
-            )
-            obstacle_yaws = torch.tensor(
-                [ori_b.get(mesh_cache.pair_obstacle_objs[p], fixed_obstacle_yaws[p]) for p in range(num_pairs)],
-                dtype=torch.float32,
-                device=device,
-            )
-
-        # AABB overlap filter (yaw-aware): skip separated pairs.
-        margins = mesh_cache.pair_max_radius + clearance_m
-        s_bbox_min = mesh_cache.pair_subject_bbox_min[:, b, :]
-        s_bbox_max = mesh_cache.pair_subject_bbox_max[:, b, :]
-        o_bbox_min = mesh_cache.pair_obstacle_bbox_min[:, b, :]
-        o_bbox_max = mesh_cache.pair_obstacle_bbox_max[:, b, :]
-
-        if has_any_yaw:
-            subject_bbox_yaws = torch.tensor(
-                [
-                    0.0 if mesh_cache.pair_subject_bbox_includes_yaw[p] else subject_yaws[p].item()
-                    for p in range(num_pairs)
-                ],
-                dtype=torch.float32,
-                device=device,
-            )
-            obstacle_bbox_yaws = torch.tensor(
-                [
-                    0.0 if mesh_cache.pair_obstacle_bbox_includes_yaw[p] else obstacle_yaws[p].item()
-                    for p in range(num_pairs)
-                ],
-                dtype=torch.float32,
-                device=device,
-            )
-            s_bbox_min, s_bbox_max = _rotate_bbox_extents(s_bbox_min, s_bbox_max, subject_bbox_yaws)
-            o_bbox_min, o_bbox_max = _rotate_bbox_extents(o_bbox_min, o_bbox_max, obstacle_bbox_yaws)
-
-        subject_min = subject_positions + s_bbox_min
-        subject_max = subject_positions + s_bbox_max
-        obstacle_min = obstacle_positions + o_bbox_min
-        obstacle_max = obstacle_positions + o_bbox_max
-
-        sep_subject = (subject_min - margins.unsqueeze(1)) > obstacle_max
-        sep_obstacle = (obstacle_min - margins.unsqueeze(1)) > subject_max
-        separated = sep_subject.any(dim=1) | sep_obstacle.any(dim=1)
-        active_pair = ~separated
-
-        if not active_pair.any():
-            continue
-
-        offsets = subject_positions - obstacle_positions
-        sphere_active_mask = active_pair[mesh_cache.sphere_pair_id]
-        active_idx = sphere_active_mask.nonzero(as_tuple=True)[0]
-
-        active_sphere_pair_id = mesh_cache.sphere_pair_id[active_idx]
-        local_centers = mesh_cache.all_centers_local[active_idx]
-
-        # R(subject_yaw - obstacle_yaw) · local + R(-obstacle_yaw) · offset
-        if has_any_yaw:
-            net_yaws = (subject_yaws - obstacle_yaws)[active_sphere_pair_id]
-            local_centers = rotate_points_by_yaw_batch(local_centers, net_yaws)
-
-            pair_offsets = offsets[active_sphere_pair_id]
-            obs_yaws = obstacle_yaws[active_sphere_pair_id]
-            rotated_offsets = rotate_points_by_yaw_batch(pair_offsets, -obs_yaws)
-            active_centers = local_centers + rotated_offsets
-        else:
-            active_centers = local_centers + offsets[active_sphere_pair_id]
-        active_radii = mesh_cache.all_radii[active_idx]
-
-        sdf_values = _query_component_union_sdf(
-            active_centers, active_idx, sphere_active_mask, mesh_cache, mesh_manager
+    subject_bbox_min = mesh_cache.pair_subject_bbox_min.permute(1, 0, 2)
+    subject_bbox_max = mesh_cache.pair_subject_bbox_max.permute(1, 0, 2)
+    obstacle_bbox_min = mesh_cache.pair_obstacle_bbox_min.permute(1, 0, 2)
+    obstacle_bbox_max = mesh_cache.pair_obstacle_bbox_max.permute(1, 0, 2)
+    if has_any_yaw:
+        subject_bbox_yaws = torch.where(
+            mesh_cache.pair_subject_bbox_includes_yaw_tensor.unsqueeze(0),
+            0.0,
+            subject_yaws,
         )
-        penetration = torch.relu(active_radii + clearance_m - sdf_values)
+        obstacle_bbox_yaws = torch.where(
+            mesh_cache.pair_obstacle_bbox_includes_yaw_tensor.unsqueeze(0),
+            0.0,
+            obstacle_yaws,
+        )
+        subject_bbox_min, subject_bbox_max = _rotate_bbox_extents_batched(
+            subject_bbox_min, subject_bbox_max, subject_bbox_yaws
+        )
+        obstacle_bbox_min, obstacle_bbox_max = _rotate_bbox_extents_batched(
+            obstacle_bbox_min, obstacle_bbox_max, obstacle_bbox_yaws
+        )
 
-        pair_sum = torch.zeros(num_pairs, device=device, dtype=penetration.dtype)
-        pair_sum.index_add_(0, active_sphere_pair_id, penetration)
-        pair_mean = pair_sum / mesh_cache.pair_sphere_count
-        active_pair_idx = active_pair.nonzero(as_tuple=True)[0]
-        total_loss[b] = total_loss[b] + slope * pair_mean[active_pair_idx].sum()
+    margins = mesh_cache.pair_max_radius.view(1, num_pairs, 1) + clearance_m
+    subject_min = subject_positions + subject_bbox_min
+    subject_max = subject_positions + subject_bbox_max
+    obstacle_min = obstacle_positions + obstacle_bbox_min
+    obstacle_max = obstacle_positions + obstacle_bbox_max
+    separated = ((subject_min - margins) > obstacle_max).any(dim=2) | ((obstacle_min - margins) > subject_max).any(
+        dim=2
+    )
+    active_pair = ~separated
+
+    offsets = subject_positions - obstacle_positions
+    local_centers = mesh_cache.all_centers_local.unsqueeze(0).expand(batch_size, num_spheres, 3)
+    sphere_offsets = offsets[:, sphere_pair_id, :]
+    if has_any_yaw:
+        subject_sphere_yaws = subject_yaws[:, sphere_pair_id]
+        obstacle_sphere_yaws = obstacle_yaws[:, sphere_pair_id]
+        local_centers = rotate_points_by_yaw_batch(
+            local_centers.reshape(-1, 3),
+            (subject_sphere_yaws - obstacle_sphere_yaws).reshape(-1),
+        ).reshape(batch_size, num_spheres, 3)
+        sphere_offsets = rotate_points_by_yaw_batch(
+            sphere_offsets.reshape(-1, 3),
+            -obstacle_sphere_yaws.reshape(-1),
+        ).reshape(batch_size, num_spheres, 3)
+
+    active_sphere = active_pair[:, sphere_pair_id]
+    sdf_values = _query_component_union_sdf_batched(
+        local_centers + sphere_offsets,
+        active_sphere,
+        mesh_cache,
+        mesh_manager,
+    )
+    penetration = torch.relu(mesh_cache.all_radii.unsqueeze(0) + clearance_m - sdf_values)
+    penetration = penetration * active_sphere
+
+    pair_sum = torch.zeros(batch_size, num_pairs, device=device, dtype=penetration.dtype)
+    pair_sum.scatter_add_(1, sphere_pair_id.unsqueeze(0).expand(batch_size, num_spheres), penetration)
+    total_loss = slope * (pair_sum / mesh_cache.pair_sphere_count.unsqueeze(0)).sum(dim=1)
 
     if debug:
         print(f"  [NoOverlap MESH] total_loss={total_loss.tolist()}")
@@ -165,40 +143,86 @@ def compute_no_overlap_loss_mesh(
     return total_loss
 
 
-def _query_component_union_sdf(
-    active_centers: torch.Tensor,
-    active_sphere_idx: torch.Tensor,
-    sphere_active_mask: torch.Tensor,
+def _query_component_union_sdf_batched(
+    sphere_centers: torch.Tensor,
+    active_sphere: torch.Tensor,
     mesh_cache: MeshPairCache,
     mesh_manager: WarpMeshAndSphereCache,
 ) -> torch.Tensor:
-    """Query each obstacle component and return the minimum SDF per active sphere.
+    """Query all candidate/component combinations and return their union SDF.
 
     Keeping overlapping closed components separate avoids the ambiguous closest-face sign produced
     by concatenating them into one topologically watertight mesh. Their pointwise minimum is the SDF
     of the component union.
     """
-    query_active_mask = sphere_active_mask[mesh_cache.query_sphere_id]
-    query_sphere_id = mesh_cache.query_sphere_id[query_active_mask]
-    query_active_id = torch.searchsorted(active_sphere_idx, query_sphere_id)
-    query_mesh_idx = mesh_cache.query_mesh_idx[query_active_mask].contiguous()
-    query_mesh_indices_wp = wp.from_torch(query_mesh_idx, dtype=wp.int32)
+    batch_size, num_spheres, _ = sphere_centers.shape
+    num_queries = len(mesh_cache.query_sphere_id)
+    query_centers = sphere_centers[:, mesh_cache.query_sphere_id, :].reshape(batch_size * num_queries, 3)
+    query_mesh_idx = mesh_cache.query_mesh_idx.unsqueeze(0).expand(batch_size, num_queries).reshape(-1).contiguous()
+    query_active = active_sphere[:, mesh_cache.query_sphere_id].reshape(-1)
     query_sdf = multi_mesh_sdf(
-        active_centers[query_active_id],
+        query_centers.contiguous(),
         mesh_cache.mesh_id_array,
-        query_mesh_indices_wp,
+        wp.from_torch(query_mesh_idx, dtype=wp.int32),
+        query_active,
     )
     mesh_manager.warn_sdf_sentinel(query_sdf)
     query_sdf = clamp_sdf_sentinel(query_sdf)
 
-    union_sdf = torch.full(
-        (len(active_sphere_idx),),
+    candidate_offsets = torch.arange(batch_size, device=sphere_centers.device).unsqueeze(1) * num_spheres
+    flat_sphere_id = (mesh_cache.query_sphere_id.unsqueeze(0) + candidate_offsets).reshape(-1)
+    flat_union_sdf = torch.full(
+        (batch_size * num_spheres,),
         torch.inf,
         dtype=query_sdf.dtype,
-        device=active_centers.device,
+        device=sphere_centers.device,
     )
-    union_sdf.scatter_reduce_(0, query_active_id, query_sdf, reduce="amin", include_self=True)
-    return union_sdf
+    flat_union_sdf.scatter_reduce_(0, flat_sphere_id, query_sdf, reduce="amin", include_self=True)
+    return flat_union_sdf.reshape(batch_size, num_spheres)
+
+
+def _get_batched_pair_yaws(
+    mesh_cache: MeshPairCache,
+    orientations: list[dict[PlaceableAsset, float]] | None,
+    batch_size: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, bool]:
+    """Return subject and obstacle yaw tables shaped (B, P)."""
+    num_pairs = mesh_cache.num_pairs
+    has_any_yaw = orientations is not None or any(yaw != 0.0 for yaw in mesh_cache.pair_fixed_obstacle_yaw)
+    if not has_any_yaw:
+        zeros = torch.zeros(batch_size, num_pairs, dtype=torch.float32, device=device)
+        return zeros, zeros, False
+
+    if orientations is None:
+        subject_yaws = torch.zeros(batch_size, num_pairs, dtype=torch.float32, device=device)
+        obstacle_yaws = mesh_cache.pair_fixed_obstacle_yaw_tensor.unsqueeze(0).expand(batch_size, num_pairs)
+        return subject_yaws, obstacle_yaws, True
+
+    assert len(orientations) == batch_size, "Orientations must provide one mapping per candidate."
+    subject_yaws = torch.tensor(
+        [
+            [
+                orientation.get(mesh_cache.pair_subject_objs[p], 0.0) if mesh_cache.pair_subject_applies_yaw[p] else 0.0
+                for p in range(num_pairs)
+            ]
+            for orientation in orientations
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+    obstacle_yaws = torch.tensor(
+        [
+            [
+                orientation.get(mesh_cache.pair_obstacle_objs[p], mesh_cache.pair_fixed_obstacle_yaw[p])
+                for p in range(num_pairs)
+            ]
+            for orientation in orientations
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
+    return subject_yaws, obstacle_yaws, True
 
 
 def prepare_mesh_collision_cache(
@@ -457,6 +481,14 @@ def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> 
 
     pair_sphere_count = torch.tensor([e - s for s, e in pair_slices], dtype=torch.float32, device=device)
     sphere_pair_id = torch.repeat_interleave(torch.arange(len(pair_slices), device=device), pair_sphere_count.long())
+    fixed_obstacle_positions = torch.stack([
+        (
+            entry.fixed_obstacle_pos
+            if entry.fixed_obstacle_pos is not None
+            else torch.zeros(3, dtype=torch.float32, device=device)
+        )
+        for entry in entries
+    ])
 
     return MeshPairCache(
         all_centers_local=torch.cat([e.centers_local for e in entries], dim=0),
@@ -481,6 +513,16 @@ def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> 
         mesh_id_array=wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=str(device)),
         num_pairs=len(entries),
         total_spheres=offset,
+        pair_fixed_obstacle_pos_tensor=fixed_obstacle_positions,
+        pair_fixed_obstacle_yaw_tensor=torch.tensor(
+            [entry.fixed_obstacle_yaw for entry in entries], dtype=torch.float32, device=device
+        ),
+        pair_subject_bbox_includes_yaw_tensor=torch.tensor(
+            [entry.subject_bbox_includes_yaw for entry in entries], dtype=torch.bool, device=device
+        ),
+        pair_obstacle_bbox_includes_yaw_tensor=torch.tensor(
+            [entry.obstacle_bbox_includes_yaw for entry in entries], dtype=torch.bool, device=device
+        ),
     )
 
 
@@ -499,3 +541,19 @@ def _rotate_bbox_extents(
     rotated_min = torch.stack([rot_x.min(dim=1).values, rot_y.min(dim=1).values, bbox_min[:, 2]], dim=1)
     rotated_max = torch.stack([rot_x.max(dim=1).values, rot_y.max(dim=1).values, bbox_max[:, 2]], dim=1)
     return rotated_min, rotated_max
+
+
+def _rotate_bbox_extents_batched(
+    bbox_min: torch.Tensor, bbox_max: torch.Tensor, yaws: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Rotate bounding-box extents shaped (B, P, 3) by yaws shaped (B, P)."""
+    batch_size, num_pairs, _ = bbox_min.shape
+    rotated_min, rotated_max = _rotate_bbox_extents(
+        bbox_min.reshape(batch_size * num_pairs, 3),
+        bbox_max.reshape(batch_size * num_pairs, 3),
+        yaws.reshape(batch_size * num_pairs),
+    )
+    return (
+        rotated_min.reshape(batch_size, num_pairs, 3),
+        rotated_max.reshape(batch_size, num_pairs, 3),
+    )

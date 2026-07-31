@@ -30,7 +30,7 @@ from isaaclab_arena.relations.relations import (
 def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
     """Factory for default loss strategies."""
     return {
-        NextTo: NextToLossStrategy(slope=10.0),
+        NextTo: NextToLossStrategy(slope=30.0, cross_axis_slope=10.0),
         On: OnLossStrategy(slope=100.0),
         NotNextTo: NotNextToLossStrategy(slope=10.0, margin_m=0.1),
         AtPosition: AtPositionLossStrategy(slope=100.0),

@@ -221,14 +221,21 @@ class NextToLossStrategy(RelationLossStrategy):
     3. Distance constraint to position child at target distance from parent
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(self, slope: float = 10.0, debug: bool = False, cross_axis_slope: float | None = None):
         """
         Args:
             slope: Gradient magnitude for linear loss (default: 10.0).
                    Loss increases by `slope` per meter of violation.
             debug: If True, print detailed loss component breakdown.
+            cross_axis_slope: Gradient magnitude for the cross-axis positioning preference.
+                Defaults to ``slope`` for backward compatibility.
         """
+        assert slope >= 0.0, f"slope must be non-negative, got {slope}"
+        assert (
+            cross_axis_slope is None or cross_axis_slope >= 0.0
+        ), f"cross_axis_slope must be non-negative, got {cross_axis_slope}"
         self.slope = slope
+        self.cross_axis_slope = slope if cross_axis_slope is None else cross_axis_slope
         self.debug = debug
 
     def compute_loss(
@@ -272,7 +279,12 @@ class NextToLossStrategy(RelationLossStrategy):
         # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
         t = (relation.cross_position_ratio + 1.0) / 2.0
         target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
-        band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis], target_band_pos, slope=self.slope)
+        band_loss = linear_band_loss(
+            child_pos[:, cfg.band_axis],
+            valid_band_min,
+            valid_band_max,
+            slope=self.cross_axis_slope,
+        )
 
         if self.debug and child_pos.shape[0] == 1:
             band_axis_name = cfg.band_axis.name

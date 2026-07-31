@@ -147,6 +147,18 @@ class MeshPairCache:
     total_spheres: int
     """Total number of logical spheres across all pairs."""
 
+    pair_fixed_obstacle_pos_tensor: torch.Tensor
+    """(P, 3) fixed obstacle positions; zero for movable-obstacle pairs."""
+
+    pair_fixed_obstacle_yaw_tensor: torch.Tensor
+    """(P,) fixed obstacle yaw; zero for movable-obstacle pairs."""
+
+    pair_subject_bbox_includes_yaw_tensor: torch.Tensor
+    """(P,) whether subject bounds already include candidate yaw."""
+
+    pair_obstacle_bbox_includes_yaw_tensor: torch.Tensor
+    """(P,) whether obstacle bounds already include candidate yaw."""
+
     def __post_init__(self) -> None:
         assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
         assert len(self.pair_obstacle_objs) == self.num_pairs, "pair_obstacle_objs length mismatch"
@@ -163,5 +175,9 @@ class MeshPairCache:
         assert self.sphere_pair_id.shape[0] == self.total_spheres, "sphere_pair_id size mismatch"
         assert self.query_sphere_id.shape == self.query_mesh_idx.shape, "query arrays size mismatch"
         assert int(self.pair_sphere_count.sum().item()) == self.total_spheres, "pair_sphere_count sum mismatch"
+        assert self.pair_fixed_obstacle_pos_tensor.shape == (self.num_pairs, 3)
+        assert self.pair_fixed_obstacle_yaw_tensor.shape == (self.num_pairs,)
+        assert self.pair_subject_bbox_includes_yaw_tensor.shape == (self.num_pairs,)
+        assert self.pair_obstacle_bbox_includes_yaw_tensor.shape == (self.num_pairs,)
         for i, (is_fixed, pos) in enumerate(zip(self.pair_obstacle_is_fixed, self.pair_fixed_obstacle_pos)):
             assert not is_fixed or pos is not None, f"pair {i}: obstacle_is_fixed=True but fixed_obstacle_pos is None"

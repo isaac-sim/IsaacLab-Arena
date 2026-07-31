@@ -249,6 +249,47 @@ def test_next_to_loss_strategy_penalizes_outside_y_band():
     assert loss > 0.0
 
 
+def test_next_to_cross_axis_slope_is_independent():
+    """Cross-axis preference can remain weak while side and distance constraints are strengthened."""
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    child_pos = torch.tensor([1.05, 1.0, 0.0])
+    default_strategy = RelationSolverParams().strategies[NextTo]
+    assert isinstance(default_strategy, NextToLossStrategy)
+    assert default_strategy.slope == 30.0
+    assert default_strategy.cross_axis_slope == 10.0
+
+    strong_band_loss = NextToLossStrategy(slope=30.0, cross_axis_slope=10.0).compute_loss(
+        relation,
+        child_pos,
+        child_obj.bounding_box,
+        parent_obj.bounding_box,
+    )
+    weak_band_loss = NextToLossStrategy(slope=30.0, cross_axis_slope=1.0).compute_loss(
+        relation,
+        child_pos,
+        child_obj.bounding_box,
+        parent_obj.bounding_box,
+    )
+    fallback_band_loss = NextToLossStrategy(slope=10.0).compute_loss(
+        relation,
+        child_pos,
+        child_obj.bounding_box,
+        parent_obj.bounding_box,
+    )
+
+    torch.testing.assert_close(strong_band_loss, 10.0 * weak_band_loss)
+    torch.testing.assert_close(strong_band_loss, fallback_band_loss)
+    primary_only_loss = default_strategy.compute_loss(
+        relation,
+        torch.tensor([1.15, 0.4, 0.0]),
+        child_obj.bounding_box,
+        parent_obj.bounding_box,
+    )
+    torch.testing.assert_close(primary_only_loss, torch.tensor(3.0))
+
+
 def test_next_to_loss_strategy_penalizes_wrong_distance():
     """Test that NextTo loss penalizes incorrect distance from parent."""
 

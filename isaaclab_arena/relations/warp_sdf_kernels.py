@@ -133,6 +133,7 @@ def _multi_mesh_sdf_kernel(
     mesh_ids: wp.array(dtype=wp.uint64),
     mesh_indices: wp.array(dtype=wp.int32),
     query_points: wp.array(dtype=wp.vec3),
+    active_mask: wp.array(dtype=wp.int32),
     sdf_out: wp.array(dtype=wp.float32),
     grad_out: wp.array(dtype=wp.vec3),
 ):
@@ -142,28 +143,32 @@ def _multi_mesh_sdf_kernel(
     Points with no enclosing face write a large sentinel value (~1e6).
     """
     tid = wp.tid()
-    p = query_points[tid]
-    mesh_id = mesh_ids[mesh_indices[tid]]
-
-    face_index = int(0)
-    face_u = float(0.0)
-    face_v = float(0.0)
-    sign = float(0.0)
-
-    found = wp.mesh_query_point_sign_normal(mesh_id, p, 1.0e6, sign, face_index, face_u, face_v)
-
-    if found:
-        closest = wp.mesh_eval_position(mesh_id, face_index, face_u, face_v)
-        diff = p - closest
-        dist = wp.length(diff)
-        sdf_out[tid] = sign * dist
-        if dist > 1.0e-8:
-            grad_out[tid] = sign * wp.normalize(diff)
-        else:
-            grad_out[tid] = wp.vec3(0.0, 0.0, 0.0)
-    else:
-        sdf_out[tid] = float(1.0e6)
+    if active_mask[tid] == 0:
+        sdf_out[tid] = float(0.0)
         grad_out[tid] = wp.vec3(0.0, 0.0, 0.0)
+    else:
+        p = query_points[tid]
+        mesh_id = mesh_ids[mesh_indices[tid]]
+
+        face_index = int(0)
+        face_u = float(0.0)
+        face_v = float(0.0)
+        sign = float(0.0)
+
+        found = wp.mesh_query_point_sign_normal(mesh_id, p, 1.0e6, sign, face_index, face_u, face_v)
+
+        if found:
+            closest = wp.mesh_eval_position(mesh_id, face_index, face_u, face_v)
+            diff = p - closest
+            dist = wp.length(diff)
+            sdf_out[tid] = sign * dist
+            if dist > 1.0e-8:
+                grad_out[tid] = sign * wp.normalize(diff)
+            else:
+                grad_out[tid] = wp.vec3(0.0, 0.0, 0.0)
+        else:
+            sdf_out[tid] = float(1.0e6)
+            grad_out[tid] = wp.vec3(0.0, 0.0, 0.0)
 
 
 class _MultiMeshSDFFunction(torch.autograd.Function):
@@ -175,6 +180,7 @@ class _MultiMeshSDFFunction(torch.autograd.Function):
         points: torch.Tensor,
         mesh_id_array: wp.array,
         mesh_indices: wp.array,
+        active_mask: torch.Tensor | None,
     ) -> torch.Tensor:
         """Compute SDF values for query points, each against its own target mesh.
 
@@ -182,6 +188,7 @@ class _MultiMeshSDFFunction(torch.autograd.Function):
             points: (N, 3) float32 tensor of query positions.
             mesh_id_array: Warp array of uint64 mesh IDs.
             mesh_indices: Warp array of int32 indices into mesh_id_array (one per point).
+            active_mask: Optional (N,) mask; inactive points skip BVH queries and return zero.
 
         Returns:
             (N,) tensor of signed distance values.
@@ -191,13 +198,18 @@ class _MultiMeshSDFFunction(torch.autograd.Function):
         wp_device = str(device)
 
         wp_points = wp.from_torch(points.contiguous(), dtype=wp.vec3)
+        if active_mask is None:
+            active_mask = torch.ones(n, dtype=torch.int32, device=device)
+        else:
+            active_mask = active_mask.to(device=device, dtype=torch.int32).contiguous()
+        wp_active_mask = wp.from_torch(active_mask, dtype=wp.int32)
         sdf_wp = wp.zeros(n, dtype=wp.float32, device=wp_device)
         grad_wp = wp.zeros(n, dtype=wp.vec3, device=wp_device)
 
         wp.launch(
             kernel=_multi_mesh_sdf_kernel,
             dim=n,
-            inputs=[mesh_id_array, mesh_indices, wp_points, sdf_wp, grad_wp],
+            inputs=[mesh_id_array, mesh_indices, wp_points, wp_active_mask, sdf_wp, grad_wp],
             device=wp_device,
         )
 
@@ -211,13 +223,14 @@ class _MultiMeshSDFFunction(torch.autograd.Function):
     def backward(ctx, grad_output: torch.Tensor):
         (grad_sdf,) = ctx.saved_tensors
         grad_points = grad_output.unsqueeze(-1) * grad_sdf
-        return grad_points, None, None
+        return grad_points, None, None, None
 
 
 def multi_mesh_sdf(
     points: torch.Tensor,
     mesh_id_array: wp.array,
     mesh_indices: wp.array,
+    active_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Differentiable multi-mesh SDF query. Single kernel launch for all points.
 
@@ -225,8 +238,9 @@ def multi_mesh_sdf(
         points: (N, 3) query points.
         mesh_id_array: Warp uint64 array of mesh IDs (one per unique target mesh).
         mesh_indices: Warp int32 array (N,) mapping each point to its target mesh index.
+        active_mask: Optional (N,) mask for skipping broad-phase-inactive queries.
 
     Returns:
         (N,) signed distance values. Negative = penetrating.
     """
-    return _MultiMeshSDFFunction.apply(points, mesh_id_array, mesh_indices)
+    return _MultiMeshSDFFunction.apply(points, mesh_id_array, mesh_indices, active_mask)

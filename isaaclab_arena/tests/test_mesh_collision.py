@@ -618,7 +618,7 @@ def test_component_union_sdf_penalizes_a_mixed_sentinel(monkeypatch):
     monkeypatch.setattr(
         no_overlap_mesh,
         "multi_mesh_sdf",
-        lambda centers, mesh_ids, mesh_indices: torch.tensor([1.0e6, 0.5]),
+        lambda centers, mesh_ids, mesh_indices, active_mask: torch.tensor([1.0e6, 0.5]),
     )
     cache = SimpleNamespace(
         query_sphere_id=torch.tensor([0, 0]),
@@ -627,10 +627,9 @@ def test_component_union_sdf_penalizes_a_mixed_sentinel(monkeypatch):
     )
     manager = SimpleNamespace(warn_sdf_sentinel=lambda sdf: None)
 
-    union_sdf = no_overlap_mesh._query_component_union_sdf(
-        active_centers=torch.zeros((1, 3)),
-        active_sphere_idx=torch.tensor([0]),
-        sphere_active_mask=torch.tensor([True]),
+    union_sdf = no_overlap_mesh._query_component_union_sdf_batched(
+        sphere_centers=torch.zeros((1, 1, 3)),
+        active_sphere=torch.ones((1, 1), dtype=torch.bool),
         mesh_cache=cache,
         mesh_manager=manager,
     )
@@ -668,6 +667,83 @@ def test_solver_mesh_batch_size_two():
     pos_b_1 = np.array(results[1][b])
     dist_1 = np.linalg.norm(pos_a_1[:2] - pos_b_1[:2])
     assert dist_1 > 0.3, f"Env 1: separated objects moved too much, dist={dist_1:.4f}"
+
+
+@requires_warp
+def test_batched_mesh_loss_matches_independent_candidates():
+    """Batched compound-mesh losses and gradients match independent candidate evaluation."""
+    from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+
+    class CompoundDummyObject(DummyObject):
+        def __init__(self, name: str, components: tuple[trimesh.Trimesh, ...]) -> None:
+            mesh = trimesh.util.concatenate(components)
+            super().__init__(
+                name,
+                AxisAlignedBoundingBox(min_point=tuple(mesh.bounds[0]), max_point=tuple(mesh.bounds[1])),
+                collision_mesh=mesh,
+            )
+            self._components = components
+
+        def get_collision_meshes(self) -> tuple[trimesh.Trimesh, ...]:
+            return self._components
+
+    left = trimesh.creation.box(extents=(0.06, 0.08, 0.08))
+    left.apply_translation((-0.04, 0.0, 0.0))
+    right = trimesh.creation.box(extents=(0.06, 0.08, 0.08))
+    right.apply_translation((0.04, 0.0, 0.0))
+
+    table = _make_table()
+    source = _make_cylinder("source", radius=0.03, height=0.08)
+    target = CompoundDummyObject("compound_target", (left, right))
+    source.add_relation(On(table))
+    target.add_relation(On(table))
+    initial = [
+        {table: (0.0, 0.0, 0.0), source: (-0.04, 0.0, 0.06), target: (0.0, 0.0, 0.06)},
+        {table: (0.0, 0.0, 0.0), source: (0.30, 0.0, 0.06), target: (0.0, 0.0, 0.06)},
+        {table: (0.0, 0.0, 0.0), source: (0.04, 0.01, 0.06), target: (0.0, 0.0, 0.06)},
+        {table: (0.0, 0.0, 0.0), source: (0.0, 0.09, 0.06), target: (0.0, 0.0, 0.06)},
+    ]
+    orientations = [
+        {source: 0.0, target: 0.0},
+        {source: math.pi / 2, target: -math.pi / 4},
+        {source: math.pi / 6, target: math.pi / 3},
+        {source: -math.pi / 2, target: math.pi},
+    ]
+    params = RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+
+    def loss_and_gradient(candidate_batch, orientation_batch):
+        solver = RelationSolver(params=params)
+        solver.solve([table, source, target], candidate_batch, orientations=orientation_batch)
+        assert solver._mesh_cache is not None
+        assert solver._mesh_manager is not None
+        state = RelationSolverState(
+            [table, source, target],
+            candidate_batch,
+            device=solver._mesh_cache.all_radii.device,
+        )
+        loss = compute_no_overlap_loss_mesh(
+            state,
+            solver._mesh_cache,
+            solver._mesh_manager,
+            orientation_batch,
+            params.clearance_m,
+            solver._no_collision_strategy.slope,
+            False,
+        )
+        loss.sum().backward()
+        assert state.optimizable_positions.grad is not None
+        return loss.detach(), state.optimizable_positions.grad.detach()
+
+    batched_loss, batched_gradient = loss_and_gradient(initial, orientations)
+    independent = [
+        loss_and_gradient([candidate], [orientation]) for candidate, orientation in zip(initial, orientations)
+    ]
+    independent_loss = torch.cat([loss for loss, _ in independent])
+    independent_gradient = torch.cat([gradient for _, gradient in independent])
+
+    torch.testing.assert_close(batched_loss, independent_loss, rtol=1e-4, atol=1e-5)
+    torch.testing.assert_close(batched_gradient, independent_gradient, rtol=1e-4, atol=1e-5)
 
 
 @requires_warp
@@ -981,6 +1057,32 @@ def test_multi_mesh_sdf_backward():
     assert points.grad is not None
     assert torch.isfinite(points.grad).all()
     assert points.grad[0, 0].item() > 0.1, f"Expected +x gradient, got {points.grad[0].tolist()}"
+
+
+@requires_warp
+def test_multi_mesh_sdf_skips_inactive_queries():
+    """Inactive broad-phase queries return zero loss and gradient."""
+    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+
+    mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
+    manager = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
+    warp_mesh = manager.get_warp_mesh(mesh)
+    mesh_id_array = wp.array([warp_mesh.id], dtype=wp.uint64, device="cpu")
+    mesh_indices = wp.array([0, 0], dtype=wp.int32, device="cpu")
+    points = torch.tensor(
+        [[0.02, 0.0, 0.0], [0.02, 0.0, 0.0]],
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+
+    sdf = multi_mesh_sdf(points, mesh_id_array, mesh_indices, torch.tensor([True, False]))
+    sdf.sum().backward()
+
+    assert sdf[0].item() < 0.0
+    assert sdf[1].item() == 0.0
+    assert points.grad is not None
+    assert points.grad[0].abs().sum().item() > 0.0
+    assert points.grad[1].abs().sum().item() == 0.0
 
 
 @requires_warp

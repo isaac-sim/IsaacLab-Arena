@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 import torch
 from typing import TYPE_CHECKING, cast
@@ -13,15 +14,13 @@ from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_co
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
 from isaaclab_arena.relations.relation_loss_strategies import (
-    Direction,
     NoCollisionLossStrategy,
     RelationLossStrategy,
-    SIDE_CONFIGS,
     UnaryRelationLossStrategy,
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import NextTo, On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -227,6 +226,7 @@ class RelationSolver:
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )
+        profile_enabled = self.params.profile or os.environ.get("ARENA_RELATION_PROFILE") == "1"
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -246,12 +246,13 @@ class RelationSolver:
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
-        if self.params.profile and torch.cuda.is_available():
+        if profile_enabled and torch.cuda.is_available():
             torch.cuda.synchronize()
         solve_start = time.perf_counter()
 
         # Precompute mesh collision cache (once per solve, before opt loop)
         self._mesh_collision_enabled = self._should_use_mesh_collision(state)
+        mesh_setup_start = time.perf_counter()
         if self._mesh_collision_enabled:
             non_anchor_objects = state.optimizable_objects
             anchor_objects = list(state.anchor_objects)
@@ -279,10 +280,10 @@ class RelationSolver:
         else:
             self._mesh_orientations = None
             self._mesh_cache = None
+        mesh_setup_ms = (time.perf_counter() - mesh_setup_start) * 1e3
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
-        self._project_anchor_next_to_constraints(state)
 
         # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
         with torch.no_grad():
@@ -305,10 +306,21 @@ class RelationSolver:
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
-                self._project_anchor_next_to_constraints(state)
 
             if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
+            if profile_enabled and (iter == 0 or (iter + 1) % 100 == 0):
+                losses = self._last_loss_per_env
+                assert losses is not None
+                converged = (losses < self.params.convergence_threshold).sum().item()
+                print(
+                    f"[RelationSolver] iter={iter + 1}"
+                    f" converged={converged}/{state.batch_size}"
+                    f" loss_p50={losses.median().item():.4f}"
+                    f" loss_p90={torch.quantile(losses, 0.9).item():.4f}"
+                    f" loss_max={losses.max().item():.4f}",
+                    flush=True,
+                )
 
             # Check convergence
             if loss.item() < self.params.convergence_threshold:
@@ -316,7 +328,7 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
-        if self.params.profile and torch.cuda.is_available():
+        if profile_enabled and torch.cuda.is_available():
             torch.cuda.synchronize()
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
 
@@ -327,10 +339,11 @@ class RelationSolver:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
-        if self.params.profile and loss_history:
+        if profile_enabled and loss_history:
             iters_run = len(loss_history)
             print(
                 f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
+                f" | mesh setup={mesh_setup_ms:.1f} ms"
                 f" | batch={state.batch_size}"
                 f" | objects={len(state.optimizable_objects)} optimizable + {len(state.anchor_objects)} anchors"
                 f" | no-overlap pairs={self._last_no_overlap_pair_count}"
@@ -341,27 +354,6 @@ class RelationSolver:
         self._last_position_history = position_history
 
         return state.get_final_positions()
-
-    @staticmethod
-    @torch.no_grad()
-    def _project_anchor_next_to_constraints(state: RelationSolverState) -> None:
-        """Set each anchor-relative NextTo primary coordinate to its exact target."""
-        for child in state.optimizable_objects:
-            child_bbox = state.get_bbox(child)
-            for relation in child.get_spatial_relations():
-                if not isinstance(relation, NextTo) or relation.parent not in state.anchor_objects:
-                    continue
-                config = SIDE_CONFIGS[relation.side]
-                axis = config.primary_axis
-                parent_bbox = state.get_fixed_obstacle_world_bbox(relation.parent)
-                if config.direction == Direction.POSITIVE:
-                    parent_edge = parent_bbox.max_point[:, axis]
-                    child_offset = child_bbox.min_point[:, axis]
-                else:
-                    parent_edge = parent_bbox.min_point[:, axis]
-                    child_offset = child_bbox.max_point[:, axis]
-                target = parent_edge + config.direction * relation.distance_m - child_offset
-                state.get_position(child)[:, axis].copy_(target)
 
     def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
         """Return True when the default mode or any object's override resolves to MESH."""
