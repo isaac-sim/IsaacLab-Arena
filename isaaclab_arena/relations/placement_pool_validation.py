@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
     get_base_rotation_per_asset,
@@ -113,12 +114,54 @@ def _capture_settled_poses_into_layouts(
             )
 
 
+def _step_until_poses_are_quiet(
+    env: ManagerBasedEnv,
+    movable_object_names: list[str],
+    max_physics_steps: int,
+    params: ClutterSettleParams,
+    poll_every: int,
+    render: bool = False,
+) -> bool:
+    """Step physics until poses stop changing, or the step budget runs out.
+
+    Returns early once the poses are quiet, so a sparse arrangement does not pay the budget a
+    dense one needs. Velocity is not consulted: objects in stable contact micro-rock forever.
+
+    Args:
+        env: The Isaac Lab env.
+        movable_object_names: Scene keys of the objects being settled.
+        max_physics_steps: Upper bound on physics steps before giving up.
+        params: Quiet-window thresholds.
+        poll_every: Physics steps between pose reads.
+        render: When True, render each step.
+
+    Returns:
+        Whether the poses went quiet within the budget.
+    """
+    scene = env.unwrapped.scene
+    tracker = SettleTracker(params)
+    stepped = 0
+    while stepped < max_physics_steps:
+        chunk = min(poll_every, max_physics_steps - stepped)
+        physics_settle.step_physics(env, chunk, render=render)
+        stepped += chunk
+        states = torch.stack([scene[name].data.root_state_w for name in movable_object_names], dim=1)
+        # Flatten env and object axes: a pile is quiet only when every env's objects are.
+        positions = states[..., :3].reshape(-1, 3)
+        rotations = states[..., 3:7].reshape(-1, 4)
+        if tracker.update(positions, rotations):
+            return True
+    return tracker.settled
+
+
 def validate_pool_layouts(
     env: ManagerBasedEnv,
     placement_pool: PooledObjectPlacer | None = None,
     settle_params: PhysicsSettleParams | None = None,
     render: bool = False,
     capture_settled_poses: bool = False,
+    pose_settle_params: ClutterSettleParams | None = None,
+    poll_every: int = 50,
 ) -> list[tuple[int, int, PlacementValidationResults]] | None:
     """Physics-validate every layout in a placement pool, recording the result on its validation results.
 
@@ -135,6 +178,11 @@ def validate_pool_layouts(
         capture_settled_poses: When True, write each object's resting pose back into its layout.
             Required for layouts whose value is the settled arrangement itself. Defaults to False,
             which leaves solved layouts untouched.
+        pose_settle_params: When given, settle by watching poses stop changing and return as soon
+            as they do, rather than always stepping the full budget. Needed for arrangements that
+            physics produces, where objects in stable contact keep micro-rocking and so never meet
+            a velocity threshold. Defaults to None, which keeps the fixed-step behaviour.
+        poll_every: Physics steps between pose reads when ``pose_settle_params`` is given.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
@@ -177,7 +225,17 @@ def validate_pool_layouts(
             base_rotations,
         )
         if layouts:
-            physics_settle.step_physics(env, num_physics_steps, render=render)
+            if pose_settle_params is None:
+                physics_settle.step_physics(env, num_physics_steps, render=render)
+            else:
+                _step_until_poses_are_quiet(
+                    env,
+                    movable_object_names,
+                    num_physics_steps,
+                    pose_settle_params,
+                    poll_every=poll_every,
+                    render=render,
+                )
             if capture_settled_poses:
                 _capture_settled_poses_into_layouts(env, layouts, assets, anchor_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
