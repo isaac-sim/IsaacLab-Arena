@@ -16,6 +16,12 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderMan
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
+# Physics-step ceiling for settling a clutter pile, measured on piles of 8 to 80 objects:
+# 8 settle by ~250 steps, 40 by ~1000, 80 by ~2000. Settling returns as soon as the poses go
+# quiet, so these bound the wait rather than always being spent.
+_MIN_CLUTTER_SETTLE_STEPS = 400
+_CLUTTER_SETTLE_STEPS_PER_MEMBER = 30
+
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     """Arena extension to ManagerBasedRLEnv that adds additional Arena-specific functionality."""
@@ -41,6 +47,44 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        self._settle_clutter_layouts()
+
+    def _settle_clutter_layouts(self) -> None:
+        """Replace pooled clutter drop poses with the poses the pile settles into.
+
+        A pour only describes where objects are released. Writing those poses at reset would
+        start every episode with the pile in mid-air, so the pool is settled once here and
+        each layout keeps its resting arrangement for every reset that draws it.
+        """
+        import math
+
+        from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+        from isaaclab_arena.relations.clutter_validation import ClutterSettleParams
+        from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+        from isaaclab_arena.relations.placement_events import get_placement_pool
+        from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
+
+        placement_pool = get_placement_pool(self)
+        if placement_pool is None:
+            return
+        groups = get_clutter_groups(placement_pool.objects)
+        if not groups:
+            return
+
+        # The default settle budget is sized for a couple of objects nudging into place; a pile
+        # needs orders of magnitude more, growing with how deep it stacks. Settling returns as
+        # soon as the poses go quiet, so a generous ceiling costs nothing on an easy pile.
+        member_count = sum(len(group.members) for group in groups)
+        physics_steps = max(_MIN_CLUTTER_SETTLE_STEPS, _CLUTTER_SETTLE_STEPS_PER_MEMBER * member_count)
+        settle_params = PhysicsSettleParams(num_steps=math.ceil(physics_steps / self.cfg.decimation))
+
+        validate_pool_layouts(
+            self,
+            placement_pool=placement_pool,
+            settle_params=settle_params,
+            capture_settled_poses=True,
+            pose_settle_params=ClutterSettleParams(),
+        )
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:
