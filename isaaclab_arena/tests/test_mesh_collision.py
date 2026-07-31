@@ -1134,3 +1134,64 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
         for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
     )
     assert solver._last_no_overlap_pair_count == 0
+
+
+@requires_warp
+def test_batched_mesh_loss_matches_serial_loss_and_grad():
+    """Batched multi-candidate mesh loss matches the serial per-env reference on loss and grads."""
+    from isaaclab_arena.relations.no_overlap_mesh import (
+        _compute_no_overlap_loss_mesh_serial,
+        compute_no_overlap_loss_mesh,
+    )
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+
+    table = _make_table()
+    a = _make_cylinder("cyl_a", radius=0.04)
+    b = _make_cylinder("cyl_b", radius=0.04)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    # Mix overlapping, separated, and yawed candidates.
+    initial = [
+        {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.01, 0.0, 0.05)},
+        {table: (0.0, 0.0, 0.0), a: (-0.25, 0.0, 0.05), b: (0.25, 0.0, 0.05)},
+        {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.03, 0.02, 0.05)},
+        {table: (0.0, 0.0, 0.0), a: (-0.1, 0.05, 0.05), b: (0.1, -0.05, 0.05)},
+    ]
+    orientations = [
+        {a: 0.0, b: 0.0},
+        {a: math.pi / 2, b: -math.pi / 4},
+        {a: math.pi / 6, b: math.pi / 3},
+        {a: -math.pi / 2, b: math.pi},
+    ]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial, orientations=orientations)
+    assert solver._mesh_cache is not None
+    assert solver._mesh_manager is not None
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    state = RelationSolverState([table, a, b], initial, device=device)
+    assert state.optimizable_positions is not None
+
+    slope = solver._no_collision_strategy.slope
+    clearance = solver.params.clearance_m
+
+    loss_batched = compute_no_overlap_loss_mesh(
+        state, solver._mesh_cache, solver._mesh_manager, orientations, clearance, slope, False
+    )
+    loss_serial = _compute_no_overlap_loss_mesh_serial(
+        state, solver._mesh_cache, solver._mesh_manager, orientations, clearance, slope, False
+    )
+    assert torch.allclose(
+        loss_batched, loss_serial, rtol=1e-4, atol=1e-5
+    ), f"loss mismatch batched={loss_batched.tolist()} serial={loss_serial.tolist()}"
+
+    state.optimizable_positions.grad = None
+    loss_batched.sum().backward(retain_graph=True)
+    grad_batched = state.optimizable_positions.grad.detach().clone()
+
+    state.optimizable_positions.grad = None
+    loss_serial.sum().backward()
+    grad_serial = state.optimizable_positions.grad.detach().clone()
+    assert torch.allclose(grad_batched, grad_serial, rtol=1e-4, atol=1e-5), "position gradients diverge"

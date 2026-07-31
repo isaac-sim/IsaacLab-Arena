@@ -143,6 +143,24 @@ class MeshPairCache:
     total_spheres: int
     """Total number of sphere queries across all pairs."""
 
+    pair_subject_applies_yaw_tensor: torch.Tensor
+    """(P,) bool; device copy of ``pair_subject_applies_yaw`` for batched loss."""
+
+    pair_obstacle_is_fixed_tensor: torch.Tensor
+    """(P,) bool; device copy of ``pair_obstacle_is_fixed`` for batched loss."""
+
+    pair_fixed_obstacle_pos_tensor: torch.Tensor
+    """(P, 3) fixed obstacle world positions; zeros for non-fixed pairs."""
+
+    pair_fixed_obstacle_yaw_tensor: torch.Tensor
+    """(P,) fixed obstacle yaw; 0 for non-fixed pairs."""
+
+    pair_subject_bbox_includes_yaw_tensor: torch.Tensor
+    """(P,) bool; device copy of ``pair_subject_bbox_includes_yaw``."""
+
+    pair_obstacle_bbox_includes_yaw_tensor: torch.Tensor
+    """(P,) bool; device copy of ``pair_obstacle_bbox_includes_yaw``."""
+
     def __post_init__(self) -> None:
         assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
         assert len(self.pair_obstacle_objs) == self.num_pairs, "pair_obstacle_objs length mismatch"
@@ -159,5 +177,11 @@ class MeshPairCache:
         assert self.sphere_pair_id.shape[0] == self.total_spheres, "sphere_pair_id size mismatch"
         assert self.sphere_mesh_idx.shape[0] == self.total_spheres, "sphere_mesh_idx size mismatch"
         assert int(self.pair_sphere_count.sum().item()) == self.total_spheres, "pair_sphere_count sum mismatch"
+        assert self.pair_subject_applies_yaw_tensor.shape == (self.num_pairs,)
+        assert self.pair_obstacle_is_fixed_tensor.shape == (self.num_pairs,)
+        assert self.pair_fixed_obstacle_pos_tensor.shape == (self.num_pairs, 3)
+        assert self.pair_fixed_obstacle_yaw_tensor.shape == (self.num_pairs,)
+        assert self.pair_subject_bbox_includes_yaw_tensor.shape == (self.num_pairs,)
+        assert self.pair_obstacle_bbox_includes_yaw_tensor.shape == (self.num_pairs,)
         for i, (is_fixed, pos) in enumerate(zip(self.pair_obstacle_is_fixed, self.pair_fixed_obstacle_pos)):
             assert not is_fixed or pos is not None, f"pair {i}: obstacle_is_fixed=True but fixed_obstacle_pos is None"

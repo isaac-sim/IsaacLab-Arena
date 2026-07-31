@@ -31,6 +31,12 @@ def add_pool_validation_arguments(parser: argparse.ArgumentParser) -> None:
     """Add settle-check tuning flags. Registered before the env subparser so they stay top-level."""
     group = parser.add_argument_group("Pool Validation Arguments")
     group.add_argument(
+        "--mesh_impl",
+        choices=("batched", "serial"),
+        default="batched",
+        help="Mesh no-overlap implementation used while filling the placement pool.",
+    )
+    group.add_argument(
         "--settle_steps",
         type=int,
         default=5,
@@ -69,6 +75,12 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.relations import no_overlap_mesh as no_overlap_mesh_mod
+        from isaaclab_arena.relations import relation_solver as relation_solver_mod
+        from isaaclab_arena.relations.no_overlap_mesh import (
+            _compute_no_overlap_loss_mesh_serial,
+            compute_no_overlap_loss_mesh,
+        )
         from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
         from isaaclab_arena.relations.placement_pool_validation import print_validation_results, validate_pool_layouts
         from isaaclab_arena_environments.cli import (
@@ -78,6 +90,12 @@ def main() -> None:
 
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_cli = args_parser.parse_args()
+
+        mesh_loss_fn = (
+            compute_no_overlap_loss_mesh if args_cli.mesh_impl == "batched" else _compute_no_overlap_loss_mesh_serial
+        )
+        relation_solver_mod.compute_no_overlap_loss_mesh = mesh_loss_fn
+        no_overlap_mesh_mod.compute_no_overlap_loss_mesh = mesh_loss_fn
 
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
