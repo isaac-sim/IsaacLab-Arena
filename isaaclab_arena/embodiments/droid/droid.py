@@ -474,7 +474,7 @@ class DroidCameraCfg(ArenaCameraCfg):
     wrist_camera: CameraCfg = CameraCfg(
         # Spawn a fresh "wrist_cam" prim rather than reusing the "wrist_camera" prim baked into the
         # robot USD (which has different intrinsics), so our PinholeCameraCfg focal_length=2.8 (the
-        # policy-calibrated value) actually takes effect. Matches RoboLab's DROID wrist camera.
+        # policy-calibrated value) actually takes effect.
         prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_cam",
         height=720,
         width=1280,

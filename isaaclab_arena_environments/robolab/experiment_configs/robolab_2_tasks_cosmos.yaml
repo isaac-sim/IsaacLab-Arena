@@ -22,7 +22,7 @@ runs:
     environment_builder: &env_builder
       num_envs: 1
     rollout_limit:
-      num_episodes: 5
+      num_episodes: 3
     variations: &hdr_image_variation
       light:
         hdr_image:
@@ -32,14 +32,12 @@ runs:
         direction:
           enabled: false
 
-
-
-  # banana_on_plate_cosmos:
-  #   environment:
-  #     type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
-  #     enable_cameras: true
-  #   policy: *cosmos_policy
-  #   environment_builder: *env_builder
-  #   rollout_limit:
-  #     num_episodes: 1
-  #   variations: *hdr_image_variation
+  banana_in_bowl_centered_banana_cosmos:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl_centered_banana.yaml
+      enable_cameras: true
+    policy: *cosmos_policy
+    environment_builder: *env_builder
+    rollout_limit:
+      num_episodes: 3
+    variations: *hdr_image_variation
