@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+_AT_LEAST_ONE_TEST_FAILED = False
+
 _SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900"))
 
 
@@ -40,6 +42,7 @@ def run_subprocess(
         timeout_sec = _SUBPROCESS_TIMEOUT_SEC
 
     print(f"Running command (timeout={timeout_sec}s): {cmd}")
+    global _AT_LEAST_ONE_TEST_FAILED
 
     if env is None:
         env = os.environ.copy()
@@ -56,6 +59,7 @@ def run_subprocess(
         )
     except subprocess.TimeoutExpired:
         sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
+        _AT_LEAST_ONE_TEST_FAILED = True
         raise subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
 
     print(f"Command completed with return code: {result.returncode}")
@@ -63,6 +67,7 @@ def run_subprocess(
         sys.stderr.write(f"Command failed with return code {result.returncode}\n")
         if capture_output and result.stderr:
             sys.stderr.write(result.stderr)
+        _AT_LEAST_ONE_TEST_FAILED = True
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
     if capture_output:
