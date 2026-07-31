@@ -12,6 +12,7 @@ settling and the capture of resting poses are done by the existing in-sim valida
 
 from __future__ import annotations
 
+import math
 import torch
 from typing import TYPE_CHECKING
 
@@ -29,30 +30,66 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
+_QUARTER_TURN_TOLERANCE_RAD = 1e-3
+
+
 def region_above_support(
     support_position: tuple[float, float, float],
     support_bbox: AxisAlignedBoundingBox,
     spread: float = 1.0,
     env_index: int = 0,
+    support_rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
 ) -> ClutterRegion:
     """Return the drop region covering a support's top face.
 
     Bounding boxes hold extents local to the object origin, so the support's world position
-    offsets them. The floor of the region is the support's top surface.
+    offsets them and its yaw turns them. The floor of the region is the support's top surface.
+
+    A region is axis-aligned, so a support turned off-axis cannot be covered exactly. Its
+    enclosing box would be larger than the support itself and would drop clutter past the
+    real edge, so an off-axis support instead gets the largest axis-aligned square that fits
+    inside the footprint's inscribed circle. That is conservative in the safe direction and
+    rotation-invariant. Quarter turns are exact, since they only swap the extents.
 
     Args:
         support_position: World position of the support, in the environment-local frame.
         support_bbox: The support's bounding box, batched per environment.
         spread: Fraction of the footprint to use, shrunk about the centre.
         env_index: Which environment's extents to read.
+        support_rotation_xyzw: The support's world rotation. Must be a yaw-only rotation, since
+            a tilted support has no single top surface height.
     """
+    x, y, z, w = support_rotation_xyzw
+    assert abs(x) < 1e-3 and abs(y) < 1e-3, (
+        f"Clutter support rotation must be yaw-only, got (x={x:.4f}, y={y:.4f}). A tilted "
+        "support has no single top-surface height for a pile to rest on."
+    )
+    yaw = 2.0 * math.atan2(z, w)
+
     minimum = support_bbox.min_point[env_index]
     maximum = support_bbox.max_point[env_index]
+    half_x = float(maximum[0] - minimum[0]) * 0.5
+    half_y = float(maximum[1] - minimum[1]) * 0.5
+    local_centre_x = float(maximum[0] + minimum[0]) * 0.5
+    local_centre_y = float(maximum[1] + minimum[1]) * 0.5
+
+    # The footprint centre orbits the origin with the support.
+    cos_yaw, sin_yaw = math.cos(yaw), math.sin(yaw)
+    centre_x = support_position[0] + local_centre_x * cos_yaw - local_centre_y * sin_yaw
+    centre_y = support_position[1] + local_centre_x * sin_yaw + local_centre_y * cos_yaw
+
+    quarter_turns = round(yaw / (math.pi / 2.0))
+    if abs(yaw - quarter_turns * (math.pi / 2.0)) <= _QUARTER_TURN_TOLERANCE_RAD:
+        if quarter_turns % 2:
+            half_x, half_y = half_y, half_x
+    else:
+        half_x = half_y = min(half_x, half_y) / math.sqrt(2.0)
+
     region = ClutterRegion(
-        min_x=support_position[0] + float(minimum[0]),
-        min_y=support_position[1] + float(minimum[1]),
-        max_x=support_position[0] + float(maximum[0]),
-        max_y=support_position[1] + float(maximum[1]),
+        min_x=centre_x - half_x,
+        min_y=centre_y - half_y,
+        max_x=centre_x + half_x,
+        max_y=centre_y + half_y,
         floor_z=support_position[2] + float(support_bbox.top_surface_z[env_index]),
     )
     return region.scaled(spread) if spread != 1.0 else region
@@ -106,6 +143,7 @@ def plan_group_drops_into_layout(
     generator: torch.Generator,
     env_index: int = 0,
     occupied: list[OccupiedFootprint] | None = None,
+    support_rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
 ) -> None:
     """Write one group's drop poses into a solved layout.
 
@@ -127,7 +165,7 @@ def plan_group_drops_into_layout(
     assert_group_parameters_agree(group)
 
     relation = group.relation
-    region = region_above_support(support_position, support_bbox, relation.spread, env_index)
+    region = region_above_support(support_position, support_bbox, relation.spread, env_index, support_rotation_xyzw)
     params = ClutterDropParams(
         clearance_m=relation.clearance_m,
         gap_m=relation.gap_m,
@@ -164,7 +202,14 @@ def plan_clutter_drops(
         # An anchored support keeps its declared pose; a solved one is already in the layout.
         support_position = layout.positions.get(support) or support.get_initial_pose().position_xyz
         support_position = tuple(float(value) for value in support_position)
-        region = region_above_support(support_position, bounding_boxes[support], group.relation.spread, env_index)
+        support_rotation = _support_rotation(support, layout)
+        region = region_above_support(
+            support_position,
+            bounding_boxes[support],
+            group.relation.spread,
+            env_index,
+            support_rotation_xyzw=support_rotation,
+        )
         # Members of earlier groups are already in the layout and must be avoided too.
         occupied = occupied_footprints_in_region(
             region,
@@ -182,4 +227,16 @@ def plan_clutter_drops(
             generator=generator,
             env_index=env_index,
             occupied=occupied,
+            support_rotation_xyzw=support_rotation,
         )
+
+
+def _support_rotation(support: PlaceableAsset, layout: PlacementResult) -> tuple[float, float, float, float]:
+    """Return the support's world rotation, preferring what the layout solved for it."""
+    rotation = layout.rotations.get(support)
+    if rotation is not None:
+        return rotation
+    yaw = layout.orientations.get(support)
+    if yaw is not None:
+        return (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
+    return tuple(float(value) for value in support.get_initial_pose().rotation_xyzw)

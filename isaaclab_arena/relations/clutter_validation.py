@@ -153,7 +153,10 @@ def check_resting_poses(
 
     Args:
         positions: Member positions, shape ``(N, 3)``, in the same frame as ``region``.
-        region: The region the pile was poured into, whose floor is the support surface.
+        region: The surface the pile must stay on, whose floor is the support surface. Pass the
+            support's full footprint rather than a ``spread``-shrunk pour region: a pile poured
+            tightly is meant to relax outward, so judging it against the region it was released
+            into would report objects resting well inside the support as having fallen off.
         params: Tolerances. Defaults to ``ClutterSettleParams()``.
     """
     params = params or ClutterSettleParams()

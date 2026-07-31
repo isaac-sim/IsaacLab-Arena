@@ -29,6 +29,15 @@ class _Asset:
     def has_relation(self, relation_type: type) -> bool:
         return any(isinstance(relation, relation_type) for relation in self.relations)
 
+    @property
+    def is_anchor(self) -> bool:
+        return self.has_relation(IsAnchor)
+
+    def get_spatial_relations(self) -> list:
+        from isaaclab_arena.relations.relations import Relation, UnaryRelation
+
+        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
+
 
 def _table_with(*member_names: str, group: str = "clutter", **kwargs) -> tuple[_Asset, list[_Asset]]:
     table = _Asset("table")
@@ -144,4 +153,44 @@ def test_support_must_participate_in_placement():
     member.add_relation(relation)
 
     with pytest.raises(AssertionError, match="not part of the placement"):
+        relation.validate_placement_configuration(member, {member})
+
+
+def test_member_that_is_also_an_anchor_is_rejected():
+    table, (member,) = _table_with("member")
+    member.add_relation(IsAnchor())
+    relation = member.get_relations()[0]
+
+    with pytest.raises(AssertionError, match="also an anchor"):
+        relation.validate_placement_configuration(member, {table, member})
+
+
+def test_member_with_two_clutter_relations_is_rejected():
+    table = _Asset("table")
+    member = _Asset("member")
+    member.add_relation(ClutteredOn(table, group="a"))
+    member.add_relation(ClutteredOn(table, group="b"))
+
+    with pytest.raises(AssertionError, match="belongs to one pile"):
+        member.get_relations()[0].validate_placement_configuration(member, {table, member})
+
+
+def test_member_combining_clutter_with_a_spatial_relation_is_rejected():
+    from isaaclab_arena.relations.relations import On
+
+    table = _Asset("table")
+    member = _Asset("member")
+    member.add_relation(ClutteredOn(table, group="tools"))
+    member.add_relation(On(table))
+
+    with pytest.raises(AssertionError, match="also carries"):
+        member.get_relations()[0].validate_placement_configuration(member, {table, member})
+
+
+def test_member_resting_on_itself_is_rejected():
+    member = _Asset("member")
+    relation = ClutteredOn(member, group="tools")
+    member.add_relation(relation)
+
+    with pytest.raises(AssertionError, match="cannot rest on itself"):
         relation.validate_placement_configuration(member, {member})

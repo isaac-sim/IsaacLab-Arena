@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 import torch
 
 import pytest
@@ -45,6 +46,7 @@ class _Layout:
     def __init__(self):
         self.positions: dict = {}
         self.rotations: dict = {}
+        self.orientations: dict = {}
 
 
 def _box(half_x: float, half_y: float, half_z: float) -> AxisAlignedBoundingBox:
@@ -262,3 +264,55 @@ def test_objects_outside_the_region_are_ignored():
     region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
     positions = {far_away: (5.0, 0.0, 0.2)}
     assert occupied_footprints_in_region(region, positions, bounding_boxes, exclude=set()) == []
+
+
+# ------------------------------------------------------------- rotated supports
+
+
+def _yaw_quat(degrees: float) -> tuple[float, float, float, float]:
+    half = math.radians(degrees) * 0.5
+    return (0.0, 0.0, math.sin(half), math.cos(half))
+
+
+def test_quarter_turned_support_swaps_the_region_extents():
+    bbox = _box(0.6, 0.4, 0.1)
+    upright = region_above_support((0.0, 0.0, 0.0), bbox)
+    turned = region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=_yaw_quat(90.0))
+
+    assert (upright.max_x - upright.min_x) == pytest.approx(1.2)
+    assert (turned.max_x - turned.min_x) == pytest.approx(0.8)
+    assert (turned.max_y - turned.min_y) == pytest.approx(1.2)
+
+
+def test_half_turned_support_keeps_its_extents():
+    bbox = _box(0.6, 0.4, 0.1)
+    turned = region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=_yaw_quat(180.0))
+    assert (turned.max_x - turned.min_x) == pytest.approx(1.2)
+    assert (turned.max_y - turned.min_y) == pytest.approx(0.8)
+
+
+def test_off_axis_support_shrinks_rather_than_overreaching():
+    """An axis-aligned region cannot cover a turned support, so it must not try."""
+    bbox = _box(0.6, 0.4, 0.1)
+    turned = region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=_yaw_quat(45.0))
+
+    # Fits inside the footprint's inscribed circle, which no rotation can shrink.
+    inscribed_diameter = 0.8
+    assert (turned.max_x - turned.min_x) == pytest.approx(inscribed_diameter / math.sqrt(2.0))
+    assert (turned.max_x - turned.min_x) < 0.8
+
+
+def test_off_centre_support_region_follows_its_rotation():
+    """A support whose box is offset from its origin swings that offset around when turned."""
+    offset_bbox = AxisAlignedBoundingBox(min_point=(0.0, -0.2, -0.05), max_point=(0.6, 0.2, 0.05))
+    turned = region_above_support((0.0, 0.0, 0.0), offset_bbox, support_rotation_xyzw=_yaw_quat(90.0))
+    # The box centre sits at local x=0.3, which a quarter turn moves to world y=0.3.
+    assert (turned.min_y + turned.max_y) * 0.5 == pytest.approx(0.3)
+    assert (turned.min_x + turned.max_x) * 0.5 == pytest.approx(0.0)
+
+
+def test_tilted_support_is_rejected():
+    bbox = _box(0.6, 0.4, 0.1)
+    tilted = (math.sin(math.radians(15.0)), 0.0, 0.0, math.cos(math.radians(15.0)))
+    with pytest.raises(AssertionError, match="yaw-only"):
+        region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=tilted)

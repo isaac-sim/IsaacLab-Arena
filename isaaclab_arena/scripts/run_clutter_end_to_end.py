@@ -98,7 +98,9 @@ def _run(simulation_app, args_cli) -> bool:
 
     support_bbox = get_bounding_box_per_env(support, 1)
     support_position = support.get_initial_pose().position_xyz
-    region = region_above_support(tuple(float(v) for v in support_position), support_bbox, args_cli.spread)
+    # Judge the settled pile against the whole support, not the shrunk region it was poured
+    # into: a tight pour is meant to relax outward as it settles.
+    region = region_above_support(tuple(float(v) for v in support_position), support_bbox)
     print(
         f"\nsupport top z = {region.floor_z:.3f}; region "
         f"x[{region.min_x:.3f},{region.max_x:.3f}] y[{region.min_y:.3f},{region.max_y:.3f}]"
