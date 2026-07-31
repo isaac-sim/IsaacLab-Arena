@@ -88,6 +88,9 @@ class ObjectPlacer:
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
+        # Per-env bounding boxes from the most recent solve, kept so clutter can be poured into
+        # the layouts that survive ranking rather than into every candidate.
+        self._per_env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]] | None = None
 
     def place(
         self,
@@ -126,6 +129,9 @@ class ObjectPlacer:
             collision_objects=collision_objects,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
+        # Pour only the layouts that survive ranking: a discarded candidate's pile is wasted
+        # work, and each pour is another chance for a fail-closed yaw draw to abort the build.
+        self._plan_clutter_drops_into_results(objects, [[result] for result in results_per_env])
 
         if self.params.verbose:
             for env_idx, result in enumerate(results_per_env):
@@ -138,7 +144,8 @@ class ObjectPlacer:
         if self.params.apply_positions_to_objects:
             positions_per_env = [r.positions for r in results_per_env]
             orientations_per_env = [r.orientations for r in results_per_env]
-            self._apply_poses(positions_per_env, anchor_objects_set, orientations_per_env)
+            rotations_per_env = [r.rotations for r in results_per_env]
+            self._apply_poses(positions_per_env, anchor_objects_set, orientations_per_env, rotations_per_env)
 
         return results_per_env
 
@@ -175,7 +182,10 @@ class ObjectPlacer:
             collision_objects=collision_objects,
         )
 
-        return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
+        kept = [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
+        # Pour only the layouts the pool keeps, not every ranked candidate.
+        self._plan_clutter_drops_into_results(objects, kept)
+        return kept
 
     def _prepare_placement(
         self,
@@ -309,7 +319,7 @@ class ObjectPlacer:
             for candidate_slice in ranked_candidate_slices
         ]
 
-        self._plan_clutter_drops_into_results(objects, ranked_results, per_env_bboxes)
+        self._per_env_bboxes = per_env_bboxes
 
         if self.params.verbose:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
@@ -320,17 +330,16 @@ class ObjectPlacer:
         self,
         objects: list[PlaceableAsset],
         ranked_results: list[list[PlacementResult]],
-        per_env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
     ) -> None:
-        """Replace clutter members' solved poses with the poses they are released from.
+        """Add clutter members to each kept layout by pouring them onto their support.
 
-        The solver leaves clutter members wherever it likes, since they carry no spatial
-        relations, so those poses are discarded here in favour of a pour. Each layout gets
-        its own pour, so a pool holds distinct piles rather than one pile repeated.
+        Clutter is held out of the solver, so a layout arrives here without it. Each layout
+        gets its own pour, so a pool holds distinct piles rather than one pile repeated.
         """
         groups = get_clutter_groups(objects)
         if not groups:
             return
+        assert self._per_env_bboxes is not None, "_place_ranked must run before clutter is poured"
         assert self.params.placement_seed is not None, (
             "Clutter placement requires placement_seed to be set. Without it a pile cannot be "
             "reproduced, and reproducibility is the point of seeding a layout at all."
@@ -342,8 +351,8 @@ class ObjectPlacer:
                 generator.manual_seed(
                     self.params.placement_seed + _CLUTTER_SEED_STRIDE * (env_index * len(env_results) + result_index)
                 )
-                # per_env_bboxes already holds one env's boxes, each of shape (1, 3).
-                plan_clutter_drops(layout, groups, per_env_bboxes[env_index], generator, env_index=0)
+                # Each entry already holds one env's boxes, each of shape (1, 3).
+                plan_clutter_drops(layout, groups, self._per_env_bboxes[env_index], generator, env_index=0)
 
     @staticmethod
     def _rank_candidates(
@@ -760,10 +769,13 @@ class ObjectPlacer:
         positions_per_env: list[dict[PlaceableAsset, tuple[float, float, float]]],
         anchor_objects: set[PlaceableAsset],
         orientations_per_env: list[dict[PlaceableAsset, float]],
+        rotations_per_env: list[dict[PlaceableAsset, tuple[float, float, float, float]]] | None = None,
     ) -> None:
         """Apply solved positions and orientations to non-anchor objects.
 
         orientations_per_env carries absolute world yaw; marker yaw is subtracted before composition.
+        rotations_per_env carries full rotations that are already final, so no marker composition
+        applies to them; a scalar yaw cannot express the tilt a settled or poured object holds.
         """
         num_envs = len(positions_per_env)
         objects = list(positions_per_env[0])
@@ -779,9 +791,17 @@ class ObjectPlacer:
                 """Return the yaw to compose with the RotateAroundSolution marker rotation."""
                 return orientations_per_env[env_idx].get(obj, marker_yaw) - marker_yaw
 
+            def _rotation(env_idx: int) -> tuple[float, float, float, float]:
+                """Return the final world rotation for this object in this env."""
+                if rotations_per_env is not None:
+                    full = rotations_per_env[env_idx].get(obj)
+                    if full is not None:
+                        return full
+                return rotate_quat_by_yaw(marker_rotation, _yaw_delta(env_idx))
+
             if num_envs == 1:
                 pos = positions_per_env[0][obj]
-                rotation_xyzw = rotate_quat_by_yaw(marker_rotation, _yaw_delta(0))
+                rotation_xyzw = _rotation(0)
                 random_marker = get_relation(obj, RandomAroundSolution)
                 if random_marker is not None:
                     obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
@@ -789,10 +809,7 @@ class ObjectPlacer:
                     obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
             else:
                 poses = [
-                    Pose(
-                        position_xyz=positions_per_env[env_idx][obj],
-                        rotation_xyzw=rotate_quat_by_yaw(marker_rotation, _yaw_delta(env_idx)),
-                    )
+                    Pose(position_xyz=positions_per_env[env_idx][obj], rotation_xyzw=_rotation(env_idx))
                     for env_idx in range(num_envs)
                 ]
                 obj.set_initial_pose(PosePerEnv(poses=poses))
