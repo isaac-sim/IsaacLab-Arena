@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.remote_policy_base import RemoteChunkReplayPolicy
 from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
-from isaaclab_arena_openpi.policy.remote_policy_base import RemoteChunkReplayPolicy
 
 if TYPE_CHECKING:
     from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter

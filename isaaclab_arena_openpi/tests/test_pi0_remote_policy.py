@@ -13,10 +13,10 @@ import pytest
 import websockets.exceptions
 
 from isaaclab_arena.assets.registries import PolicyRegistry
+from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
-from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
 def _fake_env(num_envs: int = 1):

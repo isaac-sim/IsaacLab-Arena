@@ -13,7 +13,7 @@ from typing import Any
 
 from openpi_client import image_tools
 
-from isaaclab_arena_openpi.policy.remote_policy_base import EmbodimentAdapter
+from isaaclab_arena.policy.remote_policy_base import EmbodimentAdapter
 
 
 @dataclass(frozen=True)

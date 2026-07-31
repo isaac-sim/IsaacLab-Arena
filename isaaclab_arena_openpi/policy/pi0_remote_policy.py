@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.remote_policy_base import EmbodimentAdapter, RemoteChunkReplayPolicy
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from isaaclab_arena_openpi.policy.remote_policy_base import EmbodimentAdapter, RemoteChunkReplayPolicy
 
 # The shared closed-loop machinery (transport, chunk caching, reconnect) lives in
 # RemoteChunkReplayPolicy; this module only declares the openpi embodiment adapter and the

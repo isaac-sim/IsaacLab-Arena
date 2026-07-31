@@ -11,10 +11,10 @@ import types
 
 import pytest
 
+from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
 from isaaclab_arena_cosmos.policy.cosmos_remote_policy import CosmosRemotePolicy
 from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter
-from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 # The closed-loop machinery (chunk caching, replay horizon, reconnect, parallel envs) is
 # shared with openpi via RemoteChunkReplayPolicy and is exercised by the tests in the

@@ -15,7 +15,7 @@ import websockets.exceptions
 from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
+from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
 MAX_RECONNECT_ATTEMPTS = 3
 
