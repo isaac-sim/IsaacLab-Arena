@@ -70,7 +70,7 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
 
     Injects:
     - dome light
-    - directional light (default off). For lighting variations to act on.
+    - directional light (default turned off). For lighting variations to act on.
     """
     if _scene_already_has_light(graph_spec, assets_by_node_id):
         return

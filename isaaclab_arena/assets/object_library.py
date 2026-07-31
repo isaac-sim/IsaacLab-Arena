@@ -382,8 +382,7 @@ class LightBase(LibraryObject, ABC):
     """Intensity the light is lit at by default, and the intensity ``on()`` restores."""
 
     def __init__(self, *args, spawner_cfg: sim_utils.LightCfg, **kwargs):
-        # Copy the spawner cfg so intensity/color changes stay on this instance rather than leaking
-        # into the shared class default (which is what callers get when they don't pass one).
+        # Deep-copy here to avoid altering the shared class default.
         super().__init__(*args, spawner_cfg=copy.deepcopy(spawner_cfg), **kwargs)
 
     def on(self, intensity: float | None = None) -> None:
