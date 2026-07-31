@@ -6,8 +6,18 @@
 """Rerun debug view of build-time placement validation, sim-free (no SimApp).
 
 Rerun's viewer is a separate process fed by the logging SDK, so nothing here touches Isaac Sim -- the
-window comes up while layouts are being solved, before any simulation exists. Enabled through
-``ObjectPlacerParams.debug_visualize`` / ``debug_visualize_rrd_path``.
+window comes up while layouts are being solved, before any simulation exists.
+
+Turn it on from an env graph YAML (worked example:
+``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``)::
+
+    placement_validators:
+      debug_visualize: true                          # spawn a viewer window; needs a reachable display
+      debug_visualize_rrd_path: /tmp/placement.rrd   # and/or record, for headless runs
+
+or in Python with ``ObjectPlacerParams(debug_visualize=True)``. Either field alone enables the view.
+Shipped envs leave it off, since it spawns a window on every build; enable it while debugging a scene
+whose layouts look wrong, then take it back out.
 
 Every candidate layout is one frame of the ``candidate`` timeline, so scrubbing it shows what was
 solved and which checks rejected it. Checks that know more about a candidate than its boxes add their
@@ -46,12 +56,6 @@ ANCHOR_COLOR = (140, 140, 150)
 
 MOVABLE_COLOR = (70, 130, 220)
 """Color of the objects placement actually solves for."""
-
-ACCEPTED_COLOR = (40, 200, 80)
-"""Color marking a candidate every required check accepted."""
-
-REJECTED_COLOR = (220, 50, 50)
-"""Color marking a candidate at least one check rejected."""
 
 VIEWER_HOST = "127.0.0.1"
 """Interface the spawned viewer is reached on; it always runs alongside the process that logs to it."""

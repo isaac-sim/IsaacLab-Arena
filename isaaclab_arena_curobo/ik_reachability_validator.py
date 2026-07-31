@@ -7,6 +7,12 @@
 
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
 top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
+
+To see why a layout was called unreachable, turn on the placement debug view -- ``debug_visualize: true`` under
+``placement_validators`` in the env graph YAML, or ``ObjectPlacerParams(debug_visualize=True)``. This check then adds its
+own layer to it (the robot base, the grasps it solved, reachable/unreachable per target, IK error plots); see
+``isaaclab_arena_curobo.reachability_visualizer``. Nothing is drawn without a registered cuRobo config for the
+embodiment, since the check delists itself entirely in that case.
 """
 
 from __future__ import annotations
