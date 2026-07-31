@@ -40,23 +40,8 @@ def load_experiment_runner_result(
     """
     experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
     experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
-    assert isinstance(
-        experiment_runner_result, dict
-    ), f"Experiment Runner result for Run '{run_name}' must contain a JSON object: '{experiment_runner_result_path}'"
-
-    execution_status_value = experiment_runner_result.get("execution_status")
-    valid_execution_status_values = (RunStatus.COMPLETED.value, RunStatus.FAILED.value)
-    assert isinstance(execution_status_value, str) and execution_status_value in valid_execution_status_values, (
-        f"Experiment Runner result for Run '{run_name}' has an invalid execution_status: "
-        f"'{experiment_runner_result_path}'"
-    )
-    execution_status = RunStatus(execution_status_value)
-
-    process_exit_code = experiment_runner_result.get("process_exit_code")
-    assert type(process_exit_code) is int, (
-        f"Experiment Runner result for Run '{run_name}' has an invalid process_exit_code:"
-        f" '{experiment_runner_result_path}'"
-    )
+    execution_status = RunStatus(experiment_runner_result["execution_status"])
+    process_exit_code = experiment_runner_result["process_exit_code"]
     assert (execution_status is RunStatus.COMPLETED) == (
         process_exit_code == 0
     ), f"Experiment Runner result for Run '{run_name}' is inconsistent: '{experiment_runner_result_path}'"
