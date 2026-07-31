@@ -74,7 +74,7 @@ class ExperimentRunnerTask(BaseTask):
 
     def _get_run_script(self) -> str:
         """Record the runner result while keeping application failures available to the collector."""
-        command = [
+        experiment_runner_command = shlex.join([
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
@@ -84,19 +84,28 @@ class ExperimentRunnerTask(BaseTask):
             "--viz",
             "none",
             "--enable_cameras",
-        ]
+        ])
         experiment_runner_result_path = shlex.quote(f"{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}")
-        return (
-            "set -euo pipefail\n"
-            f"if {shlex.join(command)}; then\n"
-            "  experiment_runner_process_exit_code=0\n"
-            f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}\n"
-            "else\n"
-            "  experiment_runner_process_exit_code=$?\n"
-            f"  experiment_runner_execution_status={RunStatus.FAILED.value}\n"
-            "fi\n"
+        write_experiment_runner_result_command = (
             'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
-            f"> {experiment_runner_result_path}\n"
-            "exit 0\n"
+            f"> {experiment_runner_result_path}"
         )
+        return "\n".join([
+            "set -euo pipefail",
+            "",
+            "# Treat an Arena process failure as a result for the collector, not as an OSMO task failure.",
+            "# Bash allows a command used as an if condition to return nonzero even when set -e is enabled.",
+            f"if {experiment_runner_command}; then",
+            "  experiment_runner_process_exit_code=0",
+            f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",
+            "else",
+            "  experiment_runner_process_exit_code=$?",
+            f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
+            "fi",
+            "",
+            "# Persist the result before reporting success to OSMO so the downstream collector can run.",
+            write_experiment_runner_result_command,
+            "exit 0",
+            "",
+        ])
