@@ -20,6 +20,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
@@ -237,13 +238,18 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:
-            # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
-            object_type = getattr(cls, "object_type", None)
-            catalogue.objects.append({
-                "name": name,
-                "tags": [t for t in tags if t != "object"],
-                "object_type": object_type.value if object_type else "unknown",
-            })
+            # The generic SimReady object is withheld: it only spawns from a usd_path the model has
+            # no way to know, so offering it invites an invented path and tags in the generated
+            # spec. A searched SimReady asset is catalogued separately, with its path already baked
+            # in, and so is named by a spec that carries no params at all.
+            if name != SIMREADY_USD_OBJECT_REGISTRY_NAME:
+                # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
+                object_type = getattr(cls, "object_type", None)
+                catalogue.objects.append({
+                    "name": name,
+                    "tags": [t for t in tags if t != "object"],
+                    "object_type": object_type.value if object_type else "unknown",
+                })
     return catalogue
 
 

@@ -66,8 +66,6 @@ def _simready_config_from_session() -> tuple[bool, object]:
         source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
         s3_url=st.session_state.get("simready_s3_url") or None,
         service_url=st.session_state.get("simready_service_url") or None,
-        project_config_path=st.session_state.get("simready_project_config") or None,
-        indexed_path=st.session_state.get("simready_indexed_dir") or None,
         max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
     )
     return enabled, config
@@ -84,8 +82,6 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
         simready_config.source.value,
         simready_config.s3_url,
         simready_config.service_url,
-        simready_config.project_config_path,
-        simready_config.indexed_path,
         simready_config.max_results_per_object,
     )
     agent = st.session_state.get(agent_key)
@@ -254,7 +250,7 @@ def render_generation_panel() -> None:
             max_value=10,
             value=int(st.session_state.get("simready_max_results_per_object", 1)),
         )
-        # Each source reads exactly one location, so only that one is offered. Showing all four
+        # Each source reads exactly one location, so only that one is offered. Showing both
         # invites filling in a field the search then ignores.
         source = st.session_state["simready_source"]
         if source == SimReadySourceKind.S3.value:
@@ -268,17 +264,6 @@ def render_generation_panel() -> None:
                 "Service URL",
                 value=st.session_state.get("simready_service_url", ""),
                 placeholder=DEFAULT_SIMREADY_SERVICE_URL,
-            )
-        elif source == SimReadySourceKind.CACHE.value:
-            st.session_state["simready_project_config"] = st.text_input(
-                "project_config.toml path",
-                value=st.session_state.get("simready_project_config", ""),
-                help="Manifest describing the layout of an already-cached SimReady workspace.",
-            )
-        elif source == SimReadySourceKind.INDEXED.value:
-            st.session_state["simready_indexed_dir"] = st.text_input(
-                "Indexed directory or S3 prefix",
-                value=st.session_state.get("simready_indexed_dir", ""),
             )
         else:
             st.caption("Searches the Isaac Sim 6.0 GA SimReady library — no further configuration needed.")

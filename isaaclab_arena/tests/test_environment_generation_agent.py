@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import yaml
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadyObjectCandidate,
 )
 from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -169,6 +171,36 @@ class TestGenerateSpec:
         assert AssetRegistry().is_registered("simready_green_trash_can")
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_a_searched_simready_object_reaches_the_spec_with_no_params(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(
+            candidates=[
+                SimReadyObjectCandidate(
+                    search_phrase="green trash can",
+                    usd_path="s3://bucket/trash_can.usd",
+                    tags=("sim-ready", "green", "trash", "can"),
+                )
+            ]
+        )
+        spec_dict = minimal_spec_dict()
+        spec_dict["objects"].append({
+            "id": "trash_can",
+            "registry_name": "simready_green_trash_can",
+            "params": {},
+        })
+        client.chat.completions.create.side_effect = [
+            self._missing_objects_response("green trash can"),
+            chat_response(content=json.dumps(spec_dict)),
+        ]
+        spec, _ = self._generate_with_simready(agent_obj)
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        searched = next(asset for asset in spec.objects if asset.id == "trash_can")
+        # No usd_path and no tags: both live on the registered asset, so the spec just names it.
+        assert searched.params == {}
+        assert searched.resolve_usd_path() == "s3://bucket/trash_can.usd"
+        assert "tags" not in yaml.safe_dump(spec.to_dict())
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_builds_the_spec_without_an_object_no_asset_was_found_for(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(unmatched_phrases=["green trash can"])
@@ -226,6 +258,15 @@ def test_asset_catalogue_reports_object_type():
 
     assert "- banana_ycb_robolab  type=rigid" in catalog_string
     assert "- microwave  type=articulation" in catalog_string
+
+
+def test_asset_catalogue_withholds_the_generic_simready_object():
+    # It spawns only from a usd_path the model cannot know, so offering it is what used to put an
+    # invented usd_path and tags in the generated spec.
+    catalog_string = build_asset_catalogue().to_catalog_string()
+
+    assert AssetRegistry().is_registered(SIMREADY_USD_OBJECT_REGISTRY_NAME)
+    assert SIMREADY_USD_OBJECT_REGISTRY_NAME not in catalog_string
 
 
 # ---------------------------------------------------------------------------

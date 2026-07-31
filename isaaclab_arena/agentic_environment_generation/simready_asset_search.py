@@ -28,13 +28,11 @@ library is not worth chasing to the end."""
 
 
 class SimReadySourceKind(str, Enum):
-    """Configured SimReady search backend."""
+    """Configured SimReady search backend, all of them remote."""
 
     ISAAC_SIM_GA = "isaac-sim-ga"
     S3 = "s3"
     SERVICE = "service"
-    CACHE = "cache"
-    INDEXED = "indexed"
 
 
 @dataclass
@@ -45,9 +43,6 @@ class SimReadySearchConfig:
     source: SimReadySourceKind = SimReadySourceKind.ISAAC_SIM_GA
     s3_url: str = ISAAC_SIMREADY_GA_S3_URL
     service_url: str = DEFAULT_SIMREADY_SERVICE_URL
-    project_config_path: str | None = None
-    indexed_path: str | None = None
-    indexed_directory_type: str = "local"
     max_results_per_object: int = 1
 
 
@@ -161,24 +156,22 @@ def _get_rigid_object_rejection_reason(usd_path: str) -> str | None:
     return f"it has {len(rigid_body_paths)} rigid bodies"
 
 
-async def _configure_asset_library(config: SimReadySearchConfig, traces: list[str]) -> Any | None:
-    try:
-        from simready.search import AssetLibrary
-    except ImportError:
-        traces.append("simready-search is not installed; install with pip install 'isaaclab_arena[dev]'")
-        return None
+def _configure_asset_library(config: SimReadySearchConfig, traces: list[str]) -> Any | None:
+    """Build the SimReady asset library for the configured source, or None if it is unknown.
+
+    Attaching an S3 source is the one asynchronous call in the whole search, so this is where the
+    event loop starts and ends. Everything downstream — the query, the ranking, reading an asset to
+    check its rigid bodies — is synchronous.
+    """
+    # Imported here rather than at module scope only to keep the AWS stack out of the import path
+    # of every caller.
+    from simready.search import AssetLibrary
 
     library = AssetLibrary()
     if config.source in (SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.S3):
-        await library.add_s3_source(config.s3_url or ISAAC_SIMREADY_GA_S3_URL)
+        asyncio.run(library.add_s3_source(config.s3_url or ISAAC_SIMREADY_GA_S3_URL))
     elif config.source == SimReadySourceKind.SERVICE:
         library.add_service_source(config.service_url or DEFAULT_SIMREADY_SERVICE_URL)
-    elif config.source == SimReadySourceKind.CACHE:
-        assert config.project_config_path, "simready cache source requires project_config_path"
-        await library.add_cache_source(config.project_config_path)
-    elif config.source == SimReadySourceKind.INDEXED:
-        assert config.indexed_path, "simready indexed source requires indexed_path"
-        await library.add_indexed_source(config.indexed_path, config.indexed_directory_type)
     else:
         traces.append(f"unknown simready source: {config.source}")
         return None
@@ -194,7 +187,7 @@ def _build_simready_object_candidate_from_match(match: Any, phrase: str) -> SimR
     )
 
 
-async def _search_phrase_async(
+def _search_phrase(
     library: Any,
     phrase: str,
     *,
@@ -224,7 +217,7 @@ async def _search_phrase_async(
     return candidates
 
 
-async def search_simready_objects_async(
+def search_simready_objects(
     object_phrases: list[str],
     config: SimReadySearchConfig,
     traces: list[str],
@@ -239,7 +232,7 @@ async def search_simready_objects_async(
     if not phrases:
         return SimReadyCandidateCatalogue()
 
-    library = await _configure_asset_library(config, traces)
+    library = _configure_asset_library(config, traces)
     if library is None:
         return SimReadyCandidateCatalogue()
 
@@ -247,7 +240,7 @@ async def search_simready_objects_async(
     unmatched_phrases: list[str] = []
     for phrase in phrases:
         try:
-            hits = await _search_phrase_async(
+            hits = _search_phrase(
                 library,
                 phrase,
                 max_results=config.max_results_per_object,
@@ -265,23 +258,12 @@ async def search_simready_objects_async(
     return SimReadyCandidateCatalogue(candidates=candidates, unmatched_phrases=unmatched_phrases)
 
 
-def search_simready_objects(
-    object_phrases: list[str],
-    config: SimReadySearchConfig,
-    traces: list[str],
-) -> SimReadyCandidateCatalogue:
-    """Synchronous wrapper around :func:`search_simready_objects_async`."""
-    return asyncio.run(search_simready_objects_async(object_phrases, config, traces))
-
-
 def simready_search_config_from_cli(
     *,
     enabled: bool,
     source: str,
     s3_url: str | None,
     service_url: str | None,
-    project_config_path: str | None,
-    indexed_path: str | None,
     max_results_per_object: int,
 ) -> SimReadySearchConfig:
     """Build :class:`SimReadySearchConfig` from CLI/GUI arguments."""
@@ -290,7 +272,5 @@ def simready_search_config_from_cli(
         source=SimReadySourceKind(source),
         s3_url=s3_url or ISAAC_SIMREADY_GA_S3_URL,
         service_url=service_url or DEFAULT_SIMREADY_SERVICE_URL,
-        project_config_path=project_config_path,
-        indexed_path=indexed_path,
         max_results_per_object=max_results_per_object,
     )

@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 env_name: droid_pick_place_cans_hammer_maple_table
 embodiment:
   id: droid
@@ -12,10 +17,6 @@ objects:
   registry_name: simready_usd_object
   params:
     usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
-    tags:
-    - sim-ready
-    - pepsi
-    - can
 - id: tuna_can
   registry_name: tuna_can_ycb_robolab
   params: {}
@@ -23,11 +24,6 @@ objects:
   registry_name: simready_usd_object
   params:
     usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Baskets/Plastic_Basket_A01/sm_misc_basket_plastic_a01_01.usd
-    tags:
-    - sim-ready
-    - mini
-    - plastic
-    - basket
 - id: bean_can
   registry_name: green_beans_can_hope_robolab
   params: {}
@@ -69,8 +65,7 @@ relations:
 task:
   composition: parallel
   description: Pick up the pepsi can and tuna can from the maple table and place them
-    into the mini plastic basket, place the bean can next to the basket and the hammer
-    next to the pepsi can.
+    into the mini plastic basket.
   subtasks:
   - kind: PickAndPlaceTask
     params:

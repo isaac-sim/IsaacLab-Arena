@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadyObjectCandidate,
@@ -49,10 +49,6 @@ class _FakeLibrary:
 
     def search(self, include_all=None, include_any=None):
         return list(self._matches)
-
-
-async def _fake_configure_library(config, traces):
-    return _FakeLibrary([_FakeMatch("s3://bucket/red_hammer.usd", relevance_score=0.95)])
 
 
 def test_split_path_into_words_splits_camel_case_and_separators():
@@ -121,7 +117,6 @@ def test_get_rigid_object_rejection_reason_turns_down_an_unreadable_asset():
 
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
-    new_callable=AsyncMock,
 )
 def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(TRASH_CAN_PATH), _FakeMatch(PLAIN_TRASH_CAN_PATH)])
@@ -137,7 +132,6 @@ def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure):
 
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
-    new_callable=AsyncMock,
 )
 def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
@@ -155,8 +149,6 @@ def test_simready_search_config_from_cli_defaults():
         source=SimReadySourceKind.ISAAC_SIM_GA.value,
         s3_url=None,
         service_url=None,
-        project_config_path=None,
-        indexed_path=None,
         max_results_per_object=2,
     )
     assert config.enabled is True
@@ -165,12 +157,10 @@ def test_simready_search_config_from_cli_defaults():
 
 
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_phrase_async",
-    new_callable=AsyncMock,
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_phrase",
 )
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
-    new_callable=AsyncMock,
 )
 def test_search_simready_objects_returns_candidates(mock_configure, mock_search_phrase):
     mock_configure.return_value = _FakeLibrary()
@@ -191,34 +181,18 @@ def test_search_simready_objects_returns_candidates(mock_configure, mock_search_
     assert catalog.candidates[0].registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
-def test_configure_asset_library_records_missing_package():
-    import asyncio
-    import sys
-
+def test_configure_asset_library_records_an_unknown_source():
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import _configure_asset_library
 
-    async def _run() -> tuple[object, list[str]]:
-        traces: list[str] = []
-        blocked = {
-            name: module for name, module in sys.modules.items() if name == "simready" or name.startswith("simready.")
-        }
-        for name in blocked:
-            del sys.modules[name]
-        try:
-            with patch.dict(sys.modules, {"simready": None, "simready.search": None}):
-                result = await _configure_asset_library(SimReadySearchConfig(enabled=True), traces)
-        finally:
-            sys.modules.update(blocked)
-        return result, traces
-
-    result, traces = asyncio.run(_run())
-    assert result is None
-    assert any("simready-search is not installed" in line for line in traces)
+    traces: list[str] = []
+    config = SimReadySearchConfig(enabled=True)
+    config.source = "not-a-source"
+    assert _configure_asset_library(config, traces) is None
+    assert any("unknown simready source" in line for line in traces)
 
 
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
-    new_callable=AsyncMock,
 )
 def test_search_simready_objects_returns_empty_when_library_unavailable(mock_configure):
     mock_configure.return_value = None
@@ -232,12 +206,10 @@ def test_search_simready_objects_returns_empty_when_library_unavailable(mock_con
 
 
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_phrase_async",
-    new_callable=AsyncMock,
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_phrase",
 )
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
-    new_callable=AsyncMock,
 )
 def test_search_simready_objects_records_no_matches(mock_configure, mock_search_phrase):
     mock_configure.return_value = _FakeLibrary()

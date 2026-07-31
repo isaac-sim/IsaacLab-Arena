@@ -119,18 +119,6 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help="Override hosted USD Search service URL for the simready service source.",
     )
     group.add_argument(
-        "--simready_project_config",
-        type=str,
-        default=None,
-        help="Local project_config.toml path for simready cache source.",
-    )
-    group.add_argument(
-        "--simready_indexed_dir",
-        type=str,
-        default=None,
-        help="Directory or S3 prefix for simready indexed source.",
-    )
-    group.add_argument(
         "--simready_max_results_per_object",
         type=int,
         default=1,
@@ -159,8 +147,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         source=args_cli.simready_source,
         s3_url=args_cli.simready_s3_url,
         service_url=args_cli.simready_service_url,
-        project_config_path=args_cli.simready_project_config,
-        indexed_path=args_cli.simready_indexed_dir,
         max_results_per_object=args_cli.simready_max_results_per_object,
     )
     agent_kwargs: dict = {
