@@ -51,16 +51,14 @@ def _build_scene(seed: int):
     return arena_env, support, members
 
 
-def _pour_and_settle(seed: int):
-    """Build, settle, and return (region, settled_at, resting positions, member names)."""
+def _build_and_reset(seed: int):
+    """Build the env and reset it, returning (env, support, members, region, poses_fn)."""
     import torch
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
     from isaaclab_arena.relations.clutter_pour import region_above_support
-    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
-    from isaaclab_arena.utils import physics_settle
 
     arena_env, support, members = _build_scene(seed)
     # Build args from the real parser rather than a hand-rolled Namespace: the builder reads
@@ -76,7 +74,6 @@ def _pour_and_settle(seed: int):
 
     scene = env.unwrapped.scene
     member_keys = [member.get_scene_key() for member in members]
-    names = [member.name for member in members]
     region = region_above_support(
         tuple(float(value) for value in support.get_initial_pose().position_xyz),
         get_bounding_box_per_env(support, 1),
@@ -85,6 +82,17 @@ def _pour_and_settle(seed: int):
     def poses():
         states = torch.stack([scene[key].data.root_state_w[0] for key in member_keys])
         return states[:, :3] - scene.env_origins[0], states[:, 3:7]
+
+    return env, support, members, region, poses
+
+
+def _pour_and_settle(seed: int):
+    """Build, settle, and return (region, settled_at, spawn positions, resting positions, names)."""
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
+    from isaaclab_arena.utils import physics_settle
+
+    env, _support, members, region, poses = _build_and_reset(seed)
+    names = [member.name for member in members]
 
     spawn_positions, _ = poses()
     tracker = SettleTracker(ClutterSettleParams())
@@ -124,6 +132,29 @@ def _test_clutter_settles_on_its_support(simulation_app) -> bool:
     return True
 
 
+def _test_pile_is_already_settled_at_reset(simulation_app) -> bool:
+    """A reset must place the resting pile, not the poses it was released from."""
+    import torch
+
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+    from isaaclab_arena.utils import physics_settle
+
+    env, support, members, region, poses = _build_and_reset(seed=0)
+    positions, rotations = poses()
+
+    verdict = check_resting_poses(positions, region, ClutterSettleParams(containment_margin_m=0.05))
+    assert not verdict.diverged, "reset produced non-finite poses"
+
+    # Stepping a settled pile barely moves it; a pile still falling moves a long way.
+    physics_settle.step_physics(env, 60)
+    moved_positions, moved_rotations = poses()
+    drift = float((moved_positions - positions).norm(dim=-1).max())
+    env.close()
+
+    assert drift < 0.02, f"pile moved {drift:.3f} m after reset, so the reset wrote falling poses"
+    return True
+
+
 def _test_same_seed_reproduces_the_pile(simulation_app) -> bool:
     import torch
 
@@ -135,6 +166,10 @@ def _test_same_seed_reproduces_the_pile(simulation_app) -> bool:
 
 def test_clutter_settles_on_its_support():
     assert run_simulation_app_function(_test_clutter_settles_on_its_support)
+
+
+def test_pile_is_already_settled_at_reset():
+    assert run_simulation_app_function(_test_pile_is_already_settled_at_reset)
 
 
 def test_same_seed_reproduces_the_pile():

@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.clutter_groups import is_clutter_member
 from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
@@ -63,16 +64,25 @@ def _compute_physics_settled_and_add_to_validation_results(
     layouts: list[tuple[int, PlacementResult]],
     movable_object_names: list[str],
     settle_params: PhysicsSettleParams,
+    settled_override: bool | None = None,
 ) -> list[tuple[int, PlacementValidationResults]]:
     """Read back per-object velocities for a list of layouts and stamp ``PHYSICS_SETTLED`` per layout.
 
     Returns ``(env_id, validation_results)`` per layout; the settle verdict is stamped only if not already present.
+
+    Args:
+        settled_override: Verdict to stamp instead of reading velocities. Required when settling
+            was decided from pose deltas, because objects in stable contact keep micro-rocking
+            and so never satisfy a velocity threshold.
     """
 
     env_ids = [env_id for env_id, _ in layouts]
-    settled_per_env = physics_settle.are_all_objects_settled_per_env(
-        env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
-    )
+    if settled_override is not None:
+        settled_per_env = [settled_override] * len(env_ids)
+    else:
+        settled_per_env = physics_settle.are_all_objects_settled_per_env(
+            env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
+        )
     validation_results_all_envs: list[tuple[int, PlacementValidationResults]] = []
     for (env_id, layout), settled in zip(layouts, settled_per_env):
         validation_results_per_env = layout.validation_results
@@ -86,9 +96,8 @@ def _capture_settled_poses_into_layouts(
     env: ManagerBasedEnv,
     layouts: list[tuple[int, PlacementResult]],
     assets: list[PlaceableAsset],
-    anchor_assets: set,
 ) -> None:
-    """Overwrite each non-anchor asset's layout pose with where it came to rest.
+    """Overwrite each given asset's layout pose with where it came to rest.
 
     Settling moves objects, so a layout that is replayed later has to carry the resting
     poses rather than the poses it was dropped from. Non-finite poses are left alone, so a
@@ -98,8 +107,6 @@ def _capture_settled_poses_into_layouts(
     env_origins = scene.env_origins
     for env_id, layout in layouts:
         for asset in assets:
-            if asset in anchor_assets:
-                continue
             root_state = scene[asset.get_scene_key()].data.root_state_w[env_id]
             if not bool(torch.isfinite(root_state[:7]).all()):
                 continue
@@ -175,9 +182,9 @@ def validate_pool_layouts(
         settle_params: Settle-check tuning params. Defaults to
             ``PhysicsSettleParams()`` when omitted.
         render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
-        capture_settled_poses: When True, write each object's resting pose back into its layout.
-            Required for layouts whose value is the settled arrangement itself. Defaults to False,
-            which leaves solved layouts untouched.
+        capture_settled_poses: When True, write each clutter member's resting pose back into its
+            layout. Required for layouts whose value is the settled arrangement itself. Defaults
+            to False, which leaves solved layouts untouched.
         pose_settle_params: When given, settle by watching poses stop changing and return as soon
             as they do, rather than always stepping the full budget. Needed for arrangements that
             physics produces, where objects in stable contact keep micro-rocking and so never meet
@@ -197,6 +204,9 @@ def validate_pool_layouts(
 
     assets = placement_pool.objects
     anchor_assets = set(get_anchor_objects(assets))
+    # Only clutter's value is the settled arrangement. Capturing every non-anchor asset would
+    # freeze the embodiment, and any object that toppled, at whatever pose gravity left it in.
+    clutter_assets = [asset for asset in assets if is_clutter_member(asset)]
     base_rotations = get_base_rotation_per_asset(assets)
     movable_object_names = get_movable_asset_names(assets, anchor_assets)
 
@@ -225,10 +235,11 @@ def validate_pool_layouts(
             base_rotations,
         )
         if layouts:
+            settled_override = None
             if pose_settle_params is None:
                 physics_settle.step_physics(env, num_physics_steps, render=render)
             else:
-                _step_until_poses_are_quiet(
+                settled_override = _step_until_poses_are_quiet(
                     env,
                     movable_object_names,
                     num_physics_steps,
@@ -237,9 +248,9 @@ def validate_pool_layouts(
                     render=render,
                 )
             if capture_settled_poses:
-                _capture_settled_poses_into_layouts(env, layouts, assets, anchor_assets)
+                _capture_settled_poses_into_layouts(env, layouts, clutter_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
-                env, layouts, movable_object_names, settle_params
+                env, layouts, movable_object_names, settle_params, settled_override
             )
             for env_id, validation_results_per_env in validation_results:
                 results.append((env_id, episode_index, validation_results_per_env))
