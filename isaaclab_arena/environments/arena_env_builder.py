@@ -319,7 +319,11 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = task.get_episode_length_s()
+        # The builder cfg can override the task's episode length (e.g. to equalize step count across
+        # control rates); otherwise the task's own value is used.
+        episode_length_s = (
+            self.cfg.episode_length_s if self.cfg.episode_length_s is not None else task.get_episode_length_s()
+        )
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
