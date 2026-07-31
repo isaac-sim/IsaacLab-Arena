@@ -39,17 +39,7 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
         help="Floor region size in metres; only used with --region floor.",
     )
     parser.add_argument("--settle_steps", type=int, default=400, help="Physics steps to settle for.")
-    parser.add_argument("--report_every", type=int, default=50, help="Steps between velocity reports.")
-    parser.add_argument("--lin_vel_thresh", type=float, default=0.1, help="Settled linear speed (m/s).")
-    parser.add_argument(
-        "--ang_vel_thresh",
-        type=float,
-        default=0.8,
-        help=(
-            "Settled angular speed (rad/s), reported only. Objects in stable contact keep "
-            "micro-rocking at 0.25-0.65 rad/s indefinitely, so this cannot decide settling."
-        ),
-    )
+    parser.add_argument("--report_every", type=int, default=50, help="Steps between progress reports.")
     parser.add_argument(
         "--move_thresh_m",
         type=float,
