@@ -35,6 +35,7 @@ class CosmosDroidAdapter(EmbodimentAdapter):
 
     # Per-view tile size matches Robolab client.
     # The intention is when the images are combined, we end up with a 540x640 image.
+    # Reference to robolab client: https://github.com/NVlabs/RoboLab/blob/main/policies/cosmos3/client.py
     IMAGE_H = 360
     IMAGE_W = 640
 
