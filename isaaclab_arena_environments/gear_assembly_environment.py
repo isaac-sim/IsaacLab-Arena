@@ -14,6 +14,10 @@ from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.tasks.gear_assembly.specs import (
     DROID_GEAR_ASSEMBLY_EMBODIMENTS,
+    GEAR_TABLETOP_ORIENTATION_XYZW,
+    GEAR_TABLETOP_PARKING_POSITIONS,
+    MAPLE_TABLE_POSE,
+    MAPLE_TABLE_TOP_COLLISION_POSE,
     DroidGearAssemblyEmbodiment,
     GearAssemblyMode,
     PhysicsBackend,
@@ -51,8 +55,11 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
     def build(self, cfg: GearAssemblyEnvironmentCfg) -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
 
+        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_library import DomeLight
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import IsAnchor
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.gear_assembly.assets import (
             make_factory_gear_base,
@@ -60,20 +67,43 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
             make_factory_gear_medium,
             make_factory_gear_small,
             make_ground,
+            make_maple_table_top_collision,
+            spawn_newton_maple_table_usd,
         )
         from isaaclab_arena.tasks.gear_assembly.task import GearAssemblyTask
 
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        if cfg.physics_backend == "newton":
+            from isaaclab_arena.utils.usd.newton import ensure_newton_valid_rigid_body_inertias_usd
+
+            embodiment.scene_config.robot.spawn.usd_path = ensure_newton_valid_rigid_body_inertias_usd(
+                embodiment.scene_config.robot.spawn.usd_path
+            )
         embodiment.observation_config = None
         robot_spec = get_droid_robot_spec()
         gear_pose = gear_pose_for_mode(cfg.mode)
+        newton_mesh_collisions = cfg.physics_backend == "newton"
+        maple_table = self.asset_registry.get_asset_by_name("maple_table_robolab")()
+        maple_table.set_initial_pose(MAPLE_TABLE_POSE)
+        if newton_mesh_collisions:
+            maple_table.object_cfg.spawn.func = spawn_newton_maple_table_usd
+        table_reference = ObjectReference(
+            name="table",
+            prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
+            parent_asset=maple_table,
+            object_type=ObjectType.RIGID,
+        )
+        table_reference.add_relation(IsAnchor())
 
-        assets = [
-            make_ground(),
-            make_factory_gear_base(gear_pose),
-            make_factory_gear_small(gear_pose),
-            make_factory_gear_medium(gear_pose),
-            make_factory_gear_large(gear_pose),
+        assets = [make_ground(), maple_table]
+        if newton_mesh_collisions:
+            assets.append(make_maple_table_top_collision(MAPLE_TABLE_TOP_COLLISION_POSE))
+        assets += [
+            make_factory_gear_base(gear_pose, newton_mesh_collisions=newton_mesh_collisions),
+            make_factory_gear_small(gear_pose, newton_mesh_collisions=newton_mesh_collisions),
+            make_factory_gear_medium(gear_pose, newton_mesh_collisions=newton_mesh_collisions),
+            make_factory_gear_large(gear_pose, newton_mesh_collisions=newton_mesh_collisions),
+            table_reference,
             DomeLight(
                 instance_name="light",
                 prim_path="/World/light",
@@ -92,7 +122,9 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
 
 
 def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTask):
-    def gear_assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    def gear_assembly_env_cfg_callback(
+        env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
+    ) -> IsaacLabArenaManagerBasedRLEnvCfg:
         from isaaclab_physx.physics import PhysxCfg
 
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
@@ -105,6 +137,7 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
 
         if cfg.physics_backend == "newton":
             env_cfg.sim.physics = ArenaPhysicsCfg().newton
+            env_cfg.sim.physics.default_shape_cfg.gap = 0.0
             env_cfg.scene.replicate_physics = True
         elif cfg.physics_backend == "physx":
             env_cfg.sim.physics = PhysxCfg(
@@ -118,6 +151,13 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
 
         for attr_name, value in task.runtime_env_attrs().items():
             setattr(env_cfg, attr_name, value)
+        if cfg.physics_backend == "newton":
+            env_cfg.events.randomize_gears_and_base_pose.params["selected_parking_positions"] = (
+                GEAR_TABLETOP_PARKING_POSITIONS
+            )
+            env_cfg.events.randomize_gears_and_base_pose.params["selected_orientation_xyzw"] = (
+                GEAR_TABLETOP_ORIENTATION_XYZW
+            )
         return env_cfg
 
     return gear_assembly_env_cfg_callback

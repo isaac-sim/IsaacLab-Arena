@@ -31,18 +31,54 @@ GEAR_OFFSETS = {
     "gear_medium": [0.030375, 0.0, 0.0],
     "gear_large": [-0.045375, 0.0, 0.0],
 }
-
 DROID_BASE_GEAR_POSE = Pose(position_xyz=(0.481, -0.073, 0.071), rotation_xyzw=(0.0, 0.0, 0.70711, -0.70711))
+MAPLE_TABLE_TOP_Z = 0.003000684082508087
+MAPLE_TABLE_POSE = Pose(position_xyz=(0.0, 0.0, DROID_BASE_GEAR_POSE.position_xyz[2] - MAPLE_TABLE_TOP_Z))
+MAPLE_TABLE_TOP_COLLISION_SIZE = (0.7, 1.0)
+MAPLE_TABLE_TOP_COLLISION_THICKNESS = 0.02
+MAPLE_TABLE_TOP_COLLISION_POSE = Pose(
+    position_xyz=(
+        0.5485909044742584,
+        0.02206302247941494,
+        DROID_BASE_GEAR_POSE.position_xyz[2],
+    )
+)
+GEAR_TABLETOP_PARKING_Z = MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[2] + 0.043
+GEAR_TABLETOP_PARKING_POSITIONS = {
+    "gear_small": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] - 0.20,
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+    "gear_medium": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] + 0.20,
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+    "gear_large": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0],
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.32,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+}
+GEAR_TABLETOP_ORIENTATION_XYZW = (1.0, 0.0, 0.0, 0.0)
+GEAR_INACTIVE_TABLE_PARKING_Z = GEAR_TABLETOP_PARKING_Z
+GEAR_INACTIVE_PARKING_POSITIONS = GEAR_TABLETOP_PARKING_POSITIONS
+GEAR_INACTIVE_TABLETOP_ORIENTATION_XYZW = GEAR_TABLETOP_ORIENTATION_XYZW
 
 GEAR_POSE_RANGE = {
     "x": [-0.1, 0.1],
     "y": [-0.25, 0.25],
-    "z": [-0.1, 0.1],
-    "roll": [-math.pi / 90, math.pi / 90],
-    "pitch": [-math.pi / 90, math.pi / 90],
+    "z": [0.0, 0.0],
+    "roll": [0.0, 0.0],
+    "pitch": [0.0, 0.0],
     "yaw": [-math.pi / 6, math.pi / 6],
 }
-SELECTED_GEAR_POS_RANGE = {"x": [-0.02, 0.02], "y": [-0.02, 0.02], "z": [0.0575, 0.0775]}
+SELECTED_GEAR_POS_RANGE = {
+    "x": [-0.02, 0.02],
+    "y": [-0.02, 0.02],
+    "z": [0.0575, 0.0775],
+}
 
 DROID_ARM_JOINT_NAMES = [
     "panda_joint1",
@@ -101,7 +137,11 @@ def get_droid_robot_spec() -> GearAssemblyRobotSpec:
             "robot": (0.75, 0.75, 0.0),
         },
         reset_randomizes_robot=False,
-        set_grasp_pos_randomization_range={"x": [-0.0, 0.0], "y": [-0.005, 0.005], "z": [-0.003, 0.003]},
+        set_grasp_pos_randomization_range={
+            "x": [-0.0, 0.0],
+            "y": [-0.005, 0.005],
+            "z": [-0.003, 0.003],
+        },
     )
 
 

@@ -21,11 +21,7 @@ from isaaclab.managers import (
 )
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.noise import UniformNoiseCfg
-from isaaclab_tasks.manager_based.manipulation.deploy.mdp.events import (
-    randomize_gear_type,
-    randomize_gears_and_base_pose,
-    set_robot_to_grasp_pose,
-)
+from isaaclab_tasks.manager_based.manipulation.deploy.mdp.events import randomize_gear_type, set_robot_to_grasp_pose
 from isaaclab_tasks.manager_based.manipulation.deploy.mdp.noise_models import (
     ResetSampledConstantNoiseModelCfg,
     ResetSampledQuaternionNoiseModelCfg,
@@ -44,9 +40,12 @@ from isaaclab_tasks.manager_based.manipulation.deploy.mdp.terminations import (
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.gear_assembly import rewards as gear_rewards
+from isaaclab_arena.tasks.gear_assembly.events import randomize_gears_and_base_pose_with_inactive_gear_parking
 from isaaclab_arena.tasks.gear_assembly.specs import (
     GEAR_OFFSETS,
     GEAR_POSE_RANGE,
+    GEAR_TABLETOP_ORIENTATION_XYZW,
+    GEAR_TABLETOP_PARKING_POSITIONS,
     GEAR_TYPES,
     SELECTED_GEAR_POS_RANGE,
     GearAssemblyMode,
@@ -225,11 +224,13 @@ class EventsCfg:
         )
         self.reset_all = EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")
         self.randomize_gears_and_base_pose = EventTermCfg(
-            func=randomize_gears_and_base_pose,
+            func=randomize_gears_and_base_pose_with_inactive_gear_parking,
             mode="reset",
             params={
                 "pose_range": pose_range,
                 "gear_pos_range": selected_gear_pos_range,
+                "parking_positions": GEAR_TABLETOP_PARKING_POSITIONS,
+                "parking_orientation_xyzw": GEAR_TABLETOP_ORIENTATION_XYZW,
                 "velocity_range": {},
             },
         )
