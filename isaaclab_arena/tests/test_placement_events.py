@@ -25,8 +25,8 @@ def _checklist(passed: bool):
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -54,8 +54,6 @@ def _create_test_objects():
 
 
 def test_successive_placements_without_seed_produce_different_layouts():
-    """Two place() calls with placement_seed=None should produce different positions."""
-
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -84,8 +82,6 @@ def test_successive_placements_without_seed_produce_different_layouts():
 
 
 def test_placement_without_seed_multi_env_gives_different_layouts():
-    """Multi-env placement with seed=None should give distinct per-env layouts."""
-
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -109,8 +105,6 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
 
 
 def test_successive_seeded_placements_produce_same_layout():
-    """Two place() calls with the same seed should produce identical positions."""
-
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -162,14 +156,12 @@ def _solve_and_place_with_pool(env, env_ids, objects, pool):
     return solve_and_place_objects(
         env,
         env_ids,
-        objects=objects,
+        assets=objects,
         placement_pool=pool,
     )
 
 
 def test_solve_and_place_objects_writes_poses_to_sim():
-    """solve_and_place_objects should call write_root_pose_to_sim for non-anchor objects."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -199,11 +191,17 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
 
 def test_solve_and_place_objects_uses_runtime_pool():
-    """Reset params should use the runtime placement pool directly."""
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    desk, box1, _ = _create_test_objects()
+    desk, _, _ = _create_test_objects()
+    robot = DummyEmbodiment(
+        name="droid",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+        scene_name="robot",
+    )
     env = _make_mock_env(num_envs=1)
 
     class Pool:
@@ -214,7 +212,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
             return {
                 0: PlacementResult(
                     validation_results=_checklist(True),
-                    positions={box1: (0.2, 0.3, 0.4)},
+                    positions={robot: (0.2, 0.3, 0.4)},
                     final_loss=0.0,
                     attempts=1,
                 )
@@ -223,16 +221,81 @@ def test_solve_and_place_objects_uses_runtime_pool():
     solve_and_place_objects(
         env,
         torch.tensor([0]),
-        objects=[desk, box1],
+        assets=[desk, robot],
         placement_pool=Pool(),
     )
 
     assert "desk" not in env._assets
-    env._assets["box1"].write_root_pose_to_sim.assert_called_once()
+    assert "droid" not in env._assets
+    env._assets["robot"].write_root_pose_to_sim.assert_called_once()
+
+
+def _identity_pose(position_xyz):
+    from isaaclab_arena.utils.pose import Pose
+
+    return Pose(position_xyz=position_xyz, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+
+def test_reset_placement_asset_pose_writes_compound_prims_with_env_origins():
+    """A single fixed layout writes every scene entity to all resetting envs, origin-shifted, zero velocity."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose
+
+    env = _make_mock_env(num_envs=2)
+    env.scene.env_origins = torch.tensor([[10.0, 0.0, 0.0], [0.0, 20.0, 0.0]])
+    scene_writes = [("robot", _identity_pose((0.1, 0.2, 0.5))), ("stand", _identity_pose((0.1, 0.2, 0.0)))]
+
+    reset_placement_asset_pose(env, torch.tensor([0, 1]), scene_writes=scene_writes)
+
+    for name, base in (("robot", (0.1, 0.2, 0.5)), ("stand", (0.1, 0.2, 0.0))):
+        pose = env._assets[name].write_root_pose_to_sim.call_args.args[0]
+        assert pose.shape == (2, 7)
+        assert torch.allclose(pose[0, :3], torch.tensor([base[0] + 10.0, base[1], base[2]]))
+        assert torch.allclose(pose[1, :3], torch.tensor([base[0], base[1] + 20.0, base[2]]))
+        velocity = env._assets[name].write_root_velocity_to_sim.call_args.args[0]
+        assert torch.count_nonzero(velocity) == 0
+
+
+def test_reset_placement_asset_pose_per_env_indexes_by_absolute_env():
+    """A partial reset must apply write_pose_list[env_id], not the first layout."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
+
+    env = _make_mock_env(num_envs=3)
+    write_pose_list = [[("robot", _identity_pose((float(i), 0.0, 0.0)))] for i in range(3)]
+
+    reset_placement_asset_pose_per_env(env, torch.tensor([2]), write_pose_list=write_pose_list)
+
+    robot = env._assets["robot"]
+    robot.write_root_pose_to_sim.assert_called_once()
+    assert torch.equal(robot.write_root_pose_to_sim.call_args.kwargs["env_ids"], torch.tensor([2]))
+    assert torch.allclose(robot.write_root_pose_to_sim.call_args.args[0][0, :3], torch.tensor([2.0, 0.0, 0.0]))
+
+
+def test_reset_placement_asset_pose_per_env_writes_each_compound_prim_per_env():
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
+
+    env = _make_mock_env(num_envs=2)
+    write_pose_list = [
+        [("robot", _identity_pose((x, 0.0, 0.5))), ("stand", _identity_pose((x, 0.0, 0.0)))] for x in (0.0, 1.0)
+    ]
+
+    reset_placement_asset_pose_per_env(env, torch.tensor([0, 1]), write_pose_list=write_pose_list)
+
+    assert env._assets["robot"].write_root_pose_to_sim.call_count == 2
+    assert env._assets["stand"].write_root_pose_to_sim.call_count == 2
+
+
+def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
+    """Guarding the length turns an out-of-range env index into a clear error, not an IndexError."""
+    from isaaclab_arena.terms.events import reset_placement_asset_pose_per_env
+
+    env = _make_mock_env(num_envs=3)
+    short_list = [[("robot", _identity_pose((0.0, 0.0, 0.0)))]]
+
+    with pytest.raises(AssertionError, match="per-env pose writes"):
+        reset_placement_asset_pose_per_env(env, torch.tensor([2]), write_pose_list=short_list)
 
 
 def test_get_placement_pool_returns_runtime_pool():
-    """Pool validation can retrieve the runtime placement pool from the reset event."""
     from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
@@ -282,8 +345,6 @@ def test_solve_and_place_objects_applies_random_yaw():
 
 
 def test_solve_and_place_objects_skips_empty_env_ids():
-    """solve_and_place_objects should return immediately for an empty env_ids tensor."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -301,8 +362,6 @@ def test_solve_and_place_objects_skips_empty_env_ids():
 
 
 def test_solve_and_place_objects_skips_none_env_ids():
-    """solve_and_place_objects should return immediately when env_ids is None."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -320,8 +379,6 @@ def test_solve_and_place_objects_skips_none_env_ids():
 
 
 def test_solve_and_place_objects_handles_multiple_env_ids():
-    """solve_and_place_objects should write poses for each resetting environment."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -405,14 +462,13 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     assert "Writing best-loss fallback placement for env 0; failed checks: ['valid']." in captured.out
 
 
-def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():
-    """Env-indexed partial resets should write the result for each absolute env id."""
-
+def test_solve_and_place_objects_partial_reset_applies_absolute_env_origin():
     from isaaclab_arena.relations.placement_result import PlacementResult
 
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
     env = _make_mock_env(num_envs=4)
+    env.scene.env_origins[2] = torch.tensor([10.0, 0.0, 0.0])
 
     class EnvIndexedPool:
         num_envs = 4
@@ -443,8 +499,8 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
     box2_pose = env._assets[box2.name].write_root_pose_to_sim.call_args[0][0]
     box1_env_id = env._assets[box1.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
     box2_env_id = env._assets[box2.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
-    assert box1_pose[0, 0].item() == 2.0
-    assert box2_pose[0, 0].item() == 2.0
+    assert box1_pose[0, 0].item() == 12.0
+    assert box2_pose[0, 0].item() == 12.0
     assert box1_env_id.tolist() == [2]
     assert box2_env_id.tolist() == [2]
     assert pool.requested_env_ids == [2]
@@ -465,8 +521,6 @@ def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
 
 
 def test_pooled_placer_sample_without_replacement_returns_different_layouts():
-    """sample_without_replacement() should return layouts (likely different across draws)."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -488,8 +542,6 @@ def test_pooled_placer_sample_without_replacement_returns_different_layouts():
 
 
 def test_pooled_object_placer_sample_with_replacement_does_not_consume():
-    """sample_with_replacement() should return layouts without consuming them."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -507,8 +559,6 @@ def test_pooled_object_placer_sample_with_replacement_does_not_consume():
 
 
 def test_pooled_object_placer_sample_without_replacement_triggers_refill():
-    """Exhausting the pool and requesting more should trigger a refill."""
-
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -578,8 +628,10 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         def get_relations(self):
             return []
 
-        def set_initial_pose(self, pose):
-            raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
+        def set_initial_pose(self, pose, create_reset_event: bool = True):
+            assert not create_reset_event, "resolve_on_reset init seeding must not register per-object reset events"
+            self.object_cfg.init_state.pos = pose.position_xyz
+            self.object_cfg.init_state.rot = pose.rotation_xyzw
 
     class EnvIndexedPool:
         num_envs = 3
@@ -595,7 +647,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
                     final_loss=0.0,
                     attempts=1,
                 )
-                for env_id in range(self.num_envs)
+                for env_id in range(count)
             ]
 
     anchor = MinimalObject("desk")
@@ -603,9 +655,9 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
     pool = EnvIndexedPool()
 
     _apply_dynamic_spawn_pose(
-        objects=[anchor, box],
+        assets=[anchor, box],
         placement_pool=pool,
-        anchor_objects_set={anchor},
+        anchor_assets={anchor},
     )
 
     assert pool.sample_count == 1
@@ -616,10 +668,10 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
 
 def test_env_indexed_static_poses_apply_per_env_positions():
     """Static initial poses should apply per-env positions from env-indexed layouts."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
@@ -653,9 +705,9 @@ def test_env_indexed_static_poses_apply_per_env_positions():
             ]
 
     _apply_static_initial_poses(
-        objects=[desk, box],
+        assets=[desk, box],
         placement_pool=PerEnvPool(),
-        anchor_objects_set={desk},
+        anchor_assets={desk},
         num_envs=num_envs,
     )
 
@@ -669,11 +721,11 @@ def test_env_indexed_static_poses_apply_per_env_positions():
 def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     """PooledObjectPlacer should keep best-loss fallback layouts when validation rejects all candidates."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -711,11 +763,11 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
 def test_pooled_placer_only_falls_back_on_final_batch(capsys):
     """Fallbacks should only be accepted on the last configured solve batch."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -747,11 +799,11 @@ def test_pooled_placer_only_falls_back_on_final_batch(capsys):
 def test_pooled_placer_can_reject_best_loss_fallbacks():
     """PooledObjectPlacer should fail loudly when fallback layouts are disabled."""
 
-    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 

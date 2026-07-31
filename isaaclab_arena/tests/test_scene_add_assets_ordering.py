@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -54,7 +54,7 @@ def _test_object_reference_without_parent_raises(simulation_app) -> bool:
 
 
 def test_object_references_added_before_parents():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_references_added_before_parents,
         headless=HEADLESS,
     )
@@ -62,7 +62,7 @@ def test_object_references_added_before_parents():
 
 
 def test_object_reference_without_parent_raises():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_reference_without_parent_raises,
         headless=HEADLESS,
     )

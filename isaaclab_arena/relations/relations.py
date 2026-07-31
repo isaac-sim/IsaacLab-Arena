@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING, TypeVar
 from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import register_object_relation
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
 
@@ -41,7 +42,7 @@ class RelationBase:
     in its relations list.
     """
 
-    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Validate this relation for placement among the participating objects."""
 
 
@@ -49,7 +50,7 @@ class UnaryRelation(RelationBase):
     """Base class for unary spatial relations (no parent object).
 
     Unary relations constrain an object's position in world coordinates
-    without referencing another object (e.g., AtPosition, PositionLimits).
+    without referencing another object (e.g., AtPosition, PositionLimitsBox).
     """
 
     @staticmethod
@@ -66,7 +67,7 @@ class Relation(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: PlaceableAsset, relation_loss_weight: float = 1.0):
         """
         Args:
             parent: The parent asset in the relationship.
@@ -86,7 +87,7 @@ class FaceTo(RelationBase):
 
     name = "face_to"
 
-    def __init__(self, parent: ObjectBase):
+    def __init__(self, parent: PlaceableAsset):
         """
         Args:
             parent: Target object that defines the facing direction.
@@ -98,7 +99,7 @@ class FaceTo(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Validate the facing relation for its subject and target."""
         face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
         assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."
@@ -140,7 +141,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side | str = Side.POSITIVE_X,
@@ -190,7 +191,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
         edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
@@ -229,7 +230,7 @@ class NotNextTo(Relation):
 
     def __init__(
         self,
-        parent: ObjectBase,
+        parent: PlaceableAsset,
         relation_loss_weight: float = 1.0,
         side: Side | str = Side.POSITIVE_X,
         tolerance_m: float = 1e-2,
@@ -268,6 +269,24 @@ class IsAnchor(RelationBase):
     """
 
     name = "is_anchor"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
+
+
+@register_object_relation
+class RequiresReachability(RelationBase):
+    """Indicates the robot shall be able to reach this object.
+
+    It does not affect placement geometry during optimization, but rejects unreachable placements.
+
+    Usage:
+        banana.add_relation(RequiresReachability())  # IK-check reachability of the banana
+    """
+
+    name = "requires_reachability"
 
     @staticmethod
     def is_unary() -> bool:
@@ -472,17 +491,17 @@ class AtPosition(UnaryRelation):
 
 
 @register_object_relation
-class PositionLimits(UnaryRelation):
-    """Constrains object position to a world-coordinate axis-aligned box.
+class PositionLimitsBox(UnaryRelation):
+    """Constrains an object's position to an axis-aligned box in world coordinates.
 
-    Each axis is independently optional (None = unconstrained).
+    Each axis bound is independently optional (None = unconstrained).
 
     Usage:
-        mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
-        mug.add_relation(PositionLimits(z_min=0.8))  # only constrain Z
+        mug.add_relation(PositionLimitsBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
+        mug.add_relation(PositionLimitsBox(z_min=0.8))  # only constrain Z
     """
 
-    name = "position_limits"
+    name = "position_limits_box"
 
     def __init__(
         self,
@@ -494,14 +513,9 @@ class PositionLimits(UnaryRelation):
         z_max: float | None = None,
         relation_loss_weight: float = 1.0,
     ):
-        assert (
-            x_min is not None
-            or x_max is not None
-            or y_min is not None
-            or y_max is not None
-            or z_min is not None
-            or z_max is not None
-        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for PositionLimits"
+        assert any(
+            bound is not None for bound in (x_min, x_max, y_min, y_max, z_min, z_max)
+        ), "At least one axis bound must be specified for PositionLimitsBox"
         if x_min is not None and x_max is not None:
             assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
         if y_min is not None and y_max is not None:
@@ -517,7 +531,52 @@ class PositionLimits(UnaryRelation):
         self.relation_loss_weight = relation_loss_weight
 
 
-def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
+# Keep the original Python and YAML names as aliases for box limits.
+PositionLimits = PositionLimitsBox
+_relation_registry = ObjectRelationLibraryRegistry()
+if not _relation_registry.is_registered("position_limits", ensure_loaded=False):
+    _relation_registry.register(PositionLimitsBox, "position_limits")
+
+
+@register_object_relation
+class PositionLimitsCylindrical(UnaryRelation):
+    """Constrains an object's world-XY radius around a fixed center.
+
+    A lower bound creates a cylindrical keep-out region, an upper bound keeps
+    the object inside a cylinder, and both bounds create a cylindrical annulus.
+    The relation constrains only XY; use ``PositionLimitsBox`` separately for Z
+    or axis-aligned XY limits.
+
+    Usage:
+        mug.add_relation(PositionLimitsCylindrical(center_x=0.0, center_y=0.0, radius_max=0.5))
+    """
+
+    name = "position_limits_cylindrical"
+
+    def __init__(
+        self,
+        center_x: float,
+        center_y: float,
+        radius_min: float | None = None,
+        radius_max: float | None = None,
+        relation_loss_weight: float = 1.0,
+    ):
+        assert (
+            radius_min is not None or radius_max is not None
+        ), "At least one radial bound must be specified for PositionLimitsCylindrical"
+        assert radius_min is None or radius_min >= 0.0, "radius_min must be non-negative"
+        assert radius_max is None or radius_max >= 0.0, "radius_max must be non-negative"
+        assert (
+            radius_min is None or radius_max is None or radius_min < radius_max
+        ), "radius_min must be less than radius_max"
+        self.center_x = center_x
+        self.center_y = center_y
+        self.radius_min = radius_min
+        self.radius_max = radius_max
+        self.relation_loss_weight = relation_loss_weight
+
+
+def get_anchor_objects(objects: list[PlaceableAsset]) -> list[PlaceableAsset]:
     """Get all anchor objects from a list of objects.
 
     Anchor objects are marked with IsAnchor() relation and serve as
@@ -532,6 +591,6 @@ def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
     return [obj for obj in objects if any(isinstance(r, IsAnchor) for r in obj.get_relations())]
 
 
-def get_relation(obj: ObjectBase, relation_type: type[RelationT]) -> RelationT | None:
+def get_relation(obj: PlaceableAsset, relation_type: type[RelationT]) -> RelationT | None:
     """Return obj's first relation of the given type, or None if it has none."""
     return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)

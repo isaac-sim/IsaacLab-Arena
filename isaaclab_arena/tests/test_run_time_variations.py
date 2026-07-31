@@ -9,7 +9,7 @@ import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -171,21 +171,21 @@ def _test_runtime_variation_build_time_effects_applied(simulation_app):
 
 
 def test_disabled_runtime_variation_not_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_disabled_runtime_variation_not_in_events_cfg,
         headless=HEADLESS,
     )
 
 
 def test_enabled_runtime_variation_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_runtime_variation_in_events_cfg,
         headless=HEADLESS,
     )
 
 
 def test_runtime_variation_build_time_effects_applied():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_runtime_variation_build_time_effects_applied,
         headless=HEADLESS,
     )

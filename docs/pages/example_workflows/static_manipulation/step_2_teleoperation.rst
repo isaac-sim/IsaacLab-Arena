@@ -118,14 +118,17 @@ Step 2: Start Recording
 
    .. code-block:: bash
 
-      python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+      python submodules/IsaacLab/scripts/tools/record_demos.py \
         --device cpu \
         --viz kit \
+        --xr \
+        --no-auto_launch_cloudxr \
         --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 2 \
-        gr1_open_microwave \
-        --teleop_device openxr
+        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+        --task gr1_open_microwave \
+        --arena_teleop_device openxr
 
 #. In the running application, start the session from the **XR** tab in the application window.
 

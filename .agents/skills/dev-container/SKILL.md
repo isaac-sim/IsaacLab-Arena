@@ -1,7 +1,7 @@
 ---
 name: dev-container
 description: Sets up and manages the isaaclab_arena Docker container — the single environment used for Arena's development, testing, training, and evaluation. Use when the user asks to set up the dev environment, bootstrap the project, get started on a fresh clone, start developing, build or rebuild the image, start or attach to the container, or run any command inside it. Also covers ./docker/run_docker.sh flag combinations (-r rebuild, -R rebuild without cache, -d/-m/-e custom dataset/model/eval mounts), docker exec usage, and the /isaac-sim/python.sh aliasing.
-allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker ps *)
+allowed-tools: Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(pre-commit install) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker ps *)
 ---
 
 # Dev Container
@@ -9,6 +9,19 @@ allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker im
 Arena uses a single Docker container as the dev, test, training, and eval environment. There is no separate dev container.
 
 Each clone of the repo on the host machine gets its own container, so separate clones can run in parallel. The image (`isaaclab_arena:latest`) is shared, but the container name is `isaaclab_arena-latest` for the folder named `IsaacLab-Arena` and `isaaclab_arena-latest-<suffix>` for folders named `IsaacLab-Arena_<suffix>` (`run_docker.sh` derives the suffix automatically).
+
+## Bootstrap a fresh clone
+
+When the user explicitly asks to set up a fresh clone, run the one-time host setup from the repository root:
+
+```bash
+git submodule update --init --recursive
+pre-commit install
+```
+
+Then start the container and use the Arena import check below as the setup smoke test. Do not run the pytest suite as part of fresh-clone setup unless the user explicitly asks for tests. Run `pre-commit install` on the host, not inside the container.
+
+If a host prerequisite is missing, report the failed command and the required recovery. Do not install or change GPU drivers, Docker, the NVIDIA Container Toolkit, or other system packages without explicit user approval.
 
 ## Discover this clone's container (once per session)
 

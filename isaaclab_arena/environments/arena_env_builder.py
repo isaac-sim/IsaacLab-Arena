@@ -43,6 +43,7 @@ from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
+from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
@@ -68,13 +69,12 @@ class ArenaEnvBuilder:
         self._placement_event_cfg: EventTermCfg | None = None
 
     def _solve_relations(self) -> None:
-        """Solve spatial relations for objects in the scene.
+        """Solve spatial relations for scene objects and the embodiment.
 
         This method:
-        1. Collects all objects from the scene that have relations
-        2. Builds an object-placement pool
-        3. Reuses the object-only relation placer
-        4. Applies solved positions either by writing fixed per-object initial poses
+        1. Collects placement assets that have relations
+        2. Builds a placement pool
+        3. Applies solved positions either by writing fixed initial poses
            or by registering a pooled reset placement event
 
         Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
@@ -83,10 +83,17 @@ class ArenaEnvBuilder:
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment so per-object reset
-          events restore the same layout every time.
+        * **False** — assigns one fixed layout per environment. Every non-anchor
+          placement asset (objects and the embodiment alike) stores its solved
+          per-environment pose and owns its own reset event.
         """
-        objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        # Reachability constraints are defined in the task, so apply them before placement.
+        if self.arena_env.task is not None:
+            self.arena_env.task.apply_reachability_constraints()
+        placement_assets = self.arena_env.scene.get_objects_with_relations()
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.get_relations():
+            placement_assets.append(embodiment)
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
@@ -102,7 +109,7 @@ class ArenaEnvBuilder:
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
         self._placement_event_cfg = solve_and_apply_relation_placement(
-            objects_with_relations,
+            placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
@@ -323,6 +330,8 @@ class ArenaEnvBuilder:
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
+        demo_recorder_config = ArenaEnvRecorderManagerCfg() if embodiment.enable_cameras else None
+
         # Build the environment configuration
         if not self.cfg.mimic:
             env_cfg = IsaacLabArenaManagerBasedRLEnvCfg(
@@ -338,6 +347,7 @@ class ArenaEnvBuilder:
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
+                demo_recorder_config=demo_recorder_config,
                 metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
@@ -349,6 +359,9 @@ class ArenaEnvBuilder:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
             task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
+            mimic_recorder_config = task_mimic_env_cfg.mimic_recorder_config
+            if mimic_recorder_config is None:
+                mimic_recorder_config = demo_recorder_config
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -361,11 +374,12 @@ class ArenaEnvBuilder:
                 xr=xr_cfg,
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
+                demo_recorder_config=demo_recorder_config,
                 # Mimic stuff
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
-                mimic_recorder_config=task_mimic_env_cfg.mimic_recorder_config,
+                mimic_recorder_config=mimic_recorder_config,
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
@@ -435,7 +449,10 @@ class ArenaEnvBuilder:
         # Register the environment with the Gym registry.
         kwargs = {
             "env_cfg_entry_point": env_cfg,
+            **env_kwargs,
         }
+        if env_cfg.demo_recorder_config is not None:
+            kwargs["demo_recorder_cfg_entry_point"] = env_cfg.demo_recorder_config
         if self.arena_env.rl_framework_entry_point is not None:
             kwargs[self.arena_env.rl_framework_entry_point] = self.arena_env.rl_policy_cfg
         gym.register(

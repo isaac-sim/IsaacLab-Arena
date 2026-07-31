@@ -8,13 +8,13 @@
 import math
 import torch
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 

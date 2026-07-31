@@ -41,13 +41,14 @@ To start the annotation process, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
      --viz kit \
      --device cpu \
      --input_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
      --mimic \
-     galileo_g1_locomanip_pick_and_place
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task galileo_g1_locomanip_pick_and_place
 
 Follow the instructions described on the CLI to complete the annotation.
 
@@ -81,7 +82,7 @@ Generate the dataset:
 .. code-block:: bash
 
    # Generate 100 demonstrations
-   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
      --headless \
      --enable_cameras \
      --mimic \
@@ -89,13 +90,13 @@ Generate the dataset:
      --output_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
      --generation_num_trials 100 \
      --device cpu \
-     galileo_g1_locomanip_pick_and_place \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink
 
 Data generation takes 1-4 hours depending on your CPU/GPU.
-You can remove ``--headless`` and add ``--viz kit``
-(before specifying the task name ``galileo_g1_locomanip_pick_and_place``) to visualize during data generation.
+You can remove ``--headless`` and add ``--viz kit`` to visualize during data generation.
 
 
 Step 3: Validate Generated Dataset (Optional)
@@ -105,12 +106,13 @@ To visualize the data produced, you can replay the dataset using the following c
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
-     galileo_g1_locomanip_pick_and_place \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink
 

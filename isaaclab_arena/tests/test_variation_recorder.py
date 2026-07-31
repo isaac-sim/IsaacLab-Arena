@@ -6,7 +6,7 @@
 """Tests for sample listeners and ``VariationRecorder``.
 
 Listener and recorder mechanics are plain Python (no SimulationApp). The end-to-end test that
-records a real HDR draw runs inside ``run_simulation_app_function`` because constructing a dome
+records a real HDR draw runs inside ``run_function_with_persistent_simulation_app`` because constructing a dome
 light via the registry pulls in ``isaaclab.sim``.
 """
 
@@ -16,7 +16,7 @@ from dataclasses import field
 import pytest
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
@@ -213,7 +213,7 @@ def _test_hdr_variation_recorder_captures_chosen_hdr_name(simulation_app):
 
 
 def test_hdr_variation_recorder_captures_chosen_hdr_name():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_hdr_variation_recorder_captures_chosen_hdr_name,
         headless=HEADLESS,
     )

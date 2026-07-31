@@ -5,7 +5,7 @@
 
 """Smoke tests for IsaacSimDebugDraw."""
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def smoke_test_debug_draw(simulation_app) -> bool:
@@ -29,5 +29,5 @@ def smoke_test_debug_draw(simulation_app) -> bool:
 
 def test_isaac_sim_debug_draw_smoke():
     """Smoke test: IsaacSimDebugDraw initializes and runs without errors."""
-    result = run_simulation_app_function(smoke_test_debug_draw)
+    result = run_function_with_persistent_simulation_app(smoke_test_debug_draw)
     assert result, "IsaacSimDebugDraw smoke test failed"

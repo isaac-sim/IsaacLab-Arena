@@ -19,7 +19,7 @@ from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_f
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 GETTING_STARTED_EXPERIMENT_PATH = (
@@ -138,7 +138,7 @@ def _test_getting_started_experiment_executes_baseline_run(simulation_app, outpu
 
 
 def test_getting_started_experiment_executes_baseline_run(tmp_path):
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_getting_started_experiment_executes_baseline_run,
         headless=True,
         output_dir=tmp_path,

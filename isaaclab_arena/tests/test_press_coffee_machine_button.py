@@ -6,7 +6,7 @@
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 1
 HEADLESS = True
@@ -165,7 +165,7 @@ def _test_press_button_coffee_machine_multiple_envs(simulation_app) -> bool:
 
 
 def test_press_button_coffee_machine():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_press_button_coffee_machine,
         headless=HEADLESS,
     )
@@ -173,7 +173,7 @@ def test_press_button_coffee_machine():
 
 
 def test_press_button_coffee_machine_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_press_button_coffee_machine_multiple_envs,
         headless=HEADLESS,
     )

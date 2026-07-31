@@ -94,11 +94,13 @@ class KukaAllegroEmbodiment(EmbodimentBase):
 
     def __init__(
         self,
+        enable_cameras: bool = False,
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = True,
         arm_mode: ArmMode | None = None,
     ):
-        super().__init__(False, initial_pose, concatenate_observation_terms, arm_mode)
+        assert not enable_cameras, "The kuka_allegro embodiment carries no cameras"
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
 
         self.scene_config = KukaAllegroSceneCfg()
         self.action_config = kuka_dexsuite_cfg.KukaAllegroRelJointPosActionCfg()

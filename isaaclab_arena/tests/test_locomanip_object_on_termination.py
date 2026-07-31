@@ -6,7 +6,7 @@
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 50
 HEADLESS = True
@@ -101,7 +101,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
 
 
 def test_g1_locomanip_object_on_destination_termination():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_g1_locomanip_object_on_destination_termination,
         headless=HEADLESS,
     )

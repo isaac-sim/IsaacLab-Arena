@@ -92,7 +92,6 @@ GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
 class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 table multi-object environment."""
 
-    enable_cameras: bool = False
     objects: list[str] | None = None
     embodiment: str = "gr1_joint"
     teleop_device: str | None = None

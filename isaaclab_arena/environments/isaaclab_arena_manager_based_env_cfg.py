@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
+from isaaclab.managers import RecorderManagerBaseCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
 from isaaclab.utils.configclass import configclass
 
@@ -68,6 +69,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     metrics: object | None = None
 
     episode_recorders: object | None = None
+
+    demo_recorder_config: RecorderManagerBaseCfg | None = None
+    """Recorder configuration used by demonstration collection scripts."""
 
     # Task language description
     task_description: str | None = None

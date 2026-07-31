@@ -103,7 +103,7 @@ as the introductory ``First Arena Environment`` walkthrough.
    * - **Task Class**
      - ``PickAndPlaceTask`` (episode_length_s = 20)
    * - **Object Placement**
-     - Relations: ``On(table)``, ``PositionLimits(x=0.55..0.70, y=-0.4..-0.1)``
+     - Relations: ``On(table)``, ``PositionLimitsBox(x=0.55..0.70, y=-0.4..-0.1)``
    * - **CLI Args**
      - ``--pick_up_object``, ``--destination_location``, ``--additional_table_objects``, ``--embodiment``, ``--teleop_device``, ``--hdr``, ``--light_intensity``
 

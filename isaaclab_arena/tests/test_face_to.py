@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -24,6 +23,7 @@ from isaaclab_arena.relations.placement_validators import NoOverlapValidator
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions

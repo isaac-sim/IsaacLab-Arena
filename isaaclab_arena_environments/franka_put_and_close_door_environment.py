@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class FrankaPutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Franka put-and-close-door environment."""
 
-    enable_cameras: bool = False
     object: str = "dex_cube"
     embodiment: str = "franka_ik"
     teleop_device: str | None = None

@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class KitchenPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the kitchen pick-and-place environment."""
 
-    enable_cameras: bool = False
     object: str = "cracker_box"
     object_set: list[str] | None = None
     embodiment: str = "franka_ik"

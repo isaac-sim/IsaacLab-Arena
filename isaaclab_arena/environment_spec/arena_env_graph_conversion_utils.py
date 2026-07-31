@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
@@ -50,14 +52,13 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
     """Build placement params defining what checks to run during layout validation for this env."""
-    placement = graph_spec.placement_validators
-    enabled = placement.enabled_checks if placement is not None else None
-    required = placement.required_checks if placement is not None else None
-    # TODO(xinjieyao): enable auto-identification of the placer params from env relations
+    placement_validators = graph_spec.placement_validators
+    enabled_checks = placement_validators.enabled_checks if placement_validators is not None else None
+    required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     return ObjectPlacerParams(
-        enabled_checks=set(enabled) if enabled is not None else None,
-        required_checks=set(required) if required is not None else None,
+        enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
+        required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
 
@@ -125,6 +126,14 @@ def instantiate_assets_from_spec(
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
+    for object_set in graph_spec.object_sets or []:
+        assets_by_node_id[object_set.id] = RigidObjectSet(
+            name=object_set.id,
+            objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
+            random_choice=object_set.random_choice,
+            **object_set.params,
+        )
+
     for ref in graph_spec.object_references or []:
         assert ref.prim_path is not None, "Object reference must have a prim path"
         ref_params = dict(ref.params)
@@ -138,9 +147,14 @@ def instantiate_assets_from_spec(
             **ref_params,
         }
         if openable_joint_name is not None:
+            # OpenableObjectReference always sets object_type=ARTICULATION; omit the YAML value.
+            assert (
+                ref.object_type == ObjectType.ARTICULATION
+            ), f"Openable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
+            openable_kwargs = {k: v for k, v in common_kwargs.items() if k != "object_type"}
             assets_by_node_id[ref.id] = OpenableObjectReference(
                 openable_joint_name=openable_joint_name,
-                **common_kwargs,
+                **openable_kwargs,
             )
         else:
             assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)

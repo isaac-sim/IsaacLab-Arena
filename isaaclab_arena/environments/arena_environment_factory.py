@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 class ArenaEnvironmentCfg:
     """Mark a typed Arena environment configuration."""
 
+    enable_cameras: bool = False
+    """Spawn the embodiment's cameras."""
+
 
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 

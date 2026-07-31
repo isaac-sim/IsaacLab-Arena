@@ -49,7 +49,9 @@ class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
 
         assets = [background, pick_up_object, ground_plane, light]
 
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(concatenate_observation_terms=True)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+            enable_cameras=cfg.enable_cameras, concatenate_observation_terms=True
+        )
 
         if cfg.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()

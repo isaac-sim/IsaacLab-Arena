@@ -11,7 +11,7 @@ from isaaclab_arena.tests.test_build_time_variations import TestBuildTimeVariati
 from isaaclab_arena.tests.test_run_time_variations import TEST_EVENT_NAME
 from isaaclab_arena.tests.test_run_time_variations import get_test_environment as get_runtime_test_environment
 from isaaclab_arena.tests.test_run_time_variations import noop_test_variation_event
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations import variations_hydra
 
 HEADLESS = True
@@ -69,7 +69,7 @@ def _test_hydra_override_applies_build_time_variation(simulation_app):
 
 
 def test_hydra_override_applies_build_time_variation():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_hydra_override_applies_build_time_variation,
         headless=HEADLESS,
     )
@@ -103,7 +103,7 @@ def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app)
 
 
 def test_hydra_override_enables_runtime_variation_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_hydra_override_enables_runtime_variation_in_events_cfg,
         headless=HEADLESS,
     )
