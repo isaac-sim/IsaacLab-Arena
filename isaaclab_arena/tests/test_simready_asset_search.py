@@ -30,7 +30,11 @@ PLAIN_TRASH_CAN_PATH = "SimReady/Residential/Kitchen/sm_trashCan_a01_01.usd"
 REJECTION_REASON_TARGET = (
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._get_rigid_object_rejection_reason"
 )
-RIGID_BODY_PATHS_TARGET = "isaaclab_arena.utils.usd.rigid_bodies.read_asset_rigid_body_paths"
+# Patched where it is looked up, not where it is defined: simready_asset_search binds the name at
+# import time, so patching the defining module would leave that binding untouched.
+RIGID_BODY_PATHS_TARGET = (
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search.read_asset_rigid_body_paths"
+)
 
 
 class _FakeMatch:

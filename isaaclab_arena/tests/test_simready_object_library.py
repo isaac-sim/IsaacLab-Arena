@@ -8,11 +8,16 @@
 from __future__ import annotations
 
 from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
-from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
+
+# SimReadyUsdObject is imported inside each test rather than here: it pulls in the asset base
+# classes, which import pxr, and pxr loaded during collection breaks the simulation tests that
+# start SimulationApp later in the same process.
 
 
 def test_simready_usd_object_registered():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+
     ensure_assets_registered()
     cls = AssetRegistry().get_asset_by_name("simready_usd_object")
     assert cls is SimReadyUsdObject
@@ -32,6 +37,7 @@ def test_asset_spec_accepts_simready_usd_path():
 
 
 def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
     from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 
     ensure_assets_registered()
