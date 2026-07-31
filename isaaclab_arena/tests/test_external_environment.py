@@ -3,9 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+from unittest.mock import patch
+
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
@@ -15,6 +19,35 @@ EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.
 EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
     "isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment"
 )
+
+
+def _test_external_environment_registration_callback(_) -> bool:
+    """Verify the Isaac Lab callback registers an externally defined Arena environment."""
+    import gymnasium as gym
+
+    from isaaclab_arena.environments.isaaclab_interop import environment_registration_callback
+
+    callback_args = [
+        "external_environment_interop_test",
+        "--task",
+        "franka_table",
+        "--external_environment_class_path",
+        EXTERNAL_ENV_BASIC_IMPORT_PATH,
+        "--object",
+        "cracker_box",
+    ]
+    with patch.object(sys, "argv", callback_args):
+        remaining_args = environment_registration_callback()
+
+    assert remaining_args == []
+    assert gym.spec("franka_table").id == "franka_table"
+    return True
+
+
+def test_external_environment_registration_callback():
+    """Isaac Lab scripts can register external Arena environments through the callback."""
+    result = run_function_with_persistent_simulation_app(_test_external_environment_registration_callback)
+    assert result
 
 
 def run_policy_runner_with_external_environment(

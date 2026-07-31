@@ -11,6 +11,7 @@ from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
+    parse_and_return_external_environment_from_string,
 )
 
 
@@ -55,7 +56,11 @@ def environment_registration_callback() -> list[str]:
     _purge_leaked_isaaclab_assets_presets()
 
     # Imports after the simulation app is started.
-    from isaaclab_arena.cli.isaaclab_arena_cli import add_isaac_lab_cli_args, add_isaaclab_arena_cli_args
+    from isaaclab_arena.cli.isaaclab_arena_cli import (
+        add_external_environments_cli_args,
+        add_isaac_lab_cli_args,
+        add_isaaclab_arena_cli_args,
+    )
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # Get the requested environment from the CLI.
@@ -70,9 +75,17 @@ def environment_registration_callback() -> list[str]:
         default=None,
         help="Arena teleoperation device to configure without selecting Isaac Lab's legacy teleoperation stack.",
     )
-    environment_name = parser.parse_known_args()[0].task
+    add_external_environments_cli_args(parser)
+    initial_args = parser.parse_known_args()[0]
+    environment_name = initial_args.task
     ensure_environments_registered()
-    environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
+    environment_registry = EnvironmentRegistry()
+    if initial_args.external_environment_class_path is not None:
+        external_environment_name, external_environment_factory_type = (
+            parse_and_return_external_environment_from_string(initial_args.external_environment_class_path)
+        )
+        environment_registry.register(external_environment_factory_type, external_environment_name)
+    environment_factory_type = environment_registry.get_component_by_name(environment_name)
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)
