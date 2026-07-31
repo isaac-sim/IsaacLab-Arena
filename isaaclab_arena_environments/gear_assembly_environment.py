@@ -18,9 +18,6 @@ from isaaclab_arena.tasks.gear_assembly.specs import (
     GEAR_TABLETOP_PARKING_POSITIONS,
     MAPLE_TABLE_POSE,
     MAPLE_TABLE_TOP_COLLISION_POSE,
-    DroidGearAssemblyEmbodiment,
-    GearAssemblyMode,
-    PhysicsBackend,
     gear_pose_for_mode,
     get_droid_robot_spec,
 )
@@ -35,14 +32,19 @@ if TYPE_CHECKING:
 class GearAssemblyEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Arena Droid Gear Assembly environment."""
 
-    embodiment: DroidGearAssemblyEmbodiment = "droid_abs_joint_pos"
-    mode: GearAssemblyMode = "play"
-    physics_backend: PhysicsBackend = "newton"
+    embodiment: str = "droid_abs_joint_pos"
+    mode: str = "play"
+    physics_backend: str = "newton"
 
     def __post_init__(self) -> None:
         assert (
             self.embodiment in DROID_GEAR_ASSEMBLY_EMBODIMENTS
         ), f"Gear Assembly is Droid-only; got embodiment={self.embodiment!r}"
+        assert self.mode in {"play", "randomized"}, f"Unsupported Gear Assembly mode: {self.mode!r}"
+        assert self.physics_backend in {
+            "newton",
+            "physx",
+        }, f"Unsupported Gear Assembly physics backend: {self.physics_backend!r}"
 
 
 @register_environment
@@ -130,7 +132,8 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
         env_cfg.episode_length_s = 6.66
-        env_cfg.viewer.eye = (3.5, 3.5, 3.5)
+        env_cfg.viewer.eye = (1.6, -1.2, 1.0)
+        env_cfg.viewer.lookat = (0.55, 0.05, 0.08)
         env_cfg.decimation = 4
         env_cfg.sim.render_interval = 4
         env_cfg.sim.dt = 1.0 / 120.0
@@ -159,8 +162,8 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
                 GEAR_TABLETOP_ORIENTATION_XYZW
             )
             if cfg.mode == "play":
-                # Policy evaluation starts the selected gear on the table so Newton can settle the scene.
-                # These source task terminations assume the selected gear is held by the gripper.
+                # Evaluation starts the selected gear on the table. The source failure terms are
+                # gripper-relative, so play mode terminates only on the assembled success term.
                 env_cfg.terminations.gear_dropped = None
                 env_cfg.terminations.gear_orientation_exceeded = None
                 env_cfg.terminations.time_out = None

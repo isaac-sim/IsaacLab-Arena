@@ -27,6 +27,15 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     from isaaclab_arena.tasks.gear_assembly.events import randomize_gears_and_base_pose_with_inactive_gear_parking
     from isaaclab_arena.tasks.gear_assembly.specs import (
         DROID_BASE_GEAR_POSE,
+        GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
+        GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
+        GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
+        GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+        GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
+        GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
+        GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
+        GEAR_ASSEMBLED_XY_THRESHOLD,
+        GEAR_ASSEMBLED_Z_THRESHOLD,
         GEAR_POSE_RANGE,
         GEAR_TABLETOP_ORIENTATION_XYZW,
         GEAR_TABLETOP_PARKING_POSITIONS,
@@ -36,6 +45,7 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         MAPLE_TABLE_TOP_COLLISION_THICKNESS,
         SELECTED_GEAR_POS_RANGE,
     )
+    from isaaclab_arena.tasks.gear_assembly.terminations import selected_gear_on_base
     from isaaclab_arena_environments.gear_assembly_environment import (
         GearAssemblyEnvironment,
         GearAssemblyEnvironmentCfg,
@@ -152,9 +162,34 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     assert env_cfg.sim.dt == 1.0 / 120.0
     assert env_cfg.decimation == 4
     assert env_cfg.episode_length_s == 6.66
+    assert env_cfg.observations.policy.concatenate_terms is False
+    assert env_cfg.observations.policy.enable_corruption is False
+    assert env_cfg.observations.policy.gripper_pos is not None
+    assert env_cfg.terminations.success is not None
+    assert env_cfg.terminations.success.func == selected_gear_on_base
+    assert env_cfg.terminations.success.params["root_z_above_base"] == GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE
+    assert env_cfg.terminations.success.params["xy_threshold"] == GEAR_ASSEMBLED_XY_THRESHOLD
+    assert env_cfg.terminations.success.params["z_threshold"] == GEAR_ASSEMBLED_Z_THRESHOLD
+    assert (
+        env_cfg.terminations.success.params["upright_axis_threshold_deg"] == GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG
+    )
+    assert env_cfg.terminations.success.params["linear_velocity_threshold"] == GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD
+    assert (
+        env_cfg.terminations.success.params["angular_velocity_threshold"] == GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD
+    )
+    assert env_cfg.terminations.success.params["support_z_offset"] == GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
+    assert env_cfg.terminations.success.params["support_z_threshold"] == GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD
+    assert env_cfg.terminations.success.params["consecutive_success_steps"] == GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS
     assert env_cfg.terminations.time_out is None
     assert env_cfg.terminations.gear_dropped is None
     assert env_cfg.terminations.gear_orientation_exceeded is None
+
+    randomized_env = GearAssemblyEnvironment().build(GearAssemblyEnvironmentCfg(mode="randomized"))
+    assert randomized_env.task.observation_cfg.policy.concatenate_terms is True
+    assert randomized_env.task.observation_cfg.policy.gripper_pos is None
+    assert randomized_env.task.termination_cfg.time_out is not None
+    assert randomized_env.task.termination_cfg.gear_dropped is not None
+    assert randomized_env.task.termination_cfg.gear_orientation_exceeded is not None
     return True
 
 
@@ -561,3 +596,86 @@ def _test_gear_assembly_newton_gears_settle(simulation_app):  # noqa: C901
 
 def test_gear_assembly_newton_gears_settle():
     assert run_simulation_app_function(_test_gear_assembly_newton_gears_settle, headless=True)
+
+
+def _test_gear_assembly_newton_success_termination(simulation_app):
+    import torch
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.tasks.gear_assembly.specs import (
+        GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
+        GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+    )
+    from isaaclab_arena_environments.gear_assembly_environment import (
+        GearAssemblyEnvironment,
+        GearAssemblyEnvironmentCfg,
+    )
+
+    arena_env = GearAssemblyEnvironment().build(
+        GearAssemblyEnvironmentCfg(enable_cameras=False, embodiment="droid_rel_joint_pos")
+    )
+    arena_env.name = "gear_assembly_newton_success_termination_regression"
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1))
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+
+    env_cfg.scene.robot.init_state.pos = (10.0, 10.0, 0.0)
+    for name in (
+        "init_franka_arm_pose",
+        "randomize_franka_joint_state",
+        "set_robot_to_grasp_pose",
+    ):
+        if hasattr(env_cfg.events, name):
+            setattr(env_cfg.events, name, None)
+
+    env = builder.make_registered(env_cfg, env_kwargs)
+    uenv = env.unwrapped
+    assert uenv.termination_manager.active_terms == ["success"]
+
+    action = torch.zeros(env.action_space.shape, dtype=torch.float32, device=uenv.device)
+    env_id = torch.tensor([0], device=uenv.device, dtype=torch.long)
+    zero_velocity = torch.zeros((1, 6), device=uenv.device)
+    gear_names = ("factory_gear_small", "factory_gear_medium", "factory_gear_large")
+    release_root_z_above_base = max(GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE.values())
+
+    for gear_key, active_gear_name in zip(("gear_small", "gear_medium", "gear_large"), gear_names):
+        gear_type_cfg = uenv.event_manager.get_term_cfg("randomize_gear_type")
+        gear_type_cfg.params["gear_types"] = [gear_key]
+        uenv.event_manager.set_term_cfg("randomize_gear_type", gear_type_cfg)
+
+        _, _ = env.reset()
+        for step in range(180):
+            _, _, terminated, truncated, _ = env.step(action)
+            assert not terminated.item(), f"{gear_key} succeeded before reaching the base at step {step}"
+            assert not truncated.item()
+            assert not uenv.termination_manager.get_term("success").item()
+
+        active_gear = uenv.scene[active_gear_name]
+        base_pose = uenv.scene["factory_gear_base"].data.root_link_pose_w.torch[0].detach().clone()
+        assembled_pose = base_pose.clone().unsqueeze(0)
+        assembled_pose[:, 2] += release_root_z_above_base
+
+        active_gear.write_root_pose_to_sim_index(root_pose=assembled_pose, env_ids=env_id)
+        active_gear.write_root_velocity_to_sim_index(root_velocity=zero_velocity, env_ids=env_id)
+        uenv.sim.forward()
+
+        immediate_termination = uenv.termination_manager.compute()
+        assert immediate_termination.tolist() == [False]
+        assert uenv.termination_manager.get_term("success").tolist() == [False]
+
+        terminated_on_step = None
+        for step in range(GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS + 60):
+            _, _, terminated, truncated, _ = env.step(action)
+            assert not truncated.item()
+            if terminated.item():
+                terminated_on_step = step
+                break
+        assert terminated_on_step is not None, f"{gear_key} did not terminate after settling on the base"
+        assert terminated_on_step >= GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS - 2
+
+    env.close()
+    return True
+
+
+def test_gear_assembly_newton_success_termination():
+    assert run_simulation_app_function(_test_gear_assembly_newton_success_termination, headless=True)

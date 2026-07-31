@@ -38,10 +38,20 @@ from isaaclab_tasks.manager_based.manipulation.deploy.mdp.terminations import (
 )
 
 from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.embodiments.droid.observations import gripper_pos as droid_gripper_pos
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.gear_assembly import rewards as gear_rewards
 from isaaclab_arena.tasks.gear_assembly.events import randomize_gears_and_base_pose_with_inactive_gear_parking
 from isaaclab_arena.tasks.gear_assembly.specs import (
+    GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
+    GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
+    GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
+    GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+    GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
+    GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
+    GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
+    GEAR_ASSEMBLED_XY_THRESHOLD,
+    GEAR_ASSEMBLED_Z_THRESHOLD,
     GEAR_OFFSETS,
     GEAR_POSE_RANGE,
     GEAR_TABLETOP_ORIENTATION_XYZW,
@@ -51,6 +61,7 @@ from isaaclab_arena.tasks.gear_assembly.specs import (
     GearAssemblyMode,
     GearAssemblyRobotSpec,
 )
+from isaaclab_arena.tasks.gear_assembly.terminations import selected_gear_on_base
 from isaaclab_arena.tasks.task_base import TaskBase
 
 
@@ -67,7 +78,7 @@ class GearAssemblyTask(TaskBase):
         self.observation_cfg = ObservationsCfg(robot_spec=robot_spec, mode=mode)
         self.events_cfg = EventsCfg(robot_spec=robot_spec, mode=mode)
         self.rewards_cfg = RewardsCfg(robot_spec=robot_spec)
-        self.termination_cfg = TerminationsCfg(robot_spec=robot_spec)
+        self.termination_cfg = TerminationsCfg(robot_spec=robot_spec, mode=mode)
 
     def get_scene_cfg(self) -> Any:
         return None
@@ -112,6 +123,7 @@ class ObservationsCfg:
     @configclass
     class PolicyCfg(ObservationGroupCfg):
         joint_pos: ObservationTermCfg = MISSING
+        gripper_pos: ObservationTermCfg | None = None
         joint_vel: ObservationTermCfg = MISSING
         gear_shaft_pos: ObservationTermCfg = MISSING
         gear_shaft_quat: ObservationTermCfg = MISSING
@@ -155,6 +167,8 @@ class ObservationsCfg:
         )
         if mode == "play":
             self.policy.enable_corruption = False
+            self.policy.concatenate_terms = False
+            self.policy.gripper_pos = ObservationTermCfg(func=droid_gripper_pos)
         self.critic = self.CriticCfg(
             joint_pos=ObservationTermCfg(func=mdp.joint_pos, params={"asset_cfg": joint_cfg}),
             joint_vel=ObservationTermCfg(func=mdp.joint_vel, params={"asset_cfg": joint_cfg}),
@@ -307,11 +321,29 @@ class TerminationsCfg:
     """Termination terms for Gear Assembly."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
+    success: TerminationTermCfg | None = None
     gear_dropped: TerminationTermCfg = MISSING
     gear_orientation_exceeded: TerminationTermCfg = MISSING
 
-    def __init__(self, robot_spec: GearAssemblyRobotSpec):
+    def __init__(self, robot_spec: GearAssemblyRobotSpec, mode: GearAssemblyMode):
         self.time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
+        self.success = None
+        if mode == "play":
+            self.success = TerminationTermCfg(
+                func=selected_gear_on_base,
+                params={
+                    "base_asset_cfg": SceneEntityCfg("factory_gear_base"),
+                    "root_z_above_base": GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+                    "xy_threshold": GEAR_ASSEMBLED_XY_THRESHOLD,
+                    "z_threshold": GEAR_ASSEMBLED_Z_THRESHOLD,
+                    "upright_axis_threshold_deg": GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
+                    "linear_velocity_threshold": GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
+                    "angular_velocity_threshold": GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
+                    "support_z_offset": GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
+                    "support_z_threshold": GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
+                    "consecutive_success_steps": GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
+                },
+            )
         self.gear_dropped = TerminationTermCfg(
             func=reset_when_gear_dropped,
             params={
