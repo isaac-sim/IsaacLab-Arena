@@ -33,7 +33,8 @@ class CosmosDroidAdapter(EmbodimentAdapter):
     # Fixed by the released DROID joint_pos policies: 7 arm joints + 1 gripper command.
     action_dim = 8
 
-    # Per-view tile size the concat_view is built from (matches cosmos3/client.py IMAGE_H/W).
+    # Per-view tile size matches Robolab client.
+    # The intention is when the images are combined, we end up with a 540x640 image.
     IMAGE_H = 360
     IMAGE_W = 640
 

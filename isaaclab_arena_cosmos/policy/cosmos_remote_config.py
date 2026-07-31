@@ -9,8 +9,6 @@ from dataclasses import dataclass
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
-MAX_RECONNECT_ATTEMPTS = 3
-
 
 @dataclass
 class CosmosRemotePolicyCfg(PolicyCfg):
@@ -33,11 +31,10 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     remote_port: int = 8000
     """Port the Cosmos policy server listens on."""
 
-    open_loop_horizon: int = 32
+    open_loop_horizon: int = 16
     """Number of action steps to replay per server inference call before refetching.
-    Defaults to the full 32-step chunk, matching the released Cosmos DROID client
-    (RoboLab ``policies/cosmos3/client.py``, ``OPEN_LOOP_HORIZON = 32``). Must not exceed
-    the server's ``action_chunk_size`` (32 for the released DROID policies)."""
+    Note(alexmillane, 2026-07-31): that COSMOS accepts both 32 and 16 step chunks.
+    I empirically observed better behavior with 16 steps, so I've set it at that."""
 
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""

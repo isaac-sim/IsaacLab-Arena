@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="cosmos_server"
 
-# Path the checkpoint is baked to inside the image (see build_server_image.sh BAKED_CHECKPOINT_PATH).
+# Path the checkpoint is baked to inside the image (see build_server_image.sh CHECKPOINT_LOCAL_PATH).
 CHECKPOINT="/workspace/baked_checkpoint"
 PORT="8000"
 FORCE_REBUILD=false

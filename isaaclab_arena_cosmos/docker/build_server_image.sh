@@ -5,6 +5,11 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+# NOTE(alexmillane, 2026-07-31): This script is a modified version of the original
+# Cosmos3-Edge-Policy-DROID image build script that ships with the Cosmos framework.
+# We maintain our own in order to fix some issues with the original script, configure
+# the image for policy-server, and to embed the models within the image.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COSMOS_REPO="https://github.com/NVIDIA/cosmos-framework"
 
@@ -14,10 +19,10 @@ IMAGE_TAG="cosmos_server"
 IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 NGC_PATH="${NGC_NAMESPACE}/${IMAGE_REF}"
 
-# Gated policy checkpoint baked into the image at build time (so the server needs no HF token at
-# run time). Kept in sync with CosmosServerTaskCfg.checkpoint in osmo/tasks/cosmos_server_task.py.
+# Policy checkpoint baked into the image at build time (so the server needs no HF token at run
+# time). Kept in sync with CosmosServerTaskCfg.checkpoint in osmo/tasks/cosmos_server_task.py.
 CHECKPOINT="nvidia/Cosmos3-Edge-Policy-DROID"
-BAKED_CHECKPOINT_PATH="/workspace/baked_checkpoint"
+CHECKPOINT_LOCAL_PATH="/workspace/baked_checkpoint"
 
 PUSH_TO_NGC=false
 NO_CACHE=""
@@ -49,7 +54,7 @@ done
 
 if [ -z "${HF_TOKEN:-}" ]; then
     echo "HF_TOKEN is not set. Export a token from https://huggingface.co/settings/tokens." >&2
-    echo "It is used once, at build time, to download the gated ${CHECKPOINT} checkpoint that is" >&2
+    echo "It is used once, at build time, to download the ${CHECKPOINT} checkpoint that is" >&2
     echo "baked into the image; the running server then needs no token." >&2
     exit 1
 fi
@@ -60,8 +65,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/COSMOS_COMMIT")"
 COSMOS_DIR="$TMPDIR/cosmos-framework"
 echo "Cloning cosmos-framework at ${PINNED_COMMIT} ..."
-# Partial clone: skip blob objects, git fetches them on demand at checkout.
-# Cuts the one-time clone size on a large repo without changing what we end up with.
+# Clone cosmos without blob objects.
 GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --filter=blob:none "$COSMOS_REPO" "$COSMOS_DIR"
 (cd "$COSMOS_DIR" && git checkout "$PINNED_COMMIT")
 
@@ -69,33 +73,23 @@ GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --filter=blob:none "$COSMOS_REPO" "$COSM
 #   * --locked -> --frozen: a git sub-dependency (Megatron-LM) tracks a moving branch,
 #     so --locked fails its up-to-date assertion; --frozen installs the pinned lockfile
 #     resolution as-is (and never writes to the read-only lock bind-mount).
-#   * retarget the dependency-group sync to the cu130-train + policy-server groups the
-#     HuggingFace quickstart uses to run the server (upstream syncs cu130 + vllm).
+#   * Switch the dependency-group from vllm to the cu130-train + policy-server groups
 sed -e 's/--locked/--frozen/' \
     -e 's|--group=\$(cat /root/.cuda-name) --group=vllm|--group=cu130-train --group=policy-server|' \
     "$COSMOS_DIR/Dockerfile" > "$TMPDIR/Dockerfile"
 
-# Bake the source in so the entrypoint's editable install and the server module
-# resolve without a runtime volume mount (upstream expects `.` mounted at /workspace).
+# Copy the source into the image, so the server can run without mounting anything.
 echo "COPY . /workspace" >> "$TMPDIR/Dockerfile"
 
-# Bake the gated policy checkpoint into the image so the running server needs no HuggingFace token.
-# The token is supplied as a BuildKit secret -- mounted only for this RUN, never written to a layer
-# -- and the download uses the image's own HuggingFace client from /workspace/.venv. ``--with
-# hf_transfer`` adds the accelerated-download backend just for this step (the base env lacks it,
-# and HF_HUB_ENABLE_HF_TRANSFER=1 errors without it) without touching the pinned lockfile.
+# Download the policy checkpoint and bake into the image.
 cat >> "$TMPDIR/Dockerfile" <<DOCKERFILE
 WORKDIR /workspace
 RUN --mount=type=secret,id=hf_token \\
     HF_TOKEN="\$(cat /run/secrets/hf_token)" HF_HUB_ENABLE_HF_TRANSFER=1 \\
-    uv run --frozen --with hf_transfer python -c "from huggingface_hub import snapshot_download; snapshot_download('${CHECKPOINT}', local_dir='${BAKED_CHECKPOINT_PATH}')"
+    uv run --frozen --with hf_transfer python -c "from huggingface_hub import snapshot_download; snapshot_download('${CHECKPOINT}', local_dir='${CHECKPOINT_LOCAL_PATH}')"
 DOCKERFILE
 
-# At run time the server also pulls the gated *guardrail* checkpoint (nvidia/Cosmos-Guardrail1) via
-# the framework's own checkpoint DB -- shared by the blocklist, face-blur, and video-safety filters.
-# Pre-warm it into the image's HuggingFace cache at build time by calling that same download, so it
-# uses the framework's pinned revision and cache path and the run-time fetch is a cache hit that
-# needs no token. (Symbol lives in guardrail.common.core, confirmed by `grep -rn GUARDRAIL1_CHECKPOINT`.)
+# Download the guardrail checkpoint, and bake it into the image.
 cat >> "$TMPDIR/Dockerfile" <<DOCKERFILE
 RUN --mount=type=secret,id=hf_token \\
     HF_TOKEN="\$(cat /run/secrets/hf_token)" \\
