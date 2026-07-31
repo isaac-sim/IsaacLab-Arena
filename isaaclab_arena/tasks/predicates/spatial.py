@@ -207,27 +207,6 @@ def object_not_moving(
     return velocity_w_norm < velocity_threshold
 
 
-def object_in_contact(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
-    contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
-    force_threshold: float = 1.0,
-) -> torch.Tensor:
-    """Checks if an object's filtered contact force exceeds a threshold."""
-    unwrapped_env = get_env(env)
-    sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
-
-    # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
-    # and ``M`` is the number of filtered bodies.
-    # We assume B = 1 and M = 1
-    assert sensor.data.force_matrix_w.shape[2] == 1
-    assert sensor.data.force_matrix_w.shape[1] == 1
-    # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
-    # where N is the number of envs.
-    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
-    return force_matrix_norm > force_threshold
-
-
 def object_supported_by_destination(
     env: ManagerBasedRLEnv,
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
