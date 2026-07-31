@@ -2,9 +2,7 @@
 
 ```bash
 # 0. (optional) Teleop with no recording, to check the arms track the reference motion.
-#    Same scene and environment as step 1, but nothing is written to disk.
-./scripts/teleop.sh                       # gravity-compensated embodiment
-./scripts/teleop.sh g1_wbc_agile_pink     # stock embodiment, for an A/B comparison
+./scripts/teleop.sh
 
 # 1. Record teleop seeds (inside Arena container, CloudXR running in a second terminal)
 ./scripts/record_teleop.sh 30 openxr /datasets/seed_apple_to_plate/teleop_left30.hdf5

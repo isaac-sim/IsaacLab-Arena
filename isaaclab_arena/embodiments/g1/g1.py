@@ -64,16 +64,9 @@ class G1EmbodimentBase(EmbodimentBase):
         self.event_config = MISSING
         self.mimic_env = G1MimicEnv
 
-        # XR settings.
-        # STATIC anchor (2026-07-14): FOLLOW_PRIM_SMOOTHED crashed XR anchor-prim
-        # creation on this Isaac Lab build -- isaaclab_teleop calls
-        # PhysxManager._get_backend_utils(), which was removed -- so the anchor
-        # failed and the headset defaulted to the world origin (scene off-screen).
-        # The robot is stationary for this manipulation task, so a FIXED world
-        # anchor at the pelvis viewpoint (matches the old follow pose: pelvis
-        # (0.25,0,0.75) with fixed height + (0,0,-1)) gives the same first-person
-        # view and avoids the broken prim-follow path (anchor_prim_path=None takes
-        # the static branch in xr_anchor_utils, no PhysX backend query).
+        # XR: FIXED anchor at the pelvis viewpoint. FOLLOW_PRIM_SMOOTHED crashes
+        # on this build (PhysxManager._get_backend_utils() was removed); FIXED is
+        # equivalent for a stationary manipulation task.
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.25, 0.0, -0.25),
             anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
