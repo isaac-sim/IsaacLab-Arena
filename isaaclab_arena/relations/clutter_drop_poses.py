@@ -123,10 +123,35 @@ def _yaw_to_quat_xyzw(yaw: float) -> tuple[float, float, float, float]:
     return (0.0, 0.0, math.sin(half), math.cos(half))
 
 
-def _footprint_half_extents(bbox: AxisAlignedBoundingBox) -> tuple[float, float]:
-    """Half-width and half-depth of a bounding box's XY footprint."""
-    size = bbox.size[0]
-    return float(size[0]) * 0.5, float(size[1]) * 0.5
+@dataclass(frozen=True)
+class _Footprint:
+    """A bounding box's XY footprint, described relative to the object origin.
+
+    Local boxes are not centred on the origin -- USD pivots sit wherever the asset author
+    put them -- so the footprint's own centre has to be carried separately from its size.
+    Treating the origin as the centre would let an object hang off the region by its offset.
+    """
+
+    half_x: float
+    half_y: float
+    offset_x: float
+    offset_y: float
+    """XY of the footprint centre in the object's local frame."""
+
+    def centre_at(self, x: float, y: float) -> tuple[float, float]:
+        """Return the footprint centre when the origin is placed at ``(x, y)``."""
+        return x + self.offset_x, y + self.offset_y
+
+
+def _footprint_of(bbox: AxisAlignedBoundingBox) -> _Footprint:
+    """Half-extents and origin offset of a bounding box's XY footprint."""
+    minimum, maximum = bbox.min_point[0], bbox.max_point[0]
+    return _Footprint(
+        half_x=float(maximum[0] - minimum[0]) * 0.5,
+        half_y=float(maximum[1] - minimum[1]) * 0.5,
+        offset_x=float(maximum[0] + minimum[0]) * 0.5,
+        offset_y=float(maximum[1] + minimum[1]) * 0.5,
+    )
 
 
 def _resolve_order(
@@ -167,9 +192,12 @@ def _grid_cell_centres(
     return [centres[int(i)] for i in permutation]
 
 
-def _footprint_fits(half_x: float, half_y: float, region: ClutterRegion) -> bool:
+def _footprint_fits(footprint: _Footprint, region: ClutterRegion) -> bool:
     """Whether a footprint of these half-extents can sit wholly inside ``region``."""
-    return region.min_x + half_x <= region.max_x - half_x and region.min_y + half_y <= region.max_y - half_y
+    return (
+        region.min_x + footprint.half_x <= region.max_x - footprint.half_x
+        and region.min_y + footprint.half_y <= region.max_y - footprint.half_y
+    )
 
 
 def _sample_orientation_that_fits(
@@ -177,7 +205,7 @@ def _sample_orientation_that_fits(
     region: ClutterRegion,
     params: ClutterDropParams,
     generator: torch.Generator | None,
-) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, float, float]:
+) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, _Footprint]:
     """Sample a yaw whose rotated footprint fits the region, retrying unlucky draws.
 
     Yaw changes an elongated object's footprint substantially -- a long object turned
@@ -186,18 +214,21 @@ def _sample_orientation_that_fits(
     and only fail when no sampled orientation fits.
     """
     attempts = params.max_yaw_attempts if params.random_yaw else 1
-    widest = None
+    widest: _Footprint | None = None
     for _ in range(attempts):
         yaw = get_random_rotation(generator) if params.random_yaw else 0.0
         rotation = _yaw_to_quat_xyzw(yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
         rotated = bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
-        half_x, half_y = _footprint_half_extents(rotated)
-        if _footprint_fits(half_x, half_y, region):
-            return rotation, rotated, half_x, half_y
-        widest = (half_x, half_y) if widest is None else widest
+        footprint = _footprint_of(rotated)
+        if _footprint_fits(footprint, region):
+            return rotation, rotated, footprint
+        # Report the draw that came closest to needing the whole region, not the first miss.
+        if widest is None or max(footprint.half_x, footprint.half_y) > max(widest.half_x, widest.half_y):
+            widest = footprint
 
-    half_x, half_y = widest if widest is not None else (0.0, 0.0)
+    half_x = widest.half_x if widest is not None else 0.0
+    half_y = widest.half_y if widest is not None else 0.0
     raise AssertionError(
         f"object footprint {2 * half_x:.3f}x{2 * half_y:.3f} m does not fit in region "
         f"{region.max_x - region.min_x:.3f}x{region.max_y - region.min_y:.3f} m "
@@ -207,27 +238,29 @@ def _sample_orientation_that_fits(
 
 def _sample_xy(
     centre: tuple[float, float] | None,
-    half_x: float,
-    half_y: float,
+    footprint: _Footprint,
     region: ClutterRegion,
     generator: torch.Generator | None,
 ) -> tuple[float, float]:
-    """Sample an XY whose footprint stays inside ``region``.
+    """Sample an object origin whose footprint stays inside ``region``.
 
-    The admissible box is the region inset by the object's own half-extents, so the whole
-    footprint lands inside rather than just the origin. When a cell centre is given the
-    sample is drawn around it and then clamped into that admissible box.
+    The admissible box is the region inset by the object's own half-extents and then shifted
+    by its origin offset, so the whole footprint lands inside rather than just the origin.
+    When a cell centre is given it names where the footprint should sit, and the origin is
+    offset accordingly before jittering and clamping.
     """
-    min_x, max_x = region.min_x + half_x, region.max_x - half_x
-    min_y, max_y = region.min_y + half_y, region.max_y - half_y
+    min_x = region.min_x + footprint.half_x - footprint.offset_x
+    max_x = region.max_x - footprint.half_x - footprint.offset_x
+    min_y = region.min_y + footprint.half_y - footprint.offset_y
+    max_y = region.max_y - footprint.half_y - footprint.offset_y
     unit = torch.rand(2, generator=generator)
     if centre is None:
         x = min_x + float(unit[0]) * (max_x - min_x)
         y = min_y + float(unit[1]) * (max_y - min_y)
     else:
         # Jitter by half a footprint so cell-mates stay distinguishable without escaping.
-        x = centre[0] + (float(unit[0]) - 0.5) * half_x
-        y = centre[1] + (float(unit[1]) - 0.5) * half_y
+        x = centre[0] - footprint.offset_x + (float(unit[0]) - 0.5) * footprint.half_x
+        y = centre[1] - footprint.offset_y + (float(unit[1]) - 0.5) * footprint.half_y
     return min(max(x, min_x), max_x), min(max(y, min_y), max_y)
 
 
@@ -237,7 +270,7 @@ def _footprints_overlap(
     b_centre: tuple[float, float],
     b_half: tuple[float, float],
 ) -> bool:
-    """Whether two axis-aligned XY footprints overlap."""
+    """Whether two axis-aligned XY footprints overlap. Centres, not origins."""
     return (
         abs(a_centre[0] - b_centre[0]) < a_half[0] + b_half[0]
         and abs(a_centre[1] - b_centre[1]) < a_half[1] + b_half[1]
@@ -282,20 +315,22 @@ def compute_drop_poses(
     placed: list[tuple[tuple[float, float], tuple[float, float], float]] = []
 
     for drop_index, (object_index, centre) in enumerate(zip(order, centres)):
-        rotation, rotated, half_x, half_y = _sample_orientation_that_fits(
+        rotation, rotated, footprint = _sample_orientation_that_fits(
             bounding_boxes[object_index], usable, params, generator
         )
-        x, y = _sample_xy(centre, half_x, half_y, usable, generator)
+        x, y = _sample_xy(centre, footprint, usable, generator)
+        footprint_centre = footprint.centre_at(x, y)
+        half_extents = (footprint.half_x, footprint.half_y)
 
         # Lift only over the footprints actually overlapped, not over everything placed so far.
         support_z = region.floor_z + params.clearance_m
         for other_centre, other_half, other_top_z in placed:
-            if _footprints_overlap((x, y), (half_x, half_y), other_centre, other_half):
+            if _footprints_overlap(footprint_centre, half_extents, other_centre, other_half):
                 support_z = max(support_z, other_top_z + params.gap_m)
 
         # Offset the origin so the object's lowest point sits at support_z.
         z = support_z - float(rotated.bottom_surface_z[0])
-        placed.append(((x, y), (half_x, half_y), z + float(rotated.top_surface_z[0])))
+        placed.append((footprint_centre, half_extents, z + float(rotated.top_surface_z[0])))
         poses[object_index] = DropPose(position=(x, y, z), rotation_xyzw=rotation, drop_index=drop_index)
 
     assert all(pose is not None for pose in poses), "every object must receive a drop pose"

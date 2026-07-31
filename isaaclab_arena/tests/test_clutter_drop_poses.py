@@ -26,13 +26,38 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 REGION = ClutterRegion(min_x=-0.18, min_y=-0.23, max_x=0.18, max_y=0.23, floor_z=0.8)
 
 
-def make_bbox(size_x: float, size_y: float, size_z: float, origin_offset_z: float = 0.0):
-    """Object-local bbox of the given size, optionally shifted so the origin is not centred."""
+def make_bbox(
+    size_x: float,
+    size_y: float,
+    size_z: float,
+    origin_offset_z: float = 0.0,
+    origin_offset_x: float = 0.0,
+    origin_offset_y: float = 0.0,
+):
+    """Object-local bbox of the given size, optionally shifted so the origin is not centred.
+
+    USD pivots sit wherever the asset author put them, so an off-centre box is the normal
+    case rather than an edge case.
+    """
     half_x, half_y, half_z = size_x / 2.0, size_y / 2.0, size_z / 2.0
     return AxisAlignedBoundingBox(
-        min_point=(-half_x, -half_y, -half_z + origin_offset_z),
-        max_point=(half_x, half_y, half_z + origin_offset_z),
+        min_point=(-half_x + origin_offset_x, -half_y + origin_offset_y, -half_z + origin_offset_z),
+        max_point=(half_x + origin_offset_x, half_y + origin_offset_y, half_z + origin_offset_z),
     )
+
+
+def assert_footprints_inside(bboxes: list, poses: list[DropPose], region: ClutterRegion) -> None:
+    """Every placed object's rotated footprint must lie wholly within the region."""
+    for index, (bbox, pose) in enumerate(zip(bboxes, poses)):
+        rotated = bbox.rotated_by_quat(torch.tensor([pose.rotation_xyzw], dtype=torch.float32))
+        min_x = pose.position[0] + float(rotated.min_point[0][0])
+        max_x = pose.position[0] + float(rotated.max_point[0][0])
+        min_y = pose.position[1] + float(rotated.min_point[0][1])
+        max_y = pose.position[1] + float(rotated.max_point[0][1])
+        assert min_x >= region.min_x - 1e-6, f"object {index} spans x={min_x:.4f} past {region.min_x}"
+        assert max_x <= region.max_x + 1e-6, f"object {index} spans x={max_x:.4f} past {region.max_x}"
+        assert min_y >= region.min_y - 1e-6, f"object {index} spans y={min_y:.4f} past {region.min_y}"
+        assert max_y <= region.max_y + 1e-6, f"object {index} spans y={max_y:.4f} past {region.max_y}"
 
 
 def seeded(seed: int = 0) -> torch.Generator:
@@ -304,3 +329,44 @@ def test_region_scaled_keeps_centre_and_floor():
     assert (scaled.min_x, scaled.max_x) == pytest.approx((0.25, 0.75))
     assert (scaled.min_y, scaled.max_y) == pytest.approx((0.5, 1.5))
     assert scaled.floor_z == region.floor_z
+
+
+# ------------------------------------------------------- off-centre bounding boxes
+
+
+def test_off_centre_footprint_stays_inside_the_region():
+    # Origin at one corner of the box, the shape a USD pivot commonly takes.
+    bboxes = [make_bbox(0.06, 0.06, 0.04, origin_offset_x=0.03, origin_offset_y=0.03) for _ in range(6)]
+    poses = compute_drop_poses(bboxes, REGION, generator=seeded())
+    assert_footprints_inside(bboxes, poses, REGION)
+
+
+def test_off_centre_footprint_does_not_interpenetrate():
+    bboxes = [
+        make_bbox(0.05, 0.05, 0.04, origin_offset_x=0.025, origin_offset_y=-0.025),
+        make_bbox(0.06, 0.04, 0.03, origin_offset_x=-0.03),
+        make_bbox(0.04, 0.06, 0.05, origin_offset_y=0.03),
+        make_bbox(0.05, 0.05, 0.04),
+    ]
+    for seed in range(5):
+        poses = compute_drop_poses(bboxes, REGION, generator=seeded(seed))
+        assert_no_penetration(bboxes, poses)
+        assert_footprints_inside(bboxes, poses, REGION)
+
+
+def test_strongly_offset_origin_is_still_contained_without_yaw():
+    # A box lying entirely on the +X side of its origin has nothing centred about it.
+    params = ClutterDropParams(random_yaw=False)
+    bboxes = [make_bbox(0.08, 0.04, 0.03, origin_offset_x=0.04) for _ in range(4)]
+    poses = compute_drop_poses(bboxes, REGION, params, generator=seeded())
+    assert_footprints_inside(bboxes, poses, REGION)
+    assert_no_penetration(bboxes, poses)
+
+
+def test_off_centre_boxes_are_contained_under_both_samplers():
+    bboxes = [make_bbox(0.05, 0.05, 0.03, origin_offset_x=0.025, origin_offset_y=0.025) for _ in range(8)]
+    for sampling in (XySampling.GRID_CELLS, XySampling.UNIFORM):
+        params = ClutterDropParams(xy_sampling=sampling)
+        poses = compute_drop_poses(bboxes, REGION, params, generator=seeded(3))
+        assert_footprints_inside(bboxes, poses, REGION)
+        assert_no_penetration(bboxes, poses)
