@@ -377,6 +377,23 @@ class LightBase(LibraryObject, ABC):
     object_type = ObjectType.BASE
     tags = ["light"]
 
+    _intensity_when_on: float | None = None
+    """Intensity stashed by :meth:`off` (while the light was lit) and restored by :meth:`on`."""
+
+    def on(self) -> None:
+        """Turn the light on, restoring the intensity it had before the last :meth:`off`.
+
+        A no-op if the light was never turned off (it is already at its configured intensity).
+        """
+        if self._intensity_when_on is not None:
+            self.set_intensity(self._intensity_when_on)
+
+    def off(self) -> None:
+        """Turn the light off (intensity 0), remembering the current intensity so :meth:`on` restores it."""
+        if self.spawner_cfg.intensity > 0.0:
+            self._intensity_when_on = self.spawner_cfg.intensity
+        self.set_intensity(0.0)
+
     def set_intensity(self, intensity: float) -> None:
         """Set the light's intensity."""
         assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
@@ -423,7 +440,7 @@ class DomeLight(LightBase):
     name = "light"
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
 
     spawner_cfg: sim_utils.DomeLightCfg
     """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
@@ -509,6 +526,14 @@ class DirectionalLight(LightBase):
         position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
         self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()
+
+    def set_dome_light(self, dome_light: LightBase) -> None:
+        """Register a dome light for the direction variation to dim when it activates.
+
+        Dimming the (bright) dome while the directional light is on lets its shadows show. Forwarded
+        to the ``direction`` variation; a no-op on illumination unless that variation is enabled.
+        """
+        self.get_variation("direction").set_dome_light(dome_light)
 
 
 @register_asset
