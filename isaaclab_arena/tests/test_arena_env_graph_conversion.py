@@ -49,9 +49,11 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
 def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
 
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_sequential_pick_and_place_task)
+    result = run_function_with_persistent_simulation_app(
+        _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task
+    )
     assert result
 
 
@@ -102,9 +104,9 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
 def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
 
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_get_arena_builder_from_cli_builds_env_from_graph_yaml)
+    result = run_function_with_persistent_simulation_app(_test_get_arena_builder_from_cli_builds_env_from_graph_yaml)
     assert result
 
 
@@ -129,9 +131,9 @@ def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
 
 
 def test_arena_env_graph_conversion_builds_object_set_node():
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_object_set_node)
+    result = run_function_with_persistent_simulation_app(_test_arena_env_graph_conversion_builds_object_set_node)
     assert result
 
 
@@ -182,7 +184,7 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
 
 
 def test_default_light_is_injected_when_scene_has_none():
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)
+    result = run_function_with_persistent_simulation_app(_test_default_light_is_injected_when_scene_has_none)
     assert result

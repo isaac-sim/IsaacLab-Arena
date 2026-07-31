@@ -7,7 +7,7 @@ import os
 import traceback
 from unittest.mock import patch
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 NUM_ENVS = 10
@@ -476,7 +476,7 @@ def _test_multi_object_sets(simulation_app):
 
 
 def test_empty_object_set():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_empty_object_set,
         headless=HEADLESS,
     )
@@ -484,7 +484,7 @@ def test_empty_object_set():
 
 
 def test_object_set_samples_and_stores_variant_indices():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_set_samples_and_stores_variant_indices,
         headless=HEADLESS,
     )
@@ -492,7 +492,7 @@ def test_object_set_samples_and_stores_variant_indices():
 
 
 def test_object_set_default_variant_indices_follow_member_order():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_set_default_variant_indices_follow_member_order,
         headless=HEADLESS,
     )
@@ -500,7 +500,7 @@ def test_object_set_default_variant_indices_follow_member_order():
 
 
 def test_object_set_random_variant_indices_use_placement_seed():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_set_random_variant_indices_use_placement_seed,
         headless=HEADLESS,
     )
@@ -508,7 +508,7 @@ def test_object_set_random_variant_indices_use_placement_seed():
 
 
 def test_object_set_regenerates_variants_with_different_num_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_set_regenerates_variants_with_different_num_envs,
         headless=HEADLESS,
     )
@@ -516,7 +516,7 @@ def test_object_set_regenerates_variants_with_different_num_envs():
 
 
 def test_articulation_object_set():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_articulation_object_set,
         headless=HEADLESS,
     )
@@ -524,7 +524,7 @@ def test_articulation_object_set():
 
 
 def test_single_object_in_one_object_set():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_single_object_in_one_object_set,
         headless=HEADLESS,
     )
@@ -532,7 +532,7 @@ def test_single_object_in_one_object_set():
 
 
 def test_multi_objects_in_one_object_set():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_multi_objects_in_one_object_set,
         headless=HEADLESS,
     )
@@ -540,7 +540,7 @@ def test_multi_objects_in_one_object_set():
 
 
 def test_multi_object_sets():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_multi_object_sets,
         headless=HEADLESS,
     )

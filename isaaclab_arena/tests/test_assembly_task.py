@@ -8,7 +8,7 @@ import gymnasium as gym
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -380,32 +380,32 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 # Test functions that will be called by pytest
 def test_peg_insert_assembly_single():
-    result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_peg_insert_assembly_single, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_single.__name__} failed"
 
 
 def test_gear_mesh_assembly_single():
-    result = run_simulation_app_function(_test_gear_mesh_assembly_single, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_gear_mesh_assembly_single, headless=HEADLESS)
     assert result, f"Test {_test_gear_mesh_assembly_single.__name__} failed"
 
 
 def test_peg_insert_assembly_multi():
-    result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_peg_insert_assembly_multi, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_multi.__name__} failed"
 
 
 def test_gear_mesh_assembly_multi():
-    result = run_simulation_app_function(_test_gear_mesh_assembly_multi, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_gear_mesh_assembly_multi, headless=HEADLESS)
     assert result, f"Test {_test_gear_mesh_assembly_multi.__name__} failed"
 
 
 def test_peg_insert_initialization():
-    result = run_simulation_app_function(_test_peg_insert_initialization, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_peg_insert_initialization, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_initialization.__name__} failed"
 
 
 def test_gear_mesh_initialization():
-    result = run_simulation_app_function(_test_gear_mesh_initialization, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_gear_mesh_initialization, headless=HEADLESS)
     assert result, f"Test {_test_gear_mesh_initialization.__name__} failed"
 
 

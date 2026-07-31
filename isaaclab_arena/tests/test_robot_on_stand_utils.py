@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 _HEIGHT_ATOL = 1e-3
 _ROOT_WRITE_ATOL = 5e-3
@@ -220,16 +220,18 @@ def _test_droid_stand_and_externals_under_link0(simulation_app) -> bool:
 
 
 def test_droid_on_stand_usd_compose():
-    result = run_simulation_app_function(_test_droid_on_stand_usd_compose)
+    result = run_function_with_persistent_simulation_app(_test_droid_on_stand_usd_compose)
     assert result, f"Test {test_droid_on_stand_usd_compose.__name__} failed"
 
 
 def test_franka_on_stand_usd_compose():
-    result = run_simulation_app_function(_test_franka_on_stand_usd_compose)
+    result = run_function_with_persistent_simulation_app(_test_franka_on_stand_usd_compose)
     assert result, f"Test {test_franka_on_stand_usd_compose.__name__} failed"
 
 
 @pytest.mark.with_cameras
 def test_droid_stand_and_externals_under_link0():
-    result = run_simulation_app_function(_test_droid_stand_and_externals_under_link0, enable_cameras=True)
+    result = run_function_with_persistent_simulation_app(
+        _test_droid_stand_and_externals_under_link0, enable_cameras=True
+    )
     assert result, f"Test {test_droid_stand_and_externals_under_link0.__name__} failed"

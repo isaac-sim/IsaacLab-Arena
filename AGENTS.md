@@ -82,7 +82,7 @@ def _test_foo(simulation_app):  # runs inside SimulationApp
     return True  # indicates pass
 
 def test_foo():  # pytest-visible outer function
-    result = run_simulation_app_function(_test_foo)
+    result = run_function_with_persistent_simulation_app(_test_foo)
     assert result
 ```
 

@@ -9,7 +9,7 @@ Background obstacles carry no relations (so they are absent from the relation gr
 but should still be avoided by placed objects.
 """
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -405,7 +405,7 @@ def _test_get_passive_collision_objects_filters(simulation_app) -> bool:
 
 
 def test_get_passive_collision_objects_filters():
-    result = run_simulation_app_function(_test_get_passive_collision_objects_filters, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_get_passive_collision_objects_filters, headless=HEADLESS)
     assert result, "get_passive_collision_objects() returned the wrong subset"
 
 

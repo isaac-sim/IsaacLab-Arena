@@ -8,7 +8,7 @@ import random
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -177,7 +177,7 @@ def _test_turn_stand_mixer_knob_reset_condition(simulation_app):
 
 
 def test_turn_stand_mixer_knob_to_desired_levels_single_env():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_turn_stand_mixer_knob_to_desired_levels_single_env,
         headless=HEADLESS,
     )
@@ -185,7 +185,7 @@ def test_turn_stand_mixer_knob_to_desired_levels_single_env():
 
 
 def test_turn_stand_mixer_knob_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_turn_stand_mixer_knob_multiple_envs,
         headless=HEADLESS,
     )
@@ -193,7 +193,7 @@ def test_turn_stand_mixer_knob_multiple_envs():
 
 
 def test_turn_stand_mixer_knob_reset_condition():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_turn_stand_mixer_knob_reset_condition,
         headless=HEADLESS,
     )

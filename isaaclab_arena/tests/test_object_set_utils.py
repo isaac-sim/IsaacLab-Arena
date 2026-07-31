@@ -7,7 +7,7 @@ import contextlib
 import os
 import tempfile
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -182,7 +182,7 @@ def _test_cache_pipeline_unifies_mixed_rigid_body_depths(simulation_app):
 
 
 def test_rescale_rename_rigid_body_and_save_to_cache_depth0():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_rescale_rename_rigid_body_and_save_to_cache_depth0,
         headless=HEADLESS,
     )
@@ -190,7 +190,7 @@ def test_rescale_rename_rigid_body_and_save_to_cache_depth0():
 
 
 def test_rescale_rename_rigid_body_and_save_to_cache_depth1():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_rescale_rename_rigid_body_and_save_to_cache_depth1,
         headless=HEADLESS,
     )
@@ -198,7 +198,7 @@ def test_rescale_rename_rigid_body_and_save_to_cache_depth1():
 
 
 def test_cache_pipeline_unifies_mixed_rigid_body_depths():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_cache_pipeline_unifies_mixed_rigid_body_depths,
         headless=HEADLESS,
     )

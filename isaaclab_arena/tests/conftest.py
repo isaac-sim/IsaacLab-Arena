@@ -7,7 +7,8 @@
 # terminate the surrounding pytest process with exit code 0, regardless
 # of whether the tests passed or failed.
 # To work around this, we stash the session object and set a flag
-# when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
+# when a test fails. This flag is checked in
+# isaaclab_arena.tests.utils.persistent_simulation_app.py
 # prior to closing the simulation app, in order to generate the correct exit code.
 
 from __future__ import annotations

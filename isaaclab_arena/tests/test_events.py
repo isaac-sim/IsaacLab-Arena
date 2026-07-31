@@ -9,7 +9,7 @@ import traceback
 
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -193,7 +193,7 @@ def _test_object_moves_with_initial_velocity(simulation_app):
 
 
 def test_set_object_post_per_env_event():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_set_object_pose_per_env_event,
         headless=HEADLESS,
     )
@@ -201,7 +201,7 @@ def test_set_object_post_per_env_event():
 
 
 def test_object_moves_with_initial_velocity():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_moves_with_initial_velocity,
         headless=HEADLESS,
     )

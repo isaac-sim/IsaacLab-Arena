@@ -8,7 +8,7 @@ from dataclasses import field
 import pytest
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -101,14 +101,14 @@ def _test_enabled_build_time_variation_applied(simulation_app):
 
 
 def test_disabled_build_time_variation_not_applied():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_disabled_build_time_variation_not_applied,
         headless=HEADLESS,
     )
 
 
 def test_enabled_build_time_variation_applied():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_build_time_variation_applied,
         headless=HEADLESS,
     )

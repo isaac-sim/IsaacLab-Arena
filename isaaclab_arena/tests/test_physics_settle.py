@@ -14,7 +14,7 @@ Each scenario runs end to end against a live SimulationApp:
 
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 SETTLE_STEPS = 30
@@ -336,22 +336,24 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
 
 
 def test_objects_settled_when_at_rest():
-    result = run_simulation_app_function(_test_objects_settled_when_at_rest, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_objects_settled_when_at_rest, headless=HEADLESS)
     assert result, f"Test {test_objects_settled_when_at_rest.__name__} failed"
 
 
 def test_objects_not_settled_when_colliding():
-    result = run_simulation_app_function(_test_objects_not_settled_when_colliding, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_objects_not_settled_when_colliding, headless=HEADLESS)
     assert result, f"Test {test_objects_not_settled_when_colliding.__name__} failed"
 
 
 def test_parallel_layout_validation_per_env():
-    result = run_simulation_app_function(_test_parallel_layout_validation_per_env, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(_test_parallel_layout_validation_per_env, headless=HEADLESS)
     assert result, f"Test {test_parallel_layout_validation_per_env.__name__} failed"
 
 
 def test_validate_pool_layouts_grades_each_layout():
-    result = run_simulation_app_function(_test_validate_pool_layouts_grades_each_layout, headless=HEADLESS)
+    result = run_function_with_persistent_simulation_app(
+        _test_validate_pool_layouts_grades_each_layout, headless=HEADLESS
+    )
     assert result, f"Test {test_validate_pool_layouts_grades_each_layout.__name__} failed"
 
 

@@ -9,7 +9,7 @@ import tqdm
 
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -180,7 +180,7 @@ def _test_galbot_observation_config(simulation_app) -> bool:
 
 def test_galbot_initial_position():
     """Pytest entry point for Galbot initial position test."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_galbot_initial_position,
         headless=HEADLESS,
     )
@@ -189,7 +189,7 @@ def test_galbot_initial_position():
 
 def test_galbot_action_space():
     """Pytest entry point for Galbot action space test."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_galbot_action_space,
         headless=HEADLESS,
     )
@@ -198,7 +198,7 @@ def test_galbot_action_space():
 
 def test_galbot_observation_config():
     """Pytest entry point for Galbot observation configuration test."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_galbot_observation_config,
         headless=HEADLESS,
     )
@@ -272,7 +272,7 @@ def _test_galbot_arm_reaches_goal(simulation_app) -> bool:
 
 def test_galbot_arm_reaches_goal():
     """Pytest entry point for Galbot arm reaching goal test."""
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_galbot_arm_reaches_goal,
         headless=HEADLESS,
     )

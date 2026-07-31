@@ -11,7 +11,8 @@ import pytest
 
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -418,7 +419,7 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
 
 @pytest.mark.with_cameras
 def test_eval_config_variation_lands_in_events_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_eval_config_variation_lands_in_events_cfg,
         headless=HEADLESS,
         enable_cameras=True,

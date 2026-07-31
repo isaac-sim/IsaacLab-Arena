@@ -8,7 +8,7 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
 NUM_STEPS = 2
@@ -75,7 +75,7 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
 
 def test_all_devices_and_retargeters_in_registry():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_all_devices_and_retargeters_in_registry,
         headless=HEADLESS,
     )

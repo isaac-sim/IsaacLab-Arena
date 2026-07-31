@@ -13,7 +13,7 @@ from pathlib import Path
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -249,19 +249,19 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
 
 
 def test_core_terms(tmp_path):
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_core_terms, headless=HEADLESS, output_dir=tmp_path
     ), "core recorder terms test failed"
 
 
 def test_variations_recorded(tmp_path):
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_variations_recorded, headless=HEADLESS, output_dir=tmp_path
     ), "variation recording test failed"
 
 
 def test_custom_term(tmp_path):
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_custom_term, headless=HEADLESS, output_dir=tmp_path
     ), "custom recorder term test failed"
 

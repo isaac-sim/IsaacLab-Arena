@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 _KITCHEN_BENCH_DIR = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments" / "kitchen_bench"
 _KITCHEN_BENCH_YAMLS = sorted(_KITCHEN_BENCH_DIR.glob("*.yaml"))
@@ -54,7 +54,7 @@ def _test_kitchen_bench_yaml_env_bringup(simulation_app, *, yaml_path: Path) -> 
 def test_kitchen_bench_yaml_env_bringup(yaml_path: Path):
     """Each kitchen_bench YAML must parse and produce a resettable Arena env."""
     assert yaml_path.is_file(), f"missing kitchen_bench YAML: {yaml_path}"
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_kitchen_bench_yaml_env_bringup,
         headless=True,
         yaml_path=yaml_path,

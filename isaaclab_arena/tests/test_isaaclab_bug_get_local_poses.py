@@ -14,7 +14,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.pose import Pose
 
 HEADLESS = True
@@ -70,7 +70,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
 
 @pytest.mark.with_cameras
 def test_get_local_poses_matches_camera_offset_cfg():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_get_local_poses_matches_camera_offset_cfg,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
