@@ -24,6 +24,10 @@ EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
 DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 # Location where OSMO creates the effective Experiment YAML for the runner.
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
+# Result interpreted by the downstream Experiment output collector.
+EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
+_COMPLETED_EXECUTION_STATUS = "completed"
+_FAILED_EXECUTION_STATUS = "failed"
 
 
 @dataclass
@@ -70,6 +74,7 @@ class ExperimentRunnerTask(BaseTask):
         ]
 
     def _get_run_script(self) -> str:
+        """Record the runner result while keeping application failures available to the collector."""
         command = [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
@@ -81,4 +86,18 @@ class ExperimentRunnerTask(BaseTask):
             "none",
             "--enable_cameras",
         ]
-        return f"set -euo pipefail\n{shlex.join(command)}\n"
+        experiment_runner_result_path = shlex.quote(f"{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}")
+        return (
+            "set -euo pipefail\n"
+            f"if {shlex.join(command)}; then\n"
+            "  experiment_runner_process_exit_code=0\n"
+            f"  experiment_runner_execution_status={_COMPLETED_EXECUTION_STATUS}\n"
+            "else\n"
+            "  experiment_runner_process_exit_code=$?\n"
+            f"  experiment_runner_execution_status={_FAILED_EXECUTION_STATUS}\n"
+            "fi\n"
+            'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '
+            '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            f"> {experiment_runner_result_path}\n"
+            "exit 0\n"
+        )

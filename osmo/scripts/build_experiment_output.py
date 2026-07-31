@@ -5,9 +5,10 @@
 
 """Build one Arena Experiment output from independently executed Experiment Runner tasks.
 
-The input JSON maps each Run name to its Experiment Runner task's output directory. Each task output must contain
-``<run-name>/...``. Those Run directories are copied into the ``<experiment-output>/<run-name>`` layout, where one
-``index.html`` report is generated.
+The input JSON maps each Run name to its Experiment Runner task's output directory. Each runner result selects whether
+its ``<run-name>/...`` output is included. Completed Run directories are copied into the
+``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. One
+``index.html`` report is generated from the completed Runs.
 """
 
 from __future__ import annotations
@@ -19,6 +20,54 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from isaaclab_arena.visualization.report import build_report
+
+EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
+_COMPLETED_EXECUTION_STATUS = "completed"
+_FAILED_EXECUTION_STATUS = "failed"
+
+
+def load_experiment_runner_result(
+    experiment_runner_output_directory: Path,
+    run_name: str,
+) -> tuple[str, int] | None:
+    """Load a valid Experiment Runner result, or skip an unavailable result.
+
+    Args:
+        experiment_runner_output_directory: Root of one Experiment Runner task output.
+        run_name: Run associated with the task output, used in warning messages.
+
+    Returns:
+        Execution status and process exit code, or None when the result cannot be trusted.
+    """
+    experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
+    try:
+        experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        print(f"[WARNING] Skipping Run '{run_name}': cannot load '{experiment_runner_result_path}': {error}")
+        return None
+
+    if not isinstance(experiment_runner_result, dict):
+        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' must contain a JSON object")
+        return None
+
+    execution_status = experiment_runner_result.get("execution_status")
+    if not isinstance(execution_status, str) or execution_status not in {
+        _COMPLETED_EXECUTION_STATUS,
+        _FAILED_EXECUTION_STATUS,
+    }:
+        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid execution_status")
+        return None
+
+    process_exit_code = experiment_runner_result.get("process_exit_code")
+    if type(process_exit_code) is not int:
+        print(
+            f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid process_exit_code"
+        )
+        return None
+    if (execution_status == _COMPLETED_EXECUTION_STATUS) != (process_exit_code == 0):
+        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' contains an inconsistent result")
+        return None
+    return execution_status, process_exit_code
 
 
 def load_experiment_runner_output_directories_by_run_name(
@@ -55,23 +104,45 @@ def collect_run_outputs_into_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
 ) -> None:
-    """Collect each Experiment Runner task's Run directory into one Experiment output directory.
+    """Collect completed Run outputs and preserve failed execution results.
 
     Args:
         experiment_runner_output_directories_by_run_name: Run names mapped to Experiment Runner task output
-            directories. Each task output directory must contain a child directory with the corresponding Run name.
+            directories.
         experiment_output_directory: Destination Experiment directory containing one subdirectory per Run.
     """
     assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
+        experiment_runner_result = load_experiment_runner_result(experiment_runner_output_directory, run_name)
+        if experiment_runner_result is None:
+            continue
+
+        execution_status, process_exit_code = experiment_runner_result
+        destination_run_output_directory = experiment_output_directory / run_name
+        experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
+        if execution_status == _FAILED_EXECUTION_STATUS:
+            print(f"[WARNING] Excluding failed Run '{run_name}' with process exit code {process_exit_code}")
+            destination_run_output_directory.mkdir(parents=True)
+            shutil.copy2(
+                experiment_runner_result_path,
+                destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
+            )
+            continue
+
         source_run_output_directory = experiment_runner_output_directory / run_name
-        assert source_run_output_directory.is_dir(), (
-            f"Expected Run output directory for Run '{run_name}' does not exist or is not a directory: "
-            f"'{source_run_output_directory}'"
-        )
+        if not source_run_output_directory.is_dir():
+            print(
+                f"[WARNING] Skipping completed Run '{run_name}': expected output directory does not exist: "
+                f"'{source_run_output_directory}'"
+            )
+            continue
         shutil.copytree(
             source_run_output_directory,
-            experiment_output_directory / run_name,
+            destination_run_output_directory,
+        )
+        shutil.copy2(
+            experiment_runner_result_path,
+            destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
 
 
