@@ -740,6 +740,7 @@ class ObjectPlacer:
                     for check, verdicts in layout_pass_verdicts_by_check.items()
                     if slot in evaluated_slots[check]
                 },
+                self.params.required_checks,
             )
 
     @staticmethod

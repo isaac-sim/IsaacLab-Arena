@@ -163,6 +163,29 @@ def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
     print(f"WARNING: the Rerun viewer did not serve within {VIEWER_STARTUP_TIMEOUT_S:.0f}s; layouts may be missing.")
 
 
+def summarize_candidate_verdict(
+    candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
+) -> tuple[str, bool]:
+    """Describe how placement judged one candidate, as ``(message, accepted)``.
+
+    Acceptance follows the placer: only required checks gate a layout, so a candidate that failed
+    nothing else is accepted and the failure is reported as advisory rather than as a rejection.
+
+    Args:
+        candidate_index: Timeline index of the candidate, used in the message.
+        verdicts_by_check: Verdict per check that ran on this candidate.
+        required_checks: Checks that gate acceptance; None means every check that ran gates it.
+    """
+    failed = [check for check, passed in verdicts_by_check.items() if not passed]
+    blocking = [check for check in failed if required_checks is None or check in required_checks]
+    advisory = [check for check in failed if check not in blocking]
+    if blocking:
+        return f"candidate {candidate_index}: rejected (failed: {', '.join(blocking)})", False
+    if advisory:
+        return f"candidate {candidate_index}: accepted (failed but not required: {', '.join(advisory)})", True
+    return f"candidate {candidate_index}: accepted", True
+
+
 class PlacementRerunVisualizer:
     """Streams every validated candidate layout to Rerun, one frame per candidate."""
 
@@ -288,25 +311,23 @@ class PlacementRerunVisualizer:
             ),
         )
 
-    def log_verdicts(self, candidate_index: int, verdicts_by_check: dict[str, bool]) -> None:
+    def log_verdicts(
+        self, candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
+    ) -> None:
         """Log which checks accepted one candidate, as a text line and an accepted/rejected marker.
 
         Args:
             candidate_index: Timeline index to log against.
             verdicts_by_check: Verdict per check that ran on this candidate; one that skipped it is absent.
+            required_checks: Checks that gate acceptance; None means every check that ran gates it.
         """
         import rerun as rr
 
         self.set_time(candidate_index)
-        failed = [check for check, passed in verdicts_by_check.items() if not passed]
-        accepted = not failed
+        message, accepted = summarize_candidate_verdict(candidate_index, verdicts_by_check, required_checks)
         rr.log(
             f"{LAYOUT_ENTITY}/verdict",
-            rr.TextLog(
-                f"candidate {candidate_index}: {'accepted' if accepted else 'rejected'}"
-                + (f" (failed: {', '.join(failed)})" if failed else ""),
-                level=rr.TextLogLevel.INFO if accepted else rr.TextLogLevel.WARN,
-            ),
+            rr.TextLog(message, level=rr.TextLogLevel.INFO if accepted else rr.TextLogLevel.WARN),
         )
         for check, passed in verdicts_by_check.items():
             rr.log(f"checks/{check}", rr.Scalars(float(passed)))

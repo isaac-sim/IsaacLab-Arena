@@ -18,7 +18,7 @@ import pytest
 from isaaclab_arena.relations import placement_visualizer
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer, summarize_candidate_verdict
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -121,9 +121,13 @@ class _RecordingVisualizer:
 
     def __init__(self) -> None:
         self.verdicts_by_candidate: dict[int, dict[str, bool]] = {}
+        self.required_checks: set[str] | None = None
 
-    def log_verdicts(self, candidate_index: int, verdicts_by_check: dict[str, bool]) -> None:
+    def log_verdicts(
+        self, candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
+    ) -> None:
         self.verdicts_by_candidate[candidate_index] = verdicts_by_check
+        self.required_checks = required_checks
 
 
 def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch):
@@ -160,6 +164,36 @@ def test_closing_a_wedged_viewer_falls_back_to_killing_it(tmp_path, monkeypatch)
     visualizer.close()
 
     assert viewer.kill_calls == 1
+
+
+def test_only_required_checks_reject_a_candidate():
+    """The view has to agree with the placer, which gates layouts on required_checks alone."""
+    verdicts = {"no_overlap": True, "ik_reachable": False}
+
+    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks={"no_overlap"})
+
+    assert accepted
+    assert message == "candidate 3: accepted (failed but not required: ik_reachable)"
+
+
+def test_a_failed_required_check_rejects_a_candidate():
+    """A failure the placer does gate on reads as a rejection, naming what blocked it."""
+    verdicts = {"no_overlap": False, "ik_reachable": False}
+
+    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks={"no_overlap"})
+
+    assert not accepted
+    assert message == "candidate 3: rejected (failed: no_overlap)"
+
+
+def test_every_check_gates_a_candidate_when_none_are_named_required():
+    """required_checks=None means every check that ran is required, matching ObjectPlacerParams."""
+    verdicts = {"no_overlap": True, "ik_reachable": False}
+
+    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks=None)
+
+    assert not accepted
+    assert message == "candidate 3: rejected (failed: ik_reachable)"
 
 
 def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it():
