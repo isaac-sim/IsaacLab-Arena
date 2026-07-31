@@ -18,6 +18,7 @@ This is a diagnostic, not part of the placement pipeline.
 from __future__ import annotations
 
 import argparse
+import functools
 import math
 
 
@@ -66,6 +67,17 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--clutter_spread", type=float, default=1.0, help="Scales the usable region.")
     parser.add_argument("--layout_seed", type=int, default=0, help="Layout seed.")
     parser.add_argument(
+        "--max_escape_fraction",
+        type=float,
+        default=0.0,
+        help="Fraction of objects allowed to end up outside the region before the run fails.",
+    )
+    parser.add_argument(
+        "--dump_bboxes",
+        action="store_true",
+        help="Print each object's measured bounding-box size before computing drop poses.",
+    )
+    parser.add_argument(
         "--layers",
         type=int,
         default=1,
@@ -88,6 +100,32 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
         default=0.0,
         help="Seconds to hold the pre-pour scene, so the drop layout is visible before it falls.",
     )
+    parser.add_argument(
+        "--record_video",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Write an mp4 of the pour to PATH. Adds a fixed camera and forces --enable_cameras.",
+    )
+    parser.add_argument(
+        "--video_every",
+        type=int,
+        default=4,
+        help="Capture a frame every N physics steps; lower is smoother but slower.",
+    )
+    parser.add_argument("--video_fps", type=int, default=30, help="Frame rate of the written mp4.")
+    parser.add_argument(
+        "--njmax",
+        type=int,
+        default=None,
+        help="Override the Newton solver's max-constraint budget (default preset value is 300).",
+    )
+    parser.add_argument(
+        "--nconmax",
+        type=int,
+        default=None,
+        help="Override the Newton solver's max-contact budget (default preset value is 400).",
+    )
 
 
 # Grocery-sized props standing in for tools: a mix of flat, bulky and elongated shapes.
@@ -102,6 +140,43 @@ CLUTTER_ASSETS = [
     "power_drill",
 ]
 BIN_ASSET = "grey_bin_robolab"
+
+
+def _is_finite(position) -> bool:
+    """Whether every component of a position is finite (a diverged solver writes NaN/inf)."""
+    return all(math.isfinite(float(v)) for v in position)
+
+
+def _solver_budget_overridden(args_cli) -> bool:
+    """Whether the user asked for non-default Newton constraint/contact budgets."""
+    return args_cli.njmax is not None or args_cli.nconmax is not None
+
+
+def _apply_callbacks(env_cfg, callbacks):
+    """Apply each env-cfg callback in order."""
+    for callback in callbacks:
+        env_cfg = callback(env_cfg)
+    return env_cfg
+
+
+def _tune_newton_solver(env_cfg, njmax: int | None, nconmax: int | None):
+    """Install the Newton preset with enlarged constraint/contact budgets.
+
+    The stock ``newton`` preset is sized for dexterous manipulation (a hand plus a
+    few props); a deep clutter pile needs a far larger contact budget.
+    """
+    import copy
+
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+
+    physics = copy.deepcopy(ArenaPhysicsCfg().newton)
+    if njmax is not None:
+        physics.solver_cfg.njmax = njmax
+    if nconmax is not None:
+        physics.solver_cfg.nconmax = nconmax
+    print(f"newton solver budget: njmax={physics.solver_cfg.njmax} nconmax={physics.solver_cfg.nconmax}")
+    env_cfg.sim.physics = physics
+    return env_cfg
 
 
 def _build_environment(args_cli):
@@ -119,12 +194,12 @@ def _build_environment(args_cli):
     light = registry.get_asset_by_name("light")(spawner_cfg=sim_utils.DomeLightCfg(intensity=1500.0))
     ground = registry.get_asset_by_name("ground_plane")()
 
-    # The bin is always the solver's anchor (the ground plane has no bounding box); in floor
-    # mode it is parked well clear of the pour region so objects land on open ground.
-    bin_position = BIN_POSITION if args_cli.region == "bin" else (5.0, 0.0, 0.0)
-    bin_asset = registry.get_asset_by_name(BIN_ASSET)()
-    bin_asset.set_initial_pose(Pose(position_xyz=bin_position, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-    bin_asset.add_relation(IsAnchor())
+    pour_into_bin = args_cli.region == "bin"
+    bin_asset = None
+    if pour_into_bin:
+        bin_asset = registry.get_asset_by_name(BIN_ASSET)()
+        bin_asset.set_initial_pose(Pose(position_xyz=BIN_POSITION, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        bin_asset.add_relation(IsAnchor())
 
     # Park the clutter off to one side; the experiment writes their real poses after reset.
     # The palette repeats for large counts, so each repeat needs its own instance name --
@@ -133,11 +208,33 @@ def _build_environment(args_cli):
     for index in range(args_cli.objects):
         asset_name = CLUTTER_ASSETS[index % len(CLUTTER_ASSETS)]
         obj = registry.get_asset_by_name(asset_name)(instance_name=f"{asset_name}_{index}")
-        obj.add_relation(AtPosition(x=1.5 + 0.3 * index, y=0.0, z=0.1))
+        parked = Pose(position_xyz=(1.5 + 0.3 * index, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+        if not pour_into_bin and index == 0:
+            # Floor pours keep the bin out of the scene entirely: the ground plane cannot anchor
+            # the solver (it has no bounding box), so the first clutter object does instead. Its
+            # pose is overwritten with the drop layout after reset like every other object.
+            obj.set_initial_pose(parked)
+            obj.add_relation(IsAnchor())
+        else:
+            obj.add_relation(AtPosition(x=parked.position_xyz[0], y=parked.position_xyz[1], z=parked.position_xyz[2]))
         objects.append(obj)
 
-    scene = Scene(assets=[ground, light, bin_asset, *objects])
-    arena_env = IsaacLabArenaEnvironment(name="clutter_pour_experiment", scene=scene, task=NoTask())
+    scene = Scene(assets=[ground, light, *([bin_asset] if bin_asset else []), *objects])
+    callbacks = []
+    if args_cli.record_video:
+        half_x, half_y = (
+            (0.5 * args_cli.region_size[0], 0.5 * args_cli.region_size[1])
+            if args_cli.region == "floor"
+            else (0.21, 0.14)
+        )
+        callbacks.append(functools.partial(_add_video_camera, region_half_x=half_x, region_half_y=half_y))
+    if _solver_budget_overridden(args_cli):
+        callbacks.append(functools.partial(_tune_newton_solver, njmax=args_cli.njmax, nconmax=args_cli.nconmax))
+    env_cfg_callback = functools.partial(_apply_callbacks, callbacks=callbacks) if callbacks else None
+
+    arena_env = IsaacLabArenaEnvironment(
+        name="clutter_pour_experiment", scene=scene, task=NoTask(), env_cfg_callback=env_cfg_callback
+    )
     return arena_env, objects, bin_asset
 
 
@@ -166,6 +263,12 @@ def _run(simulation_app, args_cli) -> bool:
     for name, default in (("language_instruction", None), ("mimic", False)):
         if not hasattr(args_cli, name):
             setattr(args_cli, name, default)
+    backend = args_cli.presets or "physx"
+    if _solver_budget_overridden(args_cli):
+        assert backend == "newton", "--njmax/--nconmax only apply to --presets newton"
+        # The builder applies presets *after* the env-cfg callback and treats them as final
+        # authority, so a tuned solver config only survives if no preset is requested.
+        args_cli.presets = None
     env = ArenaEnvBuilder(arena_env, args_cli).make_registered()
     env.reset()
 
@@ -206,13 +309,18 @@ def _run(simulation_app, args_cli) -> bool:
     generator.manual_seed(args_cli.layout_seed)
 
     names = [obj.name for obj in objects]
+    if args_cli.dump_bboxes:
+        for name, bbox, obj in zip(names, bboxes, objects):
+            size = [round(float(v), 5) for v in bbox.size[0]]
+            print(f"bbox {name}: {size}  usd={getattr(obj, 'usd_path', None)}")
     layers = max(1, args_cli.layers)
     per_layer = math.ceil(len(objects) / layers)
     steps_per_layer = max(1, args_cli.settle_steps // layers)
-    print(f"\n=== pouring {len(objects)} objects in {layers} layer(s), backend={args_cli.presets or 'physx'} ===")
+    print(f"\n=== pouring {len(objects)} objects in {layers} layer(s), backend={backend} ===")
 
     steps_done = 0
     settled_at = None
+    frames: list | None = [] if args_cli.record_video else None
 
     for layer_index in range(layers):
         lo, hi = layer_index * per_layer, min((layer_index + 1) * per_layer, len(objects))
@@ -236,25 +344,32 @@ def _run(simulation_app, args_cli) -> bool:
         )
 
         for name, pose in zip(layer_names, poses):
-            asset = scene[name]
-            state = asset.data.default_root_state.clone()[0:1]
-            state[0, 0:3] = torch.tensor(pose.position, device=device)
-            state[0, 3:7] = torch.tensor(list(pose.rotation_xyzw), device=device)
-            state[0, 7:13] = 0.0
-            asset.write_root_state_to_sim(state)
+            _write_pose(scene[name], pose, device)
         scene.write_data_to_sim()
 
         if args_cli.pause_before_pour > 0.0:
             _hold(env, args_cli.pause_before_pour, freeze=layer_names)
 
+        if frames is not None:
+            # Hold on the drop layout for a beat so the pre-pour arrangement is visible.
+            physics_settle.step_physics(env, 1, render=True)
+            for _ in range(args_cli.video_fps // 2):
+                _capture_frame(scene, frames)
+
         # A new layer changes the object set, so the previous snapshot no longer lines up.
         previous_poses = None
         layer_steps = 0
         while layer_steps < steps_per_layer:
-            chunk = min(args_cli.report_every, steps_per_layer - layer_steps)
-            physics_settle.step_physics(env, chunk, render=args_cli.render_settle)
+            chunk = args_cli.video_every if frames is not None else args_cli.report_every
+            chunk = min(chunk, steps_per_layer - layer_steps)
+            physics_settle.step_physics(env, chunk, render=args_cli.render_settle or frames is not None)
             layer_steps += chunk
             steps_done += chunk
+
+            if frames is not None:
+                _capture_frame(scene, frames)
+                if layer_steps % args_cli.report_every != 0 and layer_steps < steps_per_layer:
+                    continue
 
             current = _read_poses(scene, names[:hi])
             moved, turned = _pose_delta(previous_poses, current) if previous_poses else (float("inf"), float("inf"))
@@ -272,24 +387,52 @@ def _run(simulation_app, args_cli) -> bool:
     print("\n=== result ===")
     print(f"  settled first observed at: {settled_at if settled_at is not None else 'NOT SETTLED'}")
 
+    # A diverged solver writes NaN poses, which compare false against every bound and would
+    # otherwise be reported as objects that merely left the region. Fail on that explicitly.
+    diverged = [name for name in names if not _is_finite(_root_position(scene[name]))]
+    if diverged:
+        print(f"  DIVERGED: {len(diverged)}/{len(names)} objects have non-finite poses -> {diverged[:5]}")
+
     escaped = []
     for name in names:
         position = _root_position(scene[name])
-        inside = (
+        inside = _is_finite(position) and (
             region.min_x <= float(position[0]) <= region.max_x and region.min_y <= float(position[1]) <= region.max_y
         )
         if not inside:
             escaped.append((name, [round(float(v), 3) for v in position]))
         print(f"  {name:22s} final xyz=({position[0]:6.3f},{position[1]:6.3f},{position[2]:6.3f}) in_region={inside}")
 
-    print(f"\n  escaped: {len(escaped)}/{len(names)}" + (f" -> {escaped}" if escaped else ""))
+    # On open floor the region bounds spawning only, so some spreading is expected; a large
+    # fraction leaving still means the pour was too dense for the area and must not pass.
+    on_floor = args_cli.region == "floor"
+    label = "outside spawn region" if on_floor else "escaped"
+    escaped_fraction = len(escaped) / max(1, len(names))
+    over_budget = escaped_fraction > args_cli.max_escape_fraction
+    print(
+        f"\n  {label}: {len(escaped)}/{len(names)} ({escaped_fraction:.0%}, budget {args_cli.max_escape_fraction:.0%})"
+        + (f" -> {escaped}" if escaped else "")
+    )
+
+    if frames is not None:
+        # Linger on the settled pile so the video ends on the result.
+        for _ in range(args_cli.video_fps):
+            _capture_frame(scene, frames)
+        _write_video(frames, args_cli.record_video, args_cli.video_fps)
 
     if args_cli.hold_seconds > 0.0:
         print(f"\n=== holding result for {args_cli.hold_seconds:.0f}s ===")
         _hold(env, args_cli.hold_seconds)
 
     env.close()
-    return settled_at is not None and not escaped
+    for failure, reason in (
+        (diverged, "physics diverged (non-finite poses)"),
+        (settled_at is None, "never settled"),
+        (over_budget, f"{label} exceeded budget"),
+    ):
+        if failure:
+            print(f"  FAILED: {reason}")
+    return not diverged and settled_at is not None and not over_budget
 
 
 def _hold(env, seconds: float, freeze: list[str] | None = None) -> None:
@@ -297,20 +440,105 @@ def _hold(env, seconds: float, freeze: list[str] | None = None) -> None:
     import time
     import torch
 
+    import warp as wp
+
     from isaaclab_arena.utils import physics_settle
 
     deadline = time.time() + seconds
     frozen = None
     if freeze:
-        frozen = {name: env.unwrapped.scene[name].data.root_state_w[0:1].clone() for name in freeze}
+        frozen = {
+            name: (
+                wp.to_torch(env.unwrapped.scene[name].data.root_pos_w)[0:1].clone(),
+                wp.to_torch(env.unwrapped.scene[name].data.root_quat_w)[0:1].clone(),
+            )
+            for name in freeze
+        }
     while time.time() < deadline:
         if frozen:
-            for name, state in frozen.items():
-                held = state.clone()
-                held[0, 7:13] = torch.zeros(6, device=held.device)
-                env.unwrapped.scene[name].write_root_state_to_sim(held)
+            for name, (position, rotation) in frozen.items():
+                asset = env.unwrapped.scene[name]
+                root_pose = torch.cat([position, rotation], dim=1)
+                asset.write_root_pose_to_sim_index(root_pose=root_pose)
+                asset.write_root_velocity_to_sim_index(root_velocity=torch.zeros((1, 6), device=root_pose.device))
             env.unwrapped.scene.write_data_to_sim()
         physics_settle.step_physics(env, 1, render=True)
+
+
+VIDEO_CAMERA = "pour_cam"
+
+
+def _add_video_camera(env_cfg, region_half_x: float, region_half_y: float):
+    """Attach a fixed camera looking down at the pour region.
+
+    Added through the env-cfg callback rather than an embodiment because this scene has no
+    robot to mount it on. Framed from the reach of the region so the whole pile stays in shot
+    whatever size the region is.
+    """
+    import torch
+
+    import isaaclab.sim as sim_utils
+    from isaaclab.sensors import CameraCfg
+    from isaaclab.utils.math import create_rotation_matrix_from_view, quat_from_matrix
+
+    reach = max(region_half_x, region_half_y)
+    eye = (BIN_POSITION[0] + 2.2 * reach, BIN_POSITION[1] - 2.2 * reach, 1.6 * reach + 0.45)
+    target = (BIN_POSITION[0], BIN_POSITION[1], 0.05)
+
+    # Same convention as the placement code: OpenGL look-at, flipped to OpenCV/ROS optical.
+    rotation = create_rotation_matrix_from_view(
+        torch.tensor([eye], dtype=torch.float32), torch.tensor([target], dtype=torch.float32), "Z"
+    )[0] @ torch.diag(torch.tensor([1.0, -1.0, -1.0]))
+
+    env_cfg.scene.pour_cam = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/" + VIDEO_CAMERA,
+        update_period=0.0,
+        height=720,
+        width=1280,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(focal_length=18.0, focus_distance=4.0),
+        offset=CameraCfg.OffsetCfg(pos=eye, rot=tuple(quat_from_matrix(rotation).tolist()), convention="ros"),
+    )
+    return env_cfg
+
+
+def _capture_frame(scene, frames: list) -> None:
+    """Append the pour camera's current RGB frame."""
+    import numpy as np
+
+    rgb = scene[VIDEO_CAMERA].data.output["rgb"]
+    frames.append(np.ascontiguousarray(rgb[0, ..., :3].cpu().numpy().astype(np.uint8)))
+
+
+def _write_video(frames: list, path: str, fps: int) -> None:
+    """Write captured frames to an mp4, matching how Arena writes its other videos."""
+    import os
+
+    from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+
+    if not frames:
+        print(f"  no frames captured; skipping {path}")
+        return
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+    clip = ImageSequenceClip(frames, fps=fps)
+    clip.write_videofile(path, logger=None, audio=False)
+    print(f"  wrote {len(frames)} frames to {path}")
+
+
+def _write_pose(asset, pose, device) -> None:
+    """Place an object at rest at ``pose``, on either physics backend.
+
+    Uses the keyword-only pose/velocity writers rather than ``write_root_state_to_sim``:
+    the latter is deprecated, and on the Newton backend its shim forwards positionally to a
+    keyword-only method, so it raises a TypeError before any physics runs.
+    """
+    import torch
+
+    root_pose = torch.zeros((1, 7), device=device)
+    root_pose[0, 0:3] = torch.tensor(pose.position, device=device)
+    root_pose[0, 3:7] = torch.tensor(list(pose.rotation_xyzw), device=device)
+    asset.write_root_pose_to_sim_index(root_pose=root_pose)
+    asset.write_root_velocity_to_sim_index(root_velocity=torch.zeros((1, 6), device=device))
 
 
 def _read_poses(scene, names):
@@ -390,6 +618,9 @@ def main() -> None:
     # feature that ran and did nothing.
     args_cli, unknown = parser.parse_known_args()
     assert not unknown, f"unrecognised arguments: {unknown}"
+    if args_cli.record_video:
+        # The pour camera only produces frames when the renderer is up.
+        args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli) as simulation_app:
         ok = _run(simulation_app, args_cli)
