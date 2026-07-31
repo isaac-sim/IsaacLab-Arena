@@ -108,6 +108,14 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
         help="Write an mp4 of the pour to PATH. Adds a fixed camera and forces --enable_cameras.",
     )
     parser.add_argument(
+        "--camera_only",
+        action="store_true",
+        help=(
+            "Add the pour camera and enable the renderer, but never capture or render during "
+            "stepping. Isolates the camera's presence from the per-step render."
+        ),
+    )
+    parser.add_argument(
         "--video_every",
         type=int,
         default=4,
@@ -234,7 +242,7 @@ def _build_environment(args_cli):
 
     scene = Scene(assets=[ground, light, *([bin_asset] if bin_asset else []), *objects])
     callbacks = []
-    if args_cli.record_video:
+    if args_cli.record_video or args_cli.camera_only:
         half_x, half_y = (
             (0.5 * args_cli.region_size[0], 0.5 * args_cli.region_size[1])
             if args_cli.region == "floor"
@@ -638,7 +646,7 @@ def main() -> None:
     # feature that ran and did nothing.
     args_cli, unknown = parser.parse_known_args()
     assert not unknown, f"unrecognised arguments: {unknown}"
-    if args_cli.record_video:
+    if args_cli.record_video or args_cli.camera_only:
         # The pour camera only produces frames when the renderer is up.
         args_cli.enable_cameras = True
 
