@@ -22,7 +22,10 @@ def test_franka_put_and_close_door_mimic_data_generation_single_env():
     with tempfile.TemporaryDirectory() as temp_dir:
         output_file = os.path.join(temp_dir, "dataset_generated.hdf5")
 
-        args = [TestConstants.python_path, f"{TestConstants.scripts_dir}/imitation_learning/generate_dataset.py"]
+        args = [
+            TestConstants.python_path,
+            f"{TestConstants.submodules_dir}/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py",
+        ]
         args.append("--device")
         args.append("cpu")
         args.append("--generation_num_trials")
@@ -37,8 +40,11 @@ def test_franka_put_and_close_door_mimic_data_generation_single_env():
             args.append("--headless")
         if ENABLE_CAMERAS:
             args.append("--enable_cameras")
+        args.append("--external_callback")
+        args.append("isaaclab_arena.environments.isaaclab_interop.environment_registration_callback")
         args.append("--mimic")
         # example env
+        args.append("--task")
         args.append("franka_put_and_close_door")
         args.append("--embodiment")
         args.append("franka_ik")
@@ -51,7 +57,10 @@ def test_franka_put_and_close_door_mimic_data_generation_multi_env():
     with tempfile.TemporaryDirectory() as temp_dir:
         output_file = os.path.join(temp_dir, "dataset_generated.hdf5")
 
-        args = [TestConstants.python_path, f"{TestConstants.scripts_dir}/imitation_learning/generate_dataset.py"]
+        args = [
+            TestConstants.python_path,
+            f"{TestConstants.submodules_dir}/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py",
+        ]
         args.append("--device")
         args.append("cpu")
         args.append("--generation_num_trials")
@@ -66,8 +75,11 @@ def test_franka_put_and_close_door_mimic_data_generation_multi_env():
             args.append("--headless")
         if ENABLE_CAMERAS:
             args.append("--enable_cameras")
+        args.append("--external_callback")
+        args.append("isaaclab_arena.environments.isaaclab_interop.environment_registration_callback")
         args.append("--mimic")
         # example env
+        args.append("--task")
         args.append("franka_put_and_close_door")
         args.append("--embodiment")
         args.append("franka_ik")

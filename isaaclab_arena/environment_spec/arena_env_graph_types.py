@@ -34,6 +34,21 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     return str(usd_path) if usd_path else None
 
 
+def _assert_registered_asset_name(registry_name: str, object_type: ObjectType | None = None) -> str:
+    """Return ``registry_name`` after checking it names a registered asset of ``object_type``(if provided).
+    Args:
+        registry_name: Registered asset name to check.
+        object_type: Object type the asset must declare. ``None`` accepts any asset.
+    """
+    assert AssetRegistry().is_registered(registry_name), f"Unknown asset registry_name '{registry_name}'"
+    if object_type is not None:
+        declared_type = getattr(AssetRegistry().get_asset_by_name(registry_name), "object_type", None)
+        assert (
+            declared_type is object_type
+        ), f"Asset '{registry_name}' must be a {object_type.value} object, got {declared_type}"
+    return registry_name
+
+
 class AssetSpec(BaseModel):
     """One registered asset instance in an environment graph."""
 
@@ -56,9 +71,7 @@ class AssetSpec(BaseModel):
     @field_validator("registry_name")
     @classmethod
     def _validate_registry_name(cls, value: str) -> str:
-        registry = AssetRegistry()
-        assert registry.is_registered(value), f"Unknown asset registry_name '{value}'"
-        return value
+        return _assert_registered_asset_name(value)
 
     def resolve_usd_path(self) -> str:
         """Return the USD path or URL for this registered asset instance."""
@@ -66,6 +79,50 @@ class AssetSpec(BaseModel):
         usd_path = _extract_asset_usd_path(asset_cls, **self.params)
         assert usd_path, f"asset {self.registry_name!r} has no usd_path"
         return usd_path
+
+
+class ObjectSetSpec(BaseModel):
+    """A set of rigid objects distributed among parallel environments, one object per environment."""
+
+    id: str = Field(
+        min_length=1,
+        description=(
+            "Unique id for this object set (e.g. 'bottles'). Referenced by relations and task "
+            "params exactly like an object id."
+        ),
+    )
+    members: list[str] = Field(
+        min_length=1,
+        description=(
+            "Exact registered object names from OBJECTS marked type=rigid that this set draws "
+            "from; every environment spawns one of them."
+        ),
+    )
+    random_choice: bool = Field(
+        default=False,
+        description=(
+            "Sample each environment's member independently at random. When false, members are "
+            "assigned by repeating their declared order across environments."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
+    )
+
+    @field_validator("members")
+    @classmethod
+    def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
+        return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
+
+    @field_validator("params")
+    @classmethod
+    def _reject_reserved_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # These are forwarded from the fields above, so a duplicate here would be a TypeError at
+        # build time, and an 'objects' override would skip the rigid-member check on members.
+        reserved = sorted({"name", "objects", "random_choice"} & set(value))
+        assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
+        return value
 
 
 class ObjectReferenceSpec(BaseModel):

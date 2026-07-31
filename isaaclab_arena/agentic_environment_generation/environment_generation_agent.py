@@ -126,7 +126,7 @@ class AssetCatalogue:
     embodiments: list[dict[str, Any]] = field(default_factory=list)
     # A list of background names and their tags for agent to choose from.
     backgrounds: list[dict[str, Any]] = field(default_factory=list)
-    # A list of object names and their tags for agent to choose from.
+    # A list of object names, object types, and tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
 
     def to_catalog_string(self) -> str:
@@ -138,7 +138,8 @@ class AssetCatalogue:
             f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
         )
         object_lines = "\n".join(
-            f"- {o['name']}  tags={o['tags']}" for o in sorted(self.objects, key=lambda o: o["name"])
+            f"- {o['name']}  type={o['object_type']}  tags={o['tags']}"
+            for o in sorted(self.objects, key=lambda o: o["name"])
         )
         return (
             f"EMBODIMENTS ({len(self.embodiments)}):\n{embodiment_lines}\n\n"
@@ -163,7 +164,13 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:
-            catalogue.objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
+            # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
+            object_type = getattr(cls, "object_type", None)
+            catalogue.objects.append({
+                "name": name,
+                "tags": [t for t in tags if t != "object"],
+                "object_type": object_type.value if object_type else "unknown",
+            })
     return catalogue
 
 

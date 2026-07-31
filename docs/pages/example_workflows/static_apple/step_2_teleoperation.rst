@@ -239,18 +239,21 @@ Step 4: Record with the headset device
    .. code-block:: bash
 
       # Record demonstrations with OpenXR teleop
-      python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+      python submodules/IsaacLab/scripts/tools/record_demos.py \
         --viz kit \
         --device cpu \
         --enable_cameras \
+        --xr \
+        --no-auto_launch_cloudxr \
         --dataset_file $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
         --num_demos 20 \
         --num_success_steps 10 \
-        --disable_full_sim_buffer_reset \
-        galileo_g1_static_pick_and_place \
+        --no-reset_sim_buffer_each_episode \
+        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+        --task galileo_g1_static_pick_and_place \
         --object apple_01_objaverse_robolab \
         --destination clay_plates_hot3d_robolab \
-        --teleop_device openxr
+        --arena_teleop_device openxr
 
 #. In the running application, start the session from the **XR** tab in the application window.
 
@@ -337,11 +340,11 @@ path each time:
 .. code-block:: bash
 
    # Session 1 (e.g. morning)
-   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+   python submodules/IsaacLab/scripts/tools/record_demos.py \
      ... --dataset_file $DATASET_DIR/session_a.hdf5 --num_demos 50 ...
 
    # Session 2 (after lunch)
-   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+   python submodules/IsaacLab/scripts/tools/record_demos.py \
      ... --dataset_file $DATASET_DIR/session_b.hdf5 --num_demos 50 ...
 
 Then concatenate the per-session files into the single training-ready dataset that
@@ -403,10 +406,11 @@ CloudXR.
 .. code-block:: bash
 
    # Replay from the recorded HDF5 dataset
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --dataset_file $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
-     galileo_g1_static_pick_and_place \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task galileo_g1_static_pick_and_place \
      --object apple_01_objaverse_robolab \
      --destination clay_plates_hot3d_robolab

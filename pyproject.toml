@@ -21,6 +21,8 @@ dependencies = [
     "sbi",
     "scipy",
     "matplotlib",
+    # MoviePy 1.x relies on decorator 4.x call semantics to propagate clip FPS.
+    "decorator>=4.0.2,<5",
     # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
     # Pinned to 2.2.3 to match the version used in GR00T.
     "pandas==2.2.3",
@@ -154,7 +156,7 @@ override-dependencies = [
 # 3.0 GA, which will correctly pin its dependencies. See:
 # https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
 constraint-dependencies = [
-    "pin-pink==3.1.0",
+    "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
     "mujoco-usd-converter==0.2.0",

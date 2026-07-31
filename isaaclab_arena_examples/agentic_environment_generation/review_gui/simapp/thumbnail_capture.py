@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import omni.usd
 from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
@@ -20,6 +21,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import ins
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
+    aabb_dimensions_from_asset,
     absolute_prim_path,
     object_reference_cache_key,
     resolve_aabb_dimensions_m,
@@ -33,6 +35,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     set_viewport_camera_eye_lookat,
     thumbnail_cache_dir,
     wait_for_stage_load,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
+    object_set_member_key,
 )
 
 
@@ -53,6 +58,10 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     assets_by_node_id.pop(spec.embodiment.id)
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
     asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
+    # Object sets hold one USD per member rather than a single usd_path, so resolve them separately
+    # and snapshot every member.
+    member_paths, member_dimensions = _resolve_object_set_members(spec, assets_by_node_id)
+    asset_paths.update(member_paths)
     background_viewer_cfg = assets_by_node_id[spec.background.id].get_viewer_cfg()
 
     cache_dir = thumbnail_cache_dir()
@@ -112,7 +121,30 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
         print(f"[thumbnail_capture] all {len(thumbnail_paths)} thumbnail(s) served from cache.", file=sys.stderr)
 
     aabb_dimensions_m = resolve_aabb_dimensions_m(assets_by_node_id)
+    aabb_dimensions_m.update(member_dimensions)
     return thumbnail_paths, aabb_dimensions_m
+
+
+def _resolve_object_set_members(
+    spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]
+) -> tuple[dict[str, str], dict[str, AabbDimensionsM]]:
+    """Return the USD path and AABB of every object-set member, keyed so each gets its own card.
+
+    Member USD paths follow the order the members were declared in, and may point at the rescaled
+    copies RigidObjectSet writes to its cache.
+    """
+    usd_paths: dict[str, str] = {}
+    dimensions: dict[str, AabbDimensionsM] = {}
+    for object_set in spec.object_sets or []:
+        live_object_set = assets_by_node_id[object_set.id]
+        members = zip(object_set.members, live_object_set.member_usd_paths, live_object_set.objects)
+        for registry_name, usd_path, member_asset in members:
+            member_key = object_set_member_key(object_set.id, registry_name)
+            usd_paths[member_key] = usd_path
+            member_dimensions = aabb_dimensions_from_asset(member_asset)
+            if member_dimensions is not None:
+                dimensions[member_key] = member_dimensions
+    return usd_paths, dimensions
 
 
 # Capture orchestration — open each queued USD stage once and write PNGs.
@@ -210,11 +242,7 @@ def _capture_stage_snapshot(
                 file=sys.stderr,
             )
 
-    png_bytes = capture_viewport_png(app, cache_path)
-    if png_bytes is not None:
-        return png_bytes
-    print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)
-    return None
+    return capture_viewport_png(app, cache_path)
 
 
 # Viewport and stage setup — camera, lighting, and collision-mesh overlay.

@@ -13,7 +13,8 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 
 PRE_CAPTURE_UPDATES = 5
 CAPTURE_DONE_TAIL_UPDATES = 3
-CAPTURE_WAIT_MAX_UPDATES = 10
+# Upper bound on number of frames to wait for the capture PNG to be written to disk.
+CAPTURE_WAIT_MAX_UPDATES = 60
 THUMBNAIL_CACHE_SUBDIR = "agentic_env_gen_thumbnails"
 SIM_PREVIEW_CACHE_SUBDIR = "agentic_env_gen_sim_preview"
 
@@ -67,27 +68,11 @@ def wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
             settled = 0
 
 
-def wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = CAPTURE_WAIT_MAX_UPDATES) -> None:
+def wait_for_capture(app, cache_path: Path, max_updates: int = CAPTURE_WAIT_MAX_UPDATES) -> None:
     """Pump render updates until the capture PNG exists or the budget expires."""
-    if capture_obj is None:
-        for _ in range(max_updates):
-            pump_app(app)
-            if cache_path.exists() and cache_path.stat().st_size > 0:
-                return
-        return
-
-    # File existence is the reliable capture-completion signal.
-    future = getattr(capture_obj, "future", None)
-
     for _ in range(max_updates):
         pump_app(app)
         if cache_path.exists() and cache_path.stat().st_size > 0:
-            return
-        if future is not None and future.done():
-            for _ in range(CAPTURE_DONE_TAIL_UPDATES):
-                pump_app(app)
-                if cache_path.exists() and cache_path.stat().st_size > 0:
-                    return
             return
 
 
@@ -127,8 +112,8 @@ def capture_viewport_png(
     viewport = get_active_viewport()
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     pump_app(app, count=pre_capture_updates)
-    capture_obj = capture_viewport_to_file(viewport, str(cache_path))
-    wait_for_capture(app, capture_obj, cache_path, max_updates=max_updates)
+    capture_viewport_to_file(viewport, str(cache_path))
+    wait_for_capture(app, cache_path, max_updates=max_updates)
     if cache_path.exists() and cache_path.stat().st_size > 0:
         return cache_path.read_bytes()
     return None

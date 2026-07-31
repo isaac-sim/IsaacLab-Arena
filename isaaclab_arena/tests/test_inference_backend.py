@@ -30,6 +30,17 @@ def _request() -> StructuredOutputRequest:
     )
 
 
+def _spec_request() -> StructuredOutputRequest:
+    """Request whose schema has real fields, so a wrapper key stands out from them."""
+    return StructuredOutputRequest(
+        schema_name="TestSchema",
+        schema={"type": "object", "properties": {"env_name": {"type": "string"}, "objects": {"type": "array"}}},
+        system="system",
+        user="user",
+        retry_label="test",
+    )
+
+
 class TestInit:
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         mock_cls, _ = stub_openai
@@ -65,6 +76,20 @@ class TestRunJson:
         client.chat.completions.create.return_value = chat_response(content=raw)
         result = backend.run_json(_request())
         assert "\t" in result["env_name"]
+
+    def test_unwraps_provider_envelope_around_payload(self, stub_openai):
+        _, client = stub_openai
+        backend = inference_backend(stub_openai)
+        spec = {"env_name": "pick_and_place", "objects": []}
+        client.chat.completions.create.return_value = chat_response(content=json.dumps({"input": spec}))
+        assert backend.run_json(_spec_request()) == spec
+
+    def test_keeps_single_field_response_declared_by_the_schema(self, stub_openai):
+        _, client = stub_openai
+        backend = inference_backend(stub_openai)
+        payload = {"env_name": {"unexpected": "shape"}}
+        client.chat.completions.create.return_value = chat_response(content=json.dumps(payload))
+        assert backend.run_json(_spec_request()) == payload
 
     def test_raises_when_response_has_no_choices(self, stub_openai):
         _, client = stub_openai

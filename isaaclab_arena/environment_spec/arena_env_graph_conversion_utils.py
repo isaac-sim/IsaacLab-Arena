@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
@@ -124,6 +125,14 @@ def instantiate_assets_from_spec(
         params = dict(obj.params)
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
+
+    for object_set in graph_spec.object_sets or []:
+        assets_by_node_id[object_set.id] = RigidObjectSet(
+            name=object_set.id,
+            objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
+            random_choice=object_set.random_choice,
+            **object_set.params,
+        )
 
     for ref in graph_spec.object_references or []:
         assert ref.prim_path is not None, "Object reference must have a prim path"
