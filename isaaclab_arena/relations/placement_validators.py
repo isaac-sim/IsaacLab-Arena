@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
+from isaaclab_arena.relations.clutter_groups import is_clutter_member
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
@@ -444,6 +445,11 @@ class NoOverlapValidator(PlacementValidator):
                 if id(a) in anchor_ids and id(b) in anchor_ids:
                     continue
                 if (id(a), id(b)) in on_pairs:
+                    continue
+                # Clutter is positioned by a pour, not by the solver, so the positions seen
+                # here are discarded before reaching the sim. Its real arrangement is checked
+                # once settled, where objects are expected to be in contact.
+                if is_clutter_member(a) or is_clutter_member(b):
                     continue
                 if mesh_manager is not None and (
                     (

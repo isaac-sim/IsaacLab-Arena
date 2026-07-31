@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
+from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+from isaaclab_arena.relations.clutter_pour import plan_clutter_drops
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
@@ -33,6 +35,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_validators import PlacementValidator
+
+
+# Spacing between the seeds of successive clutter pours, so layouts drawn from one placement
+# seed do not reuse each other's random draws.
+_CLUTTER_SEED_STRIDE = 1_000_003
 
 
 @dataclass
@@ -296,10 +303,41 @@ class ObjectPlacer:
             for candidate_slice in ranked_candidate_slices
         ]
 
+        self._plan_clutter_drops_into_results(objects, ranked_results, per_env_bboxes)
+
         if self.params.verbose:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
+
+    def _plan_clutter_drops_into_results(
+        self,
+        objects: list[PlaceableAsset],
+        ranked_results: list[list[PlacementResult]],
+        per_env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+    ) -> None:
+        """Replace clutter members' solved poses with the poses they are released from.
+
+        The solver leaves clutter members wherever it likes, since they carry no spatial
+        relations, so those poses are discarded here in favour of a pour. Each layout gets
+        its own pour, so a pool holds distinct piles rather than one pile repeated.
+        """
+        groups = get_clutter_groups(objects)
+        if not groups:
+            return
+        assert self.params.placement_seed is not None, (
+            "Clutter placement requires placement_seed to be set. Without it a pile cannot be "
+            "reproduced, and reproducibility is the point of seeding a layout at all."
+        )
+
+        generator = torch.Generator()
+        for env_index, env_results in enumerate(ranked_results):
+            for result_index, layout in enumerate(env_results):
+                generator.manual_seed(
+                    self.params.placement_seed + _CLUTTER_SEED_STRIDE * (env_index * len(env_results) + result_index)
+                )
+                # per_env_bboxes already holds one env's boxes, each of shape (1, 3).
+                plan_clutter_drops(layout, groups, per_env_bboxes[env_index], generator, env_index=0)
 
     @staticmethod
     def _rank_candidates(
