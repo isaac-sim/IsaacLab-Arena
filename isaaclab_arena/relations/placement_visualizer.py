@@ -65,6 +65,12 @@ VIEWER_SHUTDOWN_TIMEOUT_S = 10.0
 VIEWER_STARTUP_TIMEOUT_S = 20.0
 """How long spawning waits for the viewer window to start serving before letting placement run on."""
 
+VIEWER_PROBE_TIMEOUT_S = 0.2
+"""How long one connection attempt to the viewer port may take before it counts as unanswered."""
+
+VIEWER_PROBE_INTERVAL_S = 0.1
+"""How long to wait between connection attempts while the viewer window starts."""
+
 _ACTIVE_VISUALIZER: PlacementRerunVisualizer | None = None
 """The process's live view. Placement builds several placers (pool, per-reset solves) that would
 otherwise each reset Rerun's global recording and fight over the same viewer port and ``.rrd``."""
@@ -108,6 +114,11 @@ def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
 
     executable = find_rerun_viewer_executable()
     assert executable is not None, "rerun-sdk ships no viewer binary here; record to an .rrd instead."
+    if _viewer_port_answers():
+        print(
+            f"WARNING: something already serves on port {VIEWER_PORT}; this run's candidate layouts will "
+            "stream into that window rather than a new one."
+        )
     viewer_process = subprocess.Popen([
         "setpriv",
         "--pdeathsig",
@@ -124,6 +135,13 @@ def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
     return viewer_process, rr.GrpcSink(url=f"rerun+http://{VIEWER_HOST}:{VIEWER_PORT}/proxy")
 
 
+def _viewer_port_answers() -> bool:
+    """Whether anything at all is serving on the viewer port -- not necessarily our own viewer."""
+    with socket.socket() as probe:
+        probe.settimeout(VIEWER_PROBE_TIMEOUT_S)
+        return probe.connect_ex((VIEWER_HOST, VIEWER_PORT)) == 0
+
+
 def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
     """Block until the spawned viewer answers on its port, so the first candidates are not lost.
 
@@ -131,14 +149,17 @@ def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
     """
     deadline = time.monotonic() + VIEWER_STARTUP_TIMEOUT_S
     while time.monotonic() < deadline:
+        if _viewer_port_answers():
+            # An answering port is not proof it is ours: a viewer that lost the race for it exits
+            # right after, leaving this run logging into somebody else's window.
+            if viewer_process.poll() is None:
+                return
+            print(f"WARNING: the Rerun viewer exited; layouts will stream to whatever else holds port {VIEWER_PORT}.")
+            return
         if viewer_process.poll() is not None:
             print("WARNING: the Rerun viewer exited while starting; placement will not be visualized.")
             return
-        with socket.socket() as probe:
-            probe.settimeout(0.2)
-            if probe.connect_ex((VIEWER_HOST, VIEWER_PORT)) == 0:
-                return
-        time.sleep(0.1)
+        time.sleep(VIEWER_PROBE_INTERVAL_S)
     print(f"WARNING: the Rerun viewer did not serve within {VIEWER_STARTUP_TIMEOUT_S:.0f}s; layouts may be missing.")
 
 
@@ -272,7 +293,7 @@ class PlacementRerunVisualizer:
 
         Args:
             candidate_index: Timeline index to log against.
-            verdicts_by_check: Per-check verdict for this candidate.
+            verdicts_by_check: Verdict per check that ran on this candidate; one that skipped it is absent.
         """
         import rerun as rr
 
@@ -303,6 +324,12 @@ class PlacementRerunVisualizer:
         if recording is not None:
             recording.flush()
         viewer_process, self._viewer_process = self._viewer_process, None
-        if viewer_process is not None:
-            viewer_process.terminate()
+        if viewer_process is None:
+            return
+        viewer_process.terminate()
+        try:
             viewer_process.wait(timeout=VIEWER_SHUTDOWN_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            # A window wedged past SIGTERM would otherwise keep the port and outlive the run.
+            viewer_process.kill()
+            viewer_process.wait()

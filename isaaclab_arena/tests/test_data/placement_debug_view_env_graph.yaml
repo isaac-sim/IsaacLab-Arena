@@ -1,0 +1,42 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Worked example of turning the placement Rerun debug view on from a graph YAML. Shipped envs leave
+# it off: it spawns a viewer window on every build.
+env_name: llm_gen_maple_table_robolab_PickAndPlaceTask
+embodiment:
+  id: franka_ik
+  registry_name: franka_ik
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+objects:
+- id: rubiks_cube_hot3d_robolab
+  registry_name: rubiks_cube_hot3d_robolab
+- id: bowl_ycb_robolab
+  registry_name: bowl_ycb_robolab
+placement_validators:
+  enabled_checks: [no_overlap, on_relation]
+  required_checks: [no_overlap, on_relation]
+  debug_visualize: true
+  debug_visualize_rrd_path: /tmp/placement_debug_view.rrd
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+- kind: 'on'
+  subject: rubiks_cube_hot3d_robolab
+  reference: maple_table_robolab
+- kind: 'on'
+  subject: bowl_ycb_robolab
+  reference: maple_table_robolab
+task:
+  composition: atomic
+  description: pick up the rubiks cube and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab

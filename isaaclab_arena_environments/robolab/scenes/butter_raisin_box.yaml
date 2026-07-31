@@ -21,7 +21,6 @@ objects:
 placement_validators:
   enabled_checks: [no_overlap, on_relation, ik_reachable]
   required_checks: [no_overlap, on_relation]
-  debug_visualize: true
 relations:
 - kind: is_anchor
   subject: maple_table_robolab

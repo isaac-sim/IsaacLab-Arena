@@ -11,6 +11,8 @@ replaces the viewer window, and no Isaac Sim or GPU is involved.
 
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 
 from isaaclab_arena.relations import placement_visualizer
@@ -91,16 +93,37 @@ def test_placement_shares_one_debug_view_across_placers(tmp_path):
 
 
 class _FakeViewerProcess:
-    """Stands in for the spawned viewer window, so the test needs no display."""
+    """Stands in for the spawned viewer window, so the test needs no display.
 
-    def __init__(self) -> None:
+    Args:
+        wedged: Whether the window ignores SIGTERM, i.e. whether the first wait() times out.
+    """
+
+    def __init__(self, wedged: bool = False) -> None:
         self.terminate_calls = 0
+        self.kill_calls = 0
+        self._wedged = wedged
 
     def terminate(self) -> None:
         self.terminate_calls += 1
 
+    def kill(self) -> None:
+        self.kill_calls += 1
+
     def wait(self, timeout: float | None = None) -> int:
+        if self._wedged and self.kill_calls == 0:
+            raise subprocess.TimeoutExpired(cmd="rerun", timeout=timeout)
         return 0
+
+
+class _RecordingVisualizer:
+    """Captures what the placer draws, so its verdict bookkeeping can be asserted without Rerun."""
+
+    def __init__(self) -> None:
+        self.verdicts_by_candidate: dict[int, dict[str, bool]] = {}
+
+    def log_verdicts(self, candidate_index: int, verdicts_by_check: dict[str, bool]) -> None:
+        self.verdicts_by_candidate[candidate_index] = verdicts_by_check
 
 
 def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch):
@@ -120,6 +143,41 @@ def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch
     visualizer.close()
 
     assert viewer.terminate_calls == 1
+
+
+def test_closing_a_wedged_viewer_falls_back_to_killing_it(tmp_path, monkeypatch):
+    """A window that ignores SIGTERM still has to go, or it outlives the run holding the viewer port."""
+    import rerun as rr
+
+    viewer = _FakeViewerProcess(wedged=True)
+    monkeypatch.setattr(
+        placement_visualizer,
+        "spawn_viewer_process",
+        lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
+    )
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+
+    visualizer.close()
+
+    assert viewer.kill_calls == 1
+
+
+def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it():
+    """Expensive checks only see candidates the cheap ones passed; the rest are unevaluated, not failed."""
+    placer = ObjectPlacer(_placer_params())
+    visualizer = _RecordingVisualizer()
+    placer.params.debug_visualizer = visualizer
+
+    placer._log_candidate_verdicts(
+        candidate_indices=[0, 1],
+        layout_pass_verdicts_by_check={"no_overlap": [True, False], "ik_reachable": [True, False]},
+        evaluated_slots_by_check={"no_overlap": [0, 1], "ik_reachable": [0]},
+    )
+
+    assert visualizer.verdicts_by_candidate == {
+        0: {"no_overlap": True, "ik_reachable": True},
+        1: {"no_overlap": False},
+    }
 
 
 def test_candidate_frames_keep_counting_across_batches(tmp_path):

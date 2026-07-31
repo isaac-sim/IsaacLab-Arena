@@ -598,8 +598,8 @@ class ObjectPlacer:
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
         num_candidates = len(positions)
-        # Per-check count of layouts evaluated by that check
-        num_layouts_evaluated_by_check: dict[str, int] = {}
+        # Per-check candidate indices that check was actually run on; expensive checks skip candidates.
+        evaluated_slots_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
         # Layouts are drawn before the checks run so a check's own layer lands on top of its candidate.
         candidate_indices = self._log_candidate_layouts(positions, orientations, bboxes)
@@ -610,7 +610,7 @@ class ObjectPlacer:
             bboxes,
             collision_objects,
             layout_pass_verdicts_by_check,
-            num_layouts_evaluated_by_check,
+            evaluated_slots_by_check,
             candidate_indices,
         )
         self._run_expensive_checks(
@@ -620,13 +620,13 @@ class ObjectPlacer:
             collision_objects,
             required,
             layout_pass_verdicts_by_check,
-            num_layouts_evaluated_by_check,
+            evaluated_slots_by_check,
             candidate_indices,
         )
-        self._log_candidate_verdicts(candidate_indices, layout_pass_verdicts_by_check)
+        self._log_candidate_verdicts(candidate_indices, layout_pass_verdicts_by_check, evaluated_slots_by_check)
         if layout_pass_verdicts_by_check:
             summary = ", ".join(
-                f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
+                f"{check}={sum(verdicts)}/{len(evaluated_slots_by_check[check])}"
                 for check, verdicts in layout_pass_verdicts_by_check.items()
             )
             print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
@@ -647,10 +647,10 @@ class ObjectPlacer:
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
-        num_layouts_evaluated_by_check: dict[str, int],
-        candidate_indices: list[int] | None = None,
+        evaluated_slots_by_check: dict[str, list[int]],
+        candidate_indices: list[int] | None,
     ) -> None:
-        """Run every inexpensive validator on all candidates, recording verdicts and evaluated counts."""
+        """Run every inexpensive validator on all candidates, recording verdicts and evaluated slots."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
@@ -659,7 +659,7 @@ class ObjectPlacer:
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
-                num_layouts_evaluated_by_check[validator.check] = num_candidates
+                evaluated_slots_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
         self,
@@ -669,8 +669,8 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
-        num_layouts_evaluated_by_check: dict[str, int],
-        candidate_indices: list[int] | None = None,
+        evaluated_slots_by_check: dict[str, list[int]],
+        candidate_indices: list[int] | None,
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(positions)
@@ -681,9 +681,9 @@ class ObjectPlacer:
                     for i in range(num_candidates)
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
-                if self.params.debug_visualizer is not None:
+                if self.params.debug_visualizer is not None and candidate_indices is not None:
                     self.params.debug_visualizer.set_active_candidates(
-                        [(candidate_indices or [])[i] for i in passed_layout_indices]
+                        [candidate_indices[i] for i in passed_layout_indices]
                     )
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
@@ -696,7 +696,7 @@ class ObjectPlacer:
                 for sub_idx, cand_idx in enumerate(passed_layout_indices):
                     verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
                 layout_pass_verdicts_by_check[validator.check] = verdicts
-                num_layouts_evaluated_by_check[validator.check] = len(passed_layout_indices)
+                evaluated_slots_by_check[validator.check] = passed_layout_indices
 
     def _log_candidate_layouts(
         self,
@@ -721,14 +721,25 @@ class ObjectPlacer:
         self,
         candidate_indices: list[int] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
+        evaluated_slots_by_check: dict[str, list[int]],
     ) -> None:
-        """Annotate each drawn candidate with the checks that accepted or rejected it."""
+        """Annotate each drawn candidate with the checks that accepted or rejected it.
+
+        A check that skipped a candidate is left off it, so the view never shows an expensive check
+        rejecting a layout it was never run on.
+        """
         visualizer = self.params.debug_visualizer
         if visualizer is None or candidate_indices is None:
             return
+        evaluated_slots = {check: set(slots) for check, slots in evaluated_slots_by_check.items()}
         for slot, candidate_index in enumerate(candidate_indices):
             visualizer.log_verdicts(
-                candidate_index, {check: verdicts[slot] for check, verdicts in layout_pass_verdicts_by_check.items()}
+                candidate_index,
+                {
+                    check: verdicts[slot]
+                    for check, verdicts in layout_pass_verdicts_by_check.items()
+                    if slot in evaluated_slots[check]
+                },
             )
 
     @staticmethod
