@@ -152,6 +152,9 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     assert env_cfg.sim.dt == 1.0 / 120.0
     assert env_cfg.decimation == 4
     assert env_cfg.episode_length_s == 6.66
+    assert env_cfg.terminations.time_out is None
+    assert env_cfg.terminations.gear_dropped is None
+    assert env_cfg.terminations.gear_orientation_exceeded is None
     return True
 
 

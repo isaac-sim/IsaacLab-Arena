@@ -158,6 +158,12 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
             env_cfg.events.randomize_gears_and_base_pose.params["selected_orientation_xyzw"] = (
                 GEAR_TABLETOP_ORIENTATION_XYZW
             )
+            if cfg.mode == "play":
+                # Policy evaluation starts the selected gear on the table so Newton can settle the scene.
+                # These source task terminations assume the selected gear is held by the gripper.
+                env_cfg.terminations.gear_dropped = None
+                env_cfg.terminations.gear_orientation_exceeded = None
+                env_cfg.terminations.time_out = None
         return env_cfg
 
     return gear_assembly_env_cfg_callback
