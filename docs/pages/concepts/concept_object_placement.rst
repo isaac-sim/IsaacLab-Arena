@@ -239,6 +239,57 @@ Parameters:
 For backward compatibility, ``PositionLimits`` and YAML kind ``position_limits``
 remain aliases for ``PositionLimitsBox``.
 
+**ClutteredOn**
+
+Places a group of objects as a settled pile on a support surface. Unlike the relations
+above, members are not positioned by the solver: they are released above the support and
+allowed to fall, and where they come to rest is the placement.
+
+.. code-block:: python
+
+   table.add_relation(IsAnchor())
+   for tool in tools:
+       tool.add_relation(ClutteredOn(table, group="tools"))
+
+The equivalent YAML:
+
+.. code-block:: yaml
+
+   relations:
+     - kind: cluttered_on
+       subject: mug
+       reference: table
+       params:
+         group: tools
+         spread: 0.8
+
+Objects sharing a ``reference`` and a ``group`` form one pile. A support may hold several
+groups, and each is poured separately.
+
+Parameters:
+
+- ``group`` (default ``"clutter"``) — ties members of one pile together
+- ``spread`` (default ``1.0``) — fraction of the support footprint to use, shrunk about
+  its centre; must be in ``(0, 1]``
+- ``gap_m`` (default ``0.03``) — vertical gap left between stacked release poses
+- ``clearance_m`` (default ``0.01``) — height above the surface at which the lowest
+  layer starts
+- ``random_yaw`` (default ``True``) — sample a yaw per object before dropping
+
+Because a pile is produced by simulation rather than optimisation, it differs from the
+other relations in ways worth knowing:
+
+- **The support must be collidable.** Objects fall through a background asset that has no
+  rigid-body properties, and the pile ends up on the ground.
+- **The support must have a readable USD.** The drop region is derived from its bounding
+  box, so a procedurally spawned support without geometry cannot be used.
+- **A placement seed is required.** Clutter refuses to pour without one, since a pile that
+  cannot be reproduced defeats the purpose of seeding a layout.
+- **Members are excluded from overlap checking against each other.** A settled pile has
+  objects in contact by definition. They are still checked against everything else.
+- **Members do not participate in the solver.** They carry no loss term, so a clutter
+  group neither constrains nor is constrained by the optimised layout beyond its support.
+
 Anchors
 ~~~~~~~
 
