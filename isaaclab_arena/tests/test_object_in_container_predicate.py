@@ -7,7 +7,7 @@ import copy
 import math
 import torch
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _test_object_in_container_predicate(_simulation_app) -> bool:
@@ -357,4 +357,4 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
 
 
 def test_object_in_container_predicate():
-    assert run_simulation_app_function(_test_object_in_container_predicate)
+    assert run_function_with_persistent_simulation_app(_test_object_in_container_predicate)
