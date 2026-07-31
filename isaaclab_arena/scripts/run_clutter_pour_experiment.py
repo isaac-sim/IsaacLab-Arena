@@ -115,6 +115,13 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--video_fps", type=int, default=30, help="Frame rate of the written mp4.")
     parser.add_argument(
+        "--replicate_physics",
+        type=str,
+        default="true",
+        choices=("true", "false"),
+        help="Value of scene.replicate_physics when overriding the Newton solver budget.",
+    )
+    parser.add_argument(
         "--njmax",
         type=int,
         default=None,
@@ -159,7 +166,7 @@ def _apply_callbacks(env_cfg, callbacks):
     return env_cfg
 
 
-def _tune_newton_solver(env_cfg, njmax: int | None, nconmax: int | None):
+def _tune_newton_solver(env_cfg, njmax: int | None, nconmax: int | None, replicate_physics: bool):
     """Install the Newton preset with enlarged constraint/contact budgets.
 
     The stock ``newton`` preset is sized for dexterous manipulation (a hand plus a
@@ -174,8 +181,14 @@ def _tune_newton_solver(env_cfg, njmax: int | None, nconmax: int | None):
         physics.solver_cfg.njmax = njmax
     if nconmax is not None:
         physics.solver_cfg.nconmax = nconmax
-    print(f"newton solver budget: njmax={physics.solver_cfg.njmax} nconmax={physics.solver_cfg.nconmax}")
     env_cfg.sim.physics = physics
+    # This path runs with presets=None, which skips the builder block that would otherwise
+    # set replicate_physics for Newton. Reproduce it here so the budget is the only variable.
+    env_cfg.scene.replicate_physics = replicate_physics
+    print(
+        f"newton solver budget: njmax={physics.solver_cfg.njmax} nconmax={physics.solver_cfg.nconmax} "
+        f"replicate_physics={replicate_physics}"
+    )
     return env_cfg
 
 
@@ -229,7 +242,14 @@ def _build_environment(args_cli):
         )
         callbacks.append(functools.partial(_add_video_camera, region_half_x=half_x, region_half_y=half_y))
     if _solver_budget_overridden(args_cli):
-        callbacks.append(functools.partial(_tune_newton_solver, njmax=args_cli.njmax, nconmax=args_cli.nconmax))
+        callbacks.append(
+            functools.partial(
+                _tune_newton_solver,
+                njmax=args_cli.njmax,
+                nconmax=args_cli.nconmax,
+                replicate_physics=args_cli.replicate_physics != "false",
+            )
+        )
     env_cfg_callback = functools.partial(_apply_callbacks, callbacks=callbacks) if callbacks else None
 
     arena_env = IsaacLabArenaEnvironment(
