@@ -28,42 +28,38 @@ EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 def load_experiment_runner_result(
     experiment_runner_output_directory: Path,
     run_name: str,
-) -> tuple[RunStatus, int] | None:
-    """Load a valid Experiment Runner result, or skip an unavailable result.
+) -> tuple[RunStatus, int]:
+    """Load and validate an Experiment Runner result.
 
     Args:
         experiment_runner_output_directory: Root of one Experiment Runner task output.
-        run_name: Run associated with the task output, used in warning messages.
+        run_name: Run associated with the task output, used in validation messages.
 
     Returns:
-        Execution status and process exit code, or None when the result cannot be trusted.
+        Execution status and process exit code.
     """
     experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
-    try:
-        experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        print(f"[WARNING] Skipping Run '{run_name}': cannot load '{experiment_runner_result_path}': {error}")
-        return None
+    experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
+    assert isinstance(
+        experiment_runner_result, dict
+    ), f"Experiment Runner result for Run '{run_name}' must contain a JSON object: '{experiment_runner_result_path}'"
 
-    if not isinstance(experiment_runner_result, dict):
-        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' must contain a JSON object")
-        return None
-
-    try:
-        execution_status = RunStatus(experiment_runner_result.get("execution_status"))
-    except (TypeError, ValueError):
-        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid execution_status")
-        return None
+    execution_status_value = experiment_runner_result.get("execution_status")
+    valid_execution_status_values = (RunStatus.COMPLETED.value, RunStatus.FAILED.value)
+    assert isinstance(execution_status_value, str) and execution_status_value in valid_execution_status_values, (
+        f"Experiment Runner result for Run '{run_name}' has an invalid execution_status: "
+        f"'{experiment_runner_result_path}'"
+    )
+    execution_status = RunStatus(execution_status_value)
 
     process_exit_code = experiment_runner_result.get("process_exit_code")
-    if type(process_exit_code) is not int:
-        print(
-            f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' has an invalid process_exit_code"
-        )
-        return None
-    if (execution_status is RunStatus.COMPLETED) != (process_exit_code == 0):
-        print(f"[WARNING] Skipping Run '{run_name}': '{experiment_runner_result_path}' contains an inconsistent result")
-        return None
+    assert type(process_exit_code) is int, (
+        f"Experiment Runner result for Run '{run_name}' has an invalid process_exit_code:"
+        f" '{experiment_runner_result_path}'"
+    )
+    assert (execution_status is RunStatus.COMPLETED) == (
+        process_exit_code == 0
+    ), f"Experiment Runner result for Run '{run_name}' is inconsistent: '{experiment_runner_result_path}'"
     return execution_status, process_exit_code
 
 
@@ -110,11 +106,10 @@ def collect_run_outputs_into_experiment_output(
     """
     assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
-        experiment_runner_result = load_experiment_runner_result(experiment_runner_output_directory, run_name)
-        if experiment_runner_result is None:
-            continue
-
-        execution_status, process_exit_code = experiment_runner_result
+        execution_status, process_exit_code = load_experiment_runner_result(
+            experiment_runner_output_directory,
+            run_name,
+        )
         destination_run_output_directory = experiment_output_directory / run_name
         experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
         if execution_status is RunStatus.FAILED:
@@ -127,12 +122,9 @@ def collect_run_outputs_into_experiment_output(
             continue
 
         source_run_output_directory = experiment_runner_output_directory / run_name
-        if not source_run_output_directory.is_dir():
-            print(
-                f"[WARNING] Skipping completed Run '{run_name}': expected output directory does not exist: "
-                f"'{source_run_output_directory}'"
-            )
-            continue
+        assert (
+            source_run_output_directory.is_dir()
+        ), f"Completed Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
         shutil.copytree(
             source_run_output_directory,
             destination_run_output_directory,

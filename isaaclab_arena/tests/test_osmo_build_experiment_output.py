@@ -8,6 +8,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
@@ -34,12 +36,12 @@ def _write_run_output(run_output_directory: Path, run_name: str, success: bool) 
 
 def _write_experiment_runner_result(
     experiment_runner_output_directory: Path,
-    execution_status: object,
+    execution_status: RunStatus,
     process_exit_code: int,
 ) -> None:
     experiment_runner_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME).write_text(
-        json.dumps({"execution_status": execution_status, "process_exit_code": process_exit_code}) + "\n",
+        json.dumps({"execution_status": execution_status.value, "process_exit_code": process_exit_code}) + "\n",
         encoding="utf-8",
     )
 
@@ -61,32 +63,37 @@ def test_loads_experiment_runner_output_directories_as_paths(tmp_path):
 
 def test_loads_experiment_runner_result_as_run_status(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-output"
-    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED.value, 0)
+    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 0)
 
     experiment_runner_result = load_experiment_runner_result(experiment_runner_output_directory, "first")
 
     assert experiment_runner_result == (RunStatus.COMPLETED, 0)
 
 
-def test_skips_completed_experiment_runner_output_without_the_requested_run(tmp_path, capsys):
+def test_rejects_inconsistent_experiment_runner_result(tmp_path):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 1)
+
+    with pytest.raises(AssertionError, match="Experiment Runner result for Run 'first' is inconsistent"):
+        load_experiment_runner_result(experiment_runner_output_directory, "first")
+
+
+def test_rejects_completed_experiment_runner_output_without_the_requested_run(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     (experiment_runner_output_directory / "another-run").mkdir(parents=True)
-    _write_experiment_runner_result(experiment_runner_output_directory, "completed", 0)
-    experiment_output_directory = tmp_path / "experiment-output"
+    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 0)
 
-    collect_run_outputs_into_experiment_output(
-        {"first": experiment_runner_output_directory},
-        experiment_output_directory,
-    )
-
-    assert not (experiment_output_directory / "first").exists()
-    assert "Skipping completed Run 'first'" in capsys.readouterr().out
+    with pytest.raises(AssertionError, match="Completed Run 'first' is missing its expected output directory"):
+        collect_run_outputs_into_experiment_output(
+            {"first": experiment_runner_output_directory},
+            tmp_path / "experiment-output",
+        )
 
 
 def test_collects_run_outputs_without_building_report(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     _write_run_output(experiment_runner_output_directory / "first", "first", True)
-    _write_experiment_runner_result(experiment_runner_output_directory, "completed", 0)
+    _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 0)
     experiment_output_directory = tmp_path / "experiment-output"
 
     collect_run_outputs_into_experiment_output(
@@ -106,8 +113,8 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     second_run_output_directory = second_experiment_runner_output_directory / "second"
     _write_run_output(first_run_output_directory, "first", True)
     _write_run_output(second_run_output_directory, "second", False)
-    _write_experiment_runner_result(first_experiment_runner_output_directory, "completed", 0)
-    _write_experiment_runner_result(second_experiment_runner_output_directory, "completed", 0)
+    _write_experiment_runner_result(first_experiment_runner_output_directory, RunStatus.COMPLETED, 0)
+    _write_experiment_runner_result(second_experiment_runner_output_directory, RunStatus.COMPLETED, 0)
     experiment_output_directory = tmp_path / "experiment-output"
 
     report_path = build_experiment_output(
@@ -132,8 +139,8 @@ def test_excludes_failed_runner_artifacts_from_the_report(tmp_path):
     failed_runner_output_directory = tmp_path / "failed-runner-output"
     _write_run_output(completed_runner_output_directory / "completed-run", "completed-run", True)
     _write_run_output(failed_runner_output_directory / "failed-run", "failed-run", False)
-    _write_experiment_runner_result(completed_runner_output_directory, "completed", 0)
-    _write_experiment_runner_result(failed_runner_output_directory, "failed", 17)
+    _write_experiment_runner_result(completed_runner_output_directory, RunStatus.COMPLETED, 0)
+    _write_experiment_runner_result(failed_runner_output_directory, RunStatus.FAILED, 17)
     experiment_output_directory = tmp_path / "experiment-output"
 
     report_path = build_experiment_output(
@@ -148,7 +155,7 @@ def test_excludes_failed_runner_artifacts_from_the_report(tmp_path):
     assert not (experiment_output_directory / "failed-run/episode_results_rebuild0.jsonl").exists()
     failed_result_path = experiment_output_directory / "failed-run" / EXPERIMENT_RUNNER_RESULT_FILE_NAME
     assert json.loads(failed_result_path.read_text(encoding="utf-8")) == {
-        "execution_status": "failed",
+        "execution_status": RunStatus.FAILED.value,
         "process_exit_code": 17,
     }
     report_contents = report_path.read_text(encoding="utf-8")
@@ -160,8 +167,8 @@ def test_excludes_failed_runner_artifacts_from_the_report(tmp_path):
 def test_builds_empty_report_when_every_runner_failed(tmp_path):
     first_runner_output_directory = tmp_path / "first-runner-output"
     second_runner_output_directory = tmp_path / "second-runner-output"
-    _write_experiment_runner_result(first_runner_output_directory, "failed", 1)
-    _write_experiment_runner_result(second_runner_output_directory, "failed", 2)
+    _write_experiment_runner_result(first_runner_output_directory, RunStatus.FAILED, 1)
+    _write_experiment_runner_result(second_runner_output_directory, RunStatus.FAILED, 2)
     experiment_output_directory = tmp_path / "experiment-output"
 
     report_path = build_experiment_output(
@@ -177,50 +184,3 @@ def test_builds_empty_report_when_every_runner_failed(tmp_path):
     report_contents = report_path.read_text(encoding="utf-8")
     assert "No results recorded yet." in report_contents
     assert "0 job(s)" in report_contents
-
-
-def test_skips_untrustworthy_results_without_losing_completed_runs(tmp_path, capsys):
-    completed_runner_output_directory = tmp_path / "completed-runner-output"
-    missing_result_output_directory = tmp_path / "missing-result-output"
-    malformed_result_output_directory = tmp_path / "malformed-result-output"
-    non_string_status_output_directory = tmp_path / "non-string-status-output"
-    invalid_encoding_output_directory = tmp_path / "invalid-encoding-output"
-    inconsistent_result_output_directory = tmp_path / "inconsistent-result-output"
-    _write_run_output(completed_runner_output_directory / "completed-run", "completed-run", True)
-    _write_experiment_runner_result(completed_runner_output_directory, "completed", 0)
-    missing_result_output_directory.mkdir()
-    malformed_result_output_directory.mkdir()
-    (malformed_result_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME).write_text(
-        "not-json",
-        encoding="utf-8",
-    )
-    _write_experiment_runner_result(non_string_status_output_directory, [], 1)
-    invalid_encoding_output_directory.mkdir()
-    (invalid_encoding_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME).write_bytes(b"\xff")
-    _write_experiment_runner_result(inconsistent_result_output_directory, "completed", 1)
-    experiment_output_directory = tmp_path / "experiment-output"
-
-    build_experiment_output(
-        {
-            "completed-run": completed_runner_output_directory,
-            "missing-result": missing_result_output_directory,
-            "malformed-result": malformed_result_output_directory,
-            "non-string-status": non_string_status_output_directory,
-            "invalid-encoding": invalid_encoding_output_directory,
-            "inconsistent-result": inconsistent_result_output_directory,
-        },
-        experiment_output_directory,
-    )
-
-    assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
-    assert not (experiment_output_directory / "missing-result").exists()
-    assert not (experiment_output_directory / "malformed-result").exists()
-    assert not (experiment_output_directory / "non-string-status").exists()
-    assert not (experiment_output_directory / "invalid-encoding").exists()
-    assert not (experiment_output_directory / "inconsistent-result").exists()
-    warnings = capsys.readouterr().out
-    assert "Skipping Run 'missing-result'" in warnings
-    assert "Skipping Run 'malformed-result'" in warnings
-    assert "Skipping Run 'non-string-status'" in warnings
-    assert "Skipping Run 'invalid-encoding'" in warnings
-    assert "Skipping Run 'inconsistent-result'" in warnings
