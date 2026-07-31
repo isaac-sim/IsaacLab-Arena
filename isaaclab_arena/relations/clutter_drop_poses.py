@@ -108,6 +108,20 @@ class ClutterDropParams:
 
 
 @dataclass(frozen=True)
+class OccupiedFootprint:
+    """Something already standing in the region that clutter must not be dropped into."""
+
+    centre: tuple[float, float]
+    """XY centre of the footprint, in the region's frame."""
+
+    half_extents: tuple[float, float]
+    """Half-width and half-depth of the footprint."""
+
+    top_z: float
+    """Height of its highest point, which clutter above it must clear."""
+
+
+@dataclass(frozen=True)
 class DropPose:
     """A pre-settle pose for one object."""
 
@@ -282,6 +296,7 @@ def compute_drop_poses(
     region: ClutterRegion,
     params: ClutterDropParams | None = None,
     generator: torch.Generator | None = None,
+    occupied: list[OccupiedFootprint] | None = None,
 ) -> list[DropPose]:
     """Compute pre-settle drop poses for one pile.
 
@@ -294,6 +309,8 @@ def compute_drop_poses(
         region: Where objects may land, in the frame the returned poses use.
         params: Tuning; defaults to :class:`ClutterDropParams`.
         generator: Seeded RNG for reproducible layouts.
+        occupied: Footprints already standing in the region, such as objects the solver placed
+            on the same surface. Clutter is released above them rather than inside them.
 
     Returns:
         One :class:`DropPose` per input object, in input order.
@@ -312,7 +329,10 @@ def compute_drop_poses(
     )
 
     poses: list[DropPose | None] = [None] * len(bounding_boxes)
-    placed: list[tuple[tuple[float, float], tuple[float, float], float]] = []
+    # Seed the ladder with what is already standing here, so the first drop clears it too.
+    placed: list[tuple[tuple[float, float], tuple[float, float], float]] = [
+        (item.centre, item.half_extents, item.top_z) for item in (occupied or [])
+    ]
 
     for drop_index, (object_index, centre) in enumerate(zip(order, centres)):
         rotation, rotated, footprint = _sample_orientation_that_fits(
