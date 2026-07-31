@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.scripts import environment_runner
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _interactive_runner_args(**overrides) -> argparse.Namespace:
@@ -146,7 +146,9 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
 
 
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    result = run_simulation_app_function(_test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True)
+    result = run_function_with_persistent_simulation_app(
+        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
+    )
     assert result
 
 
