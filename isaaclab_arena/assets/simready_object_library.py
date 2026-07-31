@@ -22,7 +22,7 @@ ISAAC_SIMREADY_GA_S3_URL = (
 )
 
 DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
-"""Hosted SimReady search, used as a fallback when the bucket has no hit."""
+"""Hosted SimReady search, used when the ``service`` source is selected."""
 
 # SimReady GA props author collision/rigid APIs under the Physics=physics variant.
 # Without this selection, Usd.Stage.Open sees geometry but no RigidBodyAPI, and
