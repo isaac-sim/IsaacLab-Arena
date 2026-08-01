@@ -5,10 +5,11 @@
 
 """Unit tests for CameraObsVideoRecorder.
 
-No Isaac Sim or GPU required. The moviepy encoder is mocked so tests run
-fast and on CPU-only machines.
+No Isaac Sim or GPU required. The moviepy encoder is replaced by a stand-in that encodes
+nothing and only counts the frames it is handed, so tests run fast and on CPU-only machines.
 """
 
+import contextlib
 import gymnasium as gym
 import os
 import shutil
@@ -72,6 +73,46 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
     env._step_return = (obs, None, terminated, truncated, None)
 
 
+class _FakeVideoWriter:
+    """Stand-in for moviepy's FFMPEG_VideoWriter that counts frames and touches its file.
+
+    Creating the file mirrors ffmpeg, so tests can assert that a partial episode's file is
+    removed rather than left behind.
+    """
+
+    def __init__(self, filename, size, fps, **kwargs):
+        self.filename = filename
+        self.size = size
+        self.fps = fps
+        self.frames_written = 0
+        self.closed = False
+        with open(filename, "wb"):
+            pass
+
+    def write_frame(self, frame):
+        self.frames_written += 1
+
+    def close(self):
+        self.closed = True
+
+
+@contextlib.contextmanager
+def _patched_writers():
+    """Replace the encoder with ``_FakeVideoWriter`` and yield the instances created."""
+    instances: list[_FakeVideoWriter] = []
+
+    def factory(*args, **kwargs):
+        writer = _FakeVideoWriter(*args, **kwargs)
+        instances.append(writer)
+        return writer
+
+    with patch(
+        "isaaclab_arena.video.camera_observation_video_recorder.FFMPEG_VideoWriter",
+        side_effect=factory,
+    ):
+        yield instances
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -80,25 +121,40 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
 def test_video_files_written_on_termination(tmp_path):
     """A file per camera is written when an env terminates."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
-        recorder.step(None)  # accumulate one frame
+        recorder.step(None)  # stream one frame
 
         _configure_step(env, done_envs=[0])
-        recorder.step(None)  # env 0 terminates → flush
+        recorder.step(None)  # env 0 terminates → finalise
 
-        written_paths = [c.args[0] for c in mock_clip_cls.return_value.write_videofile.call_args_list]
-        assert len(written_paths) == len(CAMERAS)
+        finalised = [writer.filename for writer in writers if writer.closed]
+        assert len(finalised) == len(CAMERAS)
         for cam in CAMERAS:
-            assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-0.mp4") in written_paths
+            assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-0.mp4") in finalised
+
+
+def test_frames_are_streamed_not_buffered(tmp_path):
+    """Every frame reaches the encoder as it arrives, and no frame list is retained."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+        for _ in range(3):
+            _configure_step(env)
+            recorder.step(None)
+
+        # One open encoder per (env, camera), each already handed all three frames.
+        assert len(writers) == len(CAMERAS) * 2
+        assert all(writer.frames_written == 3 for writer in writers)
 
 
 def test_episode_counter_increments_per_env(tmp_path):
     """Each env tracks its own episode count independently via the env's centralized index."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
+    with _patched_writers():
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -123,10 +179,8 @@ def test_episode_counter_increments_per_env(tmp_path):
 def test_multiple_episodes_produce_sequential_filenames(tmp_path):
     """Consecutive episodes for an env are named episode-0, episode-1, ..."""
     env = _make_env()
-    written_paths = []
 
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
-        mock_clip_cls.return_value.write_videofile.side_effect = lambda path, **_: written_paths.append(path)
+    with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         for _ in range(3):
@@ -135,60 +189,70 @@ def test_multiple_episodes_produce_sequential_filenames(tmp_path):
             _configure_step(env, done_envs=[0], n_envs=1)
             recorder.step(None)
 
+    written_paths = [writer.filename for writer in writers]
     for episode in range(3):
         for cam in CAMERAS:
             assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-{episode}.mp4") in written_paths
 
 
 def test_partial_episode_dropped_on_close(tmp_path):
-    """Frames accumulated without termination are silently discarded on close()."""
+    """Frames streamed without a termination leave no file behind on close()."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
-        recorder.step(None)  # accumulate frames, no termination
+        recorder.step(None)  # stream frames, no termination
 
         recorder.close()
 
-        mock_clip_cls.return_value.write_videofile.assert_not_called()
+        # Every encoder was shut down and its incomplete file removed.
+        assert writers and all(writer.closed for writer in writers)
+        assert list(tmp_path.iterdir()) == []
 
 
 def test_no_video_written_for_empty_episode(tmp_path):
-    """An env terminating with no buffered frames writes no video; its episode index still advances."""
+    """An env terminating with no recorded frames writes no video; its episode index still advances."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
+    with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         # Terminate on the very first step — no prior frames were recorded.
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
-        # No video for the empty episode, but the env's centralized index still advanced past it
-        # (so a later episode's video number stays in lockstep with the per-episode results record).
-        mock_clip_cls.return_value.write_videofile.assert_not_called()
+        # No encoder was ever opened for the empty episode, but the env's centralized index still
+        # advanced past it (so a later episode's video number stays in lockstep with the
+        # per-episode results record).
+        assert not any(writer.filename.endswith("env0-front-episode-0.mp4") for writer in writers)
         assert env.get_episode_index(0) == 1
 
 
-def test_post_reset_frame_not_appended(tmp_path):
-    """The obs on a terminal step (post-reset) is not buffered for the next episode."""
+def test_post_reset_frame_not_recorded(tmp_path):
+    """The obs on a terminal step (post-reset) is not recorded into either episode."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
+    with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
-        recorder.step(None)  # 1 frame buffered for both envs
+        recorder.step(None)  # 1 frame recorded for both envs
 
         _configure_step(env, done_envs=[0])
         recorder.step(None)  # env 0 terminates; post-reset frame discarded
 
-        # env 0's buffer is empty (flushed and post-reset frame discarded)
+        writer_by_filename = {writer.filename: writer for writer in writers}
         for cam in CAMERAS:
-            assert recorder.buffers[cam][0] == []
+            # env 0's episode 0 closed holding only the single pre-termination frame, and no
+            # encoder was opened for its next episode.
+            env0_episode0 = writer_by_filename[os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-0.mp4")]
+            assert env0_episode0.frames_written == 1
+            assert env0_episode0.closed
+            assert os.path.join(str(tmp_path), f"robot-cam-env0-{cam}-episode-1.mp4") not in writer_by_filename
 
-        # env 1 accumulated 2 frames (neither step was terminal for it)
-        for cam in CAMERAS:
-            assert len(recorder.buffers[cam][1]) == 2
+            # env 1 recorded 2 frames (neither step was terminal for it) and is still open.
+            env1_episode0 = writer_by_filename[os.path.join(str(tmp_path), f"robot-cam-env1-{cam}-episode-0.mp4")]
+            assert env1_episode0.frames_written == 2
+            assert not env1_episode0.closed
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not available")
