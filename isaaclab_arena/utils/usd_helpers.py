@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import numpy as np
 import trimesh
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
@@ -297,6 +297,7 @@ def compute_local_bounding_box_from_prim(
 def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    excluded_prim_paths: Sequence[str] = (),
 ) -> trimesh.Trimesh:
     """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
 
@@ -307,6 +308,7 @@ def extract_trimesh_from_usd(
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
         scale: (sx, sy, sz) per-axis scale factors applied in local frame.
+        excluded_prim_paths: Absolute USD prim paths whose complete subtrees are omitted.
 
     Returns:
         Combined trimesh with per-prim world transforms baked in.
@@ -314,6 +316,10 @@ def extract_trimesh_from_usd(
     assert all(
         s > 0 for s in scale
     ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
+    excluded_paths = tuple(path.rstrip("/") for path in excluded_prim_paths)
+    assert all(
+        path.startswith("/") for path in excluded_paths
+    ), f"excluded_prim_paths must be absolute USD paths, got {excluded_paths}"
 
     stage = Usd.Stage.Open(usd_path)
     if stage is None:
@@ -322,13 +328,20 @@ def extract_trimesh_from_usd(
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
     skipped_gprims: list[str] = []
+    excluded_mesh_count = 0
+    included_mesh_count = 0
     offset = 0
 
     for prim in stage.Traverse():
+        prim_path = str(prim.GetPath())
+        if any(prim_path == path or prim_path.startswith(f"{path}/") for path in excluded_paths):
+            excluded_mesh_count += int(prim.IsA(UsdGeom.Mesh))
+            continue
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
             continue
+        included_mesh_count += 1
         mesh_prim = UsdGeom.Mesh(prim)
         points = mesh_prim.GetPointsAttr().Get()
         face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
@@ -366,6 +379,8 @@ def extract_trimesh_from_usd(
         raise UnsupportedCollisionGeometryError(
             f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
         )
+    if excluded_mesh_count and not included_mesh_count:
+        raise NoCollisionMeshError(f"All mesh geometry excluded from {usd_path}")
     raise NoCollisionMeshError(f"No mesh geometry found in {usd_path}")
 
 
