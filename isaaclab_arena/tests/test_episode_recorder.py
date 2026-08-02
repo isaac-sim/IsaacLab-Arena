@@ -368,7 +368,7 @@ def test_custom_term(tmp_path):
 
 
 def test_post_reset_recorder_hook():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_post_reset_recorder_hook, headless=HEADLESS
     ), "post-reset recorder hook test failed"
 

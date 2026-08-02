@@ -105,6 +105,7 @@ def _test_relative_reference_uses_parent_runtime_prim_path(simulation_app):
                 params={},
             )
         ],
+        object_sets=[],
         object_references=[
             SimpleNamespace(
                 id="tabletop",
@@ -149,9 +150,9 @@ def _test_relative_reference_uses_parent_runtime_prim_path(simulation_app):
 def test_relative_reference_uses_parent_runtime_prim_path():
     pytest.importorskip("isaaclab.app")
 
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_simulation_app_function(_test_relative_reference_uses_parent_runtime_prim_path)
+    result = run_function_with_persistent_simulation_app(_test_relative_reference_uses_parent_runtime_prim_path)
     assert result
 
 

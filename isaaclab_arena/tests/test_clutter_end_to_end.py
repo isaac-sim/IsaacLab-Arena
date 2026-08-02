@@ -11,7 +11,7 @@ poses survive as spawn poses, and that the pile comes to rest on its support.
 
 from __future__ import annotations
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 SUPPORT_ASSET = "office_table_background"
 CLUTTER_ASSETS = ["tomato_soup_can", "cracker_box", "sugar_box", "mustard_bottle", "dex_cube", "mug"]
@@ -163,12 +163,12 @@ def _test_same_seed_reproduces_the_pile(simulation_app) -> bool:
 
 
 def test_clutter_settles_on_its_support():
-    assert run_simulation_app_function(_test_clutter_settles_on_its_support)
+    assert run_function_with_persistent_simulation_app(_test_clutter_settles_on_its_support)
 
 
 def test_pile_is_already_settled_at_reset():
-    assert run_simulation_app_function(_test_pile_is_already_settled_at_reset)
+    assert run_function_with_persistent_simulation_app(_test_pile_is_already_settled_at_reset)
 
 
 def test_same_seed_reproduces_the_pile():
-    assert run_simulation_app_function(_test_same_seed_reproduces_the_pile)
+    assert run_function_with_persistent_simulation_app(_test_same_seed_reproduces_the_pile)
