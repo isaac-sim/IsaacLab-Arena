@@ -158,7 +158,7 @@ def test_builder_configuration_rejects_invalid_placement_clearance(value):
 
 
 # ArenaEnvBuilder transitively imports pxr. Run this assertion only after
-# run_simulation_app_function has initialized Kit, regardless of pytest's test order.
+# run_function_with_persistent_simulation_app has initialized Kit, regardless of pytest's test order.
 def _test_compose_manager_cfg_preserves_runtime_builder_values(_simulation_app):
     """Expose effective builder inputs on the runtime configuration."""
     from types import SimpleNamespace
@@ -196,9 +196,9 @@ def _test_compose_manager_cfg_preserves_runtime_builder_values(_simulation_app):
 
 
 def test_compose_manager_cfg_preserves_runtime_builder_values():
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_compose_manager_cfg_preserves_runtime_builder_values,
         headless=True,
     ), "runtime builder value composition test failed"

@@ -101,6 +101,6 @@ def _test_external_policy_termination_contract(_simulation_app):
 
 
 def test_external_policy_termination_contract():
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    assert run_simulation_app_function(_test_external_policy_termination_contract, headless=True)
+    assert run_function_with_persistent_simulation_app(_test_external_policy_termination_contract, headless=True)
