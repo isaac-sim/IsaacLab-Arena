@@ -12,9 +12,13 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
     """Check the embodiment exposes its robot mesh so MESH mode does not fall back to the bbox proxy."""
 
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.relations.collision_mode import CollisionMode
 
     try:
         emb = DroidAbsoluteJointPositionEmbodiment()
+        stand_only_emb = DroidAbsoluteJointPositionEmbodiment(placement_bbox_stand_only=True)
+        assert emb.collision_mode is None
+        assert stand_only_emb.collision_mode == CollisionMode.BBOX
 
         mesh = emb.get_collision_mesh()
         assert mesh is not None, "embodiment must expose a collision mesh; None forces the loose bbox fallback"

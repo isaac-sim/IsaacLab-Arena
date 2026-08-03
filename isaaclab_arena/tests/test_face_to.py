@@ -331,17 +331,24 @@ def test_face_to_registers_as_binary_graph_relation():
 
 def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
     pair = _face_to_pair(target_position=(0.0, 1.0, 0.0))
-    pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
     params = ObjectPlacerParams(
-        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=200, verbose=False),
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
         max_placement_attempts=1,
         apply_positions_to_objects=False,
     )
     placer = ObjectPlacer(params)
+    layout = {pair.target: (0.0, 1.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}
+    _set_solver_results(monkeypatch, placer, [layout])
     received = {}
 
-    def _capture_orientations(candidate_positions, env_bboxes, candidate_orientations=None, collision_objects=None):
-        received.update(candidate_orientations or {})
+    def _capture_orientations(
+        positions,
+        env_bboxes,
+        orientations=None,
+        collision_objects=None,
+        batch_bboxes=None,
+    ):
+        received.update(orientations or {})
         return True
 
     no_overlap_validator = next(v for v in placer._validators if isinstance(v, NoOverlapValidator))

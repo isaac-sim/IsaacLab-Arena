@@ -95,6 +95,11 @@ class ObjectReference(ObjectBase):
         quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
         return box.rotated_90_around_z(quarters).translated(world_position)
 
+    def get_prim_path_in_parent_usd(self) -> str:
+        """Return the referenced prim's absolute path in its parent USD stage."""
+        with open_stage(self.parent_asset.usd_path) as parent_stage:
+            return self.isaaclab_prim_path_to_original_prim_path(self.prim_path, self.parent_asset, parent_stage)
+
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
         if not self._collision_mesh_loaded:

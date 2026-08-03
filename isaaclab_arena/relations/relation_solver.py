@@ -48,8 +48,7 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
-        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
-        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._no_collision_strategy = NoCollisionLossStrategy()
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
