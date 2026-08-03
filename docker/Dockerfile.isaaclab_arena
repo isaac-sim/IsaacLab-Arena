@@ -126,10 +126,11 @@ COPY docs ${WORKDIR}/docs
 # while Isaac Sim prebundles boto3 1.40.61 and isaacsim-kernel pins that version.
 # pip installs into a directory that precedes the prebundle on sys.path, so without this the image
 # would silently run its S3 asset searches against an AWS stack Isaac Sim does not ship.
+# Only the overridden packages are listed here -- simready-search itself comes from the [dev] extra
+# above, so its version stays declared in pyproject.toml alone.
 RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]" \
     && /isaac-sim/python.sh -m pip install --force-reinstall --no-deps \
-        boto3==1.40.61 botocore==1.40.61 s3transfer==0.14.0 requests==2.32.3 \
-        simready-search==0.2.1
+        boto3==1.40.61 botocore==1.40.61 s3transfer==0.14.0 requests==2.32.3
 
 ################################
 # Install cuRobo (optional)
