@@ -90,8 +90,11 @@ def build_arena_experiment_submission_cfg(
     return submission_cfg
 
 
-def format_submission_config(submission_cfg: ArenaExperimentSubmissionCfg) -> str:
+def submission_cfg_to_str(submission_cfg: ArenaExperimentSubmissionCfg) -> str:
     """Render the composed submission as YAML; every leaf is a valid Hydra KEY=VALUE override."""
+    # osmo / experiment_runner are plain dataclasses; OmegaConf dumps them directly.
+    # experiment_cfg is polymorphic (policy.type, environment.type, …), so it needs the
+    # Experiment serializer to emit the same YAML shape Hydra overrides expect.
     submission_values = {
         "osmo": OmegaConf.to_container(OmegaConf.structured(submission_cfg.osmo), resolve=True, enum_to_str=True),
         "experiment_runner": OmegaConf.to_container(
@@ -155,7 +158,7 @@ def main(cli_args: list[str] | None = None) -> int:
         overrides=overrides,
     )
     if args.list_overrides:
-        print(format_submission_config(submission_cfg))
+        print(submission_cfg_to_str(submission_cfg))
         return 0
     return submit_arena_experiment(submission_cfg)
 

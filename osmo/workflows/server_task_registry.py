@@ -9,7 +9,6 @@ from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena.utils.singleton import SingletonMeta
 from osmo.tasks.policy_server_task import PolicyServerTask
-from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 _SERVER_TASKS_LOADED = False
 
@@ -62,13 +61,3 @@ def ensure_server_tasks_registered() -> None:
     import osmo.tasks.cosmos_server_task  # noqa: F401
     import osmo.tasks.gr00t_server_task  # noqa: F401
     import osmo.tasks.pi0_server_task  # noqa: F401
-
-
-def configure_client_for_server(
-    policy_cfg: PolicyCfg,
-    server_type: type[PolicyServerTask],
-    server_task_name: str,
-) -> None:
-    """Point a client policy at its dedicated OSMO server task (mutates the policy config)."""
-    policy_cfg.remote_host = server_type.host_token(server_task_name)
-    policy_cfg.remote_port = POLICY_SERVER_PORT

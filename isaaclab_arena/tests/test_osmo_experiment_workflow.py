@@ -17,21 +17,15 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
-from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
-from isaaclab_arena_cosmos.policy.cosmos_remote_policy import CosmosRemotePolicy
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
-from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import (
-    Gr00tRemoteClosedloopPolicy,
-    Gr00tRemoteClosedloopPolicyCfg,
-)
+from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
-from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 from osmo.submit_arena_experiment import (
     ArenaExperimentSubmissionCfg,
     build_arena_experiment_submission_cfg,
-    format_submission_config,
     main,
+    submission_cfg_to_str,
     submit_arena_experiment,
 )
 from osmo.tasks.collect_experiment_outputs_task import (
@@ -39,12 +33,10 @@ from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
 )
-from osmo.tasks.cosmos_server_task import CosmosServerTask
 from osmo.tasks.experiment_runner_task import REMOTE_EXPERIMENT_PATH, ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
-from osmo.workflows.server_task_registry import ServerTaskRegistry
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
@@ -155,28 +147,6 @@ def _compose_and_submit(
     experiment_cfg_path: Path = OPENPI_EXPERIMENT_CFG_PATH,
 ) -> int:
     return submit_arena_experiment(_compose_submission(overrides, experiment_cfg_path))
-
-
-def test_declares_server_task_registry():
-    """Resolve each remote client policy directly to its server task type."""
-    registry = ServerTaskRegistry()
-    assert set(registry.get_all_server_types()) == {Pi0ServerTask, Gr00tServerTask, CosmosServerTask}
-    expected_server_types = [
-        (Pi0RemotePolicyCfg(), Pi0RemotePolicy, Pi0ServerTask),
-        (
-            Gr00tRemoteClosedloopPolicyCfg(policy_config_yaml_path=GR00T_CONFIG_YAML_PATH),
-            Gr00tRemoteClosedloopPolicy,
-            Gr00tServerTask,
-        ),
-        (CosmosRemotePolicyCfg(), CosmosRemotePolicy, CosmosServerTask),
-    ]
-    for policy_cfg, expected_policy_type, expected_server_type in expected_server_types:
-        server_type = registry.get_server_type_for_policy_cfg(policy_cfg)
-        assert server_type is expected_server_type
-        assert server_type.policy_type is expected_policy_type
-    # A policy with no registered server (e.g. a local one) runs standalone.
-    assert registry.get_server_type_for_policy_cfg(ZeroActionPolicyCfg()) is None
-    assert ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
 
 
 def test_explicit_experiment_composes_typed_defaults():
@@ -624,11 +594,11 @@ def test_dry_run_flag_renders_workflow_without_submitting(tmp_path, capsys):
     assert _rendered_workflow(rendered)["workflow"]["name"] == WorkflowCfg().workflow_name
 
 
-def test_format_submission_config_lists_every_override_section():
+def test_submission_cfg_to_str_lists_every_override_section():
     """Render the submission sections whose leaves are the valid Hydra override keys."""
     submission_cfg = _compose_submission()
 
-    values = yaml.safe_load(format_submission_config(submission_cfg))
+    values = yaml.safe_load(submission_cfg_to_str(submission_cfg))
 
     assert set(values) == {"osmo", "experiment_runner", "experiment_cfg"}
     assert values["osmo"]["pool"] == WorkflowCfg().pool

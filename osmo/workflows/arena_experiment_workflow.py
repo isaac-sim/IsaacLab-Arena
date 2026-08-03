@@ -16,8 +16,9 @@ from osmo.tasks.base_task import BaseTask
 from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.policy_server_task import PolicyServerTask
-from osmo.workflows.server_task_registry import ServerTaskRegistry, configure_client_for_server
+from osmo.workflows.server_task_registry import ServerTaskRegistry
 from osmo.workflows.workflow import Workflow, WorkflowCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 class ArenaExperimentWorkflow(Workflow):
@@ -80,7 +81,8 @@ class ArenaExperimentWorkflow(Workflow):
         if server_type is not None:
             server_task_name = f"policy-server-{run_index}"
             # Point the client policy at this group's dedicated server task host/port.
-            configure_client_for_server(run_policy_config, server_type, server_task_name)
+            run_policy_config.remote_host = server_type.host_token(server_task_name)
+            run_policy_config.remote_port = POLICY_SERVER_PORT
             # Build the server deployment config from the Run's client policy (e.g. pi0 variant).
             server_cfg = server_type.task_cfg_for_policy(run_policy_config)
             # Instantiate the OSMO server task associated with the client policy.
