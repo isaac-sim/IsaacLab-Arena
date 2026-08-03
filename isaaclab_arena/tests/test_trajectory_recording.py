@@ -7,7 +7,7 @@
 
 from pathlib import Path
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 # Episodes only end on success or on the task's own timeout, which a zero action never reaches, so
 # the rollout is short and the episode boundary is forced by resetting explicitly.
@@ -143,6 +143,9 @@ def _test_trajectory_terms_reach_the_dataset(simulation_app, output_dir):  # noq
 
 
 def test_trajectory_terms_reach_the_dataset(tmp_path):
-    assert run_simulation_app_function(
-        _test_trajectory_terms_reach_the_dataset, headless=HEADLESS, output_dir=tmp_path
-    ), "trajectory recording test failed"
+    result = run_function_with_persistent_simulation_app(
+        _test_trajectory_terms_reach_the_dataset,
+        headless=HEADLESS,
+        output_dir=tmp_path,
+    )
+    assert result, f"Test {_test_trajectory_terms_reach_the_dataset.__name__} failed"
