@@ -295,6 +295,29 @@ def test_random_yaw_disabled_gives_identity_rotation():
     assert poses[0].rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
 
 
+def test_base_rotation_tilts_object_and_refits_drop_height():
+    """A source-authored tilt must affect both the emitted pose and spawn geometry."""
+    pitch_quarter_turn = (0.0, math.sin(math.pi / 4.0), 0.0, math.cos(math.pi / 4.0))
+    upright = make_bbox(0.04, 0.04, 0.20)
+
+    poses = compute_drop_poses(
+        [upright],
+        REGION,
+        ClutterDropParams(random_yaw=False),
+        generator=seeded(),
+        base_rotations_xyzw=[pitch_quarter_turn],
+    )
+
+    pose = poses[0]
+    assert pose.rotation_xyzw == pytest.approx(pitch_quarter_turn)
+    rotated = upright.rotated_by_quat(torch.tensor([pose.rotation_xyzw], dtype=torch.float32))
+    assert float(rotated.size[0][0]) == pytest.approx(0.20)
+    assert float(rotated.size[0][2]) == pytest.approx(0.04)
+    assert pose.position[2] + float(rotated.bottom_surface_z[0]) == pytest.approx(
+        REGION.floor_z + ClutterDropParams().clearance_m
+    )
+
+
 def test_rotation_is_a_unit_yaw_quaternion():
     poses = compute_drop_poses([make_bbox(0.05, 0.05, 0.05) for _ in range(5)], REGION, generator=seeded(7))
     for pose in poses:

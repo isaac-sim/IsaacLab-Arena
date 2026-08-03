@@ -37,6 +37,17 @@ def test_rotate_quat_by_yaw_composes_and_wraps():
     assert rotate_quat_by_yaw(base, 2.0 * math.pi) == base
 
 
+def test_rotate_quat_by_yaw_uses_world_z_for_a_tilted_base():
+    """Sampled yaw must turn a tilted object's horizontal axis around world Z."""
+    half_sqrt_two = math.sqrt(0.5)
+    pitch_quarter_turn = (0.0, half_sqrt_two, 0.0, half_sqrt_two)
+
+    rotated = rotate_quat_by_yaw(pitch_quarter_turn, math.pi / 2.0)
+
+    expected = (-0.5, 0.5, 0.5, 0.5)
+    assert all(math.isclose(actual, wanted, abs_tol=1e-6) for actual, wanted in zip(rotated, expected))
+
+
 def test_pose_composition():
     T_B_A = Pose(position_xyz=(1.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     T_C_B = Pose(position_xyz=(2.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
