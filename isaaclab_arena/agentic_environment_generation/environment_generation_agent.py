@@ -82,6 +82,7 @@ class EnvironmentGenerationAgent:
         self.simready_config = simready_config or SimReadySearchConfig()
         self._traces: list[str] = []
         self._unavailable_objects: list[str] = []
+        self._simready_usd_paths: dict[str, str] = {}
 
     @property
     def traces(self) -> tuple[str, ...]:
@@ -129,6 +130,7 @@ class EnvironmentGenerationAgent:
         """
         self._traces = []
         self._unavailable_objects = []
+        self._simready_usd_paths = {}
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
@@ -148,7 +150,38 @@ class EnvironmentGenerationAgent:
             if resolved is None:
                 return None, spec.to_dict()
             spec = resolved
+        unusable = self._add_simready_usd_path_to_searched_objects(spec)
+        if unusable is not None:
+            self._traces.append(unusable)
+            return None, spec.to_dict()
         return spec, None
+
+    def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> str | None:
+        """Add the spec's searched objects onto the generic SimReady asset, USD path in params.
+
+        Args:
+            spec: Generated spec, rewritten in place.
+
+        Returns:
+            Why the spec cannot be made portable, or ``None`` when every searched object was
+            rewritten.
+        """
+        # TODO(xinjieyao, 2026-08-03): Lift this once ObjectSetSpec.members can carry a usd_path.
+        for object_set in spec.object_sets or []:
+            searched_members = [name for name in object_set.members if name in self._simready_usd_paths]
+            if searched_members:
+                return (
+                    f"Object set '{object_set.id}' draws from searched SimReady assets"
+                    f" {searched_members}, which cannot be object set members: a member names a"
+                    " registered asset and has nowhere to carry the usd_path the search found."
+                    " Use the searched asset as a standalone object instead."
+                )
+        for obj in spec.objects:
+            usd_path = self._simready_usd_paths.get(obj.registry_name)
+            if usd_path is not None:
+                obj.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
+                obj.params = {**obj.params, "usd_path": usd_path}
+        return None
 
     def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
         """Search SimReady for the objects the catalog misses, and add what it finds to the catalog.
@@ -181,6 +214,7 @@ class EnvironmentGenerationAgent:
                 "tags": tags,
                 "object_type": asset_cls.object_type.value,
             })
+            self._simready_usd_paths[asset_cls.name] = candidate.usd_path
             _logger.info("catalogued %r for %r: %s", asset_cls.name, candidate.search_phrase, candidate.usd_path)
         return extended
 

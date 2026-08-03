@@ -32,8 +32,8 @@ class SimReadyUsdObject(Object):
     name = SIMREADY_USD_OBJECT_REGISTRY_NAME
     tags = ["object", "sim-ready"]
 
-    object_type: ObjectType | None = None
-    """Detected per instance, because SimReady props range from a single body to hinged furniture."""
+    object_type = ObjectType.RIGID
+    """The search only accepts an asset with exactly one rigid body."""
 
     def __init__(
         self,
@@ -94,8 +94,6 @@ def register_searched_simready_object(
 
         name = registry_name
         tags = merged_tags
-        # Limited to rigid objects for now.
-        object_type = ObjectType.RIGID
 
         def __init__(self, **kwargs: Any):
             kwargs.setdefault("usd_path", found_usd_path)

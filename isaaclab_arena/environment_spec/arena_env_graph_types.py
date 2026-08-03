@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -123,9 +124,18 @@ class ObjectSetSpec(BaseModel):
         description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
     )
 
+    # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
     @field_validator("members")
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
+        for registry_name in value:
+            # Rejected here rather than at build time: the generic SimReady asset is rigid, so it
+            # passes the check below, but a member is built with no arguments and it needs a
+            # usd_path, which only an object's params can carry.
+            assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
+                f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
+                " carry the usd_path it needs. Use it as an object instead."
+            )
         return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
 
     @field_validator("params")

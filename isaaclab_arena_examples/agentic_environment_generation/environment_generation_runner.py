@@ -33,11 +33,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.spec_io import (
-    DEFAULT_AGENTIC_OUTPUT_DIR,
-    write_env_graph_dict,
-    write_env_graph_spec,
-)
+from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -160,7 +156,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    env_graph_spec, data = agent.generate_spec(
+    env_graph_spec, _ = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
@@ -170,13 +166,10 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
-        print("\n[runner] the agent returned an invalid spec.", flush=True)
+        print("\n[runner] the agent returned an invalid spec. Nothing was written.", flush=True)
         print("\n[runner] validation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
-        if data is not None:
-            invalid_path = write_env_graph_dict(data, args_cli.out_dir)
-            print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
         return None
     # The spec is valid either way: an object no asset was found for was never offered to spec
     # inference, so it was built without it. Say so, or the substitution goes unnoticed.

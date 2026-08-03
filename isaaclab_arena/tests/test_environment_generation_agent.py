@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import yaml
 from unittest.mock import patch
 
 import pytest
@@ -171,7 +170,7 @@ class TestGenerateSpec:
         assert AssetRegistry().is_registered("simready_green_trash_can")
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_a_searched_simready_object_reaches_the_spec_with_no_params(self, mock_search, agent):
+    def test_a_searched_simready_object_reaches_the_spec_with_its_usd_path(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
@@ -195,10 +194,47 @@ class TestGenerateSpec:
         spec, _ = self._generate_with_simready(agent_obj)
         assert isinstance(spec, ArenaEnvGraphSpec)
         searched = next(asset for asset in spec.objects if asset.id == "trash_can")
-        # No usd_path and no tags: both live on the registered asset, so the spec just names it.
-        assert searched.params == {}
-        assert searched.resolve_usd_path() == "s3://bucket/trash_can.usd"
-        assert "tags" not in yaml.safe_dump(spec.to_dict())
+        # The search name only exists in the process that searched, so the object is rewritten onto
+        # the generic SimReady asset every process has, carrying the path the search found.
+        assert searched.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
+        assert searched.params == {"usd_path": "s3://bucket/trash_can.usd"}
+        # Tags in params would be a duplicate keyword argument at build time.
+        assert all("tags" not in asset["params"] for asset in spec.to_dict()["objects"])
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_a_searched_simready_object_in_an_object_set_is_rejected(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(
+            candidates=[SimReadyObjectCandidate(search_phrase="green trash can", usd_path="s3://bucket/trash_can.usd")]
+        )
+        spec_dict = minimal_spec_dict()
+        spec_dict["object_sets"] = [{"id": "bins", "members": ["simready_green_trash_can"]}]
+        client.chat.completions.create.side_effect = [
+            self._missing_objects_response("green trash can"),
+            chat_response(content=json.dumps(spec_dict)),
+        ]
+        spec, data = self._generate_with_simready(agent_obj)
+        # A member is a bare registered name with nowhere to carry a usd_path, so the set would
+        # name a search entry that exists in no other process.
+        assert spec is None
+        assert isinstance(data, dict)
+        assert any("cannot be object set members" in trace for trace in agent_obj.traces)
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_a_catalogue_object_keeps_its_own_registry_name(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(
+            candidates=[SimReadyObjectCandidate(search_phrase="green trash can", usd_path="s3://bucket/trash_can.usd")]
+        )
+        client.chat.completions.create.side_effect = [
+            self._missing_objects_response("green trash can"),
+            chat_response(content=json.dumps(minimal_spec_dict())),
+        ]
+        # The model picked catalogue objects instead, and those resolve by name in any process.
+        spec, _ = self._generate_with_simready(agent_obj)
+        assert all(asset.registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME for asset in spec.objects)
+        assert all("usd_path" not in asset.params for asset in spec.objects)
+        assert "simready_assets" not in spec.to_dict()
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_builds_the_spec_without_an_object_no_asset_was_found_for(self, mock_search, agent):
