@@ -218,7 +218,7 @@ class TestGenerateSpec:
         # name a search entry that exists in no other process.
         assert spec is None
         assert isinstance(data, dict)
-        assert any("cannot be object set members" in trace for trace in agent_obj.traces)
+        assert any("nowhere to carry a usd_path" in trace for trace in agent_obj.traces)
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_a_catalogue_object_keeps_its_own_registry_name(self, mock_search, agent):
