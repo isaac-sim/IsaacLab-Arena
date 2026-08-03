@@ -86,14 +86,7 @@ class ObjectPlacerParams:
     """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
 
     debug_visualize: bool = False
-    """If True, stream every validated candidate layout to a spawned Rerun viewer window.
-
-    Debug aid, off by default. Needs the ``rerun-sdk`` package and a reachable display (the container
-    forwards ``DISPLAY``); the viewer is its own process, so this never starts Isaac Sim, and it is
-    closed when the run exits. Checks that can say more about a candidate add their own layer -- the
-    cuRobo reachability check draws the grasps it solved and the robot's collision spheres."""
+    """If True, stream every validated candidate layout to a spawned Rerun viewer window. Off by default."""
 
     debug_visualize_output_path: str | None = None
-    """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs.
-
-    Enables the visualization on its own; combine with ``debug_visualize`` to both record and watch live."""
+    """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""

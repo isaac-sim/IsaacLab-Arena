@@ -21,7 +21,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_visualizer import (
     PlacementRerunVisualizer,
     get_active_placement_visualizer,
-    summarize_candidate_verdict,
+    summarize_layout_verdict,
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
@@ -82,7 +82,7 @@ def test_placement_records_every_candidate_layout(tmp_path):
     visualizer = get_active_placement_visualizer()
     visualizer.close()
 
-    assert visualizer.num_logged_candidates == MAX_PLACEMENT_ATTEMPTS
+    assert visualizer.num_logged_layouts == MAX_PLACEMENT_ATTEMPTS
     assert rrd_path.is_file() and rrd_path.stat().st_size > 0
 
 
@@ -131,7 +131,7 @@ def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch
         "spawn_viewer_process",
         lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
     )
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, output_path=str(tmp_path / "p.rrd"))
 
     visualizer.close()
     visualizer.close()
@@ -149,7 +149,7 @@ def test_closing_a_wedged_viewer_falls_back_to_killing_it(tmp_path, monkeypatch)
         "spawn_viewer_process",
         lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
     )
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, output_path=str(tmp_path / "p.rrd"))
 
     visualizer.close()
 
@@ -160,46 +160,46 @@ def test_only_required_checks_reject_a_candidate():
     """The view has to agree with the placer, which gates layouts on required_checks alone."""
     verdicts = {"no_overlap": True, "ik_reachable": False}
 
-    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks={"no_overlap"})
+    message, accepted = summarize_layout_verdict(3, verdicts, required_checks={"no_overlap"})
 
     assert accepted
-    assert message == "candidate 3: accepted (failed but not required: ik_reachable)"
+    assert message == "layout 3: accepted (failed but not required: ik_reachable)"
 
 
 def test_a_failed_required_check_rejects_a_candidate():
     """A failure the placer does gate on reads as a rejection, naming what blocked it."""
     verdicts = {"no_overlap": False, "ik_reachable": False}
 
-    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks={"no_overlap"})
+    message, accepted = summarize_layout_verdict(3, verdicts, required_checks={"no_overlap"})
 
     assert not accepted
-    assert message == "candidate 3: rejected (failed: no_overlap)"
+    assert message == "layout 3: rejected (failed: no_overlap)"
 
 
 def test_every_check_gates_a_candidate_when_none_are_named_required():
     """required_checks=None means every check that ran is required, matching ObjectPlacerParams."""
     verdicts = {"no_overlap": True, "ik_reachable": False}
 
-    message, accepted = summarize_candidate_verdict(3, verdicts, required_checks=None)
+    message, accepted = summarize_layout_verdict(3, verdicts, required_checks=None)
 
     assert not accepted
-    assert message == "candidate 3: rejected (failed: ik_reachable)"
+    assert message == "layout 3: rejected (failed: ik_reachable)"
 
 
 def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it(tmp_path, monkeypatch):
     """Expensive checks only see candidates the cheap ones passed; the rest are unevaluated, not failed."""
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
     drawn_verdicts: dict[int, dict[str, bool]] = {}
     monkeypatch.setattr(
         visualizer,
-        "log_verdicts",
-        lambda candidate_index, verdicts_by_check, required_checks: drawn_verdicts.update(
-            {candidate_index: verdicts_by_check}
+        "log_layout_verdicts",
+        lambda layout_index_across_batch, verdicts_by_check, required_checks: drawn_verdicts.update(
+            {layout_index_across_batch: verdicts_by_check}
         ),
     )
 
-    visualizer.log_batch_verdicts(
-        candidate_indices=[0, 1],
+    visualizer.log_layout_batch_verdicts(
+        layout_indices_across_batch=[0, 1],
         verdicts_by_check={"no_overlap": [True, False], "ik_reachable": [True, False]},
         evaluated_layout_indices_by_check={"no_overlap": [0, 1], "ik_reachable": [0]},
         required_checks=None,
@@ -213,17 +213,17 @@ def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it(tmp_path,
 
 def test_candidate_frames_keep_counting_across_batches(tmp_path):
     """A pool that refills gets fresh frames, so a later batch does not overwrite an earlier one."""
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
 
-    assert visualizer.next_batch_indices(3) == [0, 1, 2]
-    assert visualizer.next_batch_indices(2) == [3, 4]
+    assert visualizer.reserve_layout_indices_across_batch(3) == [0, 1, 2]
+    assert visualizer.reserve_layout_indices_across_batch(2) == [3, 4]
 
 
-def test_active_candidates_map_batch_position_to_frame(tmp_path):
+def test_active_candidates_map_index_within_batch_to_frame(tmp_path):
     """A check that only ran on some candidates still resolves each one's own frame."""
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
 
-    visualizer.set_active_candidates([1, 4])
+    visualizer.set_active_layout_indices_across_batch([1, 4])
 
-    assert visualizer.candidate_index_for_layout(0) == 1
-    assert visualizer.candidate_index_for_layout(1) == 4
+    assert visualizer.get_layout_index_across_batch(0) == 1
+    assert visualizer.get_layout_index_across_batch(1) == 4

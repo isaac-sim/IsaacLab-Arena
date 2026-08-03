@@ -5,9 +5,6 @@
 
 """Rerun debug view of build-time placement validation, sim-free (no SimApp).
 
-Draws each candidate layout as one frame of the ``candidate`` timeline: the solved object boxes, and
-the verdict of every check that ran on it. A check may add its own layer under ``world/robot``.
-
 Turn it on with ``ObjectPlacerParams.debug_visualize`` for a viewer window, or
 ``debug_visualize_output_path`` for an ``.rrd`` recording; either one alone is enough. From an env
 graph YAML (worked example: ``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``)::
@@ -26,19 +23,21 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.relations.relations import get_anchor_objects
+
 if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-CANDIDATE_TIMELINE = "candidate"
-"""Rerun timeline whose sequence index is the candidate layout number."""
+LAYOUT_TIMELINE = "layout"
+"""Rerun timeline whose sequence index is the layout number."""
 
 LAYOUT_ENTITY = "world/layout"
-"""Entity path of the candidate's object boxes."""
+"""Entity path of the layout's object boxes."""
 
 ROBOT_ENTITY = "world/robot"
-"""Entity path for check-specific robot layers; cleared on every candidate, so nothing carries over."""
+"""Entity path for check-specific robot layers; cleared on every layout, so nothing carries over."""
 
 ANCHOR_COLOR = (140, 140, 150)
 """Color of the layout's anchors, which are fixed and only act as obstacles."""
@@ -114,7 +113,7 @@ def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
     assert executable is not None, "rerun-sdk ships no viewer binary here; record to an .rrd instead."
     if _viewer_port_answers():
         print(
-            f"WARNING: something already serves on port {VIEWER_PORT}; this run's candidate layouts will "
+            f"WARNING: something already serves on port {VIEWER_PORT}; this run's layouts will "
             "stream into that window rather than a new one."
         )
     viewer_process = subprocess.Popen([
@@ -141,7 +140,7 @@ def _viewer_port_answers() -> bool:
 
 
 def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
-    """Block until the spawned viewer answers on its port, so the first candidates are not lost.
+    """Block until the spawned viewer answers on its port, so the first layouts are not lost.
 
     Never fatal -- a view that fails to come up does not stop the run it was only meant to explain.
     """
@@ -161,31 +160,29 @@ def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
     print(f"WARNING: the Rerun viewer did not serve within {VIEWER_STARTUP_TIMEOUT_S:.0f}s; layouts may be missing.")
 
 
-def summarize_candidate_verdict(
-    candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
+def summarize_layout_verdict(
+    layout_index_across_batch: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
 ) -> tuple[str, bool]:
-    """Describe how placement judged one candidate, as ``(message, accepted)``.
-
-    Acceptance follows the placer: only required checks gate a layout, so a candidate that failed
-    nothing else is accepted and the failure is reported as advisory rather than as a rejection.
+    """Describe how placement judged one layout, as ``(message, accepted)``.
 
     Args:
-        candidate_index: Timeline index of the candidate, used in the message.
-        verdicts_by_check: Verdict per check that ran on this candidate.
+        layout_index_across_batch: Timeline index of the layout, used in the message.
+        verdicts_by_check: Verdict per check that ran on this layout.
         required_checks: Checks that gate acceptance; None means every check that ran gates it.
     """
     failed = [check for check, passed in verdicts_by_check.items() if not passed]
     blocking = [check for check in failed if required_checks is None or check in required_checks]
     advisory = [check for check in failed if check not in blocking]
+    layout = f"layout {layout_index_across_batch}"
     if blocking:
-        return f"candidate {candidate_index}: rejected (failed: {', '.join(blocking)})", False
+        return f"{layout}: rejected (failed: {', '.join(blocking)})", False
     if advisory:
-        return f"candidate {candidate_index}: accepted (failed but not required: {', '.join(advisory)})", True
-    return f"candidate {candidate_index}: accepted", True
+        return f"{layout}: accepted (failed but not required: {', '.join(advisory)})", True
+    return f"{layout}: accepted", True
 
 
 class PlacementRerunVisualizer:
-    """Streams every validated candidate layout to Rerun, one frame per candidate."""
+    """Streams every validated layout to Rerun, one frame per layout."""
 
     def __init__(self, app_id: str = "arena_placement", spawn: bool = True, output_path: str | None = None) -> None:
         """Start the recording and, unless recording headlessly, spawn a viewer window.
@@ -209,14 +206,14 @@ class PlacementRerunVisualizer:
         assert sinks, "PlacementRerunVisualizer needs a viewer to spawn or an output path to record to."
         rr.set_sinks(*sinks)
         rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
-        self._next_candidate_index = 0
-        self._active_candidate_indices: list[int] = []
+        self._next_layout_index_across_batch = 0
+        self._active_layout_indices_across_batch: list[int] = []
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> PlacementRerunVisualizer:
         """Return the live view for ``copy.deepcopy`` instead of duplicating it.
 
         Isaac Lab's configclass deep-copies the placement event params that carry the pool, and a
-        duplicated view would keep its own candidate counter and overwrite frames this one already drew.
+        duplicated view would keep its own layout counter and overwrite frames this one already drew.
 
         Args:
             memory_map: ``copy.deepcopy``'s ``id(original) -> copy`` cache.
@@ -225,46 +222,46 @@ class PlacementRerunVisualizer:
         return self
 
     @property
-    def num_logged_candidates(self) -> int:
-        """How many candidate layouts have been given a frame so far."""
-        return self._next_candidate_index
+    def num_logged_layouts(self) -> int:
+        """How many layouts have been given a frame so far."""
+        return self._next_layout_index_across_batch
 
-    def next_batch_indices(self, num_candidates: int) -> list[int]:
-        """Reserve and return one timeline index per candidate of the batch about to be validated.
+    def reserve_layout_indices_across_batch(self, num_layouts: int) -> list[int]:
+        """Reserve and return one timeline index per layout of the batch about to be validated.
 
         Indices keep counting across batches so a pool that refills several times does not overwrite
         its earlier frames.
         """
-        start = self._next_candidate_index
-        self._next_candidate_index += num_candidates
-        return list(range(start, self._next_candidate_index))
+        start = self._next_layout_index_across_batch
+        self._next_layout_index_across_batch += num_layouts
+        return list(range(start, self._next_layout_index_across_batch))
 
-    def set_active_candidates(self, candidate_indices: list[int]) -> None:
-        """Set the batch ``candidate_index_for_layout`` resolves against, in the order the check sees it."""
-        self._active_candidate_indices = list(candidate_indices)
+    def set_active_layout_indices_across_batch(self, layout_indices_across_batch: list[int]) -> None:
+        """Set the batch ``get_layout_index_across_batch`` resolves against, in the order the check sees it."""
+        self._active_layout_indices_across_batch = list(layout_indices_across_batch)
 
-    def candidate_index_for_layout(self, layout_index: int) -> int:
-        """Timeline index of the layout at ``layout_index`` of the active batch."""
-        return self._active_candidate_indices[layout_index]
+    def get_layout_index_across_batch(self, layout_index_within_batch: int) -> int:
+        """Timeline index of the layout at ``layout_index_within_batch`` of the active batch."""
+        return self._active_layout_indices_across_batch[layout_index_within_batch]
 
-    def set_time(self, candidate_index: int) -> None:
-        """Point the recording at one candidate's frame, so subsequent logs land on it."""
+    def set_time(self, layout_index_across_batch: int) -> None:
+        """Point the recording at one layout's frame, so subsequent logs land on it."""
         import rerun as rr
 
-        rr.set_time(CANDIDATE_TIMELINE, sequence=candidate_index)
+        rr.set_time(LAYOUT_TIMELINE, sequence=layout_index_across_batch)
 
     def log_layout(
         self,
-        candidate_index: int,
+        layout_index_across_batch: int,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         orientations: dict[PlaceableAsset, float],
         bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         anchors: set[PlaceableAsset],
     ) -> None:
-        """Log one candidate's solved layout as boxes in the world frame.
+        """Log one layout's solved layout as boxes in the world frame.
 
         Args:
-            candidate_index: Timeline index to log against.
+            layout_index_across_batch: Timeline index to log against.
             positions: Solved (x, y, z) per object.
             orientations: Absolute world Z-yaw per object; objects without one are drawn unrotated.
             bboxes: Per-object local bounding box.
@@ -272,8 +269,8 @@ class PlacementRerunVisualizer:
         """
         import rerun as rr
 
-        self.set_time(candidate_index)
-        # A check that skips this candidate must not leave its previous candidate's robot on screen.
+        self.set_time(layout_index_across_batch)
+        # A check that skips this layout must not leave its previous layout's robot on screen.
         rr.log(ROBOT_ENTITY, rr.Clear(recursive=True))
 
         objects = list(positions)
@@ -305,20 +302,44 @@ class PlacementRerunVisualizer:
             ),
         )
 
-    def log_verdicts(
-        self, candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
-    ) -> None:
-        """Log which checks accepted one candidate, as a text line and an accepted/rejected marker.
+    def log_layout_batch(
+        self,
+        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
+        orientations: list[dict[PlaceableAsset, float]],
+        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+    ) -> list[int]:
+        """Log every solved layout of one batch, returning the timeline index each was drawn on.
 
         Args:
-            candidate_index: Timeline index to log against.
-            verdicts_by_check: Verdict per check that ran on this candidate; one that skipped it is absent.
+            positions: Solved (x, y, z) per object, one dict per layout.
+            orientations: Absolute world Z-yaw per object, one dict per layout.
+            bboxes: Per-object local bounding box, one dict per layout.
+        """
+        layout_indices_across_batch = self.reserve_layout_indices_across_batch(len(positions))
+        for layout_index_within_batch, layout_index_across_batch in enumerate(layout_indices_across_batch):
+            self.log_layout(
+                layout_index_across_batch,
+                positions[layout_index_within_batch],
+                orientations[layout_index_within_batch],
+                bboxes[layout_index_within_batch],
+                anchors=set(get_anchor_objects(list(positions[layout_index_within_batch]))),
+            )
+        return layout_indices_across_batch
+
+    def log_layout_verdicts(
+        self, layout_index_across_batch: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
+    ) -> None:
+        """Log which checks accepted one layout, as a text line and an accepted/rejected marker.
+
+        Args:
+            layout_index_across_batch: Timeline index to log against.
+            verdicts_by_check: Verdict per check that ran on this layout; one that skipped it is absent.
             required_checks: Checks that gate acceptance; None means every check that ran gates it.
         """
         import rerun as rr
 
-        self.set_time(candidate_index)
-        message, accepted = summarize_candidate_verdict(candidate_index, verdicts_by_check, required_checks)
+        self.set_time(layout_index_across_batch)
+        message, accepted = summarize_layout_verdict(layout_index_across_batch, verdicts_by_check, required_checks)
         rr.log(
             f"{LAYOUT_ENTITY}/verdict",
             rr.TextLog(message, level=rr.TextLogLevel.INFO if accepted else rr.TextLogLevel.WARN),
@@ -326,31 +347,31 @@ class PlacementRerunVisualizer:
         for check, passed in verdicts_by_check.items():
             rr.log(f"checks/{check}", rr.Scalars(float(passed)))
 
-    def log_batch_verdicts(
+    def log_layout_batch_verdicts(
         self,
-        candidate_indices: list[int],
+        layout_indices_across_batch: list[int],
         verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
         required_checks: set[str] | None,
     ) -> None:
-        """Log the verdicts of one validated batch, one candidate at a time.
+        """Log the check verdicts of one validated batch of layouts, one layout at a time.
 
-        A check is left off the candidates it did not run on, so a skipped layout is not drawn as failed.
+        A check is left off the layouts it did not run on, so a skipped one is not drawn as failed.
 
         Args:
-            candidate_indices: Timeline index of each layout of the batch, in batch order.
+            layout_indices_across_batch: Timeline index of each layout of the batch, in batch order.
             verdicts_by_check: Per check, its verdict for every layout of the batch.
             evaluated_layout_indices_by_check: Per check, which layouts of the batch it ran on.
             required_checks: Checks that gate acceptance; None means every check that ran gates it.
         """
         evaluated = {check: set(indices) for check, indices in evaluated_layout_indices_by_check.items()}
-        for layout_index, candidate_index in enumerate(candidate_indices):
-            self.log_verdicts(
-                candidate_index,
+        for layout_index_within_batch, layout_index_across_batch in enumerate(layout_indices_across_batch):
+            self.log_layout_verdicts(
+                layout_index_across_batch,
                 {
-                    check: verdicts[layout_index]
+                    check: verdicts[layout_index_within_batch]
                     for check, verdicts in verdicts_by_check.items()
-                    if layout_index in evaluated[check]
+                    if layout_index_within_batch in evaluated[check]
                 },
                 required_checks,
             )

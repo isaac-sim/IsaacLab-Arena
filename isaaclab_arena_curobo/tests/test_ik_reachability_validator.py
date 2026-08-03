@@ -213,17 +213,17 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
     _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
     visualizer = MagicMock()
     # The batch the check is given is candidates 7 and 9 of the run.
-    visualizer.candidate_index_for_layout.side_effect = [7, 9]
+    visualizer.get_layout_index_across_batch.side_effect = [7, 9]
     validator = _make_reachability_validator(_fake_embodiment(), monkeypatch, visualizer=visualizer)
     drawn: list[dict] = []
-    monkeypatch.setattr(validator._rerun_layer, "log_candidate", lambda **kwargs: drawn.append(kwargs))
+    monkeypatch.setattr(validator._rerun_layer, "log_layout", lambda **kwargs: drawn.append(kwargs))
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(
         [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}], []
     ) == [False, False]
 
-    assert [entry["candidate_index"] for entry in drawn] == [7, 9]
+    assert [entry["layout_index_across_batch"] for entry in drawn] == [7, 9]
     assert [entry["target_names"] for entry in drawn] == [["box"], ["box"]]
 
 
@@ -233,11 +233,11 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
     rrd_path = tmp_path / "placement.rrd"
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(rrd_path))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
     layer = ReachabilityRerunLayer(visualizer)
 
-    layer.log_candidate(
-        candidate_index=0,
+    layer.log_layout(
+        layout_index_across_batch=0,
         base_pos=(0.0, 0.0, 0.0),
         base_quat_xyzw=(0.0, 0.0, 0.0, 1.0),
         target_names=["box"],

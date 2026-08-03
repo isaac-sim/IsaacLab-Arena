@@ -116,13 +116,15 @@ class ReachabilityValidator(PlacementValidator):
         bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i], layout_index=i) for i in range(len(positions))]
+        return [
+            self._validate(positions[i], orientations[i], layout_index_within_batch=i) for i in range(len(positions))
+        ]
 
     def _validate(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
-        layout_index: int,
+        layout_index_within_batch: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
@@ -133,7 +135,7 @@ class ReachabilityValidator(PlacementValidator):
         Args:
             positions: Solved (x, y, z) per object.
             orientations: Absolute world Z-yaw per object.
-            layout_index: Position of this layout in the batch given to ``validate_batch``.
+            layout_index_within_batch: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
@@ -179,8 +181,9 @@ class ReachabilityValidator(PlacementValidator):
             rotation_threshold=self._ik_rot_threshold,
         )
         if self._rerun_layer is not None:
-            self._rerun_layer.log_candidate(
-                candidate_index=self._visualizer.candidate_index_for_layout(layout_index),
+            layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
+            self._rerun_layer.log_layout(
+                layout_index_across_batch=layout_index_across_batch,
                 base_pos=self._base_pos,
                 base_quat_xyzw=self._base_quat_xyzw,
                 target_names=[obj.name for obj in targets],

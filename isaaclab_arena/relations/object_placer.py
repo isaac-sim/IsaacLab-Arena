@@ -598,12 +598,14 @@ class ObjectPlacer:
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
         num_candidates = len(positions)
-        # Per check, which layouts of this batch it actually ran on; expensive checks skip candidates,
-        # and their verdicts for the skipped ones are padded False rather than measured.
+        # Per check, which layouts of this batch (each refill) it actually ran on
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
-        # Layouts are drawn before the checks run so a check's own layer lands on top of its candidate.
-        candidate_indices = self._log_candidate_layouts(positions, orientations, bboxes)
+
+        # Layouts are drawn before the checks run so a check's own layer lands on top of its layout.
+        layout_indices_across_batch: list[int] | None = None
+        if self._visualizer is not None:
+            layout_indices_across_batch = self._visualizer.log_layout_batch(positions, orientations, bboxes)
 
         self._run_inexpensive_checks(
             positions,
@@ -612,7 +614,7 @@ class ObjectPlacer:
             collision_objects,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
-            candidate_indices,
+            layout_indices_across_batch,
         )
         self._run_expensive_checks(
             positions,
@@ -622,11 +624,11 @@ class ObjectPlacer:
             required,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
-            candidate_indices,
+            layout_indices_across_batch,
         )
-        if self._visualizer is not None and candidate_indices is not None:
-            self._visualizer.log_batch_verdicts(
-                candidate_indices,
+        if self._visualizer is not None and layout_indices_across_batch is not None:
+            self._visualizer.log_layout_batch_verdicts(
+                layout_indices_across_batch,
                 layout_pass_verdicts_by_check,
                 evaluated_layout_indices_by_check,
                 self.params.required_checks,
@@ -655,14 +657,14 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
-        candidate_indices: list[int] | None,
+        layout_indices_across_batch: list[int] | None,
     ) -> None:
         """Run every inexpensive validator on all candidates, recording verdicts and evaluated layouts."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
                 if self._visualizer is not None:
-                    self._visualizer.set_active_candidates(candidate_indices or [])
+                    self._visualizer.set_active_layout_indices_across_batch(layout_indices_across_batch or [])
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
@@ -677,7 +679,7 @@ class ObjectPlacer:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
-        candidate_indices: list[int] | None,
+        layout_indices_across_batch: list[int] | None,
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(positions)
@@ -688,8 +690,10 @@ class ObjectPlacer:
                     for i in range(num_candidates)
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
-                if self._visualizer is not None and candidate_indices is not None:
-                    self._visualizer.set_active_candidates([candidate_indices[i] for i in passed_layout_indices])
+                if self._visualizer is not None and layout_indices_across_batch is not None:
+                    self._visualizer.set_active_layout_indices_across_batch(
+                        [layout_indices_across_batch[i] for i in passed_layout_indices]
+                    )
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],
@@ -698,35 +702,10 @@ class ObjectPlacer:
                     collision_objects,
                 )
                 verdicts = [False] * num_candidates
-                for sub_idx, cand_idx in enumerate(passed_layout_indices):
-                    verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
+                for layout_index_within_batch, verdict in zip(passed_layout_indices, verdicts_over_passed_layout):
+                    verdicts[layout_index_within_batch] = verdict
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
-
-    def _log_candidate_layouts(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-    ) -> list[int] | None:
-        """Draw every candidate of this batch in the Rerun debug view, returning their timeline indices.
-
-        None when the debug view is off, which is the default.
-        """
-        visualizer = self._visualizer
-        if visualizer is None:
-            return None
-        candidate_indices = visualizer.next_batch_indices(len(positions))
-        for layout_index, candidate_index in enumerate(candidate_indices):
-            anchors = set(get_anchor_objects(list(positions[layout_index])))
-            visualizer.log_layout(
-                candidate_index,
-                positions[layout_index],
-                orientations[layout_index],
-                bboxes[layout_index],
-                anchors,
-            )
-        return candidate_indices
 
     @staticmethod
     def _passes_required_checks(

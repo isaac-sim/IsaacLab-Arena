@@ -4,11 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """The reachability check's layer of the placement Rerun debug view, sim-free (no SimApp).
-
-Core placement already draws each candidate layout's boxes (see
-``isaaclab_arena.relations.placement_visualizer``); this adds what only the IK check knows -- where the
-robot stands, the top-down grasps it solved, and whether each one was reachable. Everything is logged
-against the same candidate frame, so the two layers compose.
+Adds to existing visualizer what only the IK check knows -- where the
+robot stands, the top-down grasps it solved, and whether each one was reachable.
 """
 
 from __future__ import annotations
@@ -34,19 +31,19 @@ BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 
 
 class ReachabilityRerunLayer:
-    """Draws the reachability check's verdict for a candidate into the shared placement view."""
+    """Draws the reachability check's verdict for a layout into the shared placement view."""
 
     def __init__(self, visualizer: PlacementRerunVisualizer) -> None:
-        """Bind the layer to the placement view it draws into.
+        """Bind the layer to the placement visualizer.
 
         Args:
-            visualizer: The process's placement debug view, which owns the recording and the timeline.
+            visualizer: The process's placement visualizer, which owns the recording and the timeline.
         """
         self._visualizer = visualizer
 
-    def log_candidate(
+    def log_layout(
         self,
-        candidate_index: int,
+        layout_index_across_batch: int,
         base_pos: tuple[float, float, float],
         base_quat_xyzw: tuple[float, float, float, float],
         target_names: list[str],
@@ -55,10 +52,10 @@ class ReachabilityRerunLayer:
         position_error: torch.Tensor,
         rotation_error: torch.Tensor,
     ) -> None:
-        """Log the robot's side of one evaluated candidate.
+        """Log the robot's side of one evaluated layout.
 
         Args:
-            candidate_index: Timeline index of the candidate, as assigned by the placement view.
+            layout_index_across_batch: Timeline index of the layout, as assigned by the placement view.
             base_pos: Robot base position in the world frame.
             base_quat_xyzw: Robot base orientation in the world frame.
             target_names: Names of the objects a grasp was solved for, aligned with the tensors below.
@@ -69,7 +66,7 @@ class ReachabilityRerunLayer:
         """
         import rerun as rr
 
-        self._visualizer.set_time(candidate_index)
+        self._visualizer.set_time(layout_index_across_batch)
         # Grasps are solved in the robot base frame, so they are logged as children of the base
         # transform and Rerun composes them back into the world frame.
         rr.log(BASE_ENTITY, rr.Transform3D(translation=base_pos, quaternion=rr.Quaternion(xyzw=base_quat_xyzw)))
