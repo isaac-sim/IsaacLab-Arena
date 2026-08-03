@@ -60,6 +60,13 @@ class RelationSolver:
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
 
+    @staticmethod
+    def _select_device(mesh_collision_enabled: bool) -> torch.device:
+        """Select the device appropriate for the resolved collision mode."""
+        if mesh_collision_enabled and torch.cuda.is_available():
+            return torch.device("cuda")
+        return torch.device("cpu")
+
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
 
@@ -214,7 +221,8 @@ class RelationSolver:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._mesh_collision_enabled = self._should_use_mesh_collision(objects, collision_objects)
+        device = self._select_device(self._mesh_collision_enabled)
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )
@@ -242,7 +250,6 @@ class RelationSolver:
         solve_start = time.perf_counter()
 
         # Precompute mesh collision cache (once per solve, before opt loop)
-        self._mesh_collision_enabled = self._should_use_mesh_collision(state)
         if self._mesh_collision_enabled:
             non_anchor_objects = state.optimizable_objects
             anchor_objects = list(state.anchor_objects)
@@ -331,12 +338,19 @@ class RelationSolver:
 
         return state.get_final_positions()
 
-    def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
+    def _should_use_mesh_collision(
+        self,
+        objects: list[PlaceableAsset],
+        collision_objects: list[CollisionObject] | None,
+    ) -> bool:
         """Return True when the default mode or any object's override resolves to MESH."""
         if self.params.collision_mode == CollisionMode.MESH:
             return True
-        objects = [*state.optimizable_objects, *state.anchor_objects, *state.collision_objects]
-        return any(get_object_collision_mode(obj, self.params.collision_mode) == CollisionMode.MESH for obj in objects)
+        collision_candidates = [*objects, *(collision_objects or [])]
+        return any(
+            get_object_collision_mode(obj, self.params.collision_mode) == CollisionMode.MESH
+            for obj in collision_candidates
+        )
 
     @property
     def last_loss_history(self) -> list[float]:

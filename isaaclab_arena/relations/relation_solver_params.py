@@ -46,6 +46,9 @@ class RelationSolverParams:
     max_iters: int = 600
     """Maximum optimization iterations."""
 
+    checkpoint_iters: tuple[int, ...] = (25, 50, 100, 200, 400, 600)
+    """Cumulative iterations at which callers may inspect and stop a solve."""
+
     lr: float = 0.01
     """Learning rate for Adam optimizer."""
 
@@ -58,7 +61,7 @@ class RelationSolverParams:
     profile: bool = False
     """Print a timing summary after solve() (wall-time, batch size, pair count, ms/iter). No effect when max_iters=0."""
 
-    save_position_history: bool = True
+    save_position_history: bool = False
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
 
     collision_mode: CollisionMode = CollisionMode.BBOX
@@ -79,4 +82,16 @@ class RelationSolverParams:
     """Loss strategies for each relation type. Override to customize loss computation."""
 
     def __post_init__(self):
+        assert self.max_iters >= 0, f"max_iters must be >= 0, got {self.max_iters}"
+        assert all(value > 0 for value in self.checkpoint_iters), "checkpoint_iters must contain only positive values."
+        assert all(
+            current > previous
+            for previous, current in zip(self.checkpoint_iters, self.checkpoint_iters[1:], strict=False)
+        ), "checkpoint_iters must be strictly increasing."
+        assert len(set(self.checkpoint_iters)) == len(self.checkpoint_iters), "checkpoint_iters must be unique."
         assert self.clearance_m >= 0, f"clearance_m must be >= 0, got {self.clearance_m}"
+
+    def get_checkpoints(self) -> tuple[int, ...]:
+        """Get inspection checkpoints capped by max_iters."""
+        checkpoints = tuple(value for value in self.checkpoint_iters if value < self.max_iters)
+        return (*checkpoints, self.max_iters) if self.max_iters > 0 else ()
