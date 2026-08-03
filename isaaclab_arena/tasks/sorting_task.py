@@ -16,7 +16,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.tasks.predicates.spatial import objects_on_destinations
+from isaaclab_arena.tasks.predicates.spatial_manager_terms import ArenaAssetHandle, objects_on_destinations_term
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import root_height_below_minimum_multi_objects
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -75,10 +75,12 @@ class SortMultiObjectTask(TaskBase):
         contact_sensor_cfg_list = [SceneEntityCfg(name) for name in self.contact_sensor_name_list]
 
         success = TerminationTermCfg(
-            func=objects_on_destinations,
+            func=objects_on_destinations_term,
             params={
                 "object_cfg_list": object_cfg_list,
                 "contact_sensor_cfg_list": contact_sensor_cfg_list,
+                "object_asset_handle_list": [ArenaAssetHandle(asset) for asset in self.pick_up_object_list],
+                "destination_asset_handle_list": [ArenaAssetHandle(asset) for asset in self.destination_location_list],
                 "force_threshold": 1.0,
                 "velocity_threshold": 0.1,
             },

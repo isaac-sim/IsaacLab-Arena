@@ -151,14 +151,14 @@ def _test_sorting_task_success(simulation_app) -> bool:
             red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
             green_container_pos = wp.to_torch(green_container_object.data.root_pos_w)[0]
 
-            target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
+            target_quat = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=env.device)
 
             # Set initial positions ONCE - place cubes above containers so they can fall
             red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            red_cube_target_pos[0, 2] += 0.02  # Inside the container, above its bottom
 
             green_cube_target_pos = green_container_pos.clone().unsqueeze(0)
-            green_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            green_cube_target_pos[0, 2] += 0.02  # Inside the container, above its bottom
 
             # Write initial pose only once
             red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
@@ -210,11 +210,11 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
             # Get container position
             red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
 
-            target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
+            target_quat = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=env.device)
 
             # Set initial position ONCE - only place red cube above red container
             red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            red_cube_target_pos[0, 2] += 0.02  # Inside the container, above its bottom
 
             red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
@@ -261,7 +261,7 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
             # Initially, both envs should not be successful
             step_zeros_and_call(env, 1)
-            target_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device)
+            target_quat = torch.tensor([0.0, 0.0, 0.0, 1.0], device=env.device)
 
             # Now move second env cubes to success positions too
             # Note: env 0 may have been reset after success, so we need to set both envs
@@ -274,22 +274,22 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
             # Set BOTH env cubes to positions above containers (env 0 may have been reset)
             red_cube_state[0, :3] = red_container_pos[0].clone()
-            red_cube_state[0, 2] += 0.1  # Above container to fall into it
+            red_cube_state[0, 2] += 0.02  # Inside the container, above its bottom
             red_cube_state[0, 3:7] = target_quat
             red_cube_state[0, 7:] = 0
 
             green_cube_state[0, :3] = green_container_pos[0].clone()
-            green_cube_state[0, 2] += 0.1  # Above container to fall into it
+            green_cube_state[0, 2] += 0.02  # Inside the container, above its bottom
             green_cube_state[0, 3:7] = target_quat
             green_cube_state[0, 7:] = 0
 
             red_cube_state[1, :3] = red_container_pos[1].clone()
-            red_cube_state[1, 2] += 0.1  # Above container to fall into it
+            red_cube_state[1, 2] += 0.02  # Inside the container, above its bottom
             red_cube_state[1, 3:7] = target_quat
             red_cube_state[1, 7:] = 0
 
             green_cube_state[1, :3] = green_container_pos[1].clone()
-            green_cube_state[1, 2] += 0.1  # Above container to fall into it
+            green_cube_state[1, 2] += 0.02  # Inside the container, above its bottom
             green_cube_state[1, 3:7] = target_quat
             green_cube_state[1, 7:] = 0
 

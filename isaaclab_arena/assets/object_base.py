@@ -169,6 +169,10 @@ class ObjectBase(PlaceableAsset, ABC):
             object_pose[:, :3] -= env.unwrapped.scene.env_origins
         return object_pose
 
+    def get_bounding_box_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Get the pose of the frame in which this object's bounding box is expressed."""
+        return self.get_object_pose(env, is_relative=is_relative)
+
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
         """Set the pose of the object in the environment.
 

@@ -3,10 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import torch
 import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.utils.math import quat_inv, quat_mul
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
@@ -47,6 +50,16 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
+
+    def get_bounding_box_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Get the pose of the parent-frame-aligned bounding box."""
+        object_pose = self.get_object_pose(env, is_relative=is_relative)
+        relative_pose = self.initial_pose_relative_to_parent.to_tensor(device=object_pose.device).to(
+            dtype=object_pose.dtype
+        )
+        relative_pose = relative_pose.expand(object_pose.shape[0], -1)
+        bounding_box_quaternion = quat_mul(object_pose[:, 3:], quat_inv(relative_pose[:, 3:]))
+        return torch.cat((object_pose[:, :3], bounding_box_quaternion), dim=-1)
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
