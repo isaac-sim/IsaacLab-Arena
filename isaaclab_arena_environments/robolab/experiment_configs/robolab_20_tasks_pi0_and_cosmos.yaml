@@ -24,7 +24,7 @@ runs:
       openpi_embodiment_adapter: droid
     # This YAML anchor keeps the shared pi0 environment-builder settings in one place.
     environment_builder: &pi0_builder
-      num_envs: 5
+      num_envs: 30
       episode_length_s: 66.0  # ~1000 policy steps at 15 Hz control, overriding the tasks' 20 s
     variations: &hdr_variation
       light:
@@ -32,7 +32,7 @@ runs:
           enabled: true
           hdr_names: ["home_office_robolab"]
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   banana_in_bowl_cosmos:
     environment: *banana_in_bowl_env
@@ -45,11 +45,11 @@ runs:
       remote_port: 8000
     # This YAML anchor keeps the shared Cosmos environment-builder settings in one place.
     environment_builder: &cosmos_builder
-      num_envs: 5
+      num_envs: 30
       episode_length_s: 66.0  # ~1000 policy steps at 15 Hz control, overriding the tasks' 20 s
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   banana_in_bowl_centered_banana_pi0:
     environment: &banana_in_bowl_centered_banana_env
@@ -59,7 +59,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   banana_in_bowl_centered_banana_cosmos:
     environment: *banana_in_bowl_centered_banana_env
@@ -67,7 +67,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   banana_on_plate_pi0:
     environment: &banana_on_plate_env
@@ -77,7 +77,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   banana_on_plate_cosmos:
     environment: *banana_on_plate_env
@@ -85,7 +85,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   big_pumpkin_in_bin_pi0:
     environment: &big_pumpkin_in_bin_env
@@ -95,7 +95,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   big_pumpkin_in_bin_cosmos:
     environment: *big_pumpkin_in_bin_env
@@ -103,7 +103,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   bowl_in_bin_pi0:
     environment: &bowl_in_bin_env
@@ -113,7 +113,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   bowl_in_bin_cosmos:
     environment: *bowl_in_bin_env
@@ -121,7 +121,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   butter_above_raisin_pi0:
     environment: &butter_above_raisin_env
@@ -131,7 +131,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   butter_above_raisin_cosmos:
     environment: *butter_above_raisin_env
@@ -139,7 +139,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   canned_food_in_bin_pi0:
     environment: &canned_food_in_bin_env
@@ -149,7 +149,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   canned_food_in_bin_cosmos:
     environment: *canned_food_in_bin_env
@@ -157,7 +157,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   clamp_in_right_bin_pi0:
     environment: &clamp_in_right_bin_env
@@ -167,7 +167,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   clamp_in_right_bin_cosmos:
     environment: *clamp_in_right_bin_env
@@ -175,7 +175,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   coffee_pot_in_bin_pi0:
     environment: &coffee_pot_in_bin_env
@@ -185,7 +185,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   coffee_pot_in_bin_cosmos:
     environment: *coffee_pot_in_bin_env
@@ -193,7 +193,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   food_packing_1_boxes_pi0:
     environment: &food_packing_1_boxes_env
@@ -203,7 +203,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   food_packing_1_boxes_cosmos:
     environment: *food_packing_1_boxes_env
@@ -211,7 +211,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   food_packing_1_cans_pi0:
     environment: &food_packing_1_cans_env
@@ -221,7 +221,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   food_packing_1_cans_cosmos:
     environment: *food_packing_1_cans_env
@@ -229,7 +229,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   larger_object_raisin_box_in_bin_pi0:
     environment: &larger_object_raisin_box_in_bin_env
@@ -239,7 +239,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   larger_object_raisin_box_in_bin_cosmos:
     environment: *larger_object_raisin_box_in_bin_env
@@ -247,7 +247,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   marker_in_mug_pi0:
     environment: &marker_in_mug_env
@@ -257,7 +257,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   marker_in_mug_cosmos:
     environment: *marker_in_mug_env
@@ -265,7 +265,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mouse_on_keyboard_pi0:
     environment: &mouse_on_keyboard_env
@@ -275,7 +275,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mouse_on_keyboard_cosmos:
     environment: *mouse_on_keyboard_env
@@ -283,7 +283,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mustard_above_raisin_pi0:
     environment: &mustard_above_raisin_env
@@ -293,7 +293,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mustard_above_raisin_cosmos:
     environment: *mustard_above_raisin_env
@@ -301,7 +301,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mustard_in_left_bin_pi0:
     environment: &mustard_in_left_bin_env
@@ -311,7 +311,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   mustard_in_left_bin_cosmos:
     environment: *mustard_in_left_bin_env
@@ -319,7 +319,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   rubiks_cube_pi0:
     environment: &rubiks_cube_env
@@ -329,7 +329,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   rubiks_cube_cosmos:
     environment: *rubiks_cube_env
@@ -337,7 +337,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   sauce_bottles_crate_pi0:
     environment: &sauce_bottles_crate_env
@@ -347,7 +347,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   sauce_bottles_crate_cosmos:
     environment: *sauce_bottles_crate_env
@@ -355,7 +355,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   smartphone_in_bin_pi0:
     environment: &smartphone_in_bin_env
@@ -365,7 +365,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   smartphone_in_bin_cosmos:
     environment: *smartphone_in_bin_env
@@ -373,7 +373,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   throw_away_apple_pi0:
     environment: &throw_away_apple_env
@@ -383,7 +383,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   throw_away_apple_cosmos:
     environment: *throw_away_apple_env
@@ -391,7 +391,7 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   toy_in_bin_pi0:
     environment: &toy_in_bin_env
@@ -401,7 +401,7 @@ runs:
     environment_builder: *pi0_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
 
   toy_in_bin_cosmos:
     environment: *toy_in_bin_env
@@ -409,4 +409,4 @@ runs:
     environment_builder: *cosmos_builder
     variations: *hdr_variation
     rollout_limit:
-      num_episodes: 100
+      num_episodes: 300
