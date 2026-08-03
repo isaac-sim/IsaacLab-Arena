@@ -415,7 +415,7 @@ print("USD_PATH=" + spec.objects[0].resolve_usd_path())
 
 
 def _load_spec_in_a_fresh_process(path: Path) -> subprocess.CompletedProcess:
-    """Load a written spec the way a runner does: a new process with an untouched asset catalogue."""
+    """Load a written spec in a new process, where nothing has been registered by a search."""
     return subprocess.run(
         [TestConstants.python_path, "-c", _REPLAY_SCRIPT, str(path)],
         capture_output=True,

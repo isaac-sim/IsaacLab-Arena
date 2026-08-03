@@ -77,11 +77,8 @@ class AssetSpec(BaseModel):
     @field_validator("params")
     @classmethod
     def _drop_catalogue_tags(cls, value: dict[str, Any]) -> dict[str, Any]:
-        # The asset catalogue prints 'tags=[...]' beside every entry, under the same name as the
-        # constructor argument, so a generated spec often copies them into params. Asset classes
-        # pass their own tags to Asset.__init__, so a copy here is a duplicate keyword argument
-        # rather than an override, and it would fail the build. Dropped rather than rejected: the
-        # tags are only ever redundant, and a spec is not retried once it fails validation.
+        # The asset catalogue prints 'tags=[...]', and a generated spec often copies them into params.
+        # Asset classes pass their own tags to Asset.__init__, so a copy here is a duplicate keyword argument.
         if "tags" not in value:
             return value
         print("INFO: ignoring 'tags' in asset params; the asset class supplies its own tags.")
@@ -129,9 +126,7 @@ class ObjectSetSpec(BaseModel):
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
         for registry_name in value:
-            # Rejected here rather than at build time: the generic SimReady asset is rigid, so it
-            # passes the check below, but a member is built with no arguments and it needs a
-            # usd_path, which only an object's params can carry.
+            # ObjectSet members are built with no arguments, but they need a usd_path. Only an object's params can carry.
             assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
                 f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
                 " carry the usd_path it needs. Use it as an object instead."

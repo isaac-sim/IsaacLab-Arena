@@ -157,24 +157,23 @@ class EnvironmentGenerationAgent:
         return spec, None
 
     def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> str | None:
-        """Add the spec's searched objects onto the generic SimReady asset, USD path in params.
+        """Point the spec's searched objects at the generic SimReady asset, USD path in params.
+
+        A search name only exists in the process that searched, so a spec keeping it loads nowhere else.
 
         Args:
             spec: Generated spec, rewritten in place.
 
         Returns:
-            Why the spec cannot be made portable, or ``None`` when every searched object was
-            rewritten.
+            An error message, or None when every searched object was rewritten.
         """
         # TODO(xinjieyao, 2026-08-03): Lift this once ObjectSetSpec.members can carry a usd_path.
         for object_set in spec.object_sets or []:
             searched_members = [name for name in object_set.members if name in self._simready_usd_paths]
             if searched_members:
                 return (
-                    f"Object set '{object_set.id}' draws from searched SimReady assets"
-                    f" {searched_members}, which cannot be object set members: a member names a"
-                    " registered asset and has nowhere to carry the usd_path the search found."
-                    " Use the searched asset as a standalone object instead."
+                    f"Object set '{object_set.id}' has searched SimReady members {searched_members}."
+                    " Members have nowhere to carry a usd_path; use them as objects instead."
                 )
         for obj in spec.objects:
             usd_path = self._simready_usd_paths.get(obj.registry_name)
