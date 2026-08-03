@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from isaaclab.utils.assets import retrieve_file_path
-from pxr import Usd, UsdPhysics
+
+if TYPE_CHECKING:
+    from pxr import Usd
 
 
 def get_all_rigid_body_prim_paths_from_stage(stage: Usd.Stage) -> list[str]:
@@ -20,6 +24,9 @@ def get_all_rigid_body_prim_paths_from_stage(stage: Usd.Stage) -> list[str]:
     Returns:
         List of prim paths of all rigid bodies in the stage
     """
+    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
+    from pxr import UsdPhysics
+
     rigid_body_prim_paths = []
     for prim in stage.Traverse():
         if prim.HasAPI(UsdPhysics.RigidBodyAPI):
@@ -37,6 +44,9 @@ def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
     Returns:
         List of prim paths of all rigid bodies in the USD file
     """
+    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
+    from pxr import Usd
+
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
@@ -62,6 +72,9 @@ def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None =
     Returns:
         Prim paths of the asset's rigid bodies, empty if it has none.
     """
+    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
+    from pxr import Usd
+
     variants = variants or {}
     key = (usd_path, tuple(sorted(variants.items())))
     if key not in _RIGID_BODY_PATHS_BY_ASSET:
@@ -176,6 +189,9 @@ def find_shallowest_rigid_body(
     Raises:
         ValueError: If multiple rigid bodies exist at the shallowest level
     """
+    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
+    from pxr import Usd
+
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")

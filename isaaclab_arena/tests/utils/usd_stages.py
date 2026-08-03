@@ -7,18 +7,21 @@
 
 from __future__ import annotations
 
-from pxr import Usd, UsdGeom, UsdPhysics
+from typing import Any
 
 
-def new_stage() -> Usd.Stage:
+def new_stage() -> Any:
     """Create an in-memory stage with a ``/Root`` default prim."""
+    # This helper is called from unit tests, which may run before SimulationApp starts.
+    from pxr import Usd, UsdGeom
+
     stage = Usd.Stage.CreateInMemory()
     root = UsdGeom.Xform.Define(stage, "/Root")
     stage.SetDefaultPrim(root.GetPrim())
     return stage
 
 
-def add_body(stage: Usd.Stage, name: str) -> str:
+def add_body(stage: Any, name: str) -> str:
     """Add a rigid body shaped the way SimReady authors them: an Xform with a mesh under it.
 
     Args:
@@ -28,6 +31,9 @@ def add_body(stage: Usd.Stage, name: str) -> str:
     Returns:
         Prim path of the body with the RigidBodyAPI.
     """
+    # This helper is called from unit tests, which may run before SimulationApp starts.
+    from pxr import UsdGeom, UsdPhysics
+
     body_path = f"/Root/Geometry/{name}_obj_00"
     body = UsdGeom.Xform.Define(stage, body_path)
     UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
