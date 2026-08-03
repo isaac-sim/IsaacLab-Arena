@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Forward kinematics over a USD articulation's physics joints.
+"""Pose USD articulation geometry without spawning a simulation.
 
-Authored USD transforms only describe the one joint configuration an asset happens to be saved in,
-so posing an articulation is a prerequisite for placement geometry that matches what is spawned.
-Matrices here follow USD's row-vector convention: ``point_parent = point_local @ matrix``.
+Placement geometry is computed before an Isaac Lab articulation exists, so runtime link poses are
+unavailable. This USD-joint implementation also avoids requiring a separate CuRobo kinematics
+configuration for every embodiment. Matrices follow USD's row-vector convention:
+``point_parent = point_local @ matrix``.
 """
 
 from __future__ import annotations
@@ -101,14 +102,16 @@ def compute_posed_prim_world_deltas(
         f" Available joints: {sorted(joint_prims)}."
     )
 
-    edges = _joint_edges(stage, root_prim, joint_prims, joint_pos)
+    edges = _joint_edges(root_prim, joint_prims, joint_pos)
     if not edges:
         return {}
 
-    rest_transforms = {
-        path: _local_to_world(stage, path)
-        for path in {path for edge in edges for path in (edge.parent, edge.child) if path}
-    }
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    rest_transforms: dict[str, np.ndarray] = {}
+    for path in {path for edge in edges for path in (edge.parent, edge.child) if path}:
+        prim = stage.GetPrimAtPath(path)
+        assert prim, f"Joint references a missing prim: {path}"
+        rest_transforms[path] = np.array(xform_cache.GetLocalToWorldTransform(prim), dtype=np.float64)
     posed_transforms = _propagate_joint_motion(edges, rest_transforms)
     return {path: np.linalg.inv(rest_transforms[path]) @ posed for path, posed in posed_transforms.items()}
 
@@ -144,15 +147,13 @@ class _JointEdge:
 
 
 def _joint_edges(
-    stage: Usd.Stage,
     root_prim: Usd.Prim,
     joint_prims: Mapping[str, Usd.Prim],
     joint_pos: Mapping[str, float],
 ) -> list[_JointEdge]:
     """Build the articulation's parent-to-child edges, including fixed joints that carry no motion."""
-    root_path = root_prim.GetPath().pathString
-    movable_paths = {prim.GetPath().pathString for prim in joint_prims.values()}
-    values_by_path = {joint_prims[name].GetPath().pathString: value for name, value in joint_pos.items()}
+    root_sdf_path = root_prim.GetPath()
+    joint_pos_by_path = {prim.GetPath().pathString: joint_pos.get(name, 0.0) for name, prim in joint_prims.items()}
 
     edges: list[_JointEdge] = []
     for prim in Usd.PrimRange(root_prim):
@@ -161,10 +162,10 @@ def _joint_edges(
         joint_path = prim.GetPath().pathString
         parent, child = _joint_body_paths(prim)
         # Compare path components: a plain prefix test would also match a sibling root's children.
-        if child is None or not Sdf.Path(child).HasPrefix(Sdf.Path(root_path)):
+        if child is None or not Sdf.Path(child).HasPrefix(root_sdf_path):
             continue
-        if joint_path in movable_paths:
-            motion = _joint_motion(prim, values_by_path.get(joint_path, 0.0))
+        if joint_path in joint_pos_by_path:
+            motion = _joint_motion(prim, joint_pos_by_path[joint_path])
         else:
             motion = np.eye(4)
         edges.append(
@@ -254,10 +255,3 @@ def _joint_motion(joint_prim: Usd.Prim, value: float) -> np.ndarray:
     else:
         matrix.SetTranslate(axis * value)
     return np.array(matrix, dtype=np.float64)
-
-
-def _local_to_world(stage: Usd.Stage, prim_path: str) -> np.ndarray:
-    """Return a prim's authored local-to-world transform."""
-    prim = stage.GetPrimAtPath(prim_path)
-    assert prim, f"Joint references a missing prim: {prim_path}"
-    return np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()), dtype=np.float64)

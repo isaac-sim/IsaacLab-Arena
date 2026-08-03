@@ -331,7 +331,6 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
 
     from isaaclab_arena.utils.usd_helpers import (
         compute_local_bounding_box_from_usd_at_joint_pos,
-        extract_link_bbox_meshes_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
     )
 
@@ -349,11 +348,10 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
         usd_path = f"{tmp_dir}/arm_with_instanced_mount.usda"
         stage.Export(usd_path)
 
-        components = extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, {})
-        assert len(components) == 2, "the base and forearm must each produce exactly one collision component"
-        assert all(component.is_watertight for component in components)
+        rest_mesh = extract_trimesh_from_usd_at_joint_pos(usd_path, {})
+        assert rest_mesh.is_watertight
         try:
-            extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, {}, scale=(-1.0, 1.0, 1.0))
+            extract_trimesh_from_usd_at_joint_pos(usd_path, {}, scale=(-1.0, 1.0, 1.0))
         except AssertionError as error:
             assert "positive" in str(error)
         else:
@@ -362,7 +360,7 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
         # The mount reaches 1.7 along +X: forearm at 1.0, mount offset 0.5, half extent 0.2.
         rest = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {})
         np.testing.assert_allclose(rest.max_point.numpy()[0][0], 1.7, atol=1e-6)
-        np.testing.assert_allclose(extract_trimesh_from_usd_at_joint_pos(usd_path, {}).vertices.max(axis=0)[0], 1.7)
+        np.testing.assert_allclose(rest_mesh.vertices.max(axis=0)[0], 1.7)
 
         # Swinging the elbow must carry the instance with the forearm rather than leave it behind.
         swung = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {"elbow": math.pi / 2.0})

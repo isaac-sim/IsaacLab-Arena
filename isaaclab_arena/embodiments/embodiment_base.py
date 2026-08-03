@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class PlacementGeometrySource:
-    """What an embodiment's placement bounding box and collision mesh are derived from."""
+class ArticulationGeometrySpec:
+    """USD articulation state used to compute embodiment geometry."""
 
     usd_path: str
     """Robot USD, as spawned."""
@@ -74,15 +74,15 @@ class EmbodimentBase(PlaceableAsset):
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
 
-    def get_placement_geometry_source(self) -> PlacementGeometrySource:
-        """Return the USD, scale and joint positions the robot's placement geometry is derived from."""
+    def get_placement_geometry_source(self) -> ArticulationGeometrySpec:
+        """Return the USD articulation state used to compute embodiment geometry."""
         assert self.scene_config is not None, "scene_config must be populated before placement"
         robot = self.scene_config.robot
         assert robot is not None, "scene_config.robot must be populated before placement"
         spawn = robot.spawn
         assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
         scale_x, scale_y, scale_z = spawn.scale or (1.0, 1.0, 1.0)
-        return PlacementGeometrySource(
+        return ArticulationGeometrySpec(
             usd_path=spawn.usd_path,
             scale=(scale_x, scale_y, scale_z),
             joint_pos=dict(robot.init_state.joint_pos or {}),

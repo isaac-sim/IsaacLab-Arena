@@ -468,55 +468,24 @@ def extract_trimesh_from_usd_path(
     return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
 
 
-def extract_link_bbox_meshes_from_usd_at_joint_pos(
+# -----------------------------------------------------------------------------
+# Joint-posed articulation geometry helpers
+# -----------------------------------------------------------------------------
+
+
+def extract_trimesh_from_usd_at_joint_pos(
     usd_path: str,
     joint_pos: Mapping[str, float],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-) -> tuple[trimesh.Trimesh, ...]:
-    """Return posed box meshes grouped by rigid body, in the default prim's local frame.
-
-    Joints the articulation has but joint_pos omits are posed at zero, so the result depends only on
-    joint_pos and not on the configuration the asset happens to be authored in. Each box encloses all
-    default-purpose geometry attached to one rigid body in that body's local frame, then follows the
-    body's posed transform. Geometry not attached to a rigid body is represented by one root box.
-
-    Results are cached in process and copied before return.
-
-    Args:
-        usd_path: Path to the articulation's .usd/.usda/.usdc file.
-        joint_pos: Joint positions keyed by exact joint name or Isaac Lab regex, revolute in radians.
-        scale: Spawn-time scale passed to ``UsdFileCfg``.
-
-    Returns:
-        Watertight link-box meshes in the scaled default-prim frame.
-    """
-    meshes = _extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
-    return tuple(mesh.copy() for mesh in meshes)
+) -> trimesh.Trimesh:
+    """Return one mesh containing all of an articulation's posed link boxes."""
+    mesh = _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
+    return mesh.copy()
 
 
 # NOTE(zihaox, 2026-07-28): Cache here rather than on the asset. Isaac Lab reaches assets through
 # EventTermCfg params, and configclass's validation walk tracks no visited set, so a trimesh held by
 # an asset sends it recursing through trimesh's internal back-references until the stack overflows.
-@functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
-def _extract_link_bbox_meshes_from_usd_at_joint_pos(
-    usd_path: str,
-    joint_pos_items: tuple[tuple[str, float], ...],
-    scale: tuple[float, float, float],
-) -> tuple[trimesh.Trimesh, ...]:
-    """Cacheable body of ``extract_link_bbox_meshes_from_usd_at_joint_pos``."""
-    assert all(
-        component > 0 for component in scale
-    ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
-    joint_pos = dict(joint_pos_items)
-    stage = Usd.Stage.Open(usd_path)
-    assert stage is not None, f"could not open USD: {usd_path}"
-    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-    root_path = default_prim.GetPath().pathString
-    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
-    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
-    return _posed_link_bbox_meshes(stage, default_prim, deltas, scale)
-
-
 @functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
 def _extract_trimesh_from_usd_at_joint_pos(
     usd_path: str,
@@ -528,14 +497,23 @@ def _extract_trimesh_from_usd_at_joint_pos(
     return trimesh.util.concatenate(meshes)
 
 
-def extract_trimesh_from_usd_at_joint_pos(
+def _extract_link_bbox_meshes_from_usd_at_joint_pos(
     usd_path: str,
-    joint_pos: Mapping[str, float],
-    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-) -> trimesh.Trimesh:
-    """Return one mesh containing all of an articulation's posed link boxes."""
-    mesh = _extract_trimesh_from_usd_at_joint_pos(usd_path, tuple(sorted(joint_pos.items())), tuple(scale))
-    return mesh.copy()
+    joint_pos_items: tuple[tuple[str, float], ...],
+    scale: tuple[float, float, float],
+) -> tuple[trimesh.Trimesh, ...]:
+    """Build posed box meshes grouped by rigid body."""
+    assert all(
+        component > 0 for component in scale
+    ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
+    joint_pos = dict(joint_pos_items)
+    stage = Usd.Stage.Open(usd_path)
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    root_path = default_prim.GetPath().pathString
+    resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
+    deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
+    return _posed_link_bbox_meshes(stage, default_prim, deltas, scale)
 
 
 def _nearest_rigid_body_ancestor(prim: Usd.Prim, root_prim: Usd.Prim) -> Usd.Prim | None:
