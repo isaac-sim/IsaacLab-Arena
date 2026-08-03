@@ -507,7 +507,6 @@ def test_embedded_graph_environment_experiment_composes_through_experiment_runne
     workflow = ArenaExperimentWorkflow(
         workflow_cfg=submission_cfg.osmo,
         experiment_cfg=submission_cfg.experiment_cfg,
-        server_task_cfg=submission_cfg.policy_server,
         task_cfg=submission_cfg.experiment_runner,
     )
     rendered_workflow = workflow.generate_workflow()
