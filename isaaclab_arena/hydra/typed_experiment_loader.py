@@ -219,28 +219,29 @@ def _build_environment_cfg_from_yaml_values(
     When environment.type names a graph-spec YAML file it is built on the temporary
     argparse compatibility path; otherwise the type selects a registered typed config.
     """
-    graph_spec_yaml = _graph_spec_yaml_selector(environment_values)
-    if graph_spec_yaml is not None:
-        environment_values_without_selector = {
+    if _is_environment_graph_yaml_spec(environment_values):
+        env_graph_spec_yaml_path = _graph_spec_yaml_path(environment_values)
+        per_run_overrides = {
             field_name: value for field_name, value in environment_values.items() if field_name != "type"
         }
-        return _graph_environment_cfg_from_yaml_values(graph_spec_yaml, environment_values_without_selector)
-    return _compose_typed_config_from_yaml_selector(
-        config_store,
-        hydra_environment_config_name,
-        run_name,
-        "environment",
-        environment_values,
-        environment_cfg_types,
-        ArenaEnvironmentCfg,
-    )
+        return _graph_environment_cfg_from_yaml_values(env_graph_spec_yaml_path, per_run_overrides)
+    else:
+        return _compose_typed_config_from_yaml_selector(
+            config_store,
+            hydra_environment_config_name,
+            run_name,
+            "environment",
+            environment_values,
+            environment_cfg_types,
+            ArenaEnvironmentCfg,
+        )
 
 
 # TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
 # environments have a typed configuration and no longer use the argparse compatibility path.
 def _graph_environment_cfg_from_yaml_values(
-    env_graph_spec_yaml: str,
-    environment_values: dict[str, Any],
+    env_graph_spec_yaml_path: str,
+    per_run_overrides: dict[str, Any],
 ) -> LegacyGraphEnvironmentCfg:
     """Create the temporary graph-YAML compatibility config from typed YAML Run values.
 
@@ -250,19 +251,24 @@ def _graph_environment_cfg_from_yaml_values(
     build_arena_builder_from_legacy_graph).
     """
     return LegacyGraphEnvironmentCfg(
-        enable_cameras=bool(environment_values.get("enable_cameras", False)),
-        env_graph_spec_yaml_path=env_graph_spec_yaml,
-        per_run_overrides=dict(environment_values),
+        enable_cameras=bool(per_run_overrides.get("enable_cameras", False)),
+        env_graph_spec_yaml_path=env_graph_spec_yaml_path,
+        per_run_overrides=dict(per_run_overrides),
     )
 
 
-def _graph_spec_yaml_selector(environment_values: Any) -> str | None:
-    """Return the environment.type value when it selects a graph-spec YAML path."""
+def _is_environment_graph_yaml_spec(environment_values: Any) -> bool:
+    """Return whether a Run's environment.type names a graph-spec YAML path."""
+    return _graph_spec_yaml_path(environment_values) is not None
+
+
+def _graph_spec_yaml_path(environment_values: Any) -> str | None:
+    """Return the environment.type value when it names a graph-spec YAML path, else None."""
     if not isinstance(environment_values, dict):
         return None
-    selector = environment_values.get("type")
-    if isinstance(selector, str) and selector.lower().endswith((".yaml", ".yml")):
-        return selector
+    environment_type = environment_values.get("type")
+    if isinstance(environment_type, str) and environment_type.lower().endswith((".yaml", ".yml")):
+        return environment_type
     return None
 
 

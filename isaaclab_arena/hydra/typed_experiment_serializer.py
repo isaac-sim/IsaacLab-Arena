@@ -59,16 +59,14 @@ def _environment_yaml_values(
     run_cfg: ArenaRunCfg,
     dumped_environment_values: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return one Run's environment section with the type selector the loader expects."""
+    """Return one Run's environment section."""
     if isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
         # Graph-YAML environments serialize from their original source values; the derived
-        # arena_env_args tokens are an execution detail the loader rebuilds on reload.
-        assert (
-            run_cfg.environment.env_graph_spec_yaml_path
-        ), "Graph-YAML environment cannot be serialized because it does not record its graph-spec YAML path"
+        # CLI tokens are an execution detail the loader rebuilds on reload.
         return {"type": run_cfg.environment.env_graph_spec_yaml_path, **run_cfg.environment.per_run_overrides}
-    environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
-    return {"type": environment_type.name, **dumped_environment_values}
+    else:
+        environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
+        return {"type": environment_type.name, **dumped_environment_values}
 
 
 def _to_yaml_values(value: Any) -> Any:

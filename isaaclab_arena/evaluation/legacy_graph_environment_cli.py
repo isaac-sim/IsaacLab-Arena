@@ -45,11 +45,7 @@ def build_arena_builder_from_legacy_graph(
     environment_builder: ArenaEnvBuilderCfg,
     hydra_overrides: list[str],
 ) -> ArenaEnvBuilder:
-    """Build a graph-YAML environment through the existing argparse adapter.
-
-    Only environment construction crosses the argparse boundary; the Run's typed
-    builder configuration is used directly, so Hydra overrides on it take effect.
-    """
+    """Build a graph-YAML environment through the existing argparse adapter."""
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     assert cfg.env_graph_spec_yaml_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
