@@ -6,6 +6,7 @@
 """Tests for ObjectPlacer and RelationSolver reproducibility."""
 
 import math
+import torch
 
 import pytest
 
@@ -111,6 +112,46 @@ def test_object_placer_same_seed_produces_identical_result():
         pos1 = result1.positions[obj1]
         pos2 = result2.positions[obj2]
         assert pos1 == pos2, f"Mismatch for {obj1.name}: {pos1} != {pos2}"
+    assert {obj.name: yaw for obj, yaw in result1.orientations.items()} == {
+        obj.name: yaw for obj, yaw in result2.orientations.items()
+    }
+    assert result1.validation_results.validation_results == result2.validation_results.validation_results
+    assert result1.validation_results.required_checks == result2.validation_results.required_checks
+    assert placer1.last_iterations_run == placer2.last_iterations_run
+
+
+def test_bbox_placement_same_across_cuda_visibility(monkeypatch):
+    """BBOX placement results remain identical when CUDA visibility changes."""
+
+    def place_with_cuda_available(cuda_available: bool):
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda_available)
+        objects = list(_create_test_objects())
+        placer = ObjectPlacer(
+            ObjectPlacerParams(
+                placement_seed=7,
+                max_placement_attempts=4,
+                apply_positions_to_objects=False,
+                random_yaw_init=True,
+                solver_params=RelationSolverParams(
+                    max_iters=100,
+                    checkpoint_iters=(25, 50, 100),
+                    verbose=False,
+                ),
+            )
+        )
+        (result,) = placer.place(objects)
+        return (
+            {obj.name: position for obj, position in result.positions.items()},
+            {obj.name: yaw for obj, yaw in result.orientations.items()},
+            dict(result.validation_results.validation_results),
+            result.validation_results.required_checks,
+            placer.last_iterations_run,
+        )
+
+    cpu_visible_result = place_with_cuda_available(False)
+    cuda_visible_result = place_with_cuda_available(True)
+
+    assert cpu_visible_result == cuda_visible_result
 
 
 def test_object_placer_different_seeds_produce_different_results():

@@ -14,7 +14,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.placement_validators import build_validators
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverCheckpoint
 from isaaclab_arena.relations.relations import (
     FaceTo,
     On,
@@ -199,6 +199,7 @@ class ObjectPlacer:
             num_envs,
             candidates_per_env=max_attempts,
             attempts_per_result=max_attempts,
+            results_per_env=1,
             generator=generator,
             collision_objects=collision_objects,
         )
@@ -248,6 +249,7 @@ class ObjectPlacer:
             num_envs,
             candidates_per_env=max_attempts * results_per_env,
             attempts_per_result=max_attempts,
+            results_per_env=results_per_env,
             generator=generator,
             collision_objects=collision_objects,
         )
@@ -295,6 +297,7 @@ class ObjectPlacer:
         num_envs: int,
         candidates_per_env: int,
         attempts_per_result: int,
+        results_per_env: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> list[list[PlacementResult]]:
@@ -331,6 +334,24 @@ class ObjectPlacer:
             objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
 
+        accumulator = _CheckpointCandidateAccumulator(
+            num_envs=num_envs,
+            candidates_per_env=candidates_per_env,
+            results_per_env=results_per_env,
+        )
+        latest_candidates: list[PlacementCandidate] | None = None
+
+        def checkpoint_callback(checkpoint: RelationSolverCheckpoint) -> bool:
+            nonlocal latest_candidates
+            latest_candidates = self._candidates_from_checkpoint(
+                checkpoint,
+                objects,
+                unrotated_candidate_bboxes,
+                orientations_per_candidate,
+                collision_objects,
+            )
+            return accumulator.record(latest_candidates)
+
         all_positions = self._solver.solve(
             objects,
             initial_positions,
@@ -338,34 +359,26 @@ class ObjectPlacer:
             env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
             orientations=orientations_per_candidate,
             collision_objects=collision_objects,
+            checkpoint_callback=checkpoint_callback,
         )
-        self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
-        assert self._solver.last_loss_per_env is not None
-        all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
-        bboxes_per_candidate = [
-            self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
-            for candidate_idx in range(num_candidates)
-        ]
-        all_validations = self._validate_candidates(
-            all_positions, orientations_per_candidate, bboxes_per_candidate, collision_objects
-        )
-
-        candidates: list[PlacementCandidate] = []
-        for candidate_idx in range(num_candidates):
-            candidates.append(
-                PlacementCandidate(
-                    all_losses[candidate_idx],
-                    all_positions[candidate_idx],
-                    all_validations[candidate_idx],
-                    orientations_per_candidate[candidate_idx],
-                )
+        if latest_candidates is None:
+            assert self._solver.last_loss_per_env is not None
+            final_checkpoint = RelationSolverCheckpoint(
+                iteration=self._solver.last_iterations_run,
+                positions=all_positions,
+                losses=tuple(float(value) for value in self._solver.last_loss_per_env.cpu().tolist()),
+                elapsed_ms=0.0,
             )
+            latest_candidates = self._candidates_from_checkpoint(
+                final_checkpoint,
+                objects,
+                unrotated_candidate_bboxes,
+                orientations_per_candidate,
+                collision_objects,
+            )
+            accumulator.record(latest_candidates)
 
-        ranked_candidate_slices = self._rank_candidates(candidates, num_envs, candidates_per_env)
+        ranked_candidate_slices = accumulator.finalize(latest_candidates)
         ranked_results = [
             [
                 PlacementResult(
@@ -384,6 +397,42 @@ class ObjectPlacer:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
+
+    def _candidates_from_checkpoint(
+        self,
+        checkpoint: RelationSolverCheckpoint,
+        objects: list[PlaceableAsset],
+        unrotated_candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        initial_orientations: list[dict[PlaceableAsset, float]],
+        collision_objects: list[CollisionObject],
+    ) -> list[PlacementCandidate]:
+        """Copy, orient, and strictly validate every candidate in a solver checkpoint."""
+        assert len(checkpoint.positions) == len(initial_orientations)
+        assert len(checkpoint.losses) == len(checkpoint.positions)
+        positions = [dict(candidate_positions) for candidate_positions in checkpoint.positions]
+        orientations = [dict(candidate_orientations) for candidate_orientations in initial_orientations]
+        self._apply_face_to_orientations(positions, orientations)
+        candidate_bboxes = self._rotate_candidate_bboxes(objects, unrotated_candidate_bboxes, orientations)
+        bboxes_per_candidate = [
+            self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
+            for candidate_idx in range(len(positions))
+        ]
+        validations = self._validate_candidates(positions, orientations, bboxes_per_candidate, collision_objects)
+        return [
+            PlacementCandidate(
+                loss=loss,
+                positions=candidate_positions,
+                validation_results=validation_results,
+                orientations=candidate_orientations,
+            )
+            for loss, candidate_positions, validation_results, candidate_orientations in zip(
+                checkpoint.losses,
+                positions,
+                validations,
+                orientations,
+                strict=True,
+            )
+        ]
 
     @staticmethod
     def _rank_candidates(
@@ -835,3 +884,8 @@ class ObjectPlacer:
     def last_position_history(self) -> list:
         """Position snapshots from the most recent place() call."""
         return self._solver.last_position_history
+
+    @property
+    def last_iterations_run(self) -> int:
+        """Number of optimization iterations completed by the most recent placement."""
+        return self._solver.last_iterations_run
