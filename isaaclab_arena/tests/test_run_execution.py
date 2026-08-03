@@ -42,6 +42,33 @@ def _environment():
     return SimpleNamespace(unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder()))
 
 
+@dataclass
+class _RecorderManagerCfg:
+    dataset_filename: str = "environment_default_filename"
+    dataset_export_dir_path: str = "environment_default_export_dir"
+
+
+class _ArenaEnvBuilder:
+    """Stands in for the real builder so the dataset naming can be checked without a SimulationApp."""
+
+    def __init__(self, recorders):
+        self.env_cfg = SimpleNamespace(recorders=recorders)
+        self.made_with = None
+
+    def build_registered(self):
+        return None, self.env_cfg, {"num_envs": 1}
+
+    def make_registered(self, env_cfg, env_kwargs, render_mode):
+        self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
+        return _environment()
+
+
+def _builder(monkeypatch, recorders):
+    builder = _ArenaEnvBuilder(recorders)
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", lambda cfg: builder)
+    return builder
+
+
 def _run(**overrides):
     values = {
         "name": "test_run",
@@ -208,3 +235,42 @@ def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
         )
 
     assert attempted == ["failing"]
+
+
+def test_build_environment_names_the_dataset_per_rebuild(monkeypatch):
+    recorders = _RecorderManagerCfg()
+    builder = _builder(monkeypatch, recorders)
+
+    run_execution._build_environment_from_cfg(_run(name="pick"), render_mode="rgb_array", rebuild_index=2)
+
+    # Every rebuild recreates the dataset file, so the index has to distinguish them.
+    assert recorders.dataset_filename == "dataset_pick_rebuild2"
+    # Trajectory recording is off, so the environment keeps its own export directory.
+    assert recorders.dataset_export_dir_path == "environment_default_export_dir"
+    assert builder.made_with.render_mode == "rgb_array"
+
+
+def test_build_environment_exports_trajectories_to_the_run_directory(monkeypatch, tmp_path):
+    extended_recorders = _RecorderManagerCfg()
+    builder = _builder(monkeypatch, _RecorderManagerCfg())
+    monkeypatch.setattr(run_execution, "with_trajectory_recorder_terms", lambda recorders: extended_recorders)
+
+    run_execution._build_environment_from_cfg(
+        _run(name="pick"),
+        render_mode=None,
+        output_dir=tmp_path,
+        rebuild_index=1,
+        record_trajectories=True,
+    )
+
+    assert builder.made_with.env_cfg.recorders is extended_recorders
+    assert extended_recorders.dataset_export_dir_path == str(tmp_path)
+    assert extended_recorders.dataset_filename == "dataset_pick_rebuild1"
+
+
+def test_build_environment_tolerates_an_environment_without_recorders(monkeypatch):
+    builder = _builder(monkeypatch, None)
+
+    run_execution._build_environment_from_cfg(_run(), render_mode=None, record_trajectories=True)
+
+    assert builder.made_with.env_cfg.recorders is None
