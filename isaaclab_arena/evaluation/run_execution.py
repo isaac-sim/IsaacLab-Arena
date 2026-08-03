@@ -103,12 +103,13 @@ def build_and_run(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            env = _build_environment_from_cfg(cfg, rebuild_video_cfg.render_mode)
+            rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
+            env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(cfg)
+            policy = _build_policy_from_cfg(rebuild_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
                 cfg,
                 policy,
@@ -126,6 +127,19 @@ def build_and_run(
         status=RunStatus.COMPLETED,
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
     )
+
+
+def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
+    """Offset the environment-builder seed for a rebuild so each fresh construction differs.
+
+    Without this every rebuild constructs with the same seed, so build-time variations
+    (e.g. the directional-light direction) resolve to the same value on each rebuild.
+    Rebuild 0 keeps the configured seed so single-rebuild runs are unchanged.
+    """
+    if rebuild_index == 0:
+        return cfg
+    builder = replace(cfg.environment_builder, seed=cfg.environment_builder.seed + rebuild_index)
+    return replace(cfg, environment_builder=builder)
 
 
 def _build_environment_from_cfg(
