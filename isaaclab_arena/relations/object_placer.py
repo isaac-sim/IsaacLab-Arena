@@ -56,6 +56,92 @@ class PlacementCandidate:
         return self.validation_results.do_all_required_validation_checks_pass()
 
 
+class _CheckpointCandidateAccumulator:
+    """Collect the first strictly valid candidate snapshot for every candidate identity."""
+
+    def __init__(self, num_envs: int, candidates_per_env: int, results_per_env: int):
+        assert num_envs > 0, f"num_envs must be positive, got {num_envs}"
+        assert candidates_per_env > 0, f"candidates_per_env must be positive, got {candidates_per_env}"
+        assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
+        assert (
+            results_per_env <= candidates_per_env
+        ), f"results_per_env ({results_per_env}) cannot exceed candidates_per_env ({candidates_per_env})"
+        self._num_envs = num_envs
+        self._candidates_per_env = candidates_per_env
+        self._results_per_env = results_per_env
+        self._strict_snapshots: dict[tuple[int, int], PlacementCandidate] = {}
+
+    def record(self, candidates: list[PlacementCandidate]) -> bool:
+        """Record first strict snapshots and report whether every environment reached its quota."""
+        self._validate_candidate_count(candidates)
+        for candidate_index, candidate in enumerate(candidates):
+            identity = divmod(candidate_index, self._candidates_per_env)
+            if candidate.is_valid and identity not in self._strict_snapshots:
+                self._strict_snapshots[identity] = self._snapshot(candidate)
+
+        return all(
+            sum(
+                (env_id, candidate_index) in self._strict_snapshots
+                for candidate_index in range(self._candidates_per_env)
+            )
+            >= self._results_per_env
+            for env_id in range(self._num_envs)
+        )
+
+    def finalize(self, latest: list[PlacementCandidate]) -> list[list[PlacementCandidate]]:
+        """Return strict snapshots first, then ranked latest invalid fallbacks without duplicate identities."""
+        self._validate_candidate_count(latest)
+        finalized: list[list[PlacementCandidate]] = []
+        for env_id in range(self._num_envs):
+            start = env_id * self._candidates_per_env
+            env_latest = latest[start : start + self._candidates_per_env]
+            strict = [
+                (candidate_index, candidate)
+                for candidate_index in range(self._candidates_per_env)
+                if (candidate := self._strict_snapshots.get((env_id, candidate_index))) is not None
+            ]
+            strict.sort(key=lambda indexed_candidate: self._ranking_key(indexed_candidate[1]))
+            selected = strict[: self._results_per_env]
+            selected_indices = {candidate_index for candidate_index, _ in selected}
+            fallbacks = [
+                (candidate_index, candidate)
+                for candidate_index, candidate in enumerate(env_latest)
+                if not candidate.is_valid and candidate_index not in selected_indices
+            ]
+            fallbacks.sort(key=lambda indexed_candidate: self._ranking_key(indexed_candidate[1]))
+            selected.extend(fallbacks[: self._results_per_env - len(selected)])
+            assert len(selected) == self._results_per_env, (
+                f"env {env_id} has only {len(selected)} strict snapshots and invalid fallbacks; "
+                f"expected {self._results_per_env}"
+            )
+            finalized.append([candidate for _, candidate in selected])
+        return finalized
+
+    def _validate_candidate_count(self, candidates: list[PlacementCandidate]) -> None:
+        expected = self._num_envs * self._candidates_per_env
+        assert len(candidates) == expected, f"expected {expected} candidates, got {len(candidates)}"
+
+    @staticmethod
+    def _ranking_key(candidate: PlacementCandidate) -> tuple[int, int, float]:
+        return (*candidate.validation_results.get_number_of_required_and_optional_failures, candidate.loss)
+
+    @staticmethod
+    def _snapshot(candidate: PlacementCandidate) -> PlacementCandidate:
+        return PlacementCandidate(
+            loss=candidate.loss,
+            positions=dict(candidate.positions),
+            validation_results=PlacementValidationResults(
+                validation_results=dict(candidate.validation_results.validation_results),
+                required_checks=(
+                    set(candidate.validation_results.required_checks)
+                    if candidate.validation_results.required_checks is not None
+                    else None
+                ),
+            ),
+            orientations=dict(candidate.orientations),
+        )
+
+
 class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
