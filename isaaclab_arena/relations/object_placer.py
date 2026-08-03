@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import time
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_profile import PlacementCheckpointProfile, PlacementProfile
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.placement_validators import build_validators
@@ -85,6 +87,17 @@ class _CheckpointCandidateAccumulator:
                 for candidate_index in range(self._candidates_per_env)
             )
             >= self._results_per_env
+            for env_id in range(self._num_envs)
+        )
+
+    @property
+    def strict_layouts_per_env(self) -> tuple[int, ...]:
+        """Number of unique strict snapshots retained for each environment."""
+        return tuple(
+            sum(
+                (env_id, candidate_index) in self._strict_snapshots
+                for candidate_index in range(self._candidates_per_env)
+            )
             for env_id in range(self._num_envs)
         )
 
@@ -165,6 +178,9 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
         self._validators: list[PlacementValidator] = build_validators(self.params)
+        self._last_profile: PlacementProfile | None = None
+        self._profile_validation_counts: dict[str, int] = {}
+        self._profile_validation_times_ms: dict[str, float] = {}
 
     def place(
         self,
@@ -307,6 +323,9 @@ class ObjectPlacer:
         candidates are ranked independently (valid first, then by loss), so a
         candidate is never compared against another env's geometry.
         """
+        self._last_profile = None
+        self._profile_validation_counts = {}
+        self._profile_validation_times_ms = {}
         collision_objects = collision_objects or []
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
@@ -392,6 +411,24 @@ class ObjectPlacer:
             ]
             for candidate_slice in ranked_candidate_slices
         ]
+
+        if self.params.solver_params.profile:
+            self._last_profile = PlacementProfile(
+                device=self._solver.last_device,
+                collision_mode=self._solver.last_collision_mode,
+                candidate_count=num_candidates,
+                checkpoints=tuple(
+                    PlacementCheckpointProfile(iteration=iteration, elapsed_ms=elapsed_ms)
+                    for iteration, elapsed_ms in (
+                        self._solver.last_checkpoint_profiles or ((self._solver.last_iterations_run, 0.0),)
+                    )
+                ),
+                cumulative_iterations=self._solver.last_iterations_run,
+                validation_counts=dict(self._profile_validation_counts),
+                validation_times_ms=dict(self._profile_validation_times_ms),
+                strict_layouts_per_env=accumulator.strict_layouts_per_env,
+            )
+            print(f"[placement profile] {self._last_profile}")
 
         if self.params.verbose:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
@@ -732,6 +769,7 @@ class ObjectPlacer:
         num_candidates = len(positions)
         # Per-check count of layouts evaluated by that check
         num_layouts_evaluated_by_check: dict[str, int] = {}
+        validation_times_ms_by_check: dict[str, float] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         self._run_inexpensive_checks(
@@ -741,6 +779,7 @@ class ObjectPlacer:
             collision_objects,
             layout_pass_verdicts_by_check,
             num_layouts_evaluated_by_check,
+            validation_times_ms_by_check,
         )
         self._run_expensive_checks(
             positions,
@@ -750,7 +789,15 @@ class ObjectPlacer:
             required,
             layout_pass_verdicts_by_check,
             num_layouts_evaluated_by_check,
+            validation_times_ms_by_check,
         )
+        if self.params.solver_params.profile:
+            for check, count in num_layouts_evaluated_by_check.items():
+                self._profile_validation_counts[check] = self._profile_validation_counts.get(check, 0) + count
+            for check, elapsed_ms in validation_times_ms_by_check.items():
+                self._profile_validation_times_ms[check] = (
+                    self._profile_validation_times_ms.get(check, 0.0) + elapsed_ms
+                )
         if layout_pass_verdicts_by_check:
             summary = ", ".join(
                 f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
@@ -775,14 +822,17 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         num_layouts_evaluated_by_check: dict[str, int],
+        validation_times_ms_by_check: dict[str, float],
     ) -> None:
         """Run every inexpensive validator on all candidates, recording verdicts and evaluated counts."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
+                validation_start = time.perf_counter()
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
+                validation_times_ms_by_check[validator.check] = (time.perf_counter() - validation_start) * 1e3
                 num_layouts_evaluated_by_check[validator.check] = num_candidates
 
     def _run_expensive_checks(
@@ -794,6 +844,7 @@ class ObjectPlacer:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         num_layouts_evaluated_by_check: dict[str, int],
+        validation_times_ms_by_check: dict[str, float],
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(positions)
@@ -805,12 +856,14 @@ class ObjectPlacer:
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
                 # only passed layouts are validated
+                validation_start = time.perf_counter()
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],
                     [orientations[i] for i in passed_layout_indices],
                     [bboxes[i] for i in passed_layout_indices],
                     collision_objects,
                 )
+                validation_times_ms_by_check[validator.check] = (time.perf_counter() - validation_start) * 1e3
                 verdicts = [False] * num_candidates
                 for sub_idx, cand_idx in enumerate(passed_layout_indices):
                     verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
@@ -889,3 +942,8 @@ class ObjectPlacer:
     def last_iterations_run(self) -> int:
         """Number of optimization iterations completed by the most recent placement."""
         return self._solver.last_iterations_run
+
+    @property
+    def last_profile(self) -> PlacementProfile | None:
+        """Structured profile for the most recent profile-enabled placement batch."""
+        return self._last_profile

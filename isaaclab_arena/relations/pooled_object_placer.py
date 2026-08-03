@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_profile import PlacementProfile
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
@@ -97,6 +98,7 @@ class PooledObjectPlacer:
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
+        self._last_profiles: tuple[PlacementProfile, ...] = ()
 
         self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
@@ -135,6 +137,7 @@ class PooledObjectPlacer:
 
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
+        self._last_profiles = ()
         self._discard_consumed_layouts()
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
@@ -147,12 +150,20 @@ class PooledObjectPlacer:
             batch_size = max_missing * self._num_envs
             allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
             ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
-            self._store_env_matched_results(
+            used_best_loss_fallback = self._store_env_matched_results(
                 ranked_results_per_env,
                 layouts_per_env,
                 allow_fallback=allow_fallback,
                 target_num_layouts_per_env=target_num_layouts_per_env,
             )
+            if self._placer.last_profile is not None:
+                profile = replace(
+                    self._placer.last_profile,
+                    refill_batches=batch_idx + 1,
+                    used_best_loss_fallback=used_best_loss_fallback,
+                )
+                self._last_profiles = (*self._last_profiles, profile)
+                print(f"[placement pool profile] {profile}")
 
             if min(self._available_per_env()) >= target_num_layouts_per_env:
                 return
@@ -191,13 +202,16 @@ class PooledObjectPlacer:
         layouts_per_env: int,
         target_num_layouts_per_env: int,
         allow_fallback: bool = False,
-    ) -> None:
+    ) -> bool:
         """Store each env's results into its pool, up to target_num_layouts_per_env unread layouts.
 
         Valid layouts are preferred; when allow_fallback is set, an env with no
         valid layout keeps its best-loss results instead of staying empty.
         An env that has at least one valid layout never falls back to best-loss,
         even if it has fewer valid layouts than target_num_layouts_per_env.
+
+        Returns:
+            True when this call actually stores at least one invalid best-loss fallback.
         """
         fallback_envs = []
         for cur_env in range(self._num_envs):
@@ -216,6 +230,7 @@ class PooledObjectPlacer:
 
         if fallback_envs:
             print(f"Falling back to best-loss layouts for envs: {fallback_envs}")
+        return bool(fallback_envs)
 
     # ------------------------------------------------------------------
     # Public API
@@ -278,6 +293,11 @@ class PooledObjectPlacer:
     def had_fallbacks(self) -> bool:
         """Whether any pool refill accepted best-loss layouts that failed strict validation."""
         return self._had_fallbacks
+
+    @property
+    def last_profiles(self) -> tuple[PlacementProfile, ...]:
+        """Profiles for solve batches in the current fill operation."""
+        return self._last_profiles
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick count layouts at random with replacement (non-consuming).

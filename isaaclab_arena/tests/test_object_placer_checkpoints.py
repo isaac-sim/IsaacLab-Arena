@@ -116,6 +116,53 @@ def test_place_stops_when_one_strict_layout_exists():
     assert placer.last_iterations_run <= 100
 
 
+def test_profile_records_checkpoint_and_strict_counts():
+    """Profile mode records the solver checkpoints and strict result quota."""
+    placer = ObjectPlacer(
+        ObjectPlacerParams(
+            placement_seed=1,
+            max_placement_attempts=1,
+            apply_positions_to_objects=False,
+            solver_params=RelationSolverParams(
+                max_iters=100,
+                checkpoint_iters=(25, 50, 100),
+                verbose=False,
+                profile=True,
+            ),
+        )
+    )
+
+    placer.place(list(_create_test_objects()))
+
+    profile = placer.last_profile
+    assert profile is not None
+    assert profile.device == "cpu"
+    assert profile.candidate_count == 1
+    assert profile.cumulative_iterations == placer.last_iterations_run
+    assert profile.strict_layouts_per_env == (1,)
+    assert profile.checkpoints[-1].iteration == placer.last_iterations_run
+    assert profile.validation_counts
+    assert set(profile.validation_counts) == set(profile.validation_times_ms)
+    assert all(elapsed_ms >= 0.0 for elapsed_ms in profile.validation_times_ms.values())
+
+
+def test_zero_iteration_profile_records_final_checkpoint():
+    """A zero-iteration solve still profiles its final validation inspection."""
+    placer = ObjectPlacer(
+        ObjectPlacerParams(
+            apply_positions_to_objects=False,
+            solver_params=RelationSolverParams(max_iters=0, verbose=False, profile=True),
+        )
+    )
+
+    placer.place(list(_create_test_objects()))
+
+    profile = placer.last_profile
+    assert profile is not None
+    assert profile.cumulative_iterations == 0
+    assert profile.checkpoints[-1].iteration == 0
+
+
 def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
     """Ranked placement continues until every requested result has passed validation."""
     objects = list(_create_test_objects())

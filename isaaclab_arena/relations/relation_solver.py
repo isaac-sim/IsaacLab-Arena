@@ -77,6 +77,8 @@ class RelationSolver:
         self._mesh_collision_enabled = False
         self._last_iterations_run: int = 0
         self._last_checkpoint_profiles: tuple[tuple[int, float], ...] = ()
+        self._last_device = "cpu"
+        self._last_collision_mode = CollisionMode.BBOX
 
     @staticmethod
     def _select_device(mesh_collision_enabled: bool) -> torch.device:
@@ -246,6 +248,8 @@ class RelationSolver:
         self._last_checkpoint_profiles = ()
         self._mesh_collision_enabled = self._should_use_mesh_collision(objects, collision_objects)
         device = self._select_device(self._mesh_collision_enabled)
+        self._last_device = str(device)
+        self._last_collision_mode = CollisionMode.MESH if self._mesh_collision_enabled else CollisionMode.BBOX
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )
@@ -415,6 +419,16 @@ class RelationSolver:
     def last_checkpoint_profiles(self) -> tuple[tuple[int, float], ...]:
         """Iteration and elapsed-time records for the most recent solve checkpoints."""
         return self._last_checkpoint_profiles
+
+    @property
+    def last_device(self) -> str:
+        """Torch device used by the most recent solve()."""
+        return self._last_device
+
+    @property
+    def last_collision_mode(self) -> CollisionMode:
+        """Resolved collision mode used by the most recent solve()."""
+        return self._last_collision_mode
 
     @property
     def last_loss_per_env(self) -> torch.Tensor | None:
