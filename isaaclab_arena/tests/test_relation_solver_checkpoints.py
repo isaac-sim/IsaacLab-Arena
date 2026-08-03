@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for RelationSolver checkpoint configuration."""
+"""Tests for RelationSolver checkpoint configuration and benchmark reporting."""
 
+import importlib
+import json
 import torch
 from dataclasses import FrozenInstanceError
 
@@ -15,6 +17,7 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def _create_test_objects() -> tuple[DummyObject, DummyObject, DummyObject]:
@@ -149,3 +152,78 @@ def test_checkpoint_positions_are_not_mutated_by_later_optimizer_steps():
 
     with pytest.raises(FrozenInstanceError):
         snapshots[0].iteration = 0
+
+
+def _benchmark_module():
+    """Load the optional simulator-free placement benchmark CLI."""
+    return importlib.import_module("isaaclab_arena.scripts.benchmark_relation_placement")
+
+
+def test_benchmark_parse_args_accepts_bbox_cpu_case_matrix(tmp_path):
+    """The benchmark CLI preserves each requested BBOX-only matrix input."""
+    module = _benchmark_module()
+
+    args = module.parse_args([
+        "--device-policy",
+        "bbox-cpu",
+        "--candidates",
+        "1",
+        "10",
+        "50",
+        "--iterations",
+        "25",
+        "50",
+        "100",
+        "600",
+        "--json-output",
+        str(tmp_path / "benchmark.json"),
+    ])
+
+    assert args.device_policy == "bbox-cpu"
+    assert args.candidates == [1, 10, 50]
+    assert args.iterations == [25, 50, 100, 600]
+    assert args.json_output == tmp_path / "benchmark.json"
+
+
+def test_benchmark_case_serializes_stable_profile_schema_from_dummy_objects():
+    """A BBOX benchmark case emits real strict/profile counters without volatile identity fields."""
+    module = _benchmark_module()
+    objects = list(_create_test_objects())
+    objects[0].set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
+
+    result = module.run_benchmark_case(
+        objects=objects,
+        seed=1,
+        candidate_count=1,
+        requested_layouts=1,
+        max_iterations=100,
+        device_policy="bbox-cpu",
+    )
+    serialized = json.loads(json.dumps(result, sort_keys=True))
+
+    assert {
+        "revision",
+        "seed",
+        "collision_mode",
+        "candidate_count",
+        "requested_layouts",
+        "device",
+        "iterations",
+        "strict_count",
+        "generation_ms",
+        "validation_ms",
+        "optimizer_ms",
+        "used_best_loss_fallback",
+    } <= serialized.keys()
+    assert serialized["identity"] == {
+        "candidate_count": 1,
+        "collision_mode": "bbox",
+        "max_iterations": 100,
+        "requested_layouts": 1,
+        "revision": serialized["revision"],
+        "seed": 1,
+    }
+    assert serialized["device"] == "cpu"
+    assert serialized["strict_count"] == 1
+    assert serialized["used_best_loss_fallback"] is False
+    assert all("time" not in field for field in serialized["identity"])

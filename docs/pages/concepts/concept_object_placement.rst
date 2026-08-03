@@ -347,6 +347,46 @@ which provide constant gradients that work well with the Adam optimizer.
 3. The result is validated: no pair of objects may overlap, and all ``On`` constraints must be satisfied
 4. If validation fails, the process repeats up to ``max_placement_attempts`` times (default 5)
 
+Adaptive placement performance
+------------------------------
+
+The adaptive solver is deterministic for repeated inputs to the new algorithm: use an explicit
+``placement_seed`` and unchanged relation graph, bounding boxes, candidates, and solver parameters
+to reproduce the same resolved layout. It does not preserve exact coordinates from the previous
+placement algorithm; treat a migration as a new layout that must pass the current validators.
+Validators remain authoritative for both ordinary placement and benchmark results.
+
+Constructive validation is planned for the next MR, not this one. This implementation instead
+inspects immutable candidate snapshots at cumulative solver checkpoints. A layout counts as strict
+only when every required validator passes at a checkpoint. The placer stops only after every
+environment reaches its requested strict-layout quota; a later optimizer step cannot mutate the
+first strict snapshot that was retained.
+
+Use ``checkpoint_iters`` to select the cumulative inspection points and ``max_iters`` as the final
+optimization cap. ``save_position_history`` remains disabled by default because it is a debugging
+and visualization aid, not required for strict checkpoint snapshots.
+
+BBOX placement is deliberately CPU-only, even on a CUDA host. MESH placement retains its supported
+device behavior and can use CUDA when available, so do not compare its timings directly with the
+BBOX CPU benchmark. Profiling is opt-in through ``RelationSolverParams(profile=True)``; it exposes
+a ``PlacementProfile`` with resolved device/collision mode, candidate count, cumulative iterations,
+checkpoint timings, validation work, strict counts, and any best-loss fallback.
+
+Run the opt-in, simulator-free BBOX fixture benchmark with fixed seeds, for example:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/benchmark_relation_placement.py \\
+     --device-policy bbox-cpu \\
+     --candidates 1 10 50 \\
+     --iterations 25 50 100 600 \\
+     --json-output placement-benchmark.json
+
+The JSON separates one warm-up/cold-start measurement from the per-case resolver timing and records
+configuration, work counters, strict counts, timings, and stable resolved layouts. A reported
+best-loss fallback is explicitly not strict: it is a diagnostic result, must be warned about, and
+cannot satisfy a strict quota.
+
 ArenaEnvBuilder Integration
 ----------------------------
 
