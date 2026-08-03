@@ -131,10 +131,11 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     report_contents = report_path.read_text(encoding="utf-8")
     assert "first" in report_contents
     assert "second" in report_contents
-    assert "2 job(s)" in report_contents
+    assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
+    assert "Failed runs" not in report_contents
 
 
-def test_excludes_failed_runner_artifacts_from_the_report(tmp_path):
+def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     completed_runner_output_directory = tmp_path / "completed-runner-output"
     failed_runner_output_directory = tmp_path / "failed-runner-output"
     _write_run_output(completed_runner_output_directory / "completed-run", "completed-run", True)
@@ -160,11 +161,14 @@ def test_excludes_failed_runner_artifacts_from_the_report(tmp_path):
     }
     report_contents = report_path.read_text(encoding="utf-8")
     assert "completed-run" in report_contents
-    assert "failed-run" not in report_contents
-    assert "1 job(s)" in report_contents
+    assert "failed-run" in report_contents
+    assert "2 run(s) &middot; 1 completed &middot; 1 failed &middot; 1 episode(s)" in report_contents
+    assert "Failed runs (1)" in report_contents
+    assert "<code>17</code>" in report_contents
+    assert "These runs did not complete and are excluded from episode results." in report_contents
 
 
-def test_builds_empty_report_when_every_runner_failed(tmp_path):
+def test_builds_failure_report_when_every_runner_failed(tmp_path):
     first_runner_output_directory = tmp_path / "first-runner-output"
     second_runner_output_directory = tmp_path / "second-runner-output"
     _write_experiment_runner_result(first_runner_output_directory, RunStatus.FAILED, 1)
@@ -182,5 +186,10 @@ def test_builds_empty_report_when_every_runner_failed(tmp_path):
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
     assert (experiment_output_directory / "second" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
     report_contents = report_path.read_text(encoding="utf-8")
-    assert "No results recorded yet." in report_contents
-    assert "0 job(s)" in report_contents
+    assert "first" in report_contents
+    assert "second" in report_contents
+    assert "2 run(s) &middot; 0 completed &middot; 2 failed &middot; 0 episode(s)" in report_contents
+    assert "Failed runs (2)" in report_contents
+    assert "<code>1</code>" in report_contents
+    assert "<code>2</code>" in report_contents
+    assert "No results recorded yet." not in report_contents

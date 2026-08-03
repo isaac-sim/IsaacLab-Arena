@@ -53,6 +53,7 @@ def test_build_report_smoke(tmp_path):
     html = report_path.read_text(encoding="utf-8")
 
     assert "Evaluation Report" in html
+    assert "2 job(s) &middot; 5 episode(s)" in html
     assert "pick_and_place" in html
     assert "wrist_cam" in html and "front_cam" in html
 

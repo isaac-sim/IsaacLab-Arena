@@ -32,8 +32,9 @@ class CollectExperimentOutputsTask(BaseTask):
 
     For each Run, OSMO exposes its Experiment Runner task output at ``{{input:<runner-task>}}``. The embedded script
     copies completed Run outputs to ``{{output}}/<run-name>/...``, preserves failed runner results without partial Run
-    artifacts, and writes ``{{output}}/index.html``. Failed runner outputs are excluded from the report. Only this
-    final task output is published to Swift; the Experiment Runner task outputs remain workflow-local.
+    artifacts, and writes ``{{output}}/index.html``. The report lists failed Run executions but excludes their partial
+    episode artifacts. Only this final task output is published to Swift; the Experiment Runner task outputs remain
+    workflow-local.
     """
 
     def __init__(

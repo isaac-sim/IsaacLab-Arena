@@ -7,8 +7,8 @@
 
 The input JSON maps each Run name to its Experiment Runner task's output directory. Each runner result selects whether
 its ``<run-name>/...`` output is included. Completed Run directories are copied into the
-``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. One
-``index.html`` report is generated from the completed Runs.
+``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
+``index.html`` report lists every Run execution and includes episode details only from completed Runs.
 """
 
 from __future__ import annotations

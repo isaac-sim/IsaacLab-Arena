@@ -5,7 +5,8 @@
 
 # OSMO smoke test for collecting successful Runs when other Runs fail.
 # The two expected_failure Runs are intentionally invalid. The collector should
-# complete and build a report containing only the two expected_success Runs.
+# complete, report all four execution statuses, and include episode results only
+# from the two expected_success Runs.
 runs:
   expected_success_rubiks_cube:
     environment:

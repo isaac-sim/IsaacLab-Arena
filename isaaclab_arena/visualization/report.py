@@ -18,12 +18,16 @@ import socketserver
 import string
 from dataclasses import dataclass, field
 
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
 
 # Matches the per-episode results filename written by EpisodeRecorderManager.write. The Experiment Runner
 # writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
 # per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
 _RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")
+
+# Per-Run process result written by the OSMO Experiment Runner wrapper and preserved by the collector.
+_EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
 # Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
 # trailing metadata column to avoid duplication.
@@ -69,12 +73,32 @@ class JobReport:
     """All recorded episode videos for this job."""
 
 
+@dataclass(frozen=True)
+class RunExecutionReport:
+    """Record whether one Run process completed and its process exit code."""
+
+    run_name: str
+    """Name of the Run that produced this execution result."""
+
+    status: RunStatus
+    """Whether the Run process completed or failed."""
+
+    process_exit_code: int
+    """Exit code returned by the Run process."""
+
+
 @dataclass
 class EvaluationReport:
     """A whole evaluation run: one or more jobs, each with its own grid of episode videos."""
 
     title: str
+    """Title displayed at the top of the report."""
+
     jobs: list[JobReport]
+    """Episode results and videos grouped by job."""
+
+    run_executions: list[RunExecutionReport] = field(default_factory=list)
+    """Run process results, when provided by a parallel Experiment collector."""
 
 
 def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], dict]]:
@@ -102,6 +126,38 @@ def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], di
             record = json.loads(line)
             job_results[(int(record["env_id"]), rebuild, int(record["episode_in_env"]))] = record
     return results
+
+
+def _scan_run_executions(root: pathlib.Path) -> list[RunExecutionReport]:
+    """Scan collected Experiment Runner result files under ``root``.
+
+    Args:
+        root: Directory containing one collected output directory per Run.
+
+    Returns:
+        Run execution results ordered by Run name.
+    """
+    run_executions = []
+    for result_path in sorted(root.rglob(_EXPERIMENT_RUNNER_RESULT_FILE_NAME)):
+        relative_parent = result_path.relative_to(root).parent
+        if relative_parent == pathlib.Path("."):
+            # A raw Experiment Runner output stores its process result at the root, where the
+            # associated Run name is unavailable. Collected outputs store it under <run-name>/.
+            continue
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        status = RunStatus(result["execution_status"])
+        process_exit_code = result["process_exit_code"]
+        assert (status is RunStatus.COMPLETED) == (
+            process_exit_code == 0
+        ), f"Run execution result is inconsistent: '{result_path}'"
+        run_executions.append(
+            RunExecutionReport(
+                run_name=str(relative_parent),
+                status=status,
+                process_exit_code=process_exit_code,
+            )
+        )
+    return run_executions
 
 
 def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
@@ -246,11 +302,51 @@ def _render_job_section(job: JobReport) -> str:
     )
 
 
+def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str:
+    """Render a compact table of Runs whose processes failed."""
+    failed_run_executions = [
+        run_execution for run_execution in run_executions if run_execution.status is RunStatus.FAILED
+    ]
+    if not failed_run_executions:
+        return ""
+
+    rows = "\n".join(
+        '<tr><th class="rowlabel failure">'
+        f"{html.escape(run_execution.run_name)}<br>"
+        '<span class="status">failed</span></th>'
+        f"<td><code>{html.escape(str(run_execution.process_exit_code))}</code></td></tr>"
+        for run_execution in failed_run_executions
+    )
+    return (
+        f"<section><h2>Failed runs ({len(failed_run_executions)})</h2>"
+        '<p class="summary">These runs did not complete and are excluded from episode results.</p>'
+        '<table><thead><tr><th class="rowlabel">run</th><th>process exit code</th></tr></thead>'
+        f"<tbody>\n{rows}\n</tbody></table></section>"
+    )
+
+
 def render_report(report: EvaluationReport) -> str:
     """Render ``report`` into a self-contained HTML document using the report template."""
     num_episodes = sum(len(job.episodes) for job in report.jobs)
-    summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
-    sections = "\n".join(_render_job_section(job) for job in report.jobs) or "<p>No results recorded yet.</p>"
+    if report.run_executions:
+        num_completed_runs = sum(run_execution.status is RunStatus.COMPLETED for run_execution in report.run_executions)
+        num_failed_runs = sum(run_execution.status is RunStatus.FAILED for run_execution in report.run_executions)
+        summary = (
+            f"{len(report.run_executions)} run(s) &middot; {num_completed_runs} completed &middot; "
+            f"{num_failed_runs} failed &middot; {num_episodes} episode(s)"
+        )
+    else:
+        summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
+
+    failed_run_names = {
+        run_execution.run_name for run_execution in report.run_executions if run_execution.status is RunStatus.FAILED
+    }
+    sections = "\n".join([
+        _render_failed_runs_section(report.run_executions),
+        *(_render_job_section(job) for job in report.jobs if job.name not in failed_run_names),
+    ]).strip()
+    if not sections:
+        sections = "<p>No results recorded yet.</p>"
     template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
     return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
 
@@ -268,14 +364,28 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     video_dir = pathlib.Path(video_dir).resolve()
     video_dir.mkdir(parents=True, exist_ok=True)
 
-    report = EvaluationReport(title=title, jobs=_scan_jobs(video_dir))
+    report = EvaluationReport(
+        title=title,
+        jobs=_scan_jobs(video_dir),
+        run_executions=_scan_run_executions(video_dir),
+    )
     output = video_dir / "index.html"
     output.write_text(render_report(report), encoding="utf-8")
     num_episodes = sum(len(job.episodes) for job in report.jobs)
-    print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
+    if report.run_executions:
+        num_completed_runs = sum(run_execution.status is RunStatus.COMPLETED for run_execution in report.run_executions)
+        num_failed_runs = sum(run_execution.status is RunStatus.FAILED for run_execution in report.run_executions)
+        print(
+            f"Wrote evaluation report with {num_completed_runs} completed Run(s), {num_failed_runs} failed Run(s), "
+            f"and {num_episodes} episode(s) to: {output}"
+        )
+    else:
+        print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
     num_videos = sum(len(episode.video_by_camera) for job in report.jobs for episode in job.episodes)
-    if num_episodes == 0:
+    if not report.jobs and not report.run_executions:
         print("[WARNING] No episode results or rollout videos were found; the report is empty.")
+    elif num_episodes == 0 and report.run_executions:
+        print("[INFO] No episodes were recorded; the report contains Run execution results only.")
     elif num_videos == 0:
         print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
