@@ -12,7 +12,11 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverCheckpoint
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On
+from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.tests.test_object_placer_reproducibility import _create_test_objects
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def _candidate(loss: float, valid: bool, x: float) -> PlacementCandidate:
@@ -87,6 +91,7 @@ class _PositiveXValidator:
     """Test validator that accepts candidates whose inspected object has positive X."""
 
     check = "positive_x"
+    strict_relation_types = (On, NextTo)
     run_after_inexpensive_checks = False
 
     def __init__(self, inspected_object):
@@ -114,6 +119,36 @@ def test_place_stops_when_one_strict_layout_exists():
 
     assert result.success
     assert placer.last_iterations_run <= 100
+
+
+def test_unvalidated_relation_does_not_make_an_early_checkpoint_strict():
+    """A validator-clean checkpoint cannot stop before an uncovered solver relation is satisfied."""
+    point_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.0, 0.0, 0.0))
+    anchor = DummyObject(name="anchor", bounding_box=point_bbox)
+    anchor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    anchor.add_relation(IsAnchor())
+    target_z = 0.85
+    subject = DummyObject(name="subject", bounding_box=point_bbox)
+    subject.add_relation(AtPosition(z=target_z))
+    placer = ObjectPlacer(
+        ObjectPlacerParams(
+            placement_seed=1,
+            max_placement_attempts=1,
+            apply_positions_to_objects=False,
+            enabled_checks=set(),
+            solver_params=RelationSolverParams(
+                max_iters=100,
+                checkpoint_iters=(25, 100),
+                clearance_m=0.0,
+                verbose=False,
+            ),
+        )
+    )
+
+    result = placer.place([anchor, subject])[0]
+
+    assert placer.last_iterations_run == 100
+    assert abs(result.positions[subject][2] - target_z) < 0.05
 
 
 def test_profile_records_checkpoint_and_strict_counts():

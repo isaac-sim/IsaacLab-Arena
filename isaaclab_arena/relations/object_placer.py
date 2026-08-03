@@ -358,10 +358,13 @@ class ObjectPlacer:
             candidates_per_env=candidates_per_env,
             results_per_env=results_per_env,
         )
+        allow_early_checkpoint_acceptance = self._has_strict_validator_coverage(objects)
         latest_candidates: list[PlacementCandidate] | None = None
 
         def checkpoint_callback(checkpoint: RelationSolverCheckpoint) -> bool:
             nonlocal latest_candidates
+            if not allow_early_checkpoint_acceptance:
+                return False
             latest_candidates = self._candidates_from_checkpoint(
                 checkpoint,
                 objects,
@@ -380,7 +383,7 @@ class ObjectPlacer:
             collision_objects=collision_objects,
             checkpoint_callback=checkpoint_callback,
         )
-        if latest_candidates is None:
+        if latest_candidates is None or not allow_early_checkpoint_acceptance:
             assert self._solver.last_loss_per_env is not None
             final_checkpoint = RelationSolverCheckpoint(
                 iteration=self._solver.last_iterations_run,
@@ -434,6 +437,19 @@ class ObjectPlacer:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
+
+    def _has_strict_validator_coverage(self, objects: list[PlaceableAsset]) -> bool:
+        """Whether every authored solver relation has an enabled, required strict validator."""
+        required_checks = self.params.required_checks
+        covered_relation_types = tuple(
+            relation_type
+            for validator in self._validators
+            if required_checks is None or validator.check in required_checks
+            for relation_type in validator.strict_relation_types
+        )
+        return all(
+            isinstance(relation, covered_relation_types) for obj in objects for relation in obj.get_spatial_relations()
+        )
 
     def _candidates_from_checkpoint(
         self,
