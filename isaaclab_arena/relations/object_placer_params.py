@@ -12,6 +12,7 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
 
 
 @dataclass
@@ -86,9 +87,19 @@ class ObjectPlacerParams:
     """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
 
     debug_visualize: bool = False
-    """If True, stream every validated candidate layout to a spawned Rerun viewer window."""
+    """If True, stream every validated candidate layout to a spawned Rerun viewer window.
 
-    debug_visualize_output_path: str | None = None
+    Debug aid, off by default. Needs the ``rerun-sdk`` package and a reachable display (the container
+    forwards ``DISPLAY``); the viewer is its own process, so this never starts Isaac Sim, and it is
+    closed when the run exits. Checks that can say more about a candidate add their own layer -- the
+    cuRobo reachability check draws the grasps it solved and the robot's collision spheres."""
+
+    debug_visualize_rrd_path: str | None = None
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs.
 
-    On its own it records without opening a window; with ``debug_visualize`` it does both."""
+    Enables the visualization on its own; combine with ``debug_visualize`` to both record and watch live."""
+
+    debug_visualizer: PlacementRerunVisualizer | None = None
+    """The live Rerun view the debug fields above ask for; populated by ObjectPlacer, not by callers.
+
+    Carried here so validators, which only receive these params, can add their own layer to it."""

@@ -5,8 +5,10 @@
 
 """The reachability check's layer of the placement Rerun debug view, sim-free (no SimApp).
 
-Draws where the robot stands, the top-down grasps it solved for a candidate layout, and whether each
-one was reachable.
+Core placement already draws each candidate layout's boxes (see
+``isaaclab_arena.relations.placement_visualizer``); this adds what only the IK check knows -- where the
+robot stands, the top-down grasps it solved, and whether each one was reachable. Everything is logged
+against the same candidate frame, so the two layers compose.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ REACHABLE_COLOR = (40, 200, 80)
 """Color of a grasp the robot can reach."""
 
 UNREACHABLE_COLOR = (220, 50, 50)
-"""Color of a grasp the robot cannot reach, which is what rejected the layout."""
+"""Color of a grasp the robot cannot reach, i.e. the one that rejected the layout."""
 
 BASE_AXIS_LENGTH = 0.2
 """Length (m) of the drawn robot base frame axes."""
@@ -32,10 +34,10 @@ BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 
 
 class ReachabilityRerunLayer:
-    """Draws the reachability check's verdict for a candidate into the placement debug view."""
+    """Draws the reachability check's verdict for a candidate into the shared placement view."""
 
     def __init__(self, visualizer: PlacementRerunVisualizer) -> None:
-        """Bind to the placement debug view this draws into.
+        """Bind the layer to the placement view it draws into.
 
         Args:
             visualizer: The process's placement debug view, which owns the recording and the timeline.
@@ -53,7 +55,7 @@ class ReachabilityRerunLayer:
         position_error: torch.Tensor,
         rotation_error: torch.Tensor,
     ) -> None:
-        """Log the robot's side of one candidate this check evaluated.
+        """Log the robot's side of one evaluated candidate.
 
         Args:
             candidate_index: Timeline index of the candidate, as assigned by the placement view.

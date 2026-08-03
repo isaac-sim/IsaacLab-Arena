@@ -315,11 +315,11 @@ class PlacementValidatorSpec(BaseModel):
             "never starts Isaac Sim, and it closes with the run."
         ),
     )
-    debug_visualize_output_path: str | None = Field(
+    debug_visualize_rrd_path: str | None = Field(
         default=None,
         description=(
-            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. On its "
-            "own it records without opening a window; with debug_visualize it does both."
+            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Enables "
+            "the visualization on its own; combine with debug_visualize to both record and watch live."
         ),
     )
 
