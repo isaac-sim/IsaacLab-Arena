@@ -32,7 +32,7 @@ MIN_INSPECTED_MATCHES_PER_PHRASE = 5
 
 
 class SimReadySourceKind(str, Enum):
-    """Which SimReady backend to search. All of them are remote."""
+    """Which SimReady backend to search."""
 
     ISAAC_SIM_GA = "isaac-sim-ga"
     S3 = "s3"
