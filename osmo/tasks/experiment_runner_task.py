@@ -73,7 +73,7 @@ class ExperimentRunnerTask(BaseTask):
         ]
 
     def _get_run_script(self) -> str:
-        """Record the runner result while keeping application failures available to the collector."""
+        """Build the shell entry point for the Experiment Runner task."""
         experiment_runner_command = shlex.join([
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
@@ -94,8 +94,8 @@ class ExperimentRunnerTask(BaseTask):
         return "\n".join([
             "set -euo pipefail",
             "",
-            "# Treat an Arena process failure as a result for the collector, not as an OSMO task failure.",
-            "# Bash allows a command used as an if condition to return nonzero even when set -e is enabled.",
+            "# Capture the application exit code without disabling fail-fast handling for this wrapper.",
+            "# Failures outside this condition, including writing the result, must remain OSMO task failures.",
             f"if {experiment_runner_command}; then",
             "  experiment_runner_process_exit_code=0",
             f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",

@@ -251,7 +251,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
 
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
     assert experiment_runner_command.startswith("set -euo pipefail")
-    assert "Treat an Arena process failure as a result for the collector" in experiment_runner_command
+    assert "Capture the application exit code without disabling fail-fast handling" in experiment_runner_command
+    assert "writing the result" in experiment_runner_command
     assert "if /isaac-sim/python.sh" in experiment_runner_command
     assert "experiment_runner.py" in experiment_runner_command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command

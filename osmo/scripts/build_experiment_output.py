@@ -28,7 +28,7 @@ EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 def load_experiment_runner_result(
     experiment_runner_output_directory: Path,
     run_name: str,
-) -> tuple[RunStatus, int]:
+) -> RunExecutionReport:
     """Load and validate an Experiment Runner result.
 
     Args:
@@ -36,7 +36,7 @@ def load_experiment_runner_result(
         run_name: Run associated with the task output, used in validation messages.
 
     Returns:
-        Execution status and process exit code.
+        Validated Run execution result.
     """
     experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
     experiment_runner_result = json.loads(experiment_runner_result_path.read_text(encoding="utf-8"))
@@ -45,7 +45,11 @@ def load_experiment_runner_result(
     assert (execution_status is RunStatus.COMPLETED) == (
         process_exit_code == 0
     ), f"Experiment Runner result for Run '{run_name}' is inconsistent: '{experiment_runner_result_path}'"
-    return execution_status, process_exit_code
+    return RunExecutionReport(
+        run_name=run_name,
+        status=execution_status,
+        process_exit_code=process_exit_code,
+    )
 
 
 def load_experiment_runner_output_directories_by_run_name(
@@ -95,21 +99,18 @@ def collect_run_outputs_into_experiment_output(
     assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
     run_execution_reports = []
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
-        execution_status, process_exit_code = load_experiment_runner_result(
+        run_execution_report = load_experiment_runner_result(
             experiment_runner_output_directory,
             run_name,
         )
-        run_execution_reports.append(
-            RunExecutionReport(
-                run_name=run_name,
-                status=execution_status,
-                process_exit_code=process_exit_code,
-            )
-        )
+        run_execution_reports.append(run_execution_report)
         destination_run_output_directory = experiment_output_directory / run_name
         experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
-        if execution_status is RunStatus.FAILED:
-            print(f"[WARNING] Excluding failed Run '{run_name}' with process exit code {process_exit_code}")
+        if run_execution_report.status is RunStatus.FAILED:
+            print(
+                f"[WARNING] Excluding failed Run '{run_name}' with process exit code "
+                f"{run_execution_report.process_exit_code}"
+            )
             destination_run_output_directory.mkdir(parents=True)
             shutil.copy2(
                 experiment_runner_result_path,

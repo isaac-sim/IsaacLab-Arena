@@ -62,13 +62,17 @@ def test_loads_experiment_runner_output_directories_as_paths(tmp_path):
     assert experiment_runner_output_directories_by_run_name == {"first": experiment_runner_output_directory}
 
 
-def test_loads_experiment_runner_result_as_run_status(tmp_path):
+def test_loads_experiment_runner_result(tmp_path):
     experiment_runner_output_directory = tmp_path / "experiment-runner-output"
     _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 0)
 
     experiment_runner_result = load_experiment_runner_result(experiment_runner_output_directory, "first")
 
-    assert experiment_runner_result == (RunStatus.COMPLETED, 0)
+    assert experiment_runner_result == RunExecutionReport(
+        run_name="first",
+        status=RunStatus.COMPLETED,
+        process_exit_code=0,
+    )
 
 
 def test_rejects_inconsistent_experiment_runner_result(tmp_path):
