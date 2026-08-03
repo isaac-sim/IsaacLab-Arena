@@ -315,7 +315,7 @@ class PlacementValidatorSpec(BaseModel):
             "never starts Isaac Sim, and it closes with the run."
         ),
     )
-    debug_visualize_rrd_path: str | None = Field(
+    debug_visualize_output_path: str | None = Field(
         default=None,
         description=(
             "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Enables "

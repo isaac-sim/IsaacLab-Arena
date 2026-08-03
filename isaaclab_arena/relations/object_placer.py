@@ -79,8 +79,8 @@ class ObjectPlacer:
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
-        # Populated before the validators are built so a check can add its own layer to the same view.
-        self.params.debug_visualizer = get_or_create_placement_visualizer(self.params)
+        # Created before the validators are built, since a check looks the view up when it is constructed.
+        self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PlacementValidator] = build_validators(self.params)
 
     def place(
@@ -598,8 +598,9 @@ class ObjectPlacer:
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
         num_candidates = len(positions)
-        # Per-check candidate indices that check was actually run on; expensive checks skip candidates.
-        evaluated_slots_by_check: dict[str, list[int]] = {}
+        # Per check, which layouts of this batch it actually ran on; expensive checks skip candidates,
+        # and their verdicts for the skipped ones are padded False rather than measured.
+        evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
         # Layouts are drawn before the checks run so a check's own layer lands on top of its candidate.
         candidate_indices = self._log_candidate_layouts(positions, orientations, bboxes)
@@ -610,7 +611,7 @@ class ObjectPlacer:
             bboxes,
             collision_objects,
             layout_pass_verdicts_by_check,
-            evaluated_slots_by_check,
+            evaluated_layout_indices_by_check,
             candidate_indices,
         )
         self._run_expensive_checks(
@@ -620,13 +621,19 @@ class ObjectPlacer:
             collision_objects,
             required,
             layout_pass_verdicts_by_check,
-            evaluated_slots_by_check,
+            evaluated_layout_indices_by_check,
             candidate_indices,
         )
-        self._log_candidate_verdicts(candidate_indices, layout_pass_verdicts_by_check, evaluated_slots_by_check)
+        if self._visualizer is not None and candidate_indices is not None:
+            self._visualizer.log_batch_verdicts(
+                candidate_indices,
+                layout_pass_verdicts_by_check,
+                evaluated_layout_indices_by_check,
+                self.params.required_checks,
+            )
         if layout_pass_verdicts_by_check:
             summary = ", ".join(
-                f"{check}={sum(verdicts)}/{len(evaluated_slots_by_check[check])}"
+                f"{check}={sum(verdicts)}/{len(evaluated_layout_indices_by_check[check])}"
                 for check, verdicts in layout_pass_verdicts_by_check.items()
             )
             print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
@@ -647,19 +654,19 @@ class ObjectPlacer:
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
-        evaluated_slots_by_check: dict[str, list[int]],
+        evaluated_layout_indices_by_check: dict[str, list[int]],
         candidate_indices: list[int] | None,
     ) -> None:
-        """Run every inexpensive validator on all candidates, recording verdicts and evaluated slots."""
+        """Run every inexpensive validator on all candidates, recording verdicts and evaluated layouts."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                if self.params.debug_visualizer is not None:
-                    self.params.debug_visualizer.set_active_candidates(candidate_indices or [])
+                if self._visualizer is not None:
+                    self._visualizer.set_active_candidates(candidate_indices or [])
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
-                evaluated_slots_by_check[validator.check] = list(range(num_candidates))
+                evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
         self,
@@ -669,7 +676,7 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
-        evaluated_slots_by_check: dict[str, list[int]],
+        evaluated_layout_indices_by_check: dict[str, list[int]],
         candidate_indices: list[int] | None,
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
@@ -681,10 +688,8 @@ class ObjectPlacer:
                     for i in range(num_candidates)
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
-                if self.params.debug_visualizer is not None and candidate_indices is not None:
-                    self.params.debug_visualizer.set_active_candidates(
-                        [candidate_indices[i] for i in passed_layout_indices]
-                    )
+                if self._visualizer is not None and candidate_indices is not None:
+                    self._visualizer.set_active_candidates([candidate_indices[i] for i in passed_layout_indices])
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],
@@ -696,7 +701,7 @@ class ObjectPlacer:
                 for sub_idx, cand_idx in enumerate(passed_layout_indices):
                     verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
                 layout_pass_verdicts_by_check[validator.check] = verdicts
-                evaluated_slots_by_check[validator.check] = passed_layout_indices
+                evaluated_layout_indices_by_check[validator.check] = passed_layout_indices
 
     def _log_candidate_layouts(
         self,
@@ -708,40 +713,20 @@ class ObjectPlacer:
 
         None when the debug view is off, which is the default.
         """
-        visualizer = self.params.debug_visualizer
+        visualizer = self._visualizer
         if visualizer is None:
             return None
         candidate_indices = visualizer.next_batch_indices(len(positions))
-        for slot, candidate_index in enumerate(candidate_indices):
-            anchors = set(get_anchor_objects(list(positions[slot])))
-            visualizer.log_layout(candidate_index, positions[slot], orientations[slot], bboxes[slot], anchors)
-        return candidate_indices
-
-    def _log_candidate_verdicts(
-        self,
-        candidate_indices: list[int] | None,
-        layout_pass_verdicts_by_check: dict[str, list[bool]],
-        evaluated_slots_by_check: dict[str, list[int]],
-    ) -> None:
-        """Annotate each drawn candidate with the checks that accepted or rejected it.
-
-        A check that skipped a candidate is left off it, so the view never shows an expensive check
-        rejecting a layout it was never run on.
-        """
-        visualizer = self.params.debug_visualizer
-        if visualizer is None or candidate_indices is None:
-            return
-        evaluated_slots = {check: set(slots) for check, slots in evaluated_slots_by_check.items()}
-        for slot, candidate_index in enumerate(candidate_indices):
-            visualizer.log_verdicts(
+        for layout_index, candidate_index in enumerate(candidate_indices):
+            anchors = set(get_anchor_objects(list(positions[layout_index])))
+            visualizer.log_layout(
                 candidate_index,
-                {
-                    check: verdicts[slot]
-                    for check, verdicts in layout_pass_verdicts_by_check.items()
-                    if slot in evaluated_slots[check]
-                },
-                self.params.required_checks,
+                positions[layout_index],
+                orientations[layout_index],
+                bboxes[layout_index],
+                anchors,
             )
+        return candidate_indices
 
     @staticmethod
     def _passes_required_checks(

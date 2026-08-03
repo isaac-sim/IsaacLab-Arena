@@ -472,7 +472,7 @@ def test_graph_spec_leaves_placement_debug_view_off_by_default():
     params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_GRAPH))
 
     assert not params.debug_visualize
-    assert params.debug_visualize_rrd_path is None
+    assert params.debug_visualize_output_path is None
 
 
 def test_graph_spec_forwards_placement_debug_view_to_placer_params():
@@ -482,7 +482,7 @@ def test_graph_spec_forwards_placement_debug_view_to_placer_params():
     params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_DEBUG_VIEW_GRAPH))
 
     assert params.debug_visualize
-    assert params.debug_visualize_rrd_path == "/tmp/placement_debug_view.rrd"
+    assert params.debug_visualize_output_path == "/tmp/placement_debug_view.rrd"
 
 
 def test_graph_spec_leaves_shipped_envs_out_of_the_debug_view():

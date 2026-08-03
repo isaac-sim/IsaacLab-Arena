@@ -8,11 +8,8 @@
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
 top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
 
-To see why a layout was called unreachable, turn on the placement debug view -- ``debug_visualize: true`` under
-``placement_validators`` in the env graph YAML, or ``ObjectPlacerParams(debug_visualize=True)``. This check then adds its
-own layer to it (the robot base, the grasps it solved, reachable/unreachable per target, IK error plots); see
-``isaaclab_arena_curobo.reachability_visualizer``. Nothing is drawn without a registered cuRobo config for the
-embodiment, since the check delists itself entirely in that case.
+With the placement debug view on (``ObjectPlacerParams.debug_visualize``), the check also draws what it solved for each
+candidate -- the robot base, the grasps, and their IK errors; see ``isaaclab_arena_curobo.reachability_visualizer``.
 """
 
 from __future__ import annotations
@@ -24,6 +21,7 @@ from isaaclab_arena.relations.placement_events import get_base_rotation_per_asse
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
+from isaaclab_arena.relations.placement_visualizer import get_active_placement_visualizer
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
@@ -85,17 +83,18 @@ class ReachabilityValidator(PlacementValidator):
         self._base_quat_xyzw = base_pose.rotation_xyzw
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
-        self._visualizer = params.debug_visualizer
-        self._rerun_layer = self._make_rerun_layer(params)
+        self._visualizer = get_active_placement_visualizer()
+        self._rerun_layer = self._make_rerun_layer()
 
     @staticmethod
-    def _make_rerun_layer(params: ObjectPlacerParams) -> ReachabilityRerunLayer | None:
+    def _make_rerun_layer() -> ReachabilityRerunLayer | None:
         """Return this check's layer of the placement debug view, or None when that view is off."""
-        if params.debug_visualizer is None:
+        visualizer = get_active_placement_visualizer()
+        if visualizer is None:
             return None
         from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
-        return ReachabilityRerunLayer(params.debug_visualizer)
+        return ReachabilityRerunLayer(visualizer)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -117,19 +116,24 @@ class ReachabilityValidator(PlacementValidator):
         bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i], batch_slot=i) for i in range(len(positions))]
+        return [self._validate(positions[i], orientations[i], layout_index=i) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
-        batch_slot: int,
+        layout_index: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
         Rebuilds each object's world pose and a per-object collision cuboid, syncs them into the solver's
         world, then batches a single IK solve over the target objects' top-down grasps. A layout with
         nothing to grasp (anchor-only, or no target present) is trivially reachable.
+
+        Args:
+            positions: Solved (x, y, z) per object.
+            orientations: Absolute world Z-yaw per object.
+            layout_index: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
@@ -176,7 +180,7 @@ class ReachabilityValidator(PlacementValidator):
         )
         if self._rerun_layer is not None:
             self._rerun_layer.log_candidate(
-                candidate_index=self._visualizer.candidate_index_for_slot(batch_slot),
+                candidate_index=self._visualizer.candidate_index_for_layout(layout_index),
                 base_pos=self._base_pos,
                 base_quat_xyzw=self._base_quat_xyzw,
                 target_names=[obj.name for obj in targets],

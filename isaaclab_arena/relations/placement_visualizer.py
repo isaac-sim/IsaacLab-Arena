@@ -5,26 +5,16 @@
 
 """Rerun debug view of build-time placement validation, sim-free (no SimApp).
 
-Rerun's viewer is a separate process fed by the logging SDK, so nothing here touches Isaac Sim -- the
-window comes up while layouts are being solved, before any simulation exists.
+Draws each candidate layout as one frame of the ``candidate`` timeline: the solved object boxes, and
+the verdict of every check that ran on it. A check may add its own layer under ``world/robot``.
 
-Turn it on from an env graph YAML (worked example:
-``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``)::
+Turn it on with ``ObjectPlacerParams.debug_visualize`` for a viewer window, or
+``debug_visualize_output_path`` for an ``.rrd`` recording; either one alone is enough. From an env
+graph YAML (worked example: ``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``)::
 
     placement_validators:
-      debug_visualize: true                          # spawn a viewer window; needs a reachable display
-      debug_visualize_rrd_path: /tmp/placement.rrd   # and/or record, for headless runs
-
-or in Python with ``ObjectPlacerParams(debug_visualize=True)``. Either field alone enables the view.
-Shipped envs leave it off, since it spawns a window on every build; enable it while debugging a scene
-whose layouts look wrong, then take it back out.
-
-Every candidate layout is one frame of the ``candidate`` timeline, so scrubbing it shows what was
-solved and which checks rejected it. Checks that know more about a candidate than its boxes add their
-own layer under ``world/robot`` (see the cuRobo reachability check).
-
-The spawned window belongs to the run: it comes up during placement, stays up for the rest of the
-run, and dies with the process that spawned it. Record to an ``.rrd`` to inspect layouts afterwards.
+      debug_visualize: true
+      debug_visualize_output_path: /tmp/placement.rrd
 """
 
 from __future__ import annotations
@@ -48,8 +38,7 @@ LAYOUT_ENTITY = "world/layout"
 """Entity path of the candidate's object boxes."""
 
 ROBOT_ENTITY = "world/robot"
-"""Entity path reserved for check-specific robot layers; cleared per candidate so a check that skips a
-candidate does not leave its previous frame's geometry on screen."""
+"""Entity path for check-specific robot layers; cleared on every candidate, so nothing carries over."""
 
 ANCHOR_COLOR = (140, 140, 150)
 """Color of the layout's anchors, which are fixed and only act as obstacles."""
@@ -76,23 +65,28 @@ VIEWER_PROBE_INTERVAL_S = 0.1
 """How long to wait between connection attempts while the viewer window starts."""
 
 _ACTIVE_VISUALIZER: PlacementRerunVisualizer | None = None
-"""The process's live view. Placement builds several placers (pool, per-reset solves) that would
-otherwise each reset Rerun's global recording and fight over the same viewer port and ``.rrd``."""
+"""The process's live view, shared by every placer: the recording, the viewer port and the output path
+are all process-wide, so a second view would fight the first over them."""
 
 
 def get_or_create_placement_visualizer(params: ObjectPlacerParams) -> PlacementRerunVisualizer | None:
     """Return the process's Rerun view of placement validation, or None when the params ask for none.
 
     Args:
-        params: Placement parameters carrying the ``debug_visualize`` / ``debug_visualize_rrd_path`` fields.
+        params: Placement parameters carrying the ``debug_visualize`` / ``debug_visualize_output_path`` fields.
     """
     global _ACTIVE_VISUALIZER
-    if not params.debug_visualize and params.debug_visualize_rrd_path is None:
+    if not params.debug_visualize and params.debug_visualize_output_path is None:
         return None
     if _ACTIVE_VISUALIZER is None:
         _ACTIVE_VISUALIZER = PlacementRerunVisualizer(
-            spawn=params.debug_visualize, rrd_path=params.debug_visualize_rrd_path
+            spawn=params.debug_visualize, output_path=params.debug_visualize_output_path
         )
+    return _ACTIVE_VISUALIZER
+
+
+def get_active_placement_visualizer() -> PlacementRerunVisualizer | None:
+    """Return the view created by ``get_or_create_placement_visualizer``, or None if there is none."""
     return _ACTIVE_VISUALIZER
 
 
@@ -193,13 +187,13 @@ def summarize_candidate_verdict(
 class PlacementRerunVisualizer:
     """Streams every validated candidate layout to Rerun, one frame per candidate."""
 
-    def __init__(self, app_id: str = "arena_placement", spawn: bool = True, rrd_path: str | None = None) -> None:
+    def __init__(self, app_id: str = "arena_placement", spawn: bool = True, output_path: str | None = None) -> None:
         """Start the recording and, unless recording headlessly, spawn a viewer window.
 
         Args:
             app_id: Rerun application id, shown in the viewer title.
             spawn: Whether to spawn a local viewer window and stream to it.
-            rrd_path: Optional path to also record the stream to, for replay on another machine.
+            output_path: Optional path to also record the stream to, for replay on another machine.
         """
         import rerun as rr
 
@@ -209,10 +203,10 @@ class PlacementRerunVisualizer:
         if spawn:
             self._viewer_process, viewer_sink = spawn_viewer_process()
             sinks.append(viewer_sink)
-        if rrd_path is not None:
-            Path(rrd_path).parent.mkdir(parents=True, exist_ok=True)
-            sinks.append(rr.FileSink(rrd_path))
-        assert sinks, "PlacementRerunVisualizer needs a viewer to spawn or an .rrd path to record to."
+        if output_path is not None:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            sinks.append(rr.FileSink(output_path))
+        assert sinks, "PlacementRerunVisualizer needs a viewer to spawn or an output path to record to."
         rr.set_sinks(*sinks)
         rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
         self._next_candidate_index = 0
@@ -246,16 +240,12 @@ class PlacementRerunVisualizer:
         return list(range(start, self._next_candidate_index))
 
     def set_active_candidates(self, candidate_indices: list[int]) -> None:
-        """Declare which candidates the validator about to run will see, in the order it sees them.
-
-        Expensive checks only run on the candidates that passed the cheap ones, so their batch position
-        is not the candidate number; this is what lets them log against the right frame.
-        """
+        """Set the batch ``candidate_index_for_layout`` resolves against, in the order the check sees it."""
         self._active_candidate_indices = list(candidate_indices)
 
-    def candidate_index_for_slot(self, slot: int) -> int:
-        """Timeline index of the ``slot``-th candidate in the batch the running validator was given."""
-        return self._active_candidate_indices[slot]
+    def candidate_index_for_layout(self, layout_index: int) -> int:
+        """Timeline index of the layout at ``layout_index`` of the active batch."""
+        return self._active_candidate_indices[layout_index]
 
     def set_time(self, candidate_index: int) -> None:
         """Point the recording at one candidate's frame, so subsequent logs land on it."""
@@ -335,6 +325,35 @@ class PlacementRerunVisualizer:
         )
         for check, passed in verdicts_by_check.items():
             rr.log(f"checks/{check}", rr.Scalars(float(passed)))
+
+    def log_batch_verdicts(
+        self,
+        candidate_indices: list[int],
+        verdicts_by_check: dict[str, list[bool]],
+        evaluated_layout_indices_by_check: dict[str, list[int]],
+        required_checks: set[str] | None,
+    ) -> None:
+        """Log the verdicts of one validated batch, one candidate at a time.
+
+        A check is left off the candidates it did not run on, so a skipped layout is not drawn as failed.
+
+        Args:
+            candidate_indices: Timeline index of each layout of the batch, in batch order.
+            verdicts_by_check: Per check, its verdict for every layout of the batch.
+            evaluated_layout_indices_by_check: Per check, which layouts of the batch it ran on.
+            required_checks: Checks that gate acceptance; None means every check that ran gates it.
+        """
+        evaluated = {check: set(indices) for check, indices in evaluated_layout_indices_by_check.items()}
+        for layout_index, candidate_index in enumerate(candidate_indices):
+            self.log_verdicts(
+                candidate_index,
+                {
+                    check: verdicts[layout_index]
+                    for check, verdicts in verdicts_by_check.items()
+                    if layout_index in evaluated[check]
+                },
+                required_checks,
+            )
 
     def close(self) -> None:
         """Flush pending data and shut down the viewer window this run spawned. Idempotent.
