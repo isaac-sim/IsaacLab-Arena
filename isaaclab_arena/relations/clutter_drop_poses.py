@@ -32,6 +32,7 @@ from enum import Enum
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.random import get_random_rotation
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
 
 
 class XySampling(str, Enum):
@@ -131,12 +132,6 @@ class DropPose:
     """Position in the drop sequence; 0 is dropped first and tends to end up lowest."""
 
 
-def _yaw_to_quat_xyzw(yaw: float) -> tuple[float, float, float, float]:
-    """Z-axis yaw (radians) as an ``(x, y, z, w)`` quaternion."""
-    half = yaw * 0.5
-    return (0.0, 0.0, math.sin(half), math.cos(half))
-
-
 @dataclass(frozen=True)
 class _Footprint:
     """A bounding box's XY footprint, described relative to the object origin.
@@ -219,6 +214,7 @@ def _sample_orientation_that_fits(
     region: ClutterRegion,
     params: ClutterDropParams,
     generator: torch.Generator | None,
+    base_rotation_xyzw: tuple[float, float, float, float],
 ) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, _Footprint]:
     """Sample a yaw whose rotated footprint fits the region, retrying unlucky draws.
 
@@ -231,7 +227,7 @@ def _sample_orientation_that_fits(
     widest: _Footprint | None = None
     for _ in range(attempts):
         yaw = get_random_rotation(generator) if params.random_yaw else 0.0
-        rotation = _yaw_to_quat_xyzw(yaw)
+        rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
         rotated = bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
         footprint = _footprint_of(rotated)
@@ -297,6 +293,7 @@ def compute_drop_poses(
     params: ClutterDropParams | None = None,
     generator: torch.Generator | None = None,
     occupied: list[OccupiedFootprint] | None = None,
+    base_rotations_xyzw: list[tuple[float, float, float, float]] | None = None,
 ) -> list[DropPose]:
     """Compute pre-settle drop poses for one pile.
 
@@ -311,6 +308,8 @@ def compute_drop_poses(
         generator: Seeded RNG for reproducible layouts.
         occupied: Footprints already standing in the region, such as objects the solver placed
             on the same surface. Clutter is released above them rather than inside them.
+        base_rotations_xyzw: Source-authored rotation per object. Sampled yaw is composed on
+            top of each rotation. Defaults to identity for every object.
 
     Returns:
         One :class:`DropPose` per input object, in input order.
@@ -319,6 +318,11 @@ def compute_drop_poses(
     for i, bbox in enumerate(bounding_boxes):
         assert bbox.num_envs == 1, f"bounding_boxes[{i}] must be single-env (N=1), got N={bbox.num_envs}"
     params = params or ClutterDropParams()
+    if base_rotations_xyzw is None:
+        base_rotations_xyzw = [(0.0, 0.0, 0.0, 1.0) for _ in bounding_boxes]
+    assert len(base_rotations_xyzw) == len(
+        bounding_boxes
+    ), "base_rotations_xyzw must contain one rotation per bounding box"
 
     usable = region.scaled(params.clutter_spread)
     order = _resolve_order(bounding_boxes, params.drop_order, generator)
@@ -336,7 +340,11 @@ def compute_drop_poses(
 
     for drop_index, (object_index, centre) in enumerate(zip(order, centres)):
         rotation, rotated, footprint = _sample_orientation_that_fits(
-            bounding_boxes[object_index], usable, params, generator
+            bounding_boxes[object_index],
+            usable,
+            params,
+            generator,
+            base_rotations_xyzw[object_index],
         )
         x, y = _sample_xy(centre, footprint, usable, generator)
         footprint_centre = footprint.centre_at(x, y)
