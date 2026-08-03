@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -36,6 +38,46 @@ def resolve_ik_solver(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> IKSo
     if ik_solver is None:
         ik_solver = ik_solver_context.motion_gen.ik_solver
     return ik_solver
+
+
+def resolve_hand_link_names(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> list[str]:
+    """Get the embodiment's hand link names from a host, whichever way it exposes them.
+
+    ``CuroboIKSolver`` holds them as ``hand_link_names``; the upstream ``CuroboPlanner`` (not ours to
+    change) holds them on its ``config``.
+    """
+    hand_link_names = getattr(ik_solver_context, "hand_link_names", None)
+    if hand_link_names is None:
+        hand_link_names = ik_solver_context.config.hand_link_names
+    return list(hand_link_names)
+
+
+@contextmanager
+def disabled_link_spheres(ik_solver: IKSolver, link_names: Sequence[str]) -> Iterator[None]:
+    """Mute the collision spheres of ``link_names`` for the duration of the block, then restore them.
+
+    cuRobo has no per-solve collision mask, so the spheres are edited in place on the solver's shared
+    kinematics and put back on exit (including on error). Restoring the saved spheres rather than the
+    robot config's originals keeps any other in-place edit (e.g. an attached object) intact.
+
+    Args:
+        ik_solver: The cuRobo IK solver whose kinematics carry the spheres.
+        link_names: Links to mute; an empty sequence makes the block a no-op.
+    """
+    kinematics_config = ik_solver.kinematics.kinematics_config
+    for name in link_names:
+        assert name in kinematics_config.link_name_to_idx_map, (
+            f"Link '{name}' has no collision spheres in this robot config. "
+            f"Known: {sorted(kinematics_config.link_name_to_idx_map)}."
+        )
+    saved_spheres = {name: kinematics_config.get_link_spheres(name).clone() for name in link_names}
+    for name in link_names:
+        kinematics_config.disable_link_spheres(name)
+    try:
+        yield
+    finally:
+        for name, spheres in saved_spheres.items():
+            kinematics_config.update_link_spheres(name, spheres)
 
 
 @dataclass
@@ -119,8 +161,9 @@ def solve_ik_feasibility(
         position_threshold: Max position error (m) to count as feasible.
         rotation_threshold: Max rotation error (rad) to count as feasible.
         require_collision_free: Also require a collision-free joint solution (cuRobo ``success``), not
-            just pose convergence. The caller must first exclude the grasped object's own contact --
-            e.g. disable the hand-link spheres -- or the gripper over its target reads as a collision.
+            just pose convergence. The embodiment's hand links are muted for the solve, so the gripper
+            closing over its target does not read as a collision; the rest of the arm is still checked
+            against the solver's world and against itself.
 
     Returns:
         ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
@@ -141,15 +184,16 @@ def solve_ik_feasibility(
         while ik_seed.dim() < 3:
             ik_seed = ik_seed.unsqueeze(0)
 
-    ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
+    # The gripper is meant to touch what it grasps, so its own links are muted for a collision-free solve.
+    muted_links = resolve_hand_link_names(ik_solver_context) if require_collision_free else []
+    with disabled_link_spheres(ik_solver, muted_links):
+        ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
 
     num_poses = positions.shape[0]
     pos_err = ik_result.position_error.view(num_poses, -1)
     rot_err = ik_result.rotation_error.view(num_poses, -1)
 
     ok = (pos_err < position_threshold) & (rot_err < rotation_threshold)
-    # TODO(xinjieyao, 2026-07-15): Support collision-free IK by disabling the hand-link spheres during collision checking
-    assert require_collision_free is False, "Collision-free IK is not supported yet. Needs extra machinery."
     if require_collision_free:
         # cuRobo folds collision-free-ness into ``success`` (success = converged AND feasible).
         ok = ok & ik_result.success.view(num_poses, -1).bool()

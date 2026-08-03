@@ -33,6 +33,11 @@ class ReachabilityConfig:
     ik_rotation_threshold_rad: float = 0.1
     """Max IK rotation error (rad) for a grasp to count as reachable."""
 
+    require_collision_free: bool = True
+    """If True, a grasp also has to be collision-free (arm clear of the layout's other objects and of
+    itself), not just reachable. The gripper's own links and the objects being grasped are exempt, so
+    closing on a target is not a collision."""
+
 
 @dataclass
 class ObjectPlacerParams:

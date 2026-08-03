@@ -5,9 +5,9 @@
 
 """Logic tests for ReachabilityValidator, with cuRobo mocked out.
 
-Exercises what the validator does around cuRobo -- reconstruct object poses from a layout, build one
-collision cuboid per object, and IK-check one grasp per movable (non-anchor) object -- against a real
-geometry-solved layout, asserting the per-layout ``validate_batch`` verdict. The cuRobo solver build
+Exercises what the validator does around cuRobo -- reconstruct object poses from a layout, build a
+collision cuboid per non-target object, and IK-check one grasp per movable (non-anchor) object -- against
+a real geometry-solved layout, asserting the per-layout ``validate_batch`` verdict. The cuRobo solver build
 and the batched IK solve are patched, so no GPU or cuRobo install is needed; the pure-math grasp
 reconstruction runs for real on CPU.
 """
@@ -83,6 +83,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
         num = target_poses.shape[0]
         feasible = torch.tensor(feasible_fn(num), dtype=torch.bool)
         captured["num_grasps"] = num
+        captured["ik_kwargs"] = kwargs
         return feasible, torch.zeros(num), torch.zeros(num)
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -178,13 +179,18 @@ def _make_unstamped_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 
     )
 
 
-def _make_reachability_validator(embodiment, visualizer=None):
-    """Construct the registered ReachabilityValidator with ``embodiment`` set on its params."""
+def _make_reachability_validator(embodiment, visualizer=None, require_collision_free=None):
+    """Construct the registered ReachabilityValidator with ``embodiment`` set on its params.
+
+    ``require_collision_free`` overrides that config default when given.
+    """
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
 
     params = ObjectPlacerParams()
     params.reachability_config.embodiment = embodiment
+    if require_collision_free is not None:
+        params.reachability_config.require_collision_free = require_collision_free
     return ReachabilityValidator(params, visualizer)
 
 
@@ -252,9 +258,24 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
-    # One collision cuboid per object (desk + box); one grasp per movable object (box only, desk is anchor).
-    assert len(captured["solver"].world_cuboids) == 2
+    # One collision cuboid per non-target object (the desk); one grasp per target (the box).
+    assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
     assert captured["num_grasps"] == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_collision_checks_grasps_by_default(monkeypatch):
+    """Grasps are collision-checked unless the task's reachability config opts out."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+
+    _make_reachability_validator(_fake_embodiment()).validate_batch([layout.positions], [layout.orientations], [{}], [])
+    assert captured["ik_kwargs"]["require_collision_free"] is True
+
+    _make_reachability_validator(_fake_embodiment(), require_collision_free=False).validate_batch(
+        [layout.positions], [layout.orientations], [{}], []
+    )
+    assert captured["ik_kwargs"]["require_collision_free"] is False
 
 
 @pytest.mark.curobo_deps
@@ -265,6 +286,19 @@ def test_validator_rejects_when_any_grasp_infeasible(monkeypatch):
 
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+
+
+@pytest.mark.curobo_deps
+def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
+    """Targets are what the gripper closes on, so only the other objects go into the collision world."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    # Of the three objects, only box_a is a target; the desk and the unstamped box_b stay obstacles.
+    layout = _make_two_box_pool().layouts_per_env()[0][0]
+    validator.validate_batch([layout.positions], [layout.orientations], [{}], [])
+
+    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
 
 
 @pytest.mark.curobo_deps
