@@ -23,7 +23,6 @@ from omegaconf.errors import OmegaConfBaseException
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -245,16 +244,15 @@ def _graph_environment_cfg_from_yaml_values(
 ) -> LegacyGraphEnvironmentCfg:
     """Create the temporary graph-YAML compatibility config from typed YAML Run values.
 
-    The environment values are rendered as CLI tokens for the existing graph-environment
-    argparse path; the Run's environment_builder section stays typed and is applied
-    directly at execution (see build_arena_builder_from_legacy_graph).
+    The path and environment values are stored structured and rendered into CLI tokens for
+    the existing graph-environment argparse path on demand at execution; the Run's
+    environment_builder section stays typed and is applied directly (see
+    build_arena_builder_from_legacy_graph).
     """
-    arena_env_args: dict[str, Any] = {"environment": env_graph_spec_yaml, **environment_values}
     return LegacyGraphEnvironmentCfg(
-        arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
         enable_cameras=bool(environment_values.get("enable_cameras", False)),
-        env_graph_spec_yaml=env_graph_spec_yaml,
-        environment_values=dict(environment_values),
+        env_graph_spec_yaml_path=env_graph_spec_yaml,
+        per_run_overrides=dict(environment_values),
     )
 
 

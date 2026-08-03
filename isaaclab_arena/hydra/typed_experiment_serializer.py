@@ -64,9 +64,9 @@ def _environment_yaml_values(
         # Graph-YAML environments serialize from their original source values; the derived
         # arena_env_args tokens are an execution detail the loader rebuilds on reload.
         assert (
-            run_cfg.environment.env_graph_spec_yaml
+            run_cfg.environment.env_graph_spec_yaml_path
         ), "Graph-YAML environment cannot be serialized because it does not record its graph-spec YAML path"
-        return {"type": run_cfg.environment.env_graph_spec_yaml, **run_cfg.environment.environment_values}
+        return {"type": run_cfg.environment.env_graph_spec_yaml_path, **run_cfg.environment.per_run_overrides}
     environment_type = environment_registry.get_factory_type_for_cfg(run_cfg.environment)
     return {"type": environment_type.name, **dumped_environment_values}
 

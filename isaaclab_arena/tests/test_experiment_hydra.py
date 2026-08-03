@@ -218,14 +218,8 @@ def test_graph_spec_yaml_environment_builds_legacy_cfg(tmp_path):
     run = experiment_cfg.runs["graph_run"]
 
     assert run.environment == LegacyGraphEnvironmentCfg(
-        arena_env_args=[
-            "--env_graph_spec_yaml",
-            "robolab/tasks/banana_in_bowl.yaml",
-            "--pick_up_object",
-            "banana",
-        ],
-        env_graph_spec_yaml="robolab/tasks/banana_in_bowl.yaml",
-        environment_values={"pick_up_object": "banana"},
+        env_graph_spec_yaml_path="robolab/tasks/banana_in_bowl.yaml",
+        per_run_overrides={"pick_up_object": "banana"},
     )
     assert run.policy == ZeroActionPolicyCfg()
     assert run.environment_builder.num_envs == 2
@@ -248,10 +242,11 @@ runs:
 
     run = _load_experiment(config_path).runs["graph_run"]
 
-    # The typed enable_cameras field drives pre-startup camera detection; the CLI token
-    # drives the graph-environment argparse path. Both must reflect the YAML value.
+    # The typed enable_cameras field drives pre-startup camera detection; the same value is
+    # retained in per_run_overrides, from which the graph-environment CLI tokens are built at
+    # execution. Both must reflect the YAML value.
     assert run.environment.enable_cameras is True
-    assert "--enable_cameras" in run.environment.arena_env_args
+    assert run.environment.per_run_overrides["enable_cameras"] is True
 
 
 @pytest.mark.parametrize(

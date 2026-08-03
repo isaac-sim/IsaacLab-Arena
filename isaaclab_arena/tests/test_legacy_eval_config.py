@@ -90,9 +90,8 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
 
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
-    assert run.environment.arena_env_args == legacy_environment_args_to_cli_args(
-        legacy_config["jobs"][0]["arena_env_args"]
-    )
+    assert run.environment.env_graph_spec_yaml_path == str(graph_path)
+    assert run.environment.per_run_overrides == {"enable_cameras": True, "object": "dex_cube"}
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
@@ -145,7 +144,9 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     )
 
     assert builder is expected_builder
-    assert captured["arguments"] == run.environment.arena_env_args
+    assert captured["arguments"] == legacy_environment_args_to_cli_args(
+        {"environment": run.environment.env_graph_spec_yaml_path, **run.environment.per_run_overrides}
+    )
     assert captured["args_cli"] is parsed_args
     assert captured["env_graph_spec_yaml"] == str(graph_path)
     # The Run's typed builder config crosses the boundary directly, so device and

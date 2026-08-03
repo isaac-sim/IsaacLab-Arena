@@ -465,11 +465,11 @@ def test_embedded_graph_environment_experiment_composes_through_experiment_runne
     experiment_cfg = load_arena_experiment_from_config_file(embedded_path, device="cuda:0")
     run_cfg = experiment_cfg.runs["graph_run"]
     assert isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg)
-    assert run_cfg.environment.arena_env_args == [
-        "--enable_cameras",
-        "--env_graph_spec_yaml",
-        "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml",
-    ]
+    assert (
+        run_cfg.environment.env_graph_spec_yaml_path
+        == "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
+    )
+    assert run_cfg.environment.per_run_overrides == {"enable_cameras": True}
     assert run_cfg.environment_builder.num_envs == 4
     assert run_cfg.policy.remote_host == Pi0ServerTask.host_token("policy-server-0")
 
