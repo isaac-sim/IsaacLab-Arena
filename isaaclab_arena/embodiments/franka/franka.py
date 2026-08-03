@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 
 import torch
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -41,6 +43,9 @@ from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, Stand
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
+if TYPE_CHECKING:
+    import trimesh
+
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711))
 
 _FRANKA_ROBOT_PRIM = RobotPrimSpec(
@@ -57,6 +62,17 @@ _FRANKA_STAND_PRIM = StandPrimSpec(
     footprint_translate_xyz=(-0.05, 0.0, 0.0),
     footprint_scale_xy=(1.2, 1.2),
     stand_default_height=0.8755,
+)
+_FRANKA_JOINT_NAMES = (
+    "panda_joint1",
+    "panda_joint2",
+    "panda_joint3",
+    "panda_joint4",
+    "panda_joint5",
+    "panda_joint6",
+    "panda_joint7",
+    "panda_finger_joint1",
+    "panda_finger_joint2",
 )
 
 
@@ -86,16 +102,23 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.add_camera_variations(self.camera_config)
 
-    def set_initial_joint_pose(self, initial_joint_pose: Mapping[str, float]) -> None:
-        """Spawn and reset the arm at ``initial_joint_pose``, keyed by joint name or Isaac Lab regex.
+    def get_collision_mesh(self) -> trimesh.Trimesh:
+        """Return one posed box mesh for the robot and stand."""
+        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
 
-        Call after construction, once :attr:`scene_config` holds the robot. Placement geometry is
-        derived from the same spawn state, so it follows the new pose.
-        """
+        source = self.get_placement_geometry_source()
+        return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
+
+    def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
+        """Set the spawn and reset joint positions in articulation order."""
+        expected_joint_count = len(_FRANKA_JOINT_NAMES)
+        assert (
+            len(initial_joint_pose) == expected_joint_count
+        ), f"expected {expected_joint_count} joint positions, got {len(initial_joint_pose)}"
         assert self.scene_config is not None, "scene_config must be populated before setting the joint pose"
         robot = self.scene_config.robot
         assert robot is not None, "scene_config.robot must be populated before setting the joint pose"
-        robot.init_state = robot.init_state.replace(joint_pos=dict(initial_joint_pose))
+        robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_FRANKA_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
@@ -112,6 +135,7 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
@@ -122,6 +146,8 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
             arm_mode=arm_mode,
         )
         self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_HIGH_PD_CFG.copy())
+        if initial_joint_pose is not None:
+            self.set_initial_joint_pose(initial_joint_pose)
         self.action_config = FrankaIKActionCfg()
 
     def get_command_body_name(self) -> str:
@@ -163,6 +189,7 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
@@ -174,6 +201,8 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         )
         self.action_config = FrankaJointPosActionsCfg()
         self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_CFG.copy())
+        if initial_joint_pose is not None:
+            self.set_initial_joint_pose(initial_joint_pose)
 
     def get_command_body_name(self) -> str:
         return "panda_hand"

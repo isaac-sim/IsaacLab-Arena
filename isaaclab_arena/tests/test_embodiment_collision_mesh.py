@@ -26,23 +26,27 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
         extents = mesh.extents
         assert all(e < 3.0 for e in extents), f"mesh leaked non-robot geometry: extents {extents}"
 
-        # The placement bbox covers the same posed assembly plus the analytic gprims that mesh extraction
-        # cannot represent, so it is marginally larger but must not diverge.
+        # Link boxes conservatively cover the same posed Gprims as the placement bbox.
         bbox = emb.get_bounding_box()
         bbox_size = (bbox.max_point - bbox.min_point)[0].tolist()
         for mesh_extent, box_extent in zip(extents, bbox_size):
             assert (
-                box_extent + 1e-3 >= mesh_extent
-            ), f"placement bbox {bbox_size} should cover robot mesh extents {extents.tolist()}"
+                mesh_extent + 1e-3 >= box_extent
+            ), f"robot mesh extents {extents.tolist()} should cover placement bbox {bbox_size}"
             assert abs(mesh_extent - box_extent) < 0.2, f"mesh extents {extents} disagree with box {bbox_size}"
 
-        # Both derivations open the USD and pose it, so results are cached rather than recomputed per
-        # solve step. The cache is keyed by USD, joint positions and scale, so an identical embodiment
-        # shares it.
-        assert emb.get_collision_mesh() is mesh
-        assert DroidAbsoluteJointPositionEmbodiment().get_collision_mesh() is mesh
-        assert emb.get_bounding_box() is bbox
-        assert DroidAbsoluteJointPositionEmbodiment().get_bounding_box() is bbox
+        # Cached geometry is copied before return so caller mutation cannot poison later queries.
+        another_mesh = emb.get_collision_mesh()
+        assert another_mesh is not mesh
+        original_vertex = another_mesh.vertices[0].copy()
+        mesh.vertices[0] += 100.0
+        assert (emb.get_collision_mesh().vertices[0] == original_vertex).all()
+
+        another_bbox = emb.get_bounding_box()
+        assert another_bbox is not bbox
+        original_min = another_bbox.min_point.clone()
+        bbox.min_point.add_(100.0)
+        assert emb.get_bounding_box().min_point.equal(original_min)
 
         # Isaac Lab reaches placeable assets through EventTermCfg params and validates whatever they
         # hold without tracking visited objects, so an embodiment holding its mesh would send
@@ -65,8 +69,8 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
 def _test_spawn_pose_matches_the_reset_pose(simulation_app) -> bool:
     """The spawn joint positions placement geometry is posed at are the ones a reset drives to.
 
-    Also covers ``set_initial_joint_pose``, which environments use to pose the arm for their scene
-    and which has to move the spawn state placement geometry reads, not just the reset.
+    Also covers constructor joint-pose overrides, which must update the spawn state placement
+    geometry reads.
     """
 
     import torch
@@ -79,28 +83,18 @@ def _test_spawn_pose_matches_the_reset_pose(simulation_app) -> bool:
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.usd_articulation import resolve_joint_pos_patterns
 
-    # The pose isaaclab_arena_environments/cube_goal_pose_environment.py reaches from.
-    overridden_pose = {
-        "panda_joint1": 0.0444,
-        "panda_joint2": -0.1894,
-        "panda_joint3": -0.1107,
-        "panda_joint4": -2.5148,
-        "panda_joint5": 0.0044,
-        "panda_joint6": 2.3775,
-        "panda_joint7": 0.6952,
-        "panda_finger_joint.*": 0.0400,
-    }
+    franka_override = [0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400]
+    droid_override = [0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400] + [0.0] * 5
 
     for embodiment_class, override in (
         (FrankaIKEmbodiment, None),
         (DroidAbsoluteJointPositionEmbodiment, None),
-        (FrankaIKEmbodiment, overridden_pose),
+        (FrankaIKEmbodiment, franka_override),
+        (DroidAbsoluteJointPositionEmbodiment, droid_override),
     ):
         env = None
         try:
-            embodiment = embodiment_class()
-            if override is not None:
-                embodiment.set_initial_joint_pose(override)
+            embodiment = embodiment_class(initial_joint_pose=override)
             environment = IsaacLabArenaEnvironment(
                 name=f"spawn_pose_{embodiment_class.__name__}_{override is not None}",
                 embodiment=embodiment,
@@ -116,9 +110,10 @@ def _test_spawn_pose_matches_the_reset_pose(simulation_app) -> bool:
             # Both sides below are read back from the spawn state, so pin the override against what
             # was asked for; otherwise a setter that quietly dropped it would still agree with itself.
             if override is not None:
-                assert spawn_pose == resolve_joint_pos_patterns(joint_names, override), (
+                expected_override = dict(zip(joint_names, override))
+                assert spawn_pose == expected_override, (
                     "set_initial_joint_pose did not reach the spawn state placement geometry reads:"
-                    f" {spawn_pose} != {resolve_joint_pos_patterns(joint_names, override)}"
+                    f" {spawn_pose} != {expected_override}"
                 )
             # Compare against the defaults a reset restores rather than measured positions, which
             # carry gravity sag and the joint randomisation event on top.
@@ -163,7 +158,7 @@ def _test_joint_position_action_offset_is_pinned(simulation_app) -> bool:
 
     try:
         embodiment = FrankaJointPosEmbodiment()
-        embodiment.set_initial_joint_pose({"panda_joint.*": 0.0, "panda_finger_joint.*": 0.0})
+        embodiment.set_initial_joint_pose([0.0] * 9)
         arm_action = embodiment.action_config.arm_action
         assert not arm_action.use_default_offset, "the action zero point would follow the spawn pose"
         assert arm_action.offset == trained_against, f"action zero point moved to {arm_action.offset}"
@@ -184,13 +179,13 @@ def test_embodiment_provides_robot_collision_mesh():
 
 def test_spawn_pose_matches_the_reset_pose():
     """Pytest entry point for the spawn-versus-reset joint-position test."""
-    result = run_simulation_app_function(_test_spawn_pose_matches_the_reset_pose, headless=True)
+    result = run_function_with_persistent_simulation_app(_test_spawn_pose_matches_the_reset_pose, headless=True)
     assert result, f"Test {test_spawn_pose_matches_the_reset_pose.__name__} failed"
 
 
 def test_joint_position_action_offset_is_pinned():
     """Pytest entry point for the joint-position action offset test."""
-    result = run_simulation_app_function(_test_joint_position_action_offset_is_pinned, headless=True)
+    result = run_function_with_persistent_simulation_app(_test_joint_position_action_offset_is_pinned, headless=True)
     assert result, f"Test {test_joint_position_action_offset_is_pinned.__name__} failed"
 
 

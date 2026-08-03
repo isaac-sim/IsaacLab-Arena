@@ -14,6 +14,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
@@ -50,9 +51,10 @@ class EmbodimentBase(PlaceableAsset):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        collision_mode: CollisionMode | str | None = None,
     ):
         assert self.name is not None, "Embodiment name is required"
-        super().__init__(name=self.name, tags=self.tags)
+        super().__init__(name=self.name, tags=self.tags, collision_mode=collision_mode)
         if "embodiment" not in self.tags:
             self.tags.append("embodiment")
         self.enable_cameras = enable_cameras
@@ -89,8 +91,6 @@ class EmbodimentBase(PlaceableAsset):
     def get_bounding_box(self, prim_path: str | None = None) -> AxisAlignedBoundingBox:
         """Return root-relative bounds of the articulation posed at its configured joint positions.
 
-        Shared and cached across callers, so treat the result as read-only.
-
         Args:
             prim_path: Optional sub-prim to bound (e.g. stand only). When None, bounds the
                 full default prim.
@@ -104,16 +104,12 @@ class EmbodimentBase(PlaceableAsset):
         )
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return the robot's collision mesh, posed at its configured initial joint positions.
-
-        The mesh matches the robot as spawned even when its USD was authored in another joint
-        configuration. Shared and cached across callers, so treat the result as read-only.
-        """
+        """Return the robot mesh from its USD default prim."""
         # Import locally because USD/pxr is available only after simulation initialization.
-        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
+        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_path
 
         source = self.get_placement_geometry_source()
-        return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
+        return extract_trimesh_from_usd_path(source.usd_path, source.scale)
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; the construction pose is applied in ``get_scene_cfg``."""
