@@ -5,13 +5,12 @@
 
 """Rerun debug view of build-time placement validation, sim-free (no SimApp).
 
-Every candidate layout the checks evaluate becomes one frame of the ``candidate`` timeline: the
-solved boxes, plus the verdict of each check that ran on it. A check that knows more about a
-candidate than its boxes logs its own entities onto that same frame -- its *layer* -- as the cuRobo
-reachability check does in ``isaaclab_arena_curobo.reachability_visualizer``.
+Each candidate layout becomes one frame of the ``candidate`` timeline, showing the solved object
+boxes and the verdict of every check that ran on it. A check may draw more onto the same frame; see
+``isaaclab_arena_curobo.reachability_visualizer``.
 
-Turn the view on with ``ObjectPlacerParams.debug_visualize`` (a viewer window) and/or
-``debug_visualize_output_path`` (a recording); worked YAML example in
+Turn on with ``ObjectPlacerParams.debug_visualize`` (viewer window) and/or
+``debug_visualize_output_path`` (recording). YAML example:
 ``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``.
 """
 
@@ -38,40 +37,40 @@ LAYOUT_ENTITY = "world/layout"
 """Entity path of the candidate's object boxes."""
 
 ROBOT_ENTITY = "world/robot"
-"""Entity path reserved for check-specific robot layers; cleared per candidate so a check that skips a
-candidate does not leave its previous frame's geometry on screen."""
+"""Entity path checks draw the robot into. Cleared on each candidate, so a check that skipped one
+leaves no stale geometry behind."""
 
 ANCHOR_COLOR = (140, 140, 150)
-"""Color of the layout's anchors, which are fixed and only act as obstacles."""
+"""Color of the layout's anchor objects."""
 
 MOVABLE_COLOR = (70, 130, 220)
-"""Color of the objects placement actually solves for."""
+"""Color of the objects placement solves for."""
 
 VIEWER_HOST = "127.0.0.1"
-"""Interface the spawned viewer is reached on; it always runs alongside the process that logs to it."""
+"""Interface the spawned viewer is reached on."""
 
 VIEWER_PORT = 9876
 """Port the spawned viewer serves on; Rerun's default, so ``rerun --connect`` finds it unprompted."""
 
 VIEWER_SHUTDOWN_TIMEOUT_S = 10.0
-"""How long an explicit close() waits for the viewer window to go away before giving up on it."""
+"""How long close() waits for the viewer to exit before killing it."""
 
 VIEWER_STARTUP_TIMEOUT_S = 20.0
-"""How long spawning waits for the viewer window to start serving before letting placement run on."""
+"""How long spawning waits for the viewer to start serving."""
 
 VIEWER_PROBE_TIMEOUT_S = 0.2
-"""How long one connection attempt to the viewer port may take before it counts as unanswered."""
+"""Timeout of one connection attempt to the viewer port."""
 
 VIEWER_PROBE_INTERVAL_S = 0.1
-"""How long to wait between connection attempts while the viewer window starts."""
+"""Delay between connection attempts while the viewer starts."""
 
 _ACTIVE_VISUALIZER: PlacementRerunVisualizer | None = None
-"""The process's live view. Placement builds several placers (pool, per-reset solves) that would
-otherwise each reset Rerun's global recording and fight over the same viewer port and ``.rrd``."""
+"""The process's view, shared by every placer. A run builds several (the pool, the per-reset solves),
+and one view each would reset Rerun's global recording and compete for the viewer port."""
 
 
 def get_or_create_placement_visualizer(params: ObjectPlacerParams) -> PlacementRerunVisualizer | None:
-    """Return the process's Rerun view of placement validation, or None when the params ask for none.
+    """Return the process's view, creating it on first use, or None when the params ask for no view.
 
     Args:
         params: Placement parameters carrying the ``debug_visualize`` / ``debug_visualize_output_path`` fields.
@@ -87,10 +86,9 @@ def get_or_create_placement_visualizer(params: ObjectPlacerParams) -> PlacementR
 
 
 def get_active_placement_visualizer() -> PlacementRerunVisualizer | None:
-    """Return the process's Rerun view of placement validation, or None when no placer asked for one.
+    """Return the process's view, or None when no placer asked for one.
 
-    How a check reaches the view it draws its own layer into: the placer creates the view before it
-    builds the checks, so this is set by the time a check is constructed.
+    This is how a check finds the view to draw into: the placer creates it before building the checks.
     """
     return _ACTIVE_VISUALIZER
 
@@ -98,8 +96,8 @@ def get_active_placement_visualizer() -> PlacementRerunVisualizer | None:
 def find_rerun_viewer_executable() -> str | None:
     """Return the path of the Rerun viewer binary shipped with ``rerun-sdk``, or None if absent.
 
-    Isaac Sim's Python does not put the packaged ``rerun_cli`` directory on PATH, so ``rr.spawn()``
-    fails to find the viewer unless it is passed explicitly.
+    Isaac Sim's Python leaves the packaged ``rerun_cli`` directory off PATH, so the viewer has to be
+    located and passed explicitly.
     """
     import rerun as rr
 
@@ -108,10 +106,11 @@ def find_rerun_viewer_executable() -> str | None:
 
 
 def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
-    """Spawn a viewer window that dies with this process; return it and the sink that streams to it.
+    """Spawn a viewer window and return it with the sink that streams to it.
 
-    ``setpriv --pdeathsig`` rather than ``rerun.spawn()``, which detaches the viewer and drops its
-    pid: the kernel then closes the window even on the hard ``os._exit`` Isaac Sim shuts down with.
+    Spawned under ``setpriv --pdeathsig``, so the kernel closes the window when this process dies,
+    including on the hard ``os._exit`` Isaac Sim shuts down with. ``rr.spawn()`` cannot do this: it
+    detaches the viewer and drops its pid.
     """
     import rerun as rr
 
@@ -139,16 +138,16 @@ def spawn_viewer_process() -> tuple[subprocess.Popen, Any]:
 
 
 def _viewer_port_answers() -> bool:
-    """Whether anything at all is serving on the viewer port -- not necessarily our own viewer."""
+    """Whether anything is serving on the viewer port; not necessarily our own viewer."""
     with socket.socket() as probe:
         probe.settimeout(VIEWER_PROBE_TIMEOUT_S)
         return probe.connect_ex((VIEWER_HOST, VIEWER_PORT)) == 0
 
 
 def _wait_until_viewer_serves(viewer_process: subprocess.Popen) -> None:
-    """Block until the spawned viewer answers on its port, so the first candidates are not lost.
+    """Wait until the spawned viewer answers on its port, so the first candidates are not lost.
 
-    Never fatal -- a view that fails to come up does not stop the run it was only meant to explain.
+    Warns rather than raises: a view that fails to come up must not stop the run.
     """
     deadline = time.monotonic() + VIEWER_STARTUP_TIMEOUT_S
     while time.monotonic() < deadline:
@@ -171,8 +170,8 @@ def summarize_candidate_verdict(
 ) -> tuple[str, bool]:
     """Describe how placement judged one candidate, as ``(message, accepted)``.
 
-    Acceptance follows the placer: only required checks gate a layout, so a candidate that failed
-    nothing else is accepted and the failure is reported as advisory rather than as a rejection.
+    Matches how the placer decides: only required checks reject a layout, so a candidate that failed
+    just the others is accepted and its failures are reported as advisory.
 
     Args:
         candidate_index: Timeline index of the candidate, used in the message.
@@ -193,7 +192,7 @@ class PlacementRerunVisualizer:
     """Streams every validated candidate layout to Rerun, one frame per candidate."""
 
     def __init__(self, app_id: str = "arena_placement", spawn: bool = True, output_path: str | None = None) -> None:
-        """Start the recording and, unless recording headlessly, spawn a viewer window.
+        """Start the recording, and spawn a viewer window to stream it to unless ``spawn`` is False.
 
         Args:
             app_id: Rerun application id, shown in the viewer title.
@@ -218,10 +217,10 @@ class PlacementRerunVisualizer:
         self._active_candidate_indices: list[int] = []
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> PlacementRerunVisualizer:
-        """Return the live view for ``copy.deepcopy`` instead of duplicating it.
+        """Return this view instead of a copy, since ``copy.deepcopy`` must not duplicate it.
 
-        Isaac Lab's configclass deep-copies the placement event params that carry the pool, and a
-        duplicated view would keep its own candidate counter and overwrite frames this one already drew.
+        Isaac Lab's configclass deep-copies the placement event params that carry the pool. A copy
+        would count candidates on its own and overwrite frames this view already drew.
 
         Args:
             memory_map: ``copy.deepcopy``'s ``id(original) -> copy`` cache.
@@ -237,8 +236,7 @@ class PlacementRerunVisualizer:
     def next_batch_indices(self, num_candidates: int) -> list[int]:
         """Reserve and return one timeline index per candidate of the batch about to be validated.
 
-        Indices keep counting across batches so a pool that refills several times does not overwrite
-        its earlier frames.
+        Indices keep counting across batches, so a refilling pool does not overwrite earlier frames.
         """
         start = self._next_candidate_index
         self._next_candidate_index += num_candidates
@@ -247,8 +245,8 @@ class PlacementRerunVisualizer:
     def set_active_candidates(self, candidate_indices: list[int]) -> None:
         """Declare which candidates the validator about to run will see, in the order it sees them.
 
-        Expensive checks only run on the candidates that passed the cheap ones, so their batch position
-        is not the candidate number; this is what lets them log against the right frame.
+        Expensive checks only run on the candidates that passed the cheap ones, so a candidate's
+        position in their batch is not its candidate number.
         """
         self._active_candidate_indices = list(candidate_indices)
 
@@ -348,8 +346,8 @@ class PlacementRerunVisualizer:
     ) -> None:
         """Annotate every drawn candidate of one batch with the checks that accepted or rejected it.
 
-        A check that skipped a candidate is left off it, so the view never shows an expensive check
-        rejecting a layout it was never run on.
+        A check that skipped a candidate is left off it, so the view never shows a check rejecting a
+        layout it never ran on.
 
         Args:
             candidate_indices: Timeline index of each candidate of the batch, as ``log_layout_batch`` returned.
@@ -393,7 +391,7 @@ class PlacementRerunVisualizer:
     def close(self) -> None:
         """Flush pending data and shut down the viewer window this run spawned. Idempotent.
 
-        Only needed to close the window early -- a run that just exits leaves it to the viewer's
+        Only needed to close the window early; a run that just exits leaves that to the viewer's
         parent-death signal.
         """
         import rerun as rr

@@ -19,7 +19,7 @@ REACHABLE_COLOR = (40, 200, 80)
 """Color of a grasp the robot can reach."""
 
 UNREACHABLE_COLOR = (220, 50, 50)
-"""Color of a grasp the robot cannot reach, i.e. the one that rejected the layout."""
+"""Color of a grasp the robot cannot reach, which is what rejected the layout."""
 
 BASE_AXIS_LENGTH = 0.2
 """Length (m) of the drawn robot base frame axes."""
@@ -32,10 +32,10 @@ BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 
 
 class ReachabilityRerunLayer:
-    """Draws the reachability check's verdict for a candidate into the shared placement view."""
+    """Draws the reachability check's verdict for a candidate into the placement debug view."""
 
     def __init__(self, visualizer: PlacementRerunVisualizer) -> None:
-        """Bind the layer to the placement view it draws into.
+        """Bind to the placement debug view this draws into.
 
         Args:
             visualizer: The process's placement debug view, which owns the recording and the timeline.
@@ -53,7 +53,7 @@ class ReachabilityRerunLayer:
         position_error: torch.Tensor,
         rotation_error: torch.Tensor,
     ) -> None:
-        """Log the robot's side of one evaluated candidate.
+        """Log the robot's side of one candidate this check evaluated.
 
         Args:
             candidate_index: Timeline index of the candidate, as assigned by the placement view.

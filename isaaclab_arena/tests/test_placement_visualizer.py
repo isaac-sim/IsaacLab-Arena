@@ -5,8 +5,8 @@
 
 """Tests for the Rerun debug view of build-time placement validation.
 
-Placement is sim-free, so these run a real solve and a real recording, headless: the ``.rrd`` sink
-replaces the viewer window, and no Isaac Sim or GPU is involved.
+Placement is sim-free, so these run a real solve and a real recording headless: the ``.rrd`` sink
+stands in for the viewer window, and no Isaac Sim or GPU is involved.
 """
 
 from __future__ import annotations

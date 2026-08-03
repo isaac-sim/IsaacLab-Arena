@@ -8,8 +8,9 @@
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
 top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
 
-To see why a layout was called unreachable, turn the placement debug view on (``ObjectPlacerParams.debug_visualize``);
-this check then draws its own layer into it, via ``isaaclab_arena_curobo.reachability_visualizer``.
+To see why a layout was called unreachable, turn the placement debug view on
+(``ObjectPlacerParams.debug_visualize``); this check then draws into it, via
+``isaaclab_arena_curobo.reachability_visualizer``.
 """
 
 from __future__ import annotations
@@ -88,7 +89,7 @@ class ReachabilityValidator(PlacementValidator):
 
     @staticmethod
     def _make_rerun_layer() -> ReachabilityRerunLayer | None:
-        """Return this check's layer of the placement debug view, or None when that view is off."""
+        """Return what this check draws into the placement debug view, or None when that view is off."""
         visualizer = get_active_placement_visualizer()
         if visualizer is None:
             return None
@@ -133,8 +134,8 @@ class ReachabilityValidator(PlacementValidator):
         Args:
             positions: Solved (x, y, z) per object.
             orientations: Absolute world Z-yaw per object.
-            batch_index: Position of this candidate in the batch this check was given, which the debug
-                view maps back to the candidate's own frame.
+            batch_index: Position of this candidate in the batch this check was given. The debug view
+                maps it back to the candidate's own frame.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))

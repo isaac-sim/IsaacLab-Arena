@@ -318,8 +318,8 @@ class PlacementValidatorSpec(BaseModel):
     debug_visualize_output_path: str | None = Field(
         default=None,
         description=(
-            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Set on "
-            "its own it records without opening a window; set alongside debug_visualize it does both."
+            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. On its "
+            "own it records without opening a window; with debug_visualize it does both."
         ),
     )
 

@@ -79,8 +79,7 @@ class ObjectPlacer:
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
-        # Created before the validators are built: a check picks the view up as it is constructed, so
-        # that it can draw its own layer into the frames this placer opens.
+        # Created before the validators, since a check looks the view up when it is constructed.
         self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PlacementValidator] = build_validators(self.params)
 
@@ -602,8 +601,8 @@ class ObjectPlacer:
         # Per-check batch indices that check was actually run on; expensive checks skip candidates.
         evaluated_batch_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
-        # None unless the debug view is on. The layouts are drawn before the checks run, so that a
-        # check drawing into the view (e.g. the cuRobo one, its grasps) finds the frame it draws onto.
+        # None unless the debug view is on. Drawn before the checks run, so that a check drawing into
+        # the view (the cuRobo one draws its grasps) finds the candidate's frame already there.
         candidate_indices = (
             self._visualizer.log_layout_batch(positions, orientations, bboxes) if self._visualizer is not None else None
         )
