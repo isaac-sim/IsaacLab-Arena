@@ -39,6 +39,9 @@ RIGID_BODY_CHECK_TARGET = (
 RIGID_BODY_PATHS_TARGET = (
     "isaaclab_arena.agentic_environment_generation.simready_asset_search.read_asset_rigid_body_paths"
 )
+PATH_FILTERS_TARGET = "isaaclab_arena.agentic_environment_generation.simready_asset_search._phrase_path_filters"
+# Stubbed wherever the fake library stands in for a real one: building a path filter needs the
+# simready package, which only ships with Isaac Sim, and the fake library ignores the filters.
 
 
 class _FakeMatch:
@@ -119,10 +122,11 @@ def test_is_valid_isaaclab_rigidbody_turns_down_an_unreadable_asset():
     assert "could not be read" in reason
 
 
+@patch(PATH_FILTERS_TARGET, return_value=[])
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
 )
-def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, caplog):
+def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, mock_path_filters, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(TRASH_CAN_PATH), _FakeMatch(PLAIN_TRASH_CAN_PATH)])
     # The green one is named after more of the phrase, so it is looked at first and turned down.
     verdicts = {TRASH_CAN_PATH: (False, "it has 2 rigid bodies"), PLAIN_TRASH_CAN_PATH: (True, "")}
@@ -134,10 +138,11 @@ def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, 
     assert TRASH_CAN_PATH in caplog.text and "2 rigid bodies" in caplog.text
 
 
+@patch(PATH_FILTERS_TARGET, return_value=[])
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
 )
-def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure, caplog):
+def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure, mock_path_filters, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
     with patch(RIGID_BODY_CHECK_TARGET, return_value=(False, "it has no rigid body")):
         with caplog.at_level(logging.INFO, logger=SEARCH_LOGGER):

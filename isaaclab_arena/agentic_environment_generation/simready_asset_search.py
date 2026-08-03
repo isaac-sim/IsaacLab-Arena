@@ -29,12 +29,7 @@ _logger = logging.getLogger(__name__)
 
 MIN_INSPECTED_MATCHES_PER_PHRASE = 5
 """How many hits per phrase to inspect for rigid bodies, unless more results than this were asked
-for.
-
-This is a floor on hits looked at, not a cap on hits kept — that is ``max_results_per_object``.
-The two differ because a hit is only known to be unusable after it has been inspected, so absorbing
-a rejection means inspecting more hits than the caller wants back. Inspecting is not free either:
-it downloads the asset, so a phrase matching half the library is not worth following to the end."""
+for."""
 
 
 class SimReadySourceKind(str, Enum):
@@ -80,12 +75,8 @@ class SimReadyCandidateCatalogue:
 
 
 def search_simready_objects(object_phrases: list[str], config: SimReadySearchConfig) -> SimReadyCandidateCatalogue:
-    """Search SimReady for an asset for each object phrase.
-
-    A hit that cannot be spawned as a rigid object is turned down, and the next hit is tried in
-    its place. A phrase that runs out of hits is reported as unmatched, so the agent knows to pick
-    that object from the Arena asset registry instead. Progress is logged rather than returned:
-    what the caller acts on is the two lists below.
+    """Search SimReady for an asset for each object phrase. A hit that cannot be spawned as a rigid object is turned down, and the next hit is tried in
+    its place.
 
     Args:
         object_phrases: One phrase per object to look for. Blank phrases are dropped.
@@ -120,7 +111,6 @@ def search_simready_objects(object_phrases: list[str], config: SimReadySearchCon
 
 
 def simready_search_config_from_cli(
-    *,
     source: str,
     s3_url: str | None,
     service_url: str | None,
@@ -140,12 +130,11 @@ _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 
 
 def _configure_asset_library(config: SimReadySearchConfig) -> Any | None:
-    """Build the SimReady asset library for the configured source, or None if the source is unknown.
+    """Build the SimReady asset library for the configured source, or None if the source is unknown."""
+    if config.source not in tuple(SimReadySourceKind):
+        _logger.error("unknown simready source: %s", config.source)
+        return None
 
-    Attaching an S3 source is the only asynchronous call in the whole search, so the event loop
-    starts and ends here. Everything after it is synchronous: the query, the ranking, and reading
-    an asset to check its rigid bodies.
-    """
     # Imported here rather than at module scope only to keep the AWS stack out of the import path
     # of every caller.
     from simready.search import AssetLibrary
@@ -153,11 +142,8 @@ def _configure_asset_library(config: SimReadySearchConfig) -> Any | None:
     library = AssetLibrary()
     if config.source in (SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.S3):
         asyncio.run(library.add_s3_source(config.s3_url or ISAAC_SIMREADY_GA_S3_URL))
-    elif config.source == SimReadySourceKind.SERVICE:
-        library.add_service_source(config.service_url or DEFAULT_SIMREADY_SERVICE_URL)
     else:
-        _logger.error("unknown simready source: %s", config.source)
-        return None
+        library.add_service_source(config.service_url or DEFAULT_SIMREADY_SERVICE_URL)
     return library
 
 
@@ -192,15 +178,7 @@ def _phrase_path_filters(phrase: str) -> list[Any]:
 
 
 def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
-    """Keep only the hits named after the object being asked for, best match first.
-
-    ``SearchFilterPathContains`` matches any substring, so "grey bin" returns every cabinet in the
-    library, because "Cabinets" contains "bin". Matching whole words is not enough either: a grey
-    cabinet still shares "grey" with the phrase. So only the last word decides, because that word
-    is the object itself and the words before it merely describe it. The hits that survive are
-    ordered by the search's own score, where it has one, and then by how many words of the phrase
-    the asset is named after.
-    """
+    """Keep only the hits named after the object being asked for, best match first."""
     words = _phrase_words(phrase)
     assert words, "a search phrase needs at least one word"
     object_word = words[-1]
@@ -253,11 +231,8 @@ def _phrase_words(phrase: str) -> list[str]:
 
 
 def _split_path_into_words(asset_path: str) -> frozenset[str]:
-    """Split an asset path into lowercase words, also splitting camelCase.
-
-    SimReady names run words together, as in ``sm_trashCan_wheeled_green_a01_01.usd``. Splitting
-    on separators alone would miss ``trash`` and ``can``.
-    """
+    """Split an asset path into lowercase words, also splitting camelCase."""
+    # e.g. trashcan_wheeled_green_a01_01.usd -> trashcan wheeled green a01 01
     spaced = _CAMEL_CASE_BOUNDARY.sub(" ", asset_path)
     return frozenset(word for word in _NON_ALPHANUMERIC.split(spaced.lower()) if word)
 
