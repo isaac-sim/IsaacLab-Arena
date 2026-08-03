@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.visualization.report import build_report
+from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
@@ -81,19 +81,30 @@ def load_experiment_runner_output_directories_by_run_name(
 def collect_run_outputs_into_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
-) -> None:
+) -> list[RunExecutionReport]:
     """Collect completed Run outputs and preserve failed execution results.
 
     Args:
         experiment_runner_output_directories_by_run_name: Run names mapped to Experiment Runner task output
             directories.
         experiment_output_directory: Destination Experiment directory containing one subdirectory per Run.
+
+    Returns:
+        Validated execution results for the aggregated report.
     """
     assert experiment_runner_output_directories_by_run_name, "At least one Experiment Runner output is required"
+    run_execution_reports = []
     for run_name, experiment_runner_output_directory in experiment_runner_output_directories_by_run_name.items():
         execution_status, process_exit_code = load_experiment_runner_result(
             experiment_runner_output_directory,
             run_name,
+        )
+        run_execution_reports.append(
+            RunExecutionReport(
+                run_name=run_name,
+                status=execution_status,
+                process_exit_code=process_exit_code,
+            )
         )
         destination_run_output_directory = experiment_output_directory / run_name
         experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
@@ -118,6 +129,7 @@ def collect_run_outputs_into_experiment_output(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
+    return sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name)
 
 
 def build_experiment_output(
@@ -135,11 +147,11 @@ def build_experiment_output(
     Returns:
         Path to the generated Experiment report.
     """
-    collect_run_outputs_into_experiment_output(
+    run_execution_reports = collect_run_outputs_into_experiment_output(
         experiment_runner_output_directories_by_run_name,
         experiment_output_directory,
     )
-    return build_report(experiment_output_directory)
+    return build_report(experiment_output_directory, run_executions=run_execution_reports)
 
 
 def _parse_arguments() -> argparse.Namespace:

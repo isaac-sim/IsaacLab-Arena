@@ -26,9 +26,6 @@ from isaaclab_arena.video.camera_observation_video_recorder import parse_episode
 # per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
 _RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")
 
-# Per-Run process result written by the OSMO Experiment Runner wrapper and preserved by the collector.
-_EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
-
 # Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
 # trailing metadata column to avoid duplication.
 _METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name"})
@@ -126,38 +123,6 @@ def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], di
             record = json.loads(line)
             job_results[(int(record["env_id"]), rebuild, int(record["episode_in_env"]))] = record
     return results
-
-
-def _scan_run_executions(root: pathlib.Path) -> list[RunExecutionReport]:
-    """Scan collected Experiment Runner result files under ``root``.
-
-    Args:
-        root: Directory containing one collected output directory per Run.
-
-    Returns:
-        Run execution results ordered by Run name.
-    """
-    run_executions = []
-    for result_path in sorted(root.rglob(_EXPERIMENT_RUNNER_RESULT_FILE_NAME)):
-        relative_parent = result_path.relative_to(root).parent
-        if relative_parent == pathlib.Path("."):
-            # A raw Experiment Runner output stores its process result at the root, where the
-            # associated Run name is unavailable. Collected outputs store it under <run-name>/.
-            continue
-        result = json.loads(result_path.read_text(encoding="utf-8"))
-        status = RunStatus(result["execution_status"])
-        process_exit_code = result["process_exit_code"]
-        assert (status is RunStatus.COMPLETED) == (
-            process_exit_code == 0
-        ), f"Run execution result is inconsistent: '{result_path}'"
-        run_executions.append(
-            RunExecutionReport(
-                run_name=str(relative_parent),
-                status=status,
-                process_exit_code=process_exit_code,
-            )
-        )
-    return run_executions
 
 
 def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
@@ -351,7 +316,12 @@ def render_report(report: EvaluationReport) -> str:
     return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
 
 
-def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> pathlib.Path:
+def build_report(
+    video_dir: str | pathlib.Path,
+    title: str = _DEFAULT_TITLE,
+    *,
+    run_executions: list[RunExecutionReport] | None = None,
+) -> pathlib.Path:
     """Scan ``video_dir`` for results and write the report ``index.html`` into it, returning its path.
 
     The report is always written (the directory is created if missing); when no results are present the
@@ -360,6 +330,7 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     Args:
         video_dir: Directory of recorded results to scan (the report is written here).
         title: Title and heading for the generated page.
+        run_executions: Optional Run process results supplied by a distributed collector.
     """
     video_dir = pathlib.Path(video_dir).resolve()
     video_dir.mkdir(parents=True, exist_ok=True)
@@ -367,7 +338,7 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     report = EvaluationReport(
         title=title,
         jobs=_scan_jobs(video_dir),
-        run_executions=_scan_run_executions(video_dir),
+        run_executions=[] if run_executions is None else list(run_executions),
     )
     output = video_dir / "index.html"
     output.write_text(render_report(report), encoding="utf-8")

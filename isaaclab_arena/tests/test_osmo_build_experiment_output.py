@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
     build_experiment_output,
@@ -96,11 +97,14 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     _write_experiment_runner_result(experiment_runner_output_directory, RunStatus.COMPLETED, 0)
     experiment_output_directory = tmp_path / "experiment-output"
 
-    collect_run_outputs_into_experiment_output(
+    run_execution_reports = collect_run_outputs_into_experiment_output(
         {"first": experiment_runner_output_directory},
         experiment_output_directory,
     )
 
+    assert run_execution_reports == [
+        RunExecutionReport(run_name="first", status=RunStatus.COMPLETED, process_exit_code=0)
+    ]
     assert (experiment_output_directory / "first/episode_results_rebuild0.jsonl").is_file()
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
     assert not (experiment_output_directory / "index.html").exists()
