@@ -28,8 +28,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 MIN_INSPECTED_MATCHES_PER_PHRASE = 5
-"""How many hits per phrase to inspect for rigid bodies, unless more results than this were asked
-for."""
+"""How many hits per phrase to inspect for rigid bodies, unless more results than this were asked for."""
 
 
 class SimReadySourceKind(str, Enum):
