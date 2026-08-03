@@ -14,8 +14,8 @@ import json
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -203,9 +203,8 @@ def _print_case_table(cases: list[dict[str, object]]) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run a warmed BBOX benchmark matrix and atomically publish its JSON report."""
-    startup_start = time.perf_counter()
     args = parse_args(argv)
-
+    warmup_start = time.perf_counter()
     run_benchmark_case(
         objects=create_benchmark_objects(),
         seed=args.seed,
@@ -214,7 +213,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_iterations=min(args.iterations),
         device_policy=args.device_policy,
     )
-    cold_startup_ms = (time.perf_counter() - startup_start) * 1_000.0
+    warmup_ms = (time.perf_counter() - warmup_start) * 1_000.0
 
     cases = [
         run_benchmark_case(
@@ -237,7 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "iterations": args.iterations,
             "requested_layouts": args.requested_layouts,
         },
-        "cold_startup_ms": cold_startup_ms,
+        "warmup_ms": warmup_ms,
         "cases": cases,
     }
     _write_json_atomically(args.json_output, payload)

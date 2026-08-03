@@ -382,7 +382,8 @@ Run the opt-in, simulator-free BBOX fixture benchmark with fixed seeds, for exam
      --iterations 25 50 100 600 \\
      --json-output placement-benchmark.json
 
-The JSON separates one warm-up/cold-start measurement from the per-case resolver timing and records
+The JSON records ``warmup_ms`` for the process-local warm-up operation separately from each
+case's resolver timing; it is not a measurement of cold process startup. It also records
 configuration, work counters, strict counts, timings, and stable resolved layouts. A reported
 best-loss fallback is explicitly not strict: it is a diagnostic result, must be warned about, and
 cannot satisfy a strict quota.

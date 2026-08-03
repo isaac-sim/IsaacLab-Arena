@@ -214,6 +214,8 @@ def test_benchmark_case_serializes_stable_profile_schema_from_dummy_objects():
         "validation_ms",
         "optimizer_ms",
         "used_best_loss_fallback",
+        "resolver_ms",
+        "layouts",
     } <= serialized.keys()
     assert serialized["identity"] == {
         "candidate_count": 1,
@@ -225,5 +227,62 @@ def test_benchmark_case_serializes_stable_profile_schema_from_dummy_objects():
     }
     assert serialized["device"] == "cpu"
     assert serialized["strict_count"] == 1
+    assert len(serialized["layouts"]) == 1
+    assert serialized["layouts"][0]["success"] is True
     assert serialized["used_best_loss_fallback"] is False
     assert all("time" not in field for field in serialized["identity"])
+
+
+def test_benchmark_repeats_fixed_seed_with_strict_validator_valid_layouts(tmp_path):
+    """Repeated BBOX CLI cases preserve validator-valid strict layouts and work counters."""
+    module = _benchmark_module()
+    first_output = tmp_path / "first.json"
+    second_output = tmp_path / "second.json"
+    args = [
+        "--device-policy",
+        "bbox-cpu",
+        "--candidates",
+        "1",
+        "--iterations",
+        "100",
+        "--seed",
+        "1",
+    ]
+
+    assert module.main([*args, "--json-output", str(first_output)]) == 0
+    assert module.main([*args, "--json-output", str(second_output)]) == 0
+
+    first_payload = json.loads(first_output.read_text())
+    second_payload = json.loads(second_output.read_text())
+    assert set(first_payload) == {"revision", "configuration", "warmup_ms", "cases"}
+    assert first_payload["configuration"] == {
+        "device_policy": "bbox-cpu",
+        "seed": 1,
+        "candidates": [1],
+        "iterations": [100],
+        "requested_layouts": 1,
+    }
+    assert len(first_payload["cases"]) == 1
+    first_case = first_payload["cases"][0]
+    second_case = second_payload["cases"][0]
+    assert {
+        "resolver_ms",
+        "layouts",
+        "strict_count",
+        "used_best_loss_fallback",
+    } <= first_case.keys()
+    assert first_case["strict_count"] == first_case["requested_layouts"]
+    assert first_case["used_best_loss_fallback"] is False
+    assert all(layout["success"] for layout in first_case["layouts"])
+
+    work_and_layout_fields = (
+        "identity",
+        "device",
+        "iterations",
+        "strict_count",
+        "used_best_loss_fallback",
+        "layouts",
+    )
+    assert {field: first_case[field] for field in work_and_layout_fields} == {
+        field: second_case[field] for field in work_and_layout_fields
+    }
