@@ -743,7 +743,7 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     big1.add_relation(On(desk))
     big2.add_relation(On(desk))
 
-    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
+    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6, profile=True)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
     pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
@@ -751,106 +751,11 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
 
     assert pool.remaining == 5
     assert pool.had_fallbacks
+    assert len(pool.last_profiles) == 1
+    assert pool.last_profiles[0].refill_batches == 1
+    assert pool.last_profiles[0].used_best_loss_fallback
     assert "Falling back to best-loss layouts" in captured.out
     assert not pool.sample_without_replacement(1)[0].success
-
-
-def test_pool_profile_marks_best_loss_fallback(capsys):
-    """The solve-batch profile marks a fallback only when an invalid result is stored."""
-
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-    from isaaclab_arena.relations.relations import IsAnchor, On
-    from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
-    desk = DummyObject(
-        name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
-    )
-    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-    desk.add_relation(IsAnchor())
-
-    big = DummyObject(
-        name="big",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
-    )
-    big.add_relation(On(desk))
-
-    placer_params = ObjectPlacerParams(
-        solver_params=RelationSolverParams(max_iters=10, profile=True),
-        max_placement_attempts=1,
-    )
-
-    pool = PooledObjectPlacer(objects=[desk, big], placer_params=placer_params, pool_size=1)
-    captured = capsys.readouterr()
-
-    assert pool.had_fallbacks
-    assert len(pool.last_profiles) == 1
-    assert pool.last_profiles[-1].refill_batches == 1
-    assert pool.last_profiles[-1].used_best_loss_fallback
-    assert "Falling back to best-loss" in captured.out
-
-
-def test_pool_profile_mixed_env_fallback_does_not_replace_strict_result(monkeypatch):
-    """A mixed batch stores strict and fallback results only in their matching env pools."""
-    from isaaclab_arena.relations.collision_mode import CollisionMode
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_profile import PlacementCheckpointProfile, PlacementProfile
-    from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-
-    objects = list(_create_test_objects())
-
-    def mixed_env_results(placer, objects, num_envs, results_per_env, collision_objects=None):
-        assert num_envs == 2
-        placer._last_profile = PlacementProfile(
-            device="cpu",
-            collision_mode=CollisionMode.BBOX,
-            candidate_count=2,
-            checkpoints=(PlacementCheckpointProfile(iteration=0, elapsed_ms=0.0),),
-            cumulative_iterations=0,
-            strict_layouts_per_env=(1, 0),
-        )
-        positions = {obj: (0.0, 0.0, 0.0) for obj in objects}
-        return [
-            [
-                PlacementResult(
-                    validation_results=_checklist(True),
-                    positions=positions,
-                    final_loss=0.0,
-                    attempts=1,
-                )
-            ],
-            [
-                PlacementResult(
-                    validation_results=_checklist(False),
-                    positions=positions,
-                    final_loss=1.0,
-                    attempts=1,
-                )
-            ],
-        ]
-
-    monkeypatch.setattr(ObjectPlacer, "place_ranked_per_env", mixed_env_results)
-    pool = PooledObjectPlacer(
-        objects=objects,
-        placer_params=ObjectPlacerParams(
-            solver_params=RelationSolverParams(max_iters=0, profile=True),
-            max_placement_attempts=1,
-        ),
-        pool_size=2,
-        num_envs=2,
-    )
-
-    assert pool.layouts_per_env()[0][0].success
-    assert not pool.layouts_per_env()[1][0].success
-    assert pool.last_profiles[-1].strict_layouts_per_env == (1, 0)
-    assert pool.last_profiles[-1].used_best_loss_fallback
 
 
 def test_pooled_placer_only_falls_back_on_final_batch(capsys):

@@ -40,6 +40,8 @@ def test_accumulator_keeps_first_strict_snapshot():
     later = [_candidate(loss=0.1, valid=True, x=9.0), _candidate(loss=1.0, valid=False, x=3.0)]
 
     assert accumulator.record(first) is True
+    first[0].positions["object"] = (8.0, 0.0, 0.0)
+    first[0].validation_results.validation_results["required"] = False
     assert accumulator.record(later) is True
     assert accumulator.finalize(later)[0][0].positions["object"][0] == 1.0
 
@@ -72,19 +74,6 @@ def test_accumulator_ranks_strict_snapshots_before_invalid_fallbacks_without_dup
     result = accumulator.finalize(latest)[0]
 
     assert [candidate.positions["object"][0] for candidate in result] == [4.0, 1.0, 5.0]
-
-
-def test_accumulator_copies_strict_snapshot_data():
-    """Mutating a recorded candidate later cannot mutate its first strict snapshot."""
-    accumulator = _CheckpointCandidateAccumulator(num_envs=1, candidates_per_env=2, results_per_env=1)
-    candidate = _candidate(loss=0.4, valid=True, x=1.0)
-    invalid = _candidate(loss=1.0, valid=False, x=2.0)
-
-    assert accumulator.record([candidate, invalid]) is True
-    candidate.positions["object"] = (9.0, 0.0, 0.0)
-    candidate.validation_results.validation_results["required"] = False
-
-    assert accumulator.finalize([candidate, invalid])[0][0].positions["object"][0] == 1.0
 
 
 def test_place_stops_when_one_strict_layout_exists():

@@ -42,7 +42,6 @@ class RelationSolverCheckpoint:
 
 
 CheckpointCallback = Callable[[RelationSolverCheckpoint], bool]
-"""Callback invoked at configured solver checkpoints; return True to stop successfully."""
 
 
 class RelationSolver:
