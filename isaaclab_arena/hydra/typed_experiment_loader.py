@@ -211,7 +211,7 @@ def _build_environment_cfg_from_yaml_values(
     config_store: ConfigStore,
     hydra_environment_config_name: str,
     run_name: str,
-    environment_values: Any,
+    environment_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
 ) -> ArenaEnvironmentCfg:
     """Build a Run's environment from a graph-spec YAML path or a typed selector.
