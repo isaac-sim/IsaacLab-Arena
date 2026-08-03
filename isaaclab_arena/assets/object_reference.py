@@ -9,7 +9,7 @@ import trimesh
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.utils.math import combine_frame_transforms, quat_inv, quat_mul
+from isaaclab.utils.math import quat_inv, quat_mul
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
@@ -50,28 +50,6 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
-
-    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
-        """Get the reference pose from its scene entity or parent."""
-        unwrapped_env = env.unwrapped
-        if self.object_type != ObjectType.BASE and self.get_scene_key() in unwrapped_env.scene.keys():
-            return super().get_object_pose(unwrapped_env, is_relative=is_relative)
-
-        parent_pose_w = self.parent_asset.get_object_pose(unwrapped_env, is_relative=False)
-        relative_pose = self.initial_pose_relative_to_parent.to_tensor(device=parent_pose_w.device).to(
-            dtype=parent_pose_w.dtype
-        )
-        relative_pose = relative_pose.expand(parent_pose_w.shape[0], -1)
-        position_w, quaternion_w = combine_frame_transforms(
-            parent_pose_w[:, :3],
-            parent_pose_w[:, 3:],
-            relative_pose[:, :3],
-            relative_pose[:, 3:],
-        )
-        object_pose = torch.cat((position_w, quaternion_w), dim=-1)
-        if is_relative:
-            object_pose[:, :3] -= unwrapped_env.scene.env_origins
-        return object_pose
 
     def get_bounding_box_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
         """Get the pose of the parent-frame-aligned bounding box."""

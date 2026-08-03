@@ -15,7 +15,6 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     import warp as wp
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
@@ -36,7 +35,6 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
         def __init__(self, num_envs: int):
             super().__init__()
             self.env_origins = torch.zeros((num_envs, 3))
-            self.env_regex_ns = "/World/envs/env_.*"
 
     class DummyEnv:
         def __init__(self, num_envs: int):
@@ -151,75 +149,16 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
         [4.0, -3.0, 1.0],
     ])
 
-    class DummyProxyArray:
-        def __init__(self, tensor: torch.Tensor):
-            self.torch = tensor
-
     class DummyFrameView:
-        def __init__(self, local_pose: torch.Tensor):
-            self._local_pose = local_pose
+        def __init__(self, pose_w: torch.Tensor):
+            self._pose_w = pose_w
 
-        def get_local_poses(self) -> tuple[DummyProxyArray, DummyProxyArray]:
-            return DummyProxyArray(self._local_pose[:, :3]), DummyProxyArray(self._local_pose[:, 3:])
-
-    base_object = Object.__new__(Object)
-    base_object.name = "base_object"
-    base_object.prim_path = "{ENV_REGEX_NS}/base_object"
-    base_object.object_type = ObjectType.BASE
-    expected_base_pose_relative = torch.tensor([
-        [1.0, 2.0, 3.0, *roll_90_quaternion],
-        [1.0, 2.0, 3.0, *roll_90_quaternion],
-    ])
-    expected_base_pose_w = expected_base_pose_relative.clone()
-    expected_base_pose_w[:, :3] += reference_env.scene.env_origins
-    reference_env.scene[base_object.name] = DummyFrameView(expected_base_pose_relative)
-    torch.testing.assert_close(base_object.get_object_pose(reference_env), expected_base_pose_relative)
-    torch.testing.assert_close(
-        base_object.get_object_pose(reference_env, is_relative=False),
-        expected_base_pose_w,
-    )
-
-    per_env_base_object = Object.__new__(Object)
-    per_env_base_object.name = "per_env_base_object"
-    per_env_base_object.prim_path = "{ENV_REGEX_NS}/per_env_base_object"
-    per_env_base_object.object_type = ObjectType.BASE
-    per_env_base_pose_w = torch.tensor([
-        [0.5, 0.25, 0.0, *roll_90_quaternion],
-        [4.5, -2.75, 1.0, *yaw_90_quaternion],
-    ])
-    per_env_base_pose_relative = per_env_base_pose_w.clone()
-    per_env_base_pose_relative[:, :3] -= reference_env.scene.env_origins
-    reference_env.scene[per_env_base_object.name] = DummyFrameView(per_env_base_pose_relative)
-    torch.testing.assert_close(
-        per_env_base_object.get_object_pose(reference_env, is_relative=False),
-        per_env_base_pose_w,
-    )
-    torch.testing.assert_close(
-        per_env_base_object.get_object_pose(reference_env),
-        per_env_base_pose_relative,
-    )
-
-    global_base_object = Object.__new__(Object)
-    global_base_object.name = "global_base_object"
-    global_base_object.prim_path = "/World/global_base_object"
-    global_base_object.object_type = ObjectType.BASE
-    global_base_pose_w = torch.tensor([[0.0, 0.0, -0.5, *identity_quaternion]])
-    reference_env.scene[global_base_object.name] = DummyFrameView(global_base_pose_w)
-    torch.testing.assert_close(
-        global_base_object.get_object_pose(reference_env, is_relative=False),
-        global_base_pose_w.expand(reference_env.num_envs, -1),
-    )
-    expected_global_base_pose_relative = global_base_pose_w.expand(reference_env.num_envs, -1).clone()
-    expected_global_base_pose_relative[:, :3] -= reference_env.scene.env_origins
-    torch.testing.assert_close(
-        global_base_object.get_object_pose(reference_env),
-        expected_global_base_pose_relative,
-    )
+        def get_world_poses(self) -> tuple[torch.Tensor, torch.Tensor]:
+            return self._pose_w[:, :3], self._pose_w[:, 3:]
 
     rotated_reference = ObjectReference.__new__(ObjectReference)
     rotated_reference.name = "rotated_reference"
     rotated_reference.object_type = ObjectType.BASE
-    rotated_reference.parent_asset = base_object
     rotated_reference.initial_pose_relative_to_parent = Pose(
         position_xyz=(0.0, 1.0, 0.0),
         rotation_xyzw=yaw_90_quaternion,
@@ -228,7 +167,9 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
         [1.0, 2.0, 4.0, 0.5, -0.5, 0.5, 0.5],
         [1.0, 2.0, 4.0, 0.5, -0.5, 0.5, 0.5],
     ])
-    torch.testing.assert_close(rotated_reference.get_object_pose(reference_env), expected_rotated_reference_pose)
+    rotated_reference_pose_w = expected_rotated_reference_pose.clone()
+    rotated_reference_pose_w[:, :3] += reference_env.scene.env_origins
+    reference_env.scene[rotated_reference.name] = DummyFrameView(rotated_reference_pose_w)
     expected_rotated_reference_bounding_box_pose = expected_rotated_reference_pose.clone()
     expected_rotated_reference_bounding_box_pose[:, 3:] = torch.tensor(roll_90_quaternion)
     torch.testing.assert_close(
@@ -244,34 +185,20 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
             [4.8, -3.0, 1.2, *identity_quaternion],
         ]),
     )
-    reference_parent = Object.__new__(Object)
-    reference_parent.name = "reference_parent"
-    reference_parent.prim_path = "{ENV_REGEX_NS}/reference_parent"
-    reference_parent.object_type = ObjectType.BASE
-    reference_parent.initial_pose = Pose.identity()
-    reference_parent_pose_relative = torch.tensor([
-        [0.0, 0.0, 0.0, *identity_quaternion],
-        [0.0, 0.0, 0.0, *identity_quaternion],
-    ])
-    reference_env.scene[reference_parent.name] = DummyFrameView(reference_parent_pose_relative)
-
     reference_container = ObjectReference.__new__(ObjectReference)
     reference_container.name = "reference_container"
     reference_container.object_type = ObjectType.BASE
-    reference_container.parent_asset = reference_parent
     reference_container.initial_pose_relative_to_parent = Pose(rotation_xyzw=yaw_90_quaternion)
     reference_container._bounding_box = AxisAlignedBoundingBox(
         min_point=(-1.0, -0.5, 0.0),
         max_point=(1.0, 0.5, 0.4),
     )
+    reference_container_pose_w = torch.tensor([
+        [0.0, 0.0, 0.0, *yaw_90_quaternion],
+        [4.0, -3.0, 1.0, *yaw_90_quaternion],
+    ])
+    reference_env.scene[reference_container.name] = DummyFrameView(reference_container_pose_w)
     reference_env.scene[reference_object.name] = object()
-    torch.testing.assert_close(
-        reference_container.get_object_pose(reference_env, is_relative=False),
-        torch.tensor([
-            [0.0, 0.0, 0.0, *yaw_90_quaternion],
-            [4.0, -3.0, 1.0, *yaw_90_quaternion],
-        ]),
-    )
     torch.testing.assert_close(
         reference_container.get_bounding_box_pose(reference_env, is_relative=False),
         torch.tensor([
@@ -286,36 +213,6 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
             reference_container,
         ),
         torch.tensor([True, True]),
-    )
-
-    registered_reference = ObjectReference.__new__(ObjectReference)
-    registered_reference.name = "registered_reference"
-    registered_reference.object_type = ObjectType.RIGID
-    registered_reference.parent_asset = reference_parent
-    registered_reference.initial_pose_relative_to_parent = Pose(rotation_xyzw=yaw_90_quaternion)
-    registered_reference_pose_w = torch.tensor([
-        [2.0, 3.0, 4.0, *identity_quaternion],
-        [6.0, 0.0, 5.0, *identity_quaternion],
-    ])
-    registered_reference_data = type(
-        "RegisteredReferenceData",
-        (),
-        {"root_pose_w": wp.from_torch(registered_reference_pose_w)},
-    )()
-    reference_env.scene[registered_reference.name] = type(
-        "RegisteredReferenceEntity",
-        (),
-        {"data": registered_reference_data},
-    )()
-    torch.testing.assert_close(
-        registered_reference.get_object_pose(reference_env, is_relative=False),
-        registered_reference_pose_w,
-    )
-    registered_reference_pose_relative = registered_reference_pose_w.clone()
-    registered_reference_pose_relative[:, :3] -= reference_env.scene.env_origins
-    torch.testing.assert_close(
-        registered_reference.get_object_pose(reference_env),
-        registered_reference_pose_relative,
     )
 
     force_matrix_w = torch.tensor([
