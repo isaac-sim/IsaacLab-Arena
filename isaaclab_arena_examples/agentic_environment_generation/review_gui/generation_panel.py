@@ -62,7 +62,6 @@ def _simready_config_from_session() -> tuple[bool, object]:
     """Read SimReady GUI settings from Streamlit session state."""
     enabled = bool(st.session_state.get("enable_simready_search", False))
     config = simready_search_config_from_cli(
-        enabled=enabled,
         source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
         s3_url=st.session_state.get("simready_s3_url") or None,
         service_url=st.session_state.get("simready_service_url") or None,
@@ -130,8 +129,8 @@ def _apply_generated_yaml(
 def _finish(severity: str, message: str) -> tuple[bool, str]:
     """Record the banner severity for the generate button and return its ``(ok, message)`` pair.
 
-    The severity is decided here, where the outcome is known, rather than read back out of the
-    message text — a reworded message must not silently turn a failure green.
+    The severity is set here, where the outcome is known, instead of being read back out of the
+    message text. Otherwise rewording a message could silently turn a failure green.
 
     Args:
         severity: Streamlit banner level, ``"success"`` or ``"warning"``.
@@ -160,14 +159,13 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     except Exception:
         return False, traceback.format_exc()
 
+    simready_enabled, _ = _simready_config_from_session()
     try:
-        simready_enabled, _ = _simready_config_from_session()
         spec, data = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
             task_catalog=catalogues.task_catalogue,
-            enable_simready_search=simready_enabled,
         )
     except Exception:
         return False, traceback.format_exc()

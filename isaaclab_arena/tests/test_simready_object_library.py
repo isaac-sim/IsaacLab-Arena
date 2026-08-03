@@ -30,10 +30,27 @@ def test_asset_spec_accepts_simready_usd_path():
     spec = AssetSpec(
         id="hammer",
         registry_name="simready_usd_object",
-        params={"usd_path": "https://example.com/hammer.usd", "tags": ["sim-ready", "hammer"]},
+        params={"usd_path": "https://example.com/hammer.usd"},
     )
     assert spec.registry_name == "simready_usd_object"
     assert spec.params["usd_path"] == "https://example.com/hammer.usd"
+
+
+def test_asset_spec_drops_tags_copied_out_of_the_catalogue():
+    from isaaclab_arena.assets.simready_object_library import SimReadyUsdObject
+
+    ensure_assets_registered()
+    # The catalogue lists every object as "name tags=[...]", so a generated spec often copies the
+    # tags into params. The asset class passes its own tags to Asset.__init__, so a copy that
+    # reached the constructor would be a duplicate keyword argument and fail the build.
+    spec = AssetSpec(
+        id="hammer",
+        registry_name="simready_usd_object",
+        params={"usd_path": "https://example.com/hammer.usd", "tags": ["sim-ready", "hammer"]},
+    )
+    assert "tags" not in spec.params
+    assert spec.params["usd_path"] == "https://example.com/hammer.usd"
+    assert "sim-ready" in SimReadyUsdObject.tags
 
 
 def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):

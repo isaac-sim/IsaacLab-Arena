@@ -73,6 +73,19 @@ class AssetSpec(BaseModel):
     def _validate_registry_name(cls, value: str) -> str:
         return _assert_registered_asset_name(value)
 
+    @field_validator("params")
+    @classmethod
+    def _drop_catalogue_tags(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # The asset catalogue prints 'tags=[...]' beside every entry, under the same name as the
+        # constructor argument, so a generated spec often copies them into params. Asset classes
+        # pass their own tags to Asset.__init__, so a copy here is a duplicate keyword argument
+        # rather than an override, and it would fail the build. Dropped rather than rejected: the
+        # tags are only ever redundant, and a spec is not retried once it fails validation.
+        if "tags" not in value:
+            return value
+        print("INFO: ignoring 'tags' in asset params; the asset class supplies its own tags.")
+        return {key: item for key, item in value.items() if key != "tags"}
+
     def resolve_usd_path(self) -> str:
         """Return the USD path or URL for this registered asset instance."""
         asset_cls = AssetRegistry().get_asset_by_name(self.registry_name)

@@ -59,9 +59,9 @@ _RIGID_BODY_PATHS_BY_ASSET: dict[tuple[str, tuple[tuple[str, str], ...]], list[s
 def read_asset_rigid_body_paths(usd_path: str, variants: dict[str, str] | None = None) -> list[str]:
     """Get the prim paths of the rigid bodies in an asset, fetching it first if it is remote.
 
-    The asset is referenced into a throwaway stage rather than opened, so selecting a variant
-    leaves the asset itself untouched. Answers are kept, since fetching a remote asset walks the
-    whole remote tree.
+    The asset is referenced into a throwaway stage instead of being opened, so selecting a variant
+    leaves the asset itself untouched. Results are cached, because fetching a remote asset walks
+    the whole remote tree.
 
     Args:
         usd_path: Path to the USD file to analyze, local or remote.
@@ -91,7 +91,7 @@ def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> 
 
     Args:
         stage: Open USD stage.
-        variants: Variant set name to the variant to select.
+        variants: Maps each variant set name to the variant to select from it.
     """
     root = stage.GetDefaultPrim()
     if not root:
@@ -177,8 +177,8 @@ def find_shallowest_rigid_body(
     Args:
         usd_path: Path to the USD file to analyze
         relative_to_root: Whether to return the path relative to the root of the USD file
-        variants: Optional USD variant selections applied before searching (e.g. SimReady
-            ``{\"Physics\": \"physics\"}``).
+        variants: USD variants to select before searching. SimReady props need
+            ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         Prim path for the shallowest rigid body. None if no rigid bodies are found.

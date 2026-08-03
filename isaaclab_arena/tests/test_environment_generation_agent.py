@@ -131,16 +131,16 @@ class TestGenerateSpec:
 
     @staticmethod
     def _missing_objects_response(*phrases: str):
-        """The answer of the pass that names what the asset catalog does not cover."""
+        """A canned reply from the pass that names what the asset catalog does not cover."""
         return chat_response(content=json.dumps({"search_phrases": list(phrases)}))
 
     def _generate_with_simready(self, agent_obj, asset_catalog=None):
+        agent_obj.enable_simready_search = True
         return agent_obj.generate_spec(
             "p",
             asset_catalog=asset_catalog or catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
             task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=True,
         )
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
@@ -240,7 +240,6 @@ class TestGenerateSpec:
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
             task_catalog=make_task_catalog("TASKS"),
-            enable_simready_search=False,
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         # One call and one only: no pass asking what the catalog misses.

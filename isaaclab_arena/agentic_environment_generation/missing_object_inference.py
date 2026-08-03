@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM inference naming the objects a prompt needs that the asset catalogue does not cover."""
+"""Ask an LLM which objects a prompt needs that the asset catalogue does not have."""
 
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
 )
 
 MAX_SEARCH_PHRASES = 8
-"""Cap on the objects one prompt may send to the asset search. Every phrase costs a round of
-remote reads, and a prompt needing more than this is asking for a scene, not a manipulation task."""
+"""The most objects one prompt can send to the asset search. Every phrase means another remote
+search, and a prompt that needs more than this is asking for a scene, not a manipulation task."""
 
 
 class MissingObjects(BaseModel):
-    """Search phrases for the objects a prompt needs and the asset catalogue lacks."""
+    """Search phrases for the objects a prompt needs but the catalogue does not have."""
 
     search_phrases: list[str] = Field(
         default_factory=list,
@@ -35,25 +35,25 @@ class MissingObjects(BaseModel):
 
 
 class MissingObjectInference:
-    """Names the objects a prompt needs that the registered asset catalogue cannot supply."""
+    """Finds the objects a prompt needs that the registered asset catalogue cannot supply."""
 
     def __init__(self, inference_backend: InferenceBackend):
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(MissingObjects)
 
     def infer(self, prompt: str, asset_catalog: Any, traces: list[str]) -> list[str]:
-        """Return asset-search phrases for the objects the catalogue does not cover.
+        """Return search phrases for the objects the catalogue does not have.
 
-        Runs only when an asset search is enabled, and leaves spec inference untouched: whatever
+        This runs only when the asset search is on, and it does not change spec inference: whatever
         the search finds is registered as an ordinary catalogue entry before the spec is inferred.
 
         Args:
             prompt: End-user environment description.
-            asset_catalog: Registered asset vocabulary the prompt has to be satisfied from.
+            asset_catalog: The registered assets the prompt has to be satisfied from.
             traces: Accumulator for diagnostic lines, extended in place.
 
         Returns:
-            Search phrases, at most ``MAX_SEARCH_PHRASES`` of them, in the order the model gave
+            Search phrases in the order the model gave them, at most ``MAX_SEARCH_PHRASES`` of
             them. Empty when the catalogue already covers the prompt.
         """
         data = self._inference_backend.run_json(

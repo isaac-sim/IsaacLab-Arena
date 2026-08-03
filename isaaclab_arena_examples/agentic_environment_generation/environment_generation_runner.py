@@ -143,7 +143,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     task_catalog = build_task_catalogue()
 
     simready_config = simready_search_config_from_cli(
-        enabled=args_cli.enable_simready_search,
         source=args_cli.simready_source,
         s3_url=args_cli.simready_s3_url,
         service_url=args_cli.simready_service_url,
@@ -162,7 +161,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
-        enable_simready_search=args_cli.enable_simready_search,
     )
     # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"

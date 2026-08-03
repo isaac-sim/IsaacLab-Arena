@@ -322,8 +322,8 @@ class TestApplyGeneratedYaml:
 def _patch_generation_agent(agent: MagicMock):
     """Stub the panel's agent accessor.
 
-    The real one caches under a key built from the SimReady settings, so seeding a session-state
-    entry by name does not reach it.
+    The real one caches the agent under a key built from the SimReady settings, so seeding a
+    session-state entry by name does not reach it.
     """
     return patch(
         "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel._get_generation_agent",

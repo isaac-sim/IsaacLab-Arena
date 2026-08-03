@@ -22,13 +22,13 @@ from isaaclab_arena.assets.simready_constants import (
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 
 MAX_INSPECTED_MATCHES_PER_PHRASE = 5
-"""How many hits per object are read to see whether they can be a rigid object, unless more
-results than this were asked for. Each read fetches the asset, so a phrase that matches half the
-library is not worth chasing to the end."""
+"""How many hits per phrase are inspected for rigid bodies, unless more results than this were
+asked for. Inspecting a hit downloads the asset, so a phrase that matches half the library is not
+worth following to the end."""
 
 
 class SimReadySourceKind(str, Enum):
-    """Configured SimReady search backend, all of them remote."""
+    """Which SimReady backend to search. All of them are remote."""
 
     ISAAC_SIM_GA = "isaac-sim-ga"
     S3 = "s3"
@@ -37,9 +37,8 @@ class SimReadySourceKind(str, Enum):
 
 @dataclass
 class SimReadySearchConfig:
-    """Configuration for SimReady object lookup."""
+    """Where to search for SimReady objects and how many hits to keep."""
 
-    enabled: bool = False
     source: SimReadySourceKind = SimReadySourceKind.ISAAC_SIM_GA
     s3_url: str = ISAAC_SIMREADY_GA_S3_URL
     service_url: str = DEFAULT_SIMREADY_SERVICE_URL
@@ -62,12 +61,12 @@ class SimReadyObjectCandidate:
 
 @dataclass
 class SimReadyCandidateCatalogue:
-    """Prompt-scoped SimReady hits for spec inference."""
+    """The SimReady hits found for one prompt, handed to spec inference."""
 
     candidates: list[SimReadyObjectCandidate] = field(default_factory=list)
 
     unmatched_phrases: list[str] = field(default_factory=list)
-    """Objects SimReady has nothing usable for, so their spec entry cannot be spawned."""
+    """Objects the search found no usable asset for, so they are left out of the spec."""
 
 
 _CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
@@ -80,7 +79,7 @@ def _phrase_words(phrase: str) -> list[str]:
 
 
 def _phrase_path_filters(phrase: str) -> list[Any]:
-    """One path filter per word of the phrase, so a hit only has to match one of them."""
+    """Build one path filter per word of the phrase, so a hit only has to match one word."""
     from simready.search import SearchFilterPathContains
 
     return [SearchFilterPathContains(word) for word in _phrase_words(phrase)]
@@ -89,15 +88,15 @@ def _phrase_path_filters(phrase: str) -> list[Any]:
 def _split_path_into_words(asset_path: str) -> frozenset[str]:
     """Split an asset path into lowercase words, also splitting camelCase.
 
-    SimReady names run words together, as in ``sm_trashCan_wheeled_green_a01_01.usd``, so
-    splitting on separators alone would miss ``trash`` and ``can``.
+    SimReady names run words together, as in ``sm_trashCan_wheeled_green_a01_01.usd``. Splitting
+    on separators alone would miss ``trash`` and ``can``.
     """
     spaced = _CAMEL_CASE_BOUNDARY.sub(" ", asset_path)
     return frozenset(word for word in _NON_ALPHANUMERIC.split(spaced.lower()) if word)
 
 
 def _is_word_in_path(word: str, path_words: frozenset[str]) -> bool:
-    """True if the word is one of the path words, ignoring a plural on either side."""
+    """True if the word is one of the path words. A trailing "s" on either side is ignored."""
     if word in path_words or f"{word}s" in path_words:
         return True
     return word.endswith("s") and word[:-1] in path_words
@@ -110,14 +109,14 @@ def _count_matching_words(phrase: str, asset_path: str) -> int:
 
 
 def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
-    """Keep only results named after the object being asked for, best matches first.
+    """Keep only the hits named after the object being asked for, best match first.
 
-    ``SearchFilterPathContains`` matches any substring, so searching for "grey bin" returns every
-    cabinet in the library, on the "bin" inside "Cabinets". Whole words alone are not enough
-    either, because a grey cabinet still shares "grey" with the phrase. What decides is the last
-    word, which is the object itself: the words in front of it only describe it. What survives is
-    ordered by the search's own score, where it has one, and then by how much of the phrase the
-    asset is named after.
+    ``SearchFilterPathContains`` matches any substring, so "grey bin" returns every cabinet in the
+    library, because "Cabinets" contains "bin". Matching whole words is not enough either: a grey
+    cabinet still shares "grey" with the phrase. So only the last word decides, because that word
+    is the object itself and the words before it merely describe it. The hits that survive are
+    ordered by the search's own score, where it has one, and then by how many words of the phrase
+    the asset is named after.
     """
     words = _phrase_words(phrase)
     assert words, "a search phrase needs at least one word"
@@ -141,7 +140,7 @@ def _get_rigid_object_rejection_reason(usd_path: str) -> str | None:
         usd_path: The asset to look at, local or remote.
 
     Returns:
-        A phrase naming the problem, for example "it has no rigid body", or None if the asset is
+        A phrase naming the problem, such as "it has no rigid body", or None if the asset is
         usable as a rigid object.
     """
     try:
@@ -157,11 +156,11 @@ def _get_rigid_object_rejection_reason(usd_path: str) -> str | None:
 
 
 def _configure_asset_library(config: SimReadySearchConfig, traces: list[str]) -> Any | None:
-    """Build the SimReady asset library for the configured source, or None if it is unknown.
+    """Build the SimReady asset library for the configured source, or None if the source is unknown.
 
-    Attaching an S3 source is the one asynchronous call in the whole search, so this is where the
-    event loop starts and ends. Everything downstream — the query, the ranking, reading an asset to
-    check its rigid bodies — is synchronous.
+    Attaching an S3 source is the only asynchronous call in the whole search, so the event loop
+    starts and ends here. Everything after it is synchronous: the query, the ranking, and reading
+    an asset to check its rigid bodies.
     """
     # Imported here rather than at module scope only to keep the AWS stack out of the import path
     # of every caller.
@@ -222,11 +221,19 @@ def search_simready_objects(
     config: SimReadySearchConfig,
     traces: list[str],
 ) -> SimReadyCandidateCatalogue:
-    """Query SimReady for each object phrase.
+    """Search SimReady for an asset for each object phrase.
 
-    Hits that cannot be spawned as a rigid object are turned down, and the next hit is tried in
-    their place. A phrase left with nothing is listed as unmatched, so the agent knows to pick
+    A hit that cannot be spawned as a rigid object is turned down, and the next hit is tried in
+    its place. A phrase that runs out of hits is reported as unmatched, so the agent knows to pick
     that object from the Arena asset registry instead.
+
+    Args:
+        object_phrases: One phrase per object to look for. Blank phrases are dropped.
+        config: Which backend to search and how many hits to keep per object.
+        traces: Accumulator for diagnostic lines, extended in place.
+
+    Returns:
+        The hits that can be spawned, and the phrases nothing usable was found for.
     """
     phrases = [phrase.strip() for phrase in object_phrases if phrase.strip()]
     if not phrases:
@@ -260,15 +267,13 @@ def search_simready_objects(
 
 def simready_search_config_from_cli(
     *,
-    enabled: bool,
     source: str,
     s3_url: str | None,
     service_url: str | None,
     max_results_per_object: int,
 ) -> SimReadySearchConfig:
-    """Build :class:`SimReadySearchConfig` from CLI/GUI arguments."""
+    """Build a search configuration from CLI or GUI arguments, filling in the default URLs."""
     return SimReadySearchConfig(
-        enabled=enabled,
         source=SimReadySourceKind(source),
         s3_url=s3_url or ISAAC_SIMREADY_GA_S3_URL,
         service_url=service_url or DEFAULT_SIMREADY_SERVICE_URL,

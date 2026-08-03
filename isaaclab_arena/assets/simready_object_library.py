@@ -33,7 +33,7 @@ class SimReadyUsdObject(Object):
     tags = ["object", "sim-ready"]
 
     object_type: ObjectType | None = None
-    """Worked out per instance, since SimReady props range from single bodies to hinged furniture."""
+    """Detected per instance, because SimReady props range from a single body to hinged furniture."""
 
     def __init__(
         self,
@@ -45,7 +45,6 @@ class SimReadyUsdObject(Object):
         **kwargs: Any,
     ):
         assert usd_path, "simready_usd_object requires params.usd_path"
-        kwargs.pop("tags", None)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
         super().__init__(
@@ -62,7 +61,7 @@ class SimReadyUsdObject(Object):
 
 
 def simready_search_registry_name(search_phrase: str) -> str:
-    """Return the catalogue name a SimReady asset found for ``search_phrase`` is registered under."""
+    """Return the catalogue name used to register the SimReady asset found for a search phrase."""
     slug = _NON_IDENTIFIER_CHARACTERS.sub("_", search_phrase.strip().lower()).strip("_")
     assert slug, f"search phrase {search_phrase!r} has no characters usable in a registry name"
     return f"{SIMREADY_SEARCH_REGISTRY_PREFIX}{slug}"
@@ -91,7 +90,7 @@ def register_searched_simready_object(
     merged_tags = list(dict.fromkeys([*SimReadyUsdObject.tags, *tags]))
 
     class SearchedSimReadyObject(SimReadyUsdObject):
-        """A SimReady asset the search found for one prompt's object."""
+        """A SimReady asset the search found for one object in a prompt."""
 
         name = registry_name
         tags = merged_tags

@@ -5,8 +5,8 @@
 
 """SimReady names and URLs, kept free of asset imports.
 
-Spec inference and the asset search need these values but must not pull in the asset classes:
-importing those loads pxr, and a pxr import before SimulationApp starts breaks the unit tests.
+Spec inference and the asset search need these values, but they must not import the asset classes:
+those load pxr, and importing pxr before SimulationApp starts breaks the unit tests.
 """
 
 from __future__ import annotations
@@ -16,11 +16,12 @@ SIMREADY_USD_OBJECT_REGISTRY_NAME = "simready_usd_object"
 
 SIMREADY_SEARCH_REGISTRY_PREFIX = "simready_"
 """Prefix of the catalogue name a searched SimReady asset is registered under. It marks the entry
-as search-derived and keeps it from colliding with a first-party asset of the same object."""
+as one the search found, and keeps it from colliding with a first-party asset of the same object."""
 
 ISAAC_SIMREADY_GA_S3_URL = (
     "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady"
 )
+"""S3 root of the SimReady props that ship with Isaac Sim 6.0 GA."""
 
 DEFAULT_SIMREADY_SERVICE_URL = "https://search.simready.omniverse.nvidia.com/"
 """Hosted SimReady search, used when the ``service`` source is selected."""

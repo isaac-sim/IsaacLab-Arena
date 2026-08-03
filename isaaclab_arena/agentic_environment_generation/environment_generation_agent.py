@@ -76,7 +76,7 @@ class EnvironmentGenerationAgent:
         self.missing_object_inference = MissingObjectInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
         self.enable_simready_search = enable_simready_search
-        self.simready_config = simready_config or SimReadySearchConfig(enabled=enable_simready_search)
+        self.simready_config = simready_config or SimReadySearchConfig()
         self._traces: list[str] = []
         self._unavailable_objects: list[str] = []
 
@@ -87,11 +87,12 @@ class EnvironmentGenerationAgent:
 
     @property
     def unavailable_objects(self) -> tuple[str, ...]:
-        """Objects the most recent ``generate_spec`` call wanted and no asset could be found for.
+        """Objects the most recent ``generate_spec`` call needed but found no asset for.
 
-        Only the SimReady search can report these. A catalog object names a registry entry that is
-        known to exist, so it can only be wrong, not missing. The generated spec is still valid:
-        spec inference was never offered these objects, so it built the scene without them.
+        Only the SimReady search reports these. A catalog object always names a registry entry that
+        exists, so it can be the wrong choice but never a missing one. The generated spec is still
+        valid: these objects were never offered to spec inference, so it built the scene without
+        them.
         """
         return tuple(self._unavailable_objects)
 
@@ -101,8 +102,6 @@ class EnvironmentGenerationAgent:
         asset_catalog: AssetCatalogue | None = None,
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
-        *,
-        enable_simready_search: bool | None = None,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
         """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
@@ -114,7 +113,6 @@ class EnvironmentGenerationAgent:
                 from the live ``ObjectRelationLibraryRegistry``.
             task_catalog: Pre-built task vocabulary. When ``None``, built from
                 ``TaskRegistry`` tasks marked ``@agent_ready``.
-            enable_simready_search: Override the agent-level SimReady search flag.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and
@@ -124,11 +122,10 @@ class EnvironmentGenerationAgent:
         """
         self._traces = []
         self._unavailable_objects = []
-        use_simready = self.enable_simready_search if enable_simready_search is None else enable_simready_search
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
-        if use_simready:
+        if self.enable_simready_search:
             asset_catalog = self._extend_catalogue_with_simready(prompt, asset_catalog)
         spec, data = self.spec_inference.infer(
             prompt,
@@ -147,19 +144,15 @@ class EnvironmentGenerationAgent:
         return spec, None
 
     def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
-        """Search SimReady for the objects the catalog misses and add what it finds to the catalog.
-
-        Everything found is registered as an ordinary asset, so spec inference picks it by name
-        like any other object and needs to know nothing about SimReady. Anything not found is
-        simply never offered, which is what leaves the model free to build the scene without it.
+        """Search SimReady for the objects the catalog misses, and add what it finds to the catalog.
 
         Args:
             prompt: Natural-language env description, used to work out what the catalog misses.
             asset_catalog: Registered asset vocabulary to extend.
 
         Returns:
-            The catalog with one added object per asset found, or the argument itself when the
-            catalog already covers the prompt and nothing was searched for.
+            A copy of the catalog with one added entry per asset found, or the argument itself
+            when nothing was searched for or nothing was found.
         """
         # Imported here rather than at module scope: it pulls in the asset base classes, which
         # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
@@ -168,7 +161,7 @@ class EnvironmentGenerationAgent:
         phrases = self.missing_object_inference.infer(prompt, asset_catalog, self._traces)
         if not phrases:
             return asset_catalog
-        found = search_simready_objects(phrases, replace(self.simready_config, enabled=True), self._traces)
+        found = search_simready_objects(phrases, self.simready_config, self._traces)
         self._unavailable_objects = list(found.unmatched_phrases)
         for phrase in self._unavailable_objects:
             self._traces.append(f"no SimReady asset for {phrase!r}; the spec is built without it")
@@ -237,19 +230,18 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
             catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
-        elif "object" in tags:
-            # The generic SimReady object is withheld: it only spawns from a usd_path the model has
-            # no way to know, so offering it invites an invented path and tags in the generated
-            # spec. A searched SimReady asset is catalogued separately, with its path already baked
-            # in, and so is named by a spec that carries no params at all.
-            if name != SIMREADY_USD_OBJECT_REGISTRY_NAME:
-                # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
-                object_type = getattr(cls, "object_type", None)
-                catalogue.objects.append({
-                    "name": name,
-                    "tags": [t for t in tags if t != "object"],
-                    "object_type": object_type.value if object_type else "unknown",
-                })
+        # The generic SimReady object is withheld: it only spawns from a usd_path the model has no
+        # way to know, so offering it invites an invented path and tags in the generated spec. A
+        # searched SimReady asset is catalogued separately, with its path already baked in, and so
+        # is named by a spec that carries no params at all.
+        elif "object" in tags and name != SIMREADY_USD_OBJECT_REGISTRY_NAME:
+            # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
+            object_type = getattr(cls, "object_type", None)
+            catalogue.objects.append({
+                "name": name,
+                "tags": [t for t in tags if t != "object"],
+                "object_type": object_type.value if object_type else "unknown",
+            })
     return catalogue
 
 

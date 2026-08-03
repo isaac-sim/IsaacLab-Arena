@@ -57,7 +57,12 @@ class SpecInference:
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,
                 system=self._system_prompt(),
-                user=self._user_message(prompt, asset_catalog, relation_catalog, task_catalog),
+                user=self._user_message(
+                    prompt,
+                    asset_catalog,
+                    relation_catalog,
+                    task_catalog,
+                ),
                 retry_label="generate_spec",
             )
         )
@@ -70,12 +75,17 @@ class SpecInference:
         return spec, data
 
     @staticmethod
-    def _user_message(prompt: str, asset_catalog: Any, relation_catalog: Any, task_catalog: Any) -> str:
-        vocabulary = "\n\n".join([
-            asset_catalog.to_catalog_string(),
-            relation_catalog.to_catalog_string(),
-            task_catalog.to_catalog_string(),
-        ])
+    def _user_message(
+        prompt: str,
+        asset_catalog: Any,
+        relation_catalog: Any,
+        task_catalog: Any,
+    ) -> str:
+        vocabulary = (
+            f"{asset_catalog.to_catalog_string()}\n\n"
+            f"{relation_catalog.to_catalog_string()}\n\n"
+            f"{task_catalog.to_catalog_string()}"
+        )
         return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
 
     @staticmethod
@@ -98,10 +108,8 @@ GUIDANCE:
   suffixes in ``id``.
 - Use ``object_sets`` only when one object varies across environments; list its variants as ``members``.
   Every member must be an OBJECTS entry marked ``type=rigid``.
-- Only populate ``object_references`` when the prompt names a distinct sub-part or appliance
-  *inside* a multi-prim background (e.g. counter top, fridge door).
-  A background name such as "maple table" is the resting surface itself — do not add an
-  ``object_reference`` for it; anchor ``is_anchor`` on the background asset instead.
+- Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
+  inside the background; otherwise leave it unset.
 - For each ``object_reference``, leave ``prim_path`` empty.
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).

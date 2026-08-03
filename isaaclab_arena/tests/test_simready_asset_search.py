@@ -124,7 +124,7 @@ def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure):
     # The green one is named after more of the phrase, so it is looked at first and turned down.
     reasons = {TRASH_CAN_PATH: "it has 2 rigid bodies", PLAIN_TRASH_CAN_PATH: None}
     with patch(REJECTION_REASON_TARGET, side_effect=lambda usd_path: reasons[usd_path]):
-        catalog = search_simready_objects(["green trash can"], SimReadySearchConfig(enabled=True), traces)
+        catalog = search_simready_objects(["green trash can"], SimReadySearchConfig(), traces)
     assert [candidate.usd_path for candidate in catalog.candidates] == [PLAIN_TRASH_CAN_PATH]
     assert catalog.unmatched_phrases == []
     assert any(TRASH_CAN_PATH in line and "2 rigid bodies" in line for line in traces)
@@ -137,7 +137,7 @@ def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_confi
     mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
     traces: list[str] = []
     with patch(REJECTION_REASON_TARGET, return_value="it has no rigid body"):
-        catalog = search_simready_objects(["kitchen cabinet"], SimReadySearchConfig(enabled=True), traces)
+        catalog = search_simready_objects(["kitchen cabinet"], SimReadySearchConfig(), traces)
     assert catalog.candidates == []
     assert catalog.unmatched_phrases == ["kitchen cabinet"]
     assert any("no usable asset" in line for line in traces)
@@ -145,13 +145,11 @@ def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_confi
 
 def test_simready_search_config_from_cli_defaults():
     config = simready_search_config_from_cli(
-        enabled=True,
         source=SimReadySourceKind.ISAAC_SIM_GA.value,
         s3_url=None,
         service_url=None,
         max_results_per_object=2,
     )
-    assert config.enabled is True
     assert config.source == SimReadySourceKind.ISAAC_SIM_GA
     assert config.max_results_per_object == 2
 
@@ -173,7 +171,7 @@ def test_search_simready_objects_returns_candidates(mock_configure, mock_search_
     traces: list[str] = []
     catalog = search_simready_objects(
         ["ceramic bowl"],
-        SimReadySearchConfig(enabled=True, source=SimReadySourceKind.ISAAC_SIM_GA),
+        SimReadySearchConfig(source=SimReadySourceKind.ISAAC_SIM_GA),
         traces,
     )
     assert len(catalog.candidates) == 1
@@ -185,7 +183,7 @@ def test_configure_asset_library_records_an_unknown_source():
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import _configure_asset_library
 
     traces: list[str] = []
-    config = SimReadySearchConfig(enabled=True)
+    config = SimReadySearchConfig()
     config.source = "not-a-source"
     assert _configure_asset_library(config, traces) is None
     assert any("unknown simready source" in line for line in traces)
@@ -199,7 +197,7 @@ def test_search_simready_objects_returns_empty_when_library_unavailable(mock_con
     traces: list[str] = []
     catalog = search_simready_objects(
         ["hammer"],
-        SimReadySearchConfig(enabled=True),
+        SimReadySearchConfig(),
         traces,
     )
     assert catalog.candidates == []
@@ -217,7 +215,7 @@ def test_search_simready_objects_records_no_matches(mock_configure, mock_search_
     traces: list[str] = []
     catalog = search_simready_objects(
         ["missing object"],
-        SimReadySearchConfig(enabled=True),
+        SimReadySearchConfig(),
         traces,
     )
     assert catalog.candidates == []

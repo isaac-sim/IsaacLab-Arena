@@ -25,7 +25,7 @@ def new_stage() -> Any:
 
 
 def add_body(stage: Any, name: str) -> str:
-    """Add a rigid body shaped like SimReady authors them: an Xform with a mesh under it.
+    """Add a rigid body shaped the way SimReady authors them: an Xform with a mesh under it.
 
     Args:
         stage: Stage to add to.
