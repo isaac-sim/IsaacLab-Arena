@@ -126,7 +126,7 @@ class ObjectSetSpec(BaseModel):
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
         for registry_name in value:
-            # ObjectSet members are built with no arguments, but they need a usd_path. Only an object's params can carry.
+            # ObjectSet members are built with no arguments, but Simready assets need usd_path. Only an object's params can carry.
             assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
                 f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
                 " carry the usd_path it needs. Use it as an object instead."
