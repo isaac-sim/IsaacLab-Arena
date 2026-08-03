@@ -5,10 +5,8 @@
 
 """The reachability check's layer of the placement Rerun debug view, sim-free (no SimApp).
 
-Core placement already draws each candidate layout's boxes (see
-``isaaclab_arena.relations.placement_visualizer``); this adds what only the IK check knows -- where the
-robot stands, the top-down grasps it solved, and whether each one was reachable. Everything is logged
-against the same candidate frame, so the two layers compose.
+Draws where the robot stands, the top-down grasps it solved for a candidate layout, and whether each
+one was reachable.
 """
 
 from __future__ import annotations

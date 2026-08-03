@@ -178,17 +178,20 @@ def _make_unstamped_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 
     )
 
 
-def _make_reachability_validator(embodiment, visualizer=None):
+def _make_reachability_validator(embodiment, monkeypatch=None, visualizer=None):
     """Construct the registered ReachabilityValidator with ``embodiment`` set on its params.
 
-    ``visualizer`` stands in for the placement debug view ObjectPlacer would have populated.
+    ``visualizer`` stands in for the placement debug view ObjectPlacer would have opened before it
+    built the check; without one the check finds no view to draw into.
     """
+    from isaaclab_arena.relations import placement_visualizer as placement_visualizer_module
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
 
+    if monkeypatch is not None:
+        monkeypatch.setattr(placement_visualizer_module, "_ACTIVE_VISUALIZER", visualizer)
     params = ObjectPlacerParams()
     params.reachability_config.embodiment = embodiment
-    params.debug_visualizer = visualizer
     return ReachabilityValidator(params)
 
 
@@ -196,7 +199,7 @@ def _make_reachability_validator(embodiment, visualizer=None):
 def test_validator_skips_visualization_by_default(monkeypatch):
     """The debug view is opt-in: placement without one means the check adds no layer."""
     _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
-    validator = _make_reachability_validator(_fake_embodiment())
+    validator = _make_reachability_validator(_fake_embodiment(), monkeypatch)
 
     assert validator._rerun_layer is None
 
@@ -210,8 +213,8 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
     _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
     visualizer = MagicMock()
     # The batch the check is given is candidates 7 and 9 of the run.
-    visualizer.candidate_index_for_slot.side_effect = [7, 9]
-    validator = _make_reachability_validator(_fake_embodiment(), visualizer=visualizer)
+    visualizer.candidate_index_for_batch_index.side_effect = [7, 9]
+    validator = _make_reachability_validator(_fake_embodiment(), monkeypatch, visualizer=visualizer)
     drawn: list[dict] = []
     monkeypatch.setattr(validator._rerun_layer, "log_candidate", lambda **kwargs: drawn.append(kwargs))
 
@@ -229,8 +232,8 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
-    rrd_path = tmp_path / "placement.rrd"
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(rrd_path))
+    output_path = tmp_path / "placement.rrd"
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(output_path))
     layer = ReachabilityRerunLayer(visualizer)
 
     layer.log_candidate(
@@ -245,7 +248,7 @@ def test_reachability_layer_records_to_rrd(tmp_path):
     )
     visualizer.close()
 
-    assert rrd_path.is_file() and rrd_path.stat().st_size > 0
+    assert output_path.is_file() and output_path.stat().st_size > 0
 
 
 @pytest.mark.curobo_deps

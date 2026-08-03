@@ -63,8 +63,8 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
         required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
         debug_visualize=placement_validators is not None and placement_validators.debug_visualize,
-        debug_visualize_rrd_path=(
-            placement_validators.debug_visualize_rrd_path if placement_validators is not None else None
+        debug_visualize_output_path=(
+            placement_validators.debug_visualize_output_path if placement_validators is not None else None
         ),
     )
 

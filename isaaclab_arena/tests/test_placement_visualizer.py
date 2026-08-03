@@ -18,7 +18,11 @@ import pytest
 from isaaclab_arena.relations import placement_visualizer
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer, summarize_candidate_verdict
+from isaaclab_arena.relations.placement_visualizer import (
+    PlacementRerunVisualizer,
+    get_active_placement_visualizer,
+    summarize_candidate_verdict,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -64,32 +68,32 @@ def _placer_params(**overrides) -> ObjectPlacerParams:
 
 def test_placement_has_no_debug_view_by_default():
     """The debug view is opt-in, so a default placement never touches Rerun."""
-    placer = ObjectPlacer(_placer_params())
+    ObjectPlacer(_placer_params())
 
-    assert placer.params.debug_visualizer is None
+    assert get_active_placement_visualizer() is None
 
 
 def test_placement_records_every_candidate_layout(tmp_path):
     """Recording to an .rrd draws every candidate the solve produced, one frame each, without a viewer."""
-    rrd_path = tmp_path / "placement.rrd"
-    placer = ObjectPlacer(_placer_params(debug_visualize_rrd_path=str(rrd_path)))
+    output_path = tmp_path / "placement.rrd"
+    placer = ObjectPlacer(_placer_params(debug_visualize_output_path=str(output_path)))
 
     placer.place(_desk_and_box(), num_envs=1)
-    visualizer = placer.params.debug_visualizer
+    visualizer = get_active_placement_visualizer()
     visualizer.close()
 
     assert visualizer.num_logged_candidates == MAX_PLACEMENT_ATTEMPTS
-    assert rrd_path.is_file() and rrd_path.stat().st_size > 0
+    assert output_path.is_file() and output_path.stat().st_size > 0
 
 
 def test_placement_shares_one_debug_view_across_placers(tmp_path):
     """Every placer in the process draws into the same view, keeping one viewer and one timeline."""
-    params = _placer_params(debug_visualize_rrd_path=str(tmp_path / "placement.rrd"))
+    ObjectPlacer(_placer_params(debug_visualize_output_path=str(tmp_path / "placement.rrd")))
+    view_of_first_placer = get_active_placement_visualizer()
 
-    first = ObjectPlacer(params)
-    second = ObjectPlacer(_placer_params(debug_visualize_rrd_path=str(tmp_path / "ignored.rrd")))
+    ObjectPlacer(_placer_params(debug_visualize_output_path=str(tmp_path / "ignored.rrd")))
 
-    assert first.params.debug_visualizer is second.params.debug_visualizer
+    assert get_active_placement_visualizer() is view_of_first_placer
 
 
 class _FakeViewerProcess:
@@ -116,20 +120,6 @@ class _FakeViewerProcess:
         return 0
 
 
-class _RecordingVisualizer:
-    """Captures what the placer draws, so its verdict bookkeeping can be asserted without Rerun."""
-
-    def __init__(self) -> None:
-        self.verdicts_by_candidate: dict[int, dict[str, bool]] = {}
-        self.required_checks: set[str] | None = None
-
-    def log_verdicts(
-        self, candidate_index: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
-    ) -> None:
-        self.verdicts_by_candidate[candidate_index] = verdicts_by_check
-        self.required_checks = required_checks
-
-
 def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch):
     """The window belongs to the run, so closing the view takes it down instead of leaving it on the port."""
     import rerun as rr
@@ -141,7 +131,7 @@ def test_closing_the_view_shuts_down_the_viewer_it_spawned(tmp_path, monkeypatch
         "spawn_viewer_process",
         lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
     )
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, output_path=str(tmp_path / "p.rrd"))
 
     visualizer.close()
     visualizer.close()
@@ -159,7 +149,7 @@ def test_closing_a_wedged_viewer_falls_back_to_killing_it(tmp_path, monkeypatch)
         "spawn_viewer_process",
         lambda: (viewer, rr.FileSink(str(tmp_path / "viewer_stand_in.rrd"))),
     )
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=True, output_path=str(tmp_path / "p.rrd"))
 
     visualizer.close()
 
@@ -196,19 +186,26 @@ def test_every_check_gates_a_candidate_when_none_are_named_required():
     assert message == "candidate 3: rejected (failed: ik_reachable)"
 
 
-def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it():
+def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it(tmp_path, monkeypatch):
     """Expensive checks only see candidates the cheap ones passed; the rest are unevaluated, not failed."""
-    placer = ObjectPlacer(_placer_params())
-    visualizer = _RecordingVisualizer()
-    placer.params.debug_visualizer = visualizer
-
-    placer._log_candidate_verdicts(
-        candidate_indices=[0, 1],
-        layout_pass_verdicts_by_check={"no_overlap": [True, False], "ik_reachable": [True, False]},
-        evaluated_slots_by_check={"no_overlap": [0, 1], "ik_reachable": [0]},
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
+    drawn_verdicts: dict[int, dict[str, bool]] = {}
+    monkeypatch.setattr(
+        visualizer,
+        "log_verdicts",
+        lambda candidate_index, verdicts_by_check, required_checks: drawn_verdicts.update(
+            {candidate_index: verdicts_by_check}
+        ),
     )
 
-    assert visualizer.verdicts_by_candidate == {
+    visualizer.log_verdict_batch(
+        candidate_indices=[0, 1],
+        verdicts_by_check={"no_overlap": [True, False], "ik_reachable": [True, False]},
+        evaluated_batch_indices_by_check={"no_overlap": [0, 1], "ik_reachable": [0]},
+        required_checks=None,
+    )
+
+    assert drawn_verdicts == {
         0: {"no_overlap": True, "ik_reachable": True},
         1: {"no_overlap": False},
     }
@@ -216,7 +213,7 @@ def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it():
 
 def test_candidate_frames_keep_counting_across_batches(tmp_path):
     """A pool that refills gets fresh frames, so a later batch does not overwrite an earlier one."""
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
 
     assert visualizer.next_batch_indices(3) == [0, 1, 2]
     assert visualizer.next_batch_indices(2) == [3, 4]
@@ -224,9 +221,9 @@ def test_candidate_frames_keep_counting_across_batches(tmp_path):
 
 def test_active_candidates_map_batch_position_to_frame(tmp_path):
     """A check that only ran on some candidates still resolves each one's own frame."""
-    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, rrd_path=str(tmp_path / "p.rrd"))
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
 
     visualizer.set_active_candidates([1, 4])
 
-    assert visualizer.candidate_index_for_slot(0) == 1
-    assert visualizer.candidate_index_for_slot(1) == 4
+    assert visualizer.candidate_index_for_batch_index(0) == 1
+    assert visualizer.candidate_index_for_batch_index(1) == 4
