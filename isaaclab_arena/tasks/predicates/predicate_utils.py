@@ -6,33 +6,9 @@
 from __future__ import annotations
 
 import torch
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import RigidObject
-
-if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class ArenaAssetHandle:
-    """Keep an Arena asset by identity when manager configurations are copied.
-
-    Termination configurations are copied before per-environment variants and
-    relation-solved poses are finalized. Preserving this handle by identity keeps
-    predicates connected to the original asset and its finalized bounds metadata.
-    """
-
-    asset: ObjectBase
-
-    def __deepcopy__(self, memo: dict[int, object]) -> ArenaAssetHandle:
-        memo[id(self)] = self
-        return self
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}(asset={self.asset.name!r})"
 
 
 def get_env(env):

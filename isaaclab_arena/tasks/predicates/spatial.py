@@ -18,13 +18,7 @@ from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transfo
 
 from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.tasks.predicates.predicate_utils import (
-    ArenaAssetHandle,
-    get_env,
-    get_root_lin_vel_w,
-    get_root_pos_w,
-    select,
-)
+from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -110,24 +104,6 @@ def objects_in_proximity(
 
 
 def object_in_container(
-    env: ManagerBasedRLEnv,
-    object_asset_handle: ArenaAssetHandle,
-    container_asset_handle: ArenaAssetHandle,
-) -> torch.Tensor:
-    """Check whether an object's bounding-box centroid is within open-top container bounds.
-
-    The asset handles preserve the original Arena assets and their cached bounds when manager
-    configurations are copied.
-    """
-
-    return _object_centroid_in_container_bounds(
-        env,
-        object_asset=object_asset_handle.asset,
-        container_asset=container_asset_handle.asset,
-    )
-
-
-def _object_centroid_in_container_bounds(
     env: ManagerBasedRLEnv,
     object_asset: ObjectBase,
     container_asset: ObjectBase,
@@ -228,8 +204,8 @@ def object_supported_by_destination(
 
 def object_on_destination(
     env: ManagerBasedRLEnv,
-    object_asset_handle: ArenaAssetHandle,
-    destination_asset_handle: ArenaAssetHandle,
+    object_asset: ObjectBase,
+    destination_asset: ObjectBase,
     object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
     force_threshold: float = 1.0,
@@ -243,7 +219,7 @@ def object_on_destination(
     its linear speed is below the velocity threshold.
     """
 
-    inside_destination = object_in_container(env, object_asset_handle, destination_asset_handle)
+    inside_destination = object_in_container(env, object_asset, destination_asset)
     supported_by_destination = object_supported_by_destination(
         env,
         contact_sensor_cfg=contact_sensor_cfg,
@@ -256,8 +232,8 @@ def object_on_destination(
 
 def objects_on_destinations(
     env: ManagerBasedRLEnv,
-    object_asset_handle_list: list[ArenaAssetHandle],
-    destination_asset_handle_list: list[ArenaAssetHandle],
+    object_asset_list: list[ObjectBase],
+    destination_asset_list: list[ObjectBase],
     object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
     contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
     force_threshold: float = 1.0,
@@ -273,8 +249,8 @@ def objects_on_destinations(
     list_lengths = (
         len(object_cfg_list),
         len(contact_sensor_cfg_list),
-        len(object_asset_handle_list),
-        len(destination_asset_handle_list),
+        len(object_asset_list),
+        len(destination_asset_list),
     )
     assert len(set(list_lengths)) == 1, (
         "Object configs, contact sensors, object assets, and destination assets must have equal lengths, got "
@@ -283,11 +259,11 @@ def objects_on_destinations(
 
     unwrapped_env = get_env(env)
     condition_met = torch.ones((unwrapped_env.num_envs), device=unwrapped_env.device, dtype=torch.bool)
-    for object_cfg, contact_sensor_cfg, object_asset_handle, destination_asset_handle in zip(
+    for object_cfg, contact_sensor_cfg, object_asset, destination_asset in zip(
         object_cfg_list,
         contact_sensor_cfg_list,
-        object_asset_handle_list,
-        destination_asset_handle_list,
+        object_asset_list,
+        destination_asset_list,
     ):
         single_condition = object_on_destination(
             env=env,
@@ -295,8 +271,8 @@ def objects_on_destinations(
             contact_sensor_cfg=contact_sensor_cfg,
             force_threshold=force_threshold,
             velocity_threshold=velocity_threshold,
-            object_asset_handle=object_asset_handle,
-            destination_asset_handle=destination_asset_handle,
+            object_asset=object_asset,
+            destination_asset=destination_asset,
             support_cone_half_angle_deg=support_cone_half_angle_deg,
         )
         condition_met = torch.logical_and(condition_met, single_condition)

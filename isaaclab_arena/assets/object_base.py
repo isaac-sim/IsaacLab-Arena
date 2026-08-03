@@ -163,17 +163,20 @@ class ObjectBase(PlaceableAsset, ABC):
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
             object_pose = wp.to_torch(unwrapped_env.scene[scene_key].data.root_pose_w).clone()
         elif self.object_type == ObjectType.BASE:
-            initial_pose = self.get_initial_pose()
-            if initial_pose is None:
-                initial_pose = Pose.identity()
-            if isinstance(initial_pose, Pose):
-                object_pose = initial_pose.to_tensor(device=unwrapped_env.device).to(
-                    dtype=unwrapped_env.scene.env_origins.dtype
-                )
+            is_environment_asset = "{ENV_REGEX_NS}" in self.prim_path or self.prim_path.startswith(
+                f"{unwrapped_env.scene.env_regex_ns}/"
+            )
+            # The Fabric world-pose path also reads scale and can fail on scalar USD scale attributes.
+            object_position, object_orientation = unwrapped_env.scene[scene_key].get_local_poses()
+            object_pose = torch.cat((object_position.torch, object_orientation.torch), dim=-1)
+            assert object_pose.shape[0] in (1, unwrapped_env.num_envs), (
+                f"BASE asset '{self.name}' returned {object_pose.shape[0]} poses for"
+                f" {unwrapped_env.num_envs} environments."
+            )
+            if object_pose.shape[0] == 1:
                 object_pose = object_pose.expand(unwrapped_env.num_envs, -1).clone()
+            if is_environment_asset:
                 object_pose[:, :3] += unwrapped_env.scene.env_origins
-            else:
-                object_pose = torch.cat(unwrapped_env.scene[scene_key].get_world_poses(), dim=-1)
         else:
             raise ValueError(f"Function not implemented for object type: {self.object_type}")
 

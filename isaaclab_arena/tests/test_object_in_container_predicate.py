@@ -6,6 +6,7 @@
 import copy
 import math
 import torch
+from functools import partial
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -17,19 +18,25 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.tasks.predicates.predicate_utils import ArenaAssetHandle
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracker import (
+        make_progress_tracking_events_cfg,
+        make_progress_tracking_recorder_cfg,
+    )
     from isaaclab_arena.tasks.predicates.spatial import (
         contact_force_is_upward_support,
         object_in_container,
         object_on_destination,
     )
+    from isaaclab_arena.tasks.predicates.spatial_manager_terms import ArenaAssetHandle, object_on_destination_term
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose, PosePerEnv
+    from isaaclab_arena.utils.pose import Pose
 
     class DummyScene(dict):
         def __init__(self, num_envs: int):
             super().__init__()
             self.env_origins = torch.zeros((num_envs, 3))
+            self.env_regex_ns = "/World/envs/env_.*"
 
     class DummyEnv:
         def __init__(self, num_envs: int):
@@ -100,22 +107,41 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     geometry_env.scene[container_asset.name] = object()
 
     object_asset_handle = ArenaAssetHandle(object_asset)
-    container_asset_handle = ArenaAssetHandle(container_asset)
-    containment_term_cfg = TerminationTermCfg(
-        func=object_in_container,
+    destination_asset_handle = ArenaAssetHandle(container_asset)
+    manager_term_cfg = TerminationTermCfg(
+        func=object_on_destination_term,
         params={
             "object_asset_handle": object_asset_handle,
-            "container_asset_handle": container_asset_handle,
+            "destination_asset_handle": destination_asset_handle,
         },
     )
-    containment_term_cfg.validate()
-    copied_containment_term_cfg = copy.deepcopy(containment_term_cfg)
-    assert copied_containment_term_cfg.params["object_asset_handle"] is object_asset_handle
-    assert copied_containment_term_cfg.params["container_asset_handle"] is container_asset_handle
+    manager_term_cfg.validate()
+    copied_manager_term_cfg = copy.deepcopy(manager_term_cfg)
+    assert copied_manager_term_cfg.params["object_asset_handle"] is object_asset_handle
+    assert copied_manager_term_cfg.params["destination_asset_handle"] is destination_asset_handle
     assert not hasattr(object_asset_handle, "__dict__")
 
+    progress_objective = ProgressObjective(
+        name="asset_handle_copy",
+        predicate_groups=[
+            partial(
+                object_on_destination_term,
+                object_asset_handle=object_asset_handle,
+                destination_asset_handle=destination_asset_handle,
+            )
+        ],
+    )
+    progress_events_cfg = make_progress_tracking_events_cfg([progress_objective])
+    progress_recorder_cfg = make_progress_tracking_recorder_cfg([progress_objective])
+    copied_event_objective = progress_events_cfg.reset_progress_objectives.params["progress_objectives"][0]
+    copied_recorder_objective = progress_recorder_cfg.progress_tracking.progress_objectives[0]
+    for copied_progress_objective in (copied_event_objective, copied_recorder_objective):
+        copied_predicate = next(iter(copied_progress_objective.canonical_predicate_groups.values()))[0][0]
+        assert copied_predicate.keywords["object_asset_handle"] is object_asset_handle
+        assert copied_predicate.keywords["destination_asset_handle"] is destination_asset_handle
+
     torch.testing.assert_close(
-        object_in_container(geometry_env, object_asset_handle, container_asset_handle),
+        object_in_container(geometry_env, object_asset, container_asset),
         torch.tensor([True, False, False, True, True, False, True, False]),
     )
 
@@ -125,54 +151,69 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
         [4.0, -3.0, 1.0],
     ])
 
+    class DummyProxyArray:
+        def __init__(self, tensor: torch.Tensor):
+            self.torch = tensor
+
+    class DummyFrameView:
+        def __init__(self, local_pose: torch.Tensor):
+            self._local_pose = local_pose
+
+        def get_local_poses(self) -> tuple[DummyProxyArray, DummyProxyArray]:
+            return DummyProxyArray(self._local_pose[:, :3]), DummyProxyArray(self._local_pose[:, 3:])
+
     base_object = Object.__new__(Object)
     base_object.name = "base_object"
+    base_object.prim_path = "{ENV_REGEX_NS}/base_object"
     base_object.object_type = ObjectType.BASE
-    base_object.initial_pose = Pose(
-        position_xyz=(1.0, 2.0, 3.0),
-        rotation_xyzw=roll_90_quaternion,
-    )
-    reference_env.scene[base_object.name] = object()
     expected_base_pose_relative = torch.tensor([
         [1.0, 2.0, 3.0, *roll_90_quaternion],
         [1.0, 2.0, 3.0, *roll_90_quaternion],
     ])
     expected_base_pose_w = expected_base_pose_relative.clone()
     expected_base_pose_w[:, :3] += reference_env.scene.env_origins
+    reference_env.scene[base_object.name] = DummyFrameView(expected_base_pose_relative)
     torch.testing.assert_close(base_object.get_object_pose(reference_env), expected_base_pose_relative)
     torch.testing.assert_close(
         base_object.get_object_pose(reference_env, is_relative=False),
         expected_base_pose_w,
     )
 
-    class DummyFrameView:
-        def __init__(self, pose_w: torch.Tensor):
-            self._pose_w = pose_w
-
-        def get_world_poses(self) -> tuple[torch.Tensor, torch.Tensor]:
-            return self._pose_w[:, :3], self._pose_w[:, 3:]
-
     per_env_base_object = Object.__new__(Object)
     per_env_base_object.name = "per_env_base_object"
+    per_env_base_object.prim_path = "{ENV_REGEX_NS}/per_env_base_object"
     per_env_base_object.object_type = ObjectType.BASE
-    per_env_base_object.initial_pose = PosePerEnv([
-        Pose(rotation_xyzw=roll_90_quaternion),
-        Pose(rotation_xyzw=yaw_90_quaternion),
-    ])
     per_env_base_pose_w = torch.tensor([
         [0.5, 0.25, 0.0, *roll_90_quaternion],
         [4.5, -2.75, 1.0, *yaw_90_quaternion],
     ])
-    reference_env.scene[per_env_base_object.name] = DummyFrameView(per_env_base_pose_w)
+    per_env_base_pose_relative = per_env_base_pose_w.clone()
+    per_env_base_pose_relative[:, :3] -= reference_env.scene.env_origins
+    reference_env.scene[per_env_base_object.name] = DummyFrameView(per_env_base_pose_relative)
     torch.testing.assert_close(
         per_env_base_object.get_object_pose(reference_env, is_relative=False),
         per_env_base_pose_w,
     )
-    expected_per_env_base_pose_relative = per_env_base_pose_w.clone()
-    expected_per_env_base_pose_relative[:, :3] -= reference_env.scene.env_origins
     torch.testing.assert_close(
         per_env_base_object.get_object_pose(reference_env),
-        expected_per_env_base_pose_relative,
+        per_env_base_pose_relative,
+    )
+
+    global_base_object = Object.__new__(Object)
+    global_base_object.name = "global_base_object"
+    global_base_object.prim_path = "/World/global_base_object"
+    global_base_object.object_type = ObjectType.BASE
+    global_base_pose_w = torch.tensor([[0.0, 0.0, -0.5, *identity_quaternion]])
+    reference_env.scene[global_base_object.name] = DummyFrameView(global_base_pose_w)
+    torch.testing.assert_close(
+        global_base_object.get_object_pose(reference_env, is_relative=False),
+        global_base_pose_w.expand(reference_env.num_envs, -1),
+    )
+    expected_global_base_pose_relative = global_base_pose_w.expand(reference_env.num_envs, -1).clone()
+    expected_global_base_pose_relative[:, :3] -= reference_env.scene.env_origins
+    torch.testing.assert_close(
+        global_base_object.get_object_pose(reference_env),
+        expected_global_base_pose_relative,
     )
 
     rotated_reference = ObjectReference.__new__(ObjectReference)
@@ -205,9 +246,14 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     )
     reference_parent = Object.__new__(Object)
     reference_parent.name = "reference_parent"
+    reference_parent.prim_path = "{ENV_REGEX_NS}/reference_parent"
     reference_parent.object_type = ObjectType.BASE
     reference_parent.initial_pose = Pose.identity()
-    reference_env.scene[reference_parent.name] = object()
+    reference_parent_pose_relative = torch.tensor([
+        [0.0, 0.0, 0.0, *identity_quaternion],
+        [0.0, 0.0, 0.0, *identity_quaternion],
+    ])
+    reference_env.scene[reference_parent.name] = DummyFrameView(reference_parent_pose_relative)
 
     reference_container = ObjectReference.__new__(ObjectReference)
     reference_container.name = "reference_container"
@@ -236,8 +282,8 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     torch.testing.assert_close(
         object_in_container(
             reference_env,
-            ArenaAssetHandle(reference_object),
-            ArenaAssetHandle(reference_container),
+            reference_object,
+            reference_container,
         ),
         torch.tensor([True, True]),
     )
@@ -339,8 +385,22 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
     combined_env.scene[combined_object_asset.name] = DummyRigidObject()
     combined_env.scene[combined_container_asset.name] = object()
     combined_env.scene["contact_sensor"] = DummyContactSensor()
+    expected_on_destination = torch.tensor([True, False, False, False])
     torch.testing.assert_close(
         object_on_destination(
+            combined_env,
+            object_cfg=SceneEntityCfg(combined_object_asset.name),
+            contact_sensor_cfg=SceneEntityCfg("contact_sensor"),
+            force_threshold=0.1,
+            velocity_threshold=0.1,
+            object_asset=combined_object_asset,
+            destination_asset=combined_container_asset,
+            support_cone_half_angle_deg=45.0,
+        ),
+        expected_on_destination,
+    )
+    torch.testing.assert_close(
+        object_on_destination_term(
             combined_env,
             object_cfg=SceneEntityCfg(combined_object_asset.name),
             contact_sensor_cfg=SceneEntityCfg("contact_sensor"),
@@ -350,7 +410,7 @@ def _test_object_in_container_predicate(_simulation_app) -> bool:
             destination_asset_handle=ArenaAssetHandle(combined_container_asset),
             support_cone_half_angle_deg=45.0,
         ),
-        torch.tensor([True, False, False, False]),
+        expected_on_destination,
     )
 
     return True

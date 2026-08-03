@@ -24,8 +24,8 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.predicate_utils import ArenaAssetHandle
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial_manager_terms import ArenaAssetHandle, object_on_destination_term
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
@@ -74,8 +74,6 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.pick_up_object_handle = ArenaAssetHandle(pick_up_object)
-        self.destination_location_handle = ArenaAssetHandle(destination_location)
         self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
@@ -116,14 +114,14 @@ class PickAndPlaceTask(TaskBase):
     def make_termination_cfg(self):
         predicates = [
             TerminationTermCfg(
-                func=object_on_destination,
+                func=object_on_destination_term,
                 params={
                     "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                     "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
-                    "object_asset_handle": self.pick_up_object_handle,
-                    "destination_asset_handle": self.destination_location_handle,
+                    "object_asset_handle": ArenaAssetHandle(self.pick_up_object),
+                    "destination_asset_handle": ArenaAssetHandle(self.destination_location),
                     "support_cone_half_angle_deg": self.support_cone_half_angle_deg,
                 },
             ),
@@ -186,6 +184,7 @@ class PickAndPlaceTask(TaskBase):
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
+        # Progress predicates are copied into event and recorder term configurations.
         return [
             ProgressObjective(
                 name="pick_and_place",
@@ -200,13 +199,13 @@ class PickAndPlaceTask(TaskBase):
                         use_settled_state=True,
                     ),
                     partial(
-                        object_on_destination,
+                        object_on_destination_term,
                         object_cfg=SceneEntityCfg(self.pick_up_object.name),
                         contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
-                        object_asset_handle=self.pick_up_object_handle,
-                        destination_asset_handle=self.destination_location_handle,
+                        object_asset_handle=ArenaAssetHandle(self.pick_up_object),
+                        destination_asset_handle=ArenaAssetHandle(self.destination_location),
                         support_cone_half_angle_deg=self.support_cone_half_angle_deg,
                     ),
                 ],
