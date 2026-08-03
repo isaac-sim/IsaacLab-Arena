@@ -268,11 +268,8 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
             catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
-        # The generic SimReady object is withheld: it only spawns from a usd_path the model has no
-        # way to know, so offering it invites an invented path and tags in the generated spec. A
-        # searched SimReady asset is catalogued separately, with its path already baked in, and so
-        # is named by a spec that carries no params at all.
-        elif "object" in tags and name != SIMREADY_USD_OBJECT_REGISTRY_NAME:
+        # Only assets existed in the catalogue are exposed.
+        elif "object" in tags:
             # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
             object_type = getattr(cls, "object_type", None)
             catalogue.objects.append({

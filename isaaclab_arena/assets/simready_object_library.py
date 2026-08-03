@@ -30,7 +30,8 @@ class SimReadyUsdObject(Object):
     """Spawn a SimReady asset from an explicit USD path supplied in graph params."""
 
     name = SIMREADY_USD_OBJECT_REGISTRY_NAME
-    tags = ["object", "sim-ready"]
+
+    tags = ["sim-ready"]
 
     object_type = ObjectType.RIGID
     """The search only accepts an asset with exactly one rigid body."""
@@ -87,7 +88,8 @@ def register_searched_simready_object(
     if registry.is_registered(registry_name, ensure_loaded=False):
         return registry.get_asset_by_name(registry_name)
     found_usd_path = usd_path
-    merged_tags = list(dict.fromkeys([*SimReadyUsdObject.tags, *tags]))
+    # Tagged 'object' unlike the generic asset, because this one carries its own usd_path.
+    merged_tags = list(dict.fromkeys(["object", *SimReadyUsdObject.tags, *tags]))
 
     class SearchedSimReadyObject(SimReadyUsdObject):
         """A SimReady asset the search found for one object in a prompt."""
