@@ -12,7 +12,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverCheckpoint
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.tests.test_object_placer_reproducibility import _create_test_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -85,20 +85,6 @@ def test_accumulator_copies_strict_snapshot_data():
     candidate.validation_results.validation_results["required"] = False
 
     assert accumulator.finalize([candidate, invalid])[0][0].positions["object"][0] == 1.0
-
-
-class _PositiveXValidator:
-    """Test validator that accepts candidates whose inspected object has positive X."""
-
-    check = "positive_x"
-    strict_relation_types = (On, NextTo)
-    run_after_inexpensive_checks = False
-
-    def __init__(self, inspected_object):
-        self._inspected_object = inspected_object
-
-    def validate_batch(self, positions, orientations, bboxes, collision_objects):
-        return [candidate[self._inspected_object][0] > 0.0 for candidate in positions]
 
 
 def test_place_stops_when_one_strict_layout_exists():
@@ -199,9 +185,9 @@ def test_zero_iteration_profile_records_final_checkpoint():
 
 
 def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
-    """Ranked placement continues until every requested result has passed validation."""
+    """The checkpoint callback stops only when production validators reach the requested strict quota."""
     objects = list(_create_test_objects())
-    inspected_object = objects[1]
+    desk, box1, box2 = objects
     placer = ObjectPlacer(
         ObjectPlacerParams(
             placement_seed=1,
@@ -210,7 +196,7 @@ def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
             solver_params=RelationSolverParams(max_iters=100, checkpoint_iters=(25, 50, 100), verbose=False),
         )
     )
-    placer._validators = [_PositiveXValidator(inspected_object)]
+    callback_stop_iterations = []
 
     def solve_with_checkpoint_stream(
         solver,
@@ -224,7 +210,13 @@ def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
         for iteration, num_valid in ((25, 1), (50, 3), (100, len(initial_positions))):
             positions = [dict(candidate) for candidate in initial_positions]
             for candidate_idx, candidate in enumerate(positions):
-                candidate[inspected_object] = (1.0 if candidate_idx < num_valid else 0.0, 0.0, 0.0)
+                candidate.update({
+                    desk: (0.0, 0.0, 0.0),
+                    box1: (0.2, 0.2, 0.11),
+                    # Valid: box2 starts 5 cm past box1's +X face. Invalid candidates
+                    # stay on the desk without overlap but violate that NextTo distance.
+                    box2: ((0.45 if candidate_idx < num_valid else 0.7), 0.225, 0.11),
+                })
             losses = tuple(float(candidate_idx) for candidate_idx in range(len(positions)))
             should_stop = checkpoint_callback(
                 RelationSolverCheckpoint(
@@ -237,6 +229,7 @@ def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
             solver._last_iterations_run = iteration
             solver._last_loss_per_env = torch.tensor(losses)
             if should_stop:
+                callback_stop_iterations.append(iteration)
                 return positions
         return positions
 
@@ -245,4 +238,5 @@ def test_ranked_placement_waits_for_requested_strict_quota(monkeypatch):
     results = placer.place_ranked_per_env(objects, num_envs=1, results_per_env=3)
 
     assert len([result for result in results[0] if result.success]) == 3
+    assert callback_stop_iterations == [50]
     assert placer.last_iterations_run == 50
