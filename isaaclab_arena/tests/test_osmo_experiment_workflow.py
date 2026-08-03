@@ -250,9 +250,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert source_experiment_cfg.runs["first"].policy.ping_timeout == 10
 
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
-    assert experiment_runner_command.startswith("set -euo pipefail")
-    assert "Capture the application exit code without disabling fail-fast handling" in experiment_runner_command
-    assert "writing the result" in experiment_runner_command
+    assert "set -euo pipefail" not in experiment_runner_command
+    assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert "if /isaac-sim/python.sh" in experiment_runner_command
     assert "experiment_runner.py" in experiment_runner_command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
@@ -264,7 +263,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command
-    assert "Persist the result before reporting success to OSMO" in experiment_runner_command
+    assert "always report success to OSMO" in experiment_runner_command
     assert experiment_runner_command.endswith("exit 0\n")
     assert "policy_runner.py" not in experiment_runner_command
     assert "runs." not in experiment_runner_command

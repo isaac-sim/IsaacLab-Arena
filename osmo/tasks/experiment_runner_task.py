@@ -92,10 +92,7 @@ class ExperimentRunnerTask(BaseTask):
             f"> {experiment_runner_result_path}"
         )
         return "\n".join([
-            "set -euo pipefail",
-            "",
-            "# Capture the application exit code without disabling fail-fast handling for this wrapper.",
-            "# Failures outside this condition, including writing the result, must remain OSMO task failures.",
+            "# Record the application result without failing the OSMO task.",
             f"if {experiment_runner_command}; then",
             "  experiment_runner_process_exit_code=0",
             f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",
@@ -104,7 +101,7 @@ class ExperimentRunnerTask(BaseTask):
             f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
             "fi",
             "",
-            "# Persist the result before reporting success to OSMO so the downstream collector can run.",
+            "# Publish the result for the collector, then always report success to OSMO.",
             write_experiment_runner_result_command,
             "exit 0",
             "",
