@@ -3,28 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build small in-memory USD stages shaped like SimReady props.
-
-pxr is imported inside each function, so importing this module is safe during pytest collection,
-before Isaac Sim has started.
-"""
+"""Build small in-memory USD stages shaped like SimReady props."""
 
 from __future__ import annotations
 
-from typing import Any
+from pxr import Usd, UsdGeom, UsdPhysics
 
 
-def new_stage() -> Any:
+def new_stage() -> Usd.Stage:
     """Create an in-memory stage with a ``/Root`` default prim."""
-    from pxr import Usd, UsdGeom
-
     stage = Usd.Stage.CreateInMemory()
     root = UsdGeom.Xform.Define(stage, "/Root")
     stage.SetDefaultPrim(root.GetPrim())
     return stage
 
 
-def add_body(stage: Any, name: str) -> str:
+def add_body(stage: Usd.Stage, name: str) -> str:
     """Add a rigid body shaped the way SimReady authors them: an Xform with a mesh under it.
 
     Args:
@@ -34,8 +28,6 @@ def add_body(stage: Any, name: str) -> str:
     Returns:
         Prim path of the body with the RigidBodyAPI.
     """
-    from pxr import UsdGeom, UsdPhysics
-
     body_path = f"/Root/Geometry/{name}_obj_00"
     body = UsdGeom.Xform.Define(stage, body_path)
     UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())

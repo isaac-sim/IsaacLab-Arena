@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -136,6 +137,9 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     )
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import simready_search_config_from_cli
 
+    # The generation passes log what they searched for and found; this is a console tool, so show
+    # it. A no-op once something else owns the root logger, such as Kit in the modes that start it.
+    logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
     print(f"\n[runner] prompt: {args_cli.prompt!r}", flush=True)
 
     asset_catalog = build_asset_catalogue()
@@ -174,10 +178,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
             invalid_path = write_env_graph_dict(data, args_cli.out_dir)
             print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
         return None
-    if args_cli.enable_simready_search and agent.traces:
-        print("\n[runner] generation traces:", flush=True)
-        for line in agent.traces:
-            print(f"  {line}", flush=True)
     # The spec is valid either way: an object no asset was found for was never offered to spec
     # inference, so it was built without it. Say so, or the substitution goes unnoticed.
     if agent.unavailable_objects:

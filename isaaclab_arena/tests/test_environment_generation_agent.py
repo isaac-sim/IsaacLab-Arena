@@ -215,7 +215,9 @@ class TestGenerateSpec:
         assert client.chat.completions.create.call_count == 2
         # The caller is still told what the prompt asked for and could not get.
         assert agent_obj.unavailable_objects == ("green trash can",)
-        assert any("no SimReady asset for 'green trash can'" in line for line in agent_obj.traces)
+        # Nothing defeated the generation, so nothing lands in the error channel. A search that
+        # came up short is reported structurally above and logged, not raised as a failure.
+        assert agent_obj.traces == ()
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_skips_the_search_when_the_catalog_covers_the_prompt(self, mock_search, agent):

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -16,6 +17,8 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     StructuredOutputRequest,
     build_strict_schema,
 )
+
+_logger = logging.getLogger(__name__)
 
 MAX_SEARCH_PHRASES = 8
 """The most objects one prompt can send to the asset search. Every phrase means another remote
@@ -41,7 +44,7 @@ class MissingObjectInference:
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(MissingObjects)
 
-    def infer(self, prompt: str, asset_catalog: Any, traces: list[str]) -> list[str]:
+    def infer(self, prompt: str, asset_catalog: Any) -> list[str]:
         """Return search phrases for the objects the catalogue does not have.
 
         This runs only when the asset search is on, and it does not change spec inference: whatever
@@ -50,7 +53,6 @@ class MissingObjectInference:
         Args:
             prompt: End-user environment description.
             asset_catalog: The registered assets the prompt has to be satisfied from.
-            traces: Accumulator for diagnostic lines, extended in place.
 
         Returns:
             Search phrases in the order the model gave them, at most ``MAX_SEARCH_PHRASES`` of
@@ -67,12 +69,14 @@ class MissingObjectInference:
         )
         phrases = [phrase.strip() for phrase in (data.get("search_phrases") or []) if phrase.strip()]
         if len(phrases) > MAX_SEARCH_PHRASES:
-            traces.append(f"{len(phrases)} objects to search for; only the first {MAX_SEARCH_PHRASES} are searched")
+            _logger.warning(
+                "%d objects to search for; only the first %d are searched", len(phrases), MAX_SEARCH_PHRASES
+            )
             phrases = phrases[:MAX_SEARCH_PHRASES]
         if phrases:
-            traces.append(f"objects the catalogue does not cover: {', '.join(phrases)}")
+            _logger.info("objects the catalogue does not cover: %s", ", ".join(phrases))
         else:
-            traces.append("the catalogue covers every object in the prompt; nothing to search for")
+            _logger.info("the catalogue covers every object in the prompt; nothing to search for")
         return phrases
 
     @staticmethod
@@ -88,8 +92,8 @@ GUIDANCE:
   catalogue has nothing suitable for. An empty list is the common and correct answer.
 - Judge against the OBJECTS block. Embodiments, backgrounds, relations and tasks are not your
   concern, and a resting surface such as a table is a background, not a missing object.
-- Write each phrase as the object plus the words that distinguish it, most specific last
-  (e.g. "green trash can", not "trash can that is green" or "object_1").
+- Write each phrase as adjectives followed by the object noun, not as a clause describing it and
+  not as a placeholder (e.g. "green trash can", not "trash can that is green" or "object_1").
 - Name the object once however many of it the prompt asks for; the count is not your concern.
 - Return at most {MAX_SEARCH_PHRASES} phrases, most important first.
 """

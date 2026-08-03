@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -23,6 +24,8 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Environment generation agent
@@ -82,7 +85,11 @@ class EnvironmentGenerationAgent:
 
     @property
     def traces(self) -> tuple[str, ...]:
-        """Diagnostic lines from the most recent :meth:`generate_spec` call."""
+        """Why the most recent :meth:`generate_spec` call failed, empty when it succeeded.
+
+        Callers surface these as errors, so only what defeated the generation belongs here.
+        Progress worth reading but not acting on is logged instead.
+        """
         return tuple(self._traces)
 
     @property
@@ -158,17 +165,15 @@ class EnvironmentGenerationAgent:
         # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
         from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
-        phrases = self.missing_object_inference.infer(prompt, asset_catalog, self._traces)
+        phrases = self.missing_object_inference.infer(prompt, asset_catalog)
         if not phrases:
             return asset_catalog
-        found = search_simready_objects(phrases, self.simready_config, self._traces)
-        self._unavailable_objects = list(found.unmatched_phrases)
-        for phrase in self._unavailable_objects:
-            self._traces.append(f"no SimReady asset for {phrase!r}; the spec is built without it")
-        if not found.candidates:
+        search_result = search_simready_objects(phrases, self.simready_config)
+        self._unavailable_objects = list(search_result.unmatched_phrases)
+        if not search_result.candidates:
             return asset_catalog
         extended = replace(asset_catalog, objects=list(asset_catalog.objects))
-        for candidate in found.candidates:
+        for candidate in search_result.candidates:
             asset_cls = register_searched_simready_object(candidate.search_phrase, candidate.usd_path, candidate.tags)
             tags = [tag for tag in asset_cls.tags if tag != "object"]
             extended.objects.append({
@@ -176,7 +181,7 @@ class EnvironmentGenerationAgent:
                 "tags": tags,
                 "object_type": asset_cls.object_type.value,
             })
-            self._traces.append(f"catalogued {asset_cls.name!r} for {candidate.search_phrase!r}: {candidate.usd_path}")
+            _logger.info("catalogued %r for %r: %s", asset_cls.name, candidate.search_phrase, candidate.usd_path)
         return extended
 
 

@@ -22,6 +22,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadySearchConfig,
     SimReadySourceKind,
     simready_search_config_from_cli,
 )
@@ -58,23 +59,22 @@ def get_catalogue_bundle() -> CatalogueBundle:
     )
 
 
-def _simready_config_from_session() -> tuple[bool, object]:
-    """Read SimReady GUI settings from Streamlit session state."""
-    enabled = bool(st.session_state.get("enable_simready_search", False))
-    config = simready_search_config_from_cli(
+def _simready_config_from_session() -> SimReadySearchConfig:
+    """Read the SimReady search settings from Streamlit session state."""
+    return simready_search_config_from_cli(
         source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
         s3_url=st.session_state.get("simready_s3_url") or None,
         service_url=st.session_state.get("simready_service_url") or None,
         max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
     )
-    return enabled, config
 
 
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     """Lazy-init the LLM agent when ``NV_API_KEY`` is available."""
     if st.session_state.get("generation_agent_error"):
         return None
-    simready_enabled, simready_config = _simready_config_from_session()
+    simready_enabled = bool(st.session_state.get("enable_simready_search", False))
+    simready_config = _simready_config_from_session()
     agent_key = (
         "generation_agent",
         simready_enabled,
@@ -159,7 +159,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     except Exception:
         return False, traceback.format_exc()
 
-    simready_enabled, _ = _simready_config_from_session()
     try:
         spec, data = agent.generate_spec(
             prompt,
@@ -188,9 +187,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     out_dir = Path(st.session_state["out_dir"])
     path, error = try_save_env_graph_spec(spec, out_dir)
-    trace_suffix = ""
-    if simready_enabled and agent.traces:
-        trace_suffix = "\n\nGeneration traces:\n" + "\n".join(agent.traces)
     # The spec is valid either way: an object no asset was found for was never offered to spec
     # inference, so it was built without it. Say so, or the substitution goes unnoticed.
     missing_notice = ""
@@ -203,13 +199,13 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     if error is not None:
         return _finish(
             "warning",
-            f"Spec generated and loaded into the YAML editor, but save failed: {error}{missing_notice}{trace_suffix}",
+            f"Spec generated and loaded into the YAML editor, but save failed: {error}{missing_notice}",
         )
 
     st.session_state["save_path"] = str(path)
     return _finish(
         "warning" if missing_notice else "success",
-        f"Spec generated, loaded into the YAML editor, and saved to {path}.{missing_notice}{trace_suffix}",
+        f"Spec generated, loaded into the YAML editor, and saved to {path}.{missing_notice}",
     )
 
 

@@ -387,7 +387,9 @@ class TestRunGenerationPipeline:
         # The spec is valid: the object nothing was found for was never offered to spec inference.
         mock_agent.generate_spec.return_value = (valid_spec, None)
         mock_agent.unavailable_objects = ("green trash can",)
-        mock_agent.traces = ("no SimReady asset for 'green trash can'; the spec is built without it",)
+        # Deliberately non-empty, though a successful generation leaves it empty: a success banner
+        # must not dump traces at the user, because the GUI renders them as a warning.
+        mock_agent.traces = ("a line the banner has no business showing",)
 
         with (
             _patch_generation_agent(mock_agent),
@@ -402,6 +404,7 @@ class TestRunGenerationPipeline:
         # The banner names what the prompt asked for and did not get, so the swap is not silent.
         assert "No asset was found for: green trash can" in message
         assert "built without them" in message
+        assert "a line the banner has no business showing" not in message
         # A silently substituted object is not a clean success, so the banner must not be green.
         assert session_state["_generation_severity"] == "warning"
         assert session_state["edited_text"]

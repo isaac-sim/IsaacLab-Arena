@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import patch
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
@@ -14,7 +15,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     SimReadySearchConfig,
     SimReadySourceKind,
     _count_matching_words,
-    _get_rigid_object_rejection_reason,
+    _is_valid_isaaclab_rigidbody,
     _keep_whole_word_matches,
     _split_path_into_words,
     search_simready_objects,
@@ -22,13 +23,16 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 )
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
+SEARCH_LOGGER = "isaaclab_arena.agentic_environment_generation.simready_asset_search"
+"""Where the search reports its progress, now that the agent's traces carry only errors."""
+
 CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_d01_01.usd"
 GREY_CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_grey_d01_01.usd"
 TRASH_CAN_PATH = "SimReady/Residential/Garage/sm_trashCan_wheeled_green_a01_01.usd"
 PLAIN_TRASH_CAN_PATH = "SimReady/Residential/Kitchen/sm_trashCan_a01_01.usd"
 
-REJECTION_REASON_TARGET = (
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._get_rigid_object_rejection_reason"
+RIGID_BODY_CHECK_TARGET = (
+    "isaaclab_arena.agentic_environment_generation.simready_asset_search._is_valid_isaaclab_rigidbody"
 )
 # Patched where it is looked up, not where it is defined: simready_asset_search binds the name at
 # import time, so patching the defining module would leave that binding untouched.
@@ -92,55 +96,55 @@ def test_keep_whole_word_matches_rejects_an_asset_that_only_shares_a_describing_
     assert _keep_whole_word_matches([grey_cabinet], "grey cabinet") == [grey_cabinet]
 
 
-def test_get_rigid_object_rejection_reason_accepts_a_single_rigid_body():
+def test_is_valid_isaaclab_rigidbody_accepts_a_single_rigid_body():
     with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle"]):
-        assert _get_rigid_object_rejection_reason("s3://bucket/bottle.usd") is None
+        assert _is_valid_isaaclab_rigidbody("s3://bucket/bottle.usd") == (True, "")
 
 
-def test_get_rigid_object_rejection_reason_turns_down_several_rigid_bodies():
+def test_is_valid_isaaclab_rigidbody_turns_down_several_rigid_bodies():
     # A bottle and its cap are two bodies even though a fixed joint holds them together.
     with patch(RIGID_BODY_PATHS_TARGET, return_value=["/Asset/bottle", "/Asset/cap"]):
-        assert _get_rigid_object_rejection_reason("s3://bucket/bottle.usd") == "it has 2 rigid bodies"
+        assert _is_valid_isaaclab_rigidbody("s3://bucket/bottle.usd") == (False, "it has 2 rigid bodies")
 
 
-def test_get_rigid_object_rejection_reason_turns_down_an_asset_without_physics():
+def test_is_valid_isaaclab_rigidbody_turns_down_an_asset_without_physics():
     with patch(RIGID_BODY_PATHS_TARGET, return_value=[]):
-        assert _get_rigid_object_rejection_reason("s3://bucket/decoration.usd") == "it has no rigid body"
+        assert _is_valid_isaaclab_rigidbody("s3://bucket/decoration.usd") == (False, "it has no rigid body")
 
 
-def test_get_rigid_object_rejection_reason_turns_down_an_unreadable_asset():
+def test_is_valid_isaaclab_rigidbody_turns_down_an_unreadable_asset():
     with patch(RIGID_BODY_PATHS_TARGET, side_effect=FileNotFoundError("no such file")):
-        reason = _get_rigid_object_rejection_reason("s3://bucket/missing.usd")
-    assert reason is not None
+        is_valid, reason = _is_valid_isaaclab_rigidbody("s3://bucket/missing.usd")
+    assert not is_valid
     assert "could not be read" in reason
 
 
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
 )
-def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure):
+def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(TRASH_CAN_PATH), _FakeMatch(PLAIN_TRASH_CAN_PATH)])
-    traces: list[str] = []
     # The green one is named after more of the phrase, so it is looked at first and turned down.
-    reasons = {TRASH_CAN_PATH: "it has 2 rigid bodies", PLAIN_TRASH_CAN_PATH: None}
-    with patch(REJECTION_REASON_TARGET, side_effect=lambda usd_path: reasons[usd_path]):
-        catalog = search_simready_objects(["green trash can"], SimReadySearchConfig(), traces)
+    verdicts = {TRASH_CAN_PATH: (False, "it has 2 rigid bodies"), PLAIN_TRASH_CAN_PATH: (True, "")}
+    with patch(RIGID_BODY_CHECK_TARGET, side_effect=lambda usd_path: verdicts[usd_path]):
+        with caplog.at_level(logging.INFO, logger=SEARCH_LOGGER):
+            catalog = search_simready_objects(["green trash can"], SimReadySearchConfig())
     assert [candidate.usd_path for candidate in catalog.candidates] == [PLAIN_TRASH_CAN_PATH]
     assert catalog.unmatched_phrases == []
-    assert any(TRASH_CAN_PATH in line and "2 rigid bodies" in line for line in traces)
+    assert TRASH_CAN_PATH in caplog.text and "2 rigid bodies" in caplog.text
 
 
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
 )
-def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure):
+def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
-    traces: list[str] = []
-    with patch(REJECTION_REASON_TARGET, return_value="it has no rigid body"):
-        catalog = search_simready_objects(["kitchen cabinet"], SimReadySearchConfig(), traces)
+    with patch(RIGID_BODY_CHECK_TARGET, return_value=(False, "it has no rigid body")):
+        with caplog.at_level(logging.INFO, logger=SEARCH_LOGGER):
+            catalog = search_simready_objects(["kitchen cabinet"], SimReadySearchConfig())
     assert catalog.candidates == []
     assert catalog.unmatched_phrases == ["kitchen cabinet"]
-    assert any("no usable asset" in line for line in traces)
+    assert "no usable asset" in caplog.text
 
 
 def test_simready_search_config_from_cli_defaults():
@@ -168,25 +172,20 @@ def test_search_simready_objects_returns_candidates(mock_configure, mock_search_
             usd_path="s3://bucket/bowl.usd",
         )
     ]
-    traces: list[str] = []
-    catalog = search_simready_objects(
-        ["ceramic bowl"],
-        SimReadySearchConfig(source=SimReadySourceKind.ISAAC_SIM_GA),
-        traces,
-    )
+    catalog = search_simready_objects(["ceramic bowl"], SimReadySearchConfig(source=SimReadySourceKind.ISAAC_SIM_GA))
     assert len(catalog.candidates) == 1
     assert catalog.candidates[0].usd_path == "s3://bucket/bowl.usd"
     assert catalog.candidates[0].registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
-def test_configure_asset_library_records_an_unknown_source():
+def test_configure_asset_library_records_an_unknown_source(caplog):
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import _configure_asset_library
 
-    traces: list[str] = []
     config = SimReadySearchConfig()
     config.source = "not-a-source"
-    assert _configure_asset_library(config, traces) is None
-    assert any("unknown simready source" in line for line in traces)
+    with caplog.at_level(logging.ERROR, logger=SEARCH_LOGGER):
+        assert _configure_asset_library(config) is None
+    assert "unknown simready source" in caplog.text
 
 
 @patch(
@@ -194,12 +193,7 @@ def test_configure_asset_library_records_an_unknown_source():
 )
 def test_search_simready_objects_returns_empty_when_library_unavailable(mock_configure):
     mock_configure.return_value = None
-    traces: list[str] = []
-    catalog = search_simready_objects(
-        ["hammer"],
-        SimReadySearchConfig(),
-        traces,
-    )
+    catalog = search_simready_objects(["hammer"], SimReadySearchConfig())
     assert catalog.candidates == []
 
 
@@ -209,15 +203,11 @@ def test_search_simready_objects_returns_empty_when_library_unavailable(mock_con
 @patch(
     "isaaclab_arena.agentic_environment_generation.simready_asset_search._configure_asset_library",
 )
-def test_search_simready_objects_records_no_matches(mock_configure, mock_search_phrase):
+def test_search_simready_objects_records_no_matches(mock_configure, mock_search_phrase, caplog):
     mock_configure.return_value = _FakeLibrary()
     mock_search_phrase.return_value = []
-    traces: list[str] = []
-    catalog = search_simready_objects(
-        ["missing object"],
-        SimReadySearchConfig(),
-        traces,
-    )
+    with caplog.at_level(logging.INFO, logger=SEARCH_LOGGER):
+        catalog = search_simready_objects(["missing object"], SimReadySearchConfig())
     assert catalog.candidates == []
     assert catalog.unmatched_phrases == ["missing object"]
-    assert any("no usable asset" in line for line in traces)
+    assert "no usable asset" in caplog.text
