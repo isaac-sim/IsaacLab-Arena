@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import time
 import torch
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
@@ -27,6 +29,20 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+
+@dataclass(frozen=True)
+class RelationSolverCheckpoint:
+    """Snapshot supplied to a solver checkpoint callback."""
+
+    iteration: int
+    positions: list[dict[PlaceableAsset, tuple[float, float, float]]]
+    losses: tuple[float, ...]
+    elapsed_ms: float
+
+
+CheckpointCallback = Callable[[RelationSolverCheckpoint], bool]
+"""Callback invoked at configured solver checkpoints; return True to stop successfully."""
 
 
 class RelationSolver:
@@ -59,6 +75,8 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+        self._last_iterations_run: int = 0
+        self._last_checkpoint_profiles: tuple[tuple[int, float], ...] = ()
 
     @staticmethod
     def _select_device(mesh_collision_enabled: bool) -> torch.device:
@@ -196,6 +214,7 @@ class RelationSolver:
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[PlaceableAsset, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        checkpoint_callback: CheckpointCallback | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -216,11 +235,15 @@ class RelationSolver:
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
+            checkpoint_callback: Optional callback invoked at configured cumulative iteration checkpoints.
+                Return True to stop the solve successfully at that checkpoint.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
+        self._last_iterations_run = 0
+        self._last_checkpoint_profiles = ()
         self._mesh_collision_enabled = self._should_use_mesh_collision(objects, collision_objects)
         device = self._select_device(self._mesh_collision_enabled)
         state = RelationSolverState(
@@ -245,7 +268,7 @@ class RelationSolver:
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
-        if self.params.profile and torch.cuda.is_available():
+        if self.params.profile and state.device.type == "cuda":
             torch.cuda.synchronize()
         solve_start = time.perf_counter()
 
@@ -286,8 +309,11 @@ class RelationSolver:
             self._compute_total_loss(state)
 
         # Optimization loop
-        loss_history = []
+        loss_tensors = []
         position_history = []  # Track positions for visualization
+        checkpoint_profiles = []
+        checkpoints = set(self.params.get_checkpoints())
+        iterations_run = 0
 
         for iter in range(self.params.max_iters):
             optimizer.zero_grad()
@@ -296,45 +322,68 @@ class RelationSolver:
                 position_history.append(state.get_all_positions_snapshot())
 
             loss = self._compute_total_loss(state)
-            loss_history.append(loss.item())
+            loss_tensors.append(loss.detach())
 
             # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
 
-            if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss.item():.6f}")
+            iterations_run = iter + 1
+            if iterations_run not in checkpoints:
+                continue
 
-            # Check convergence
-            if loss.item() < self.params.convergence_threshold:
-                if self.params.verbose:
-                    print(f"Converged at iteration {iter}")
+            if self.params.profile and state.device.type == "cuda":
+                torch.cuda.synchronize()
+            elapsed_ms = (time.perf_counter() - solve_start) * 1e3
+            checkpoint_profiles.append((iterations_run, elapsed_ms))
+            assert self._last_loss_per_env is not None
+            losses = tuple(float(value) for value in self._last_loss_per_env.cpu().tolist())
+            checkpoint = RelationSolverCheckpoint(
+                iteration=iterations_run,
+                positions=state.get_final_positions(),
+                losses=losses,
+                elapsed_ms=elapsed_ms,
+            )
+
+            if self.params.verbose:
+                print(f"Iter {iterations_run}: loss = {float(loss.detach()):.6f}")
+
+            if checkpoint_callback is not None and checkpoint_callback(checkpoint):
                 break
 
-        if self.params.profile and torch.cuda.is_available():
+            # Preserve the scalar convergence check, but avoid host synchronization between checkpoints.
+            if float(loss.detach()) < self.params.convergence_threshold:
+                if self.params.verbose:
+                    print(f"Converged at iteration {iterations_run}")
+                break
+
+        if self.params.profile and state.device.type == "cuda":
             torch.cuda.synchronize()
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
 
         if self.params.save_position_history:
             position_history.append(state.get_all_positions_snapshot())
 
+        loss_history = torch.stack(loss_tensors).cpu().tolist() if loss_tensors else []
+
         if self.params.verbose and loss_history:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
-            print(f"Total iterations: {len(loss_history)}")
+            print(f"Total iterations: {iterations_run}")
 
         if self.params.profile and loss_history:
-            iters_run = len(loss_history)
             print(
                 f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
                 f" | batch={state.batch_size}"
                 f" | objects={len(state.optimizable_objects)} optimizable + {len(state.anchor_objects)} anchors"
                 f" | no-overlap pairs={self._last_no_overlap_pair_count}"
-                f" | iters={iters_run} ({solve_elapsed_ms / iters_run:.2f} ms/iter)"
+                f" | iters={iterations_run} ({solve_elapsed_ms / iterations_run:.2f} ms/iter)"
             )
 
         self._last_loss_history = loss_history
         self._last_position_history = position_history
+        self._last_iterations_run = iterations_run
+        self._last_checkpoint_profiles = tuple(checkpoint_profiles)
 
         return state.get_final_positions()
 
@@ -356,6 +405,16 @@ class RelationSolver:
     def last_loss_history(self) -> list[float]:
         """Loss values from the most recent solve() call."""
         return self._last_loss_history
+
+    @property
+    def last_iterations_run(self) -> int:
+        """Number of optimization iterations completed by the most recent solve()."""
+        return self._last_iterations_run
+
+    @property
+    def last_checkpoint_profiles(self) -> tuple[tuple[int, float], ...]:
+        """Iteration and elapsed-time records for the most recent solve checkpoints."""
+        return self._last_checkpoint_profiles
 
     @property
     def last_loss_per_env(self) -> torch.Tensor | None:
