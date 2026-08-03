@@ -9,7 +9,7 @@
 runs:
 
   banana_on_plate_pi0:
-    environment: &banana_in_bowl_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
       enable_cameras: true
     policy: &openpi_policy
@@ -23,7 +23,7 @@ runs:
       num_episodes: 1
 
   banana_in_bowl_pi0:
-    environment: &banana_on_plate_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
       enable_cameras: true
     policy: *openpi_policy
