@@ -23,6 +23,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     compute_drop_poses,
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -171,7 +172,14 @@ def plan_group_drops_into_layout(
         gap_m=relation.gap_m,
         random_yaw=relation.random_yaw,
     )
-    poses = compute_drop_poses(member_bboxes, region, params, generator, occupied=occupied)
+    poses = compute_drop_poses(
+        member_bboxes,
+        region,
+        params,
+        generator,
+        occupied=occupied,
+        base_rotations_xyzw=[get_rotation_xyzw(member) for member in group.members],
+    )
 
     for member, pose in zip(group.members, poses):
         layout.positions[member] = pose.position

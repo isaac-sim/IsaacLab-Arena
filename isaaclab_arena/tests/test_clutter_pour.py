@@ -14,7 +14,7 @@ import pytest
 
 from isaaclab_arena.relations.clutter_groups import get_clutter_groups
 from isaaclab_arena.relations.clutter_pour import plan_clutter_drops, region_above_support
-from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor
+from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor, RotateAroundSolution
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -104,6 +104,24 @@ def test_every_member_receives_a_drop_pose():
     assert set(layout.rotations) == set(members)
     for member in members:
         assert len(layout.rotations[member]) == 4
+
+
+def test_member_rotate_marker_is_preserved_by_clutter_planning():
+    """Clutter placement must retain source-authored roll and pitch markers."""
+    support, members, bounding_boxes = _scene(1, random_yaw=False)
+    members[0].add_relation(RotateAroundSolution(pitch_rad=math.pi / 2.0))
+    layout = _Layout()
+
+    plan_clutter_drops(
+        layout,
+        get_clutter_groups([support, *members]),
+        bounding_boxes,
+        torch.Generator().manual_seed(0),
+    )
+
+    assert layout.rotations[members[0]] == pytest.approx(
+        RotateAroundSolution(pitch_rad=math.pi / 2.0).get_rotation_xyzw()
+    )
 
 
 def test_drops_start_above_the_support_surface():
