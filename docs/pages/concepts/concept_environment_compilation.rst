@@ -76,4 +76,6 @@ in mimic mode.
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py --mimic ...
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --mimic ...

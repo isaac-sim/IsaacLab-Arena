@@ -11,6 +11,7 @@ from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
+    parse_and_return_external_environment_from_string,
 )
 
 
@@ -52,10 +53,14 @@ def environment_registration_callback() -> list[str]:
         AppLauncher.add_app_launcher_args(parser)
         args, _ = parser.parse_known_args()
         AppLauncher(args)
-        _purge_leaked_isaaclab_assets_presets()
+    _purge_leaked_isaaclab_assets_presets()
 
     # Imports after the simulation app is started.
-    from isaaclab_arena.cli.isaaclab_arena_cli import add_isaac_lab_cli_args, add_isaaclab_arena_cli_args
+    from isaaclab_arena.cli.isaaclab_arena_cli import (
+        add_external_environments_cli_args,
+        add_isaac_lab_cli_args,
+        add_isaaclab_arena_cli_args,
+    )
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # Get the requested environment from the CLI.
@@ -64,15 +69,33 @@ def environment_registration_callback() -> list[str]:
     # determine the environment to register. The environment is also registered under this name.
     # The result is that a single argument tells Arena what to register, and Lab what to run.
     parser.add_argument("--task", type=str, required=True, help="Name of the IsaacLab Arena environment to register.")
-    environment_name = parser.parse_known_args()[0].task
+    parser.add_argument(
+        "--arena_teleop_device",
+        type=str,
+        default=None,
+        help="Arena teleoperation device to configure without selecting Isaac Lab's legacy teleoperation stack.",
+    )
+    add_external_environments_cli_args(parser)
+    initial_args = parser.parse_known_args()[0]
+    environment_name = initial_args.task
     ensure_environments_registered()
-    environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
+    environment_registry = EnvironmentRegistry()
+    if initial_args.external_environment_class_path is not None:
+        external_environment_name, external_environment_factory_type = (
+            parse_and_return_external_environment_from_string(initial_args.external_environment_class_path)
+        )
+        environment_registry.register(external_environment_factory_type, external_environment_name)
+    environment_factory_type = environment_registry.get_component_by_name(environment_name)
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)
     add_isaaclab_arena_cli_args(parser)
     add_environment_cli_args(parser, environment_factory_type)
     args, remaining_args = parser.parse_known_args()
+    if args.arena_teleop_device is not None:
+        if not hasattr(args, "teleop_device"):
+            raise ValueError("The selected Arena environment does not configure teleoperation devices.")
+        args.teleop_device = args.arena_teleop_device
     # Create the environment config
     isaaclab_arena_environment = build_environment_from_cli(environment_factory_type, args)
     # Build and register the environment

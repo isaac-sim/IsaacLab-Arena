@@ -1,0 +1,58 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_open_kitchen_microwave
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+background:
+  id: kitchen
+  registry_name: lightwheel_robocasa_kitchen
+  params: {}
+objects: []
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: microwave
+  parent_id: kitchen
+  prim_path: microwave_main_group
+  object_type: articulation
+  params:
+    openable_joint_name: microjoint
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: microwave
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: microwave
+  params:
+    side: negative_y
+    distance_m: 0.1
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+task:
+  composition: atomic
+  description: open the microwave door
+  subtasks:
+  - kind: OpenDoorTask
+    params:
+      openable_object: microwave
+      openness_threshold: 0.1
+      reset_openness: 0.0

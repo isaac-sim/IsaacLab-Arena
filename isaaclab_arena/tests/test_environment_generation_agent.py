@@ -11,7 +11,10 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    EnvironmentGenerationAgent,
+    build_asset_catalogue,
+)
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -116,6 +119,18 @@ class TestGenerateSpec:
         assert isinstance(data, dict)
         assert client.chat.completions.create.call_count == 2
         assert any("is not in the background prim tree" in line for line in agent_obj.traces)
+
+
+# ---------------------------------------------------------------------------
+# Asset catalogue
+# ---------------------------------------------------------------------------
+
+
+def test_asset_catalogue_reports_object_type():
+    catalog_string = build_asset_catalogue().to_catalog_string()
+
+    assert "- banana_ycb_robolab  type=rigid" in catalog_string
+    assert "- microwave  type=articulation" in catalog_string
 
 
 # ---------------------------------------------------------------------------

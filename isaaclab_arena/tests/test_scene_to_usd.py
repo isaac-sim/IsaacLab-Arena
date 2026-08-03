@@ -6,7 +6,7 @@
 import numpy as np
 import pathlib
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 EPS = 1e-6
@@ -74,7 +74,7 @@ def _test_scene_to_usd(simulation_app, output_path: pathlib.Path) -> bool:
 def test_scene_to_usd(tmp_path: pathlib.Path):
     # The passed tmp_path is a directory.
     output_path = tmp_path / "saved_kitchen_with_cracker_box_for_test.usd"
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_scene_to_usd,
         headless=HEADLESS,
         output_path=output_path,

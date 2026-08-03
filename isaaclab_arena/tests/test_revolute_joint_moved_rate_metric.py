@@ -9,7 +9,7 @@ import tqdm
 import traceback
 
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 100
 HEADLESS = True
@@ -102,7 +102,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
 
 
 def test_revolute_joint_moved_rate_metric():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_revolute_joint_moved_rate,
         headless=HEADLESS,
     )

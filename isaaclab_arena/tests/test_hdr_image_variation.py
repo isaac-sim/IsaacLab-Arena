@@ -5,7 +5,7 @@
 
 """Tests for :class:`HDRImageVariation` wired through :class:`ArenaEnvBuilder`."""
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.hdr_image_variation import HDRImageVariationCfg
 
 HEADLESS = True
@@ -54,7 +54,7 @@ def _test_enabled_hdr_variation_in_compiled_scene(simulation_app):
 
 
 def test_enabled_hdr_variation_in_compiled_scene():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_enabled_hdr_variation_in_compiled_scene,
         headless=HEADLESS,
     )

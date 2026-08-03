@@ -5,9 +5,10 @@
 
 """Gym wrapper that records one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
-Frames are flushed to disk each time an environment resets (terminated or
-truncated), so each output file corresponds to exactly one complete episode.
-Partial episodes cut off by ``num_steps`` are discarded on ``close()``.
+Each frame is streamed straight to a per-(env, camera) ffmpeg encoder as it arrives, and
+the file is finalised when that environment resets (terminated or truncated), so each
+output file corresponds to exactly one complete episode. Partial episodes cut off by
+``num_steps`` are deleted on ``close()``.
 
 Output filename: ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``
 
@@ -16,11 +17,8 @@ the kit viewport mp4 (third-person scene view) and the embodiment-
 mounted camera mp4s (what the policy actually sees) are written
 together when ``--record_viewport_video --record_camera_video`` is set.
 
-Memory note: each env buffers raw uint8 frames for its current episode before
-encoding.  Buffers are cleared after each episode is written to disk, so peak
-RAM is N×L×H×W×C bytes where L is max episode length, not the full rollout.
-For 10 envs, 500-step episodes, 512×512×3 frames that is ~3.8 GB of raw frames
-— the encoded mp4s are far smaller (H.264 compresses ~100:1).
+Memory note: This class uses incremental ffmpeg encoding to avoid storing the raw frames in
+memory, which uses substantial amounts of RAM.
 """
 
 from __future__ import annotations
@@ -32,7 +30,7 @@ import re
 import torch
 from dataclasses import dataclass
 
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
 
@@ -91,11 +89,22 @@ def _sanitize_cam_key(camera_name: str) -> str:
     return camera_name.replace("/", "_").replace(os.sep, "_")
 
 
+@dataclass
+class EpisodeVideoWriter:
+    """The open ffmpeg encoder for one (env, camera, episode) and the file it is writing."""
+
+    writer: FFMPEG_VideoWriter
+    """Encoder consuming raw frames; closing it finalises the mp4."""
+
+    path: str
+    """Destination the encoder is writing to, kept so a partial episode can be deleted."""
+
+
 class CameraObsVideoRecorder(gym.Wrapper):
     """Record one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
     Cameras are batched as ``[N_envs, H, W, C]``.  Each env is recorded
-    independently; its buffer is flushed when that env resets (terminated
+    independently; its encoder is finalised when that env resets (terminated
     or truncated), producing one file per completed episode:
     ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``.
     """
@@ -113,8 +122,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
 
-        # camera_name -> list of per-env frame lists: buffers[camera_name][env_idx] = [frame, ...]
-        self.buffers: dict[str, list[list[np.ndarray]]] = {}
+        # camera_name -> one entry per env, holding that env's open encoder for its current
+        # episode, or None while no episode is in progress.
+        self.writers: dict[str, list[EpisodeVideoWriter | None]] = {}
 
     def step(self, action):
         result = self.env.step(action)
@@ -133,37 +143,60 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_set = set(done_envs)
 
             for camera_name, frames in cam_obs.items():
-                if camera_name not in self.buffers:
-                    self.buffers[camera_name] = [[] for _ in range(n_envs)]
+                if camera_name not in self.writers:
+                    self.writers[camera_name] = [None] * n_envs
                 for env_idx in range(n_envs):
                     if env_idx not in done_set:
-                        self.buffers[camera_name][env_idx].append(_to_uint8(frames[env_idx]))
+                        self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
 
             if done_envs:
-                self._flush_envs(done_envs)
+                self._finish_envs(done_envs)
 
         return result
 
-    def _flush_envs(self, env_ids: list[int]) -> None:
+    def _write_frame(self, camera_name: str, env_idx: int, frame: np.ndarray) -> None:
+        """Append one frame to this (env, camera)'s episode video, opening the encoder if needed."""
+        assert frame.ndim == 3 and frame.shape[2] == 3, (
+            f"Camera '{camera_name}' produced a frame of shape {frame.shape}; expected (H, W, 3) RGB."
+            " The encoder is configured for 3-channel input."
+        )
+        episode_writer = self.writers[camera_name][env_idx]
+        if episode_writer is None:
+            # The env's counter still names the episode now in progress; it is advanced on reset,
+            # inside env.step.
+            episode_num = self.unwrapped.get_episode_index(env_idx)
+            path = os.path.join(
+                self.video_folder,
+                format_episode_video_filename(self.name_prefix, env_idx, camera_name, episode_num),
+            )
+            height, width, _ = frame.shape
+            # We use one thread because frames arrive slower than a single thread is able to encode.
+            episode_writer = EpisodeVideoWriter(
+                writer=FFMPEG_VideoWriter(path, size=(width, height), fps=self.fps, threads=1),
+                path=path,
+            )
+            self.writers[camera_name][env_idx] = episode_writer
+        episode_writer.writer.write_frame(frame)
+
+    def _finish_envs(self, env_ids: list[int]) -> None:
+        """Finalise the mp4 of every stream open for each env that just reset."""
         for env_idx in env_ids:
-            # The Arena env has already advanced its per-env episode counter for this reset (within
-            # env.step, before it returned), so the just-finished episode's index is one behind the
-            # current count. Sharing the env's index keeps the filename's episode number in lockstep
-            # with the per-episode results record's ``episode_in_env``.
-            episode_num = self.unwrapped.get_episode_index(env_idx) - 1
-            for camera_name, env_frame_lists in self.buffers.items():
-                frames = env_frame_lists[env_idx]
-                if not frames:
+            for env_writers in self.writers.values():
+                episode_writer = env_writers[env_idx]
+                if episode_writer is None:
                     continue
-                path = os.path.join(
-                    self.video_folder,
-                    format_episode_video_filename(self.name_prefix, env_idx, camera_name, episode_num),
-                )
-                clip = ImageSequenceClip(list(frames), fps=self.fps)
-                clip.write_videofile(path, logger=None, audio=False)
-                del clip
-                env_frame_lists[env_idx] = []
+                episode_writer.writer.close()
+                env_writers[env_idx] = None
 
     def close(self) -> None:
-        # Partial episodes (cut off by num_steps rather than a real reset) are discarded.
+        # Partial episodes (cut off by num_steps rather than a real reset) are discarded: the
+        # encoder is shut down and the incomplete file it was writing is removed.
+        for env_writers in self.writers.values():
+            for env_idx, episode_writer in enumerate(env_writers):
+                if episode_writer is None:
+                    continue
+                episode_writer.writer.close()
+                if os.path.exists(episode_writer.path):
+                    os.remove(episode_writer.path)
+                env_writers[env_idx] = None
         self.env.close()

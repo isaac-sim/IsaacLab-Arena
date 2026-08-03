@@ -1,0 +1,55 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_pick_fruit_into_bowl_maple_table
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_sets:
+- id: fruit
+  members:
+  - apple_01_objaverse_robolab
+  - apple_02_objaverse_robolab
+  - avocado01_fruits_veggies_robolab
+  - lemon_01_fruits_veggies_robolab
+  - lemon_02_fruits_veggies_robolab
+  - lime01_fruits_veggies_robolab
+  - orange_01_fruits_veggies_robolab
+  - orange_02_fruits_veggies_robolab
+  - pomegranate01_fruits_veggies_robolab
+  - lychee01_fruits_veggies_robolab
+  random_choice: true
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: fruit
+  reference: maple_table
+  params: {}
+task:
+  composition: atomic
+  description: Pick up the fruit from the maple table and place it into the bowl on
+    the table.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: fruit
+      destination_location: bowl
+      background_scene: maple_table

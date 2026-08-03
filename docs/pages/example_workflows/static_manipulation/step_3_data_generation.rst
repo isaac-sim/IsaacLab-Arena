@@ -51,13 +51,14 @@ To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
      --viz kit \
      --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --mimic \
-     gr1_open_microwave
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task gr1_open_microwave
 
 Follow the instructions described on the CLI to mark subtask boundaries:
 
@@ -96,7 +97,7 @@ Generate the dataset:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
      --device cpu \
      --generation_num_trials 50 \
      --num_envs 10 \
@@ -105,12 +106,12 @@ Generate the dataset:
      --enable_cameras \
      --headless \
      --mimic \
-     gr1_open_microwave
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task gr1_open_microwave
 
 Data generation takes 30-60 minutes depending on hardware.
 If you want to visualize the data generation process, remove ``--headless``
-and add ``--viz kit`` (before specifying the task name ``gr1_open_microwave``)
-to visualize data generation.
+and add ``--viz kit``.
 
 
 Step 3: Validate Generated Data (Optional)
@@ -122,12 +123,13 @@ To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
-     gr1_open_microwave \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task gr1_open_microwave \
      --embodiment gr1_pink
 
 You should see the robot successfully perform the task.

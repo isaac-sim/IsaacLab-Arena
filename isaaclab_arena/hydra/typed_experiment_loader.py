@@ -23,6 +23,7 @@ from omegaconf.errors import OmegaConfBaseException
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -47,9 +48,9 @@ def load_arena_experiment_from_yaml(
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
     Each entry in the runs mapping declares one Run using its key as the Run
-    name. The environment.type selector chooses from the supplied mapping,
-    policy.type is resolved when its Run is built. Hydra overrides can update
-    fields on Runs declared in YAML, but cannot add Runs.
+    name. The environment.type selector chooses from the supplied mapping, or
+    names a graph-spec YAML path; policy.type is resolved when its Run is built.
+    Hydra overrides can update fields on Runs declared in YAML, but cannot add Runs.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
@@ -173,14 +174,12 @@ def _build_arena_run_cfg_from_yaml_values(
     hydra_run_config_name = f"{hydra_config_namespace}_run_{index}"
     hydra_environment_config_name = f"{hydra_run_config_name}_environment"
     hydra_policy_config_name = f"{hydra_run_config_name}_policy"
-    environment = _compose_typed_config_from_yaml_selector(
+    environment = _build_environment_cfg_from_yaml_values(
         config_store,
         hydra_environment_config_name,
         run_name,
-        "environment",
         environment_values,
         environment_cfg_types,
-        ArenaEnvironmentCfg,
     )
     policy_cfg_types: dict[str, type[PolicyCfg]] = {}
     if isinstance(policy_values, dict):
@@ -206,6 +205,71 @@ def _build_arena_run_cfg_from_yaml_values(
     run = OmegaConf.to_object(compose(config_name=hydra_run_config_name))
     assert isinstance(run, ArenaRunCfg)
     return run
+
+
+def _build_environment_cfg_from_yaml_values(
+    config_store: ConfigStore,
+    hydra_environment_config_name: str,
+    run_name: str,
+    environment_values: dict[str, Any],
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+) -> ArenaEnvironmentCfg:
+    """Build a Run's environment from a graph-spec YAML path or a typed selector.
+
+    When environment.type names a graph-spec YAML file it is built on the temporary
+    argparse compatibility path; otherwise the type selects a registered typed config.
+    """
+    if _is_environment_graph_yaml_spec(environment_values):
+        env_graph_spec_yaml_path = _graph_spec_yaml_path(environment_values)
+        per_run_overrides = {
+            field_name: value for field_name, value in environment_values.items() if field_name != "type"
+        }
+        return _graph_environment_cfg_from_yaml_values(env_graph_spec_yaml_path, per_run_overrides)
+    else:
+        return _compose_typed_config_from_yaml_selector(
+            config_store,
+            hydra_environment_config_name,
+            run_name,
+            "environment",
+            environment_values,
+            environment_cfg_types,
+            ArenaEnvironmentCfg,
+        )
+
+
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
+# environments have a typed configuration and no longer use the argparse compatibility path.
+def _graph_environment_cfg_from_yaml_values(
+    env_graph_spec_yaml_path: str,
+    per_run_overrides: dict[str, Any],
+) -> LegacyGraphEnvironmentCfg:
+    """Create the temporary graph-YAML compatibility config from typed YAML Run values.
+
+    The path and environment values are stored structured and rendered into CLI tokens for
+    the existing graph-environment argparse path on demand at execution; the Run's
+    environment_builder section stays typed and is applied directly (see
+    build_arena_builder_from_legacy_graph).
+    """
+    return LegacyGraphEnvironmentCfg(
+        enable_cameras=bool(per_run_overrides.get("enable_cameras", False)),
+        env_graph_spec_yaml_path=env_graph_spec_yaml_path,
+        per_run_overrides=dict(per_run_overrides),
+    )
+
+
+def _is_environment_graph_yaml_spec(environment_values: Any) -> bool:
+    """Return whether a Run's environment.type names a graph-spec YAML path."""
+    return _graph_spec_yaml_path(environment_values) is not None
+
+
+def _graph_spec_yaml_path(environment_values: Any) -> str | None:
+    """Return the environment.type value when it names a graph-spec YAML path, else None."""
+    if not isinstance(environment_values, dict):
+        return None
+    environment_type = environment_values.get("type")
+    if isinstance(environment_type, str) and environment_type.lower().endswith((".yaml", ".yml")):
+        return environment_type
+    return None
 
 
 def _compose_typed_config_from_yaml_selector(

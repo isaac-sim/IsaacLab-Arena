@@ -118,16 +118,19 @@ Step 2: Start Recording
 
    .. code-block:: bash
 
-      python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+      python submodules/IsaacLab/scripts/tools/record_demos.py \
         --device cpu \
         --viz kit \
+        --xr \
+        --no-auto_launch_cloudxr \
         --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 10 \
-        put_item_in_fridge_and_close_door \
+        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+        --task put_item_in_fridge_and_close_door \
         --object ranch_dressing_hope_robolab \
         --embodiment gr1_pink \
-        --teleop_device openxr
+        --arena_teleop_device openxr
 
 #. In the running application, start the session from the **XR** tab in the application window.
 

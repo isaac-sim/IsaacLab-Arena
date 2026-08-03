@@ -9,7 +9,7 @@ import traceback
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 NUM_STEPS = 10
@@ -154,7 +154,7 @@ def _test_auto_object_type(simulation_app):
 
 
 def test_detect_object_type():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_detect_object_type,
         headless=HEADLESS,
     )
@@ -162,7 +162,7 @@ def test_detect_object_type():
 
 
 def test_detect_object_type_for_all_objects():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_detect_object_type_for_all_objects,
         headless=HEADLESS,
     )
@@ -170,7 +170,7 @@ def test_detect_object_type_for_all_objects():
 
 
 def test_auto_object_type():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_auto_object_type,
         headless=HEADLESS,
     )

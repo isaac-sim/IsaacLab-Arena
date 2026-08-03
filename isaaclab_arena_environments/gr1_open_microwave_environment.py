@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class Gr1OpenMicrowaveEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 open-microwave environment."""
 
-    enable_cameras: bool = False
     object: str | None = None
     teleop_device: str | None = None
     embodiment: str = "gr1_pink"

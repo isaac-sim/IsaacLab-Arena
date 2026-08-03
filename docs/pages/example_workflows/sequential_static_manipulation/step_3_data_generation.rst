@@ -56,13 +56,14 @@ To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
      --viz kit \
      --device cpu \
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
      --mimic \
-     put_item_in_fridge_and_close_door \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 
@@ -112,7 +113,7 @@ Generate the dataset:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py  \
+   python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
      --device cpu \
      --generation_num_trials 100 \
      --num_envs 10 \
@@ -121,14 +122,14 @@ Generate the dataset:
      --enable_cameras \
      --headless \
      --mimic \
-     put_item_in_fridge_and_close_door \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 
 Data generation takes 30-60 minutes depending on hardware.
 If you want to visualize the data generation process, remove ``--headless``
-and add ``--viz kit`` (before specifying the task name ``put_item_in_fridge_and_close_door``)
-to visualize data generation.
+and add ``--viz kit``.
 
 
 Step 3: Validate Generated Data (Optional)
@@ -140,12 +141,13 @@ To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+   python submodules/IsaacLab/scripts/tools/replay_demos.py \
      --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \
-     put_item_in_fridge_and_close_door \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 

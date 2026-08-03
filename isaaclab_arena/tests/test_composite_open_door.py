@@ -7,7 +7,7 @@ import gymnasium as gym
 import torch
 import traceback
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -315,7 +315,7 @@ def _test_composite_open_door_microwave_reset_condition(simulation_app) -> bool:
 
 
 def test_composite_open_door_microwave():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_composite_open_door_microwave,
         headless=HEADLESS,
     )
@@ -323,7 +323,7 @@ def test_composite_open_door_microwave():
 
 
 def test_reverse_order_composite_open_door_microwave():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_reverse_order_composite_open_door_microwave,
         headless=HEADLESS,
     )
@@ -331,7 +331,7 @@ def test_reverse_order_composite_open_door_microwave():
 
 
 def test_composite_open_door_microwave_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_composite_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
@@ -339,7 +339,7 @@ def test_composite_open_door_microwave_multiple_envs():
 
 
 def test_reverse_order_composite_open_door_microwave_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_reverse_order_composite_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
@@ -347,7 +347,7 @@ def test_reverse_order_composite_open_door_microwave_multiple_envs():
 
 
 def test_composite_open_door_microwave_reset_condition():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_composite_open_door_microwave_reset_condition,
         headless=HEADLESS,
     )

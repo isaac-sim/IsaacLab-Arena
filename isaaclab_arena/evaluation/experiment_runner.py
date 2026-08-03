@@ -18,6 +18,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
     run_legacy_json_in_chunks,
 )
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
+from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
@@ -34,22 +35,23 @@ def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-# TODO(cvolk, 2026-07-10): [typed-config-migration] Typed YAML is composed only
-# after SimulationApp starts, so experiment_runner cannot determine camera requirements
-# in time to configure AppLauncher. Add enable_cameras to ArenaEnvironmentCfg,
-# update each factory to honor it or reject unsupported cameras, and apply YAML
-# values and Hydra overrides before startup. Enable AppLauncher when any Run enables
-# cameras, then remove this getattr and the requirement to also pass --enable_cameras.
+def _experiment_requires_cameras(
+    experiment_config_path: Path,
+    legacy_experiment_config: dict | None,
+    experiment_overrides: list[str],
+) -> bool:
+    """Return whether an Experiment enables environment cameras, reading it before startup."""
+    if legacy_experiment_config is not None:
+        return legacy_json_experiment_requires_cameras(legacy_experiment_config)
+    return typed_experiment_requires_cameras(experiment_config_path, experiment_overrides)
+
+
 def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
     """Check that AppLauncher enabled camera support requested by typed Runs."""
-    camera_run_names = [
-        run_cfg.name
-        for run_cfg in experiment_cfg.runs.values()
-        if getattr(run_cfg.environment, "enable_cameras", False)
-    ]
+    camera_run_names = [run_cfg.name for run_cfg in experiment_cfg.runs.values() if run_cfg.environment.enable_cameras]
     assert not camera_run_names or enable_cameras, (
-        f"Runs {camera_run_names} enable environment cameras. Pass --enable_cameras so AppLauncher enables "
-        "camera support before the typed Experiment is composed."
+        f"Runs {camera_run_names} enable environment cameras but AppLauncher started without camera support. "
+        "The camera requirements read from the Experiment before startup disagree with the composed Experiment."
     )
 
 
@@ -74,8 +76,9 @@ def main():
         experiment_overrides,
     )
 
-    if args_cli.record_camera_video or (
-        legacy_experiment_config is not None and legacy_json_experiment_requires_cameras(legacy_experiment_config)
+    # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
+    if args_cli.record_camera_video or _experiment_requires_cameras(
+        experiment_config_path, legacy_experiment_config, experiment_overrides
     ):
         args_cli.enable_cameras = True
 

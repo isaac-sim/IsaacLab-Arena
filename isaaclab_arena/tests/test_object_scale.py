@@ -5,7 +5,7 @@
 
 """Tests for object scale parameter (LibraryObject and subclasses)."""
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 
@@ -38,7 +38,7 @@ def _test_object_scale_default_and_override(simulation_app):
 
 
 def test_object_scale_default_and_override():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_object_scale_default_and_override,
         headless=HEADLESS,
     )

@@ -82,9 +82,12 @@ def _test_foo(simulation_app):  # runs inside SimulationApp
     return True  # indicates pass
 
 def test_foo():  # pytest-visible outer function
-    result = run_simulation_app_function(_test_foo)
+    result = run_function_with_persistent_simulation_app(_test_foo)
     assert result
 ```
+
+- **Don't** call CLI paths that may invoke `sys.exit`—such as argparse `--help`, invalid arguments, or `parser.error()`—directly inside pytest. After Isaac Sim starts, catching `SystemExit` still leaves Kit shutdown queued.
+- **Instead**, run the CLI with `subprocess.run([TestConstants.python_path, ...])` and assert the child result. Use `with_subprocess` only when the child starts Isaac Sim; the marker does not create a child process.
 
 ## Boundaries
 

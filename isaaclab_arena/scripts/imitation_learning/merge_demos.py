@@ -5,10 +5,10 @@
 """Merge multiple Arena teleop HDF5 demonstration files into a single training-ready dataset.
 
 Teleoperators often collect 100+ demonstrations across several sessions rather than in one sitting,
-producing one HDF5 per session via :mod:`isaaclab_arena.scripts.imitation_learning.record_demos`.
+producing one HDF5 per session via ``submodules/IsaacLab/scripts/tools/record_demos.py``.
 This script combines those files into a single dataset suitable for downstream consumers
-(:mod:`isaaclab_arena.scripts.imitation_learning.replay_demos`,
-:mod:`isaaclab_arena.scripts.imitation_learning.annotate_demos`,
+(``submodules/IsaacLab/scripts/tools/replay_demos.py``,
+``submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py``,
 ``convert_hdf5_to_lerobot.py``).
 
 Compared to upstream ``submodules/IsaacLab/scripts/tools/merge_hdf5_datasets.py``, this script:

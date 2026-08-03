@@ -10,7 +10,7 @@ import tqdm
 import traceback
 from types import SimpleNamespace
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -412,7 +412,7 @@ def _test_reference_objects_with_transform(simulation_app, tmp_path: pathlib.Pat
 
 def test_reference_objects(tmp_path: pathlib.Path):
     tmp_path = tmp_path / "reference_objects.usd"
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_reference_objects,
         headless=HEADLESS,
         tmp_path=tmp_path,
@@ -425,7 +425,7 @@ def test_reference_objects_with_transform(tmp_path: pathlib.Path):
     # the test still works if the whole environment is translated and rotated.
     # This relies on the reference objects relative poses being correct.
     tmp_path = tmp_path / "reference_objects_with_transform.usd"
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_reference_objects_with_transform,
         headless=HEADLESS,
         tmp_path=tmp_path,

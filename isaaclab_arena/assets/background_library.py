@@ -173,7 +173,12 @@ class LightwheelKitchenBackground(LibraryBackground):
     initial_pose = Pose.identity()
     object_min_z = -0.2
 
-    def __init__(self, layout_id: int = 1, style_id: int = 1):
+    def __init__(
+        self,
+        layout_id: int = 1,
+        style_id: int = 1,
+        **kwargs,
+    ):
         from lightwheel_sdk.loader import floorplan_loader
 
         # Lazily download the USD
@@ -188,7 +193,7 @@ class LightwheelKitchenBackground(LibraryBackground):
                 backend="robocasa",
             )[0]
         )
-        super().__init__()
+        super().__init__(**kwargs)
 
     def get_viewer_cfg(self) -> ViewerCfg:
         # Looking in through the open front.

@@ -18,7 +18,7 @@ import traceback
 import pytest
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 WARMUP_STEPS = 50
@@ -220,7 +220,7 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
 
 @pytest.mark.with_cameras
 def test_initial_state_not_terminated():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_initial_state_not_terminated,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -230,7 +230,7 @@ def test_initial_state_not_terminated():
 
 @pytest.mark.with_cameras
 def test_apple_on_plate_succeeds():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_apple_on_plate_succeeds,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,

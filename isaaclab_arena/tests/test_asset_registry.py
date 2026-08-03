@@ -7,7 +7,7 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.pose import Pose
 
 NUM_STEPS = 2
@@ -37,7 +37,7 @@ def _test_default_assets_registered(simulation_app):
 
 def test_default_assets_registered():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_default_assets_registered,
     )
     assert result, "Test failed"
@@ -123,7 +123,7 @@ def _test_all_assets_in_registry(simulation_app):
 
 def test_all_assets_in_registry():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_all_assets_in_registry,
         headless=HEADLESS,
     )
@@ -154,7 +154,7 @@ def _test_hdr_images_registered(simulation_app):
 
 
 def test_hdr_images_registered():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_hdr_images_registered,
     )
     assert result, "Test failed"
@@ -213,7 +213,7 @@ def _test_hdr_image_spawn(simulation_app):
 
 def test_hdr_image_spawn():
     # Test that spawns a DomeLight with an HDR image and runs the simulation.
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_hdr_image_spawn,
         headless=HEADLESS,
     )
@@ -262,7 +262,7 @@ def _test_multi_light_in_scene(simulation_app):
 
 
 def test_multi_light_in_scene():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_multi_light_in_scene,
         headless=HEADLESS,
     )
@@ -298,7 +298,7 @@ def _test_get_assets_with_all_tags(simulation_app):
 
 
 def test_get_assets_with_all_tags():
-    result = run_simulation_app_function(_test_get_assets_with_all_tags)
+    result = run_function_with_persistent_simulation_app(_test_get_assets_with_all_tags)
     assert result, "Test failed"
 
 

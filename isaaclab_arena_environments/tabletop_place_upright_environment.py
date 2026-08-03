@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class TableTopPlaceUprightEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the tabletop place-upright environment."""
 
-    enable_cameras: bool = False
     object: str = "mug"
     background: str = "table"
     embodiment: str = "agibot"

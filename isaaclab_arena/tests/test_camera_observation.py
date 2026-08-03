@@ -8,7 +8,7 @@ import tqdm
 
 import pytest
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -70,7 +70,7 @@ def _test_camera_observation(simulation_app) -> bool:
 @pytest.mark.with_cameras
 def test_camera_observation():
 
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_camera_observation,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,

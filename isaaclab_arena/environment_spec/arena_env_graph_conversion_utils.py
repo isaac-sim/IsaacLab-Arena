@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
@@ -17,8 +19,10 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
-_DEFAULT_LIGHT_ASSET_NAME = "light"
-_DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
+_DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
+_DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"
+_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
+_DEFAULT_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -50,26 +54,43 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
     """Build placement params defining what checks to run during layout validation for this env."""
-    placement = graph_spec.placement_validators
-    enabled = placement.enabled_checks if placement is not None else None
-    required = placement.required_checks if placement is not None else None
-    # TODO(xinjieyao): enable auto-identification of the placer params from env relations
+    placement_validators = graph_spec.placement_validators
+    enabled_checks = placement_validators.enabled_checks if placement_validators is not None else None
+    required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     return ObjectPlacerParams(
-        enabled_checks=set(enabled) if enabled is not None else None,
-        required_checks=set(required) if required is not None else None,
+        enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
+        required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:
-    """Inject a default light when the scene would otherwise render black."""
+    """Inject default lighting setup, if no lighting already exists.
+
+    Injects:
+    - dome light
+    - directional light (default turned off). For lighting variations to act on.
+    """
     if _scene_already_has_light(graph_spec, assets_by_node_id):
         return
 
-    node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
-    assets_by_node_id[node_id] = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)()
-    print(f"INFO: no light found in scene or background USD(s); injected default light '{node_id}'.")
+    dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DOME_LIGHT_NODE_ID)
+    dome_light = AssetRegistry().get_asset_by_name(_DEFAULT_DOME_LIGHT_ASSET_NAME)()
+    assets_by_node_id[dome_node_id] = dome_light
+
+    directional_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DIRECTIONAL_LIGHT_NODE_ID)
+    directional_light = AssetRegistry().get_asset_by_name(_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME)()
+    directional_light.off()  # a lighting-direction variation turns it back on at build time
+    # Let the direction variation dim this dome when it activates, so shadows show.
+    directional_light.set_dome_light(dome_light)
+    assets_by_node_id[directional_node_id] = directional_light
+
+    print(
+        f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'"
+        f" and directional light '{directional_node_id}'"
+        " (off unless a lighting-direction variation activates it)."
+    )
 
 
 def _unique_node_id(existing_ids: set[str], base: str) -> str:
@@ -125,6 +146,14 @@ def instantiate_assets_from_spec(
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
+    for object_set in graph_spec.object_sets or []:
+        assets_by_node_id[object_set.id] = RigidObjectSet(
+            name=object_set.id,
+            objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
+            random_choice=object_set.random_choice,
+            **object_set.params,
+        )
+
     for ref in graph_spec.object_references or []:
         assert ref.prim_path is not None, "Object reference must have a prim path"
         ref_params = dict(ref.params)
@@ -138,9 +167,14 @@ def instantiate_assets_from_spec(
             **ref_params,
         }
         if openable_joint_name is not None:
+            # OpenableObjectReference always sets object_type=ARTICULATION; omit the YAML value.
+            assert (
+                ref.object_type == ObjectType.ARTICULATION
+            ), f"Openable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
+            openable_kwargs = {k: v for k, v in common_kwargs.items() if k != "object_type"}
             assets_by_node_id[ref.id] = OpenableObjectReference(
                 openable_joint_name=openable_joint_name,
-                **common_kwargs,
+                **openable_kwargs,
             )
         else:
             assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)

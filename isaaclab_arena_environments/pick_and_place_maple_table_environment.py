@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Maple-table pick-and-place environment."""
 
-    enable_cameras: bool = False
     embodiment: str = "droid_abs_joint_pos"
     hdr: str | None = None
     light_intensity: float = 500.0

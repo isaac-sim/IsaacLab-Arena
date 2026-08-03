@@ -8,7 +8,7 @@ import traceback
 
 import warp as wp
 
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -233,7 +233,7 @@ def _test_achieve_cube_goal_pose_multiple_envs(simulation_app) -> bool:
 
 
 def test_achieve_cube_goal_pose_initial_state():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_achieve_cube_goal_pose_initial_state,
         headless=HEADLESS,
     )
@@ -241,7 +241,7 @@ def test_achieve_cube_goal_pose_initial_state():
 
 
 def test_achieve_cube_goal_pose_success():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_achieve_cube_goal_pose_success,
         headless=HEADLESS,
     )
@@ -249,7 +249,7 @@ def test_achieve_cube_goal_pose_success():
 
 
 def test_achieve_cube_goal_pose_multiple_envs():
-    result = run_simulation_app_function(
+    result = run_function_with_persistent_simulation_app(
         _test_achieve_cube_goal_pose_multiple_envs,
         headless=HEADLESS,
     )

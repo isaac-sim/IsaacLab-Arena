@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import yaml
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -27,6 +30,11 @@ GETTING_STARTED_JSON_PATH = (
 )
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
+)
+CAMERA_SENSITIVITY_YAML_PATH = (
+    Path(TestConstants.arena_environments_dir)
+    / "experiment_configs"
+    / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
 )
 
 
@@ -69,6 +77,105 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
+    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+      language_instruction: Pick up the banana.
+    rollout_limit:
+      num_episodes: 4
+""",
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:1")
+    run = experiment_cfg.runs["graph_run"]
+
+    assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
+    # Only environment values are stored (and later become CLI tokens at execution); the
+    # environment_builder section stays typed and reaches the argparse path directly.
+    assert run.environment.env_graph_spec_yaml_path == "robolab/tasks/banana_in_bowl.yaml"
+    assert run.environment.per_run_overrides == {"enable_cameras": True, "pick_up_object": "banana"}
+    assert run.environment_builder.num_envs == 2
+    assert run.environment_builder.device == "cuda:1"
+    assert run.environment_builder.language_instruction == "Pick up the banana."
+    assert run.rollout_limit.num_episodes == 4
+
+
+def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
+    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_episodes: 4
+""",
+        encoding="utf-8",
+    )
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:1")
+
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+    serialized_values = yaml.safe_load(serialized_experiment)
+    serialized_environment = serialized_values["runs"]["graph_run"]["environment"]
+    assert serialized_environment == {
+        "type": "robolab/tasks/banana_in_bowl.yaml",
+        "enable_cameras": True,
+        "pick_up_object": "banana",
+    }
+
+    serialized_path = tmp_path / "serialized_experiment.yaml"
+    serialized_path.write_text(serialized_experiment, encoding="utf-8")
+    assert load_arena_experiment_from_config_file(serialized_path, device="cuda:1") == experiment_cfg
+
+
+def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
+    run_cfg = ArenaRunCfg(
+        name="graph_run",
+        environment=LegacyGraphEnvironmentCfg(
+            env_graph_spec_yaml_path="robolab/tasks/banana_in_bowl.yaml",
+            enable_cameras=True,
+        ),
+        policy=ZeroActionPolicyCfg(),
+    )
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+
+    with pytest.raises(AssertionError, match="enable environment cameras"):
+        _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)
+
+    _assert_camera_support_enabled(experiment_cfg, enable_cameras=True)
 
 
 def test_policy_config_type_resolves_from_dotted_class_path():
@@ -138,13 +245,57 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
     experiment_runner.main()
 
 
-def test_typed_camera_run_requires_prelaunch_camera_flag():
+def test_camera_support_invariant_holds_for_composed_runs():
     experiment_cfg = _experiment_cfg(enable_cameras=True)
 
-    with pytest.raises(AssertionError, match="Pass --enable_cameras"):
+    with pytest.raises(AssertionError, match="AppLauncher started without camera support"):
         _assert_camera_support_enabled(experiment_cfg, enable_cameras=False)
 
     _assert_camera_support_enabled(experiment_cfg, enable_cameras=True)
+    _assert_camera_support_enabled(_experiment_cfg(enable_cameras=False), enable_cameras=False)
+
+
+@pytest.mark.parametrize(
+    ("experiment_config_path", "expected_enable_cameras"),
+    [(CAMERA_SENSITIVITY_YAML_PATH, True), (GETTING_STARTED_YAML_PATH, False)],
+)
+def test_typed_experiment_enables_camera_support_from_its_config(
+    monkeypatch, experiment_config_path, expected_enable_cameras
+):
+    """A typed Experiment that declares cameras must not also need --enable_cameras on the CLI."""
+    launched_with_cameras = None
+
+    class _SimulationAppContext:
+        def __init__(self, args_cli):
+            nonlocal launched_with_cameras
+            launched_with_cameras = args_cli.enable_cameras
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            pass
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(
+        experiment_runner,
+        "load_arena_experiment_from_config_file",
+        lambda *_args, **_kwargs: _experiment_cfg(enable_cameras=expected_enable_cameras),
+    )
+    monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(experiment_config_path),
+            "--list_variations",
+        ],
+    )
+
+    experiment_runner.main()
+
+    assert launched_with_cameras is expected_enable_cameras
 
 
 def test_legacy_json_camera_detection_is_preserved():

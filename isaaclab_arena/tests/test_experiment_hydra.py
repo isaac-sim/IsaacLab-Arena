@@ -15,11 +15,12 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 GETTING_STARTED_EXPERIMENT_PATH = (
@@ -138,7 +139,7 @@ def _test_getting_started_experiment_executes_baseline_run(simulation_app, outpu
 
 
 def test_getting_started_experiment_executes_baseline_run(tmp_path):
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_getting_started_experiment_executes_baseline_run,
         headless=True,
         output_dir=tmp_path,
@@ -193,6 +194,59 @@ def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
 
     serialized_path = _write_experiment(tmp_path, serialized_experiment)
     assert _load_experiment(serialized_path) == experiment_cfg
+
+
+GRAPH_SPEC_EXPERIMENT_CONTENTS = """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      pick_up_object: banana
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_steps: 5
+"""
+
+
+def test_graph_spec_yaml_environment_builds_legacy_cfg(tmp_path):
+    config_path = _write_experiment(tmp_path, GRAPH_SPEC_EXPERIMENT_CONTENTS)
+
+    experiment_cfg = _load_experiment(config_path)
+    run = experiment_cfg.runs["graph_run"]
+
+    assert run.environment == LegacyGraphEnvironmentCfg(
+        env_graph_spec_yaml_path="robolab/tasks/banana_in_bowl.yaml",
+        per_run_overrides={"pick_up_object": "banana"},
+    )
+    assert run.policy == ZeroActionPolicyCfg()
+    assert run.environment_builder.num_envs == 2
+    assert run.rollout_limit.num_steps == 5
+
+
+def test_graph_spec_yaml_environment_populates_enable_cameras(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  graph_run:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+    policy:
+      type: zero_action
+""",
+    )
+
+    run = _load_experiment(config_path).runs["graph_run"]
+
+    # The typed enable_cameras field drives pre-startup camera detection; the same value is
+    # retained in per_run_overrides, from which the graph-environment CLI tokens are built at
+    # execution. Both must reflect the YAML value.
+    assert run.environment.enable_cameras is True
+    assert run.environment.per_run_overrides["enable_cameras"] is True
 
 
 @pytest.mark.parametrize(
