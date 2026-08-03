@@ -53,6 +53,9 @@ REPOSITORY_ROOT = Path(__file__).parents[2]
 OPENPI_EXPERIMENT_CFG_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
 )
+FAILURE_COLLECTION_SMOKE_EXPERIMENT_CFG_PATH = (
+    REPOSITORY_ROOT / "isaaclab_arena/tests/test_data/osmo_failure_collection_smoke_experiment.yaml"
+)
 OPENPI_RUN_NAME = "droid_pnp_srl_openpi_billiard_hall"
 
 
@@ -165,6 +168,32 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
 
     with pytest.raises(AssertionError, match="policy_variant must be one of"):
         _compose_submission(["policy_server.policy_variant=unknown"])
+
+
+def test_failure_collection_smoke_experiment_composes_expected_run_groups():
+    """Keep the manual OSMO failure-collection fixture valid and independently dispatchable."""
+    submission_cfg = _compose_submission(experiment_cfg_path=FAILURE_COLLECTION_SMOKE_EXPERIMENT_CFG_PATH)
+    expected_run_names = [
+        "expected_success_rubiks_cube",
+        "expected_success_mustard_bottle",
+        "expected_failure_unknown_pick_up_object",
+        "expected_failure_unknown_policy_adapter",
+    ]
+
+    assert list(submission_cfg.experiment_cfg.runs) == expected_run_names
+    workflow = Pi0ArenaExperimentWorkflow(
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        server_task_cfg=submission_cfg.policy_server,
+        task_cfg=submission_cfg.experiment_runner,
+    )
+    assert [group["name"] for group in workflow.generate_workflow()["workflow"]["groups"]] == [
+        "arena-run-0",
+        "arena-run-1",
+        "arena-run-2",
+        "arena-run-3",
+        "arena-experiment-output",
+    ]
 
 
 def test_submitter_rejects_unregistered_policy_server_type():
