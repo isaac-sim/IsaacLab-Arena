@@ -148,8 +148,7 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
     return (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
-            device=cfg.environment_builder.device,
-            language_instruction=cfg.environment_builder.language_instruction,
+            environment_builder=cfg.environment_builder,
             hydra_overrides=hydra_overrides,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
