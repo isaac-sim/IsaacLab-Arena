@@ -3,14 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Runs the two robolab tasks with both the OpenPI (pi0) and GR00T policies. On OSMO the
-# inference server for each Run is derived from its policy type, so this launches a pi0
-# server and a GR00T server, each wired to the Runs that use it.
 runs:
 
   banana_on_plate_pi0:
     environment:
-      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
       enable_cameras: true
     policy: &openpi_policy
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
@@ -24,7 +21,7 @@ runs:
 
   banana_in_bowl_pi0:
     environment:
-      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
       enable_cameras: true
     policy: *openpi_policy
     rollout_limit:
