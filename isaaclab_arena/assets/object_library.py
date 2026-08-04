@@ -225,6 +225,48 @@ class OfficeTable(LibraryObject):
     scale = (1.0, 1.0, 0.7)
 
 
+# NIST insertion assets use Arena's high-precision assembly preset to mirror
+# Factory/Forge dense-contact settings for small-clearance gear insertion.
+@register_asset
+class GearsAndBase(LibraryObject):
+    """NIST gear base with SDF collision (gear_base as root prim)."""
+
+    name = "gears_and_base"
+    tags = ["nist", "object"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/NIST/gearbase_and_gears_gearbase_root.usd"
+
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION.replace(disable_gravity=False, kinematic_enabled=True),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class MediumNistGear(LibraryObject):
+    """NIST medium gear (held asset for gear insertion)."""
+
+    name = "medium_nist_gear"
+    tags = ["nist", "object"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/NIST/gear_medium.usd"
+
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION.replace(disable_gravity=False),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
 @register_asset
 class BlueSortingBin(LibraryObject):
     """

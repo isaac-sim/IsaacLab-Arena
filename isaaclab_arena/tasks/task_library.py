@@ -13,6 +13,7 @@ from isaaclab_arena.tasks import (  # noqa: F401
     close_door_task,
     goal_pose_task,
     lift_object_task,
+    nist_gear_insertion,
     no_task,
     open_door_task,
     pick_and_place_task,
