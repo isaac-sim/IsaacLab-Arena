@@ -20,7 +20,7 @@ MAX_SETTLE_STEPS = 2000
 POLL_EVERY = 50
 
 
-def _build_scene(seed: int):
+def _build_scene(seed: int, layouts_per_env: int | None = None):
     """A kinematic table with one declared clutter group resting on it."""
     import isaaclab.sim as sim_utils
 
@@ -46,12 +46,24 @@ def _build_scene(seed: int):
         member.add_relation(ClutteredOn(support, group="tools"))
         members.append(member)
 
+    placer_params = None
+    if layouts_per_env is not None:
+        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+        from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+        placer_params = ObjectPlacerParams(
+            solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+            min_unique_layouts_per_env=layouts_per_env,
+        )
+
     scene = Scene(assets=[ground, light, support, *members])
-    arena_env = IsaacLabArenaEnvironment(name=f"clutter_test_{seed}", scene=scene, task=NoTask())
+    arena_env = IsaacLabArenaEnvironment(
+        name=f"clutter_test_{seed}", scene=scene, task=NoTask(), placer_params=placer_params
+    )
     return arena_env, support, members
 
 
-def _build_and_reset(seed: int, num_envs: int = 1):
+def _build_and_reset(seed: int, num_envs: int = 1, layouts_per_env: int | None = None):
     """Build the env and reset it, returning (env, support, members, region, poses_fn).
 
     ``poses_fn(env_id)`` returns that environment's member poses in its own local frame, so
@@ -64,7 +76,7 @@ def _build_and_reset(seed: int, num_envs: int = 1):
     from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
     from isaaclab_arena.relations.clutter_pour import region_above_support
 
-    arena_env, support, members = _build_scene(seed)
+    arena_env, support, members = _build_scene(seed, layouts_per_env=layouts_per_env)
     # Build args from the real parser rather than a hand-rolled Namespace: the builder reads
     # more fields than are obvious, and a missing one fails only once the env is constructed.
     args = get_isaaclab_arena_cli_parser().parse_args([])
@@ -185,6 +197,47 @@ def _test_every_parallel_env_gets_its_own_settled_pile(simulation_app) -> bool:
     return True
 
 
+def _test_spilled_layouts_are_rejected_from_the_cache(simulation_app) -> bool:
+    """Every cached layout must hold its pile on the support, across repeated draws."""
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+
+    layouts_per_env = 6
+    env, _support, members, region, poses = _build_and_reset(seed=1, layouts_per_env=layouts_per_env)
+    names = [member.name for member in members]
+    params = ClutterSettleParams(containment_margin_m=0.02)
+
+    for draw in range(layouts_per_env):
+        env.reset()
+        positions, _ = poses()
+        verdict = check_resting_poses(positions, region, params)
+        assert verdict.ok, f"cached layout {draw} spilled: {verdict.describe(names)}"
+    env.close()
+    return True
+
+
+def _test_pile_stays_settled_after_the_pool_refills(simulation_app) -> bool:
+    """Layouts added when the pool refills must be settled too, not left as drop poses."""
+    from isaaclab_arena.utils import physics_settle
+
+    layouts_per_env = 2
+    env, _support, _members, _region, poses = _build_and_reset(seed=0, layouts_per_env=layouts_per_env)
+
+    worst_drift = 0.0
+    # Reset well past the initial pool so the refill path is exercised.
+    for reset_index in range(layouts_per_env * 3):
+        env.reset()
+        before, _ = poses()
+        physics_settle.step_physics(env, 60)
+        after, _ = poses()
+        drift = float((after - before).norm(dim=-1).max())
+        worst_drift = max(worst_drift, drift)
+        print(f"  reset {reset_index}: drift {drift:.4f} m")
+    env.close()
+
+    assert worst_drift < 0.02, f"a reset placed a falling pile: worst drift {worst_drift:.3f} m"
+    return True
+
+
 def _test_same_seed_reproduces_the_pile(simulation_app) -> bool:
     import torch
 
@@ -204,6 +257,14 @@ def test_pile_is_already_settled_at_reset():
 
 def test_every_parallel_env_gets_its_own_settled_pile():
     assert run_simulation_app_function(_test_every_parallel_env_gets_its_own_settled_pile)
+
+
+def test_spilled_layouts_are_rejected_from_the_cache():
+    assert run_simulation_app_function(_test_spilled_layouts_are_rejected_from_the_cache)
+
+
+def test_pile_stays_settled_after_the_pool_refills():
+    assert run_simulation_app_function(_test_pile_stays_settled_after_the_pool_refills)
 
 
 def test_same_seed_reproduces_the_pile():

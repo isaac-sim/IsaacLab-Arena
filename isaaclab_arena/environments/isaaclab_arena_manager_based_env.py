@@ -87,6 +87,45 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             capture_settled_poses=True,
             pose_settle_params=ClutterSettleParams(),
         )
+        self._reject_spilled_clutter_layouts(placement_pool, groups)
+
+    def _reject_spilled_clutter_layouts(self, placement_pool, groups) -> None:
+        """Drop cached layouts whose pile did not stay on its support.
+
+        Whether a pour spills is only knowable after settling it, so the pool is filtered
+        afterwards rather than constrained up front. An env keeps its rejects when too few
+        layouts survive, since a spilled pile still beats having nothing to draw.
+        """
+        import torch
+
+        from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+        from isaaclab_arena.relations.clutter_pour import region_above_support
+        from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+
+        per_env_bboxes = build_per_env_bounding_boxes(
+            placement_pool.objects, self.num_envs
+        ).get_bounding_boxes_for_all_envs()
+        params = ClutterSettleParams(containment_margin_m=self.cfg.clutter_containment_margin_m)
+
+        def keep(env_id: int, layout) -> bool:
+            bboxes = per_env_bboxes[env_id]
+            for group in groups:
+                support = group.support
+                position = layout.positions.get(support) or support.get_initial_pose().position_xyz
+                # Judge against the whole support, not the shrunk region the pile was poured
+                # into: a tight pour is meant to relax outward as it settles.
+                region = region_above_support(tuple(float(value) for value in position), bboxes[support])
+                positions = torch.tensor(
+                    [layout.positions[member] for member in group.members if member in layout.positions],
+                    dtype=torch.float32,
+                )
+                if positions.numel() and not check_resting_poses(positions, region, params).ok:
+                    return False
+            return True
+
+        kept, rejected = placement_pool.retain_layouts(keep)
+        if rejected:
+            print(f"[clutter] rejected {rejected} spilled layout(s); {kept} cached")
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:
