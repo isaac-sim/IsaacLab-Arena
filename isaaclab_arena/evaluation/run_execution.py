@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import traceback
+from copy import deepcopy
 from dataclasses import fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -103,7 +104,7 @@ def build_and_run(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
+            rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
             env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
@@ -129,17 +130,16 @@ def build_and_run(
     )
 
 
-def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
+def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
     """Offset the environment-builder seed for a rebuild so each fresh construction differs.
 
     Without this every rebuild constructs with the same seed, so build-time variations
     (e.g. the directional-light direction) resolve to the same value on each rebuild.
-    Rebuild 0 keeps the configured seed so single-rebuild runs are unchanged.
+    Rebuild 0 keeps the configured seed (``seed + 0``) so single-rebuild runs are unchanged.
     """
-    if rebuild_index == 0:
-        return cfg
-    builder = replace(cfg.environment_builder, seed=cfg.environment_builder.seed + rebuild_index)
-    return replace(cfg, environment_builder=builder)
+    cfg = deepcopy(cfg)
+    cfg.environment_builder.seed += rebuild_index
+    return cfg
 
 
 def _build_environment_from_cfg(
