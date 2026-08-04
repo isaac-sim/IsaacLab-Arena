@@ -64,15 +64,18 @@ Step 2: Start Arena Teleop
       **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
       and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
 
-#. Run the teleop script:
+#. Run Isaac Lab's teleop script with Arena's environment registration callback:
 
    .. code-block:: bash
 
-      python isaaclab_arena/scripts/imitation_learning/teleop.py \
+      python submodules/IsaacLab/scripts/environments/teleoperation/teleop_se3_agent.py \
         --viz kit \
         --device cpu \
-        galileo_g1_locomanip_pick_and_place \
-        --teleop_device openxr
+        --xr \
+        --no-auto_launch_cloudxr \
+        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+        --task galileo_g1_locomanip_pick_and_place \
+        --arena_teleop_device openxr
 
 #. In the running application, start the session from the **XR** tab in the application window.
 
