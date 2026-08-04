@@ -132,8 +132,7 @@ def _test_mesh_exclusion_errors(simulation_app, asset_dir: pathlib.Path) -> bool
     excluded_mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2])
     stage.GetRootLayer().Save()
 
-    with pytest.raises(NoCollisionMeshError, match="All mesh geometry excluded"):
-        extract_trimesh_from_usd(usd_path.as_posix(), excluded_prim_paths=["/Root/Excluded"])
+    assert extract_trimesh_from_usd(usd_path.as_posix(), excluded_prim_paths=["/Root/Excluded"]) is None
 
     UsdGeom.Mesh.Define(stage, "/Root/Malformed")
     stage.GetRootLayer().Save()

@@ -298,7 +298,7 @@ def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     excluded_prim_paths: Sequence[str] = (),
-) -> trimesh.Trimesh:
+) -> trimesh.Trimesh | None:
     """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
 
     Scale is applied per-vertex in local frame before the prim-to-world transform.
@@ -311,7 +311,8 @@ def extract_trimesh_from_usd(
         excluded_prim_paths: Absolute USD prim paths whose complete subtrees are omitted.
 
     Returns:
-        Combined trimesh with per-prim world transforms baked in.
+        Combined trimesh with per-prim world transforms baked in, or ``None`` when exclusions
+        remove every mesh.
     """
     assert all(
         s > 0 for s in scale
@@ -380,7 +381,7 @@ def extract_trimesh_from_usd(
             f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
         )
     if excluded_mesh_count and not included_mesh_count:
-        raise NoCollisionMeshError(f"All mesh geometry excluded from {usd_path}")
+        return None
     raise NoCollisionMeshError(f"No mesh geometry found in {usd_path}")
 
 

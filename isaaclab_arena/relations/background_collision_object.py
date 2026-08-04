@@ -128,7 +128,16 @@ def _combine_fixed_meshes(
             skipped_objects.append(obj)
             continue
         excluded_prim_paths = excluded_prim_paths_by_object.get(obj, ())
-        mesh = manager.get_collision_mesh(obj, excluded_prim_paths=excluded_prim_paths)
+        if isinstance(obj, Background):
+            try:
+                mesh = manager.get_collision_mesh_or_raise(obj, excluded_prim_paths=excluded_prim_paths)
+            except (OSError, ValueError):
+                skipped_objects.append(obj)
+                continue
+            if mesh is None:
+                continue
+        else:
+            mesh = manager.get_collision_mesh(obj, excluded_prim_paths=excluded_prim_paths)
         if mesh is None:
             skipped_objects.append(obj)
             continue

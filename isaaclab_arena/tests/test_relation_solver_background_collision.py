@@ -133,17 +133,19 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
     from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
 
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     kitchen = Background.__new__(Background)
     kitchen.name = "kitchen"
     kitchen.collision_mode = None
     kitchen.initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-    monkeypatch.setattr(
-        WarpMeshAndSphereCache,
-        "get_collision_mesh",
-        lambda self, obj, excluded_prim_paths=(): left.get_collision_mesh() if obj is left else None,
-    )
+
+    def fail_strict_lookup(self, obj, excluded_prim_paths=()):
+        assert obj is kitchen
+        raise NoCollisionMeshError("No mesh geometry found")
+
+    monkeypatch.setattr(WarpMeshAndSphereCache, "get_collision_mesh_or_raise", fail_strict_lookup)
 
     with pytest.raises(AssertionError, match="whole-scene Background"):
         make_fixed_collision_objects([left, kitchen])
@@ -151,6 +153,8 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
 
 def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
     """Unsupported USD geometry degrades to cached meshless collision."""
+    import pytest
+
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
@@ -159,7 +163,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
     obj = Object.__new__(Object)
     obj.name = "kitchen"
     obj.usd_path = "/tmp/kitchen.usd"
-    obj.scale = (1.0, 1.0, 1.0)
+    obj.scale = [1.0, 1.0, 1.0]
     obj.object_type = ObjectType.BASE
     obj.repair_collision_mesh_non_watertight = True
     calls = {"count": 0}
@@ -173,6 +177,8 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
 
     assert manager.get_collision_mesh(obj) is None
     assert manager.get_collision_mesh(obj) is None
+    with pytest.raises(UnsupportedCollisionGeometryError):
+        manager.get_collision_mesh_or_raise(obj)
     assert calls["count"] == 1
 
 
@@ -204,26 +210,24 @@ def test_warp_mesh_cache_keys_exclusions(monkeypatch):
     assert calls == [("/Kitchen/counter",), ("/Kitchen/floor",)]
 
 
-def test_background_anchor_exclusions_report_no_remaining_mesh(monkeypatch):
-    """A background with no mesh left follows the standard extraction-failure path."""
-    import pytest
-
+def test_background_anchor_exclusions_can_remove_all_meshes(monkeypatch):
+    """A background fully represented by anchors contributes no additional collision object."""
     from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
-    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
 
     kitchen = _make_usd_background()
 
     def fake_extract(usd_path, scale, excluded_prim_paths=()):
         assert excluded_prim_paths == ("/Kitchen",)
-        raise NoCollisionMeshError("all geometry excluded")
 
     monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fake_extract)
 
-    with pytest.raises(AssertionError, match="whole-scene Background"):
+    assert (
         make_fixed_collision_objects(
             [kitchen],
             excluded_prim_paths_by_object={kitchen: ["/Kitchen"]},
         )
+        == []
+    )
 
 
 def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
@@ -301,7 +305,7 @@ def test_background_collision_objects_treat_background_none_pose_as_identity(mon
     mesh_source = _mesh_box("source", (0.2, 0.2, 0.2), (0.0, 0.0, 0.0))
     monkeypatch.setattr(
         WarpMeshAndSphereCache,
-        "get_collision_mesh",
+        "get_collision_mesh_or_raise",
         lambda self, obj, excluded_prim_paths=(): mesh_source.get_collision_mesh(),
     )
 
