@@ -99,7 +99,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,
-            episode_length_s=20.0,
+            episode_length_s=70.0,
         )
 
         # Set viewport camera to match the robolab droid view
