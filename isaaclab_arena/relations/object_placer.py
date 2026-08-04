@@ -601,10 +601,8 @@ class ObjectPlacer:
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
-        # for debugging visualization tracking which layouts were checked
-        layout_indices_across_batch: list[int] | None = None
         if self._visualizer is not None:
-            layout_indices_across_batch = self._visualizer.log_layout_batch(positions, orientations, bboxes)
+            self._visualizer.start_new_batch(positions, orientations, bboxes)
 
         self._run_inexpensive_checks(
             positions,
@@ -613,7 +611,6 @@ class ObjectPlacer:
             collision_objects,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
-            layout_indices_across_batch,
         )
         self._run_expensive_checks(
             positions,
@@ -623,11 +620,9 @@ class ObjectPlacer:
             required,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
-            layout_indices_across_batch,
         )
-        if self._visualizer is not None and layout_indices_across_batch is not None:
-            self._visualizer.log_layout_batch_verdicts(
-                layout_indices_across_batch,
+        if self._visualizer is not None:
+            self._visualizer.log_batch_verdicts(
                 layout_pass_verdicts_by_check,
                 evaluated_layout_indices_by_check,
                 self.params.required_checks,
@@ -656,14 +651,11 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
-        layout_indices_across_batch: list[int] | None,
     ) -> None:
         """Run every inexpensive validator on all candidates, recording verdicts and evaluated layouts."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                if self._visualizer is not None:
-                    self._visualizer.set_active_layout_indices_across_batch(layout_indices_across_batch or [])
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
@@ -678,7 +670,6 @@ class ObjectPlacer:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
-        layout_indices_across_batch: list[int] | None,
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(positions)
@@ -689,10 +680,8 @@ class ObjectPlacer:
                     for i in range(num_candidates)
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
-                if self._visualizer is not None and layout_indices_across_batch is not None:
-                    self._visualizer.set_active_layout_indices_across_batch(
-                        [layout_indices_across_batch[i] for i in passed_layout_indices]
-                    )
+                if self._visualizer is not None:
+                    self._visualizer.set_active_layouts(passed_layout_indices)
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],

@@ -51,6 +51,14 @@ def _desk_and_box() -> list[DummyObject]:
     return [desk, box]
 
 
+def _layout_batch(num_layouts: int):
+    """``(positions, orientations, bboxes)`` for a batch of identical desk+box layouts."""
+    desk, box = _desk_and_box()
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.2)}
+    bboxes = {obj: obj.get_bounding_box() for obj in positions}
+    return [positions] * num_layouts, [{}] * num_layouts, [bboxes] * num_layouts
+
+
 def _placer_params(**overrides) -> ObjectPlacerParams:
     """Placement params for a small, deterministic solve."""
     return ObjectPlacerParams(
@@ -203,8 +211,8 @@ def test_a_check_that_skipped_a_candidate_is_not_drawn_as_rejecting_it(tmp_path,
         ),
     )
 
-    visualizer.log_layout_batch_verdicts(
-        layout_indices_across_batch=[0, 1],
+    visualizer.start_new_batch(*_layout_batch(2))
+    visualizer.log_batch_verdicts(
         verdicts_by_check={"no_overlap": [True, False], "ik_reachable": [True, False]},
         evaluated_layout_indices_by_check={"no_overlap": [0, 1], "ik_reachable": [0]},
         required_checks=None,
@@ -220,15 +228,20 @@ def test_candidate_frames_keep_counting_across_batches(tmp_path):
     """A pool that refills gets fresh frames, so a later batch does not overwrite an earlier one."""
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
 
-    assert visualizer.reserve_layout_indices_across_batch(3) == [0, 1, 2]
-    assert visualizer.reserve_layout_indices_across_batch(2) == [3, 4]
+    visualizer.start_new_batch(*_layout_batch(3))
+    visualizer.start_new_batch(*_layout_batch(2))
+
+    assert visualizer.num_logged_layouts == 5
+    # The second batch's own layout 0 is frame 3, picking up where the first batch stopped.
+    assert visualizer.get_layout_index_across_batch(0) == 3
 
 
 def test_active_candidates_map_index_within_batch_to_frame(tmp_path):
     """A check that only ran on some candidates still resolves each one's own frame."""
     visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(tmp_path / "p.rrd"))
+    visualizer.start_new_batch(*_layout_batch(5))
 
-    visualizer.set_active_layout_indices_across_batch([1, 4])
+    visualizer.set_active_layouts([1, 4])
 
     assert visualizer.get_layout_index_across_batch(0) == 1
     assert visualizer.get_layout_index_across_batch(1) == 4

@@ -231,8 +231,8 @@ def test_reachability_layer_records_to_rrd(tmp_path):
 
     layer.log_layout(
         layout_index_across_batch=0,
-        base_pos=(0.0, 0.0, 0.0),
-        base_quat_xyzw=(0.0, 0.0, 0.0, 1.0),
+        robot_base_pos_w=(0.0, 0.0, 0.0),
+        robot_base_quat_w_xyzw=(0.0, 0.0, 0.0, 1.0),
         target_names=["box"],
         grasp_poses_base_frame=torch.eye(4).unsqueeze(0),
         feasible=torch.tensor([False]),

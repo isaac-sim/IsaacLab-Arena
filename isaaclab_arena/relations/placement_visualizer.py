@@ -177,15 +177,15 @@ def summarize_layout_verdict(
 
 
 class PlacementRerunVisualizer:
-    """Streams every validated layout to Rerun, one frame per layout."""
+    """Draws every validated layout into a Rerun recording, one frame per layout."""
 
     def __init__(self, app_id: str = "arena_placement", spawn: bool = True, output_path: str | None = None) -> None:
-        """Start the recording and, unless recording headlessly, spawn a viewer window.
+        """Start the recording, streaming to a spawned viewer window and/or writing it to a file.
 
         Args:
             app_id: Rerun application id, shown in the viewer title.
             spawn: Whether to spawn a local viewer window and stream to it.
-            output_path: Optional path to also record the stream to, for replay on another machine.
+            output_path: Optional path to record the stream to.
         """
         import rerun as rr
 
@@ -201,7 +201,13 @@ class PlacementRerunVisualizer:
         assert sinks, "PlacementRerunVisualizer needs a viewer to spawn or an output path to record to."
         rr.set_sinks(*sinks)
         rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
+        # Next unused timeline frame to attach to a layout, e.g. 5 after frame 0-4 are drawn
         self._next_layout_index_across_batch = 0
+
+        # Across-batch index of each layout of the current batch, e.g. [3, 4] for a 2-layout batch after frames 0-2
+        self._layout_indices_across_batch: list[int] = []
+
+        # Across-batch index of the layout the next check runs on, e.g. [4] when only layout 1 of that batch passed
         self._active_layout_indices_across_batch: list[int] = []
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> PlacementRerunVisualizer:
@@ -221,22 +227,31 @@ class PlacementRerunVisualizer:
         """How many layouts have been given a frame so far."""
         return self._next_layout_index_across_batch
 
-    def reserve_layout_indices_across_batch(self, num_layouts: int) -> list[int]:
+    def _reserve_layout_indices(self, num_layouts: int) -> list[int]:
         """Reserve and return one timeline index per layout of the batch about to be validated.
 
         Indices keep counting across batches so a pool that refills several times does not overwrite
         its earlier frames.
+
+        Args:
+            num_layouts: How many layouts the batch holds.
         """
         start = self._next_layout_index_across_batch
         self._next_layout_index_across_batch += num_layouts
         return list(range(start, self._next_layout_index_across_batch))
 
-    def set_active_layout_indices_across_batch(self, layout_indices_across_batch: list[int]) -> None:
-        """Set the batch ``get_layout_index_across_batch`` resolves against, in the order the check sees it."""
-        self._active_layout_indices_across_batch = list(layout_indices_across_batch)
+    def set_active_layouts(self, layout_indices_within_batch: list[int]) -> None:
+        """Narrow the current batch to the layouts the next check runs on, in the order it sees them.
+
+        Args:
+            layout_indices_within_batch: Positions within the current batch, as the check received them.
+        """
+        self._active_layout_indices_across_batch = [
+            self._layout_indices_across_batch[i] for i in layout_indices_within_batch
+        ]
 
     def get_layout_index_across_batch(self, layout_index_within_batch: int) -> int:
-        """Timeline index of the layout at ``layout_index_within_batch`` of the active batch."""
+        """Across-batch index of the layout the active subset holds at ``layout_index_within_batch``."""
         return self._active_layout_indices_across_batch[layout_index_within_batch]
 
     def set_time(self, layout_index_across_batch: int) -> None:
@@ -253,7 +268,7 @@ class PlacementRerunVisualizer:
         bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         anchors: set[PlaceableAsset],
     ) -> None:
-        """Log one layout's solved layout as boxes in the world frame.
+        """Draw one solved layout as boxes in the world frame.
 
         Args:
             layout_index_across_batch: Timeline index to log against.
@@ -297,21 +312,23 @@ class PlacementRerunVisualizer:
             ),
         )
 
-    def log_layout_batch(
+    def start_new_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
         orientations: list[dict[PlaceableAsset, float]],
         bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-    ) -> list[int]:
-        """Log every solved layout of one batch, returning the timeline index each was drawn on.
+    ) -> None:
+        """Give every solved layout of a new batch its own frame, and make that batch the current one.
+
+        Every layout starts active, until a check narrows the batch with ``set_active_layouts``.
 
         Args:
             positions: Solved (x, y, z) per object, one dict per layout.
             orientations: Absolute world Z-yaw per object, one dict per layout.
             bboxes: Per-object local bounding box, one dict per layout.
         """
-        layout_indices_across_batch = self.reserve_layout_indices_across_batch(len(positions))
-        for layout_index_within_batch, layout_index_across_batch in enumerate(layout_indices_across_batch):
+        self._layout_indices_across_batch = self._reserve_layout_indices(len(positions))
+        for layout_index_within_batch, layout_index_across_batch in enumerate(self._layout_indices_across_batch):
             self.log_layout(
                 layout_index_across_batch,
                 positions[layout_index_within_batch],
@@ -319,7 +336,7 @@ class PlacementRerunVisualizer:
                 bboxes[layout_index_within_batch],
                 anchors=set(get_anchor_objects(list(positions[layout_index_within_batch]))),
             )
-        return layout_indices_across_batch
+        self._active_layout_indices_across_batch = list(self._layout_indices_across_batch)
 
     def log_layout_verdicts(
         self, layout_index_across_batch: int, verdicts_by_check: dict[str, bool], required_checks: set[str] | None
@@ -342,25 +359,23 @@ class PlacementRerunVisualizer:
         for check, passed in verdicts_by_check.items():
             rr.log(f"checks/{check}", rr.Scalars(float(passed)))
 
-    def log_layout_batch_verdicts(
+    def log_batch_verdicts(
         self,
-        layout_indices_across_batch: list[int],
         verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
         required_checks: set[str] | None,
     ) -> None:
-        """Log the check verdicts of one validated batch of layouts, one layout at a time.
+        """Log the check verdicts of the current batch of layouts, one layout at a time.
 
         A check is left off the layouts it did not run on, so a skipped one is not drawn as failed.
 
         Args:
-            layout_indices_across_batch: Timeline index of each layout of the batch, in batch order.
             verdicts_by_check: Per check, its verdict for every layout of the batch.
             evaluated_layout_indices_by_check: Per check, which layouts of the batch it ran on.
             required_checks: Checks that gate acceptance; None means every check that ran gates it.
         """
         evaluated = {check: set(indices) for check, indices in evaluated_layout_indices_by_check.items()}
-        for layout_index_within_batch, layout_index_across_batch in enumerate(layout_indices_across_batch):
+        for layout_index_within_batch, layout_index_across_batch in enumerate(self._layout_indices_across_batch):
             self.log_layout_verdicts(
                 layout_index_across_batch,
                 {
