@@ -27,11 +27,7 @@ class ArenaEnvBuilderCfg:
     device: str = "cuda:0"
     language_instruction: str | None = None
     episode_length_s: float | None = None
-    """Override the episode length (seconds); ``None`` uses the task's own ``episode_length_s``.
-
-    Useful to equalize the number of policy steps across control rates (steps = episode_length_s /
-    control period), e.g. a longer episode at a lower control rate.
-    """
+    """Override the episode length (seconds); ``None`` uses the task's own ``episode_length_s``."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

@@ -38,8 +38,7 @@ def _test_episode_length_defaults(simulation_app) -> bool:
     assert _StubTask(episode_length_s=None).get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S
     assert _StubTask(episode_length_s=5.0).get_episode_length_s() == 5.0
 
-    # A composite episode must fit every subtask, so it defaults to their total, not to
-    # DEFAULT_EPISODE_LENGTH_S. An explicit value still wins.
+    # A composite defaults to the sum of its subtasks; an explicit value still wins.
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
     subtasks = [_StubTask(episode_length_s=20.0), _StubTask(episode_length_s=30.0)]

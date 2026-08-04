@@ -132,8 +132,7 @@ class CompositeTaskBase(TaskBase):
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
-        # A composite episode has to fit every subtask, so default to their total rather than to
-        # TaskBase's single-task default, which would time the episode out partway through.
+        # Default task length is the summation of the lengths of the subtasks.
         if episode_length_s is None:
             episode_length_s = sum(subtask.get_episode_length_s() for subtask in subtasks)
         super().__init__(episode_length_s, task_description)

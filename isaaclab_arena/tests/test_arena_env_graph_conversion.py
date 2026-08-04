@@ -57,6 +57,27 @@ def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
     assert result
 
 
+def _test_composite_task_episode_length_sums_subtasks(simulation_app):
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "two_subtask_episode_length_env_graph.yaml")
+    arena_env = spec.to_arena_env()
+
+    assert [subtask.get_episode_length_s() for subtask in arena_env.task.subtasks] == [20.0, 30.0]
+    # The episode must fit both subtasks end to end, so the composite length is their total —
+    # not TaskBase's single-task default, which would time the episode out partway through.
+    assert arena_env.task.get_episode_length_s() == 50.0
+
+    return True
+
+
+def test_composite_task_episode_length_sums_subtasks():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_composite_task_episode_length_sums_subtasks)
+    assert result
+
+
 def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     import argparse
     import sys
