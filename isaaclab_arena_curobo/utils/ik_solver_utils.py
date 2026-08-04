@@ -19,6 +19,7 @@ from curobo.geom.types import Cuboid, WorldConfig
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena_curobo.ik_solver import IKFeasibility
 from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
@@ -180,22 +181,6 @@ def world_config_from_cuboids(
     return WorldConfig(cuboid=curobo_cuboids)
 
 
-class IKFeasibility(NamedTuple):
-    """One batched IK solve's outcome, every field length ``b`` and aligned with the input poses."""
-
-    feasible: torch.Tensor
-    """Per-pose verdict: converged within the thresholds, and collision-free when that was required."""
-
-    position_error: torch.Tensor
-    """Per-pose IK position error (m) of the returned solution."""
-
-    rotation_error: torch.Tensor
-    """Per-pose IK rotation error (rad) of the returned solution."""
-
-    joint_positions: torch.Tensor
-    """``(b, dof)`` joint configuration solved per pose; the best seed's, feasible or not."""
-
-
 def solve_ik_feasibility(
     ik_solver_context: CuroboIKSolver | CuroboPlanner,
     target_poses: torch.Tensor,
@@ -213,14 +198,11 @@ def solve_ik_feasibility(
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.
         rotation_threshold: Max rotation error (rad) to count as feasible.
-        require_collision_free: Also require a collision-free joint solution (cuRobo ``success``), not
-            just pose convergence. The embodiment's hand links are muted for the solve, so the gripper
-            closing over its target does not read as a collision; the rest of the arm is still checked
-            against the solver's world and against itself.
+        require_collision_free: Also require a collision-free joint solution, not just pose convergence.
 
     Returns:
-        An ``IKFeasibility`` holding the per-pose verdict, the best-seed errors, and the joint
-        configuration those errors belong to.
+        An ``IKFeasibility`` holding the per-pose verdict, position/rotation errors, and the joint
+        configuration solved per pose.
     """
     ik_solver = resolve_ik_solver(ik_solver_context)
     target_poses = ik_solver_context._to_curobo_device(target_poses)
@@ -237,7 +219,7 @@ def solve_ik_feasibility(
         while ik_seed.dim() < 3:
             ik_seed = ik_seed.unsqueeze(0)
 
-    # The gripper is meant to touch what it grasps, so its own links are muted for a collision-free solve.
+    # The gripper is meant to touch what it grasps, so its own links are disabled to detect collisions with the grasped object.
     muted_links = resolve_hand_link_names(ik_solver_context) if require_collision_free else []
     with disabled_link_spheres(ik_solver, muted_links):
         ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)

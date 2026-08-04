@@ -153,3 +153,20 @@ class CuroboIKSolver:
         self.ik_solver.update_world(world_cfg)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
+
+
+@dataclass
+class IKFeasibility:
+    """One batched IK solver's solved results."""
+
+    feasible: torch.Tensor
+    """Per-pose verdict: converged within the thresholds, and collision-free when that was required."""
+
+    position_error: torch.Tensor
+    """Per-pose IK position error (m) of the returned solution."""
+
+    rotation_error: torch.Tensor
+    """Per-pose IK rotation error (rad) of the returned solution."""
+
+    joint_positions: torch.Tensor
+    """Joint configuration solved per pose, of length joint_dim of the robot."""

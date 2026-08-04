@@ -86,7 +86,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
         return captured["solver"]
 
     def _fake_ik(solver, target_poses, **kwargs):
-        from isaaclab_arena_curobo.utils.ik_solver_utils import IKFeasibility
+        from isaaclab_arena_curobo.ik_solver import IKFeasibility
 
         num = target_poses.shape[0]
         feasible = torch.tensor(feasible_fn(num), dtype=torch.bool)

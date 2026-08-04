@@ -121,7 +121,7 @@ class ReachabilityRerunLayer:
         muted_sphere_mask: torch.Tensor | None,
         checked_color: tuple[int, int, int],
     ) -> None:
-        """Draw the robot's collision spheres at one solved grasp, muted ones set apart from checked ones.
+        """Draw the robot's collision spheres at one solved grasp.
 
         Args:
             entity: Entity path to draw under; a child of the base transform, as the spheres are in that frame.
