@@ -131,12 +131,7 @@ def build_and_run(
 
 
 def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
-    """Offset the environment-builder seed for a rebuild so each fresh construction differs.
-
-    Without this every rebuild constructs with the same seed, so build-time variations
-    (e.g. the directional-light direction) resolve to the same value on each rebuild.
-    Rebuild 0 keeps the configured seed (``seed + 0``) so single-rebuild runs are unchanged.
-    """
+    """Offset the environment-builder seed for a rebuild so each fresh construction differs."""
     cfg = deepcopy(cfg)
     cfg.environment_builder.seed += rebuild_index
     return cfg
