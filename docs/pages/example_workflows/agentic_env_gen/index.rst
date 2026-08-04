@@ -13,9 +13,8 @@ In this section, we will walk through the following example environment generati
 
 - Table-top Pick and Place task
   - :doc:`tabletop_pnp_homogenous_object`
-  - :doc:`tabletop_pnp_heterogeneous_object`
-  - :doc:`tabletop_pnp_composite_task`
-  - :doc:`tabletop_pnp_reachability_constraints`
+  - :doc:`tabletop_pnp_heterogeneous_object with reachability constraints`
+  - :doc:`tabletop_pnp_composite_task with SimReady assets`
 - Kitchen Pick and Place task
 - Kitchen Open/Close Door task
 
