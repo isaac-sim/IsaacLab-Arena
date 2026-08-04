@@ -94,8 +94,6 @@ terminal, run two episodes and record the viewport:
       --num_episodes 2 \
       --num_envs 1 \
       --enable_cameras \
-      --record_viewport_video \
-      --output_base_dir output/droid_kitchen_open_door_pi \
       --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml
 
 .. figure:: ../../../images/droid_kitchen_open_door_pi.gif

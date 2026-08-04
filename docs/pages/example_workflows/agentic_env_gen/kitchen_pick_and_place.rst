@@ -127,8 +127,6 @@ terminal, run two episodes and record the viewport:
       --num_episodes 2 \
       --num_envs 1 \
       --enable_cameras \
-      --record_viewport_video \
-      --output_base_dir output/droid_kitchen_pnp_pi \
       --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
 .. figure:: ../../../images/droid_kitchen_pnp_pi.gif
