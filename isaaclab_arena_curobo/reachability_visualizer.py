@@ -44,8 +44,8 @@ class ReachabilityRerunLayer:
     def log_layout(
         self,
         layout_index_across_batch: int,
-        base_pos: tuple[float, float, float],
-        base_quat_xyzw: tuple[float, float, float, float],
+        robot_base_pos_w: tuple[float, float, float],
+        robot_base_quat_w_xyzw: tuple[float, float, float, float],
         target_names: list[str],
         grasp_poses_base_frame: torch.Tensor,
         feasible: torch.Tensor,
@@ -56,8 +56,8 @@ class ReachabilityRerunLayer:
 
         Args:
             layout_index_across_batch: Timeline index of the layout, as assigned by the placement view.
-            base_pos: Robot base position in the world frame.
-            base_quat_xyzw: Robot base orientation in the world frame.
+            robot_base_pos_w: Robot base frame position in the world frame.
+            robot_base_quat_w_xyzw: Robot base frame orientation in the world frame.
             target_names: Names of the objects a grasp was solved for, aligned with the tensors below.
             grasp_poses_base_frame: ``(b, 4, 4)`` grasp transforms in the robot base frame.
             feasible: ``(b,)`` per-grasp IK verdict.
@@ -69,7 +69,10 @@ class ReachabilityRerunLayer:
         self._visualizer.set_time(layout_index_across_batch)
         # Grasps are solved in the robot base frame, so they are logged as children of the base
         # transform and Rerun composes them back into the world frame.
-        rr.log(BASE_ENTITY, rr.Transform3D(translation=base_pos, quaternion=rr.Quaternion(xyzw=base_quat_xyzw)))
+        rr.log(
+            BASE_ENTITY,
+            rr.Transform3D(translation=robot_base_pos_w, quaternion=rr.Quaternion(xyzw=robot_base_quat_w_xyzw)),
+        )
         rr.log(BASE_ENTITY, rr.TransformAxes3D(BASE_AXIS_LENGTH))
 
         grasps = grasp_poses_base_frame.detach().cpu()

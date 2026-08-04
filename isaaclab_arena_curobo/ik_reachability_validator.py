@@ -74,10 +74,9 @@ class ReachabilityValidator(PlacementValidator):
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
         )
-        # TODO(xinjieyao, 2026-07-22): Switch to solved pose of the robot base
-        base_pose = config.embodiment.get_initial_pose()
-        self._base_pos = base_pose.position_xyz
-        self._base_quat_xyzw = base_pose.rotation_xyzw
+        robot_base_pose_w = config.embodiment.get_initial_pose()
+        self._robot_base_pos_w = robot_base_pose_w.position_xyz
+        self._robot_base_quat_w_xyzw = robot_base_pose_w.rotation_xyzw
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
         self._rerun_layer = self._make_rerun_layer()
@@ -142,7 +141,7 @@ class ReachabilityValidator(PlacementValidator):
             get_aabb_collision_cuboid_for_object(obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw)
             for obj in objects
         ]
-        self._solver.update_world(cuboids, self._base_pos, self._base_quat_xyzw)
+        self._solver.update_world(cuboids, self._robot_base_pos_w, self._robot_base_quat_w_xyzw)
 
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
@@ -161,8 +160,8 @@ class ReachabilityValidator(PlacementValidator):
             top_down_grasp_pose_from_world_poses(
                 world_poses[obj].position_xyz,
                 world_poses[obj].rotation_xyzw,
-                self._base_pos,
-                self._base_quat_xyzw,
+                self._robot_base_pos_w,
+                self._robot_base_quat_w_xyzw,
                 self._grasp_z_offset,
                 device=self._solver.device,
             )
@@ -178,8 +177,8 @@ class ReachabilityValidator(PlacementValidator):
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
             self._rerun_layer.log_layout(
                 layout_index_across_batch=layout_index_across_batch,
-                base_pos=self._base_pos,
-                base_quat_xyzw=self._base_quat_xyzw,
+                robot_base_pos_w=self._robot_base_pos_w,
+                robot_base_quat_w_xyzw=self._robot_base_quat_w_xyzw,
                 target_names=[obj.name for obj in targets],
                 grasp_poses_base_frame=grasp_poses,
                 feasible=feasible,
