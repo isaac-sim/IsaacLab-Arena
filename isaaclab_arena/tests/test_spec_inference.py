@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -105,3 +106,14 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert data["embodiment"]["registry_name"] == "not_a_real_asset"
     assert traces
     assert any("registry_name" in line for line in traces)
+
+
+def test_infer_never_mentions_the_asset_search(spec_inference):
+    # Searching for assets is a separate pass that extends the catalog before this one runs, so
+    # every object here is spawnable and spec inference has nothing to say about where it came from.
+    inference, client = spec_inference
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
+    _infer(inference, client)
+    messages = client.chat.completions.create.call_args.kwargs["messages"]
+    assert SIMREADY_USD_OBJECT_REGISTRY_NAME not in messages[0]["content"]
+    assert "simready" not in messages[0]["content"].lower()

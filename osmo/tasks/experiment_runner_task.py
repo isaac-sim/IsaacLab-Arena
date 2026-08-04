@@ -36,6 +36,12 @@ class ExperimentRunnerTaskCfg(TaskCfg):
     image: str = DEFAULT_EXPERIMENT_RUNNER_IMAGE
     """Container image that runs the Arena Experiment."""
 
+    record_camera_video: bool = True
+    """Record one mp4 per (env, camera, episode) from each Run's camera observations."""
+
+    record_viewport_video: bool = False
+    """Record a viewport video for each Run."""
+
 
 class ExperimentRunnerTask(BaseTask):
     """Lead OSMO task that runs every Run in one effective Arena Experiment."""
@@ -74,7 +80,7 @@ class ExperimentRunnerTask(BaseTask):
 
     def _get_run_script(self) -> str:
         """Build the shell entry point for the Experiment Runner task."""
-        experiment_runner_command = shlex.join([
+        experiment_runner_command_arguments = [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
@@ -84,7 +90,12 @@ class ExperimentRunnerTask(BaseTask):
             "--viz",
             "none",
             "--enable_cameras",
-        ])
+        ]
+        if self.task_cfg.record_camera_video:
+            experiment_runner_command_arguments.append("--record_camera_video")
+        if self.task_cfg.record_viewport_video:
+            experiment_runner_command_arguments.append("--record_viewport_video")
+        experiment_runner_command = shlex.join(experiment_runner_command_arguments)
         experiment_runner_result_path = shlex.quote(f"{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}")
         write_experiment_runner_result_command = (
             'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '

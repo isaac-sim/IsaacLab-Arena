@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 from osmo.tasks.base_task import BaseTask
+from osmo.tasks.cosmos_policy_runner_task import CosmosPolicyRunnerTask
+from osmo.tasks.cosmos_server_task import CosmosServerTask
 from osmo.tasks.gr00t_policy_runner_task import Gr00tPolicyRunnerTask, Gr00tPolicyRunnerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTask
 from osmo.tasks.pi0_remote_policy_runner_task import Pi0RemotePolicyRunnerTask
@@ -53,4 +55,12 @@ class Pi0PlusPolicyRunnerWorkflow(ServerPlusPolicyRunnerWorkflow):
 
     task_cls_list = [Pi0RemotePolicyRunnerTask, Pi0ServerTask]
     task_names = ["policy_runner", "policy_server"]
+    task_cfg_type = PolicyRunnerTaskCfg
+
+
+class CosmosPolicyRunnerWorkflow(ServerPlusPolicyRunnerWorkflow):
+    """Two-task workflow: a Cosmos server plus the lead policy-runner eval task."""
+
+    task_cls_list = [CosmosPolicyRunnerTask, CosmosServerTask]
+    task_names = ["policy_runner", "cosmos_server"]
     task_cfg_type = PolicyRunnerTaskCfg

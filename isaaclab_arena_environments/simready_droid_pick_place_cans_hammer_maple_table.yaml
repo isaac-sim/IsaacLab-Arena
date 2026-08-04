@@ -1,0 +1,79 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_pick_place_cans_hammer_maple_table
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: pepsi_can
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
+- id: tuna_can
+  registry_name: tuna_can_ycb_robolab
+  params: {}
+- id: mini_plastic_basket
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Baskets/Plastic_Basket_A01/sm_misc_basket_plastic_a01_01.usd
+- id: bean_can
+  registry_name: green_beans_can_hope_robolab
+  params: {}
+- id: hammer
+  registry_name: hammer_handal_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: pepsi_can
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: tuna_can
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: mini_plastic_basket
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: bean_can
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: hammer
+  reference: maple_table
+  params: {}
+- kind: next_to
+  subject: bean_can
+  reference: mini_plastic_basket
+  params: {}
+- kind: next_to
+  subject: hammer
+  reference: pepsi_can
+  params: {}
+task:
+  composition: parallel
+  description: Pick up the pepsi can and tuna can from the maple table and place them
+    into the mini plastic basket.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pepsi_can
+      destination_location: mini_plastic_basket
+      background_scene: maple_table
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: tuna_can
+      destination_location: mini_plastic_basket
+      background_scene: maple_table

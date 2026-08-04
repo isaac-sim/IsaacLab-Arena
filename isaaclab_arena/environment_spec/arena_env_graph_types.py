@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -73,6 +74,16 @@ class AssetSpec(BaseModel):
     def _validate_registry_name(cls, value: str) -> str:
         return _assert_registered_asset_name(value)
 
+    @field_validator("params")
+    @classmethod
+    def _drop_catalogue_tags(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # The asset catalogue prints 'tags=[...]', and a generated spec often copies them into params.
+        # Asset classes pass their own tags to Asset.__init__, so a copy here is a duplicate keyword argument.
+        if "tags" not in value:
+            return value
+        print("INFO: ignoring 'tags' in asset params; the asset class supplies its own tags.")
+        return {key: item for key, item in value.items() if key != "tags"}
+
     def resolve_usd_path(self) -> str:
         """Return the USD path or URL for this registered asset instance."""
         asset_cls = AssetRegistry().get_asset_by_name(self.registry_name)
@@ -110,9 +121,16 @@ class ObjectSetSpec(BaseModel):
         description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
     )
 
+    # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
     @field_validator("members")
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
+        for registry_name in value:
+            # ObjectSet members are built with no arguments, but Simready assets need usd_path. Only an object's params can carry.
+            assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
+                f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
+                " carry the usd_path it needs. Use it as an object instead."
+            )
         return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
 
     @field_validator("params")

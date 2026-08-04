@@ -59,10 +59,7 @@ class CubeGoalPoseEnvironment(ArenaEnvironmentFactory[CubeGoalPoseEnvironmentCfg
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
-        # order: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7, panda_finger_joint1, panda_finger_joint2]
-        embodiment.set_initial_joint_pose(
-            initial_joint_pose=[0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400]
-        )
+        embodiment.set_initial_joint_pose([0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400])
 
         if cfg.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()

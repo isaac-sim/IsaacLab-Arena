@@ -10,6 +10,7 @@ embodiment:
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen

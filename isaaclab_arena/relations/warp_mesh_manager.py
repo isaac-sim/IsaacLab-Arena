@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import trimesh
 from collections import defaultdict
+from collections.abc import Collection
 from heapq import heappop, heappush
 from typing import TYPE_CHECKING
 
@@ -123,7 +124,7 @@ class WarpMeshAndSphereCache:
         self._device = device
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
-        self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
+        self._trimesh_cache: dict[tuple, trimesh.Trimesh | ValueError | None] = {}
         self._sentinel_warned: bool = False
         self._raw_open_mesh_warned: set[tuple] = set()
 
@@ -143,29 +144,57 @@ class WarpMeshAndSphereCache:
                 "(no mesh face found). Collision detection may be incomplete for these points."
             )
 
-    def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
-        """Return the cached collision mesh, extracting from USD on first access."""
+    def get_collision_mesh(
+        self,
+        obj: CollisionObject,
+        excluded_prim_paths: Collection[str] = (),
+    ) -> trimesh.Trimesh | None:
+        """Return the collision mesh, or ``None`` when USD extraction fails."""
         from isaaclab_arena.assets.object import Object
 
         if not isinstance(obj, Object) or obj.usd_path is None:
+            assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
             return obj.get_collision_mesh()
-        usd_path = obj.usd_path
-        scale = tuple(obj.scale)
-        key = (usd_path, scale)
+
+        try:
+            return self.get_collision_mesh_or_raise(obj, excluded_prim_paths)
+        except (OSError, ValueError):
+            return None
+
+    def get_collision_mesh_or_raise(
+        self,
+        obj: CollisionObject,
+        excluded_prim_paths: Collection[str] = (),
+    ) -> trimesh.Trimesh | None:
+        """Return the collision mesh while preserving USD extraction errors."""
+        from isaaclab_arena.assets.object import Object
+
+        if not isinstance(obj, Object) or obj.usd_path is None:
+            assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
+            return obj.get_collision_mesh()
+
+        exclusions = tuple(sorted(excluded_prim_paths))
+        key = (obj.usd_path, tuple(obj.scale), exclusions)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
-                self._trimesh_cache[key] = extract_trimesh_from_usd(usd_path, scale)
+                self._trimesh_cache[key] = extract_trimesh_from_usd(
+                    obj.usd_path,
+                    obj.scale,
+                    excluded_prim_paths=exclusions,
+                )
             except ValueError as e:
-                # Permanent: bad USD content, cache None to avoid re-parsing.
                 print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
-                self._trimesh_cache[key] = None
+                self._trimesh_cache[key] = e
             except OSError as e:
                 # Transient: file I/O failure, don't cache so next call retries.
                 print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
-                return None
-        return self._trimesh_cache[key]
+                raise
+        result = self._trimesh_cache[key]
+        if isinstance(result, ValueError):
+            raise result
+        return result
 
     @property
     def device(self) -> str:

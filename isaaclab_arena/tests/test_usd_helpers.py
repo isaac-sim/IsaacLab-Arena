@@ -115,6 +115,33 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
     return True
 
 
+def _test_mesh_exclusion_errors(simulation_app, asset_dir: pathlib.Path) -> bool:
+    """Distinguish fully excluded meshes from malformed included meshes."""
+    import pytest
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError, extract_trimesh_from_usd
+
+    usd_path = asset_dir / "mesh_exclusions.usda"
+    stage = Usd.Stage.CreateNew(usd_path.as_posix())
+    root = UsdGeom.Xform.Define(stage, "/Root")
+    stage.SetDefaultPrim(root.GetPrim())
+    excluded_mesh = UsdGeom.Mesh.Define(stage, "/Root/Excluded")
+    excluded_mesh.GetPointsAttr().Set([Gf.Vec3f(0, 0, 0), Gf.Vec3f(1, 0, 0), Gf.Vec3f(0, 1, 0)])
+    excluded_mesh.GetFaceVertexCountsAttr().Set([3])
+    excluded_mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2])
+    stage.GetRootLayer().Save()
+
+    assert extract_trimesh_from_usd(usd_path.as_posix(), excluded_prim_paths=["/Root/Excluded"]) is None
+
+    UsdGeom.Mesh.Define(stage, "/Root/Malformed")
+    stage.GetRootLayer().Save()
+    with pytest.raises(NoCollisionMeshError) as error:
+        extract_trimesh_from_usd(usd_path.as_posix(), excluded_prim_paths=["/Root/Excluded"])
+    assert type(error.value) is NoCollisionMeshError
+    return True
+
+
 def test_compute_local_bounding_box_from_usd(tmp_path: pathlib.Path):
     result = run_function_with_persistent_simulation_app(
         _test_compute_local_bounding_box_from_usd,
@@ -131,3 +158,11 @@ def test_compute_local_bounding_box_from_usd_prim_path(tmp_path: pathlib.Path):
         asset_dir=tmp_path,
     )
     assert result, "Test failed"
+
+
+def test_mesh_exclusion_errors(tmp_path: pathlib.Path):
+    assert run_function_with_persistent_simulation_app(
+        _test_mesh_exclusion_errors,
+        headless=HEADLESS,
+        asset_dir=tmp_path,
+    )

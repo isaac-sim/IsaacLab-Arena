@@ -14,7 +14,6 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
-from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -157,7 +156,10 @@ def _graph_environment_cfg_from_legacy_args(
 ) -> LegacyGraphEnvironmentCfg:
     """Create the temporary graph-YAML compatibility config from legacy arguments."""
     return LegacyGraphEnvironmentCfg(
-        arena_env_args=legacy_environment_args_to_cli_args(arena_env_args),
+        env_graph_spec_yaml_path=str(arena_env_args["environment"]),
+        per_run_overrides={
+            field_name: value for field_name, value in arena_env_args.items() if field_name != "environment"
+        },
     )
 
 

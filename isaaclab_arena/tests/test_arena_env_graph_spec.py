@@ -5,6 +5,8 @@
 
 """Unit tests for :class:`~isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec`."""
 
+import subprocess
+import yaml
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,7 @@ from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, Task
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimitsBox, PositionLimitsCylindrical
+from isaaclab_arena.tests.utils.constants import TestConstants
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
@@ -399,3 +402,62 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     assert "object_sets" not in dumped
     assert "cli_override_specs" not in dumped
     assert spec.cli_override_specs is None
+
+
+_REPLAY_SCRIPT = """
+import sys
+
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+spec = ArenaEnvGraphSpec.from_yaml(sys.argv[1])
+print("USD_PATH=" + spec.objects[0].resolve_usd_path())
+"""
+
+
+def _load_spec_in_a_fresh_process(path: Path) -> subprocess.CompletedProcess:
+    """Load a written spec in a new process, where nothing has been registered by a search."""
+    return subprocess.run(
+        [TestConstants.python_path, "-c", _REPLAY_SCRIPT, str(path)],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+
+
+def test_a_searched_simready_object_loads_in_a_fresh_process(tmp_path):
+    usd_path = "s3://bucket/replay_kettle.usd"
+    data = _minimal_env_graph_data()
+    # How the agent writes a searched asset: the generic SimReady entry, which every process has,
+    # carrying the USD path the search found. The asset is never opened to resolve it, so a path
+    # that is only reachable from the runner still loads here.
+    data["objects"] = [{"id": "cube", "registry_name": "simready_usd_object", "params": {"usd_path": usd_path}}]
+    path = tmp_path / "generated_env_graph.yaml"
+    ArenaEnvGraphSpec.from_dict(data).write_yaml(path)
+
+    result = _load_spec_in_a_fresh_process(path)
+
+    assert result.returncode == 0, f"loading the generated spec failed:\n{result.stderr}"
+    assert f"USD_PATH={usd_path}" in result.stdout
+
+
+def test_the_generic_simready_asset_is_rejected_as_an_object_set_member():
+    data = _minimal_env_graph_data()
+    data["object_sets"] = [{"id": "kettles", "members": ["simready_usd_object"]}]
+
+    # It is rigid, so it passes the member type check; what it cannot do is arrive with a usd_path.
+    with pytest.raises(ValidationError, match="cannot be an object set member"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_a_spec_naming_a_searched_simready_asset_by_its_search_name_is_rejected(tmp_path):
+    data = _minimal_env_graph_data()
+    data["objects"] = [{"id": "cube", "registry_name": "simready_replay_teapot", "params": {}}]
+    path = tmp_path / "unregistered_env_graph.yaml"
+    # A search name only exists in the process that searched, which is what every spec generated
+    # before the agent started inlining the USD path looks like.
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    result = _load_spec_in_a_fresh_process(path)
+
+    assert result.returncode != 0
+    assert "Unknown asset registry_name 'simready_replay_teapot'" in result.stderr

@@ -28,6 +28,8 @@ class DreamZeroServerTaskCfg(TaskCfg):
 class DreamZeroServerTask(BaseTask):
     """OSMO task that serves a DreamZero policy for a policy-runner task to connect to."""
 
+    task_cfg_type = DreamZeroServerTaskCfg
+
     def __init__(
         self,
         task_cfg: DreamZeroServerTaskCfg | None = None,
@@ -35,7 +37,7 @@ class DreamZeroServerTask(BaseTask):
         *,
         task_name: str,
     ) -> None:
-        super().__init__(task_name=task_name, task_cfg=task_cfg or DreamZeroServerTaskCfg(), lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg or self.task_cfg_type(), lead=lead)
 
     def _get_image(self) -> str:
         return self.task_cfg.image

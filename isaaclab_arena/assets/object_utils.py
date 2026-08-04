@@ -9,10 +9,15 @@ from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 from isaaclab_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
 
 
-def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = None) -> ObjectType:
+def detect_object_type(
+    usd_path: str | None = None,
+    stage: Usd.Stage | None = None,
+    variants: dict[str, str] | None = None,
+) -> ObjectType:
     """Detect the object type of the asset
 
     Goes through the USD tree and detects the object type. The detection is based
@@ -24,6 +29,8 @@ def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = No
     Args:
         usd_path: The path to the USD file to inspect. Either this or stage must be provided.
         stage: The stage to inspect. Either this or usd_path must be provided.
+        variants: USD variants to select before looking at the asset. SimReady props need
+            ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         The object type of the asset.
@@ -33,6 +40,8 @@ def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = No
     if usd_path is not None:
         # Open a stage to inspect the USD.
         stage = Usd.Stage.Open(usd_path)
+    if variants:
+        apply_usd_variant_selections(stage, variants)
     # We do a Breadth First Search (BFS) through the prims, until we find either
     # a rigid body or an articulation root. At that point, we continue searching
     # the rest of the prims at that depth, to ensure that there's nothing else.

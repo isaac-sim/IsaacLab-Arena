@@ -1,0 +1,68 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Runs two robolab tasks with both the OpenPI (pi0) and Cosmos policies (4 runs). On OSMO the
+# inference server for each Run is derived from its policy type, so this launches pi0 servers for
+# the *_pi0 Runs and Cosmos servers for the *_cosmos Runs. Both pi0 and Cosmos Runs use 5 parallel
+# environments.
+# All runs use the home_office_robolab HDR environment map as the dome-light background.
+runs:
+
+  banana_in_bowl_pi0:
+    environment: &banana_in_bowl_env
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+    # This YAML anchor keeps the shared OpenPI policy configuration in one place.
+    policy: &openpi_policy
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+    # This YAML anchor keeps the shared pi0 environment-builder settings in one place.
+    environment_builder: &pi0_builder
+      num_envs: 25
+    variations: &hdr_variation
+      light:
+        hdr_image:
+          enabled: true
+          hdr_names: ["home_office_robolab"]
+    rollout_limit:
+      num_episodes: 100
+
+  banana_in_bowl_cosmos:
+    environment: *banana_in_bowl_env
+    # This YAML anchor keeps the shared Cosmos policy configuration in one place.
+    policy: &cosmos_policy
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+    # This YAML anchor keeps the shared Cosmos environment-builder settings in one place.
+    environment_builder: &cosmos_builder
+      num_envs: 25
+    variations: *hdr_variation
+    rollout_limit:
+      num_episodes: 100
+
+  banana_on_plate_pi0:
+    environment: &banana_on_plate_env
+      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+      enable_cameras: true
+    policy: *openpi_policy
+    environment_builder: *pi0_builder
+    variations: *hdr_variation
+    rollout_limit:
+      num_episodes: 100
+
+  banana_on_plate_cosmos:
+    environment: *banana_on_plate_env
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    variations: *hdr_variation
+    rollout_limit:
+      num_episodes: 100

@@ -80,6 +80,117 @@ def _env_bboxes_for(
     return {obj: obj.get_bounding_box() for obj in positions}
 
 
+def _compute_no_overlap_loss_mesh_serial_for_test(
+    state,
+    mesh_cache,
+    mesh_manager,
+    orientations,
+    clearance_m: float,
+    slope: float,
+) -> torch.Tensor:
+    """Reference the pre-batching per-candidate mesh loss for equivalence testing."""
+    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
+    from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
+    from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch
+
+    total_loss = torch.zeros(state.batch_size, device=state.device, dtype=torch.float32)
+    num_pairs = mesh_cache.num_pairs
+
+    for batch_idx in range(state.batch_size):
+        subject_positions = torch.stack(
+            [state.get_position(mesh_cache.pair_subject_objs[pair_idx])[batch_idx] for pair_idx in range(num_pairs)]
+        )
+        obstacle_positions = torch.stack([
+            (
+                mesh_cache.pair_fixed_obstacle_pos[pair_idx]
+                if mesh_cache.pair_obstacle_is_fixed[pair_idx]
+                else state.get_position(mesh_cache.pair_obstacle_objs[pair_idx])[batch_idx].detach()
+            )
+            for pair_idx in range(num_pairs)
+        ])
+
+        fixed_obstacle_yaws = mesh_cache.pair_fixed_obstacle_yaw
+        has_any_yaw = orientations is not None or any(yaw != 0.0 for yaw in fixed_obstacle_yaws)
+        if has_any_yaw:
+            candidate_orientations = orientations[batch_idx] if orientations is not None else {}
+            subject_yaws = torch.tensor(
+                [
+                    (
+                        candidate_orientations.get(mesh_cache.pair_subject_objs[pair_idx], 0.0)
+                        if mesh_cache.pair_subject_applies_yaw[pair_idx]
+                        else 0.0
+                    )
+                    for pair_idx in range(num_pairs)
+                ],
+                dtype=torch.float32,
+                device=state.device,
+            )
+            obstacle_yaws = torch.tensor(
+                [
+                    candidate_orientations.get(mesh_cache.pair_obstacle_objs[pair_idx], fixed_obstacle_yaws[pair_idx])
+                    for pair_idx in range(num_pairs)
+                ],
+                dtype=torch.float32,
+                device=state.device,
+            )
+
+        margins = mesh_cache.pair_max_radius + clearance_m
+        subject_bbox_min = mesh_cache.pair_subject_bbox_min[:, batch_idx, :]
+        subject_bbox_max = mesh_cache.pair_subject_bbox_max[:, batch_idx, :]
+        obstacle_bbox_min = mesh_cache.pair_obstacle_bbox_min[:, batch_idx, :]
+        obstacle_bbox_max = mesh_cache.pair_obstacle_bbox_max[:, batch_idx, :]
+        if has_any_yaw:
+            subject_bbox_yaws = torch.where(
+                mesh_cache.pair_subject_bbox_includes_yaw,
+                torch.zeros(num_pairs, device=state.device),
+                subject_yaws,
+            )
+            obstacle_bbox_yaws = torch.where(
+                mesh_cache.pair_obstacle_bbox_includes_yaw,
+                torch.zeros(num_pairs, device=state.device),
+                obstacle_yaws,
+            )
+            subject_bbox_min, subject_bbox_max = _rotate_bbox_extents(
+                subject_bbox_min, subject_bbox_max, subject_bbox_yaws
+            )
+            obstacle_bbox_min, obstacle_bbox_max = _rotate_bbox_extents(
+                obstacle_bbox_min, obstacle_bbox_max, obstacle_bbox_yaws
+            )
+
+        subject_min = subject_positions + subject_bbox_min
+        subject_max = subject_positions + subject_bbox_max
+        obstacle_min = obstacle_positions + obstacle_bbox_min
+        obstacle_max = obstacle_positions + obstacle_bbox_max
+        separated = ((subject_min - margins.unsqueeze(1)) > obstacle_max).any(dim=1) | (
+            (obstacle_min - margins.unsqueeze(1)) > subject_max
+        ).any(dim=1)
+        active_pair = ~separated
+        if not active_pair.any():
+            continue
+
+        offsets = subject_positions - obstacle_positions
+        active_idx = active_pair[mesh_cache.sphere_pair_id].nonzero(as_tuple=True)[0]
+        active_pair_ids = mesh_cache.sphere_pair_id[active_idx]
+        active_centers = mesh_cache.all_centers_local[active_idx]
+        if has_any_yaw:
+            active_centers = rotate_points_by_yaw_batch(active_centers, (subject_yaws - obstacle_yaws)[active_pair_ids])
+            active_offsets = rotate_points_by_yaw_batch(offsets[active_pair_ids], -obstacle_yaws[active_pair_ids])
+        else:
+            active_offsets = offsets[active_pair_ids]
+        active_centers = active_centers + active_offsets
+
+        active_mesh_indices = wp.from_torch(mesh_cache.sphere_mesh_idx[active_idx].contiguous(), dtype=wp.int32)
+        sdf_values = multi_mesh_sdf(active_centers, mesh_cache.mesh_id_array, active_mesh_indices)
+        mesh_manager.warn_sdf_sentinel(sdf_values)
+        penetration = torch.relu(mesh_cache.all_radii[active_idx] + clearance_m - clamp_sdf_sentinel(sdf_values))
+        pair_sum = torch.zeros(num_pairs, device=state.device, dtype=penetration.dtype)
+        pair_sum.index_add_(0, active_pair_ids, penetration)
+        pair_mean = pair_sum / mesh_cache.pair_sphere_count
+        total_loss[batch_idx] = slope * pair_mean[active_pair].sum()
+
+    return total_loss
+
+
 def test_sphere_decomposition_covers_surface():
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
     spheres = greedy_sphere_decomposition(mesh, num_spheres=20, n_surface=500)
@@ -1134,3 +1245,76 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
         for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
     )
     assert solver._last_no_overlap_pair_count == 0
+
+
+@requires_warp
+def test_batched_mesh_loss_matches_test_only_serial_oracle():
+    """Batched mesh loss matches the former serial calculation for losses and position gradients."""
+    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+
+    table = _make_table()
+    a = _make_box_obj("box_a", sx=0.16, sy=0.06, sz=0.08)
+    b = _make_box_obj("box_b", sx=0.12, sy=0.04, sz=0.08)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+    background = FixedCollisionObject(trimesh.creation.box(extents=(0.2, 0.2, 0.2)))
+
+    initial = [
+        {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.04), b: (0.03, 0.01, 0.04)},
+        {table: (0.0, 0.0, 0.0), a: (-0.45, 0.0, 0.04), b: (0.45, 0.0, 0.04)},
+        {table: (0.0, 0.0, 0.0), a: (0.02, -0.02, 0.04), b: (0.28, 0.0, 0.04)},
+        {table: (0.0, 0.0, 0.0), a: (-0.04, 0.02, 0.04), b: (0.04, -0.01, 0.04)},
+    ]
+    orientations = [
+        {a: 0.0, b: 0.0},
+        {a: math.pi / 2, b: -math.pi / 4},
+        {a: math.pi / 6, b: math.pi / 3},
+        {a: -math.pi / 2, b: math.pi},
+    ]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial, orientations=orientations, collision_objects=[background])
+    assert solver._mesh_cache is not None
+    assert solver._mesh_manager is not None
+    assert any(solver._mesh_cache.pair_obstacle_is_fixed)
+
+    state = RelationSolverState(
+        [table, a, b],
+        initial,
+        device=solver._mesh_cache.all_centers_local.device,
+        collision_objects=[background],
+    )
+    assert state.optimizable_positions is not None
+    clearance = solver.params.clearance_m
+    slope = solver._no_collision_strategy.slope
+
+    batched_loss = compute_no_overlap_loss_mesh(
+        state,
+        solver._mesh_cache,
+        solver._mesh_manager,
+        orientations,
+        clearance,
+        slope,
+        False,
+    )
+    serial_loss = _compute_no_overlap_loss_mesh_serial_for_test(
+        state,
+        solver._mesh_cache,
+        solver._mesh_manager,
+        orientations,
+        clearance,
+        slope,
+    )
+
+    assert batched_loss[0] > 0.0
+    assert batched_loss[1] == 0.0
+    torch.testing.assert_close(batched_loss, serial_loss, rtol=1e-4, atol=1e-5)
+
+    batched_loss.sum().backward(retain_graph=True)
+    batched_grad = state.optimizable_positions.grad.detach().clone()
+    state.optimizable_positions.grad = None
+    serial_loss.sum().backward()
+    serial_grad = state.optimizable_positions.grad.detach().clone()
+    torch.testing.assert_close(batched_grad, serial_grad, rtol=1e-4, atol=1e-5)

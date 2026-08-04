@@ -21,6 +21,12 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadySearchConfig,
+    SimReadySourceKind,
+    simready_search_config_from_cli,
+)
+from isaaclab_arena.assets.simready_constants import DEFAULT_SIMREADY_SERVICE_URL
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
@@ -53,22 +59,45 @@ def get_catalogue_bundle() -> CatalogueBundle:
     )
 
 
+def _simready_config_from_session() -> SimReadySearchConfig:
+    """Read the SimReady search settings from Streamlit session state."""
+    return simready_search_config_from_cli(
+        source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
+        s3_url=st.session_state.get("simready_s3_url") or None,
+        service_url=st.session_state.get("simready_service_url") or None,
+        max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
+    )
+
+
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     """Lazy-init the LLM agent when ``NV_API_KEY`` is available."""
     if st.session_state.get("generation_agent_error"):
         return None
-    agent = st.session_state.get("generation_agent")
+    simready_enabled = bool(st.session_state.get("enable_simready_search", False))
+    simready_config = _simready_config_from_session()
+    agent_key = (
+        "generation_agent",
+        simready_enabled,
+        simready_config.source.value,
+        simready_config.s3_url,
+        simready_config.service_url,
+        simready_config.max_results_per_object,
+    )
+    agent = st.session_state.get(agent_key)
     if agent is not None:
         return agent
     try:
-        agent = EnvironmentGenerationAgent()
+        agent = EnvironmentGenerationAgent(
+            enable_simready_search=simready_enabled,
+            simready_config=simready_config,
+        )
     except AssertionError as exc:
         st.session_state["generation_agent_error"] = str(exc)
         return None
     except Exception as exc:
         st.session_state["generation_agent_error"] = f"{type(exc).__name__}: {exc}"
         return None
-    st.session_state["generation_agent"] = agent
+    st.session_state[agent_key] = agent
     st.session_state.pop("generation_agent_error", None)
     return agent
 
@@ -95,6 +124,20 @@ def _apply_generated_yaml(
     else:
         st.session_state.pop("_validation_text", None)
         st.session_state.pop("_validation_result", None)
+
+
+def _finish(severity: str, message: str) -> tuple[bool, str]:
+    """Record the banner severity for the generate button and return its ``(ok, message)`` pair.
+
+    The severity is set here, where the outcome is known, instead of being read back out of the
+    message text. Otherwise rewording a message could silently turn a failure green.
+
+    Args:
+        severity: Streamlit banner level, ``"success"`` or ``"warning"``.
+        message: Text shown in the banner.
+    """
+    st.session_state["_generation_severity"] = severity
+    return True, message
 
 
 def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
@@ -128,7 +171,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     try:
         yaml_text = yaml.safe_dump(
-            spec.to_dict() if spec is not None else data,
+            spec.to_dict() if spec is not None else (data or {}),
             sort_keys=False,
         )
     except Exception:
@@ -136,19 +179,34 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     if spec is None:
         traces = "\n".join(agent.traces) or "unknown validation error"
-        error = f"Agent returned an invalid spec:\n{traces}"
-        _apply_generated_yaml(yaml_text, validation_error=error)
-        return True, f"Invalid spec loaded into the YAML editor.\n{traces}"
+        headline = "Agent returned an invalid spec."
+        _apply_generated_yaml(yaml_text, validation_error=f"{headline}\n{traces}")
+        return _finish("warning", f"{headline}\nLoaded into the YAML editor.\n{traces}")
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
     out_dir = Path(st.session_state["out_dir"])
     path, error = try_save_env_graph_spec(spec, out_dir)
+    # The spec is valid either way: an object no asset was found for was never offered to spec
+    # inference, so it was built without it. Say so, or the substitution goes unnoticed.
+    missing_notice = ""
+    if agent.unavailable_objects:
+        missing_notice = (
+            f"\n\nNo asset was found for: {', '.join(agent.unavailable_objects)}. "
+            "The spec was built without them — rephrase the prompt with a more common object, "
+            "or register the asset in Arena."
+        )
     if error is not None:
-        return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}"
+        return _finish(
+            "warning",
+            f"Spec generated and loaded into the YAML editor, but save failed: {error}{missing_notice}",
+        )
 
     st.session_state["save_path"] = str(path)
-    return True, f"Spec generated, loaded into the YAML editor, and saved to {path}."
+    return _finish(
+        "warning" if missing_notice else "success",
+        f"Spec generated, loaded into the YAML editor, and saved to {path}.{missing_notice}",
+    )
 
 
 def render_generation_panel() -> None:
@@ -168,15 +226,48 @@ def render_generation_panel() -> None:
     if agent_error:
         st.info(f"LLM agent unavailable: {agent_error}", icon="ℹ️")
 
+    with st.expander("SimReady search", expanded=bool(st.session_state.get("enable_simready_search", False))):
+        st.session_state["enable_simready_search"] = st.checkbox(
+            "Enable SimReady search",
+            value=bool(st.session_state.get("enable_simready_search", False)),
+            help="Search Isaac Sim GA SimReady props for objects the Arena asset catalog does not cover.",
+        )
+        source_options = [kind.value for kind in SimReadySourceKind]
+        st.session_state["simready_source"] = st.selectbox(
+            "SimReady source",
+            options=source_options,
+            index=source_options.index(st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value)),
+        )
+        st.session_state["simready_max_results_per_object"] = st.number_input(
+            "Max results per object",
+            min_value=1,
+            max_value=10,
+            value=int(st.session_state.get("simready_max_results_per_object", 1)),
+        )
+        # Each source reads exactly one location, so only that one is offered. Showing both
+        # invites filling in a field the search then ignores.
+        source = st.session_state["simready_source"]
+        if source == SimReadySourceKind.S3.value:
+            st.session_state["simready_s3_url"] = st.text_input(
+                "S3 URL",
+                value=st.session_state.get("simready_s3_url", ""),
+                placeholder="Leave empty for the Isaac Sim 6.0 GA SimReady bucket",
+            )
+        elif source == SimReadySourceKind.SERVICE.value:
+            st.session_state["simready_service_url"] = st.text_input(
+                "Service URL",
+                value=st.session_state.get("simready_service_url", ""),
+                placeholder=DEFAULT_SIMREADY_SERVICE_URL,
+            )
+        else:
+            st.caption("Searches the Isaac Sim 6.0 GA SimReady library — no further configuration needed.")
+
     if st.button("Generate spec", type="primary", width="stretch"):
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:
-            lowered = message.lower()
-            if "invalid spec" in lowered or "save failed" in lowered:
-                st.session_state["_generation_feedback"] = ("warning", message)
-            else:
-                st.session_state["_generation_feedback"] = ("success", message)
+            severity = st.session_state.pop("_generation_severity", "success")
+            st.session_state["_generation_feedback"] = (severity, message)
             st.rerun()
         else:
             st.error(f"Generation failed\n\n```\n{message}\n```", icon="🛑")
