@@ -2,75 +2,22 @@ Agentic Environment Generation and Policy Evaluation
 ====================================================
 
 Agentic environment generation creates Arena environments from natural-language
-prompts, then reuses the generated environment graph specs for downstream policy
-evaluation. This workflow shows how agentically composed environments can be
-used by the policy runner, the Experiment Runner and its
-variation system, and policy-specific evaluation flows such as GR00T and PI.
-
-Behind the scenes, this workflow uses the ``ArenaEnvGraphSpec`` schema for scene
-layout, tasks, and spatial relations.
-
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
-
-:docker_run_default:
+prompts. It resolves the prompt into ``ArenaEnvGraphSpec`` by the agent, which specifies the scene layout, tasks, and spatial relations.
+This spec is then used to compose the scene and build the environment.
+The environment can be used for policy evaluation.
 
 .. todo:: add concept overview page
 
 
-Prompt to Environment Graph Spec
---------------------------------
+In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.
 
-Use the agentic generation runner to resolve a prompt into environment graph
-specs:
-
-.. code-block:: bash
-
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode resolve \
-      --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
-
-The runner writes ``<env_name>.yaml`` under ``isaaclab_arena_environments/agent_generated/`` by
-default. Pass it to policy and evaluation commands with ``--env_graph_spec_yaml``.
-
-Prompt to Simulation Environment
---------------------------------
-
-Use the agentic generation runner to build a simulation environment from a
-prompt-specified environment:
-
-.. code-block:: bash
-
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode full \
-      --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
-
-Interactive GUI Runner
-----------------------
-
-As an alternative to the CLI runner, use the GUI runner to interactively
-generate, edit, and visualize the prompt-specified environment in a web browser:
-
-.. code-block:: bash
-
-   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
-
-.. note::
-
-   Agent-generated specs may have missing or incorrect fields. We recommend
-   using the interactive GUI to manually fix and validate each spec before using
-   it for full evaluation.
-
-   For example:
-
-   * ``isaaclab_arena_environments/robolab/scenes/mustard_raisin_box.yaml``
-     manually adds a ``rotate_around_solution`` relation to set the raisin box
-     in a standup position.
-   * ``isaaclab_arena_environments/robolab/scenes/two_bin.yaml`` manually edits
-     the ``next_to`` relation ``side`` param to set the correct left/right
-     positioning in robot coordinates.
-
-See :doc:`gui_runner` for the full UI walkthrough. For end-to-end kitchen
-examples, see :doc:`kitchen_open_door` and :doc:`kitchen_pick_and_place`.
+- Table-top Pick and Place task
+  - :doc:`tabletop_pnp_homogenous_object`
+  - :doc:`tabletop_pnp_heterogeneous_object`
+  - :doc:`tabletop_pnp_composite_task`
+  - :doc:`tabletop_pnp_reachability_constraints`
+- Kitchen Pick and Place task
+- Kitchen Open/Close Door task
 
 Available Generated Specs
 -------------------------
@@ -79,105 +26,3 @@ The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment
 RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
-
-Run a Generated Environment
----------------------------
-
-Generated environments are consumed through ``--env_graph_spec_yaml``:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-      --viz kit \
-      --policy_type zero_action \
-      --enable_cameras \
-      --num_steps 100 \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
-
-The same YAML can also be built directly by the generation runner:
-
-.. code-block:: bash
-
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode build \
-      --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml \
-      --headless
-
-
-Policy Runner with Variations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-An Arena environment represented by an environment graph spec YAML can be run
-with variations through the policy runner:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-      --viz kit \
-      --policy_type zero_action \
-      --enable_cameras \
-      isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml \
-      light.hdr_image.enabled=true \
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
-
-.. figure:: ../../../images/agentic_env_gen_policy.gif
-   :alt: Agentic environment generation with PI policy and HDR variation sensitivity analysis
-
-   Agentically generated environments can be evaluated with policy runners and
-   variation sweeps, such as changing the background HDR image to probe policy
-   sensitivity.
-
-Experiment Runner with Variations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Evaluation jobs can also point their environment source at an environment graph
-spec YAML with variations, instead of a registered example-environment name:
-
-.. code-block:: json
-
-   {
-       "name": "agentic_env_eval",
-       "arena_env_args": {
-           "environment": "isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml",
-           "enable_cameras": true
-       },
-       "num_steps": 100,
-       "num_rebuilds": 1,
-       "policy_type": "zero_action",
-       "policy_config_dict": {}
-   }
-
-Evaluation Policies Workflow Steps
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Follow the steps below to complete the workflow:
-
-- :doc:`eval_with_gr00t`
-- :doc:`eval_with_openpi`
-
-
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-
-   gui_runner
-   eval_with_gr00t
-   eval_with_openpi
-   kitchen_open_door
-   kitchen_pick_and_place
-
-Warnings
---------
-
-.. note::
-
-   Agentic environment generation is experimental and changing quickly. The
-   current prompt formats, generated spec structure, GUI behavior, and policy
-   evaluation integrations may change across releases.
-
-   We are actively working on:
-
-   * Support for more complex scene layouts and object placements.
-   * Support for more complex task specifications.
-   * Support in-sim validation for physics and reachability.
-   * ...
