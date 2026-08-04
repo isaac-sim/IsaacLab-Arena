@@ -125,6 +125,9 @@ role:
      - No
      - Required
 
+Relations, Modifiers, and Checks
+--------------------------------
+
 Relations, modifiers, and checks serve different purposes:
 
 - **Spatial relations** constrain positions or orientations, such as ``On``,

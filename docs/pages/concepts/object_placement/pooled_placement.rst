@@ -15,6 +15,15 @@ layouts are stored per environment for construction and reset. Arena processes
 candidates across environments together; users do not place each environment
 separately.
 
+.. figure:: ../../../images/pooled_placement_flow.png
+   :width: 100%
+   :alt: Placement relations are optimized in batches into a solution pool that
+      supplies layouts to parallel Isaac Lab environments.
+   :align: center
+
+   The optimizer generates more solutions than there are environments. During
+   evaluation, each environment draws a placement solution from the pool.
+
 Different Layouts and Objects
 -----------------------------
 
