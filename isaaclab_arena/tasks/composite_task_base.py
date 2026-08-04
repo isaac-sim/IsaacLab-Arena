@@ -134,7 +134,7 @@ class CompositeTaskBase(TaskBase):
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
         # Default task length is the summation of the lengths of the subtasks.
         if episode_length_s is None:
-            episode_length_s = sum(subtask.get_episode_length_s() for subtask in subtasks)
+            episode_length_s = self._sum_subtask_episode_lengths_s(subtasks)
         super().__init__(episode_length_s, task_description)
         self.subtasks = subtasks
 
@@ -146,6 +146,11 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
+
+    @staticmethod
+    def _sum_subtask_episode_lengths_s(subtasks: list[TaskBase]) -> float:
+        """Return the total episode length of the subtasks, in seconds."""
+        return sum(subtask.get_episode_length_s() for subtask in subtasks)
 
     def get_viewer_cfg(self) -> ViewerCfg:
         """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""

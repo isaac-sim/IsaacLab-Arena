@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Two subtasks with deliberately different episode lengths (20 s + 30 s), so a composite total of
-# 50 s can only come from summing them — not from doubling one or taking the max.
 env_name: two_subtask_episode_length
 embodiment:
   id: droid_abs_joint_pos

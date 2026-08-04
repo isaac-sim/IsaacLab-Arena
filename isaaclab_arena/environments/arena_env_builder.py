@@ -205,7 +205,7 @@ class ArenaEnvBuilder:
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
-    def _resolve_episode_length_s(self, task: TaskBase) -> float:
+    def _get_episode_length_s(self, task: TaskBase) -> float:
         """Return the builder cfg's episode length if set, otherwise the task's own."""
         if self.cfg.episode_length_s is not None:
             return self.cfg.episode_length_s
@@ -334,7 +334,7 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = self._resolve_episode_length_s(task)
+        episode_length_s = self._get_episode_length_s(task)
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
