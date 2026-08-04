@@ -261,15 +261,15 @@ def test_pile_is_already_settled_at_reset():
 
 
 def test_every_parallel_env_gets_its_own_settled_pile():
-    assert run_simulation_app_function(_test_every_parallel_env_gets_its_own_settled_pile)
+    assert run_function_with_persistent_simulation_app(_test_every_parallel_env_gets_its_own_settled_pile)
 
 
 def test_spilled_layouts_are_rejected_from_the_cache():
-    assert run_simulation_app_function(_test_spilled_layouts_are_rejected_from_the_cache)
+    assert run_function_with_persistent_simulation_app(_test_spilled_layouts_are_rejected_from_the_cache)
 
 
 def test_pile_stays_settled_after_the_pool_refills():
-    assert run_simulation_app_function(_test_pile_stays_settled_after_the_pool_refills)
+    assert run_function_with_persistent_simulation_app(_test_pile_stays_settled_after_the_pool_refills)
 
 
 def test_same_seed_reproduces_the_pile():
