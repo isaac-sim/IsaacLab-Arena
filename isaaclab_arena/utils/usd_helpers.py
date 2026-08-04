@@ -493,16 +493,6 @@ def _extract_trimesh_from_usd_at_joint_pos(
     scale: tuple[float, float, float],
 ) -> trimesh.Trimesh:
     """Return a cached mesh containing all of an articulation's link boxes."""
-    meshes = _extract_link_bbox_meshes_from_usd_at_joint_pos(usd_path, joint_pos_items, scale)
-    return trimesh.util.concatenate(meshes)
-
-
-def _extract_link_bbox_meshes_from_usd_at_joint_pos(
-    usd_path: str,
-    joint_pos_items: tuple[tuple[str, float], ...],
-    scale: tuple[float, float, float],
-) -> tuple[trimesh.Trimesh, ...]:
-    """Build posed box meshes grouped by rigid body."""
     assert all(
         component > 0 for component in scale
     ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
@@ -513,7 +503,7 @@ def _extract_link_bbox_meshes_from_usd_at_joint_pos(
     root_path = default_prim.GetPath().pathString
     resolved = resolve_joint_pos_patterns(articulation_joint_prims(default_prim), joint_pos)
     deltas = compute_posed_prim_world_deltas(stage, root_path, resolved)
-    return _posed_link_bbox_meshes(stage, default_prim, deltas, scale)
+    return trimesh.util.concatenate(_posed_link_bbox_meshes(stage, default_prim, deltas, scale))
 
 
 def _nearest_rigid_body_ancestor(prim: Usd.Prim, root_prim: Usd.Prim) -> Usd.Prim | None:
