@@ -18,11 +18,7 @@ import pytest
 from isaaclab_arena.relations import placement_visualizer
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_visualizer import (
-    PlacementRerunVisualizer,
-    get_active_placement_visualizer,
-    summarize_layout_verdict,
-)
+from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer, summarize_layout_verdict
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -68,9 +64,9 @@ def _placer_params(**overrides) -> ObjectPlacerParams:
 
 def test_placement_has_no_debug_view_by_default():
     """The debug view is opt-in, so a default placement never touches Rerun."""
-    ObjectPlacer(_placer_params())
+    placer = ObjectPlacer(_placer_params())
 
-    assert get_active_placement_visualizer() is None
+    assert placer._visualizer is None
 
 
 def test_placement_records_every_candidate_layout(tmp_path):
@@ -79,7 +75,7 @@ def test_placement_records_every_candidate_layout(tmp_path):
     placer = ObjectPlacer(_placer_params(debug_visualize_output_path=str(rrd_path)))
 
     placer.place(_desk_and_box(), num_envs=1)
-    visualizer = get_active_placement_visualizer()
+    visualizer = placer._visualizer
     visualizer.close()
 
     assert visualizer.num_logged_layouts == MAX_PLACEMENT_ATTEMPTS
@@ -93,7 +89,16 @@ def test_placement_shares_one_debug_view_across_placers(tmp_path):
     first = ObjectPlacer(params)
     second = ObjectPlacer(_placer_params(debug_visualize_output_path=str(tmp_path / "ignored.rrd")))
 
-    assert first._visualizer is second._visualizer is get_active_placement_visualizer()
+    assert first._visualizer is not None and first._visualizer is second._visualizer
+
+
+def test_a_placer_with_the_view_off_gives_its_checks_no_view(tmp_path):
+    """A placer that asked for no view leaves its checks viewless, even while another's view is live."""
+    ObjectPlacer(_placer_params(debug_visualize_output_path=str(tmp_path / "placement.rrd")))
+
+    placer = ObjectPlacer(_placer_params())
+
+    assert all(validator._visualizer is None for validator in placer._validators)
 
 
 class _FakeViewerProcess:

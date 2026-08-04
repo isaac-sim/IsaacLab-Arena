@@ -79,9 +79,8 @@ class ObjectPlacer:
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
-        # Created before the validators are built, since a check looks the view up when it is constructed.
         self._visualizer = get_or_create_placement_visualizer(self.params)
-        self._validators: list[PlacementValidator] = build_validators(self.params)
+        self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
 
     def place(
         self,

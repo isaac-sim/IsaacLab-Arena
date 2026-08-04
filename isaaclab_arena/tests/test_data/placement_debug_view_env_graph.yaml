@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 env_name: llm_gen_maple_table_robolab_PickAndPlaceTask
 embodiment:
-  id: franka_ik
-  registry_name: franka_ik
+  id: droid
+  registry_name: droid_abs_joint_pos
 background:
   id: maple_table_robolab
   registry_name: maple_table_robolab
@@ -15,7 +15,7 @@ objects:
 - id: bowl_ycb_robolab
   registry_name: bowl_ycb_robolab
 placement_validators:
-  enabled_checks: [no_overlap, on_relation, ik_reachability]
+  enabled_checks: [no_overlap, on_relation, ik_reachable]
   required_checks: [no_overlap, on_relation]
   debug_visualize: true
   debug_visualize_output_path: /tmp/placement_debug_view.rrd

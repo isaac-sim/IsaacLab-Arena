@@ -21,7 +21,6 @@ from isaaclab_arena.relations.placement_events import get_base_rotation_per_asse
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import register_validator
 from isaaclab_arena.relations.placement_validators import PlacementValidator
-from isaaclab_arena.relations.placement_visualizer import get_active_placement_visualizer
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
@@ -66,8 +66,8 @@ class ReachabilityValidator(PlacementValidator):
     check = PlacementCheck.IK_REACHABLE
     run_after_inexpensive_checks = True
 
-    def __init__(self, params: ObjectPlacerParams) -> None:
-        super().__init__(params)
+    def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        super().__init__(params, visualizer)
         config = params.reachability_config
         self._grasp_z_offset = config.grasp_z_offset_m
         self._ik_pos_threshold = config.ik_position_threshold_m
@@ -83,18 +83,15 @@ class ReachabilityValidator(PlacementValidator):
         self._base_quat_xyzw = base_pose.rotation_xyzw
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
-        self._visualizer = get_active_placement_visualizer()
         self._rerun_layer = self._make_rerun_layer()
 
-    @staticmethod
-    def _make_rerun_layer() -> ReachabilityRerunLayer | None:
-        """Return this check's layer of the placement debug view, or None when that view is off."""
-        visualizer = get_active_placement_visualizer()
-        if visualizer is None:
+    def _make_rerun_layer(self) -> ReachabilityRerunLayer | None:
+        """Return this check's layer of the placement visualizer, or None when no one asked for it."""
+        if self._visualizer is None:
             return None
         from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
-        return ReachabilityRerunLayer(visualizer)
+        return ReachabilityRerunLayer(self._visualizer)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:

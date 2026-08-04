@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -48,8 +49,9 @@ class PlacementValidator(ABC):
     set this flag, so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper
     geometry."""
 
-    def __init__(self, params: ObjectPlacerParams) -> None:
+    def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
+        self._visualizer = visualizer
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -83,7 +85,9 @@ def get_build_time_checks() -> tuple[str, ...]:
     return tuple(PlacementValidatorRegistry().get_all_keys())
 
 
-def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
+def build_validators(
+    params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None
+) -> list[PlacementValidator]:
     """Construct the enabled build-time validators in registration order.
 
     A registered check whose is_available() returns False is delisted; a check named in
@@ -92,6 +96,8 @@ def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
 
     Args:
         params: Placement params injected into each registered validator.
+        visualizer: The caller's debug view, injected into each validator so a check can draw its
+            own visualization layer on it; None when the run has no view.
     """
     registry = PlacementValidatorRegistry()
     registered_checks = get_build_time_checks()
@@ -104,7 +110,7 @@ def build_validators(params: ObjectPlacerParams) -> list[PlacementValidator]:
     for check in registered_checks:
         validator_cls = registry.get_validator_by_name(check)
         if validator_cls.is_available(params):
-            validators.append(validator_cls(params))
+            validators.append(validator_cls(params, visualizer))
     return validators
 
 
@@ -355,8 +361,8 @@ class NoOverlapValidator(PlacementValidator):
 
     check = PlacementCheck.NO_OVERLAP
 
-    def __init__(self, params: ObjectPlacerParams) -> None:
-        super().__init__(params)
+    def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        super().__init__(params, visualizer)
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
     def validate_batch(

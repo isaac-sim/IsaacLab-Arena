@@ -64,16 +64,16 @@ VIEWER_PROBE_INTERVAL_S = 0.1
 """How long to wait between connection attempts while the viewer window starts."""
 
 _ACTIVE_VISUALIZER: PlacementRerunVisualizer | None = None
-"""The process's live view, shared by every placer: the recording, the viewer port and the output path
-are all process-wide, so a second view would fight the first over them."""
+"""The process's live view tied to a placer: the recording, the viewer port and the output path."""
 
 
 def get_or_create_placement_visualizer(params: ObjectPlacerParams) -> PlacementRerunVisualizer | None:
-    """Return the process's Rerun view of placement validation, or None when the params ask for none.
+    """Return the process's Rerun view of placement validation, or None when no one asks for it.
 
     Args:
         params: Placement parameters carrying the ``debug_visualize`` / ``debug_visualize_output_path`` fields.
     """
+    # Global to avoid creating multiple visualizers for the same process.
     global _ACTIVE_VISUALIZER
     if not params.debug_visualize and params.debug_visualize_output_path is None:
         return None
@@ -81,11 +81,6 @@ def get_or_create_placement_visualizer(params: ObjectPlacerParams) -> PlacementR
         _ACTIVE_VISUALIZER = PlacementRerunVisualizer(
             spawn=params.debug_visualize, output_path=params.debug_visualize_output_path
         )
-    return _ACTIVE_VISUALIZER
-
-
-def get_active_placement_visualizer() -> PlacementRerunVisualizer | None:
-    """Return the view created by ``get_or_create_placement_visualizer``, or None if there is none."""
     return _ACTIVE_VISUALIZER
 
 
