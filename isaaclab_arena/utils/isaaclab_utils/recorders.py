@@ -185,13 +185,9 @@ class GripperStateRecorder(RecorderTerm):
             close_command = term._close_command  # noqa: SLF001
 
             travel = close_command - open_command
-            has_travel = travel != 0
+            assert (travel != 0).all(), "Binary gripper open and close commands must be distinct"
             joint_positions = wp.to_torch(asset.data.joint_pos)[:, joint_ids]
-            opening = torch.where(
-                has_travel,
-                (joint_positions - open_command) / torch.where(has_travel, travel, torch.ones_like(travel)),
-                torch.zeros_like(joint_positions),
-            )
+            opening = (joint_positions - open_command) / travel
             gripper_state = {"position": opening[env_ids] if env_ids is not None else opening}
 
             if include_command:
