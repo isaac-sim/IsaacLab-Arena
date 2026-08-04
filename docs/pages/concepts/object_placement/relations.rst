@@ -1,9 +1,14 @@
-Placement Relations
-===================
+Relations and Strategies
+========================
 
 Relations describe where a placeable asset should be positioned or oriented.
 Attach them to an asset with ``add_relation()``. Arena considers all relations
 on that asset together.
+
+Positional relations use solver strategies that convert the requested
+arrangement into optimization objectives. Orientation relations and placement
+markers are handled separately. Most users keep the default strategies;
+advanced users can replace entries in ``RelationSolverParams.strategies``.
 
 .. code-block:: python
 
@@ -30,8 +35,8 @@ When the support surface is part of a larger background, use an
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.object_base import ObjectType
    from isaaclab_arena.assets.object_reference import ObjectReference
+   from isaaclab_arena.assets.object_type import ObjectType
 
    table_reference = ObjectReference(
        name="table",
@@ -58,15 +63,20 @@ Most scenes can be described with a small set of relations:
 
    ``On`` uses the top and horizontal footprint of the parent's axis-aligned
    bounding box. For L-shaped, hollow, or concave supports, anchor an
-   ``ObjectReference`` that isolates the valid support surface. Initial
-   sampling considers at most one intermediate movable parent; deeper ``On``
-   chains fall back to the anchor bounds.
+   ``ObjectReference`` that identifies the valid support surface. During
+   initial sampling, a movable parent directly on an anchor uses that anchor's
+   bounds as a proxy; deeper ``On`` chains fall back to the first anchor's
+   bounds. Final solving and validation still use each relation's actual parent.
 
 ``NextTo(parent)``
    Places an object beside another object. A side and distance can be specified
-   when the arrangement requires them. Geometric validation checks that the
-   selected candidate remains on the requested side and at the requested
-   distance and marks violations as invalid.
+   when needed. Geometric validation rejects candidates that are not on the
+   requested side, or whose gap to the parent differs from ``distance_m`` by
+   more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
+   requested also fails.
+
+   With no additional arguments, ``NextTo(parent)`` places the subject on the
+   parent's positive X side at a distance of 0.05 m.
 
    ``side`` accepts ``Side.POSITIVE_X``, ``Side.NEGATIVE_X``,
    ``Side.POSITIVE_Y``, or ``Side.NEGATIVE_Y``.
@@ -74,8 +84,10 @@ Most scenes can be described with a small set of relations:
 ``NotNextTo(parent)``
    Defines a side-specific keep-out region next to the parent. The region
    extends outward from the selected side and spans the parent's footprint
-   along the perpendicular axis. Validation marks candidates inside that
-   region as invalid.
+   along the perpendicular axis. Validation rejects candidates inside that
+   region. The keep-out margin defaults to 0.1 m. To change it, provide a
+   ``NotNextToLossStrategy`` for ``NotNextTo`` in
+   ``RelationSolverParams.strategies``.
 
 ``AtPosition(...)``
    Constrains selected world-coordinate axes. It can be combined with ``On`` so
@@ -83,7 +95,11 @@ Most scenes can be described with a small set of relations:
    position.
 
 ``PositionLimitsBox`` and ``PositionLimitsCylindrical``
-   Restrict placement to a rectangular or radial region.
+   ``PositionLimitsBox`` constrains selected world X, Y, or Z coordinates
+   between optional minimum and maximum values.
+   ``PositionLimitsCylindrical`` constrains the XY distance from a chosen
+   center using a minimum radius, maximum radius, or both; it does not
+   constrain Z.
 
 ``FaceTo(target)``
    Rotates an object around world Z so that its local +X heading points toward
@@ -102,35 +118,33 @@ with ``RotateAroundSolution``; when random yaw initialization is enabled,
 ``FaceTo`` subjects use the relation-derived heading instead. The target must
 also participate in relation placement. A movable subject may have only one
 ``FaceTo`` relation. Neither the subject nor its target can use
-``RandomAroundSolution`` with nonzero XY variation.
+``RandomAroundSolution`` with nonzero XY variation. Their XY positions must
+differ so that the facing direction is defined.
 
 Combining Relations
 -------------------
 
 Relations are most useful in small combinations:
 
-- ``On`` alone means “somewhere on this surface.”
-- ``On`` with ``NextTo`` means “on this surface, beside that object.”
-- ``On`` with ``AtPosition`` means “at this horizontal location on the
-  surface.”
+- ``On`` alone means "somewhere on this surface."
+- ``On`` with ``NextTo`` means "on this surface, beside that object."
+- ``On`` with ``AtPosition`` means "at this horizontal location on the
+  surface."
 - A positional relation with ``FaceTo`` controls both location and
   orientation.
 
 Avoid specifying more relations than the scene needs. Extra constraints can
 make the intended layout harder or impossible to satisfy.
 
-Placement Variation
+Placement Modifiers
 -------------------
 
-The default builder creates several checked layouts and stores them in a pool.
-This is the preferred way to vary positions and orientations across
-environments and resets.
-
-``RandomAroundSolution`` and ``RotateAroundSolution`` are advanced post-solve
-modifiers. They change how a solved pose is applied rather than adding spatial
+``RandomAroundSolution`` and ``RotateAroundSolution`` are pose modifiers applied
+after solving. They change how a solved pose is used rather than adding spatial
 constraints. In particular, ``RandomAroundSolution`` is intended for direct,
-single-environment ``ObjectPlacer`` use; the default pooled builder path does
-not apply it as a continuous reset range.
+single-environment ``ObjectPlacer`` use; the default builder does not apply it
+as a continuous reset range. See
+:doc:`./pooled_placement` for variation across environments and resets.
 
 Relations in Environment Specifications
 ---------------------------------------
@@ -154,4 +168,5 @@ references. Add parameters only when the default relation does not express the
 intended arrangement.
 
 Collision avoidance is automatic and is not expressed as a relation. See
-:doc:`./collision_and_validation` for collision representations and validation.
+:doc:`./collision_handling` for collision representations and
+:doc:`./validation` for layout checks.
