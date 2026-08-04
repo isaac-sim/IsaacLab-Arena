@@ -51,8 +51,12 @@ def _build_scene(seed: int):
     return arena_env, support, members
 
 
-def _build_and_reset(seed: int):
-    """Build the env and reset it, returning (env, support, members, region, poses_fn)."""
+def _build_and_reset(seed: int, num_envs: int = 1):
+    """Build the env and reset it, returning (env, support, members, region, poses_fn).
+
+    ``poses_fn(env_id)`` returns that environment's member poses in its own local frame, so
+    per-env results are directly comparable against the same region.
+    """
     import torch
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -64,7 +68,7 @@ def _build_and_reset(seed: int):
     # Build args from the real parser rather than a hand-rolled Namespace: the builder reads
     # more fields than are obvious, and a missing one fails only once the env is constructed.
     args = get_isaaclab_arena_cli_parser().parse_args([])
-    args.num_envs = 1
+    args.num_envs = num_envs
     args.placement_seed = seed
     for name, default in (("language_instruction", None), ("mimic", False)):
         if not hasattr(args, name):
@@ -76,12 +80,12 @@ def _build_and_reset(seed: int):
     member_keys = [member.get_scene_key() for member in members]
     region = region_above_support(
         tuple(float(value) for value in support.get_initial_pose().position_xyz),
-        get_bounding_box_per_env(support, 1),
+        get_bounding_box_per_env(support, num_envs),
     )
 
-    def poses():
-        states = torch.stack([scene[key].data.root_state_w[0] for key in member_keys])
-        return states[:, :3] - scene.env_origins[0], states[:, 3:7]
+    def poses(env_id: int = 0):
+        states = torch.stack([scene[key].data.root_state_w[env_id] for key in member_keys])
+        return states[:, :3] - scene.env_origins[env_id], states[:, 3:7]
 
     return env, support, members, region, poses
 
@@ -153,6 +157,34 @@ def _test_pile_is_already_settled_at_reset(simulation_app) -> bool:
     return True
 
 
+def _test_every_parallel_env_gets_its_own_settled_pile(simulation_app) -> bool:
+    """Each environment must receive a pile of its own, settled on its own support."""
+    import torch
+
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+
+    num_envs = 4
+    env, _support, members, region, poses = _build_and_reset(seed=0, num_envs=num_envs)
+    names = [member.name for member in members]
+    params = ClutterSettleParams(containment_margin_m=0.05)
+
+    per_env_positions = []
+    for env_id in range(num_envs):
+        positions, _ = poses(env_id)
+        per_env_positions.append(positions.clone())
+        verdict = check_resting_poses(positions, region, params)
+        assert verdict.ok, f"env {env_id} came to rest badly: {verdict.describe(names)}"
+        lowest = float(positions[:, 2].min())
+        assert lowest > region.floor_z, f"env {env_id} lowest member rests at {lowest:.3f}, below the support"
+
+    env.close()
+
+    # A pool that hands every env the same layout would defeat per-env variation.
+    distinct = any(not torch.allclose(per_env_positions[0], other, atol=1e-4) for other in per_env_positions[1:])
+    assert distinct, "every parallel env received an identical pile"
+    return True
+
+
 def _test_same_seed_reproduces_the_pile(simulation_app) -> bool:
     import torch
 
@@ -168,6 +200,10 @@ def test_clutter_settles_on_its_support():
 
 def test_pile_is_already_settled_at_reset():
     assert run_function_with_persistent_simulation_app(_test_pile_is_already_settled_at_reset)
+
+
+def test_every_parallel_env_gets_its_own_settled_pile():
+    assert run_simulation_app_function(_test_every_parallel_env_gets_its_own_settled_pile)
 
 
 def test_same_seed_reproduces_the_pile():
