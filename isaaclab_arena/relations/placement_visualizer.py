@@ -377,11 +377,7 @@ class PlacementRerunVisualizer:
             )
 
     def close(self) -> None:
-        """Flush pending data and shut down the viewer window this run spawned. Idempotent.
-
-        Only needed to close the window early -- a run that just exits leaves it to the viewer's
-        parent-death signal.
-        """
+        """Flush pending data and shut down the viewer window this run spawned."""
         import rerun as rr
 
         # None once Rerun's own shutdown hook has torn the recording down ahead of this call.
