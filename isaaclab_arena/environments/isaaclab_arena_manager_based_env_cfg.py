@@ -80,6 +80,13 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     placement_seed: int | None = None
     placement_clearance_m: float | None = None
 
+    clutter_containment_margin_m: float = 0.02
+    """How far past its support a settled clutter member may rest before its layout is rejected.
+
+    Only applied when clutter is settled at build time, where a spilled layout can be dropped
+    from the cache and another drawn instead.
+    """
+
     settle_clutter_on_build: bool = True
     """Whether to settle poured clutter into the placement pool once the env is built.
 
