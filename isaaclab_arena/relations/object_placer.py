@@ -601,7 +601,7 @@ class ObjectPlacer:
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
-        # Layouts are drawn before the checks run so a check's own layer lands on top of its layout.
+        # for debugging visualization tracking which layouts were checked
         layout_indices_across_batch: list[int] | None = None
         if self._visualizer is not None:
             layout_indices_across_batch = self._visualizer.log_layout_batch(positions, orientations, bboxes)

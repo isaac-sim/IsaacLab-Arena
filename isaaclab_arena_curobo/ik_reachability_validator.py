@@ -7,9 +7,6 @@
 
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
 top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
-
-With the placement debug view on (``ObjectPlacerParams.debug_visualize``), the check also draws what it solved for each
-candidate -- the robot base, the grasps, and their IK errors; see ``isaaclab_arena_curobo.reachability_visualizer``.
 """
 
 from __future__ import annotations
