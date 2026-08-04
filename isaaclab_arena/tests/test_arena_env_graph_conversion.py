@@ -68,11 +68,9 @@ def _test_composite_task_episode_length_sums_subtasks(simulation_app):
 
 
 def test_composite_task_episode_length_sums_subtasks():
-    pytest.importorskip("isaaclab.app")
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
-
-    result = run_simulation_app_function(_test_composite_task_episode_length_sums_subtasks)
+    result = run_function_with_persistent_simulation_app(_test_composite_task_episode_length_sums_subtasks)
     assert result
 
 

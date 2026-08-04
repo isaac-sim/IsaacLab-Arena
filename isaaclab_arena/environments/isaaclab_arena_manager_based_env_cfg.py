@@ -97,6 +97,20 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     wait_for_textures: bool = False
 
 
+def set_control_rate_50hz(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    """Set 50 Hz control (sim dt 1/200, decimation 4), Arena's pre-15 Hz default rate.
+
+    Args:
+        env_cfg: The environment configuration to modify in place.
+
+    Returns:
+        The same configuration, so this can be used directly as an ``env_cfg_callback``.
+    """
+    env_cfg.sim.dt = 1 / 200
+    env_cfg.decimation = 4
+    return env_cfg
+
+
 @configclass
 class IsaacArenaManagerBasedMimicEnvCfg(IsaacLabArenaManagerBasedRLEnvCfg, MimicEnvCfg):
     """Configuration for an IsaacLab Arena environment."""

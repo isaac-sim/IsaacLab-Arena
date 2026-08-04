@@ -26,9 +26,6 @@ class ArenaEnvBuilderCfg:
     presets: str | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
-    episode_length_s: float | None = None
-    """Override the episode length (seconds); ``None`` uses the task's own ``episode_length_s``."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
-        assert self.episode_length_s is None or self.episode_length_s > 0, "episode_length_s must be positive when set"

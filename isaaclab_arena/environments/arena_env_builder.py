@@ -42,7 +42,6 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
-from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -205,13 +204,6 @@ class ArenaEnvBuilder:
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
-    def _get_episode_length_s(self, task: TaskBase) -> float:
-        """Return the builder cfg's episode length if set, otherwise the task's own."""
-        if self.cfg.episode_length_s is not None:
-            return self.cfg.episode_length_s
-        else:
-            return task.get_episode_length_s()
-
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Return the base ManagerBased cfg and the env kwargs (no registration).
 
@@ -334,7 +326,7 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = self._get_episode_length_s(task)
+        episode_length_s = task.get_episode_length_s()
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 

@@ -84,6 +84,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG
     def build(self, cfg: GalileoG1LocomanipPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -146,10 +147,8 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG
                 pick_up_object_name=pick_up_object.name,
                 destination_name=destination.name,
             )
-            # 50 Hz control (sim dt 1/200, decimation 4), required by the whole-body controller (WBC).
-            env_cfg.sim.dt = 1 / 200
-            env_cfg.decimation = 4
-            return env_cfg
+            # 50 Hz control, required by the whole-body controller (WBC).
+            return set_control_rate_50hz(env_cfg)
 
         def _build_g1_pick_and_place_mimic_cfg(arm_mode):
             return G1PickAndPlaceMimicEnvCfg(
