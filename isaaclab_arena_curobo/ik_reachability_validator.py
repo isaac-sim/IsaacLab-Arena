@@ -6,8 +6,7 @@
 """Build-time cuRobo IK-reachability gate for pooled placement, sim-free (no SimApp).
 
 The pool's solve loop calls it on each geometry-valid candidate; a candidate is stored only when the robot can reach a
-top-down grasp at every movable object -- by default without the arm colliding on the way -- so the loop keeps solving
-(reject-&-refill) until every env has enough reachable layouts.
+top-down grasp at every movable object, so the loop keeps solving (reject-&-refill) until every env has enough reachable layouts.
 
 With the placement debug view on (``ObjectPlacerParams.debug_visualize``), the check also draws what it solved for each
 candidate -- the robot base, the grasps, their IK errors, and the collision spheres the arm holds at each solved grasp;
@@ -66,11 +65,6 @@ def get_object_world_pose_from_layout(
 @register_validator
 class ReachabilityValidator(PlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at the target objects (cuRobo IK).
-
-    With ``ReachabilityConfig.require_collision_free`` the grasp must also keep the arm clear of the layout's
-    other objects and of itself; the gripper's own links and the grasp targets are exempt, so reaching into
-    a target still passes while the surface under it, or a neighbour leaning over it, rejects the layout.
-
     Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
 
@@ -155,10 +149,7 @@ class ReachabilityValidator(PlacementValidator):
         }
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
-        # A target is what the gripper closes on, so it is not an obstacle to its own grasp; everything else
-        # in the layout (the surface, other objects) is. Since one solve covers every target at once, no target
-        # blocks any other -- fine while tasks reach for one or two well-separated objects.
-        # TODO(xinjieyao, 2026-08-03): Solve per target against a world holding the other targets.
+        # A target is not an obstacle to its own grasp, but everything else in the layout is.
         cuboids = [
             get_aabb_collision_cuboid_for_object(obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw)
             for obj in objects
