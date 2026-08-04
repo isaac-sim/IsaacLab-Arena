@@ -25,9 +25,6 @@ from isaaclab_arena_environments.cli import (
     ensure_environments_registered,
 )
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-from isaaclab_arena_environments.galileo_g1_static_pick_and_place_environment import (
-    GalileoG1StaticPickAndPlaceEnvironment,
-)
 from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
 from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment import (
     GR1TableMultiObjectNoCollisionEnvironment,
@@ -97,7 +94,6 @@ def test_generated_cli_arguments_and_cfg_validation():
             {"object_set": ["cracker_box", "mustard_bottle"]},
         ),
         (GR1PutAndCloseDoorEnvironment, ["--object_set"], {"object_set": []}),
-        (GalileoG1StaticPickAndPlaceEnvironment, ["--no-lock_waist"], {"lock_waist": False}),
         (LiftObjectEnvironment, ["--rl_training_mode"], {"rl_training_mode": True}),
         (GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "heterogeneous"], {"mode": "heterogeneous"}),
         (

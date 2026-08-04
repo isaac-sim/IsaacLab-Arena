@@ -236,5 +236,5 @@ at ``$DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5``.
 
    Collecting a large dataset across several sittings? Record one HDF5 per session by varying
    ``--dataset_file``, then concatenate the per-session files with
-   :ref:`static_apple_merge_demos`. The merge script is task-agnostic and works for every
+   :ref:`merge_demos`. The merge script is task-agnostic and works for every
    Arena teleop workflow.
