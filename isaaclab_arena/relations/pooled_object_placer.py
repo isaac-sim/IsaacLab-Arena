@@ -269,6 +269,33 @@ class PooledObjectPlacer:
             results[env_id] = pool.next()
         return results
 
+    def retain_layouts(self, keep, minimum: int = 1) -> tuple[int, int]:
+        """Drop unread layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
+
+        Rejection sampling for outcomes that are only knowable after simulating, such as a
+        poured pile that spilled. An env is left with its rejected layouts when too few pass,
+        because an imperfect layout still beats having none to draw.
+
+        Args:
+            keep: Called as ``keep(env_id, layout)``; return False to reject the layout.
+            minimum: Fewest layouts to leave in an env's queue.
+
+        Returns:
+            ``(kept, rejected)`` counts across every env.
+        """
+        kept = rejected = 0
+        for env_id, pool in enumerate(self._env_pools):
+            unread = pool.layouts[pool.cursor :]
+            passing = [layout for layout in unread if keep(env_id, layout)]
+            if len(passing) < minimum:
+                kept += len(unread)
+                continue
+            rejected += len(unread) - len(passing)
+            kept += len(passing)
+            pool.layouts = passing
+            pool.cursor = 0
+        return kept, rejected
+
     @property
     def num_envs(self) -> int:
         """Number of environment pools managed by this placer."""
