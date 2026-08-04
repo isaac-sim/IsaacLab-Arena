@@ -14,4 +14,4 @@ task:
       pick_up_object: computer_mouse
       destination_location: keyboard
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0

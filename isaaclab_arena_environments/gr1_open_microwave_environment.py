@@ -75,6 +75,8 @@ class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnviro
             scene=scene,
             task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=5.0),
             teleop_device=teleop_device,
+            # 50 Hz control (sim dt 1/200, decimation 4) for backwards compatibility with the recorded tutorial data.
+            env_cfg_callback=lambda cfg: (setattr(cfg.sim, "dt", 1 / 200), setattr(cfg, "decimation", 4), cfg)[-1],
         )
 
         return isaaclab_arena_environment

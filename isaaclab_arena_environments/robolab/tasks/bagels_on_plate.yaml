@@ -14,10 +14,10 @@ task:
       pick_up_object: bagel_1
       destination_location: plate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bagel_2
       destination_location: plate
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0

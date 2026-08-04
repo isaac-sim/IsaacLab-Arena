@@ -213,5 +213,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
             scene=scene,
             task=sequential_task,
             teleop_device=teleop_device,
+            # 50 Hz control (sim dt 1/200, decimation 4) for backwards compatibility with the recorded tutorial data.
+            env_cfg_callback=lambda cfg: (setattr(cfg.sim, "dt", 1 / 200), setattr(cfg, "decimation", 4), cfg)[-1],
         )
         return isaaclab_arena_environment

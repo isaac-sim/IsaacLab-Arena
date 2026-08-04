@@ -15,4 +15,4 @@ task:
       destination_location: grey_bin
       background_scene: maple_table_robolab
       max_separation: [0.1, 0.1, 0.1]
-      episode_length_s: 20.0
+      episode_length_s: 70.0
