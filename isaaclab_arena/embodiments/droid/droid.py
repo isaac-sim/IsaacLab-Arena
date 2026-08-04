@@ -277,32 +277,26 @@ class DroidSceneCfg:
         },
     )
 
-    # The end-effector frame marker.
-    #
-    # Every offset below is a constant measured from the flattened robot asset, which zeroes each gripper
-    # link's origin on the gripper base instead of on the geometry the link is named after. The links
-    # still translate with the joint, so a constant offset reaches the same point at any aperture.
-    # Re-exporting the robot unflattened would move those origins onto their real locations, and all
-    # three offsets would need re-measuring.
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                # The Robotiq gripper base link, offset along +x (its approach axis) to the grasp point
-                # midway between the finger pads, so recorded poses can be compared against object poses.
-                # This sits ahead of the body ``ee_pos``/``ee_quat`` report. Being rigid to the base, it
-                # marks the grasp point at the open aperture; the pads travel ~14 mm further out as the
-                # linkage closes, so use the fingertip midpoint where that difference matters.
+                # Offset along +x (the gripper approach axis) from Robotiq base_link to the grasp
+                # point — the midpoint between the two finger pads when the gripper is open. Measured
+                # in the DROID USD: first estimated visually in Isaac Sim (cube placed between the
+                # fingers), then refined from the finger bounding boxes. In this flattened USD,
+                # left_inner_finger and right_inner_finger also originate at base_link when open, so
+                # the finger-pad frames below reuse the same +x. As the fingers close, the true grasp
+                # point moves a negligible amount further along +x.
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
                 offset=OffsetCfg(
                     pos=(0.131, 0.0, 0.0),
                 ),
             ),
-            # Each finger is offset from its link to the centre of its pad's gripping face, measured
-            # from the pad meshes. The two frames therefore meet on the centreline at full closure,
-            # and their separation is the gripper's aperture in metres.
+            # ±y offset to each finger pad from its finger frame (left_inner_finger /
+            # right_inner_finger), from the same USD bounding boxes as above.
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
                 name="tool_rightfinger",
