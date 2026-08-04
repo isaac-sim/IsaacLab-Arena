@@ -20,7 +20,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     next_to_violations,
     not_next_to_violations,
 )
-from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
+from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, RelationBase, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
@@ -42,6 +42,9 @@ class PlacementValidator(ABC):
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
     PlacementCheck constant; external validators may use any unique string."""
+
+    strict_relation_types: ClassVar[tuple[type[RelationBase], ...]] = ()
+    """Authored solver relation types fully enforced by this validator when its check is required."""
 
     run_after_inexpensive_checks: bool = False
     """If True, run this validator only on candidates that already pass every required check that does not
@@ -113,6 +116,7 @@ class OnRelationValidator(PlacementValidator):
     """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
 
     check = PlacementCheck.ON_RELATION
+    strict_relation_types = (On,)
 
     def validate_batch(
         self,
@@ -198,6 +202,7 @@ class NextToValidator(PlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
+    strict_relation_types = (NextTo,)
 
     def validate_batch(
         self,
@@ -250,6 +255,7 @@ class NotNextToValidator(PlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
+    strict_relation_types = (NotNextTo,)
 
     def validate_batch(
         self,

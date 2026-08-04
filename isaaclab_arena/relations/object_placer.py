@@ -5,16 +5,18 @@
 
 from __future__ import annotations
 
+import time
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_profile import PlacementCheckpointProfile, PlacementProfile
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.placement_validators import build_validators
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverCheckpoint
 from isaaclab_arena.relations.relations import (
     FaceTo,
     On,
@@ -56,6 +58,103 @@ class PlacementCandidate:
         return self.validation_results.do_all_required_validation_checks_pass()
 
 
+class _CheckpointCandidateAccumulator:
+    """Collect the first strictly valid candidate snapshot for every candidate identity."""
+
+    def __init__(self, num_envs: int, candidates_per_env: int, results_per_env: int):
+        assert num_envs > 0, f"num_envs must be positive, got {num_envs}"
+        assert candidates_per_env > 0, f"candidates_per_env must be positive, got {candidates_per_env}"
+        assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
+        assert (
+            results_per_env <= candidates_per_env
+        ), f"results_per_env ({results_per_env}) cannot exceed candidates_per_env ({candidates_per_env})"
+        self._num_envs = num_envs
+        self._candidates_per_env = candidates_per_env
+        self._results_per_env = results_per_env
+        self._strict_snapshots: dict[tuple[int, int], PlacementCandidate] = {}
+
+    def record(self, candidates: list[PlacementCandidate]) -> bool:
+        """Record first strict snapshots and report whether every environment reached its quota."""
+        self._validate_candidate_count(candidates)
+        for candidate_index, candidate in enumerate(candidates):
+            identity = divmod(candidate_index, self._candidates_per_env)
+            if candidate.is_valid and identity not in self._strict_snapshots:
+                self._strict_snapshots[identity] = self._snapshot(candidate)
+
+        return all(
+            sum(
+                (env_id, candidate_index) in self._strict_snapshots
+                for candidate_index in range(self._candidates_per_env)
+            )
+            >= self._results_per_env
+            for env_id in range(self._num_envs)
+        )
+
+    @property
+    def strict_layouts_per_env(self) -> tuple[int, ...]:
+        """Number of unique strict snapshots retained for each environment."""
+        return tuple(
+            sum(
+                (env_id, candidate_index) in self._strict_snapshots
+                for candidate_index in range(self._candidates_per_env)
+            )
+            for env_id in range(self._num_envs)
+        )
+
+    def finalize(self, latest: list[PlacementCandidate]) -> list[list[PlacementCandidate]]:
+        """Return strict snapshots first, then ranked latest invalid fallbacks without duplicate identities."""
+        self._validate_candidate_count(latest)
+        finalized: list[list[PlacementCandidate]] = []
+        for env_id in range(self._num_envs):
+            start = env_id * self._candidates_per_env
+            env_latest = latest[start : start + self._candidates_per_env]
+            strict = [
+                (candidate_index, candidate)
+                for candidate_index in range(self._candidates_per_env)
+                if (candidate := self._strict_snapshots.get((env_id, candidate_index))) is not None
+            ]
+            strict.sort(key=lambda indexed_candidate: self._ranking_key(indexed_candidate[1]))
+            selected = strict[: self._results_per_env]
+            selected_indices = {candidate_index for candidate_index, _ in selected}
+            fallbacks = [
+                (candidate_index, candidate)
+                for candidate_index, candidate in enumerate(env_latest)
+                if not candidate.is_valid and candidate_index not in selected_indices
+            ]
+            fallbacks.sort(key=lambda indexed_candidate: self._ranking_key(indexed_candidate[1]))
+            selected.extend(fallbacks[: self._results_per_env - len(selected)])
+            assert len(selected) == self._results_per_env, (
+                f"env {env_id} has only {len(selected)} strict snapshots and invalid fallbacks; "
+                f"expected {self._results_per_env}"
+            )
+            finalized.append([candidate for _, candidate in selected])
+        return finalized
+
+    def _validate_candidate_count(self, candidates: list[PlacementCandidate]) -> None:
+        expected = self._num_envs * self._candidates_per_env
+        assert len(candidates) == expected, f"expected {expected} candidates, got {len(candidates)}"
+
+    @staticmethod
+    def _ranking_key(candidate: PlacementCandidate) -> tuple[int, int, float]:
+        return (*candidate.validation_results.get_number_of_required_and_optional_failures, candidate.loss)
+
+    @staticmethod
+    def _snapshot(candidate: PlacementCandidate) -> PlacementCandidate:
+        return PlacementCandidate(
+            loss=candidate.loss,
+            positions=dict(candidate.positions),
+            validation_results=PlacementValidationResults(
+                validation_results=dict(candidate.validation_results.validation_results),
+                required_checks=(
+                    set(candidate.validation_results.required_checks)
+                    if candidate.validation_results.required_checks is not None
+                    else None
+                ),
+            ),
+            orientations=dict(candidate.orientations),
+        )
+
+
 class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
@@ -79,6 +178,9 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
         self._validators: list[PlacementValidator] = build_validators(self.params)
+        self._last_profile: PlacementProfile | None = None
+        self._profile_validation_counts: dict[str, int] = {}
+        self._profile_validation_times_ms: dict[str, float] = {}
 
     def place(
         self,
@@ -113,6 +215,7 @@ class ObjectPlacer:
             num_envs,
             candidates_per_env=max_attempts,
             attempts_per_result=max_attempts,
+            results_per_env=1,
             generator=generator,
             collision_objects=collision_objects,
         )
@@ -162,6 +265,7 @@ class ObjectPlacer:
             num_envs,
             candidates_per_env=max_attempts * results_per_env,
             attempts_per_result=max_attempts,
+            results_per_env=results_per_env,
             generator=generator,
             collision_objects=collision_objects,
         )
@@ -209,6 +313,7 @@ class ObjectPlacer:
         num_envs: int,
         candidates_per_env: int,
         attempts_per_result: int,
+        results_per_env: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> list[list[PlacementResult]]:
@@ -218,6 +323,9 @@ class ObjectPlacer:
         candidates are ranked independently (valid first, then by loss), so a
         candidate is never compared against another env's geometry.
         """
+        self._last_profile = None
+        self._profile_validation_counts = {}
+        self._profile_validation_times_ms = {}
         collision_objects = collision_objects or []
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
@@ -245,6 +353,27 @@ class ObjectPlacer:
             objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
 
+        accumulator = _CheckpointCandidateAccumulator(
+            num_envs=num_envs,
+            candidates_per_env=candidates_per_env,
+            results_per_env=results_per_env,
+        )
+        allow_early_checkpoint_acceptance = self._has_strict_validator_coverage(objects)
+        latest_candidates: list[PlacementCandidate] | None = None
+
+        def checkpoint_callback(checkpoint: RelationSolverCheckpoint) -> bool:
+            nonlocal latest_candidates
+            if not allow_early_checkpoint_acceptance:
+                return False
+            latest_candidates = self._candidates_from_checkpoint(
+                checkpoint,
+                objects,
+                unrotated_candidate_bboxes,
+                orientations_per_candidate,
+                collision_objects,
+            )
+            return accumulator.record(latest_candidates)
+
         all_positions = self._solver.solve(
             objects,
             initial_positions,
@@ -252,34 +381,26 @@ class ObjectPlacer:
             env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
             orientations=orientations_per_candidate,
             collision_objects=collision_objects,
+            checkpoint_callback=checkpoint_callback,
         )
-        self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
-        assert self._solver.last_loss_per_env is not None
-        all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
-        bboxes_per_candidate = [
-            self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
-            for candidate_idx in range(num_candidates)
-        ]
-        all_validations = self._validate_candidates(
-            all_positions, orientations_per_candidate, bboxes_per_candidate, collision_objects
-        )
-
-        candidates: list[PlacementCandidate] = []
-        for candidate_idx in range(num_candidates):
-            candidates.append(
-                PlacementCandidate(
-                    all_losses[candidate_idx],
-                    all_positions[candidate_idx],
-                    all_validations[candidate_idx],
-                    orientations_per_candidate[candidate_idx],
-                )
+        if latest_candidates is None or not allow_early_checkpoint_acceptance:
+            assert self._solver.last_loss_per_env is not None
+            final_checkpoint = RelationSolverCheckpoint(
+                iteration=self._solver.last_iterations_run,
+                positions=all_positions,
+                losses=tuple(float(value) for value in self._solver.last_loss_per_env.cpu().tolist()),
+                elapsed_ms=0.0,
             )
+            latest_candidates = self._candidates_from_checkpoint(
+                final_checkpoint,
+                objects,
+                unrotated_candidate_bboxes,
+                orientations_per_candidate,
+                collision_objects,
+            )
+            accumulator.record(latest_candidates)
 
-        ranked_candidate_slices = self._rank_candidates(candidates, num_envs, candidates_per_env)
+        ranked_candidate_slices = accumulator.finalize(latest_candidates)
         ranked_results = [
             [
                 PlacementResult(
@@ -294,10 +415,77 @@ class ObjectPlacer:
             for candidate_slice in ranked_candidate_slices
         ]
 
+        if self.params.solver_params.profile:
+            self._last_profile = PlacementProfile(
+                device=self._solver.last_device,
+                collision_mode=self._solver.last_collision_mode,
+                candidate_count=num_candidates,
+                checkpoints=tuple(
+                    PlacementCheckpointProfile(iteration=iteration, elapsed_ms=elapsed_ms)
+                    for iteration, elapsed_ms in (
+                        self._solver.last_checkpoint_profiles or ((self._solver.last_iterations_run, 0.0),)
+                    )
+                ),
+                cumulative_iterations=self._solver.last_iterations_run,
+                validation_counts=dict(self._profile_validation_counts),
+                validation_times_ms=dict(self._profile_validation_times_ms),
+                strict_layouts_per_env=accumulator.strict_layouts_per_env,
+            )
+            print(f"[placement profile] {self._last_profile}")
+
         if self.params.verbose:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
+
+    def _has_strict_validator_coverage(self, objects: list[PlaceableAsset]) -> bool:
+        """Whether every authored solver relation has an enabled, required strict validator."""
+        required_checks = self.params.required_checks
+        covered_relation_types = tuple(
+            relation_type
+            for validator in self._validators
+            if required_checks is None or validator.check in required_checks
+            for relation_type in validator.strict_relation_types
+        )
+        return all(
+            isinstance(relation, covered_relation_types) for obj in objects for relation in obj.get_spatial_relations()
+        )
+
+    def _candidates_from_checkpoint(
+        self,
+        checkpoint: RelationSolverCheckpoint,
+        objects: list[PlaceableAsset],
+        unrotated_candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        initial_orientations: list[dict[PlaceableAsset, float]],
+        collision_objects: list[CollisionObject],
+    ) -> list[PlacementCandidate]:
+        """Copy, orient, and strictly validate every candidate in a solver checkpoint."""
+        assert len(checkpoint.positions) == len(initial_orientations)
+        assert len(checkpoint.losses) == len(checkpoint.positions)
+        positions = [dict(candidate_positions) for candidate_positions in checkpoint.positions]
+        orientations = [dict(candidate_orientations) for candidate_orientations in initial_orientations]
+        self._apply_face_to_orientations(positions, orientations)
+        candidate_bboxes = self._rotate_candidate_bboxes(objects, unrotated_candidate_bboxes, orientations)
+        bboxes_per_candidate = [
+            self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
+            for candidate_idx in range(len(positions))
+        ]
+        validations = self._validate_candidates(positions, orientations, bboxes_per_candidate, collision_objects)
+        return [
+            PlacementCandidate(
+                loss=loss,
+                positions=candidate_positions,
+                validation_results=validation_results,
+                orientations=candidate_orientations,
+            )
+            for loss, candidate_positions, validation_results, candidate_orientations in zip(
+                checkpoint.losses,
+                positions,
+                validations,
+                orientations,
+                strict=True,
+            )
+        ]
 
     @staticmethod
     def _rank_candidates(
@@ -597,6 +785,7 @@ class ObjectPlacer:
         num_candidates = len(positions)
         # Per-check count of layouts evaluated by that check
         num_layouts_evaluated_by_check: dict[str, int] = {}
+        validation_times_ms_by_check: dict[str, float] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         self._run_inexpensive_checks(
@@ -606,6 +795,7 @@ class ObjectPlacer:
             collision_objects,
             layout_pass_verdicts_by_check,
             num_layouts_evaluated_by_check,
+            validation_times_ms_by_check,
         )
         self._run_expensive_checks(
             positions,
@@ -615,7 +805,15 @@ class ObjectPlacer:
             required,
             layout_pass_verdicts_by_check,
             num_layouts_evaluated_by_check,
+            validation_times_ms_by_check,
         )
+        if self.params.solver_params.profile:
+            for check, count in num_layouts_evaluated_by_check.items():
+                self._profile_validation_counts[check] = self._profile_validation_counts.get(check, 0) + count
+            for check, elapsed_ms in validation_times_ms_by_check.items():
+                self._profile_validation_times_ms[check] = (
+                    self._profile_validation_times_ms.get(check, 0.0) + elapsed_ms
+                )
         if layout_pass_verdicts_by_check:
             summary = ", ".join(
                 f"{check}={sum(verdicts)}/{num_layouts_evaluated_by_check[check]}"
@@ -640,14 +838,17 @@ class ObjectPlacer:
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         num_layouts_evaluated_by_check: dict[str, int],
+        validation_times_ms_by_check: dict[str, float],
     ) -> None:
         """Run every inexpensive validator on all candidates, recording verdicts and evaluated counts."""
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
+                validation_start = time.perf_counter()
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
                     positions, orientations, bboxes, collision_objects
                 )
+                validation_times_ms_by_check[validator.check] = (time.perf_counter() - validation_start) * 1e3
                 num_layouts_evaluated_by_check[validator.check] = num_candidates
 
     def _run_expensive_checks(
@@ -659,6 +860,7 @@ class ObjectPlacer:
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         num_layouts_evaluated_by_check: dict[str, int],
+        validation_times_ms_by_check: dict[str, float],
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
         num_candidates = len(positions)
@@ -670,12 +872,14 @@ class ObjectPlacer:
                     if self._passes_required_checks(layout_pass_verdicts_by_check, required, i)
                 ]
                 # only passed layouts are validated
+                validation_start = time.perf_counter()
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],
                     [orientations[i] for i in passed_layout_indices],
                     [bboxes[i] for i in passed_layout_indices],
                     collision_objects,
                 )
+                validation_times_ms_by_check[validator.check] = (time.perf_counter() - validation_start) * 1e3
                 verdicts = [False] * num_candidates
                 for sub_idx, cand_idx in enumerate(passed_layout_indices):
                     verdicts[cand_idx] = verdicts_over_passed_layout[sub_idx]
@@ -749,3 +953,13 @@ class ObjectPlacer:
     def last_position_history(self) -> list:
         """Position snapshots from the most recent place() call."""
         return self._solver.last_position_history
+
+    @property
+    def last_iterations_run(self) -> int:
+        """Number of optimization iterations completed by the most recent placement."""
+        return self._solver.last_iterations_run
+
+    @property
+    def last_profile(self) -> PlacementProfile | None:
+        """Structured profile for the most recent profile-enabled placement batch."""
+        return self._last_profile

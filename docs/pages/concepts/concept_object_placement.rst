@@ -347,6 +347,27 @@ which provide constant gradients that work well with the Adam optimizer.
 3. The result is validated: no pair of objects may overlap, and all ``On`` constraints must be satisfied
 4. If validation fails, the process repeats up to ``max_placement_attempts`` times (default 5)
 
+Adaptive placement performance
+------------------------------
+
+Placement is deterministic for a fixed ``placement_seed``, relation graph, geometry, candidate
+count, and solver configuration. Validators remain authoritative; optimizer loss alone never makes
+a layout strict.
+
+The solver validates immutable candidate snapshots at cumulative checkpoints. It may stop early
+only when required validators cover every authored relation and every environment has reached its
+strict-layout quota. Retained strict snapshots are not replaced by later optimizer steps.
+
+Use ``checkpoint_iters`` to select the cumulative inspection points and ``max_iters`` as the final
+optimization cap. ``save_position_history`` remains disabled by default because it is a debugging
+and visualization aid, not required for strict checkpoint snapshots.
+
+BBOX placement is deliberately CPU-only, even on a CUDA host. MESH placement can use CUDA when
+available. Profiling is opt-in through ``RelationSolverParams(profile=True)``; it exposes
+a ``PlacementProfile`` with resolved device/collision mode, candidate count, cumulative iterations,
+checkpoint timings, validation work, strict counts, and any best-loss fallback.
+A best-loss fallback remains invalid and cannot satisfy a strict quota.
+
 ArenaEnvBuilder Integration
 ----------------------------
 

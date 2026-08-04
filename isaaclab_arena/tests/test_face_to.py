@@ -20,7 +20,7 @@ from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validators import NoOverlapValidator
-from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverCheckpoint
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -71,9 +71,20 @@ def _set_solver_results(
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[ObjectBase, float]] | None = None,
         collision_objects=None,
+        checkpoint_callback=None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         assert len(initial_positions) == len(layouts)
-        placer._solver._last_loss_per_env = torch.tensor(losses or [0.0] * len(layouts))
+        resolved_losses = losses or [0.0] * len(layouts)
+        placer._solver._last_loss_per_env = torch.tensor(resolved_losses)
+        if checkpoint_callback is not None:
+            checkpoint_callback(
+                RelationSolverCheckpoint(
+                    iteration=0,
+                    positions=layouts,
+                    losses=tuple(resolved_losses),
+                    elapsed_ms=0.0,
+                )
+            )
         return layouts
 
     monkeypatch.setattr(placer._solver, "solve", _solve)

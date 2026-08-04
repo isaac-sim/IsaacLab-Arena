@@ -743,7 +743,7 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     big1.add_relation(On(desk))
     big2.add_relation(On(desk))
 
-    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
+    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6, profile=True)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
     pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
@@ -751,6 +751,9 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
 
     assert pool.remaining == 5
     assert pool.had_fallbacks
+    assert len(pool.last_profiles) == 1
+    assert pool.last_profiles[0].refill_batches == 1
+    assert pool.last_profiles[0].used_best_loss_fallback
     assert "Falling back to best-loss layouts" in captured.out
     assert not pool.sample_without_replacement(1)[0].success
 
@@ -885,6 +888,7 @@ def _make_validated_pool(
     min_layouts_per_env: int,
     reachability_predicate=None,
     allow_best_loss_fallbacks: bool = True,
+    profile: bool = False,
 ):
     """Build a small valid pool over the desk/box fixtures, optionally gating on a fake reachability predicate."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -893,7 +897,7 @@ def _make_validated_pool(
 
     objects = list(_create_test_objects())
     params = ObjectPlacerParams(
-        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3, profile=profile),
         apply_positions_to_objects=False,
         min_unique_layouts_per_env=min_layouts_per_env,
         placement_seed=7,
@@ -907,6 +911,25 @@ def _make_validated_pool(
             pool_size=num_envs * min_layouts_per_env,
             num_envs=num_envs,
         )
+
+
+def test_pool_profiles_are_current_fill_and_do_not_mark_permitted_fallbacks():
+    """A refill replaces profile history and does not mark merely permitted fallbacks."""
+    pool = _make_validated_pool(num_envs=1, min_layouts_per_env=1, profile=True)
+
+    initial_profiles = pool.last_profiles
+    assert initial_profiles
+    assert [profile.refill_batches for profile in initial_profiles] == list(range(1, len(initial_profiles) + 1))
+    assert all(not profile.used_best_loss_fallback for profile in initial_profiles)
+
+    pool.sample_without_replacement(1)
+    pool.sample_without_replacement(1)
+
+    refill_profiles = pool.last_profiles
+    assert refill_profiles
+    assert refill_profiles[0] is not initial_profiles[0]
+    assert [profile.refill_batches for profile in refill_profiles] == list(range(1, len(refill_profiles) + 1))
+    assert all(not profile.used_best_loss_fallback for profile in refill_profiles)
 
 
 def test_reachability_validator_gates_and_refills():
