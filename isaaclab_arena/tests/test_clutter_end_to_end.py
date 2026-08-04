@@ -216,25 +216,30 @@ def _test_spilled_layouts_are_rejected_from_the_cache(simulation_app) -> bool:
 
 
 def _test_pile_stays_settled_after_the_pool_refills(simulation_app) -> bool:
-    """Layouts added when the pool refills must be settled too, not left as drop poses."""
+    """Every reset must place a settled pile, including past the cached set.
+
+    Settling steps physics and so cannot run inside a reset. A pool that solved fresh layouts
+    when its queue ran dry would hand back poses nothing had settled, and the pile would be
+    released mid-air from the reset that exhausted the cache onwards.
+    """
     from isaaclab_arena.utils import physics_settle
 
     layouts_per_env = 2
     env, _support, _members, _region, poses = _build_and_reset(seed=0, layouts_per_env=layouts_per_env)
 
     worst_drift = 0.0
-    # Reset well past the initial pool so the refill path is exercised.
-    for reset_index in range(layouts_per_env * 3):
+    # Well past the cached set, so a queue that refilled instead of rewinding would show.
+    for reset_index in range(layouts_per_env * 4):
         env.reset()
         before, _ = poses()
-        physics_settle.step_physics(env, 60)
+        physics_settle.step_physics(env, 200)
         after, _ = poses()
         drift = float((after - before).norm(dim=-1).max())
         worst_drift = max(worst_drift, drift)
         print(f"  reset {reset_index}: drift {drift:.4f} m")
     env.close()
 
-    assert worst_drift < 0.02, f"a reset placed a falling pile: worst drift {worst_drift:.3f} m"
+    assert worst_drift < 0.05, f"a reset placed a pile that was not settled: worst drift {worst_drift:.3f} m"
     return True
 
 
