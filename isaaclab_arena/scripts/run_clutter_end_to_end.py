@@ -30,6 +30,32 @@ def add_experiment_args(parser: argparse.ArgumentParser) -> None:
         default=0.0,
         help="How far outside the support an object may rest before counting as fallen off.",
     )
+    parser.add_argument(
+        "--record_video",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Write an mp4 of the pour to PATH. Adds a fixed camera and forces --enable_cameras. "
+            "Note that enabling cameras diverges Newton above roughly 20 objects."
+        ),
+    )
+    parser.add_argument("--video_every", type=int, default=4, help="Capture a frame every N physics steps.")
+    parser.add_argument("--video_fps", type=int, default=30, help="Frame rate of the written mp4.")
+    parser.add_argument(
+        "--region_hint",
+        type=float,
+        default=1.6,
+        help="Approximate support width in metres, used only to frame the video camera.",
+    )
+    parser.add_argument(
+        "--show_pour",
+        action="store_true",
+        help=(
+            "Skip settling the pool at build time so the pour happens on this script's steps "
+            "and can be watched. The pile is normally already at rest when a reset writes it."
+        ),
+    )
 
 
 SUPPORT_ASSET = "office_table_background"
@@ -42,6 +68,12 @@ CLUTTER_ASSETS = [
     "mug",
     "power_drill",
 ]
+
+
+def _disable_build_time_settle(env_cfg):
+    """Leave the pool holding drop poses so the pour itself is visible."""
+    env_cfg.settle_clutter_on_build = False
+    return env_cfg
 
 
 def _build_environment(args_cli):
@@ -71,7 +103,27 @@ def _build_environment(args_cli):
         members.append(member)
 
     scene = Scene(assets=[ground, light, support, *members])
-    arena_env = IsaacLabArenaEnvironment(name="clutter_end_to_end", scene=scene, task=NoTask())
+    callbacks = []
+    if args_cli.record_video:
+        import functools
+
+        from isaaclab_arena.scripts.run_clutter_pour_experiment import _add_video_camera
+
+        half = 0.5 * max(args_cli.region_hint, 0.1)
+        callbacks.append(functools.partial(_add_video_camera, region_half_x=half, region_half_y=half))
+    if args_cli.show_pour:
+        callbacks.append(_disable_build_time_settle)
+
+    def env_cfg_callback(env_cfg):
+        for callback in callbacks:
+            env_cfg = callback(env_cfg)
+        return env_cfg
+
+    env_cfg_callback = env_cfg_callback if callbacks else None
+
+    arena_env = IsaacLabArenaEnvironment(
+        name="clutter_end_to_end", scene=scene, task=NoTask(), env_cfg_callback=env_cfg_callback
+    )
     return arena_env, support, members
 
 
@@ -82,10 +134,11 @@ def _run(simulation_app, args_cli) -> bool:
     from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
     from isaaclab_arena.relations.clutter_pour import region_above_support
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker, check_resting_poses
+    from isaaclab_arena.scripts.run_clutter_pour_experiment import _capture_frame, _write_video
     from isaaclab_arena.utils import physics_settle
 
     arena_env, support, members = _build_environment(args_cli)
-    args_cli.num_envs = 1
+    # The CLI parser supplies --num_envs; honour it so parallel envs can be inspected too.
     for name, default in (("language_instruction", None), ("mimic", False)):
         if not hasattr(args_cli, name):
             setattr(args_cli, name, default)
@@ -116,18 +169,27 @@ def _run(simulation_app, args_cli) -> bool:
 
     params = ClutterSettleParams(containment_margin_m=args_cli.containment_margin_m)
     tracker = SettleTracker(params)
+    frames: list | None = [] if args_cli.record_video else None
     settled_at = None
     stepped = 0
     while stepped < args_cli.max_steps:
-        chunk = min(args_cli.poll_every, args_cli.max_steps - stepped)
-        physics_settle.step_physics(env, chunk)
+        # Capture often enough to see the pour when recording; otherwise poll at full stride.
+        chunk = min(args_cli.video_every if frames is not None else args_cli.poll_every, args_cli.max_steps - stepped)
+        physics_settle.step_physics(env, chunk, render=frames is not None)
         stepped += chunk
+        if frames is not None:
+            _capture_frame(scene, frames)
         positions, rotations = _poses()
-        if tracker.update(positions, rotations) and settled_at is None:
+        if stepped % args_cli.poll_every == 0 and tracker.update(positions, rotations) and settled_at is None:
             settled_at = stepped
             break
 
     positions, _ = _poses()
+    if frames is not None:
+        # Linger on the settled pile so the video ends on the result rather than mid-fall.
+        for _ in range(args_cli.video_fps):
+            _capture_frame(scene, frames)
+        _write_video(frames, args_cli.record_video, args_cli.video_fps)
     verdict = check_resting_poses(positions, region, params)
 
     print(f"\nsettled at: {settled_at if settled_at is not None else 'NOT SETTLED'} (budget {args_cli.max_steps})")
@@ -150,6 +212,9 @@ def main() -> None:
     # Clutter refuses to pour without a seed, since an unreproducible pile defeats seeding.
     if args_cli.placement_seed is None:
         args_cli.placement_seed = args_cli.layout_seed
+    if args_cli.record_video:
+        # The pour camera only produces frames when the renderer is up.
+        args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli) as simulation_app:
         ok = _run(simulation_app, args_cli)

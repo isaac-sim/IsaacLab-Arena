@@ -71,6 +71,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         from isaaclab_arena.relations.placement_events import get_placement_pool
         from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
 
+        if not self.cfg.settle_clutter_on_build:
+            return
         placement_pool = get_placement_pool(self)
         if placement_pool is None:
             return
