@@ -59,13 +59,13 @@ def _layout_is_ik_reachable(
     grasp_poses = torch.stack(
         [top_down_grasp_pose_from_env(env, name, grasp_z_offset, env_id) for name in movable_object_names]
     )
-    feasible, _, _ = solve_ik_feasibility(
+    ik = solve_ik_feasibility(
         planner,
         grasp_poses,
         position_threshold=ik_pos_threshold,
         rotation_threshold=ik_rot_threshold,
     )
-    return bool(feasible.all().item())
+    return bool(ik.feasible.all().item())
 
 
 def validate_pool_ik(

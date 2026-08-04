@@ -10,7 +10,8 @@ top-down grasp at every movable object -- by default without the arm colliding o
 (reject-&-refill) until every env has enough reachable layouts.
 
 With the placement debug view on (``ObjectPlacerParams.debug_visualize``), the check also draws what it solved for each
-candidate -- the robot base, the grasps, and their IK errors; see ``isaaclab_arena_curobo.reachability_visualizer``.
+candidate -- the robot base, the grasps, their IK errors, and the collision spheres the arm holds at each solved grasp;
+see ``isaaclab_arena_curobo.reachability_visualizer``.
 """
 
 from __future__ import annotations
@@ -28,7 +29,12 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
-from isaaclab_arena_curobo.utils.ik_solver_utils import get_aabb_collision_cuboid_for_object, solve_ik_feasibility
+from isaaclab_arena_curobo.utils.ik_solver_utils import (
+    get_aabb_collision_cuboid_for_object,
+    hand_sphere_mask,
+    robot_collision_spheres,
+    solve_ik_feasibility,
+)
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -182,7 +188,7 @@ class ReachabilityValidator(PlacementValidator):
             )
             for obj in targets
         ])
-        feasible, position_error, rotation_error = solve_ik_feasibility(
+        ik = solve_ik_feasibility(
             self._solver,
             grasp_poses,
             position_threshold=self._ik_pos_threshold,
@@ -197,11 +203,14 @@ class ReachabilityValidator(PlacementValidator):
                 robot_base_quat_w_xyzw=self._robot_base_quat_w_xyzw,
                 target_names=[obj.name for obj in targets],
                 grasp_poses_base_frame=grasp_poses,
-                feasible=feasible,
-                position_error=position_error,
-                rotation_error=rotation_error,
+                feasible=ik.feasible,
+                position_error=ik.position_error,
+                rotation_error=ik.rotation_error,
+                # The pose the arm ended up in is what explains a rejection, so it is drawn alongside it.
+                robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
+                muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
             )
-        return bool(feasible.all().item())
+        return bool(ik.feasible.all().item())
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""

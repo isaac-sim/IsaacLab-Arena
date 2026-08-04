@@ -230,7 +230,7 @@ def _run_reachability_check(args_cli) -> bool:
         top_down_grasp_pose_from_env(env, OBSTACLE_OBJECT, GRASP_Z_OFFSET),
         top_down_grasp_pose_from_env(env, NON_OBSTACLE_OBJECT, GRASP_Z_OFFSET),
     ])
-    feasible, pos_err, rot_err = solve_ik_feasibility(planner, grasp_poses)
+    feasible, pos_err, rot_err, _ = solve_ik_feasibility(planner, grasp_poses)
     print(
         f"reach: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad",
         flush=True,

@@ -19,6 +19,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+DOF = 7
+"""Joint count the patched IK solve reports; only its width matters, no kinematics run here."""
+
+NUM_SPHERES = 5
+"""Collision-sphere count the patched kinematics reports, for the same reason."""
+
 
 def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
     """Build a small valid desk (anchor) + box (On desk) pool and return it."""
@@ -80,15 +86,20 @@ def _patch_curobo(monkeypatch, feasible_fn):
         return captured["solver"]
 
     def _fake_ik(solver, target_poses, **kwargs):
+        from isaaclab_arena_curobo.utils.ik_solver_utils import IKFeasibility
+
         num = target_poses.shape[0]
         feasible = torch.tensor(feasible_fn(num), dtype=torch.bool)
         captured["num_grasps"] = num
         captured["ik_kwargs"] = kwargs
-        return feasible, torch.zeros(num), torch.zeros(num)
+        return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
     monkeypatch.setattr(mod, "solve_ik_feasibility", _fake_ik)
     monkeypatch.setattr(mod, "get_embodiment_curobo_cfg", lambda embodiment: None)
+    # The sphere helpers are cuRobo kinematics calls; they are covered in test_ik_solver_utils.py.
+    monkeypatch.setattr(mod, "robot_collision_spheres", lambda solver, q: torch.zeros(q.shape[0], NUM_SPHERES, 4))
+    monkeypatch.setattr(mod, "hand_sphere_mask", lambda solver: torch.zeros(NUM_SPHERES, dtype=torch.bool))
     return captured
 
 
@@ -224,6 +235,10 @@ def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
 
     assert [entry["layout_index_across_batch"] for entry in drawn] == [7, 9]
     assert [entry["target_names"] for entry in drawn] == [["box"], ["box"]]
+    # The arm's pose at each solved grasp is drawn with it, one set of collision spheres per grasp,
+    # with the hand spheres marked as the ones the solve muted.
+    assert [tuple(entry["robot_spheres"].shape) for entry in drawn] == [(1, NUM_SPHERES, 4), (1, NUM_SPHERES, 4)]
+    assert all(entry["muted_sphere_mask"] is not None for entry in drawn)
 
 
 def test_reachability_layer_records_to_rrd(tmp_path):
@@ -244,6 +259,8 @@ def test_reachability_layer_records_to_rrd(tmp_path):
         feasible=torch.tensor([False]),
         position_error=torch.tensor([0.3]),
         rotation_error=torch.tensor([0.1]),
+        robot_spheres=torch.tensor([[[0.1, 0.0, 0.2, 0.05], [0.2, 0.0, 0.3, 0.04]]]),
+        muted_sphere_mask=torch.tensor([False, True]),
     )
     visualizer.close()
 

@@ -11,7 +11,7 @@ import torch
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import isaaclab.utils.math as math_utils
 from curobo.geom.types import Cuboid, WorldConfig
@@ -50,6 +50,43 @@ def resolve_hand_link_names(ik_solver_context: CuroboIKSolver | CuroboPlanner) -
     if hand_link_names is None:
         hand_link_names = ik_solver_context.config.hand_link_names
     return list(hand_link_names)
+
+
+def hand_sphere_mask(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> torch.Tensor:
+    """Mask over the robot's collision spheres selecting the hand ones, i.e. those a collision-free solve mutes.
+
+    Args:
+        ik_solver_context: The host that owns the solver and names the embodiment's hand links.
+
+    Returns:
+        ``(num_spheres,)`` bool tensor aligned with the spheres ``robot_collision_spheres`` returns.
+    """
+    kinematics_config = resolve_ik_solver(ik_solver_context).kinematics.kinematics_config
+    sphere_link_indices = kinematics_config.link_sphere_idx_map
+    mask = torch.zeros(sphere_link_indices.shape[0], dtype=torch.bool, device=sphere_link_indices.device)
+    for name in resolve_hand_link_names(ik_solver_context):
+        mask[kinematics_config.get_sphere_index_from_link_name(name)] = True
+    return mask
+
+
+def robot_collision_spheres(
+    ik_solver_context: CuroboIKSolver | CuroboPlanner, joint_positions: torch.Tensor
+) -> torch.Tensor:
+    """Forward-kinematics the robot's collision spheres at each given joint configuration.
+
+    These are the spheres cuRobo collision-checks, so they show what a rejected grasp actually ran into.
+
+    Args:
+        ik_solver_context: The host that owns the solver and supplies device plumbing.
+        joint_positions: ``(b, dof)`` joint configuration per pose.
+
+    Returns:
+        ``(b, num_spheres, 4)`` of ``(x, y, z, radius)`` in the robot base frame; cuRobo leaves unused
+        spheres in with a negative radius.
+    """
+    ik_solver = resolve_ik_solver(ik_solver_context)
+    joint_positions = ik_solver_context._to_curobo_device(joint_positions)
+    return ik_solver.kinematics.get_state(joint_positions).link_spheres_tensor
 
 
 @contextmanager
@@ -143,6 +180,22 @@ def world_config_from_cuboids(
     return WorldConfig(cuboid=curobo_cuboids)
 
 
+class IKFeasibility(NamedTuple):
+    """One batched IK solve's outcome, every field length ``b`` and aligned with the input poses."""
+
+    feasible: torch.Tensor
+    """Per-pose verdict: converged within the thresholds, and collision-free when that was required."""
+
+    position_error: torch.Tensor
+    """Per-pose IK position error (m) of the returned solution."""
+
+    rotation_error: torch.Tensor
+    """Per-pose IK rotation error (rad) of the returned solution."""
+
+    joint_positions: torch.Tensor
+    """``(b, dof)`` joint configuration solved per pose; the best seed's, feasible or not."""
+
+
 def solve_ik_feasibility(
     ik_solver_context: CuroboIKSolver | CuroboPlanner,
     target_poses: torch.Tensor,
@@ -150,7 +203,7 @@ def solve_ik_feasibility(
     position_threshold: float = 0.01,
     rotation_threshold: float = 0.1,
     require_collision_free: bool = False,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> IKFeasibility:
     """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver. Shared between sim-free and env-coupled paths.
     Runs a single ``solve_batch`` for one layout.
 
@@ -166,8 +219,8 @@ def solve_ik_feasibility(
             against the solver's world and against itself.
 
     Returns:
-        ``(feasible, position_error, rotation_error)``, each length ``b`` and aligned with the input;
-        errors are the best-seed values per pose.
+        An ``IKFeasibility`` holding the per-pose verdict, the best-seed errors, and the joint
+        configuration those errors belong to.
     """
     ik_solver = resolve_ik_solver(ik_solver_context)
     target_poses = ik_solver_context._to_curobo_device(target_poses)
@@ -203,6 +256,8 @@ def solve_ik_feasibility(
     best_idx = pos_err.argmin(dim=1, keepdim=True)
     best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
     best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
+    solutions = ik_result.solution.view(num_poses, pos_err.shape[1], -1)
+    best_solution = solutions.gather(1, best_idx.unsqueeze(-1).expand(-1, -1, solutions.shape[-1])).squeeze(1)
 
     ik_solver_context.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
-    return feasible, best_pos_err, best_rot_err
+    return IKFeasibility(feasible, best_pos_err, best_rot_err, best_solution)

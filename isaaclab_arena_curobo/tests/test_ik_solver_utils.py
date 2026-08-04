@@ -7,8 +7,9 @@
 
 Exercises what ``solve_ik_feasibility`` does around cuRobo when collision checking is on -- mute the
 hand links for the solve, restore them afterwards, and fold cuRobo's ``success`` into the verdict --
-against a fake kinematics config that mimics cuRobo's in-place sphere edits. Needs no GPU, but does
-need the cuRobo image, since the module under test imports cuRobo at import time.
+plus the sphere helpers the debug view draws with, against a fake kinematics config that mimics
+cuRobo's in-place sphere edits. Needs no GPU, but does need the cuRobo image, since the module under
+test imports cuRobo at import time.
 """
 
 from __future__ import annotations
@@ -21,6 +22,9 @@ pytestmark = pytest.mark.curobo_deps
 
 HAND_LINKS = ["left_finger", "right_finger"]
 ARM_LINK = "forearm"
+DOF = 7
+"""Joint count of the fake robot; only its width matters, since no real kinematics run here."""
+
 DISABLED_RADIUS = -100.0
 """Radius cuRobo writes into a muted sphere; anything negative is ignored by its collision kernels."""
 
@@ -31,6 +35,11 @@ class _FakeKinematicsConfig:
     def __init__(self, link_names: list[str]) -> None:
         self.link_name_to_idx_map = {name: index for index, name in enumerate(link_names)}
         self._spheres = {name: torch.tensor([[0.0, 0.0, 0.0, 0.05]]) for name in link_names}
+        # One sphere per link, in link order, so sphere i belongs to link i.
+        self.link_sphere_idx_map = torch.arange(len(link_names))
+
+    def get_sphere_index_from_link_name(self, link_name: str) -> torch.Tensor:
+        return torch.nonzero(self.link_sphere_idx_map == self.link_name_to_idx_map[link_name]).view(-1)
 
     def get_link_spheres(self, link_name: str) -> torch.Tensor:
         return self._spheres[link_name]
@@ -52,13 +61,29 @@ class _FakeIKResult:
         self.position_error = torch.zeros(num_poses)
         self.rotation_error = torch.zeros(num_poses)
         self.success = torch.full((num_poses,), success, dtype=torch.bool)
+        # cuRobo returns (batch, return_seeds, dof); the joint values themselves are arbitrary here.
+        self.solution = torch.arange(num_poses * DOF, dtype=torch.float32).view(num_poses, 1, DOF)
+
+
+class _FakeKinematics:
+    """Stand-in for cuRobo's ``CudaRobotModel``: the sphere config plus forward kinematics onto it."""
+
+    def __init__(self, kinematics_config: _FakeKinematicsConfig) -> None:
+        self.kinematics_config = kinematics_config
+
+    def get_state(self, joint_positions: torch.Tensor):
+        """Return one set of link spheres per given joint configuration."""
+        spheres = torch.stack(
+            [self.kinematics_config.get_link_spheres(name)[0] for name in self.kinematics_config.link_name_to_idx_map]
+        )
+        return type("_State", (), {"link_spheres_tensor": spheres.expand(joint_positions.shape[0], -1, -1)})()
 
 
 class _FakeIKSolver:
     """Records the sphere radii cuRobo would have seen at solve time, then returns a canned result."""
 
     def __init__(self, kinematics_config: _FakeKinematicsConfig, success: bool, raises: bool = False) -> None:
-        self.kinematics = type("_Kinematics", (), {"kinematics_config": kinematics_config})()
+        self.kinematics = _FakeKinematics(kinematics_config)
         self._success = success
         self._raises = raises
         self.radii_during_solve: dict[str, float] = {}
@@ -147,11 +172,36 @@ def test_colliding_pose_is_infeasible_only_when_collision_checking_is_on():
     from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
 
     host, _ = _make_host(success=False)
-    reachable, _, _ = solve_ik_feasibility(host, _identity_grasps(), require_collision_free=False)
-    collision_free, _, _ = solve_ik_feasibility(host, _identity_grasps(), require_collision_free=True)
+    reachable = solve_ik_feasibility(host, _identity_grasps(), require_collision_free=False).feasible
+    collision_free = solve_ik_feasibility(host, _identity_grasps(), require_collision_free=True).feasible
 
     assert reachable.tolist() == [True, True]
     assert collision_free.tolist() == [False, False]
+
+
+def test_hand_sphere_mask_marks_the_hand_spheres_only():
+    """The mask singles out exactly the spheres a collision-free solve mutes."""
+    from isaaclab_arena_curobo.utils.ik_solver_utils import hand_sphere_mask
+
+    host, _ = _make_host()
+
+    # One sphere per link, in link order: the two hand links, then the arm link.
+    assert hand_sphere_mask(host).tolist() == [True, True, False]
+
+
+def test_solved_configuration_comes_back_and_forward_kinematics_to_spheres():
+    """The solved joint configuration is returned, and the spheres to draw come from posing the robot at it."""
+    from isaaclab_arena_curobo.utils.ik_solver_utils import robot_collision_spheres, solve_ik_feasibility
+
+    host, _ = _make_host()
+    ik = solve_ik_feasibility(host, _identity_grasps(num_poses=2), require_collision_free=True)
+    spheres = robot_collision_spheres(host, ik.joint_positions)
+
+    # One row per pose, cuRobo's ``(batch, return_seeds, dof)`` collapsed onto the best seed.
+    assert ik.joint_positions.shape == (2, DOF)
+    assert spheres.shape == (2, len(HAND_LINKS) + 1, 4)
+    # Muting is scoped to the solve, so the spheres drawn afterwards carry their real radii.
+    assert (spheres[..., 3] > 0.0).all()
 
 
 def test_unknown_hand_link_is_reported_against_the_robot_config():
