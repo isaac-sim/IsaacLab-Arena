@@ -25,7 +25,6 @@ runs:
     # This YAML anchor keeps the shared pi0 environment-builder settings in one place.
     environment_builder: &pi0_builder
       num_envs: 30
-      episode_length_s: 66.0  # ~1000 policy steps at 15 Hz control, overriding the tasks' 20 s
     variations: &hdr_variation
       light:
         hdr_image:
@@ -46,7 +45,6 @@ runs:
     # This YAML anchor keeps the shared Cosmos environment-builder settings in one place.
     environment_builder: &cosmos_builder
       num_envs: 30
-      episode_length_s: 66.0  # ~1000 policy steps at 15 Hz control, overriding the tasks' 20 s
     variations: *hdr_variation
     rollout_limit:
       num_episodes: 300
