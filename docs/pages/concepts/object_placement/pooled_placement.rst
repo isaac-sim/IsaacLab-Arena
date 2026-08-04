@@ -15,55 +15,110 @@ layouts are stored per environment for construction and reset. Arena processes
 candidates across environments together; users do not place each environment
 separately.
 
+Different Layouts and Objects
+-----------------------------
+
+Arena can independently change a layout and the objects in it:
+
+- **Different layouts:** the same objects receive different positions or
+  orientations across environments or resets.
+- **Different objects:** a ``RigidObjectSet`` selects one member for each
+  environment.
+
+Object selections remain fixed across resets while layouts can change. Each
+layout is solved and checked using the selected object's dimensions. See
+:ref:`Same and Different Objects Across Environments
+<same-and-different-objects-across-environments>` for a visual example.
+
+.. figure:: ../../../images/same_objects_different_layouts.gif
+   :width: 100%
+   :alt: The same objects placed in different layouts across four environments
+   :align: center
+
+   The same six objects appear in every environment, but each environment
+   receives a different solved layout.
+
+.. figure:: ../../../images/heterogeneous_placement.gif
+   :width: 100%
+   :alt: Different objects placed across four parallel environments
+   :align: center
+
+   The orange and banana stay the same in every environment. Object sets select
+   bottles, cans, tools, and packages, and the solver uses each selected
+   object's dimensions.
+
+Within a complete environment graph, an object set and its placement relation
+look like this:
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :selected:
+
+      .. code-block:: python
+
+         from isaaclab_arena.assets.object_set import RigidObjectSet
+         from isaaclab_arena.relations.relations import IsAnchor, On
+
+         maple_table = asset_registry.get_asset_by_name(
+             "maple_table_robolab"
+         )()
+         maple_table.add_relation(IsAnchor())
+
+         fruit = RigidObjectSet(
+             name="fruit",
+             objects=[
+                 asset_registry.get_asset_by_name(
+                     "apple_01_objaverse_robolab"
+                 )(),
+                 asset_registry.get_asset_by_name(
+                     "orange_01_fruits_veggies_robolab"
+                 )(),
+             ],
+             random_choice=True,
+         )
+         fruit.add_relation(On(maple_table))
+
+   .. tab-item:: YAML
+
+      .. code-block:: yaml
+
+         object_sets:
+           - id: fruit
+             members:
+               - apple_01_objaverse_robolab
+               - orange_01_fruits_veggies_robolab
+             random_choice: true
+
+         relations:
+           - kind: 'on'
+             subject: fruit
+             reference: maple_table
+
+Run the complete graph example, including its table, anchor, embodiment, and
+task declarations, with:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type zero_action \
+     --num_envs 4 \
+     --num_steps 100 \
+     --env_graph_spec_yaml \
+       isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml
+
 .. important::
 
    Do not set an initial pose on an object whose pose is determined by
    placement relations. The builder owns that object's construction and reset
    poses. Anchors remain fixed and therefore still need a known pose.
 
-Object and Layout Variation
----------------------------
-
-Two independent kinds of variation are supported:
-
-- **Layout variation:** the same objects receive different positions or
-  orientations.
-- **Object variation:** a ``RigidObjectSet`` selects different object variants
-  across environments.
-
-For object variation, object-variant assignments remain fixed across resets
-while layouts can change. Each layout is solved and checked using the assigned
-variant's dimensions. See :ref:`Homogeneous and Heterogeneous Object Placement
-<homogeneous-and-heterogeneous-placement>` for the distinction and a visual
-example.
-
-Within a complete environment graph, a heterogeneous object set and its
-placement relation look like this:
-
-.. code-block:: yaml
-
-   object_sets:
-     - id: fruit
-       members:
-         - apple_01_objaverse_robolab
-         - orange_01_fruits_veggies_robolab
-       random_choice: true
-
-   relations:
-     - kind: 'on'
-       subject: fruit
-       reference: maple_table
-
-See
-``isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml``
-for the complete runnable example, including the table, anchor, embodiment, and
-task declarations.
-
 Layouts Across Resets
 ---------------------
 
 The builder prepares a pool of validated layouts for each environment.
-By default, resets consume layouts from these pools, producing scene variation
+By default, resets consume layouts from these pools, producing different layouts
 without solving every reset. If a pool becomes empty, placement generates more
 layouts during the reset.
 
@@ -75,9 +130,9 @@ episodes.
 Reproducibility
 ---------------
 
-Set ``placement_seed`` when placement must be repeatable. With the same scene,
-seed, and environment count, Arena reproduces both object-set assignments and
-layout generation.
+Set ``placement_seed`` when placement must be repeatable. With the same Arena
+environment definition, placement seed, and environment count, layout
+generation is repeatable.
 
 This command produces a repeatable sequence of layouts across resets:
 
@@ -85,19 +140,20 @@ This command produces a repeatable sequence of layouts across resets:
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
+     --seed 42 \
      --placement_seed 42 \
      --num_steps 100 \
      pick_and_place_maple_table
 
-The simulation seed controls other simulation randomness, while
-``placement_seed`` controls placement. Set both for a fully repeatable run.
+``--seed`` controls general simulation randomness, while ``--placement_seed``
+controls placement-specific randomness.
 
 Recommended Starting Points
 ---------------------------
 
 Start with the defaults. Most users only need to decide:
 
-1. Use ``RigidObjectSet`` if object identity should vary across environments.
+1. Use ``RigidObjectSet`` if environments should contain different objects.
 2. Set ``placement_seed`` if results must be repeatable.
 3. Choose whether layouts should change on reset with ``resolve_on_reset``.
 4. Choose a collision representation only when bounding boxes are too

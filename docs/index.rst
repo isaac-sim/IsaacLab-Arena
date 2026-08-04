@@ -229,7 +229,7 @@ TABLE OF CONTENTS
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index
-   pages/concepts/concept_object_placement
+   pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
    pages/concepts/variations/index
 

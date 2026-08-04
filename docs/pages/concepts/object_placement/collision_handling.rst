@@ -9,25 +9,33 @@ What Collision Avoidance Covers
 -------------------------------
 
 Every pair of placed, non-anchor assets receives a no-overlap constraint unless
-the pair has a support relationship such as ``On``. Fixed scene assets can also
-act as passive obstacles when Arena can obtain their collision bounds. When a
-background uses mesh collision, its collision geometry can act as a passive
+the pair has a support relationship such as ``On``. Fixed background assets can
+also act as passive obstacles when Arena can obtain their collision bounds. When
+a background uses mesh collision, its collision geometry can act as a passive
 obstacle, allowing placement to avoid furniture and appliances within a complex
-scene.
+environment.
 
 Choosing a Collision Representation
 -----------------------------------
 
 Arena supports two collision modes:
 
-``CollisionMode.BBOX``
-   Uses axis-aligned bounding boxes. It is fast and works well when the box is
-   a reasonable approximation of the object.
+.. list-table::
+   :header-rows: 1
+   :widths: 15 15 25 45
 
-``CollisionMode.MESH``
-   Follows the collision geometry more closely. It is useful when bounding
-   boxes reject valid placements around irregular or concave shapes, but it
-   requires more computation.
+   * - Mode
+     - Speed
+     - Geometry
+     - Recommended use
+   * - ``CollisionMode.BBOX``
+     - Faster
+     - Axis-aligned bounding boxes
+     - Default choice when boxes reasonably approximate the objects
+   * - ``CollisionMode.MESH``
+     - Slower
+     - Bounding spheres queried against collision-mesh geometry
+     - Irregular or concave shapes whose boxes reject usable free space
 
 .. figure:: ../../../images/mesh_vs_bbox_collision.png
    :width: 100%
@@ -38,7 +46,11 @@ Arena supports two collision modes:
    layout, while mesh collision recognizes that the object surfaces do not
    overlap.
 
-Configure mesh collision when defining the environment:
+Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
+the actual objects can safely occupy. Collision mode changes overlap checking;
+it does not change the meaning of relations such as ``On`` or ``NextTo``.
+
+Set the solver-wide default when defining an environment in Python:
 
 .. code-block:: python
 
@@ -54,7 +66,6 @@ Configure mesh collision when defining the environment:
    placer_params = ObjectPlacerParams(
        solver_params=RelationSolverParams(
            collision_mode=CollisionMode.MESH,
-           clearance_m=0.01,
        )
    )
    environment = IsaacLabArenaEnvironment(
@@ -63,41 +74,70 @@ Configure mesh collision when defining the environment:
        placer_params=placer_params,
    )
 
-``RelationSolverParams.clearance_m`` sets the minimum separation used when
-checking collisions between assets. ``On.clearance_m`` is separate and controls
-only the vertical gap above a support surface.
+An individual asset can override that default:
 
-Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
-the actual objects can safely occupy. Collision mode changes overlap checking;
-it does not change the meaning of relations such as ``On`` or ``NextTo``.
+.. tab-set::
 
-An individual asset can override the solver default. In an environment graph,
-set the mode in that asset's parameters:
+   .. tab-item:: Python
+      :selected:
 
-.. code-block:: yaml
+      .. code-block:: python
 
-   background:
-     id: kitchen
-     registry_name: lightwheel_robocasa_kitchen
-     params:
-       collision_mode: mesh
+         from isaaclab_arena.relations.collision_mode import CollisionMode
 
-When an asset has no extractable collision mesh, Arena uses its bounding box as
-a proxy. If neither asset in a pair provides a mesh, the pair falls back to
-bounding-box checking and logs the fallback.
+         background = asset_registry.get_asset_by_name(
+             "lightwheel_robocasa_kitchen"
+         )()
+         background.collision_mode = CollisionMode.MESH
+
+   .. tab-item:: YAML
+
+      .. code-block:: yaml
+
+         background:
+           id: kitchen
+           registry_name: lightwheel_robocasa_kitchen
+           params:
+             collision_mode: mesh
+
+When a non-background asset has no extractable collision mesh, Arena uses its
+bounding box as a proxy and logs the fallback. A whole-scene ``Background`` in
+``MESH`` mode requires successful mesh extraction; environment setup fails if
+that mesh cannot be extracted.
+
+See
+`RelationSolverParams <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/relations/relation_solver_params.py>`_
+for clearance, mesh fidelity, and solver tuning fields, and
+`ObjectPlacerParams <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/relations/object_placer_params.py>`_
+for placement-level controls.
 
 Background and Passive Obstacles
 --------------------------------
 
-Objects do not need placement relations to act as obstacles. A table can be an
+Assets do not need placement relations to act as obstacles. A table can be an
 anchor that supports an ``On`` relation, while a nearby appliance can remain a
 fixed passive obstacle. This lets Arena place objects on a surface while
-avoiding the rest of a complex scene.
+avoiding the rest of a complex environment.
 
 The included kitchen example shows objects placed on a counter while avoiding
-the background mesh. It requires a graphical display; see
-:ref:`the display setup note <placement-viewer-display>` for remote and
-container setup:
+the background mesh.
+
+.. figure:: ../../../images/kitchen_background_collision.png
+   :width: 100%
+   :alt: Objects placed on a kitchen counter without intersecting nearby appliances
+   :align: center
+
+   The counter is the placement anchor. The surrounding stove, toaster, and
+   refrigerator remain fixed passive obstacles represented by the kitchen
+   collision mesh.
+
+.. note::
+
+   This command requires a graphical display. In a remote or container
+   session, configure display forwarding and set ``DISPLAY`` to the active X
+   display, for example ``export DISPLAY=:1``.
+
+Run the example from the repository root:
 
 .. code-block:: bash
 
@@ -108,6 +148,3 @@ container setup:
 
 ``--viz kit`` opens the viewer, and ``--view_steps 0`` keeps it open until you
 close the application.
-
-Validation checks determine whether a solved layout is accepted. See
-:doc:`./validation` for geometric, reachability, and physics validation.

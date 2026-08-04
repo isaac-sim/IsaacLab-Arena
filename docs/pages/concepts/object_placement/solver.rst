@@ -18,8 +18,8 @@ Solving a candidate involves four steps:
 4. ``ObjectPlacer`` resolves orientation relations and sends the candidates to
    the configured validators.
 
-Orientation Variation
----------------------
+Random Orientation
+------------------
 
 Enable random yaw initialization when objects may begin with arbitrary
 horizontal orientations. In ``BBOX`` mode, collision checking uses the
@@ -34,7 +34,7 @@ follows the collision geometry more closely:
    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
    environment = IsaacLabArenaEnvironment(
-       name="orientation_variation",
+       name="random_orientation",
        scene=scene,
        placer_params=ObjectPlacerParams(random_yaw_init=True),
    )
@@ -77,14 +77,8 @@ for the complete example. Its ``placement_bbox_stand_only: true`` option uses
 only the Droid stand footprint for placement; the robot arm is excluded from
 those placement bounds.
 
-Robot-base placement and task reachability are checked separately. See
-:doc:`./validation` for reachability behavior and limitations.
+Robot-base placement and task reachability are checked separately. Detailed
+reachability documentation is forthcoming in :doc:`./validation`.
 
-Use the following guides to define relations and choose a collision
-representation:
-
-.. toctree::
-   :maxdepth: 1
-
-   relations
-   collision_handling
+See :doc:`./relations` to define spatial intent and
+:doc:`./collision_handling` to choose a collision representation.

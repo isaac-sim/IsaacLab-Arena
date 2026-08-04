@@ -168,5 +168,4 @@ references. Add parameters only when the default relation does not express the
 intended arrangement.
 
 Collision avoidance is automatic and is not expressed as a relation. See
-:doc:`./collision_handling` for collision representations and
-:doc:`./validation` for layout checks.
+:doc:`./collision_handling` for collision representations.
