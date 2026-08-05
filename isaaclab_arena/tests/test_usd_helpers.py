@@ -101,8 +101,9 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
     bbox = compute_local_bounding_box_from_usd(child_usd.as_posix(), scale=spawn_scale, prim_path="/Root/Child")
     half = 0.5 * spawn_scale[0]
     tx, ty, tz = (c * spawn_scale[0] for c in translate)
-    min_pt = bbox.min_point[0].tolist()
-    max_pt = bbox.max_point[0].tolist()
+    minimum, maximum = bbox.get_axis_aligned_bounds()
+    min_pt = minimum[0].tolist()
+    max_pt = maximum[0].tolist()
     expected_min = [tx - half, ty - half, tz - half]
     expected_max = [tx + half, ty + half, tz + half]
     assert all(abs(a - b) < EPS for a, b in zip(min_pt, expected_min)), (min_pt, expected_min)
@@ -110,8 +111,9 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
 
     # Full default-prim bounds must be at least as large as the child-only bounds.
     full = compute_local_bounding_box_from_usd(child_usd.as_posix(), scale=spawn_scale)
-    assert (full.min_point <= bbox.min_point).all()
-    assert (full.max_point >= bbox.max_point).all()
+    full_minimum, full_maximum = full.get_axis_aligned_bounds()
+    assert (full_minimum <= minimum).all()
+    assert (full_maximum >= maximum).all()
     return True
 
 

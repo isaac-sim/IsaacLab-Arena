@@ -13,7 +13,6 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -189,7 +188,7 @@ def _test_object_reference_nonuniform_parent_scale_with_rotation(simulation_app)
 
 
 def test_object_reference_nonuniform_parent_scale_with_rotation():
-    assert run_simulation_app_function(
+    assert run_function_with_persistent_simulation_app(
         _test_object_reference_nonuniform_parent_scale_with_rotation,
         headless=HEADLESS,
     )
@@ -253,7 +252,9 @@ def _test_rotated_reference_local_bbox_is_not_double_rotated(simulation_app) -> 
 
 
 def test_rotated_reference_local_bbox_is_not_double_rotated():
-    assert run_simulation_app_function(_test_rotated_reference_local_bbox_is_not_double_rotated, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(
+        _test_rotated_reference_local_bbox_is_not_double_rotated, headless=HEADLESS
+    )
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):

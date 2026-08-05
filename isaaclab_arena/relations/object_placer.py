@@ -567,7 +567,7 @@ class ObjectPlacer:
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         if self._visualizer is not None:
-            self._visualizer.start_new_batch(positions, orientations, bboxes)
+            self._visualizer.start_new_batch(positions, rotations, bboxes)
 
         self._run_inexpensive_checks(
             positions,

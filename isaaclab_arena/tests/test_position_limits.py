@@ -316,9 +316,7 @@ def test_solver_respects_cylindrical_position_limits():
     """Solver moves an object from an annulus center into its allowed radial band."""
     table = DummyObject(
         name="table",
-        bounding_box=OrientedBoundingBox.from_min_max(
-            min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)
-        ),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
     )
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())

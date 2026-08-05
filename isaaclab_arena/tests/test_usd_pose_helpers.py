@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app

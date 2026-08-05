@@ -193,7 +193,7 @@ def _test_droid_geometry_tracks_configured_joint_positions(simulation_app) -> bo
     configured = robot.init_state.joint_pos
     posed = extract_trimesh_from_usd_at_joint_pos(usd_path, configured)
     posed_bbox = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, configured)
-    np.testing.assert_allclose(posed.extents, posed_bbox.size.numpy()[0], atol=2e-3)
+    np.testing.assert_allclose(posed.extents, (2.0 * posed_bbox.half_extents).numpy()[0], atol=2e-3)
 
     # At zero the arm stands straight up, so it is taller and narrower than the configured pose.
     zero = extract_trimesh_from_usd_at_joint_pos(usd_path, {})
@@ -217,13 +217,15 @@ def _test_droid_posed_bounding_box_covers_all_geometry(simulation_app) -> bool:
 
     authored = compute_local_bounding_box_from_usd(usd_path)
     posed = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, configured)
-    np.testing.assert_allclose(posed.size.numpy()[0], authored.size.numpy()[0], atol=2e-3)
-    np.testing.assert_allclose(posed.min_point.numpy()[0], authored.min_point.numpy()[0], atol=2e-3)
+    posed_minimum, _ = posed.get_axis_aligned_bounds()
+    authored_minimum, _ = authored.get_axis_aligned_bounds()
+    np.testing.assert_allclose(posed.half_extents.numpy()[0], authored.half_extents.numpy()[0], atol=1e-3)
+    np.testing.assert_allclose(posed_minimum.numpy()[0], authored_minimum.numpy()[0], atol=2e-3)
 
     # Both paths include every Gprim. Link-local boxes are conservative, so their aggregate can be
     # larger than the exact posed bound but must never be smaller.
     mesh_extents = extract_trimesh_from_usd_at_joint_pos(usd_path, configured).extents
-    posed_size = posed.size.numpy()[0]
+    posed_size = (2.0 * posed.half_extents).numpy()[0]
     assert np.all(mesh_extents >= posed_size - 1e-6), f"proxy {mesh_extents} does not cover bbox {posed_size}"
     assert np.all(mesh_extents - posed_size < 0.2), f"link-local proxy is unexpectedly loose: {mesh_extents}"
     return True
@@ -359,13 +361,15 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
 
         # The mount reaches 1.7 along +X: forearm at 1.0, mount offset 0.5, half extent 0.2.
         rest = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {})
-        np.testing.assert_allclose(rest.max_point.numpy()[0][0], 1.7, atol=1e-6)
+        _, rest_maximum = rest.get_axis_aligned_bounds()
+        np.testing.assert_allclose(rest_maximum.numpy()[0][0], 1.7, atol=1e-6)
         np.testing.assert_allclose(rest_mesh.vertices.max(axis=0)[0], 1.7)
 
         # Swinging the elbow must carry the instance with the forearm rather than leave it behind.
         swung = compute_local_bounding_box_from_usd_at_joint_pos(usd_path, {"elbow": math.pi / 2.0})
-        np.testing.assert_allclose(swung.max_point.numpy()[0][1], 1.7, atol=1e-6)
-        np.testing.assert_allclose(swung.max_point.numpy()[0][0], 0.2, atol=1e-6)
+        _, swung_maximum = swung.get_axis_aligned_bounds()
+        np.testing.assert_allclose(swung_maximum.numpy()[0][1], 1.7, atol=1e-6)
+        np.testing.assert_allclose(swung_maximum.numpy()[0][0], 0.2, atol=1e-6)
     return True
 
 

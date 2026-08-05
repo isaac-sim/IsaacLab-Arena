@@ -619,7 +619,7 @@ class PositionLimitsCylindricalLossStrategy(UnaryRelationLossStrategy):
         self,
         relation: PositionLimitsCylindrical,
         child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
+        child_bbox: OrientedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for cylindrical world-XY position limits."""
         single_input = child_pos.dim() == 1
