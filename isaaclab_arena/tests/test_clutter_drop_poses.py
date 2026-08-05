@@ -18,6 +18,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     ClutterRegion,
     DropOrder,
     DropPose,
+    MemberDropParams,
     XySampling,
     compute_drop_poses,
 )
@@ -58,6 +59,11 @@ def assert_footprints_inside(bboxes: list, poses: list[DropPose], region: Clutte
         assert max_x <= region.max_x + 1e-6, f"object {index} spans x={max_x:.4f} past {region.max_x}"
         assert min_y >= region.min_y - 1e-6, f"object {index} spans y={min_y:.4f} past {region.min_y}"
         assert max_y <= region.max_y + 1e-6, f"object {index} spans y={max_y:.4f} past {region.max_y}"
+
+
+def axis_aligned(count: int = 1) -> list:
+    """Per-member params with yaw sampling off, for deterministic axis-aligned drops."""
+    return [MemberDropParams(random_yaw=False)] * count
 
 
 def seeded(seed: int = 0) -> torch.Generator:
@@ -166,11 +172,11 @@ def test_no_orientation_fits_reports_attempt_count():
 
 
 def test_axis_aligned_layouts_try_a_single_orientation():
-    """With random_yaw disabled there is only one orientation, so retrying is pointless."""
+    """A member with yaw sampling off has only one orientation, so retrying is pointless."""
     oversized = make_bbox(1.0, 1.0, 0.05)
-    params = ClutterDropParams(random_yaw=False, max_yaw_attempts=8)
+    params = ClutterDropParams(max_yaw_attempts=8)
     with pytest.raises(AssertionError, match="after 1 orientation attempt"):
-        compute_drop_poses([oversized], REGION, params, generator=seeded())
+        compute_drop_poses([oversized], REGION, params, generator=seeded(), member_params=axis_aligned())
 
 
 def test_clutter_spread_narrows_the_usable_area():
@@ -190,19 +196,19 @@ def test_clutter_spread_narrows_the_usable_area():
 def test_clear_column_starts_just_above_the_floor():
     """An object with nothing beneath it must not be lifted over unrelated objects."""
     bbox = make_bbox(0.04, 0.04, 0.06)
-    poses = compute_drop_poses([bbox], REGION, ClutterDropParams(random_yaw=False), generator=seeded())
+    poses = compute_drop_poses([bbox], REGION, ClutterDropParams(), generator=seeded())
 
-    expected_bottom = REGION.floor_z + ClutterDropParams().clearance_m
+    expected_bottom = REGION.floor_z + MemberDropParams().clearance_m
     assert poses[0].position[2] + float(bbox.min_point[0][2]) == pytest.approx(expected_bottom)
 
 
 def test_origin_offset_is_respected_so_the_base_clears_the_floor():
     """Placement uses the box's own bottom offset, not an assumption that the origin is centred."""
     offset_bbox = make_bbox(0.04, 0.04, 0.06, origin_offset_z=0.03)
-    poses = compute_drop_poses([offset_bbox], REGION, ClutterDropParams(random_yaw=False), generator=seeded())
+    poses = compute_drop_poses([offset_bbox], REGION, ClutterDropParams(), generator=seeded())
 
     lowest_point = poses[0].position[2] + float(offset_bbox.min_point[0][2])
-    assert lowest_point == pytest.approx(REGION.floor_z + ClutterDropParams().clearance_m)
+    assert lowest_point == pytest.approx(REGION.floor_z + MemberDropParams().clearance_m)
 
 
 def test_overlapping_footprints_stack_and_disjoint_ones_do_not():
@@ -213,7 +219,8 @@ def test_overlapping_footprints_stack_and_disjoint_ones_do_not():
     stacked = compute_drop_poses(
         [tall, tall, tall],
         narrow,
-        ClutterDropParams(xy_sampling=XySampling.UNIFORM, random_yaw=False),
+        ClutterDropParams(xy_sampling=XySampling.UNIFORM),
+        member_params=axis_aligned(3),
         generator=seeded(1),
     )
     heights = sorted(pose.position[2] for pose in stacked)
@@ -224,7 +231,8 @@ def test_overlapping_footprints_stack_and_disjoint_ones_do_not():
     spread = compute_drop_poses(
         [make_bbox(0.02, 0.02, 0.02) for _ in range(4)],
         wide,
-        ClutterDropParams(random_yaw=False),
+        ClutterDropParams(),
+        member_params=axis_aligned(4),
         generator=seeded(2),
     )
     assert len({round(pose.position[2], 6) for pose in spread}) == 1, "disjoint columns must share a height"
@@ -290,7 +298,7 @@ def test_different_seeds_produce_different_layouts():
 
 def test_random_yaw_disabled_gives_identity_rotation():
     poses = compute_drop_poses(
-        [make_bbox(0.05, 0.05, 0.05)], REGION, ClutterDropParams(random_yaw=False), generator=seeded()
+        [make_bbox(0.05, 0.05, 0.05)], REGION, ClutterDropParams(), generator=seeded(), member_params=axis_aligned()
     )
     assert poses[0].rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
 
@@ -303,9 +311,10 @@ def test_base_rotation_tilts_object_and_refits_drop_height():
     poses = compute_drop_poses(
         [upright],
         REGION,
-        ClutterDropParams(random_yaw=False),
+        ClutterDropParams(),
         generator=seeded(),
         base_rotations_xyzw=[pitch_quarter_turn],
+        member_params=axis_aligned(),
     )
 
     pose = poses[0]
@@ -314,7 +323,7 @@ def test_base_rotation_tilts_object_and_refits_drop_height():
     assert float(rotated.size[0][0]) == pytest.approx(0.20)
     assert float(rotated.size[0][2]) == pytest.approx(0.04)
     assert pose.position[2] + float(rotated.bottom_surface_z[0]) == pytest.approx(
-        REGION.floor_z + ClutterDropParams().clearance_m
+        REGION.floor_z + MemberDropParams().clearance_m
     )
 
 
@@ -379,7 +388,7 @@ def test_off_centre_footprint_does_not_interpenetrate():
 
 def test_strongly_offset_origin_is_still_contained_without_yaw():
     # A box lying entirely on the +X side of its origin has nothing centred about it.
-    params = ClutterDropParams(random_yaw=False)
+    params = ClutterDropParams()
     bboxes = [make_bbox(0.08, 0.04, 0.03, origin_offset_x=0.04) for _ in range(4)]
     poses = compute_drop_poses(bboxes, REGION, params, generator=seeded())
     assert_footprints_inside(bboxes, poses, REGION)

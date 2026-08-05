@@ -19,11 +19,13 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.clutter_drop_poses import (
     ClutterDropParams,
     ClutterRegion,
+    MemberDropParams,
     OccupiedFootprint,
     compute_drop_poses,
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
+from isaaclab_arena.relations.relations import ClutteredOn
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -132,6 +134,25 @@ def _world_rotation_from_layout(asset: PlaceableAsset, layout: PlacementResult) 
     )
 
 
+def resting_extents(
+    asset: PlaceableAsset, layout: PlacementResult, bbox: AxisAlignedBoundingBox, env_index: int = 0
+) -> tuple[float, float, float, float, float]:
+    """Return an asset's resting box as ``(min_x, min_y, max_x, max_y, min_z)`` about its origin.
+
+    Refitted to the orientation the layout gave it, so a member that settled on its side is
+    measured by the footprint it actually occupies rather than the one it was authored with.
+    """
+    placed = _placed_bounding_box(asset, layout, bbox)
+    minimum, maximum = placed.min_point[env_index], placed.max_point[env_index]
+    return (
+        float(minimum[0]),
+        float(minimum[1]),
+        float(maximum[0]),
+        float(maximum[1]),
+        float(minimum[2]),
+    )
+
+
 def support_pose_from_layout(
     support: PlaceableAsset, layout: PlacementResult
 ) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
@@ -222,6 +243,12 @@ def occupied_footprints_in_region(
     return footprints
 
 
+def _member_drop_params(member: PlaceableAsset) -> MemberDropParams:
+    """Read one member's own drop tuning from the relation that placed it in the pile."""
+    relation = next(r for r in member.get_relations() if isinstance(r, ClutteredOn))
+    return MemberDropParams(clearance_m=relation.clearance_m, gap_m=relation.gap_m, random_yaw=relation.random_yaw)
+
+
 def plan_group_drops_into_layout(
     layout: PlacementResult,
     group: ClutterGroup,
@@ -254,11 +281,7 @@ def plan_group_drops_into_layout(
 
     relation = group.relation
     region = region_above_support(support_position, support_bbox, relation.spread, env_index, support_rotation_xyzw)
-    params = ClutterDropParams(
-        clearance_m=relation.clearance_m,
-        gap_m=relation.gap_m,
-        random_yaw=relation.random_yaw,
-    )
+    params = ClutterDropParams()
     poses = compute_drop_poses(
         member_bboxes,
         region,
@@ -266,6 +289,7 @@ def plan_group_drops_into_layout(
         generator,
         occupied=occupied,
         base_rotations_xyzw=[get_rotation_xyzw(member) for member in group.members],
+        member_params=[_member_drop_params(member) for member in group.members],
     )
 
     for member, pose in zip(group.members, poses):

@@ -85,7 +85,7 @@ class ClutterRegion:
 
 @dataclass(frozen=True)
 class ClutterDropParams:
-    """Tuning for :func:`compute_drop_poses`."""
+    """Tuning that describes a pile as a whole."""
 
     clutter_spread: float = 1.0
     """Scales the usable region about its centre; below 1.0 concentrates the pile."""
@@ -93,19 +93,29 @@ class ClutterDropParams:
     xy_sampling: XySampling = XySampling.GRID_CELLS
     drop_order: DropOrder = DropOrder.AS_LISTED
 
-    clearance_m: float = 0.01
-    """Gap between an object's lowest point and the surface it is dropped onto."""
-
-    gap_m: float = 0.03
-    """Extra vertical gap when an object must clear one already placed below it."""
-
-    random_yaw: bool = True
-    """Sample a random Z-yaw per object. Disable for reproducible axis-aligned layouts."""
-
     max_yaw_attempts: int = 8
     """How many yaws to try before declaring an object unplaceable. A long object turned
     diagonally needs much more room than the same object axis-aligned, so an unlucky draw
     should be resampled rather than failing the whole layout."""
+
+
+@dataclass(frozen=True)
+class MemberDropParams:
+    """Tuning that describes one member of a pile.
+
+    These read per member rather than per pile because each answers a question about a single
+    object: how far above its support it starts, how far it clears whatever it lands on, and
+    whether it is turned. A heavier tray can take more clearance than a mug beside it.
+    """
+
+    clearance_m: float = 0.01
+    """Gap between this object's lowest point and the surface it is dropped onto."""
+
+    gap_m: float = 0.03
+    """Extra vertical gap when this object must clear one already placed below it."""
+
+    random_yaw: bool = True
+    """Sample a random Z-yaw for this object. Disable for a reproducible axis-aligned drop."""
 
 
 @dataclass(frozen=True)
@@ -213,6 +223,7 @@ def _sample_orientation_that_fits(
     bbox: AxisAlignedBoundingBox,
     region: ClutterRegion,
     params: ClutterDropParams,
+    member: MemberDropParams,
     generator: torch.Generator | None,
     base_rotation_xyzw: tuple[float, float, float, float],
 ) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, _Footprint]:
@@ -223,10 +234,10 @@ def _sample_orientation_that_fits(
     unlucky draw is not evidence that the object cannot be placed. Retry before giving up,
     and only fail when no sampled orientation fits.
     """
-    attempts = params.max_yaw_attempts if params.random_yaw else 1
+    attempts = params.max_yaw_attempts if member.random_yaw else 1
     widest: _Footprint | None = None
     for _ in range(attempts):
-        yaw = get_random_rotation(generator) if params.random_yaw else 0.0
+        yaw = get_random_rotation(generator) if member.random_yaw else 0.0
         rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
         rotated = bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
@@ -294,6 +305,7 @@ def compute_drop_poses(
     generator: torch.Generator | None = None,
     occupied: list[OccupiedFootprint] | None = None,
     base_rotations_xyzw: list[tuple[float, float, float, float]] | None = None,
+    member_params: list[MemberDropParams] | None = None,
 ) -> list[DropPose]:
     """Compute pre-settle drop poses for one pile.
 
@@ -308,6 +320,8 @@ def compute_drop_poses(
         generator: Seeded RNG for reproducible layouts.
         occupied: Footprints already standing in the region, such as objects the solver placed
             on the same surface. Clutter is released above them rather than inside them.
+        member_params: Per-object tuning, in ``bounding_boxes`` order. Defaults to one
+            :class:`MemberDropParams` for every object.
         base_rotations_xyzw: Source-authored rotation per object. Sampled yaw is composed on
             top of each rotation. Defaults to identity for every object.
 
@@ -318,6 +332,10 @@ def compute_drop_poses(
     for i, bbox in enumerate(bounding_boxes):
         assert bbox.num_envs == 1, f"bounding_boxes[{i}] must be single-env (N=1), got N={bbox.num_envs}"
     params = params or ClutterDropParams()
+    member_params = member_params or [MemberDropParams()] * len(bounding_boxes)
+    assert len(member_params) == len(
+        bounding_boxes
+    ), f"compute_drop_poses got {len(member_params)} member params for {len(bounding_boxes)} objects"
     if base_rotations_xyzw is None:
         base_rotations_xyzw = [(0.0, 0.0, 0.0, 1.0) for _ in bounding_boxes]
     assert len(base_rotations_xyzw) == len(
@@ -343,6 +361,7 @@ def compute_drop_poses(
             bounding_boxes[object_index],
             usable,
             params,
+            member_params[object_index],
             generator,
             base_rotations_xyzw[object_index],
         )
@@ -351,10 +370,11 @@ def compute_drop_poses(
         half_extents = (footprint.half_x, footprint.half_y)
 
         # Lift only over the footprints actually overlapped, not over everything placed so far.
-        support_z = region.floor_z + params.clearance_m
+        member = member_params[object_index]
+        support_z = region.floor_z + member.clearance_m
         for other_centre, other_half, other_top_z in placed:
             if _footprints_overlap(footprint_centre, half_extents, other_centre, other_half):
-                support_z = max(support_z, other_top_z + params.gap_m)
+                support_z = max(support_z, other_top_z + member.gap_m)
 
         # Offset the origin so the object's lowest point sits at support_z.
         z = support_z - float(rotated.bottom_surface_z[0])

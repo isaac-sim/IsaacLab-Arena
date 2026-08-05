@@ -72,22 +72,18 @@ def get_clutter_groups(assets: list[PlaceableAsset]) -> list[ClutterGroup]:
 
 
 def assert_group_parameters_agree(group: ClutterGroup) -> None:
-    """Reject a group whose members disagree about the pile's shared parameters.
+    """Reject a group whose members disagree about the region they are poured into.
 
-    Every member carries its own relation, but spread, gaps and clearance describe the
-    pile as a whole, so conflicting values would silently resolve to whichever member
-    happened to be first.
+    A pile has one region, so ``spread`` has to be single-valued. Clearance, gaps and yaw are
+    read from each member's own relation and may differ freely.
     """
     shared = group.relation
     for member in group.members:
         for relation in member.get_relations():
             if not isinstance(relation, ClutteredOn) or relation is shared:
                 continue
-            for field_name in ("spread", "gap_m", "clearance_m", "random_yaw"):
-                declared = getattr(relation, field_name)
-                expected = getattr(shared, field_name)
-                assert declared == expected, (
-                    f"Clutter group '{group.name}' on '{group.support.name}' has conflicting "
-                    f"{field_name}: '{member.name}' declares {declared}, expected {expected}. "
-                    "Group parameters describe the whole pile and must match across members."
-                )
+            assert relation.spread == shared.spread, (
+                f"Clutter group '{group.name}' on '{group.support.name}' has conflicting spread: "
+                f"'{member.name}' declares {relation.spread}, expected {shared.spread}. A pile is "
+                "poured into one region, so its members must agree on how much of the support it uses."
+            )
