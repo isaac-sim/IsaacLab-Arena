@@ -117,7 +117,12 @@ direction. Set the ``next_to`` parameters manually and add a
 
 Make sure to save the edited YAML file to disk.
 
-The finalized environment graph spec is saved at
+By default, the GUI and CLI runners save newly generated specs under
+``isaaclab_arena_environments/agent_generated/`` using the spec's ``env_name``;
+for this example, the generated path is
+``isaaclab_arena_environments/agent_generated/droid_pick_mustard_to_bowl.yaml``.
+
+The repository includes a finalized reference copy at
 ``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``.
 
 
@@ -131,6 +136,10 @@ Start the OpenPI server as described in :doc:`eval_with_openpi`. In a second
 terminal, enter the Arena container with ``./docker/run_docker.sh``, then run
 two episodes as a sanity check that the generated environment works with a PI
 policy:
+
+The command below uses the provided reference copy. To run your generated spec
+instead, replace the ``--env_graph_spec_yaml`` path with the corresponding file
+under ``isaaclab_arena_environments/agent_generated/``.
 
 .. code-block:: bash
 

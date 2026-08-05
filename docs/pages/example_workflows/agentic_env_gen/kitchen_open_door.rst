@@ -64,7 +64,11 @@ Review the Generated Spec
 The fridge reference uses ``object_type: articulation`` and identifies
 ``fridge_door_joint`` as its openable joint. The robot is placed on the floor,
 0.1 meters from the fridge, and rotated to face it. The task succeeds when the
-door reaches the requested openness threshold:
+door reaches the requested openness threshold.
+
+Placement and task parameters may need refinement. For example, adjust
+``side`` and ``distance_m`` under ``next_to``, ``yaw_rad`` under
+``rotate_around_solution``, or ``openness_threshold`` under ``OpenDoorTask``.
 
 .. code-block:: yaml
 
@@ -99,7 +103,14 @@ door reaches the requested openness threshold:
          openness_threshold: 0.2
          reset_openness: 0.0
 
-The finalized environment graph spec is saved at
+Make sure to save the edited YAML file to disk.
+
+By default, the GUI and CLI runners save newly generated specs under
+``isaaclab_arena_environments/agent_generated/`` using the spec's ``env_name``;
+for this example, the generated path is
+``isaaclab_arena_environments/agent_generated/droid_open_kitchen_fridge.yaml``.
+
+The repository includes a finalized reference copy at
 ``isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml``.
 
 Run a Policy in the Generated Environment
@@ -112,6 +123,10 @@ Start the OpenPI server as described in :doc:`eval_with_openpi`. In a second
 terminal, enter the Arena container with ``./docker/run_docker.sh``, then run
 two episodes as a sanity check that the generated environment works with a PI
 policy:
+
+The command below uses the provided reference copy. To run your generated spec
+instead, replace the ``--env_graph_spec_yaml`` path with the corresponding file
+under ``isaaclab_arena_environments/agent_generated/``.
 
 .. code-block:: bash
 
