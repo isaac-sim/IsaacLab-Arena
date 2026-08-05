@@ -370,3 +370,31 @@ def test_pile_settles_on_a_quarter_turned_support():
 
 def test_an_env_that_never_settles_keeps_its_drop_poses():
     assert run_function_with_persistent_simulation_app(_test_an_env_that_never_settles_keeps_its_drop_poses)
+
+
+def _test_the_solver_never_sees_clutter_members(simulation_app) -> bool:
+    """Clutter must be placed by the pour, with no trace of solver participation.
+
+    The solver assigns every object it optimises a yaw in ``orientations``. A clutter member
+    carries a full rotation from its pour and no such yaw, which is the observable signature
+    of never having entered the optimisation.
+    """
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+
+    env, support, members, _region, _poses = _build_and_reset(seed=0)
+    pool = get_placement_pool(env)
+    layout = pool.layouts_per_env()[0][0]
+    env.close()
+
+    for member in members:
+        assert member in layout.positions, f"'{member.name}' should have been poured into the layout"
+        assert member in layout.rotations, f"'{member.name}' should carry a full rotation from the pour"
+        assert (
+            member not in layout.orientations
+        ), f"'{member.name}' has a solver-assigned yaw, so it reached the optimiser it is meant to skip"
+    assert support not in layout.rotations, "an anchored support is not poured and keeps its declared pose"
+    return True
+
+
+def test_the_solver_never_sees_clutter_members():
+    assert run_function_with_persistent_simulation_app(_test_the_solver_never_sees_clutter_members)
