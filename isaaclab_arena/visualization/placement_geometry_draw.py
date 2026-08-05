@@ -12,9 +12,13 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_events import get_placement_pool
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.visualization.isaac_sim_debug_draw import IsaacSimDebugDraw, trimesh_edge_segments
+from isaaclab_arena.visualization.isaac_sim_debug_draw import (
+    IsaacSimDebugDraw,
+    oriented_bbox_edge_segments,
+    transform_trimesh_vertices,
+    trimesh_edge_segments,
+)
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -36,7 +40,7 @@ KIND_COLORS: dict[str, tuple[float, float, float, float]] = {
 }
 
 MAX_MESH_EDGES = 8000
-STATIC_WIREFRAME_ROOT = "/World/IsaacLabArenaPlacementStaticMeshes"
+STATIC_GEOMETRY_ROOT = "/World/IsaacLabArenaPlacementStaticGeometry"
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,7 @@ class _OverlayEntry:
     color: tuple[float, float, float, float]
     asset: CollisionObject
     mesh: trimesh.Trimesh | None
+    is_static: bool
 
 
 class PlacementGeometryDraw:
@@ -59,7 +64,7 @@ class PlacementGeometryDraw:
         self._default_mode: CollisionMode = pool.default_collision_mode
         self._entries = self._build_entries(pool)
         self._legend_printed = False
-        self._static_meshes_drawn = False
+        self._static_geometry_drawn = False
         self._reported_aabb_failures: set[int] = set()
 
     @classmethod
@@ -88,16 +93,19 @@ class PlacementGeometryDraw:
             )
 
     def redraw(self, env: gym.Env) -> None:
-        """Clear and redraw all scheduled overlays from live (or fixed) poses."""
-        self._draw_static_background_meshes_once()
+        """Draw static geometry once, then refresh overlays for live assets."""
+        self._draw_static_geometry_once(env)
         self._draw.clear()
         for entry in self._entries:
+            if entry.is_static:
+                continue
             pose = _live_pose_for_asset(env, entry.asset)
             if pose is None:
                 continue
             try:
                 # Draw the solver's world AABB (axis-aligned), not a full-pose OBB.
-                world_bbox = _solver_world_aabb(entry.asset, pose)
+                local_bbox = entry.asset.get_bounding_box()
+                world_bbox = local_bbox.rotated_by_quat(pose.rotation_xyzw).translated(pose.position_xyz)
             except Exception as exc:  # noqa: BLE001 — visualizer must not crash the runner
                 asset_id = id(entry.asset)
                 if asset_id not in self._reported_aabb_failures:
@@ -115,7 +123,7 @@ class PlacementGeometryDraw:
                     color=entry.color,
                     thickness=3.0,
                 )
-            if entry.mesh is not None and not self._is_static_background_mesh(entry):
+            if entry.mesh is not None:
                 # Collision meshes are in a true local frame; apply the live pose.
                 self._draw.draw_trimesh_wireframe(
                     entry.mesh,
@@ -133,15 +141,19 @@ class PlacementGeometryDraw:
         self._draw.clear()
         stage = omni.usd.get_context().get_stage()
         if stage is not None:
-            stage.RemovePrim(STATIC_WIREFRAME_ROOT)
-        self._static_meshes_drawn = False
+            stage.RemovePrim(STATIC_GEOMETRY_ROOT)
+        self._static_geometry_drawn = False
 
     def _build_entries(self, pool: PooledObjectPlacer) -> list[_OverlayEntry]:
-        assets: list[CollisionObject] = list(pool.objects)
-        assets.extend(pool.collision_objects)
+        from isaaclab_arena.assets.object_reference import ObjectReference
+
+        assets: list[tuple[CollisionObject, bool]] = [
+            (asset, asset.is_anchor or isinstance(asset, ObjectReference)) for asset in pool.objects
+        ]
+        assets.extend((asset, True) for asset in pool.collision_objects)
         entries: list[_OverlayEntry] = []
         seen: set[int] = set()
-        for asset in assets:
+        for asset, is_static in assets:
             asset_id = id(asset)
             if asset_id in seen:
                 continue
@@ -155,20 +167,14 @@ class PlacementGeometryDraw:
                     color=KIND_COLORS.get(kind, KIND_COLORS["other"]),
                     asset=asset,
                     mesh=mesh,
+                    is_static=is_static,
                 )
             )
         return entries
 
-    @staticmethod
-    def _is_static_background_mesh(entry: _OverlayEntry) -> bool:
-        """Return whether an entry is the world-baked fixed background mesh."""
-        from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
-
-        return isinstance(entry.asset, FixedCollisionObject)
-
-    def _draw_static_background_meshes_once(self) -> None:
-        """Create persistent full-edge USD curves for fixed background meshes."""
-        if self._static_meshes_drawn:
+    def _draw_static_geometry_once(self, env: gym.Env) -> None:
+        """Create persistent USD curves for static AABBs and collision meshes."""
+        if self._static_geometry_drawn:
             return
 
         import omni.usd
@@ -177,28 +183,47 @@ class PlacementGeometryDraw:
         stage = omni.usd.get_context().get_stage()
         if stage is None:
             return
-        self._static_meshes_drawn = True
+        self._static_geometry_drawn = True
 
-        UsdGeom.Scope.Define(stage, STATIC_WIREFRAME_ROOT)
+        UsdGeom.Scope.Define(stage, STATIC_GEOMETRY_ROOT)
         for index, entry in enumerate(self._entries):
-            if entry.mesh is None or not self._is_static_background_mesh(entry):
+            if not entry.is_static:
                 continue
 
-            starts, ends = trimesh_edge_segments(entry.mesh.vertices, entry.mesh.faces, max_edges=None)
-            points = [point for segment in zip(starts, ends, strict=True) for point in segment]
             prim_name = Tf.MakeValidIdentifier(f"{index}_{entry.name}")
-            curves = UsdGeom.BasisCurves.Define(stage, f"{STATIC_WIREFRAME_ROOT}/{prim_name}")
-            curves.CreateTypeAttr(UsdGeom.Tokens.linear)
-            curves.CreateCurveVertexCountsAttr([2] * len(starts))
-            curves.CreatePointsAttr(points)
-            curves.CreateWidthsAttr([0.006])
-            curves.SetWidthsInterpolation(UsdGeom.Tokens.constant)
-            curves.CreateDisplayColorAttr([entry.color[:3]])
-            curves.CreateDisplayOpacityAttr([entry.color[3]])
-            print(
-                f"[placement_debug] drew static background '{entry.name}' once with {len(starts)} full edges",
-                flush=True,
-            )
+            try:
+                world_bbox = entry.asset.get_world_bounding_box()
+                min_pt = tuple(float(v) for v in world_bbox.min_point[0].tolist())
+                max_pt = tuple(float(v) for v in world_bbox.max_point[0].tolist())
+                starts, ends = oriented_bbox_edge_segments(min_pt, max_pt, IDENTITY_POS, IDENTITY_XYZW)
+                self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_bbox", starts, ends, entry, 0.01)
+            except Exception as exc:  # noqa: BLE001 — visualizer must not crash the runner
+                print(f"[placement_debug] skip static AABB for '{entry.name}': {exc}", flush=True)
+
+            if entry.mesh is None:
+                continue
+            pose = _live_pose_for_asset(env, entry.asset)
+            if pose is None:
+                continue
+            vertices = transform_trimesh_vertices(entry.mesh.vertices, pose.position_xyz, pose.rotation_xyzw)
+            starts, ends = trimesh_edge_segments(vertices, entry.mesh.faces, max_edges=None)
+            self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_mesh", starts, ends, entry, 0.006)
+            print(f"[placement_debug] drew static '{entry.name}' once with {len(starts)} full edges", flush=True)
+
+    @staticmethod
+    def _define_curve(stage, path: str, starts, ends, entry: _OverlayEntry, width: float) -> None:
+        """Define persistent linear curves for line segments."""
+        from pxr import UsdGeom
+
+        points = [point for segment in zip(starts, ends, strict=True) for point in segment]
+        curves = UsdGeom.BasisCurves.Define(stage, path)
+        curves.CreateTypeAttr(UsdGeom.Tokens.linear)
+        curves.CreateCurveVertexCountsAttr([2] * len(starts))
+        curves.CreatePointsAttr(points)
+        curves.CreateWidthsAttr([width])
+        curves.SetWidthsInterpolation(UsdGeom.Tokens.constant)
+        curves.CreateDisplayColorAttr([entry.color[:3]])
+        curves.CreateDisplayOpacityAttr([entry.color[3]])
 
 
 def classify_entity_kind(asset: CollisionObject) -> str:
@@ -218,35 +243,6 @@ def classify_entity_kind(asset: CollisionObject) -> str:
     if isinstance(asset, Object):
         return "object"
     return "other"
-
-
-def _solver_world_aabb(asset: CollisionObject, pose: Pose) -> AxisAlignedBoundingBox:
-    """World AABB matching relation-solver / validator construction.
-
-    Placement AABBs from USD (``get_bounding_box``) are world-axis-aligned extents with
-    only translation removed — not an oriented box in the prim's local frame. The solver
-    therefore never draws them as OBBs under a full pose:
-
-    - Anchors / ``ObjectReference`` / ``FixedCollisionObject``: ``get_world_bounding_box()``
-      (quarter-turn Z from the fixed pose + translate), as cached in ``RelationSolverState``.
-    - Live placeables: ``local.rotated_by_quat(pose).translated(position)``, matching
-      ``ObjectPlacer._rotate_candidate_bboxes`` then validator ``.translated(positions)``.
-
-    Applying a full rigid pose to the local AABB (oriented draw) double-applies rotation for
-    rotated USD prims (e.g. kitchen floor Cube) and diverges from On / no-overlap checks.
-    """
-    from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
-
-    if isinstance(asset, (FixedCollisionObject, ObjectReference)):
-        return asset.get_world_bounding_box()
-
-    # RelationSolverState caches get_world_bounding_box() for every IsAnchor asset.
-    if asset.is_anchor:
-        return asset.get_world_bounding_box()
-
-    local = asset.get_bounding_box()
-    return local.rotated_by_quat(pose.rotation_xyzw).translated(pose.position_xyz)
 
 
 def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
