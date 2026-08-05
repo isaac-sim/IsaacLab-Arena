@@ -539,3 +539,24 @@ def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_position
 
     _, rotation = support_pose_from_layout(support, layout)
     assert rotation == pytest.approx(quarter)
+
+
+def test_admission_and_region_agree_at_the_tolerance_endpoint():
+    """The guard and the region builder must accept exactly the same rotations.
+
+    They compared against the same tolerance with different strictness, so a yaw exactly
+    _QUARTER_TURN_TOLERANCE_RAD from a quarter turn was refused by one and treated as a quarter
+    turn by the other.
+    """
+    import math
+
+    from isaaclab_arena.relations.clutter_pour import _QUARTER_TURN_TOLERANCE_RAD, region_for_support
+
+    half = _QUARTER_TURN_TOLERANCE_RAD / 2.0
+    support = _Asset("table")
+    support.add_relation(IsAnchor())
+    support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half)))
+
+    # Refused by the guard, so the region builder is never asked to classify it.
+    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
+        region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})

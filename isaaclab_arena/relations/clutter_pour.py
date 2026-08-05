@@ -85,7 +85,10 @@ def region_above_support(
     centre_y = support_position[1] + local_centre_x * sin_yaw + local_centre_y * cos_yaw
 
     quarter_turns = round(yaw / (math.pi / 2.0))
-    if abs(yaw - quarter_turns * (math.pi / 2.0)) <= _QUARTER_TURN_TOLERANCE_RAD:
+    # Strict, matching the comparison the admission guard makes through
+    # quaternion_to_90_deg_z_quarters. Differing at the endpoint would let the guard refuse a
+    # rotation this builder would have treated as a quarter turn.
+    if abs(yaw - quarter_turns * (math.pi / 2.0)) < _QUARTER_TURN_TOLERANCE_RAD:
         if quarter_turns % 2:
             half_x, half_y = half_y, half_x
     else:
