@@ -24,7 +24,8 @@ _PATCHED_MARKER = "_isaaclab_arena_nested_clone_template_patch"
 
 
 def _resolve_clone_plan_source(path_expr: str, plan: ClonePlan) -> tuple[str, str, str] | None:
-    """Resolve a destination path expression to its owning source path. E.g. for camera at /World/envs/env_{}/Robot/panda_link0/external_camera, return /World/envs/env_{}/Robot.
+    """Resolve a destination path expression to its owning source path. E.g. for camera at
+    /World/envs/env_{}/Robot/panda_link0/external_camera, return its exact source path instead of /World/envs/env_{}/Robot.
 
     Args:
         path_expr: Destination-side path expression.

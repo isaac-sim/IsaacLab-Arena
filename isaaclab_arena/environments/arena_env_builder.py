@@ -473,6 +473,12 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             use_fabric=not self.cfg.disable_fabric,
         )
+        # During Lab's env build, ObjectSets give every env cfg its own clone-plan destination
+        # It is an issue for cameras nested under the robot that multiple destination are returned for the same source.
+        # E.g. camera gets /World/envs/env_{}/Robot, /World/envs/env_{}/Robot/panda_link0/external_camera  as destinations.
+        # Lab EA2 cannot pick one so patching to support single destination for the same source.
+        # TODO(xinjieyao, 2026-08-05): Remove this patch once Lab is updated to GA.
+        patch_resolve_clone_plan_source()
         return name, cfg, env_kwargs
 
     def make_registered(
@@ -517,12 +523,6 @@ class ArenaEnvBuilder:
             A tuple containing the environment and the environment configuration.
         """
         name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
-        # During Lab's env build, ObjectSets give every env cfg its own clone-plan destination
-        # It is an issue for cameras nested under the robot that multiple destination are returned for the same source.
-        # E.g. camera gets /World/envs/env_{}/Robot, /World/envs/env_{}/Robot/panda_link0/external_camera  as destinations.
-        # Lab EA2 cannot pick one so patching to support single destination for the same source.
-        # TODO(xinjieyao, 2026-08-05): Remove this patch once Lab is updated to GA.
-        patch_resolve_clone_plan_source()
         env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
