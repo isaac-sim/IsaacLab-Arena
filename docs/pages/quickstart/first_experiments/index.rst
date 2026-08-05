@@ -1,9 +1,9 @@
 Running your First Experiments
 ==============================
 
-The following pages walk you through your first Arena experiments — first verifying that
-environment variations work with a zero-action policy (a placeholder policy that sends zero
-commands to the robot every step), then evaluating a real pre-trained policy in closed loop.
+The previous page made explicit environment choices one at a time. The first page in this section
+uses Arena's variation system to sample and record controlled changes automatically. You will then
+evaluate real pre-trained policies in closed loop across selected environment configurations.
 
 .. toctree::
    :maxdepth: 1

@@ -7,9 +7,8 @@ most likely to fail.
 
 This workflow answers those questions in two parts:
 
-* :doc:`variation_system` creates controlled changes in the environment. For example, it can
-  change the lighting, choose a different background, or move a wrist camera slightly away
-  from its expected position.
+* :doc:`variation_system` explains when variation values are sampled and what Arena records for
+  each episode.
 * :doc:`sensitivity_analysis` connects the exact conditions in each episode to the result of
   that episode. This reveals which conditions are most closely associated with success or
   failure.
@@ -21,9 +20,10 @@ report then looks for useful patterns across all recorded episodes.
 Where to start
 --------------
 
-Start with the :doc:`variation_system` page to learn what a variation is and when it changes.
-Then continue to :doc:`sensitivity_analysis` to learn how to plan a useful evaluation and read
-the resulting report.
+If variations are new to you, first run the visual, zero-action
+:doc:`variation example <../../quickstart/first_experiments/exploring_variations>`. Then learn how
+to :doc:`collect variation data <variation_system>` and :doc:`generate and read the report
+<sensitivity_analysis>`.
 
 .. toctree::
    :maxdepth: 1
