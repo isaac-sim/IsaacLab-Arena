@@ -129,7 +129,8 @@ def _step_until_poses_are_quiet(
     params: ClutterSettleParams,
     poll_every: int,
     render: bool = False,
-) -> list[bool]:
+    subset_indices: list[int] | None = None,
+) -> tuple[list[bool], list[bool]]:
     """Step physics until every environment's poses stop changing, or the budget runs out.
 
     Returns early once all environments are quiet, so a sparse arrangement does not pay the
@@ -143,11 +144,14 @@ def _step_until_poses_are_quiet(
         params: Quiet-window thresholds.
         poll_every: Physics steps between pose reads.
         render: When True, render each step.
+        subset_indices: Columns of ``movable_object_names`` forming a second, narrower verdict.
+            A caller that only records the poses of some objects must judge only those objects:
+            an unrelated one still rolling says nothing about whether they came to rest.
 
     Returns:
-        Whether each environment's poses went quiet, indexed by env id. One environment still
-        rearranging says nothing about the others, so a verdict is tracked per environment
-        rather than shared.
+        ``(settled_per_env, subset_settled_per_env)``, each indexed by env id. One environment
+        still rearranging says nothing about the others, so verdicts are per environment rather
+        than shared. Without ``subset_indices`` the two are the same.
     """
     # Quiet thresholds are per-poll, so they only mean anything if the interval is long enough
     # for real motion to exceed them. Poll too often and a free-falling object moves under the
@@ -163,18 +167,33 @@ def _step_until_poses_are_quiet(
     scene = env.unwrapped.scene
     num_envs = env.unwrapped.num_envs
     trackers = [SettleTracker(params) for _ in range(num_envs)]
+    subset_trackers = [SettleTracker(params) for _ in range(num_envs)]
     stepped = 0
     while stepped < max_physics_steps:
-        chunk = min(poll_every, max_physics_steps - stepped)
-        physics_settle.step_physics(env, chunk, render=render)
-        stepped += chunk
+        # A short final chunk would compare poses over too little time and read motion as quiet,
+        # so stop rather than take a poll the interval guard above has not certified.
+        if max_physics_steps - stepped < poll_every:
+            break
+        physics_settle.step_physics(env, poll_every, render=render)
+        stepped += poll_every
         states = torch.stack([scene[name].data.root_state_w for name in movable_object_names], dim=1)
         settled = [
             tracker.update(states[env_id, :, :3], states[env_id, :, 3:7]) for env_id, tracker in enumerate(trackers)
         ]
-        if all(settled):
-            return settled
-    return [tracker.settled for tracker in trackers]
+        subset_settled = (
+            settled
+            if subset_indices is None
+            else [
+                tracker.update(states[env_id][subset_indices, :3], states[env_id][subset_indices, 3:7])
+                for env_id, tracker in enumerate(subset_trackers)
+            ]
+        )
+        if all(settled) and all(subset_settled):
+            return settled, subset_settled
+    if subset_indices is None:
+        settled = [tracker.settled for tracker in trackers]
+        return settled, settled
+    return [tracker.settled for tracker in trackers], [tracker.settled for tracker in subset_trackers]
 
 
 def validate_pool_layouts(
@@ -225,6 +244,10 @@ def validate_pool_layouts(
     clutter_assets = [asset for asset in assets if is_clutter_member(asset)]
     base_rotations = get_base_rotation_per_asset(assets)
     movable_object_names = get_movable_asset_names(assets, anchor_assets)
+    # Columns of the polled set holding the objects whose poses are captured, so their rest is
+    # judged on its own rather than on whatever else in the scene happens to still be moving.
+    capture_keys = {asset.get_scene_key() for asset in clutter_assets}
+    capture_indices = [index for index, name in enumerate(movable_object_names) if name in capture_keys]
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
     layouts_per_env = placement_pool.layouts_per_env()
@@ -252,24 +275,28 @@ def validate_pool_layouts(
         )
         if layouts:
             settled_per_env_override = None
+            captured_per_env = None
             if pose_settle_params is None:
                 physics_settle.step_physics(env, num_physics_steps, render=render)
             else:
-                settled_per_env_override = _step_until_poses_are_quiet(
+                settled_per_env_override, captured_per_env = _step_until_poses_are_quiet(
                     env,
                     movable_object_names,
                     num_physics_steps,
                     pose_settle_params,
                     poll_every=poll_every,
                     render=render,
+                    subset_indices=capture_indices,
                 )
             if capture_settled_poses:
-                # Only capture where the pile actually came to rest. Capturing an env that ran
-                # out of budget mid-fall would cache falling poses and replay them every reset.
+                # Only capture where the captured objects themselves came to rest. Capturing an
+                # env that ran out of budget mid-fall would cache falling poses and replay them
+                # every reset, and judging them by an unrelated object still rolling would skip
+                # a pile that is perfectly at rest.
                 settled_layouts = (
                     layouts
-                    if settled_per_env_override is None
-                    else [(env_id, layout) for env_id, layout in layouts if settled_per_env_override[env_id]]
+                    if captured_per_env is None
+                    else [(env_id, layout) for env_id, layout in layouts if captured_per_env[env_id]]
                 )
                 _capture_settled_poses_into_layouts(env, settled_layouts, clutter_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(

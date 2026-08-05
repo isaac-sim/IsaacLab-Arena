@@ -241,12 +241,17 @@ def test_oversized_member_is_rejected_rather_than_placed_outside():
 
 
 def test_pour_avoids_an_object_already_on_the_support():
-    """A solver-placed object on the same surface must not be dropped into."""
+    """Members must be released above a solver-placed object sharing the surface.
+
+    The resident covers the whole region, so every member has to clear it. A resident that
+    only covered part of it would leave the assertion depending on where the grid happened to
+    place things, and could pass without ever testing anything.
+    """
     from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
 
     support, members, bounding_boxes = _scene(6)
     resident = _Asset("resident")
-    bounding_boxes[resident] = _box(0.12, 0.12, 0.1)
+    bounding_boxes[resident] = _box(0.48, 0.48, 0.1)
 
     layout = _Layout()
     layout.positions[resident] = (0.0, 0.0, 0.2)
@@ -258,12 +263,11 @@ def test_pour_avoids_an_object_already_on_the_support():
 
     plan_clutter_drops(layout, groups, bounding_boxes, torch.Generator().manual_seed(0))
 
-    resident_top = 0.2 + 0.05
-    for member in members:
-        x, y, z = layout.positions[member]
-        overlaps = abs(x - 0.0) < 0.06 + 0.03 and abs(y - 0.0) < 0.06 + 0.03
-        if overlaps:
-            assert z > resident_top, f"{member.name} was dropped into the resident object at z={z:.3f}"
+    resident_top = 0.2 + 0.1
+    lowest = min(layout.positions[member][2] for member in members)
+    assert lowest > resident_top, (
+        f"a member was released at z={lowest:.3f}, at or below the resident's top {resident_top:.3f}"
+    )
 
 
 def test_objects_below_the_support_surface_are_ignored():

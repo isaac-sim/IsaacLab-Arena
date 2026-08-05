@@ -24,6 +24,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -104,13 +105,31 @@ def _placed_bounding_box(
     Layout boxes carry object geometry only; orientation is applied per candidate elsewhere,
     so a box read straight from the layout describes the asset unrotated.
     """
-    rotation = layout.rotations.get(asset)
-    if rotation is None:
-        yaw = layout.orientations.get(asset)
-        if yaw is None:
-            return bbox
-        rotation = (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
+    rotation = _world_rotation_from_layout(asset, layout)
+    if rotation == IDENTITY_ROTATION_XYZW:
+        return bbox
     return bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+
+
+def _world_rotation_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> tuple[float, float, float, float]:
+    """Return the world rotation a layout gives an asset, in ``(x, y, z, w)``.
+
+    Mirrors how a layout becomes a pose: a full rotation is already final, a scalar yaw is the
+    total world yaw that replaces the marker's own, and an asset with neither keeps the marker
+    rotation it was authored with. Reading only the layout would miss a roll or pitch that
+    exists solely on the marker.
+    """
+    rotation = layout.rotations.get(asset)
+    if rotation is not None:
+        return tuple(float(value) for value in rotation)
+
+    marker_rotation = get_rotation_xyzw(asset)
+    yaw = layout.orientations.get(asset)
+    if yaw is None:
+        return tuple(float(value) for value in marker_rotation)
+    return tuple(
+        float(value) for value in rotate_quat_by_yaw(marker_rotation, yaw - yaw_from_quat_xyzw(marker_rotation))
+    )
 
 
 def support_pose_from_layout(
@@ -130,15 +149,15 @@ def support_pose_from_layout(
         )
         position = declared.position_xyz
 
-    rotation = layout.rotations.get(support)
-    if rotation is None:
-        yaw = layout.orientations.get(support)
-        if yaw is not None:
-            rotation = (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
-        elif declared is not None:
-            rotation = declared.rotation_xyzw
-        else:
-            rotation = IDENTITY_ROTATION_XYZW
+    # A solved support's rotation comes from the layout composed with its marker; an anchored
+    # one keeps the pose it was declared with. Synthesising a yaw-only rotation here would also
+    # hide a tilted support from the check that exists to reject it.
+    if support in layout.rotations or support in layout.orientations:
+        rotation = _world_rotation_from_layout(support, layout)
+    elif declared is not None:
+        rotation = declared.rotation_xyzw
+    else:
+        rotation = get_rotation_xyzw(support)
 
     return tuple(float(value) for value in position), tuple(float(value) for value in rotation)
 

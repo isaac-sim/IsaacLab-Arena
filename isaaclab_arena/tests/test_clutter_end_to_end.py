@@ -324,12 +324,15 @@ def _test_pile_settles_on_a_quarter_turned_support(simulation_app) -> bool:
     return True
 
 
-def _test_an_env_that_never_settles_keeps_its_drop_poses(simulation_app) -> bool:
-    """A budget too small to settle must leave the cached poses alone, not capture mid-fall ones.
+def _test_capture_distinguishes_a_falling_pile_from_a_settled_one(simulation_app) -> bool:
+    """Resting poses are captured when the pile settles and withheld when it does not.
 
-    The build-time settle is disabled so the pool genuinely holds release poses; settling an
-    already-resting pile would go quiet at once and could not tell a working gate from a
-    broken one.
+    Both halves matter. A budget too small to settle must leave the release poses cached, and
+    a generous budget on the same scene must replace them. Testing only the first half would
+    pass against a gate that never captures anything, and only the second against one that
+    always does. The poll interval stays wide enough that a falling object clears the movement
+    threshold between reads, and the budget allows enough polls for a settled pile to be
+    recognised, so an unsettled verdict reflects real motion rather than too few samples.
     """
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
@@ -339,28 +342,34 @@ def _test_an_env_that_never_settles_keeps_its_drop_poses(simulation_app) -> bool
     env, _support, members, region, _poses = _build_and_reset(seed=0, settle_on_build=False)
     pool = get_placement_pool(env)
     layout = pool.layouts_per_env()[0][0]
-    before = {member: layout.positions[member] for member in members if member in layout.positions}
-    assert before, "expected the pooled layout to carry clutter poses"
-    released_above = [pose for pose in before.values() if pose[2] > region.floor_z]
-    assert len(released_above) == len(before), "build-time settle should be off, so poses are still release poses"
+    released = {member: layout.positions[member] for member in members if member in layout.positions}
+    assert released, "expected the pooled layout to carry clutter poses"
+    assert all(
+        pose[2] > region.floor_z for pose in released.values()
+    ), "build-time settle should be off, so the cached poses are still release poses"
 
-    # Two polls' worth of budget cannot settle a pile released in mid-air, so nothing should
-    # be captured. The poll interval stays realistic: polling every step would read a falling
-    # object as quiet, since it moves under a millimetre between consecutive steps.
-    results = validate_pool_layouts(
-        env,
-        placement_pool=pool,
-        settle_params=PhysicsSettleParams(num_steps=25),
-        capture_settled_poses=True,
-        pose_settle_params=ClutterSettleParams(),
-        poll_every=50,
-    )
-    after = {member: layout.positions[member] for member in before}
+    def settle(num_steps: int, poll_every: int):
+        return validate_pool_layouts(
+            env,
+            placement_pool=pool,
+            settle_params=PhysicsSettleParams(num_steps=num_steps),
+            capture_settled_poses=True,
+            pose_settle_params=ClutterSettleParams(),
+            poll_every=poll_every,
+        )
+
+    # Far too little time to land and come to rest, but enough polls that a settled pile would
+    # be recognised, so the unsettled verdict is about the pile rather than the sampling.
+    assert settle(num_steps=10, poll_every=10) is not None
+    still_released = {member: layout.positions[member] for member in released}
+    assert still_released == released, "a pile that never settled had its falling poses captured"
+
+    # The same scene given room to settle must replace those poses.
+    assert settle(num_steps=500, poll_every=50) is not None
+    settled_poses = {member: layout.positions[member] for member in released}
     env.close()
 
-    assert results is not None, "expected validation results"
-    unchanged = all(before[member] == after[member] for member in before)
-    assert unchanged, "an unsettled env had falling poses captured over its drop poses"
+    assert settled_poses != released, "a settled pile did not have its resting poses captured"
     return True
 
 
@@ -368,8 +377,8 @@ def test_pile_settles_on_a_quarter_turned_support():
     assert run_function_with_persistent_simulation_app(_test_pile_settles_on_a_quarter_turned_support)
 
 
-def test_an_env_that_never_settles_keeps_its_drop_poses():
-    assert run_function_with_persistent_simulation_app(_test_an_env_that_never_settles_keeps_its_drop_poses)
+def test_capture_distinguishes_a_falling_pile_from_a_settled_one():
+    assert run_function_with_persistent_simulation_app(_test_capture_distinguishes_a_falling_pile_from_a_settled_one)
 
 
 def _test_the_solver_never_sees_clutter_members(simulation_app) -> bool:

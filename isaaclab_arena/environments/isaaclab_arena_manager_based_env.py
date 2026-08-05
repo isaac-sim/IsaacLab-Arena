@@ -105,6 +105,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
         from isaaclab_arena.relations.clutter_pour import region_for_support
         from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+        from isaaclab_arena.relations.placement_validation import PlacementCheck
 
         per_env_bboxes = build_per_env_bounding_boxes(
             placement_pool.objects, self.num_envs
@@ -112,6 +113,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         params = ClutterSettleParams(containment_margin_m=self.cfg.clutter_containment_margin_m)
 
         def keep(env_id: int, layout) -> bool:
+            # A pile that never went quiet still holds its release poses, which sit above the
+            # support and inside the region, so containment alone cannot tell it from a settled
+            # one. Drop it rather than replay a falling pile at every reset.
+            if layout.validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED) is False:
+                return False
+
             bboxes = per_env_bboxes[env_id]
             for group in groups:
                 support = group.support
