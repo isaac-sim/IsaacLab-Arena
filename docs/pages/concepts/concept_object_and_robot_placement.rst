@@ -48,6 +48,15 @@ recalculating coordinates for related assets. See
 `pick_and_place_maple_table_environment.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/pick_and_place_maple_table_environment.py>`_
 for a complete Python environment definition.
 
+.. figure:: ../../images/placement_pipeline.png
+   :width: 100%
+   :alt: ArenaEnvBuilder collects assets, roles, spatial relationships, and
+      placement configuration for the relation solver.
+   :align: center
+
+   ``ArenaEnvBuilder`` turns an Arena environment definition into a placement
+   problem, and the relation solver generates collision-aware candidate layouts.
+
 .. figure:: ../../images/relations_highlevel.png
    :width: 100%
    :alt: High-level visualization of spatial relations between objects on a table
