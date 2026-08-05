@@ -14,7 +14,7 @@ generate a report, and read the results.
 
 For background information, see the :doc:`Variations concept page
 <../../concepts/variations/variations>` and the :doc:`Sensitivity Analysis concept page
-<../../concepts/policy/concept_sensitivity_analysis>`.
+<../../concepts/concept_sensitivity_analysis>`.
 
 .. TODO(cvolk): Rework this directory as a single command-led workflow page and move the remaining
    general explanations to the concept pages.

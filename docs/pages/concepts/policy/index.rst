@@ -93,4 +93,3 @@ More details
    :maxdepth: 1
 
    concept_evaluation_types
-   concept_sensitivity_analysis
