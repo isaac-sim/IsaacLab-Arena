@@ -17,7 +17,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
 from isaaclab_arena.relations.clutter_groups import get_clutter_groups
-from isaaclab_arena.relations.clutter_pour import region_for_support
+from isaaclab_arena.relations.clutter_pour import region_for_support, resting_extents
 from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import get_placement_pool
@@ -121,11 +121,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 # into: a tight pour is meant to relax outward as it settles. The region is
                 # resolved the same way the pour resolved it, so the two cannot disagree.
                 region = region_for_support(support, layout, bboxes)
-                positions = torch.tensor(
-                    [layout.positions[member] for member in group.members if member in layout.positions],
-                    dtype=torch.float32,
-                )
-                if positions.numel() and not check_resting_poses(positions, region, params).ok:
+                members = [member for member in group.members if member in layout.positions]
+                positions = torch.tensor([layout.positions[member] for member in members], dtype=torch.float32)
+                # Judge each member by the box it came to rest in, so one whose origin sits over
+                # the support while its body hangs off the edge is not accepted.
+                extents = [resting_extents(member, layout, bboxes[member]) for member in members]
+                if positions.numel() and not check_resting_poses(positions, region, params, extents).ok:
                     return False
             return True
 

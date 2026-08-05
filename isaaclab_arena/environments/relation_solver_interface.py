@@ -9,6 +9,7 @@ import copy
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.clutter_groups import get_clutter_groups
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
@@ -139,6 +140,15 @@ def _apply_relation_placement_result(
     # Anchor assets do not move, so no need to apply reset event.
     if anchor_assets == set(assets):
         return None
+
+    # Clutter is settled after the env is built, by stepping physics and writing the resting
+    # poses back into the pool the reset event draws from. Static placement bakes poses into the
+    # scene config instead and registers no such event, so there is nothing to settle into and
+    # the pile would spawn mid-air on every episode.
+    assert placer_params.resolve_on_reset or not get_clutter_groups(assets), (
+        "Clutter placement requires resolve_on_reset=True. Static placement has no pool to settle "
+        "the pile into, so the objects would be spawned at the poses they were released from."
+    )
 
     if placer_params.resolve_on_reset:
         return _apply_dynamic_spawn_pose(

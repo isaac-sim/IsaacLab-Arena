@@ -148,6 +148,7 @@ def check_resting_poses(
     positions: torch.Tensor,
     region: ClutterRegion,
     params: ClutterSettleParams | None = None,
+    extents: list[tuple[float, float, float, float, float]] | None = None,
 ) -> ClutterRestVerdict:
     """Return which members came to rest badly.
 
@@ -158,6 +159,10 @@ def check_resting_poses(
             tightly is meant to relax outward, so judging it against the region it was released
             into would report objects resting well inside the support as having fallen off.
         params: Tolerances. Defaults to ``ClutterSettleParams()``.
+        extents: Per-member ``(min_x, min_y, max_x, max_y, min_z)`` of the resting bounding box
+            relative to its own origin, in ``positions`` order. Without them an object is judged
+            by its origin alone, which passes a member whose origin sits over the support while
+            its body hangs off the edge, and misses one whose base has sunk through the surface.
     """
     params = params or ClutterSettleParams()
     verdict = ClutterRestVerdict()
@@ -170,10 +175,13 @@ def check_resting_poses(
             verdict.diverged.append(index)
             continue
         x, y, z = (float(value) for value in position)
-        if z < floor:
+        offset_min_x, offset_min_y, offset_max_x, offset_max_y, offset_min_z = (
+            extents[index] if extents is not None else (0.0, 0.0, 0.0, 0.0, 0.0)
+        )
+        if z + offset_min_z < floor:
             verdict.fell_through.append(index)
-        if not (region.min_x - margin <= x <= region.max_x + margin) or not (
-            region.min_y - margin <= y <= region.max_y + margin
+        if not (region.min_x - margin <= x + offset_min_x and x + offset_max_x <= region.max_x + margin) or not (
+            region.min_y - margin <= y + offset_min_y and y + offset_max_y <= region.max_y + margin
         ):
             verdict.fell_off.append(index)
     return verdict

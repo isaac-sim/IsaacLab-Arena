@@ -8,7 +8,6 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.clutter_groups import is_clutter_member
 from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
@@ -28,6 +27,19 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
+
+def _is_embodiment(asset: PlaceableAsset) -> bool:
+    """Whether an asset is a robot rather than something the scene places.
+
+    An embodiment reaches placement like any other asset but is driven by a policy, so its
+    settled pose is not a property of the layout and must not be written back into one.
+    """
+    # Imported here because embodiments build on placement assets, so importing them at module
+    # scope would make this package depend on one that already depends on it.
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
+    return isinstance(asset, EmbodimentBase)
 
 
 def _write_layout_to_envs_for_episode_index(
@@ -239,14 +251,16 @@ def validate_pool_layouts(
 
     assets = placement_pool.objects
     anchor_assets = set(get_anchor_objects(assets))
-    # Only clutter's value is the settled arrangement. Capturing every non-anchor asset would
-    # freeze the embodiment, and any object that toppled, at whatever pose gravity left it in.
-    clutter_assets = [asset for asset in assets if is_clutter_member(asset)]
+    # A pour moves whatever it lands against, so recording only the pile would replay its
+    # settled poses beside a neighbour's stale ones and reproduce neither arrangement. Capture
+    # every asset the settle could have moved, less the embodiment, which is driven rather than
+    # placed and must not be frozen wherever gravity left it.
+    capture_assets = [asset for asset in assets if asset not in anchor_assets and not _is_embodiment(asset)]
     base_rotations = get_base_rotation_per_asset(assets)
     movable_object_names = get_movable_asset_names(assets, anchor_assets)
     # Columns of the polled set holding the objects whose poses are captured, so their rest is
     # judged on its own rather than on whatever else in the scene happens to still be moving.
-    capture_keys = {asset.get_scene_key() for asset in clutter_assets}
+    capture_keys = {asset.get_scene_key() for asset in capture_assets}
     capture_indices = [index for index, name in enumerate(movable_object_names) if name in capture_keys]
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
@@ -298,7 +312,7 @@ def validate_pool_layouts(
                     if captured_per_env is None
                     else [(env_id, layout) for env_id, layout in layouts if captured_per_env[env_id]]
                 )
-                _capture_settled_poses_into_layouts(env, settled_layouts, clutter_assets)
+                _capture_settled_poses_into_layouts(env, settled_layouts, capture_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
                 env, layouts, movable_object_names, settle_params, settled_per_env_override
             )
