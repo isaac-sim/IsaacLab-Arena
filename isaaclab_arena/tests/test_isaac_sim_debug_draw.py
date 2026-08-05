@@ -10,7 +10,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def smoke_test_debug_draw(simulation_app) -> bool:
     """Verify IsaacSimDebugDraw can be instantiated and basic methods work."""
-    from isaaclab_arena.utils.isaac_sim_debug_draw import IsaacSimDebugDraw
+    from isaaclab_arena.visualization.isaac_sim_debug_draw import IsaacSimDebugDraw
 
     # Test instantiation
     debug_draw = IsaacSimDebugDraw()
