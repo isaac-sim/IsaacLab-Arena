@@ -31,8 +31,8 @@ Keep ``--num_envs`` above one so the policy is evaluated against a different fru
             --viz kit \
             --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
             --enable_cameras \
-            --num_envs 4 \
-            --num_episodes 3 \
+            --num_envs 12 \
+            --num_episodes 12 \
             --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_pick_fruit_into_bowl_maple_table.yaml
 
       For other policy types, please refer to the evaluation workflow page.
@@ -56,8 +56,14 @@ Keep ``--num_envs`` above one so the policy is evaluated against a different fru
             --viz kit \
             --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
             --enable_cameras \
-            --num_envs 4 \
-            --num_episodes 3 \
+            --num_envs 12 \
+            --num_episodes 12 \
             --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_pick_fruit_into_bowl_maple_table.yaml
 
-      .. todo:: add link to reachability concept page & policy rollout video
+      .. todo:: add link to reachability concept page
+
+.. figure:: ../../../../images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif
+   :width: 100%
+   :alt: Policy evaluation of the generated environment using OpenPI policy with reachability validation.
+        Showing the robot picking up the fruit in each environment and placing it into the bowl in each environment.
+   :align: center

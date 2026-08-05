@@ -63,5 +63,6 @@ In the other terminal, run the following command to launch the policy runner:
 
 .. figure:: ../../../../images/agentic_env_droid_pi_banana_plate_pnp_run1.gif
    :width: 100%
-   :alt: Policy evaluation of the generated environment with the PI policy with reachability validation. Showing the robot picking up the banana and placing it on the plate.
+   :alt: Policy evaluation of the generated environment using OpenPI policy with reachability validation.
+   Showing the robot picking up the banana and placing it on the plate.
    :align: center
