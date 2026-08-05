@@ -236,15 +236,26 @@ class PooledObjectPlacer:
             raise ValueError(f"count must be a multiple of num_envs ({self._num_envs}), got {count}")
 
         layouts_per_env = count // self._num_envs
-        if min(self._available_per_env()) < layouts_per_env:
-            if self._recycle_layouts:
-                # Re-read the stored layouts rather than solving new ones, for the same reason
-                # sample_for_envs does: layouts that only become usable after simulation are
-                # prepared once, and a refill here would hand back ones preparation never saw.
-                for pool in self._env_pools:
+        if self._recycle_layouts:
+            # Re-read the stored layouts rather than solving new ones, for the same reason
+            # sample_for_envs does: layouts that only become usable after simulation are
+            # prepared once, and a refill here would hand back ones preparation never saw.
+            # A request larger than an env holds cannot be served without replacement, so it is
+            # refused before any cursor moves rather than part-filled and abandoned mid-round.
+            capacity = min(len(pool.layouts) for pool in self._env_pools)
+            if layouts_per_env > capacity:
+                raise ValueError(
+                    f"count={count} needs {layouts_per_env} layouts per env, but a recycling pool "
+                    f"holds only {capacity}. Recycling replays the prepared set, so it cannot serve "
+                    "more distinct layouts than it stores."
+                )
+            for pool in self._env_pools:
+                # Rewinding a pool that still has unread layouts would hand back an earlier
+                # layout while a fresh one sits unread behind it.
+                if pool.available < layouts_per_env:
                     pool.cursor = 0
-            else:
-                self._solve_and_store(max(self._pool_size, count))
+        elif min(self._available_per_env()) < layouts_per_env:
+            self._solve_and_store(max(self._pool_size, count))
 
         results: list[PlacementResult] = []
         for _ in range(layouts_per_env):
@@ -301,8 +312,8 @@ class PooledObjectPlacer:
         """
         self._recycle_layouts = bool(recycle)
 
-    def retain_layouts(self, keep, minimum: int = 1) -> tuple[int, int]:
-        """Drop unread layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
+    def retain_layouts(self, keep, minimum: int = 1, *, include_consumed: bool = False) -> tuple[int, int]:
+        """Drop layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
 
         Rejection sampling for outcomes that are only knowable after simulating, such as a
         poured pile that spilled. An env is left with its rejected layouts when too few pass,
@@ -311,16 +322,16 @@ class PooledObjectPlacer:
         Args:
             keep: Called as ``keep(env_id, layout)``; return False to reject the layout.
             minimum: Fewest layouts to leave in an env's queue.
+            include_consumed: Judge layouts behind the cursor as well. Set this when the caller
+                will make them reachable again, as enabling recycling does; a consumed layout is
+                otherwise gone and judging it would discard a queue position for no reason.
 
         Returns:
             ``(kept, rejected)`` counts across every env.
         """
         kept = rejected = 0
         for env_id, pool in enumerate(self._env_pools):
-            # A consumed layout is normally gone, but recycling rewinds to it, so under recycling
-            # everything stored is still reachable and has to be judged. Construction consumes one
-            # before the pool is filtered, which is exactly the layout that would come back.
-            unread = list(pool.layouts) if self._recycle_layouts else pool.layouts[pool.cursor :]
+            unread = list(pool.layouts) if include_consumed else pool.layouts[pool.cursor :]
             passing = [layout for layout in unread if keep(env_id, layout)]
             if len(passing) < minimum:
                 kept += len(unread)

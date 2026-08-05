@@ -88,11 +88,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             capture_settled_poses=True,
             pose_settle_params=ClutterSettleParams(),
         )
-        self._reject_spilled_clutter_layouts(placement_pool, groups)
         # Settling steps physics, which a reset cannot do, so an exhausted queue must rewind
         # rather than solve fresh layouts this pass would never see. Without this, every reset
         # past the cached set writes the poses the pile was released from and the pile falls.
         placement_pool.recycle_layouts = True
+        self._reject_spilled_clutter_layouts(placement_pool, groups)
 
     def _reject_spilled_clutter_layouts(self, placement_pool, groups) -> None:
         """Drop cached layouts whose pile did not stay on its support.
@@ -129,7 +129,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                     return False
             return True
 
-        kept, rejected = placement_pool.retain_layouts(keep)
+        # Recycling rewinds past the cursor, so the layout construction already consumed comes
+        # back and has to be judged with the rest.
+        kept, rejected = placement_pool.retain_layouts(keep, include_consumed=True)
         if rejected:
             print(f"[clutter] rejected {rejected} spilled layout(s); {kept} cached")
 

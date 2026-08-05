@@ -149,16 +149,67 @@ def test_recycling_survives_rejection_shrinking_the_queue():
     assert drawn == ["a", "c", "a", "c"], "recycling must cycle the layouts rejection left behind"
 
 
-def test_recycling_reconsiders_a_consumed_layout():
-    """Recycling rewinds to layouts behind the cursor, so they must be judged too.
+def test_include_consumed_reconsiders_a_layout_behind_the_cursor():
+    """A caller that will rewind past the cursor must be able to judge what a rewind returns.
 
     Preparation consumes one layout before filtering the pool, and that is precisely the one a
     rewind hands back first, so leaving it unjudged replays a known-bad layout for the run.
     """
     placer = _placer_with([_Layout("used", good=False), _Layout("a"), _Layout("b", good=False)])
+    placer._env_pools[0].next()
+
+    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
+    assert (kept, rejected) == (1, 2)
+    assert _tags(placer, 0) == ["a"]
+
+
+def test_reach_is_the_callers_to_declare_not_read_from_recycling():
+    """The consumed layout is judged on the caller's say-so, whatever the recycling flag reads.
+
+    Reading the flag instead made the fix inert where it mattered: the env sets recycling after
+    filtering, so the filter saw it off and skipped exactly the layout a rewind returns first.
+    """
+    placer = _placer_with([_Layout("used", good=False), _Layout("a")])
+    placer._env_pools[0].next()
+    assert placer.recycle_layouts is False, "recycling is still off at the moment the env filters"
+
+    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
+    assert (kept, rejected) == (1, 1)
+    assert _tags(placer, 0) == ["a"]
+
+
+# ------------------------------------------- recycling and bulk sampling
+
+
+def test_recycled_bulk_draw_rewinds_only_the_short_pools():
+    """One env running short must not rewind an env that still has unread layouts."""
+    placer = _drawing_placer(
+        [_Layout("a0"), _Layout("b0")],
+        [_Layout("a1"), _Layout("b1"), _Layout("c1")],
+    )
+    placer.recycle_layouts = True
+    placer._env_pools[0].next()
+    placer._env_pools[1].next()
+
+    # Env 0 is one short of the two-per-env round and rewinds. Env 1 has b1 and c1 unread, so
+    # rewinding it too would replay a1 while c1 sits unread behind it.
+    drawn = placer.sample_without_replacement(4)
+    assert [layout.tag for layout in drawn] == ["a0", "b1", "b0", "c1"]
+
+
+def test_recycled_bulk_draw_refuses_a_request_larger_than_the_pool():
+    """Without replacement and beyond the prepared set conflict, so the request is refused."""
+    placer = _drawing_placer([_Layout("a"), _Layout("b")])
     placer.recycle_layouts = True
     placer._env_pools[0].next()
 
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
-    assert (kept, rejected) == (1, 2)
-    assert _tags(placer, 0) == ["a"]
+    try:
+        placer.sample_without_replacement(3)
+    except ValueError as error:
+        assert "holds only 2" in str(error)
+    else:
+        raise AssertionError("an oversized recycled request must be refused")
+
+    # Refused before anything moved: the half-served round must not have advanced the cursor.
+    assert placer._env_pools[0].cursor == 1
+    assert [layout.tag for layout in placer.sample_without_replacement(1)] == ["b"]
