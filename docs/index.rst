@@ -225,6 +225,7 @@ TABLE OF CONTENTS
    :caption: Concepts
 
    pages/concepts/concept_overview
+   pages/concepts/agentic_environment_generation/index
    pages/concepts/concept_environment_compilation
    pages/concepts/scene/index
    pages/concepts/task/index
