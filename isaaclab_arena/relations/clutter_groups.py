@@ -87,3 +87,39 @@ def assert_group_parameters_agree(group: ClutterGroup) -> None:
                 f"'{member.name}' declares {relation.spread}, expected {shared.spread}. A pile is "
                 "poured into one region, so its members must agree on how much of the support it uses."
             )
+
+
+def support_is_provably_immovable(support: PlaceableAsset) -> bool:
+    """Return whether physics can be shown never to move this asset.
+
+    True only for a support with no physics body at all, or a rigid body explicitly configured
+    kinematic. A rigid body that is merely marked ``IsAnchor`` does not qualify: the marker fixes
+    the asset for the relation solver, which is arithmetic, and says nothing about the simulation.
+    """
+    from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+
+    get_object_cfg = getattr(support, "get_object_cfg", None)
+    if get_object_cfg is None:
+        return False
+    _, cfg = get_object_cfg()
+    if isinstance(cfg, (RigidObjectCfg, ArticulationCfg)):
+        rigid_props = getattr(getattr(cfg, "spawn", None), "rigid_props", None)
+        return bool(getattr(rigid_props, "kinematic_enabled", False))
+    # Anything else spawns without a dynamics body, so physics has nothing to push.
+    return True
+
+
+def assert_support_can_hold_a_pile(group: ClutterGroup) -> None:
+    """Reject a pile whose support physics could move.
+
+    Members are recorded relative to where their support stood while they settled, and a reset
+    restores the support's authored pose, so a support the pile can shove leaves every later
+    episode replaying resting poses that no longer match the surface under them. Settling against
+    a moving support needs the support's own state captured and replayed, which anchors do not do.
+    """
+    assert support_is_provably_immovable(group.support), (
+        f"Clutter group '{group.name}' rests on '{group.support.name}', which physics can move. "
+        "A pile is captured relative to where its support stood while settling, so a support that "
+        "shifts replays the pile against a surface that has moved out from under it. Use a static "
+        "support, or set rigid_props.kinematic_enabled=True on this one."
+    )

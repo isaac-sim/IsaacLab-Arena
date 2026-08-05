@@ -9,7 +9,7 @@ import copy
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+from isaaclab_arena.relations.clutter_groups import assert_support_can_hold_a_pile, get_clutter_groups
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
@@ -145,10 +145,13 @@ def _apply_relation_placement_result(
     # poses back into the pool the reset event draws from. Static placement bakes poses into the
     # scene config instead and registers no such event, so there is nothing to settle into and
     # the pile would spawn mid-air on every episode.
-    assert placer_params.resolve_on_reset or not get_clutter_groups(assets), (
+    clutter_groups = get_clutter_groups(assets)
+    assert placer_params.resolve_on_reset or not clutter_groups, (
         "Clutter placement requires resolve_on_reset=True. Static placement has no pool to settle "
         "the pile into, so the objects would be spawned at the poses they were released from."
     )
+    for group in clutter_groups:
+        assert_support_can_hold_a_pile(group)
 
     if placer_params.resolve_on_reset:
         return _apply_dynamic_spawn_pose(

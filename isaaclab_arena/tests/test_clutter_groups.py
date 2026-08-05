@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from isaaclab_arena.relations.clutter_groups import assert_group_parameters_agree, get_clutter_groups, is_clutter_member
+from isaaclab_arena.relations.clutter_groups import (
+    assert_group_parameters_agree,
+    assert_support_can_hold_a_pile,
+    get_clutter_groups,
+    is_clutter_member,
+)
 from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor
 
 
@@ -194,3 +199,67 @@ def test_member_resting_on_itself_is_rejected():
 
     with pytest.raises(AssertionError, match="cannot rest on itself"):
         relation.validate_placement_configuration(member, {member})
+
+
+# ------------------------------------------------ support immovability
+
+
+class _CfgAsset(_Asset):
+    """Stand-in that also reports the spawn config the immovability check reads."""
+
+    def __init__(self, name: str, cfg):
+        super().__init__(name)
+        self._cfg = cfg
+
+    def get_object_cfg(self):
+        return self.name, self._cfg
+
+
+def _rigid_cfg(kinematic: bool):
+    from isaaclab.assets import RigidObjectCfg
+    from isaaclab.sim.schemas import RigidBodyPropertiesCfg
+    from isaaclab.sim.spawners.shapes import CuboidCfg
+
+    return RigidObjectCfg(
+        spawn=CuboidCfg(size=(1.0, 1.0, 1.0), rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=kinematic))
+    )
+
+
+def _group_on(support):
+    member = _Asset("member")
+    member.add_relation(ClutteredOn(support, group="pile"))
+    return get_clutter_groups([support, member])[0]
+
+
+def test_dynamic_rigid_support_is_refused():
+    """IsAnchor fixes an asset for the solver; it says nothing about what physics does to it."""
+    support = _CfgAsset("crate", _rigid_cfg(kinematic=False))
+    support.add_relation(IsAnchor())
+
+    with pytest.raises(AssertionError, match="which physics can move"):
+        assert_support_can_hold_a_pile(_group_on(support))
+
+
+def test_kinematic_rigid_support_is_accepted():
+    support = _CfgAsset("crate", _rigid_cfg(kinematic=True))
+    support.add_relation(IsAnchor())
+
+    assert_support_can_hold_a_pile(_group_on(support))
+
+
+def test_support_without_a_physics_body_is_accepted():
+    from isaaclab.assets import AssetBaseCfg
+
+    support = _CfgAsset("ground", AssetBaseCfg(prim_path="/World/ground"))
+    support.add_relation(IsAnchor())
+
+    assert_support_can_hold_a_pile(_group_on(support))
+
+
+def test_support_that_cannot_report_its_config_is_refused():
+    """Fail closed: a support whose physics cannot be inspected is not provably immovable."""
+    support = _Asset("mystery")
+    support.add_relation(IsAnchor())
+
+    with pytest.raises(AssertionError, match="which physics can move"):
+        assert_support_can_hold_a_pile(_group_on(support))
