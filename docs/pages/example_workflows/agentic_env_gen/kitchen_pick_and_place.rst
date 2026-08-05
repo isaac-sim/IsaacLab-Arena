@@ -15,6 +15,12 @@ the task.
 Generate the Object Placement
 -----------------------------
 
+.. note::
+
+   We recommend using the GUI runner for this workflow because it requires
+   interactive editing to disambiguate the countertop and refine the robot
+   placement.
+
 Start the agentic environment-generation GUI:
 
 .. code-block:: bash
@@ -52,7 +58,7 @@ candidate counter surfaces:
 * ``counter_right_main_group/top_geometry``
 
 .. figure:: ../../../images/agentic_ui_kitchen_pnp_prim_tree.png
-   :width: 100%
+   :width: 40%
    :alt: Background prim tree showing five candidate kitchen counter surfaces
    :align: center
 
@@ -109,15 +115,22 @@ direction. Set the ``next_to`` parameters manually and add a
      params:
        yaw_rad: 1.57
 
+Make sure to save the edited YAML file to disk.
+
 The finalized environment graph spec is saved at
 ``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``.
 
 
-Evaluate with OpenPI
---------------------
+Run a Policy in the Generated Environment
+-----------------------------------------
+
+Next, run a generalized policy, such as an OpenPI policy, in the generated environment
+to verify that it works end to end.
 
 Start the OpenPI server as described in :doc:`eval_with_openpi`. In a second
-terminal, run two episodes and record the viewport:
+terminal, enter the Arena container with ``./docker/run_docker.sh``, then run
+two episodes as a sanity check that the generated environment works with a PI
+policy:
 
 .. code-block:: bash
 

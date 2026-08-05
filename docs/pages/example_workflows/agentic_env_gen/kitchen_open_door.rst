@@ -14,27 +14,49 @@ to and facing the fridge.
 Generate the Environment
 ------------------------
 
-Start the agentic environment-generation GUI:
+Generate the environment graph spec with either the interactive GUI or the
+one-shot CLI runner:
 
-.. code-block:: bash
+.. tab-set::
 
-   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+   .. tab-item:: GUI runner (live editing)
+      :selected:
 
-Enter the prompt:
+      Start the live editor and open ``http://localhost:8501`` in a browser:
 
-.. code-block:: text
+      .. code-block:: bash
 
-   There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen.
-   DROID is on the floor, next to the fridge with 0.1 meter distance and facing
-   it. DROID opens the fridge door to the 0.2 openness threshold.
+         python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
-.. figure:: ../../../images/agentic_ui_kitchen_open_door.png
-   :width: 100%
-   :alt: Agentic environment-generation GUI showing the DROID kitchen fridge-opening task
-   :align: center
+      In the ``Generate from prompt`` panel, enter the prompt and click
+      ``Generate spec``:
 
-   The prompt generates the floor and fridge references, DROID placement
-   relations, and the fridge-opening task.
+      .. code-block:: text
+
+         There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen.
+         DROID is on the floor, next to the fridge with 0.1 meter distance and facing
+         it. DROID opens the fridge door to the 0.2 openness threshold.
+
+      .. figure:: ../../../images/agentic_ui_kitchen_open_door.png
+         :width: 100%
+         :alt: Agentic environment-generation GUI showing the DROID kitchen fridge-opening task
+         :align: center
+
+         The prompt generates the floor and fridge references, DROID placement
+         relations, and the fridge-opening task.
+
+   .. tab-item:: CLI runner (no editing)
+
+      Run the runner in ``resolve`` mode:
+
+      .. code-block:: bash
+
+         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+            --mode resolve \
+            --prompt "There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen. DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. DROID opens the fridge door to the 0.2 openness threshold."
+
+      The runner prints the resolved graph and writes ``<env_name>.yaml`` under
+      ``isaaclab_arena_environments/agent_generated/``.
 
 Review the Generated Spec
 -------------------------
@@ -80,11 +102,16 @@ door reaches the requested openness threshold:
 The finalized environment graph spec is saved at
 ``isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml``.
 
-Evaluate with OpenPI
---------------------
+Run a Policy in the Generated Environment
+-----------------------------------------
+
+Next, run a generalized policy, such as an OpenPI policy, in the generated environment
+to verify that it works end to end.
 
 Start the OpenPI server as described in :doc:`eval_with_openpi`. In a second
-terminal, run two episodes and record the viewport:
+terminal, enter the Arena container with ``./docker/run_docker.sh``, then run
+two episodes as a sanity check that the generated environment works with a PI
+policy:
 
 .. code-block:: bash
 
