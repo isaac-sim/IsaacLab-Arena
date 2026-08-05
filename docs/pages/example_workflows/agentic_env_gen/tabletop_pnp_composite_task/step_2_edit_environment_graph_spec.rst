@@ -4,7 +4,7 @@ Edit the Environment Graph Spec
 Review the spec before building the environment. The agent infers it from the prompt with an
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
-:doc:`../model_selection` for more details.
+:doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
 For a composite task, check that the subtask list covers every pick and place pair you asked for, and that the SimReady hits are the assets you expected.
 
 Understanding the YAML
@@ -146,7 +146,7 @@ Applying your edits
       #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 

@@ -1,5 +1,5 @@
-Agentic Environment Generation GUI
-==================================
+GUI Runner
+==========
 
 The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
