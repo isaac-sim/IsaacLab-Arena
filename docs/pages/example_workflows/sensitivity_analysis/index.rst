@@ -20,10 +20,9 @@ report then looks for useful patterns across all recorded episodes.
 Where to start
 --------------
 
-If variations are new to you, first run the visual, zero-action
-:doc:`variation example <../../quickstart/first_experiments/exploring_variations>`. Then learn how
-to :doc:`collect variation data <variation_system>` and :doc:`generate and read the report
-<sensitivity_analysis>`.
+Start with the :doc:`variation_system` page to learn what a variation is and when it changes.
+Then continue to :doc:`sensitivity_analysis` to learn how to plan a useful evaluation and read
+the resulting report.
 
 .. toctree::
    :maxdepth: 1
