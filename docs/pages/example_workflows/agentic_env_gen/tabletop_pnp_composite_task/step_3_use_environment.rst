@@ -5,13 +5,9 @@ Once you are satisfied with the environment, you can use it to evaluate a policy
 The base container runs the environment as it was generated. The cuRobo-installed container additionally
 gates object placement on whether the robot can reach the target objects.
 
-Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:
+For example, you can use the policy runner to evaluate PI policy on the environment. For other policy types, please refer to the evaluation workflow page.
 
-.. code-block:: bash
-
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
-
-In the other terminal, run the following command to launch the policy runner:
+.. todo:: add link to policy evaluation workflow page
 
 .. tab-set::
 
@@ -21,8 +17,6 @@ In the other terminal, run the following command to launch the policy runner:
       **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
 
       :docker_run_default:
-
-      For example, you can use the policy runner to evaluate PI policy on the environment.
 
       .. code-block:: bash
 
@@ -34,9 +28,6 @@ In the other terminal, run the following command to launch the policy runner:
             --num_episodes 3 \
             --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
-      For other policy types, please refer to the eavluation workflow page.
-
-      .. todo:: add link to policy evaluation workflow page
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
 
