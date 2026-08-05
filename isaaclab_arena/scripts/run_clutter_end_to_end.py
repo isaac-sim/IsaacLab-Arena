@@ -172,6 +172,7 @@ def _run(simulation_app, args_cli) -> bool:
     frames: list | None = [] if args_cli.record_video else None
     settled_at = None
     stepped = 0
+    polled_at = 0
     while stepped < args_cli.max_steps:
         # Capture often enough to see the pour when recording; otherwise poll at full stride.
         chunk = min(args_cli.video_every if frames is not None else args_cli.poll_every, args_cli.max_steps - stepped)
@@ -179,8 +180,14 @@ def _run(simulation_app, args_cli) -> bool:
         stepped += chunk
         if frames is not None:
             _capture_frame(scene, frames)
+        # Poll on elapsed steps rather than on divisibility: recording steps in video_every
+        # chunks, so a stride that video_every does not divide would only ever be tested at
+        # their common multiple, thinning the polls the settle verdict is built from.
+        if stepped - polled_at < args_cli.poll_every:
+            continue
+        polled_at = stepped
         positions, rotations = _poses()
-        if stepped % args_cli.poll_every == 0 and tracker.update(positions, rotations) and settled_at is None:
+        if tracker.update(positions, rotations) and settled_at is None:
             settled_at = stepped
             break
 
