@@ -84,3 +84,9 @@ class ObjectPlacerParams:
 
     reachability_config: ReachabilityConfig = field(default_factory=ReachabilityConfig)
     """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
+
+    debug_visualize: bool = False
+    """If True, stream every validated candidate layout to a spawned Rerun viewer window. Off by default."""
+
+    debug_visualize_output_path: str | None = None
+    """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""

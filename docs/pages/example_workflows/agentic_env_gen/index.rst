@@ -69,7 +69,8 @@ generate, edit, and visualize the prompt-specified environment in a web browser:
      the ``next_to`` relation ``side`` param to set the correct left/right
      positioning in robot coordinates.
 
-See :doc:`gui_runner` for the full UI walkthrough.
+See :doc:`gui_runner` for the full UI walkthrough. For end-to-end kitchen
+examples, see :doc:`kitchen_open_door` and :doc:`kitchen_pick_and_place`.
 
 Available Generated Specs
 -------------------------
@@ -162,6 +163,8 @@ Follow the steps below to complete the workflow:
    gui_runner
    eval_with_gr00t
    eval_with_openpi
+   kitchen_open_door
+   kitchen_pick_and_place
 
 Warnings
 --------

@@ -307,6 +307,22 @@ class PlacementValidatorSpec(BaseModel):
         ),
     )
 
+    debug_visualize: bool = Field(
+        default=False,
+        description=(
+            "Stream every candidate layout the checks evaluate to a spawned Rerun viewer window. Debug "
+            "aid, off by default; needs a reachable display. The viewer is its own process, so this "
+            "never starts Isaac Sim, and it closes with the run."
+        ),
+    )
+    debug_visualize_output_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Enables "
+            "the visualization on its own; combine with debug_visualize to both record and watch live."
+        ),
+    )
+
     @model_validator(mode="after")
     def _validate_required_subset(self) -> PlacementValidatorSpec:
         if self.enabled_checks is not None and self.required_checks is not None:

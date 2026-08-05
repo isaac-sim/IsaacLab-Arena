@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import isaaclab_arena_environments
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -22,6 +23,7 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
 _OBJECT_SET_GRAPH = TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml"
+_DEBUG_VIEW_GRAPH = TEST_DATA_DIR / "placement_debug_view_env_graph.yaml"
 
 
 def test_graph_spec_loads_pick_and_place_yaml():
@@ -461,3 +463,34 @@ def test_a_spec_naming_a_searched_simready_asset_by_its_search_name_is_rejected(
 
     assert result.returncode != 0
     assert "Unknown asset registry_name 'simready_replay_teapot'" in result.stderr
+
+
+def test_graph_spec_leaves_placement_debug_view_off_by_default():
+    """A graph YAML that says nothing about debug visualization builds placement params with it off."""
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+
+    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_GRAPH))
+
+    assert not params.debug_visualize
+    assert params.debug_visualize_output_path is None
+
+
+def test_graph_spec_forwards_placement_debug_view_to_placer_params():
+    """A YAML asking for the debug view reaches the params ObjectPlacer reads, both fields intact."""
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+
+    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_DEBUG_VIEW_GRAPH))
+
+    assert params.debug_visualize
+    assert params.debug_visualize_output_path == "/tmp/placement_debug_view.rrd"
+
+
+def test_graph_spec_leaves_shipped_envs_out_of_the_debug_view():
+    """The debug view spawns a window on every build, so no env under version control may ask for it."""
+    asking_for_the_view = [
+        yaml_path
+        for yaml_path in Path(isaaclab_arena_environments.__file__).parent.rglob("*.yaml")
+        if "debug_visualize: true" in yaml_path.read_text()
+    ]
+
+    assert not asking_for_the_view, f"debug_visualize must stay off in shipped envs: {asking_for_the_view}"

@@ -178,14 +178,70 @@ def _make_unstamped_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 
     )
 
 
-def _make_reachability_validator(embodiment):
+def _make_reachability_validator(embodiment, visualizer=None):
     """Construct the registered ReachabilityValidator with ``embodiment`` set on its params."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_curobo.ik_reachability_validator import ReachabilityValidator
 
     params = ObjectPlacerParams()
     params.reachability_config.embodiment = embodiment
-    return ReachabilityValidator(params)
+    return ReachabilityValidator(params, visualizer)
+
+
+@pytest.mark.curobo_deps
+def test_validator_skips_visualization_by_default(monkeypatch):
+    """The debug view is opt-in: placement without one means the check adds no layer."""
+    _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    assert validator._rerun_layer is None
+
+
+@pytest.mark.curobo_deps
+def test_validator_draws_each_candidate_on_its_own_frame(monkeypatch):
+    """The check draws on the frame of the candidate it was handed, not on its position in the batch.
+
+    Expensive checks only see the candidates that passed the cheap ones, so the two differ.
+    """
+    _patch_curobo(monkeypatch, feasible_fn=lambda n: [False] * n)
+    visualizer = MagicMock()
+    # The batch the check is given is candidates 7 and 9 of the run.
+    visualizer.get_layout_index_across_batch.side_effect = [7, 9]
+    validator = _make_reachability_validator(_fake_embodiment(), visualizer=visualizer)
+    drawn: list[dict] = []
+    monkeypatch.setattr(validator._rerun_layer, "log_layout", lambda **kwargs: drawn.append(kwargs))
+
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    assert validator.validate_batch(
+        [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}], []
+    ) == [False, False]
+
+    assert [entry["layout_index_across_batch"] for entry in drawn] == [7, 9]
+    assert [entry["target_names"] for entry in drawn] == [["box"], ["box"]]
+
+
+def test_reachability_layer_records_to_rrd(tmp_path):
+    """The layer's grasps and verdicts reach a recording without a viewer or cuRobo."""
+    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+
+    rrd_path = tmp_path / "placement.rrd"
+    visualizer = PlacementRerunVisualizer(app_id="arena_test", spawn=False, output_path=str(rrd_path))
+    layer = ReachabilityRerunLayer(visualizer)
+
+    layer.log_layout(
+        layout_index_across_batch=0,
+        robot_base_pos_w=(0.0, 0.0, 0.0),
+        robot_base_quat_w_xyzw=(0.0, 0.0, 0.0, 1.0),
+        target_names=["box"],
+        grasp_poses_base_frame=torch.eye(4).unsqueeze(0),
+        feasible=torch.tensor([False]),
+        position_error=torch.tensor([0.3]),
+        rotation_error=torch.tensor([0.1]),
+    )
+    visualizer.close()
+
+    assert rrd_path.is_file() and rrd_path.stat().st_size > 0
 
 
 @pytest.mark.curobo_deps

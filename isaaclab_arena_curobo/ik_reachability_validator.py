@@ -30,7 +30,9 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
 
 def get_object_world_pose_from_layout(
@@ -61,8 +63,8 @@ class ReachabilityValidator(PlacementValidator):
     check = PlacementCheck.IK_REACHABLE
     run_after_inexpensive_checks = True
 
-    def __init__(self, params: ObjectPlacerParams) -> None:
-        super().__init__(params)
+    def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
+        super().__init__(params, visualizer)
         config = params.reachability_config
         self._grasp_z_offset = config.grasp_z_offset_m
         self._ik_pos_threshold = config.ik_position_threshold_m
@@ -72,12 +74,20 @@ class ReachabilityValidator(PlacementValidator):
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
         )
-        # TODO(xinjieyao, 2026-07-22): Switch to solved pose of the robot base
-        base_pose = config.embodiment.get_initial_pose()
-        self._base_pos = base_pose.position_xyz
-        self._base_quat_xyzw = base_pose.rotation_xyzw
+        robot_base_pose_w = config.embodiment.get_initial_pose()
+        self._robot_base_pos_w = robot_base_pose_w.position_xyz
+        self._robot_base_quat_w_xyzw = robot_base_pose_w.rotation_xyzw
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
+        self._rerun_layer = self._make_rerun_layer()
+
+    def _make_rerun_layer(self) -> ReachabilityRerunLayer | None:
+        """Return this check's layer of the placement visualizer, or None when no one asked for it."""
+        if self._visualizer is None:
+            return None
+        from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
+
+        return ReachabilityRerunLayer(self._visualizer)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -99,18 +109,26 @@ class ReachabilityValidator(PlacementValidator):
         bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+        return [
+            self._validate(positions[i], orientations[i], layout_index_within_batch=i) for i in range(len(positions))
+        ]
 
     def _validate(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float],
+        layout_index_within_batch: int,
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
         Rebuilds each object's world pose and a per-object collision cuboid, syncs them into the solver's
         world, then batches a single IK solve over the target objects' top-down grasps. A layout with
         nothing to grasp (anchor-only, or no target present) is trivially reachable.
+
+        Args:
+            positions: Solved (x, y, z) per object.
+            orientations: Absolute world Z-yaw per object.
+            layout_index_within_batch: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
@@ -123,7 +141,7 @@ class ReachabilityValidator(PlacementValidator):
             get_aabb_collision_cuboid_for_object(obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw)
             for obj in objects
         ]
-        self._solver.update_world(cuboids, self._base_pos, self._base_quat_xyzw)
+        self._solver.update_world(cuboids, self._robot_base_pos_w, self._robot_base_quat_w_xyzw)
 
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
@@ -142,19 +160,31 @@ class ReachabilityValidator(PlacementValidator):
             top_down_grasp_pose_from_world_poses(
                 world_poses[obj].position_xyz,
                 world_poses[obj].rotation_xyzw,
-                self._base_pos,
-                self._base_quat_xyzw,
+                self._robot_base_pos_w,
+                self._robot_base_quat_w_xyzw,
                 self._grasp_z_offset,
                 device=self._solver.device,
             )
             for obj in targets
         ])
-        feasible, _, _ = solve_ik_feasibility(
+        feasible, position_error, rotation_error = solve_ik_feasibility(
             self._solver,
             grasp_poses,
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
         )
+        if self._rerun_layer is not None:
+            layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
+            self._rerun_layer.log_layout(
+                layout_index_across_batch=layout_index_across_batch,
+                robot_base_pos_w=self._robot_base_pos_w,
+                robot_base_quat_w_xyzw=self._robot_base_quat_w_xyzw,
+                target_names=[obj.name for obj in targets],
+                grasp_poses_base_frame=grasp_poses,
+                feasible=feasible,
+                position_error=position_error,
+                rotation_error=rotation_error,
+            )
         return bool(feasible.all().item())
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
