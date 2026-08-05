@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sim-free IK feasibility utilities that operate on a CuroboPlanner instance."""
+"""Sim-free IK feasibility utilities that operate on a CuroboIKSolver instance."""
 
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
     from curobo.wrap.reacher.ik_solver import IKSolver
-    from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
@@ -109,18 +108,17 @@ class IKFeasibility:
 
 
 def solve_ik_feasibility(
-    ik_solver_context: CuroboIKSolver | CuroboPlanner,
+    solver: CuroboIKSolver,
     target_poses: torch.Tensor,
     seed_config: torch.Tensor | None = None,
     position_threshold: float = 0.01,
     rotation_threshold: float = 0.1,
     require_collision_free: bool = False,
 ) -> IKFeasibility:
-    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver. Shared between sim-free and env-coupled paths.
-    Runs a single ``solve_batch`` for one layout.
+    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver, as a single ``solve_batch`` for one layout.
 
     Args:
-        ik_solver_context: The host that owns the solver and supplies device/pose plumbing -- a ``CuroboPlanner`` (env-coupled) or a ``CuroboIKSolver``.
+        solver: The ``CuroboIKSolver`` that owns the cuRobo solver and supplies device/pose plumbing.
         target_poses: ``(b, 4, 4)`` end-effector goal transforms in the robot base frame.
         seed_config: Optional joint seed tensor.
         position_threshold: Max position error (m) to count as feasible.
@@ -130,10 +128,10 @@ def solve_ik_feasibility(
     Returns:
         An ``IKFeasibility`` object holding the per-pose verdict, plus the errors and joint configuration.
     """
-    ik_solver = _resolve_ik_solver(ik_solver_context)
-    target_poses = ik_solver_context._to_curobo_device(target_poses)
+    ik_solver = solver.ik_solver
+    target_poses = solver._to_curobo_device(target_poses)
     positions, rotations = math_utils.unmake_pose(target_poses)
-    goal_pose = ik_solver_context._make_pose(
+    goal_pose = solver._make_pose(
         position=positions,
         quaternion=math_utils.quat_from_matrix(rotations),  # xyzw
         quat_is_xyzw=True,
@@ -141,12 +139,12 @@ def solve_ik_feasibility(
 
     ik_seed = None
     if seed_config is not None:
-        ik_seed = ik_solver_context._to_curobo_device(seed_config)
+        ik_seed = solver._to_curobo_device(seed_config)
         while ik_seed.dim() < 3:
             ik_seed = ik_seed.unsqueeze(0)
 
     # The gripper is meant to touch what it grasps, so its own links are disabled to detect collisions with the grasped object.
-    muted_links = _resolve_hand_link_names(ik_solver_context) if require_collision_free else []
+    muted_links = list(solver.hand_link_names) if require_collision_free else []
     with _disabled_link_spheres(ik_solver, muted_links):
         ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
 
@@ -168,64 +166,40 @@ def solve_ik_feasibility(
     solutions = ik_result.solution.view(num_poses, pos_err.shape[1], -1)
     best_solution = solutions.gather(1, best_idx.unsqueeze(-1).expand(-1, -1, solutions.shape[-1])).squeeze(1)
 
-    ik_solver_context.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
+    solver.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
     return IKFeasibility(feasible, best_pos_err, best_rot_err, best_solution)
 
 
-def hand_sphere_mask(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> torch.Tensor:
+def hand_sphere_mask(solver: CuroboIKSolver) -> torch.Tensor:
     """Mask over the robot's collision spheres selecting the hand links.
 
     Args:
-        ik_solver_context: The host that owns the solver and names the embodiment's hand links.
+        solver: The ``CuroboIKSolver`` that owns the cuRobo solver and names the embodiment's hand links.
 
     Returns:
         ``(num_spheres,)`` bool tensor aligned with the spheres ``robot_collision_spheres`` returns.
     """
-    kinematics_config = _resolve_ik_solver(ik_solver_context).kinematics.kinematics_config
+    kinematics_config = solver.ik_solver.kinematics.kinematics_config
     sphere_link_indices = kinematics_config.link_sphere_idx_map
     mask = torch.zeros(sphere_link_indices.shape[0], dtype=torch.bool, device=sphere_link_indices.device)
-    for name in _resolve_hand_link_names(ik_solver_context):
+    for name in solver.hand_link_names:
         mask[kinematics_config.get_sphere_index_from_link_name(name)] = True
     return mask
 
 
-def robot_collision_spheres(
-    ik_solver_context: CuroboIKSolver | CuroboPlanner, joint_positions: torch.Tensor
-) -> torch.Tensor:
+def robot_collision_spheres(solver: CuroboIKSolver, joint_positions: torch.Tensor) -> torch.Tensor:
     """Forward-kinematics the robot's collision spheres at each given joint configuration. Curobo collision-checks use these spheres.
 
     Args:
-        ik_solver_context: The host that owns the solver and supplies device plumbing.
+        solver: The ``CuroboIKSolver`` that owns the cuRobo solver and supplies device plumbing.
         joint_positions: shape of (b, dof), b:number of poses, dof:number of joints.
 
     Returns:
         shape of (b, num_spheres, 4), b:number of poses, 4:x, y, z, radius; cuRobo leaves unused
         spheres in with a negative radius.
     """
-    ik_solver = _resolve_ik_solver(ik_solver_context)
-    joint_positions = ik_solver_context._to_curobo_device(joint_positions)
-    return ik_solver.kinematics.get_state(joint_positions).link_spheres_tensor
-
-
-def _resolve_ik_solver(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> IKSolver:
-    """Get the cuRobo ``IKSolver`` from a host, whichever way it exposes it.
-
-    ``CuroboIKSolver`` holds it as ``ik_solver``; the upstream ``CuroboPlanner`` (not ours to change)
-    holds it as ``motion_gen.ik_solver``. Centralizing the lookup lets the solve take just the host.
-    """
-    ik_solver = getattr(ik_solver_context, "ik_solver", None)
-    if ik_solver is None:
-        ik_solver = ik_solver_context.motion_gen.ik_solver
-    return ik_solver
-
-
-def _resolve_hand_link_names(ik_solver_context: CuroboIKSolver | CuroboPlanner) -> list[str]:
-    """Get the embodiment's hand link names from a host, whichever way it exposes them."""
-    hand_link_names = getattr(ik_solver_context, "hand_link_names", None)
-    if hand_link_names is None:
-        # CuroboPlanner holds them on its config.
-        hand_link_names = ik_solver_context.config.hand_link_names
-    return list(hand_link_names)
+    joint_positions = solver._to_curobo_device(joint_positions)
+    return solver.ik_solver.kinematics.get_state(joint_positions).link_spheres_tensor
 
 
 @contextmanager
