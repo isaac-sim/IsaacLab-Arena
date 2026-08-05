@@ -18,7 +18,12 @@ In this section, we will walk through the following example environment generati
   - :doc:`tabletop_pnp_composite_task/index`
 
 - Kitchen Pick and Place task
+
+  - :doc:`kitchen_pick_and_place`
+
 - Kitchen Open/Close Door task
+
+  - :doc:`kitchen_open_door`
 
 Available Generated Specs
 -------------------------
@@ -49,4 +54,6 @@ Warnings
    tabletop_pnp_homogenous_object/index
    tabletop_pnp_heterogeneous_object/index
    tabletop_pnp_composite_task/index
+   kitchen_pick_and_place
+   kitchen_open_door
    gui_runner
