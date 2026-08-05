@@ -632,3 +632,27 @@ def test_unknown_drop_order_is_rejected_at_declaration():
     support = _Asset("table")
     with pytest.raises(AssertionError, match="drop_order must be one of"):
         ClutteredOn(support, group="tools", drop_order="bottom_up")
+
+
+@pytest.mark.parametrize("order", ["as_listed", "flattest_first", "shuffle"])
+def test_every_drop_order_is_reproducible_under_a_seed(order):
+    """Shuffling draws from the same generator as yaw and XY, so it must not break seeding.
+
+    A pile that cannot be reproduced defeats the point of seeding a layout, and the shuffled
+    order is the one that consumes an extra draw.
+    """
+
+    def pour(seed):
+        support = _Asset("table")
+        support.add_relation(IsAnchor())
+        members = [_Asset(f"item_{index}") for index in range(5)]
+        boxes = {support: _box(0.5, 0.5, 0.1)}
+        for index, member in enumerate(members):
+            member.add_relation(ClutteredOn(support, group="tools", drop_order=order))
+            boxes[member] = _box(0.03, 0.03, 0.07 - index * 0.01)
+        layout = _Layout()
+        plan_clutter_drops(layout, get_clutter_groups([support, *members]), boxes, torch.Generator().manual_seed(seed))
+        return [layout.positions[member] for member in members]
+
+    assert pour(11) == pour(11), f"{order} did not reproduce under the same seed"
+    assert pour(11) != pour(12), f"{order} ignored the seed"
