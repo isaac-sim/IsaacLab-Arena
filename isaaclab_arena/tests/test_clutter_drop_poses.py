@@ -402,3 +402,33 @@ def test_off_centre_boxes_are_contained_under_both_samplers():
         poses = compute_drop_poses(bboxes, REGION, params, generator=seeded(3))
         assert_footprints_inside(bboxes, poses, REGION)
         assert_no_penetration(bboxes, poses)
+
+
+def test_flattest_first_ranks_by_height_after_the_authored_rotation():
+    """A plate stood on its edge is tall, whatever its local extents say.
+
+    Ranking the raw box released a pitched 20 cm plate before a genuinely 5 cm-tall block,
+    which is the opposite of what flattest-first promises.
+    """
+    import math
+
+    from isaaclab_arena.relations.clutter_drop_poses import DropOrder
+
+    # Locally a thin wide plate: 1 cm thick, 20 cm across. Pitched upright it stands 20 cm tall.
+    plate = make_bbox(0.20, 0.20, 0.01)
+    block = make_bbox(0.06, 0.06, 0.05)
+    upright = (0.0, math.sin(math.pi / 4.0), 0.0, math.cos(math.pi / 4.0))
+    identity = (0.0, 0.0, 0.0, 1.0)
+
+    params = ClutterDropParams(drop_order=DropOrder.FLATTEST_FIRST)
+    poses = compute_drop_poses(
+        [plate, block],
+        REGION,
+        params,
+        torch.Generator().manual_seed(0),
+        base_rotations_xyzw=[upright, identity],
+        member_params=[MemberDropParams(random_yaw=False), MemberDropParams(random_yaw=False)],
+    )
+
+    # The block is now the flatter of the two, so it must be released first.
+    assert poses[1].drop_index < poses[0].drop_index, "pitched plate was ranked by its local thickness"

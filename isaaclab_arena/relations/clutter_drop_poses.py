@@ -173,17 +173,35 @@ def _footprint_of(bbox: AxisAlignedBoundingBox) -> _Footprint:
     )
 
 
+def _rotated_by(
+    bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
+) -> AxisAlignedBoundingBox:
+    """Return the box refitted to a rotation, or the box itself when there is nothing to turn."""
+    if rotation_xyzw == (0.0, 0.0, 0.0, 1.0):
+        return bbox
+    return bbox.rotated_by_quat(torch.tensor([rotation_xyzw], dtype=torch.float32))
+
+
 def _resolve_order(
     bounding_boxes: list[AxisAlignedBoundingBox],
     drop_order: DropOrder,
     generator: torch.Generator | None,
+    base_rotations_xyzw: list[tuple[float, float, float, float]],
 ) -> list[int]:
-    """Return indices into ``bounding_boxes`` in the order they should be dropped."""
+    """Return indices into ``bounding_boxes`` in the order they should be dropped.
+
+    Heights are measured after the authored base rotation, since that is the pose the object is
+    released in: a thin plate stood on its edge is tall, whatever its local extents say. The yaw
+    sampled later turns it about Z and cannot change its height, so ranking here is safe.
+    """
     indices = list(range(len(bounding_boxes)))
     if drop_order is DropOrder.AS_LISTED:
         return indices
     if drop_order is DropOrder.FLATTEST_FIRST:
-        return sorted(indices, key=lambda i: float(bounding_boxes[i].size[0][2]))
+        heights = [
+            float(_rotated_by(bbox, rotation).size[0][2]) for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
+        ]
+        return sorted(indices, key=lambda i: heights[i])
     permutation = torch.randperm(len(indices), generator=generator)
     return [indices[int(i)] for i in permutation]
 
@@ -240,7 +258,7 @@ def _sample_orientation_that_fits(
         yaw = get_random_rotation(generator) if member.random_yaw else 0.0
         rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
-        rotated = bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+        rotated = _rotated_by(bbox, rotation)
         footprint = _footprint_of(rotated)
         if _footprint_fits(footprint, region):
             return rotation, rotated, footprint
@@ -343,7 +361,7 @@ def compute_drop_poses(
     ), "base_rotations_xyzw must contain one rotation per bounding box"
 
     usable = region.scaled(params.clutter_spread)
-    order = _resolve_order(bounding_boxes, params.drop_order, generator)
+    order = _resolve_order(bounding_boxes, params.drop_order, generator, base_rotations_xyzw)
     centres = (
         _grid_cell_centres(len(order), usable, generator)
         if params.xy_sampling is XySampling.GRID_CELLS
