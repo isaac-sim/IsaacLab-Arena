@@ -255,4 +255,5 @@ def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
             rotation_xyzw=tuple(float(v) for v in quat_xyzw),
         )
 
-    return asset._get_initial_pose_as_pose() or Pose.identity()
+    initial_pose = asset.get_initial_pose()
+    return initial_pose if isinstance(initial_pose, Pose) else None
