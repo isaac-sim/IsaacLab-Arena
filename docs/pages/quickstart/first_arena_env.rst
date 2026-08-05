@@ -98,8 +98,6 @@ Keep the same environment and task, but replace the pick-up object and destinati
    The same environment definition and task with different pick-up and destination objects.
 
 
-.. _change-fixed-background:
-
 Change the background
 ^^^^^^^^^^^^^^^^^^^^^
 
