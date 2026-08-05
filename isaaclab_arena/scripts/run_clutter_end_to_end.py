@@ -172,20 +172,22 @@ def _run(simulation_app, args_cli) -> bool:
     frames: list | None = [] if args_cli.record_video else None
     settled_at = None
     stepped = 0
-    polled_at = 0
+    # Capturing and polling are independent schedules. Stepping to whichever falls next keeps
+    # each on its own stride, so the settle verdict is built from polls at poll_every whatever
+    # the capture rate; advancing a deadline by its own period rather than to the step that
+    # overshot it keeps that stride from drifting later and later.
+    next_poll = args_cli.poll_every
+    next_frame = args_cli.video_every if frames is not None else args_cli.max_steps
     while stepped < args_cli.max_steps:
-        # Capture often enough to see the pour when recording; otherwise poll at full stride.
-        chunk = min(args_cli.video_every if frames is not None else args_cli.poll_every, args_cli.max_steps - stepped)
-        physics_settle.step_physics(env, chunk, render=frames is not None)
-        stepped += chunk
-        if frames is not None:
+        target = min(next_poll, next_frame, args_cli.max_steps)
+        physics_settle.step_physics(env, target - stepped, render=frames is not None)
+        stepped = target
+        if frames is not None and stepped >= next_frame:
             _capture_frame(scene, frames)
-        # Poll on elapsed steps rather than on divisibility: recording steps in video_every
-        # chunks, so a stride that video_every does not divide would only ever be tested at
-        # their common multiple, thinning the polls the settle verdict is built from.
-        if stepped - polled_at < args_cli.poll_every:
+            next_frame += args_cli.video_every
+        if stepped < next_poll:
             continue
-        polled_at = stepped
+        next_poll += args_cli.poll_every
         positions, rotations = _poses()
         if tracker.update(positions, rotations) and settled_at is None:
             settled_at = stepped

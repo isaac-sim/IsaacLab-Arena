@@ -482,3 +482,39 @@ def test_quarter_turned_support_is_accepted_by_the_pour():
     region = region_for_support(support, _Layout(), {support: _box(0.5, 0.3, 0.1)})
     # A quarter turn swaps the footprint's extents.
     assert (region.max_x - region.min_x) == pytest.approx(0.6)
+
+
+def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
+    """The rotation maps are sparse: a solved support whose yaw is identity appears in neither.
+
+    Reading that absence as 'unsolved' sent an ordinary solved support to its declaration, so a
+    ranged declaration it never needed was rejected.
+    """
+    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
+    from isaaclab_arena.utils.pose import PoseRange
+
+    support = _Asset("table")
+    support._pose = PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0))
+    layout = _Layout()
+    layout.positions[support] = (0.5, 0.5, 0.0)
+
+    position, rotation = support_pose_from_layout(support, layout)
+    assert position == (0.5, 0.5, 0.0)
+    assert rotation == (0.0, 0.0, 0.0, 1.0)
+
+
+def test_support_just_off_a_quarter_turn_is_rejected_not_silently_shrunk():
+    """Admission and region construction must share one threshold.
+
+    At a 1 degree admission tolerance a 0.5 degree support passed the guard and then took the
+    off-axis branch, collapsing its footprint to an inscribed square the guard had approved.
+    """
+    import math
+
+    from isaaclab_arena.relations.clutter_pour import region_for_support
+
+    half = math.radians(0.5) / 2.0
+    support = _Asset("table")
+    support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half)))
+    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
+        region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})

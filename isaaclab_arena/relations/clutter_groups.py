@@ -124,6 +124,13 @@ def assert_relations_do_not_target_clutter(objects: list[PlaceableAsset]) -> Non
                 "pour cannot honour: members are held out of the solve, so the relation would be "
                 "silently ignored. Pour the member, or place it with relations instead of pouring it."
             )
+        # The rotation marker is read by picking the first one found, so a second is discarded
+        # without complaint. One marker is one rotation.
+        markers = [r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)]
+        assert len(markers) <= 1, (
+            f"Clutter member '{asset.name}' declares {len(markers)} RotateAroundSolution markers. "
+            "Only the first would be applied and the rest dropped in silence, so declare one."
+        )
 
 
 def support_is_provably_immovable(support: PlaceableAsset) -> bool:

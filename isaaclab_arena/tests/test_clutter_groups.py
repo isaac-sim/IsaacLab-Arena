@@ -349,3 +349,15 @@ def test_member_may_carry_a_rotate_marker():
     member.add_relation(RotateAroundSolution(pitch_rad=1.0))
 
     assert_relations_do_not_target_clutter([table, member])
+
+
+def test_member_may_not_carry_two_rotate_markers():
+    """get_rotation_xyzw takes the first, so a second would be dropped without complaint."""
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+
+    table, (member,) = _table_with("member")
+    member.add_relation(RotateAroundSolution(pitch_rad=1.0))
+    member.add_relation(RotateAroundSolution(roll_rad=1.0))
+
+    with pytest.raises(AssertionError, match="2 RotateAroundSolution markers"):
+        assert_relations_do_not_target_clutter([table, member])

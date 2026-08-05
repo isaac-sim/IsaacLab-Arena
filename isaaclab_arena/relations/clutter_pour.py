@@ -188,7 +188,11 @@ def support_pose_from_layout(
     # A solved support's rotation comes from the layout composed with its marker; an anchored
     # one keeps the pose it was declared with. Synthesising a yaw-only rotation here would also
     # hide a tilted support from the check that exists to reject it.
-    if support in layout.rotations or support in layout.orientations:
+    #
+    # Being placed by the layout is the test, not appearing in its rotation maps: those are
+    # sparse, and a solved support whose yaw came out identity is absent from both. Reading
+    # absence as "unsolved" would send an ordinary solved support to its declaration.
+    if support in layout.positions or support in layout.rotations or support in layout.orientations:
         rotation = _world_rotation_from_layout(support, layout)
     elif declared is not None:
         rotation = _concrete("rotation_xyzw")
@@ -226,7 +230,10 @@ def _assert_support_is_axis_aligned(support: PlaceableAsset, rotation_xyzw: tupl
     reports the wrong abstraction's complaint.
     """
     try:
-        quaternion_to_90_deg_z_quarters(rotation_xyzw)
+        # Admit exactly what region_above_support will then treat as a quarter turn. A looser
+        # tolerance here would pass a support that the region builder still classifies as
+        # off-axis, collapsing its footprint to an inscribed square the guard had just approved.
+        quaternion_to_90_deg_z_quarters(rotation_xyzw, tol_deg=math.degrees(_QUARTER_TURN_TOLERANCE_RAD))
     except AssertionError as error:
         raise AssertionError(
             f"Clutter support '{support.name}' is rotated {rotation_xyzw}, which is not a quarter "
