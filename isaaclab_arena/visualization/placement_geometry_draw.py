@@ -37,8 +37,8 @@ STATIC_GEOMETRY_ROOT = "/World/IsaacLabArenaPlacementStaticGeometry"
 
 
 @dataclass(frozen=True)
-class _OverlayEntry:
-    """One placement geometry entity scheduled for drawing."""
+class _PlacementGeometry:
+    """Geometry and display metadata for one placement collision asset."""
 
     name: str
     color: tuple[float, float, float, float]
@@ -54,7 +54,7 @@ class PlacementGeometryDraw:
         self._max_mesh_edges = max_mesh_edges
         self._draw = IsaacSimDebugDraw()
         self._default_mode: CollisionMode = pool.default_collision_mode
-        self._entries = self._build_entries(pool)
+        self._geometries = _build_placement_geometries(pool)
         self._legend_printed = False
         self._static_geometry_drawn = False
         self._reported_aabb_failures: set[int] = set()
@@ -74,13 +74,13 @@ class PlacementGeometryDraw:
         self._legend_printed = True
         print(
             f"[placement_debug] default collision_mode={self._default_mode.value}; "
-            f"drawing {len(self._entries)} entit(y/ies)",
+            f"drawing {len(self._geometries)} entit(y/ies)",
             flush=True,
         )
-        for entry in self._entries:
-            geom_label = "AABB+mesh" if entry.mesh is not None else "AABB"
+        for geometry in self._geometries:
+            geom_label = "AABB+mesh" if geometry.mesh is not None else "AABB"
             print(
-                f"[placement_debug] '{entry.name}' {geom_label} color={entry.color}",
+                f"[placement_debug] '{geometry.name}' {geom_label} color={geometry.color}",
                 flush=True,
             )
 
@@ -88,23 +88,23 @@ class PlacementGeometryDraw:
         """Draw static geometry once, then refresh overlays for live assets."""
         self._draw_static_geometry_once(env)
         self._draw.clear()
-        for entry in self._entries:
-            if entry.is_static:
+        for geometry in self._geometries:
+            if geometry.is_static:
                 continue
-            pose = _live_pose_for_asset(env, entry.asset)
+            pose = _live_pose_for_asset(env, geometry.asset)
             if pose is None:
                 continue
             try:
                 # Draw the solver's world AABB (axis-aligned), not a full-pose OBB.
-                local_bbox = entry.asset.get_bounding_box()
+                local_bbox = geometry.asset.get_bounding_box()
                 world_bbox = local_bbox.rotated_by_quat(pose.rotation_xyzw).translated(pose.position_xyz)
             except Exception as exc:  # noqa: BLE001 — visualizer must not crash the runner
-                asset_id = id(entry.asset)
+                asset_id = id(geometry.asset)
                 if asset_id not in self._reported_aabb_failures:
                     self._reported_aabb_failures.add(asset_id)
-                    print(f"[placement_debug] skip AABB for '{entry.name}': {exc}", flush=True)
+                    print(f"[placement_debug] skip AABB for '{geometry.name}': {exc}", flush=True)
             else:
-                self._reported_aabb_failures.discard(id(entry.asset))
+                self._reported_aabb_failures.discard(id(geometry.asset))
                 min_pt = tuple(float(v) for v in world_bbox.min_point[0].tolist())
                 max_pt = tuple(float(v) for v in world_bbox.max_point[0].tolist())
                 self._draw.draw_oriented_bbox(
@@ -112,14 +112,14 @@ class PlacementGeometryDraw:
                     max_pt,
                     IDENTITY_POS,
                     IDENTITY_XYZW,
-                    color=entry.color,
+                    color=geometry.color,
                     thickness=3.0,
                 )
-            if entry.mesh is not None:
+            if geometry.mesh is not None:
                 # Collision meshes are in a true local frame; apply the live pose.
                 self._draw.draw_trimesh_wireframe(
-                    entry.mesh,
-                    color=entry.color,
+                    geometry.mesh,
+                    color=geometry.color,
                     thickness=1.5,
                     max_edges=self._max_mesh_edges,
                     position_xyz=pose.position_xyz,
@@ -136,28 +136,6 @@ class PlacementGeometryDraw:
             stage.RemovePrim(STATIC_GEOMETRY_ROOT)
         self._static_geometry_drawn = False
 
-    def _build_entries(self, pool: PooledObjectPlacer) -> list[_OverlayEntry]:
-        assets: list[tuple[CollisionObject, bool]] = [(asset, asset.is_anchor) for asset in pool.objects]
-        assets.extend((asset, True) for asset in pool.collision_objects)
-        entries: list[_OverlayEntry] = []
-        seen: set[int] = set()
-        for asset, is_static in assets:
-            asset_id = id(asset)
-            if asset_id in seen:
-                continue
-            seen.add(asset_id)
-            mesh = asset.get_collision_mesh() if object_uses_mesh_collision(asset, self._default_mode) else None
-            entries.append(
-                _OverlayEntry(
-                    name=asset.name,
-                    color=_color_for_asset(asset),
-                    asset=asset,
-                    mesh=mesh,
-                    is_static=is_static,
-                )
-            )
-        return entries
-
     def _draw_static_geometry_once(self, env: gym.Env) -> None:
         """Create persistent USD curves for static AABBs and collision meshes."""
         if self._static_geometry_drawn:
@@ -172,32 +150,32 @@ class PlacementGeometryDraw:
         self._static_geometry_drawn = True
 
         UsdGeom.Scope.Define(stage, STATIC_GEOMETRY_ROOT)
-        for index, entry in enumerate(self._entries):
-            if not entry.is_static:
+        for index, geometry in enumerate(self._geometries):
+            if not geometry.is_static:
                 continue
 
-            prim_name = Tf.MakeValidIdentifier(f"{index}_{entry.name}")
+            prim_name = Tf.MakeValidIdentifier(f"{index}_{geometry.name}")
             try:
-                world_bbox = entry.asset.get_world_bounding_box()
+                world_bbox = geometry.asset.get_world_bounding_box()
                 min_pt = tuple(float(v) for v in world_bbox.min_point[0].tolist())
                 max_pt = tuple(float(v) for v in world_bbox.max_point[0].tolist())
                 starts, ends = oriented_bbox_edge_segments(min_pt, max_pt, IDENTITY_POS, IDENTITY_XYZW)
-                self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_bbox", starts, ends, entry, 0.01)
+                self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_bbox", starts, ends, geometry, 0.01)
             except Exception as exc:  # noqa: BLE001 — visualizer must not crash the runner
-                print(f"[placement_debug] skip static AABB for '{entry.name}': {exc}", flush=True)
+                print(f"[placement_debug] skip static AABB for '{geometry.name}': {exc}", flush=True)
 
-            if entry.mesh is None:
+            if geometry.mesh is None:
                 continue
-            pose = _live_pose_for_asset(env, entry.asset)
+            pose = _live_pose_for_asset(env, geometry.asset)
             if pose is None:
                 continue
-            vertices = transform_trimesh_vertices(entry.mesh.vertices, pose.position_xyz, pose.rotation_xyzw)
-            starts, ends = trimesh_edge_segments(vertices, entry.mesh.faces, max_edges=None)
-            self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_mesh", starts, ends, entry, 0.006)
-            print(f"[placement_debug] drew static '{entry.name}' once with {len(starts)} full edges", flush=True)
+            vertices = transform_trimesh_vertices(geometry.mesh.vertices, pose.position_xyz, pose.rotation_xyzw)
+            starts, ends = trimesh_edge_segments(vertices, geometry.mesh.faces, max_edges=None)
+            self._define_curve(stage, f"{STATIC_GEOMETRY_ROOT}/{prim_name}_mesh", starts, ends, geometry, 0.006)
+            print(f"[placement_debug] drew static '{geometry.name}' once with {len(starts)} full edges", flush=True)
 
     @staticmethod
-    def _define_curve(stage, path: str, starts, ends, entry: _OverlayEntry, width: float) -> None:
+    def _define_curve(stage, path: str, starts, ends, geometry: _PlacementGeometry, width: float) -> None:
         """Define persistent linear curves for line segments."""
         from pxr import UsdGeom
 
@@ -208,8 +186,32 @@ class PlacementGeometryDraw:
         curves.CreatePointsAttr(points)
         curves.CreateWidthsAttr([width])
         curves.SetWidthsInterpolation(UsdGeom.Tokens.constant)
-        curves.CreateDisplayColorAttr([entry.color[:3]])
-        curves.CreateDisplayOpacityAttr([entry.color[3]])
+        curves.CreateDisplayColorAttr([geometry.color[:3]])
+        curves.CreateDisplayOpacityAttr([geometry.color[3]])
+
+
+def _build_placement_geometries(pool: PooledObjectPlacer) -> list[_PlacementGeometry]:
+    """Build deduplicated draw geometry from placed and fixed collision assets."""
+    assets: list[tuple[CollisionObject, bool]] = [(asset, asset.is_anchor) for asset in pool.objects]
+    assets.extend((asset, True) for asset in pool.collision_objects)
+    geometries: list[_PlacementGeometry] = []
+    seen: set[int] = set()
+    for asset, is_static in assets:
+        asset_id = id(asset)
+        if asset_id in seen:
+            continue
+        seen.add(asset_id)
+        mesh = asset.get_collision_mesh() if object_uses_mesh_collision(asset, pool.default_collision_mode) else None
+        geometries.append(
+            _PlacementGeometry(
+                name=asset.name,
+                color=_color_for_asset(asset),
+                asset=asset,
+                mesh=mesh,
+                is_static=is_static,
+            )
+        )
+    return geometries
 
 
 def _color_for_asset(asset: CollisionObject) -> tuple[float, float, float, float]:

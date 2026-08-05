@@ -178,7 +178,7 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
             raise ValueError("invalid bounds")
 
     asset = _BrokenAsset()
-    entry = placement_geometry_draw._OverlayEntry(
+    geometry = placement_geometry_draw._PlacementGeometry(
         name="broken",
         color=(1.0, 1.0, 0.0, 1.0),
         asset=asset,
@@ -186,7 +186,7 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
         is_static=False,
     )
     draw = placement_geometry_draw.PlacementGeometryDraw.__new__(placement_geometry_draw.PlacementGeometryDraw)
-    draw._entries = [entry]
+    draw._geometries = [geometry]
     draw._draw = SimpleNamespace(clear=lambda: None)
     draw._static_geometry_drawn = True
     draw._reported_aabb_failures = set()
@@ -203,7 +203,7 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
     assert capsys.readouterr().out.count("skip AABB for 'broken'") == 1
 
 
-def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
+def test_redraw_skips_static_geometry_and_transforms_live_aabb(monkeypatch):
     import math
     from types import SimpleNamespace
 
@@ -223,15 +223,15 @@ def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
     pose = Pose(position_xyz=(10.0, 20.0, 30.0), rotation_xyzw=quat)
     static_asset = _Asset("static")
     live_asset = _Asset("live")
-    entries = [
-        placement_geometry_draw._OverlayEntry(
+    geometries = [
+        placement_geometry_draw._PlacementGeometry(
             name="static",
             color=(1.0, 1.0, 0.0, 1.0),
             asset=static_asset,
             mesh=None,
             is_static=True,
         ),
-        placement_geometry_draw._OverlayEntry(
+        placement_geometry_draw._PlacementGeometry(
             name="live",
             color=(1.0, 1.0, 0.0, 1.0),
             asset=live_asset,
@@ -245,7 +245,7 @@ def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
         draw_oriented_bbox=lambda min_pt, max_pt, *args, **kwargs: drawn_bboxes.append((min_pt, max_pt)),
     )
     draw = placement_geometry_draw.PlacementGeometryDraw.__new__(placement_geometry_draw.PlacementGeometryDraw)
-    draw._entries = entries
+    draw._geometries = geometries
     draw._draw = fake_debug_draw
     draw._static_geometry_drawn = True
     draw._reported_aabb_failures = set()
