@@ -421,3 +421,18 @@ def test_occupant_footprint_uses_a_scalar_yaw_when_that_is_all_there_is():
 
     (occupied,) = occupied_footprints_in_region(region, layout, bounding_boxes, exclude={support})
     assert occupied.half_extents[1] == pytest.approx(0.30, abs=1e-3)
+
+
+def test_support_pose_that_stands_for_several_is_rejected():
+    """A range or a per-env pose has no single answer, and reading one raises deep in the pour."""
+    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
+    from isaaclab_arena.utils.pose import PosePerEnv, PoseRange
+
+    for declared in (
+        PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0)),
+        PosePerEnv(poses=[Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))]),
+    ):
+        support = _Asset("table")
+        support._pose = declared
+        with pytest.raises(AssertionError, match="does not resolve to one world pose"):
+            support_pose_from_layout(support, _Layout())

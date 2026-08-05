@@ -26,6 +26,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
 from isaaclab_arena.relations.relations import ClutteredOn
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -162,6 +163,14 @@ def support_pose_from_layout(
     support that is neither has no pose yet, which is a caller error rather than a default.
     """
     declared = support.get_initial_pose()
+    # A pour is captured against one support pose, so a declaration that stands for several --
+    # a range to sample from, or a pose per env -- has no single answer to give here. Refusing
+    # is honest; reading position_xyz off one would raise AttributeError from inside the pour.
+    assert declared is None or isinstance(declared, Pose), (
+        f"Clutter support '{support.name}' declares its initial pose as {type(declared).__name__}, "
+        "which does not resolve to one world pose. A pile is poured onto a definite surface, so its "
+        "support must declare a concrete Pose."
+    )
     position = layout.positions.get(support)
     if position is None:
         assert declared is not None, (
