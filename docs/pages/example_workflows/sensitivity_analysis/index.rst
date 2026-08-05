@@ -7,8 +7,8 @@ most likely to fail.
 
 This workflow answers those questions in two parts:
 
-* :doc:`variation_system` explains when variation values are sampled and what Arena records for
-  each episode.
+* :doc:`variation_system` explains how to choose the conditions to test, plan their sampling, and
+  collect the episode results used in the report.
 * :doc:`sensitivity_analysis` connects the exact conditions in each episode to the result of
   that episode. This reveals which conditions are most closely associated with success or
   failure.
@@ -20,9 +20,10 @@ report then looks for useful patterns across all recorded episodes.
 Where to start
 --------------
 
-Start with the :doc:`variation_system` page to learn what a variation is and when it changes.
-Then continue to :doc:`sensitivity_analysis` to learn how to plan a useful evaluation and read
-the resulting report.
+Start with the :doc:`variation_system` page to plan the experiment and understand the data it
+produces.
+Then continue to :doc:`sensitivity_analysis` to run the evaluation and generate and read the
+resulting report.
 
 .. toctree::
    :maxdepth: 1
