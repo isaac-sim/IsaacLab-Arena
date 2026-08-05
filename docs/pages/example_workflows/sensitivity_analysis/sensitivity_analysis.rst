@@ -17,8 +17,9 @@ combinations of conditions are associated with success or failure.
 How Arena generates sensitivity reports
 ---------------------------------------
 
-For an experiment run with Arena, the input to the sensitivity analysis pipeline
-is the episode-results file discussed in :doc:`variation_system`.
+For an experiment run with Arena, the input to the sensitivity analysis pipeline is the
+episode-results file written during the variation sweep. See the :doc:`Sensitivity Analysis
+concept page <../../concepts/policy/concept_sensitivity_analysis>` for details about this file.
 
 Arena considers all selected conditions together and estimates the distribution for the
 outcome you choose, such as success or failure, over the selected conditions.
