@@ -230,17 +230,19 @@ def _run_reachability_check(args_cli) -> bool:
         top_down_grasp_pose_from_env(env, OBSTACLE_OBJECT, GRASP_Z_OFFSET),
         top_down_grasp_pose_from_env(env, NON_OBSTACLE_OBJECT, GRASP_Z_OFFSET),
     ])
-    feasible, pos_err, rot_err, _ = solve_ik_feasibility(planner, grasp_poses)
+    ik = solve_ik_feasibility(planner, grasp_poses)
     print(
-        f"reach: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad",
+        f"reach: feasible={bool(ik.feasible[0])} pos_err={float(ik.position_error[0]):.4f}m"
+        f" rot_err={float(ik.rotation_error[0]):.4f}rad",
         flush=True,
     )
     print(
-        f"far:   feasible={bool(feasible[1])} pos_err={float(pos_err[1]):.4f}m rot_err={float(rot_err[1]):.4f}rad",
+        f"far:   feasible={bool(ik.feasible[1])} pos_err={float(ik.position_error[1]):.4f}m"
+        f" rot_err={float(ik.rotation_error[1]):.4f}rad",
         flush=True,
     )
 
-    return bool(feasible[0].item()) and not bool(feasible[1].item())
+    return bool(ik.feasible[0].item()) and not bool(ik.feasible[1].item())
 
 
 def _main() -> int:

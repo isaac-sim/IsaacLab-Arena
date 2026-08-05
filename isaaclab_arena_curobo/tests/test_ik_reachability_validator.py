@@ -67,7 +67,8 @@ def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
     ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
-    cuboids passed to ``update_world`` so a test can assert one obstacle per object.
+    cuboids passed to ``update_world``, and each solve records the world it ran against, so a test can
+    assert which objects were obstacles to which grasp.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
@@ -86,12 +87,15 @@ def _patch_curobo(monkeypatch, feasible_fn):
         return captured["solver"]
 
     def _fake_ik(solver, target_poses, **kwargs):
-        from isaaclab_arena_curobo.ik_solver import IKFeasibility
+        from isaaclab_arena_curobo.utils.ik_solver_utils import IKFeasibility
 
         num = target_poses.shape[0]
         feasible = torch.tensor(feasible_fn(num), dtype=torch.bool)
         captured["num_grasps"] = num
+        captured["total_grasps"] = captured.get("total_grasps", 0) + num
         captured["ik_kwargs"] = kwargs
+        # The world in force at solve time, one entry per solve: what this grasp was checked against.
+        captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -112,8 +116,12 @@ def _fake_embodiment():
     return embodiment
 
 
-def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
-    """Build a desk (anchor) + two boxes (each On desk) pool; two movable objects to scope between."""
+def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2, stamped: tuple[str, ...] = ("box_a",)):
+    """Build a desk (anchor) + two boxes (each On desk) pool; two movable objects to scope between.
+
+    ``stamped`` names the boxes that carry the RequiresReachability marker, so a test can ask for one
+    target among movables or for sibling targets.
+    """
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -135,8 +143,8 @@ def _make_two_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
             bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
         )
         box.add_relation(On(desk, clearance_m=0.01))
-        # Only box_a carries the RequiresReachability marker, so only it should be IK-checked.
-        if box_name == "box_a":
+        # Only the stamped boxes are IK-checked; the rest stay plain movable objects.
+        if box_name in stamped:
             box.add_relation(RequiresReachability())
         boxes.append(box)
 
@@ -277,7 +285,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
     assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
-    assert captured["num_grasps"] == 1
+    assert captured["total_grasps"] == 1
 
 
 @pytest.mark.curobo_deps
@@ -319,6 +327,31 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
 
 
 @pytest.mark.curobo_deps
+def test_sibling_targets_obstruct_each_others_grasps(monkeypatch):
+    """A target only stops being an obstacle to its own grasp: its siblings' grasps still collide with it."""
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    # Both boxes are targets, so each is solved in turn against a world that still holds the other.
+    layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
+
+    assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"], ["box_a", "desk"]]
+    assert captured["total_grasps"] == 2
+
+
+@pytest.mark.curobo_deps
+def test_validator_rejects_when_one_sibling_target_is_infeasible(monkeypatch):
+    """Every target is solved and the verdict is the conjunction, so one bad sibling sinks the layout."""
+    verdicts = iter([True, False])
+    _patch_curobo(monkeypatch, feasible_fn=lambda n: [next(verdicts)] * n)
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
+    assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [False]
+
+
+@pytest.mark.curobo_deps
 def test_validator_checks_only_stamped_objects(monkeypatch):
     """Only movable objects stamped with a 'reachable' constraint are IK-checked, not every movable object."""
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
@@ -327,7 +360,7 @@ def test_validator_checks_only_stamped_objects(monkeypatch):
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch([layout.positions], [layout.orientations], [{}], []) == [True]
     # Two movable boxes exist, but only the stamped one (box_a) contributes a grasp.
-    assert captured["num_grasps"] == 1
+    assert captured["total_grasps"] == 1
 
 
 @pytest.mark.curobo_deps

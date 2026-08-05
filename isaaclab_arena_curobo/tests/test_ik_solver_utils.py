@@ -65,6 +65,22 @@ class _FakeIKResult:
         self.solution = torch.arange(num_poses * DOF, dtype=torch.float32).view(num_poses, 1, DOF)
 
 
+class _MultiSeedIKResult:
+    """Canned solve over several seeds per pose, one ``(poses, seeds)`` entry per reported quantity.
+
+    Seed i's joint configuration is all i, so the returned configuration says which seed was picked.
+    """
+
+    def __init__(self, position_error: list, rotation_error: list, success: list) -> None:
+        self.position_error = torch.tensor(position_error, dtype=torch.float32)
+        self.rotation_error = torch.tensor(rotation_error, dtype=torch.float32)
+        self.success = torch.tensor(success, dtype=torch.bool)
+        num_poses, num_seeds = self.position_error.shape
+        seed_ids = torch.arange(num_seeds, dtype=torch.float32).view(1, num_seeds, 1)
+        # cuRobo returns (batch, return_seeds, dof).
+        self.solution = seed_ids.expand(num_poses, num_seeds, DOF).contiguous()
+
+
 class _FakeKinematics:
     """Stand-in for cuRobo's ``CudaRobotModel``: the sphere config plus forward kinematics onto it."""
 
@@ -118,6 +134,14 @@ def _make_host(success: bool = True, raises: bool = False) -> tuple[_FakeHost, _
     kinematics_config = _FakeKinematicsConfig([*HAND_LINKS, ARM_LINK])
     host = _FakeHost(_FakeIKSolver(kinematics_config, success=success, raises=raises), HAND_LINKS)
     return host, kinematics_config
+
+
+def _make_multi_seed_host(position_error: list, rotation_error: list, success: list) -> _FakeHost:
+    """Build a fake host whose one solve reports these per-seed errors and collision flags."""
+    kinematics_config = _FakeKinematicsConfig([*HAND_LINKS, ARM_LINK])
+    solver = _FakeIKSolver(kinematics_config, success=True)
+    solver.solve_batch = lambda goal_pose, seed_config=None: _MultiSeedIKResult(position_error, rotation_error, success)
+    return _FakeHost(solver, HAND_LINKS)
 
 
 def _identity_grasps(num_poses: int = 2) -> torch.Tensor:
@@ -202,6 +226,51 @@ def test_solved_configuration_comes_back_and_forward_kinematics_to_spheres():
     assert spheres.shape == (2, len(HAND_LINKS) + 1, 4)
     # Muting is scoped to the solve, so the spheres drawn afterwards carry their real radii.
     assert (spheres[..., 3] > 0.0).all()
+
+
+def test_reported_seed_is_the_one_that_met_the_rotation_threshold():
+    """The closest seed by position alone can be the one that missed on rotation; the passing seed is reported."""
+    from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+
+    # Seed 0 is nearest in position but way off in rotation; seed 1 is the one that actually converged.
+    host = _make_multi_seed_host(position_error=[[0.001, 0.005]], rotation_error=[[0.5, 0.02]], success=[[True, True]])
+    ik = solve_ik_feasibility(host, _identity_grasps(num_poses=1), require_collision_free=False)
+
+    assert ik.feasible.tolist() == [True]
+    assert ik.joint_positions.tolist() == [[1.0] * DOF]
+    assert ik.rotation_error.tolist() == pytest.approx([0.02])
+    assert ik.position_error.tolist() == pytest.approx([0.005])
+
+
+def test_reported_seed_is_collision_free_when_collision_checking_is_on():
+    """A colliding seed does not get drawn as the solution just for being closest in position."""
+    from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+
+    # Both seeds converge; only seed 1 is collision-free.
+    errors = dict(position_error=[[0.001, 0.005]], rotation_error=[[0.01, 0.02]])
+    host = _make_multi_seed_host(**errors, success=[[False, True]])
+    ik = solve_ik_feasibility(host, _identity_grasps(num_poses=1), require_collision_free=True)
+
+    assert ik.feasible.tolist() == [True]
+    assert ik.joint_positions.tolist() == [[1.0] * DOF]
+
+    # With collision checking off, collisions are not part of the verdict, so the closest seed stands.
+    host = _make_multi_seed_host(**errors, success=[[False, True]])
+    ik = solve_ik_feasibility(host, _identity_grasps(num_poses=1), require_collision_free=False)
+
+    assert ik.joint_positions.tolist() == [[0.0] * DOF]
+
+
+def test_infeasible_pose_reports_its_closest_near_miss():
+    """When no seed passes, the report falls back to the closest one, so a rejection still explains itself."""
+    from isaaclab_arena_curobo.utils.ik_solver_utils import solve_ik_feasibility
+
+    host = _make_multi_seed_host(position_error=[[0.02, 0.05]], rotation_error=[[0.5, 0.5]], success=[[True, True]])
+    ik = solve_ik_feasibility(host, _identity_grasps(num_poses=1), require_collision_free=False)
+
+    assert ik.feasible.tolist() == [False]
+    assert ik.joint_positions.tolist() == [[0.0] * DOF]
+    assert ik.position_error.tolist() == pytest.approx([0.02])
 
 
 def test_unknown_hand_link_is_reported_against_the_robot_config():
