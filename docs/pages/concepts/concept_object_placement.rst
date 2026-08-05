@@ -266,15 +266,20 @@ The equivalent YAML:
 Objects sharing a ``reference`` and a ``group`` form one pile. A support may hold several
 groups, and each is poured separately.
 
-Parameters:
+Parameters describing the pile, which every member must declare identically:
 
 - ``group`` (default ``"clutter"``) — ties members of one pile together
 - ``spread`` (default ``1.0``) — fraction of the support footprint to use, shrunk about
-  its centre; must be in ``(0, 1]``
-- ``gap_m`` (default ``0.03``) — vertical gap left between stacked release poses
-- ``clearance_m`` (default ``0.01``) — height above the surface at which the lowest
-  layer starts
-- ``random_yaw`` (default ``True``) — sample a yaw per object before dropping
+  its centre; must be in ``(0, 1]``. A pile is poured into one region, so members
+  disagreeing on it is rejected.
+
+Parameters describing a single member, which may differ between them:
+
+- ``gap_m`` (default ``0.03``) — vertical gap this object leaves above whatever it is
+  released over
+- ``clearance_m`` (default ``0.01``) — height above the surface at which this object starts
+- ``random_yaw`` (default ``True``) — sample a yaw for this object before dropping. Turn it
+  off for one member to drop it axis-aligned while the rest are turned.
 
 Because a pile is produced by simulation rather than optimisation, it differs from the
 other relations in ways worth knowing:
@@ -285,6 +290,9 @@ other relations in ways worth knowing:
   box, so a procedurally spawned support without geometry cannot be used.
 - **A placement seed is required.** Clutter refuses to pour without one, since a pile that
   cannot be reproduced defeats the purpose of seeding a layout.
+- **Layouts must resolve on reset.** A pile is settled after the environment is built and its
+  resting poses are written back into the pool each reset draws from. Static placement keeps
+  no such pool, so the combination is rejected rather than spawning a pile in mid-air.
 - **Members never reach the solver or the build-time checks.** A pour assigns their poses,
   so any pose the optimiser gave them would be discarded; leaving them in would make them
   phantom obstacles that push the genuinely constrained objects around. They are therefore
