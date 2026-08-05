@@ -23,7 +23,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     compute_drop_poses,
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw
+from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -96,9 +96,73 @@ def region_above_support(
     return region.scaled(spread) if spread != 1.0 else region
 
 
+def _placed_bounding_box(
+    asset: PlaceableAsset, layout: PlacementResult, bbox: AxisAlignedBoundingBox
+) -> AxisAlignedBoundingBox:
+    """Return an asset's bounding box refitted to the orientation the layout gave it.
+
+    Layout boxes carry object geometry only; orientation is applied per candidate elsewhere,
+    so a box read straight from the layout describes the asset unrotated.
+    """
+    rotation = layout.rotations.get(asset)
+    if rotation is None:
+        yaw = layout.orientations.get(asset)
+        if yaw is None:
+            return bbox
+        rotation = (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
+    return bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+
+
+def support_pose_from_layout(
+    support: PlaceableAsset, layout: PlacementResult
+) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
+    """Return a support's world position and rotation as resolved from a layout.
+
+    An anchored support keeps its declared pose; a solved one is already in the layout. A
+    support that is neither has no pose yet, which is a caller error rather than a default.
+    """
+    declared = support.get_initial_pose()
+    position = layout.positions.get(support)
+    if position is None:
+        assert declared is not None, (
+            f"Clutter support '{support.name}' has neither a solved position nor a declared "
+            "initial pose, so there is nothing to pour onto."
+        )
+        position = declared.position_xyz
+
+    rotation = layout.rotations.get(support)
+    if rotation is None:
+        yaw = layout.orientations.get(support)
+        if yaw is not None:
+            rotation = (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
+        elif declared is not None:
+            rotation = declared.rotation_xyzw
+        else:
+            rotation = IDENTITY_ROTATION_XYZW
+
+    return tuple(float(value) for value in position), tuple(float(value) for value in rotation)
+
+
+def region_for_support(
+    support: PlaceableAsset,
+    layout: PlacementResult,
+    bounding_boxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    spread: float = 1.0,
+    env_index: int = 0,
+) -> ClutterRegion:
+    """Return a support's drop region, resolved from the layout that placed it.
+
+    Every consumer of a support's region goes through here. Deriving it twice invites the
+    two derivations to disagree -- a pour that accounts for the support's yaw and a check
+    that does not will reject exactly the layouts the pour got right.
+    """
+    position, rotation = support_pose_from_layout(support, layout)
+    return region_above_support(position, bounding_boxes[support], spread, env_index, rotation)
+
+
 def occupied_footprints_in_region(
     region: ClutterRegion,
-    positions: dict[PlaceableAsset, tuple[float, float, float]],
+    layout: PlacementResult,
     bounding_boxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     exclude: set[PlaceableAsset],
     env_index: int = 0,
@@ -109,12 +173,16 @@ def occupied_footprints_in_region(
     meaningless anyway, so the pour has to avoid what is already there rather than discover
     the collision afterwards. Objects resting below the region's floor are ignored: they are
     under the surface being poured onto, not on it.
+
+    Footprints are taken from each occupant's *placed* orientation. A solver-assigned yaw
+    changes an elongated object's footprint substantially, and understating it would drop
+    clutter into the very object this exists to avoid.
     """
     footprints = []
-    for asset, position in positions.items():
+    for asset, position in layout.positions.items():
         if asset in exclude or asset not in bounding_boxes:
             continue
-        bbox = bounding_boxes[asset]
+        bbox = _placed_bounding_box(asset, layout, bounding_boxes[asset])
         minimum, maximum = bbox.min_point[env_index], bbox.max_point[env_index]
         top_z = float(position[2]) + float(maximum[2])
         if top_z <= region.floor_z:
@@ -207,21 +275,12 @@ def plan_clutter_drops(
         assert support in bounding_boxes, f"Clutter support '{support.name}' has no bounding box."
         missing = [member.name for member in group.members if member not in bounding_boxes]
         assert not missing, f"Clutter group '{group.name}' has members without bounding boxes: {missing}"
-        # An anchored support keeps its declared pose; a solved one is already in the layout.
-        support_position = layout.positions.get(support) or support.get_initial_pose().position_xyz
-        support_position = tuple(float(value) for value in support_position)
-        support_rotation = _support_rotation(support, layout)
-        region = region_above_support(
-            support_position,
-            bounding_boxes[support],
-            group.relation.spread,
-            env_index,
-            support_rotation_xyzw=support_rotation,
-        )
+        support_position, support_rotation = support_pose_from_layout(support, layout)
+        region = region_for_support(support, layout, bounding_boxes, group.relation.spread, env_index)
         # Members of earlier groups are already in the layout and must be avoided too.
         occupied = occupied_footprints_in_region(
             region,
-            layout.positions,
+            layout,
             bounding_boxes,
             exclude={support, *group.members},
             env_index=env_index,
@@ -237,14 +296,3 @@ def plan_clutter_drops(
             occupied=occupied,
             support_rotation_xyzw=support_rotation,
         )
-
-
-def _support_rotation(support: PlaceableAsset, layout: PlacementResult) -> tuple[float, float, float, float]:
-    """Return the support's world rotation, preferring what the layout solved for it."""
-    rotation = layout.rotations.get(support)
-    if rotation is not None:
-        return rotation
-    yaw = layout.orientations.get(support)
-    if yaw is not None:
-        return (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
-    return tuple(float(value) for value in support.get_initial_pose().rotation_xyzw)

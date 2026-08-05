@@ -49,6 +49,13 @@ class _Layout:
         self.orientations: dict = {}
 
 
+def _layout_with(positions: dict) -> _Layout:
+    """A layout holding these positions and no orientations."""
+    layout = _Layout()
+    layout.positions.update(positions)
+    return layout
+
+
 def _box(half_x: float, half_y: float, half_z: float) -> AxisAlignedBoundingBox:
     return AxisAlignedBoundingBox(
         min_point=(-half_x, -half_y, -half_z),
@@ -246,7 +253,7 @@ def test_pour_avoids_an_object_already_on_the_support():
     groups = get_clutter_groups([support, *members])
 
     region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
-    occupied = occupied_footprints_in_region(region, layout.positions, bounding_boxes, exclude={support})
+    occupied = occupied_footprints_in_region(region, layout, bounding_boxes, exclude={support})
     assert len(occupied) == 1, "the resident object should be seen as occupying the surface"
 
     plan_clutter_drops(layout, groups, bounding_boxes, torch.Generator().manual_seed(0))
@@ -269,7 +276,7 @@ def test_objects_below_the_support_surface_are_ignored():
 
     region = region_above_support((0.0, 0.0, 0.5), bounding_boxes[support])
     positions = {underneath: (0.0, 0.0, 0.0)}
-    assert occupied_footprints_in_region(region, positions, bounding_boxes, exclude=set()) == []
+    assert occupied_footprints_in_region(region, _layout_with(positions), bounding_boxes, exclude=set()) == []
 
 
 def test_objects_outside_the_region_are_ignored():
@@ -281,7 +288,7 @@ def test_objects_outside_the_region_are_ignored():
 
     region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
     positions = {far_away: (5.0, 0.0, 0.2)}
-    assert occupied_footprints_in_region(region, positions, bounding_boxes, exclude=set()) == []
+    assert occupied_footprints_in_region(region, _layout_with(positions), bounding_boxes, exclude=set()) == []
 
 
 # ------------------------------------------------------------- rotated supports
@@ -334,3 +341,79 @@ def test_tilted_support_is_rejected():
     tilted = (math.sin(math.radians(15.0)), 0.0, 0.0, math.cos(math.radians(15.0)))
     with pytest.raises(AssertionError, match="yaw-only"):
         region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=tilted)
+
+
+# ------------------------------------------ one region derivation, shared by every consumer
+
+
+def test_region_for_support_follows_a_yawed_anchor():
+    """The resolver must apply the support's declared rotation, not the identity default."""
+    from isaaclab_arena.relations.clutter_pour import region_for_support
+
+    support = _Asset("table")
+    support.add_relation(IsAnchor())
+    support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=_yaw_quat(90.0))
+    bounding_boxes = {support: _box(0.6, 0.4, 0.1)}
+
+    region = region_for_support(support, _Layout(), bounding_boxes)
+    assert (region.max_x - region.min_x) == pytest.approx(0.8)
+    assert (region.max_y - region.min_y) == pytest.approx(1.2)
+
+
+def test_region_for_support_prefers_the_solved_rotation():
+    from isaaclab_arena.relations.clutter_pour import region_for_support
+
+    support = _Asset("table")
+    bounding_boxes = {support: _box(0.6, 0.4, 0.1)}
+    layout = _Layout()
+    layout.positions[support] = (0.0, 0.0, 0.0)
+    layout.rotations[support] = _yaw_quat(90.0)
+
+    region = region_for_support(support, layout, bounding_boxes)
+    assert (region.max_x - region.min_x) == pytest.approx(0.8)
+
+
+def test_support_with_no_pose_anywhere_is_rejected():
+    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
+
+    support = _Asset("table")
+    support._pose = None
+    with pytest.raises(AssertionError, match="nothing to pour onto"):
+        support_pose_from_layout(support, _Layout())
+
+
+def test_occupant_footprint_uses_its_placed_yaw():
+    """An elongated occupant turned 90 degrees must be avoided along its real footprint."""
+    from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
+
+    support = _Asset("table")
+    resident = _Asset("resident")
+    bounding_boxes = {support: _box(0.5, 0.5, 0.1), resident: _box(0.30, 0.02, 0.05)}
+
+    region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
+    layout = _Layout()
+    layout.positions[resident] = (0.0, 0.0, 0.2)
+    layout.rotations[resident] = _yaw_quat(90.0)
+
+    (occupied,) = occupied_footprints_in_region(region, layout, bounding_boxes, exclude={support})
+    # Turned a quarter turn, the long axis now runs along Y.
+    assert occupied.half_extents[0] == pytest.approx(0.02, abs=1e-4)
+    assert occupied.half_extents[1] == pytest.approx(0.30, abs=1e-4)
+
+
+def test_occupant_footprint_uses_a_scalar_yaw_when_that_is_all_there_is():
+    import math as _math
+
+    from isaaclab_arena.relations.clutter_pour import occupied_footprints_in_region, region_above_support
+
+    support = _Asset("table")
+    resident = _Asset("resident")
+    bounding_boxes = {support: _box(0.5, 0.5, 0.1), resident: _box(0.30, 0.02, 0.05)}
+
+    region = region_above_support((0.0, 0.0, 0.0), bounding_boxes[support])
+    layout = _Layout()
+    layout.positions[resident] = (0.0, 0.0, 0.2)
+    layout.orientations[resident] = _math.pi / 2.0
+
+    (occupied,) = occupied_footprints_in_region(region, layout, bounding_boxes, exclude={support})
+    assert occupied.half_extents[1] == pytest.approx(0.30, abs=1e-3)

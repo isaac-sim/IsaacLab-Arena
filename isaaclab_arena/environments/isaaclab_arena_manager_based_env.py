@@ -103,7 +103,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         import torch
 
         from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-        from isaaclab_arena.relations.clutter_pour import region_above_support
+        from isaaclab_arena.relations.clutter_pour import region_for_support
         from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 
         per_env_bboxes = build_per_env_bounding_boxes(
@@ -115,10 +115,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             bboxes = per_env_bboxes[env_id]
             for group in groups:
                 support = group.support
-                position = layout.positions.get(support) or support.get_initial_pose().position_xyz
                 # Judge against the whole support, not the shrunk region the pile was poured
-                # into: a tight pour is meant to relax outward as it settles.
-                region = region_above_support(tuple(float(value) for value in position), bboxes[support])
+                # into: a tight pour is meant to relax outward as it settles. The region is
+                # resolved the same way the pour resolved it, so the two cannot disagree.
+                region = region_for_support(support, layout, bboxes)
                 positions = torch.tensor(
                     [layout.positions[member] for member in group.members if member in layout.positions],
                     dtype=torch.float32,
