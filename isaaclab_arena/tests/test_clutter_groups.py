@@ -11,6 +11,7 @@ import pytest
 
 from isaaclab_arena.relations.clutter_groups import (
     assert_group_parameters_agree,
+    assert_relations_do_not_target_clutter,
     assert_support_can_hold_a_pile,
     get_clutter_groups,
     is_clutter_member,
@@ -263,3 +264,44 @@ def test_support_that_cannot_report_its_config_is_refused():
 
     with pytest.raises(AssertionError, match="which physics can move"):
         assert_support_can_hold_a_pile(_group_on(support))
+
+
+# ------------------------------------------- relations against clutter
+
+
+def test_relation_naming_a_clutter_member_as_parent_is_refused():
+    """Otherwise this fails deep in the solver with a bare KeyError about a missing index."""
+    from isaaclab_arena.relations.relations import On
+
+    table, (member,) = _table_with("member")
+    bystander = _Asset("bystander")
+    bystander.add_relation(On(member))
+
+    with pytest.raises(AssertionError, match="which is a clutter member"):
+        assert_relations_do_not_target_clutter([table, member, bystander])
+
+
+def test_face_to_carried_by_a_clutter_member_is_refused():
+    """FaceTo derives from RelationBase, so the spatial-relation check never saw it."""
+    from isaaclab_arena.relations.relations import FaceTo
+
+    table, (member,) = _table_with("member")
+    member.add_relation(FaceTo(table))
+
+    with pytest.raises(AssertionError, match="pour cannot honour"):
+        assert_relations_do_not_target_clutter([table, member])
+
+
+def test_a_plain_pour_is_accepted():
+    table, members = _table_with("a", "b")
+    assert_relations_do_not_target_clutter([table, *members])
+
+
+def test_relations_between_non_clutter_assets_are_untouched():
+    from isaaclab_arena.relations.relations import On
+
+    table, (member,) = _table_with("member")
+    other = _Asset("other")
+    other.add_relation(On(table))
+
+    assert_relations_do_not_target_clutter([table, member, other])

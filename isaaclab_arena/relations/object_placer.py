@@ -11,7 +11,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
-from isaaclab_arena.relations.clutter_groups import get_clutter_groups, is_clutter_member
+from isaaclab_arena.relations.clutter_groups import (
+    assert_relations_do_not_target_clutter,
+    get_clutter_groups,
+    is_clutter_member,
+)
 from isaaclab_arena.relations.clutter_pour import plan_clutter_drops
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -260,6 +264,7 @@ class ObjectPlacer:
         # discarded. Leaving it in would make it a phantom obstacle: it carries no relation loss
         # but does carry the global no-overlap term, so it would push the genuinely constrained
         # objects around and inflate the loss that ranks candidates. Only its box is needed here.
+        assert_relations_do_not_target_clutter(objects)
         solver_objects = [obj for obj in objects if not is_clutter_member(obj)]
 
         initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]] = []

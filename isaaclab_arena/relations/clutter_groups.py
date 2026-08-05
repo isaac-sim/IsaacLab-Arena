@@ -89,6 +89,36 @@ def assert_group_parameters_agree(group: ClutterGroup) -> None:
             )
 
 
+def assert_relations_do_not_target_clutter(objects: list[PlaceableAsset]) -> None:
+    """Reject relations the pour would leave unhonoured.
+
+    A pour positions its members after the solver has run, so members are held out of the solve
+    entirely. Nothing therefore constrains them, and nothing can be constrained against them:
+    naming a member as a parent fails deep in the solver with a bare KeyError about a missing
+    index, and a relation carried by a member is dropped without a word.
+
+    Args:
+        objects: The assets participating in placement.
+    """
+    members = {id(asset) for asset in objects if is_clutter_member(asset)}
+    for asset in objects:
+        for relation in asset.get_relations():
+            parent = getattr(relation, "parent", None)
+            assert parent is None or id(parent) not in members, (
+                f"'{asset.name}' declares {type(relation).__name__} against '{parent.name}', which is "
+                "a clutter member. Members are positioned by the pour after solving, so the solver "
+                "holds no pose to constrain against. Relate to the support instead."
+            )
+        if id(asset) not in members:
+            continue
+        for relation in asset.get_relations():
+            assert isinstance(relation, ClutteredOn), (
+                f"Clutter member '{asset.name}' also declares {type(relation).__name__}, which the "
+                "pour cannot honour: members are held out of the solve, so the relation would be "
+                "silently ignored. Pour the member, or place it with relations instead of pouring it."
+            )
+
+
 def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     """Return whether physics can be shown never to move this asset.
 
