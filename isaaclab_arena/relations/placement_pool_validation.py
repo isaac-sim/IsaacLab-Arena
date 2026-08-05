@@ -64,21 +64,22 @@ def _compute_physics_settled_and_add_to_validation_results(
     layouts: list[tuple[int, PlacementResult]],
     movable_object_names: list[str],
     settle_params: PhysicsSettleParams,
-    settled_override: bool | None = None,
+    settled_per_env_override: list[bool] | None = None,
 ) -> list[tuple[int, PlacementValidationResults]]:
     """Read back per-object velocities for a list of layouts and stamp ``PHYSICS_SETTLED`` per layout.
 
     Returns ``(env_id, validation_results)`` per layout; the settle verdict is stamped only if not already present.
 
     Args:
-        settled_override: Verdict to stamp instead of reading velocities. Required when settling
+        settled_per_env_override: Per-env verdicts to stamp instead of reading velocities, indexed
+            by env id. Required when settling
             was decided from pose deltas, because objects in stable contact keep micro-rocking
             and so never satisfy a velocity threshold.
     """
 
     env_ids = [env_id for env_id, _ in layouts]
-    if settled_override is not None:
-        settled_per_env = [settled_override] * len(env_ids)
+    if settled_per_env_override is not None:
+        settled_per_env = [settled_per_env_override[env_id] for env_id in env_ids]
     else:
         settled_per_env = physics_settle.are_all_objects_settled_per_env(
             env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
@@ -128,11 +129,12 @@ def _step_until_poses_are_quiet(
     params: ClutterSettleParams,
     poll_every: int,
     render: bool = False,
-) -> bool:
-    """Step physics until poses stop changing, or the step budget runs out.
+) -> list[bool]:
+    """Step physics until every environment's poses stop changing, or the budget runs out.
 
-    Returns early once the poses are quiet, so a sparse arrangement does not pay the budget a
-    dense one needs. Velocity is not consulted: objects in stable contact micro-rock forever.
+    Returns early once all environments are quiet, so a sparse arrangement does not pay the
+    budget a dense one needs. Velocity is not consulted: objects in stable contact micro-rock
+    forever.
 
     Args:
         env: The Isaac Lab env.
@@ -143,22 +145,36 @@ def _step_until_poses_are_quiet(
         render: When True, render each step.
 
     Returns:
-        Whether the poses went quiet within the budget.
+        Whether each environment's poses went quiet, indexed by env id. One environment still
+        rearranging says nothing about the others, so a verdict is tracked per environment
+        rather than shared.
     """
+    # Quiet thresholds are per-poll, so they only mean anything if the interval is long enough
+    # for real motion to exceed them. Poll too often and a free-falling object moves under the
+    # movement threshold between reads, and a pile still in the air reads as settled.
+    physics_dt = env.unwrapped.sim.get_physics_dt()
+    free_fall = 0.5 * 9.81 * (poll_every * physics_dt) ** 2
+    assert free_fall > params.move_thresh_m, (
+        f"poll_every={poll_every} is too frequent to detect motion: a free-falling object moves "
+        f"{free_fall * 1000:.2f} mm between polls, under the {params.move_thresh_m * 1000:.2f} mm "
+        "movement threshold, so a falling pile would be reported as settled."
+    )
+
     scene = env.unwrapped.scene
-    tracker = SettleTracker(params)
+    num_envs = env.unwrapped.num_envs
+    trackers = [SettleTracker(params) for _ in range(num_envs)]
     stepped = 0
     while stepped < max_physics_steps:
         chunk = min(poll_every, max_physics_steps - stepped)
         physics_settle.step_physics(env, chunk, render=render)
         stepped += chunk
         states = torch.stack([scene[name].data.root_state_w for name in movable_object_names], dim=1)
-        # Flatten env and object axes: a pile is quiet only when every env's objects are.
-        positions = states[..., :3].reshape(-1, 3)
-        rotations = states[..., 3:7].reshape(-1, 4)
-        if tracker.update(positions, rotations):
-            return True
-    return tracker.settled
+        settled = [
+            tracker.update(states[env_id, :, :3], states[env_id, :, 3:7]) for env_id, tracker in enumerate(trackers)
+        ]
+        if all(settled):
+            return settled
+    return [tracker.settled for tracker in trackers]
 
 
 def validate_pool_layouts(
@@ -235,11 +251,11 @@ def validate_pool_layouts(
             base_rotations,
         )
         if layouts:
-            settled_override = None
+            settled_per_env_override = None
             if pose_settle_params is None:
                 physics_settle.step_physics(env, num_physics_steps, render=render)
             else:
-                settled_override = _step_until_poses_are_quiet(
+                settled_per_env_override = _step_until_poses_are_quiet(
                     env,
                     movable_object_names,
                     num_physics_steps,
@@ -248,9 +264,16 @@ def validate_pool_layouts(
                     render=render,
                 )
             if capture_settled_poses:
-                _capture_settled_poses_into_layouts(env, layouts, clutter_assets)
+                # Only capture where the pile actually came to rest. Capturing an env that ran
+                # out of budget mid-fall would cache falling poses and replay them every reset.
+                settled_layouts = (
+                    layouts
+                    if settled_per_env_override is None
+                    else [(env_id, layout) for env_id, layout in layouts if settled_per_env_override[env_id]]
+                )
+                _capture_settled_poses_into_layouts(env, settled_layouts, clutter_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
-                env, layouts, movable_object_names, settle_params, settled_override
+                env, layouts, movable_object_names, settle_params, settled_per_env_override
             )
             for env_id, validation_results_per_env in validation_results:
                 results.append((env_id, episode_index, validation_results_per_env))

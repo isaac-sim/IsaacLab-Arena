@@ -20,7 +20,12 @@ MAX_SETTLE_STEPS = 2000
 POLL_EVERY = 50
 
 
-def _build_scene(seed: int, layouts_per_env: int | None = None):
+def _build_scene(
+    seed: int,
+    layouts_per_env: int | None = None,
+    support_rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+    settle_on_build: bool = True,
+):
     """A kinematic table with one declared clutter group resting on it."""
     import isaaclab.sim as sim_utils
 
@@ -36,7 +41,7 @@ def _build_scene(seed: int, layouts_per_env: int | None = None):
     ground = registry.get_asset_by_name("ground_plane")()
 
     support = registry.get_asset_by_name(SUPPORT_ASSET)()
-    support.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    support.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=support_rotation_xyzw))
     support.add_relation(IsAnchor())
 
     members = []
@@ -56,14 +61,28 @@ def _build_scene(seed: int, layouts_per_env: int | None = None):
             min_unique_layouts_per_env=layouts_per_env,
         )
 
+    def leave_clutter_unsettled(env_cfg):
+        env_cfg.settle_clutter_on_build = False
+        return env_cfg
+
     scene = Scene(assets=[ground, light, support, *members])
     arena_env = IsaacLabArenaEnvironment(
-        name=f"clutter_test_{seed}", scene=scene, task=NoTask(), placer_params=placer_params
+        name=f"clutter_test_{seed}",
+        scene=scene,
+        task=NoTask(),
+        placer_params=placer_params,
+        env_cfg_callback=None if settle_on_build else leave_clutter_unsettled,
     )
     return arena_env, support, members
 
 
-def _build_and_reset(seed: int, num_envs: int = 1, layouts_per_env: int | None = None):
+def _build_and_reset(
+    seed: int,
+    num_envs: int = 1,
+    layouts_per_env: int | None = None,
+    support_rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+    settle_on_build: bool = True,
+):
     """Build the env and reset it, returning (env, support, members, region, poses_fn).
 
     ``poses_fn(env_id)`` returns that environment's member poses in its own local frame, so
@@ -76,7 +95,12 @@ def _build_and_reset(seed: int, num_envs: int = 1, layouts_per_env: int | None =
     from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
     from isaaclab_arena.relations.clutter_pour import region_above_support
 
-    arena_env, support, members = _build_scene(seed, layouts_per_env=layouts_per_env)
+    arena_env, support, members = _build_scene(
+        seed,
+        layouts_per_env=layouts_per_env,
+        support_rotation_xyzw=support_rotation_xyzw,
+        settle_on_build=settle_on_build,
+    )
     # Build args from the real parser rather than a hand-rolled Namespace: the builder reads
     # more fields than are obvious, and a missing one fails only once the env is constructed.
     args = get_isaaclab_arena_cli_parser().parse_args([])
@@ -93,6 +117,7 @@ def _build_and_reset(seed: int, num_envs: int = 1, layouts_per_env: int | None =
     region = region_above_support(
         tuple(float(value) for value in support.get_initial_pose().position_xyz),
         get_bounding_box_per_env(support, num_envs),
+        support_rotation_xyzw=tuple(float(v) for v in support.get_initial_pose().rotation_xyzw),
     )
 
     def poses(env_id: int = 0):
@@ -273,3 +298,75 @@ def test_pile_stays_settled_after_the_pool_refills():
 
 def test_same_seed_reproduces_the_pile():
     assert run_function_with_persistent_simulation_app(_test_same_seed_reproduces_the_pile)
+
+
+def _test_pile_settles_on_a_quarter_turned_support(simulation_app) -> bool:
+    """A yawed support must not be judged against an unrotated region.
+
+    An un-yawed support passes whether or not the region accounts for rotation, so only a
+    turned one exercises the shared resolver.
+    """
+    import math
+
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+
+    half = math.pi / 4.0
+    env, _support, members, region, poses = _build_and_reset(
+        seed=0, support_rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half))
+    )
+    positions, _ = poses()
+    env.close()
+
+    verdict = check_resting_poses(positions, region, ClutterSettleParams(containment_margin_m=0.05))
+    names = [member.name for member in members]
+    assert verdict.ok, f"pile on a quarter-turned support came to rest badly: {verdict.describe(names)}"
+    assert float(positions[:, 2].min()) > region.floor_z, "members must rest on the turned support, not the ground"
+    return True
+
+
+def _test_an_env_that_never_settles_keeps_its_drop_poses(simulation_app) -> bool:
+    """A budget too small to settle must leave the cached poses alone, not capture mid-fall ones.
+
+    The build-time settle is disabled so the pool genuinely holds release poses; settling an
+    already-resting pile would go quiet at once and could not tell a working gate from a
+    broken one.
+    """
+    from isaaclab_arena.relations.clutter_validation import ClutterSettleParams
+    from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
+
+    env, _support, members, region, _poses = _build_and_reset(seed=0, settle_on_build=False)
+    pool = get_placement_pool(env)
+    layout = pool.layouts_per_env()[0][0]
+    before = {member: layout.positions[member] for member in members if member in layout.positions}
+    assert before, "expected the pooled layout to carry clutter poses"
+    released_above = [pose for pose in before.values() if pose[2] > region.floor_z]
+    assert len(released_above) == len(before), "build-time settle should be off, so poses are still release poses"
+
+    # Two polls' worth of budget cannot settle a pile released in mid-air, so nothing should
+    # be captured. The poll interval stays realistic: polling every step would read a falling
+    # object as quiet, since it moves under a millimetre between consecutive steps.
+    results = validate_pool_layouts(
+        env,
+        placement_pool=pool,
+        settle_params=PhysicsSettleParams(num_steps=25),
+        capture_settled_poses=True,
+        pose_settle_params=ClutterSettleParams(),
+        poll_every=50,
+    )
+    after = {member: layout.positions[member] for member in before}
+    env.close()
+
+    assert results is not None, "expected validation results"
+    unchanged = all(before[member] == after[member] for member in before)
+    assert unchanged, "an unsettled env had falling poses captured over its drop poses"
+    return True
+
+
+def test_pile_settles_on_a_quarter_turned_support():
+    assert run_function_with_persistent_simulation_app(_test_pile_settles_on_a_quarter_turned_support)
+
+
+def test_an_env_that_never_settles_keeps_its_drop_poses():
+    assert run_function_with_persistent_simulation_app(_test_an_env_that_never_settles_keeps_its_drop_poses)
