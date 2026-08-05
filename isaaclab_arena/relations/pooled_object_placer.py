@@ -242,6 +242,9 @@ class PooledObjectPlacer:
             # prepared once, and a refill here would hand back ones preparation never saw.
             # A request larger than an env holds cannot be served without replacement, so it is
             # refused before any cursor moves rather than part-filled and abandoned mid-round.
+            # A request larger than an env holds cannot be served without replacement, so it is
+            # refused before any cursor moves rather than part-filled and abandoned mid-round.
+            # Within that bound a draw wraps at most once, so it never repeats a layout.
             capacity = min(len(pool.layouts) for pool in self._env_pools)
             if layouts_per_env > capacity:
                 raise ValueError(
@@ -249,11 +252,6 @@ class PooledObjectPlacer:
                     f"holds only {capacity}. Recycling replays the prepared set, so it cannot serve "
                     "more distinct layouts than it stores."
                 )
-            for pool in self._env_pools:
-                # Rewinding a pool that still has unread layouts would hand back an earlier
-                # layout while a fresh one sits unread behind it.
-                if pool.available < layouts_per_env:
-                    pool.cursor = 0
         elif min(self._available_per_env()) < layouts_per_env:
             self._solve_and_store(max(self._pool_size, count))
 
@@ -262,10 +260,15 @@ class PooledObjectPlacer:
             for cur_env in range(self._num_envs):
                 pool = self._env_pools[cur_env]
                 if pool.available <= 0:
-                    raise RuntimeError(
-                        f"Placement pool: env {cur_env} has no more valid layouts. "
-                        "The solver is not producing enough valid placements."
-                    )
+                    # Wrap where the queue runs dry, not before the draw starts: rewinding a pool
+                    # that still holds unread layouts would strand whatever sits behind the cursor,
+                    # so a batch that does not divide the pool would replay one prefix forever.
+                    if not self._recycle_layouts:
+                        raise RuntimeError(
+                            f"Placement pool: env {cur_env} has no more valid layouts. "
+                            "The solver is not producing enough valid placements."
+                        )
+                    pool.cursor = 0
                 results.append(pool.next())
         return results
 
@@ -329,6 +332,10 @@ class PooledObjectPlacer:
         Returns:
             ``(kept, rejected)`` counts across every env.
         """
+        assert include_consumed or not self._recycle_layouts, (
+            "Recycling makes every stored layout reachable, so filtering only the unread suffix "
+            "would leave a rejected layout to come back on the next rewind. Pass include_consumed."
+        )
         kept = rejected = 0
         for env_id, pool in enumerate(self._env_pools):
             unread = list(pool.layouts) if include_consumed else pool.layouts[pool.cursor :]

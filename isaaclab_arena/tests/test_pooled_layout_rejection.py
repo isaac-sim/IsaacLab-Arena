@@ -191,10 +191,36 @@ def test_recycled_bulk_draw_rewinds_only_the_short_pools():
     placer._env_pools[0].next()
     placer._env_pools[1].next()
 
-    # Env 0 is one short of the two-per-env round and rewinds. Env 1 has b1 and c1 unread, so
-    # rewinding it too would replay a1 while c1 sits unread behind it.
+    # Env 0 is one short of the two-per-env round: it spends its unread b0 first and only then
+    # wraps to a0. Env 1 has b1 and c1 unread, so it advances through both rather than
+    # replaying a1.
     drawn = placer.sample_without_replacement(4)
-    assert [layout.tag for layout in drawn] == ["a0", "b1", "b0", "c1"]
+    assert [layout.tag for layout in drawn] == ["b0", "b1", "a0", "c1"]
+
+
+def test_recycled_bulk_draw_reaches_a_layout_the_batch_size_does_not_divide():
+    """A batch that does not divide the pool must still reach every layout.
+
+    Rewinding before the draw stranded whatever sat behind the cursor: three layouts drawn two
+    at a time returned the first two forever and the third never appeared.
+    """
+    placer = _drawing_placer([_Layout("a"), _Layout("b"), _Layout("c")])
+    placer.recycle_layouts = True
+
+    drawn = [[layout.tag for layout in placer.sample_without_replacement(2)] for _ in range(3)]
+    assert drawn == [["a", "b"], ["c", "a"], ["b", "c"]]
+    assert {tag for batch in drawn for tag in batch} == {"a", "b", "c"}
+
+
+def test_recycled_bulk_draw_never_repeats_within_one_call():
+    """Wrapping mid-draw is bounded by the capacity precheck, so a single call stays distinct."""
+    placer = _drawing_placer([_Layout("a"), _Layout("b"), _Layout("c")])
+    placer.recycle_layouts = True
+    placer._env_pools[0].next()
+
+    for _ in range(4):
+        batch = [layout.tag for layout in placer.sample_without_replacement(3)]
+        assert sorted(batch) == ["a", "b", "c"], f"a single draw repeated a layout: {batch}"
 
 
 def test_recycled_bulk_draw_refuses_a_request_larger_than_the_pool():
