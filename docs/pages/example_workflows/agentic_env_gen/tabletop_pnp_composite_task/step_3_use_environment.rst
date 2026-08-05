@@ -60,4 +60,9 @@ In the other terminal, run the following command to launch the policy runner:
             --num_episodes 3 \
             --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
-      .. todo:: add link to reachability concept page & policy rollout video
+      .. todo:: add link to reachability concept page
+
+.. figure:: ../../../../images/agentic_env_droid_pi_pick_place_cans_hammer_maple_table_run1.gif
+   :width: 100%
+   :alt: Policy evaluation of the generated environment with the PI policy with reachability validation. Showing the robot picking up the pepsi can and bean can and placing them into the mini plastic basket.
+   :align: center
