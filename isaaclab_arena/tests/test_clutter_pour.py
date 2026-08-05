@@ -493,7 +493,7 @@ def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
     from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
     from isaaclab_arena.utils.pose import PoseRange
 
-    support = _Asset("table")
+    support = _Asset("table")  # deliberately not an anchor: an anchor's declaration is authoritative
     support._pose = PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0))
     layout = _Layout()
     layout.positions[support] = (0.5, 0.5, 0.0)
@@ -518,3 +518,24 @@ def test_support_just_off_a_quarter_turn_is_rejected_not_silently_shrunk():
     support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half)))
     with pytest.raises(AssertionError, match="not a quarter turn about Z"):
         region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})
+
+
+def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_positions():
+    """An anchor appears in layout.positions too, so presence there cannot mean 'solved'.
+
+    Treating it as solved replaced the declared yaw with the marker rotation, silently
+    un-rotating a quarter-turned support.
+    """
+    import math
+
+    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
+
+    support = _Asset("table")
+    support.add_relation(IsAnchor())
+    quarter = (0.0, 0.0, math.sin(math.pi / 4.0), math.cos(math.pi / 4.0))
+    support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=quarter)
+    layout = _Layout()
+    layout.positions[support] = (0.0, 0.0, 0.0)
+
+    _, rotation = support_pose_from_layout(support, layout)
+    assert rotation == pytest.approx(quarter)

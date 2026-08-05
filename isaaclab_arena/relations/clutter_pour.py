@@ -25,7 +25,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
-from isaaclab_arena.relations.relations import ClutteredOn
+from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
@@ -189,10 +189,16 @@ def support_pose_from_layout(
     # one keeps the pose it was declared with. Synthesising a yaw-only rotation here would also
     # hide a tilted support from the check that exists to reject it.
     #
-    # Being placed by the layout is the test, not appearing in its rotation maps: those are
-    # sparse, and a solved support whose yaw came out identity is absent from both. Reading
-    # absence as "unsolved" would send an ordinary solved support to its declaration.
-    if support in layout.positions or support in layout.rotations or support in layout.orientations:
+    # The rotation maps are sparse, so a support absent from both may still have been solved --
+    # with identity yaw. Presence in layout.positions cannot tell the two apart either, because
+    # an anchor is recorded there as well; asking that alone sends an anchor down the solved
+    # path, where the marker rotation replaces the yaw it was declared with. Anchoring is the
+    # real distinction: an anchor's declaration is authoritative, a solved support's is not.
+    if support in layout.rotations or support in layout.orientations:
+        rotation = _world_rotation_from_layout(support, layout)
+    elif support.has_relation(IsAnchor) and declared is not None:
+        rotation = _concrete("rotation_xyzw")
+    elif support in layout.positions:
         rotation = _world_rotation_from_layout(support, layout)
     elif declared is not None:
         rotation = _concrete("rotation_xyzw")
