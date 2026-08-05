@@ -137,6 +137,7 @@ def main():
             output_dir=experiment_output_directory,
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
+            record_trajectories=args_cli.record_trajectories,
             continue_on_error=args_cli.continue_on_error,
         )
         for result in results:

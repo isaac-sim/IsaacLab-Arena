@@ -67,6 +67,16 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--record_trajectories",
+        action="store_true",
+        default=False,
+        help=(
+            "Record per-step robot and object trajectories (scene states, end-effector poses, gripper state,"
+            " actions, processed actions) into each Run's exported HDF5 dataset. Camera observations are not"
+            " included."
+        ),
+    )
+    parser.add_argument(
         "--serve_evaluation_report",
         action="store_true",
         default=False,

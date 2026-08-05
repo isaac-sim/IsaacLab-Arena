@@ -39,6 +39,7 @@ def execute_experiment(
     output_dir: Path,
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
+    record_trajectories: bool = False,
     continue_on_error: bool = False,
 ) -> list[ArenaRunResult]:
     """Execute an experiment's runs in order and return their results.
@@ -48,6 +49,7 @@ def execute_experiment(
         output_dir: Directory containing one output subdirectory per run.
         record_viewport_video: Whether to record the viewport for each run.
         record_camera_video: Whether to record observation cameras for each run.
+        record_trajectories: Whether to record per-step robot and object trajectories for each run.
         continue_on_error: Whether to continue with later runs after one fails.
 
     Returns:
@@ -66,6 +68,7 @@ def execute_experiment(
                     record_camera_video=record_camera_video,
                     video_base_dir=str(run_output_dir),
                 ),
+                record_trajectories=record_trajectories,
             )
         except Exception as error:
             results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
@@ -83,6 +86,7 @@ def build_and_run(
     cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
+    record_trajectories: bool = False,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result."""
     metrics_per_rebuild: list[MetricsDataCollection] = []
@@ -103,7 +107,13 @@ def build_and_run(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            env = _build_environment_from_cfg(cfg, rebuild_video_cfg.render_mode)
+            env = _build_environment_from_cfg(
+                cfg,
+                rebuild_video_cfg.render_mode,
+                output_dir=output_dir,
+                rebuild_index=rebuild_index,
+                record_trajectories=record_trajectories,
+            )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -131,13 +141,32 @@ def build_and_run(
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
     render_mode: str | None,
+    output_dir: str | Path = "",
+    rebuild_index: int = 0,
+    record_trajectories: bool = False,
 ) -> gym.Env:
-    """Compile and instantiate a run's environment."""
-    arena_builder = build_arena_builder_from_run_cfg(cfg)
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+    """Compile and instantiate a run's environment.
+
+    Args:
+        cfg: The run whose environment is being built.
+        render_mode: Render mode required by the enabled video recorders.
+        output_dir: Directory the run's recorded dataset is exported to.
+        rebuild_index: Index of the rebuild this environment serves.
+        record_trajectories: Whether to also record per-step robot and object trajectories.
+    """
+    # Stamp eval-only recorder options onto a copy of the run's builder cfg so composition in
+    # ArenaEnvBuilder.compose_manager_cfg sees them without mutating the caller's run config.
+    run_cfg = replace(
+        cfg,
+        environment_builder=replace(
+            cfg.environment_builder,
+            record_trajectories=record_trajectories,
+            recorder_dataset_export_dir_path=str(output_dir) if record_trajectories else None,
+            recorder_dataset_filename=f"dataset_{cfg.name}_rebuild{rebuild_index}",
+        ),
+    )
+    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    return arena_builder.make_registered(render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
