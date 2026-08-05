@@ -64,7 +64,7 @@ relations:
   params: {}
 task:
   composition: parallel
-  description: Pick up the pepsi can and tuna can from the maple table and place them
+  description: Pick up the pepsi can and bean can from the maple table and place them
     into the mini plastic basket.
   subtasks:
   - kind: PickAndPlaceTask
@@ -74,6 +74,6 @@ task:
       background_scene: maple_table
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: tuna_can
+      pick_up_object: bean_can
       destination_location: mini_plastic_basket
       background_scene: maple_table

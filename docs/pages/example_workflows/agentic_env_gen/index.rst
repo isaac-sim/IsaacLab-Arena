@@ -12,9 +12,11 @@ The environment can be used for policy evaluation.
 In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.
 
 - Table-top Pick and Place task
-  - :doc:`tabletop_pnp_homogenous_object`
-  - :doc:`tabletop_pnp_heterogeneous_object with reachability constraints`
-  - :doc:`tabletop_pnp_composite_task with SimReady assets`
+
+  - :doc:`tabletop_pnp_homogenous_object/index`
+  - :doc:`tabletop_pnp_heterogeneous_object/index`
+  - :doc:`tabletop_pnp_composite_task/index`
+
 - Kitchen Pick and Place task
 - Kitchen Open/Close Door task
 
@@ -25,3 +27,12 @@ The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment
 RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   tabletop_pnp_homogenous_object/index
+   tabletop_pnp_heterogeneous_object/index
+   tabletop_pnp_composite_task/index
+   gui_runner
