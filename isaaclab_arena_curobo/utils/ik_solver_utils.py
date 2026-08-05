@@ -19,7 +19,6 @@ from curobo.geom.types import Cuboid, WorldConfig
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena_curobo.ik_solver import IKFeasibility
 from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
@@ -92,6 +91,23 @@ def world_config_from_cuboids(
     return WorldConfig(cuboid=curobo_cuboids)
 
 
+@dataclass
+class IKFeasibility:
+    """One batched IK solver's solved results."""
+
+    feasible: torch.Tensor
+    """Per-pose verdict: converged within the thresholds, and collision-free when that was required."""
+
+    position_error: torch.Tensor
+    """Per-pose IK position error (m) of the returned solution."""
+
+    rotation_error: torch.Tensor
+    """Per-pose IK rotation error (rad) of the returned solution."""
+
+    joint_positions: torch.Tensor
+    """Joint configuration solved per pose, of length joint_dim of the robot."""
+
+
 def solve_ik_feasibility(
     ik_solver_context: CuroboIKSolver | CuroboPlanner,
     target_poses: torch.Tensor,
@@ -112,8 +128,7 @@ def solve_ik_feasibility(
         require_collision_free: Also require a collision-free joint solution, not just pose convergence.
 
     Returns:
-        An ``IKFeasibility`` holding the per-pose verdict, position/rotation errors, and the joint
-        configuration solved per pose.
+        An ``IKFeasibility`` object holding the per-pose verdict, plus the errors and joint configuration.
     """
     ik_solver = _resolve_ik_solver(ik_solver_context)
     target_poses = ik_solver_context._to_curobo_device(target_poses)
@@ -145,8 +160,9 @@ def solve_ik_feasibility(
         ok = ok & ik_result.success.view(num_poses, -1).bool()
     feasible = ok.any(dim=1)
 
-    # Best-seed errors, reported for logging/return only (not part of the accept decision).
-    best_idx = pos_err.argmin(dim=1, keepdim=True)
+    # rank among poses that passed the thresholds if exists, otherwise return the closest pose
+    ranked_pos_err = torch.where(ok, pos_err, torch.full_like(pos_err, float("inf")))
+    best_idx = torch.where(feasible.unsqueeze(1), ranked_pos_err, pos_err).argmin(dim=1, keepdim=True)
     best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
     best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
     solutions = ik_result.solution.view(num_poses, pos_err.shape[1], -1)

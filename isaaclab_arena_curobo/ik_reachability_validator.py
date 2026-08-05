@@ -28,6 +28,8 @@ from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curo
 from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
+    AABBCollisionCuboid,
+    IKFeasibility,
     get_aabb_collision_cuboid_for_object,
     hand_sphere_mask,
     robot_collision_spheres,
@@ -129,10 +131,10 @@ class ReachabilityValidator(PlacementValidator):
     ) -> bool:
         """Whether the robot can reach a top-down grasp at the target objects in one candidate layout.
 
-        Rebuilds each object's world pose, syncs a collision cuboid per non-target object into the solver's
-        world -- what makes those objects block a grasp when collision checking is on -- then batches a
-        single IK solve over the target objects' top-down grasps. A layout with nothing to grasp
-        (anchor-only, or no target present) is trivially reachable.
+        Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
+        grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
+        holding every other object. A layout with nothing to grasp (anchor-only, or no target present) is
+        trivially reachable.
 
         Args:
             positions: Solved (x, y, z) per object.
@@ -148,13 +150,12 @@ class ReachabilityValidator(PlacementValidator):
         }
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
-        # A target is not an obstacle to its own grasp, but everything else in the layout is.
-        cuboids = [
-            get_aabb_collision_cuboid_for_object(obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw)
+        cuboid_per_object = {
+            obj: get_aabb_collision_cuboid_for_object(
+                obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw
+            )
             for obj in objects
-            if obj not in targets
-        ]
-        self._solver.update_world(cuboids, self._robot_base_pos_w, self._robot_base_quat_w_xyzw)
+        }
 
         if not targets:
             # The check is enabled but no movable object is stamped as a reachability target, so it passes every
@@ -178,13 +179,7 @@ class ReachabilityValidator(PlacementValidator):
             )
             for obj in targets
         ])
-        ik = solve_ik_feasibility(
-            self._solver,
-            grasp_poses,
-            position_threshold=self._ik_pos_threshold,
-            rotation_threshold=self._ik_rot_threshold,
-            require_collision_free=self._require_collision_free,
-        )
+        ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
             self._rerun_layer.log_layout(
@@ -201,6 +196,42 @@ class ReachabilityValidator(PlacementValidator):
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
             )
         return bool(ik.feasible.all().item())
+
+    def _solve_grasp_per_target(
+        self,
+        targets: list[ObjectBase],
+        grasp_poses: torch.Tensor,
+        cuboid_per_object: dict[ObjectBase, AABBCollisionCuboid],
+    ) -> IKFeasibility:
+        """IK-solve each target's grasp against a world holding every object but that target, and stack the results.
+
+        Args:
+            targets: The objects whose grasps are checked, in the order they appear in ``grasp_poses``.
+            grasp_poses: ``(len(targets), 4, 4)`` top-down grasp transforms in the robot base frame.
+            cuboid_per_object: Collision cuboid at the layout pose, for every object in the layout.
+
+        Returns:
+            One ``IKFeasibility`` whose per-target entries are ordered like ``targets``.
+        """
+        per_target = []
+        for target_index, target in enumerate(targets):
+            obstacles = [cuboid for obj, cuboid in cuboid_per_object.items() if obj is not target]
+            self._solver.update_world(obstacles, self._robot_base_pos_w, self._robot_base_quat_w_xyzw)
+            per_target.append(
+                solve_ik_feasibility(
+                    self._solver,
+                    grasp_poses[target_index : target_index + 1],
+                    position_threshold=self._ik_pos_threshold,
+                    rotation_threshold=self._ik_rot_threshold,
+                    require_collision_free=self._require_collision_free,
+                )
+            )
+        return IKFeasibility(
+            feasible=torch.cat([ik.feasible for ik in per_target]),
+            position_error=torch.cat([ik.position_error for ik in per_target]),
+            rotation_error=torch.cat([ik.rotation_error for ik in per_target]),
+            joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
+        )
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
