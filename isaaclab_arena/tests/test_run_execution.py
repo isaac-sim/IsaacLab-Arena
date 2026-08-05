@@ -55,10 +55,7 @@ class _ArenaEnvBuilder:
         self.env_cfg = SimpleNamespace(recorders=recorders)
         self.made_with = None
 
-    def build_registered(self):
-        return None, self.env_cfg, {"num_envs": 1}
-
-    def make_registered(self, env_cfg, env_kwargs, render_mode):
+    def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
         return _environment()
 
@@ -238,22 +235,34 @@ def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
 
 
 def test_build_environment_names_the_dataset_per_rebuild(monkeypatch):
-    recorders = _RecorderManagerCfg()
-    builder = _builder(monkeypatch, recorders)
+    builder = _ArenaEnvBuilder(_RecorderManagerCfg())
+    captured = {}
+
+    def capture_builder(cfg):
+        captured["environment_builder"] = cfg.environment_builder
+        return builder
+
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", capture_builder)
 
     run_execution._build_environment_from_cfg(_run(name="pick"), render_mode="rgb_array", rebuild_index=2)
 
     # Every rebuild recreates the dataset file, so the index has to distinguish them.
-    assert recorders.dataset_filename == "dataset_pick_rebuild2"
-    # Trajectory recording is off, so the environment keeps its own export directory.
-    assert recorders.dataset_export_dir_path == "environment_default_export_dir"
+    assert captured["environment_builder"].recorder_dataset_filename == "dataset_pick_rebuild2"
+    # Trajectory recording is off, so the builder keeps the environment's own export directory.
+    assert captured["environment_builder"].record_trajectories is False
+    assert captured["environment_builder"].recorder_dataset_export_dir_path is None
     assert builder.made_with.render_mode == "rgb_array"
 
 
 def test_build_environment_exports_trajectories_to_the_run_directory(monkeypatch, tmp_path):
-    extended_recorders = _RecorderManagerCfg()
-    builder = _builder(monkeypatch, _RecorderManagerCfg())
-    monkeypatch.setattr(run_execution, "with_trajectory_recorder_terms", lambda recorders: extended_recorders)
+    builder = _ArenaEnvBuilder(_RecorderManagerCfg())
+    captured = {}
+
+    def capture_builder(cfg):
+        captured["environment_builder"] = cfg.environment_builder
+        return builder
+
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", capture_builder)
 
     run_execution._build_environment_from_cfg(
         _run(name="pick"),
@@ -263,14 +272,15 @@ def test_build_environment_exports_trajectories_to_the_run_directory(monkeypatch
         record_trajectories=True,
     )
 
-    assert builder.made_with.env_cfg.recorders is extended_recorders
-    assert extended_recorders.dataset_export_dir_path == str(tmp_path)
-    assert extended_recorders.dataset_filename == "dataset_pick_rebuild1"
+    assert captured["environment_builder"].record_trajectories is True
+    assert captured["environment_builder"].recorder_dataset_export_dir_path == str(tmp_path)
+    assert captured["environment_builder"].recorder_dataset_filename == "dataset_pick_rebuild1"
 
 
 def test_build_environment_tolerates_an_environment_without_recorders(monkeypatch):
     builder = _builder(monkeypatch, None)
 
-    run_execution._build_environment_from_cfg(_run(), render_mode=None, record_trajectories=True)
+    env = run_execution._build_environment_from_cfg(_run(), render_mode=None, record_trajectories=True)
 
-    assert builder.made_with.env_cfg.recorders is None
+    assert env is not None
+    assert builder.made_with.render_mode is None

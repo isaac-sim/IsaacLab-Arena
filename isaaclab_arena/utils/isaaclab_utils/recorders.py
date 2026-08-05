@@ -233,7 +233,7 @@ class TrajectoryRecorderTermsCfg:
     record_gripper_state = GripperStateRecorderCfg()
 
 
-def with_trajectory_recorder_terms(recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
+def add_trajectory_recorder_terms(recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
     """Return ``recorder_cfg`` extended with the per-step trajectory recorder terms.
 
     The metric terms already on ``recorder_cfg`` are preserved, because metrics are computed by

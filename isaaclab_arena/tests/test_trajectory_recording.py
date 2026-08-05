@@ -28,6 +28,8 @@ def _create_trajectory_recording_env(output_dir):
     Args:
         output_dir: Directory the exported dataset is written into.
     """
+    from dataclasses import replace
+
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -35,7 +37,6 @@ def _create_trajectory_recording_env(output_dir):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.utils.isaaclab_utils.recorders import with_trajectory_recorder_terms
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
@@ -58,13 +59,14 @@ def _create_trajectory_recording_env(output_dir):
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    env_builder = ArenaEnvBuilder(arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
+    builder_cfg = replace(
+        arena_env_builder_cfg_from_argparse(args_cli),
+        record_trajectories=True,
+        recorder_dataset_export_dir_path=str(output_dir),
+        recorder_dataset_filename=DATASET_FILENAME,
+    )
+    env_builder = ArenaEnvBuilder(arena_environment, builder_cfg)
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
-
-    # Mirror what run_execution does for a run started with --record_trajectories.
-    env_cfg.recorders = with_trajectory_recorder_terms(env_cfg.recorders)
-    env_cfg.recorders.dataset_export_dir_path = str(output_dir)
-    env_cfg.recorders.dataset_filename = DATASET_FILENAME
 
     env = env_builder.make_registered(env_cfg, env_kwargs)
     env.unwrapped.episode_recorder.set_job_name("trajectory_recording")

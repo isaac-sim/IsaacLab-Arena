@@ -7,7 +7,7 @@ from isaaclab.managers import RecorderTerm, RecorderTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.utils.isaaclab_utils.recorders import with_trajectory_recorder_terms
+from isaaclab_arena.utils.isaaclab_utils.recorders import add_trajectory_recorder_terms
 
 TRAJECTORY_TERM_NAMES = (
     "record_initial_state",
@@ -38,7 +38,7 @@ class _MetricsRecorderManagerCfg(RecorderManagerBaseCfg):
 
 
 def test_trajectory_terms_are_added():
-    extended = with_trajectory_recorder_terms(_MetricsRecorderManagerCfg())
+    extended = add_trajectory_recorder_terms(_MetricsRecorderManagerCfg())
 
     for term_name in TRAJECTORY_TERM_NAMES:
         assert getattr(extended, term_name, None) is not None, f"missing trajectory term {term_name}"
@@ -47,7 +47,7 @@ def test_trajectory_terms_are_added():
 def test_existing_metric_terms_survive():
     # Metrics are computed by reading their own terms back out of the exported dataset, so dropping
     # them here would silently produce a dataset the metrics cannot be derived from.
-    extended = with_trajectory_recorder_terms(_MetricsRecorderManagerCfg())
+    extended = add_trajectory_recorder_terms(_MetricsRecorderManagerCfg())
 
     # The merged class is synthesized at runtime, so its terms are reached by name.
     metric_term = getattr(extended, "record_success_rate", None)
@@ -60,7 +60,7 @@ def test_base_recorder_settings_survive():
     original.dataset_export_dir_path = "/custom/export/dir"
     original.dataset_filename = "custom_filename"
 
-    extended = with_trajectory_recorder_terms(original)
+    extended = add_trajectory_recorder_terms(original)
 
     assert isinstance(extended, RecorderManagerBaseCfg)
     assert extended.dataset_export_dir_path == "/custom/export/dir"
@@ -70,7 +70,7 @@ def test_base_recorder_settings_survive():
 def test_input_config_is_left_unextended():
     original = _MetricsRecorderManagerCfg()
 
-    with_trajectory_recorder_terms(original)
+    add_trajectory_recorder_terms(original)
 
     # The caller keeps a config it can still build a non-recording environment from.
     assert not hasattr(original, "record_episode_id")

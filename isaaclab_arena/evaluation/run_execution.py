@@ -23,7 +23,6 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
-from isaaclab_arena.utils.isaaclab_utils.recorders import with_trajectory_recorder_terms
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
@@ -155,15 +154,19 @@ def _build_environment_from_cfg(
         rebuild_index: Index of the rebuild this environment serves.
         record_trajectories: Whether to also record per-step robot and object trajectories.
     """
-    arena_builder = build_arena_builder_from_run_cfg(cfg)
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        if record_trajectories:
-            env_cfg.recorders = with_trajectory_recorder_terms(env_cfg.recorders)
-            env_cfg.recorders.dataset_export_dir_path = str(output_dir)
-        # Each rebuild recreates the dataset file, so the index keeps earlier rebuilds intact.
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+    # Stamp eval-only recorder options onto a copy of the run's builder cfg so composition in
+    # ArenaEnvBuilder.compose_manager_cfg sees them without mutating the caller's run config.
+    run_cfg = replace(
+        cfg,
+        environment_builder=replace(
+            cfg.environment_builder,
+            record_trajectories=record_trajectories,
+            recorder_dataset_export_dir_path=str(output_dir) if record_trajectories else None,
+            recorder_dataset_filename=f"dataset_{cfg.name}_rebuild{rebuild_index}",
+        ),
+    )
+    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    return arena_builder.make_registered(render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
