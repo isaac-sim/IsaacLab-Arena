@@ -138,18 +138,25 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena.visualization import placement_geometry_draw
 
-    asset = SimpleNamespace(name="broken")
+    class _BrokenAsset:
+        name = "broken"
+
+        def get_bounding_box(self):
+            raise ValueError("invalid bounds")
+
+    asset = _BrokenAsset()
     entry = placement_geometry_draw._OverlayEntry(
         name="broken",
         kind="other",
         color=(1.0, 1.0, 0.0, 1.0),
         asset=asset,
         mesh=None,
+        is_static=False,
     )
     draw = placement_geometry_draw.PlacementGeometryDraw.__new__(placement_geometry_draw.PlacementGeometryDraw)
     draw._entries = [entry]
     draw._draw = SimpleNamespace(clear=lambda: None)
-    draw._static_meshes_drawn = True
+    draw._static_geometry_drawn = True
     draw._reported_aabb_failures = set()
 
     monkeypatch.setattr(
@@ -158,67 +165,71 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
         lambda env, received_asset: Pose.identity(),
     )
 
-    def fail_aabb(received_asset, pose):
-        raise ValueError("invalid bounds")
-
-    monkeypatch.setattr(placement_geometry_draw, "_solver_world_aabb", fail_aabb)
-
     draw.redraw(SimpleNamespace())
     draw.redraw(SimpleNamespace())
 
     assert capsys.readouterr().out.count("skip AABB for 'broken'") == 1
 
 
-def test_solver_world_aabb_fixed_collision_object_is_world_baked():
-    import trimesh
-
-    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
-    from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena.visualization.placement_geometry_draw import _solver_world_aabb
-
-    mesh = trimesh.creation.box(extents=(0.2, 0.4, 0.6))
-    mesh.apply_translation([1.0, 2.0, 3.0])
-    fixed = FixedCollisionObject(mesh, name="fixed")
-    # Pose must be ignored: mesh / AABB are already in world frame.
-    pose = Pose(position_xyz=(9.0, 9.0, 9.0), rotation_xyzw=(0.0, 0.0, 0.70710678, 0.70710678))
-    world = _solver_world_aabb(fixed, pose)
-    expected = fixed.get_world_bounding_box()
-    assert np.allclose(world.min_point.numpy(), expected.min_point.numpy())
-    assert np.allclose(world.max_point.numpy(), expected.max_point.numpy())
-
-
-def test_solver_world_aabb_live_placeable_matches_rotated_then_translated():
-    """Non-anchor placeables: solver refits AABB under quat, then translates (not OBB draw)."""
+def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
     import math
+    from types import SimpleNamespace
 
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena.visualization.placement_geometry_draw import _solver_world_aabb
+    from isaaclab_arena.visualization import placement_geometry_draw
 
-    class _FakePlaceable:
-        name = "fake"
-        is_anchor = False
+    class _Asset:
+        def __init__(self, name):
+            self.name = name
 
         def get_bounding_box(self):
             return AxisAlignedBoundingBox(min_point=(-2.0, -0.5, 0.0), max_point=(2.0, 0.5, 1.0))
 
-        def get_world_bounding_box(self):
-            raise AssertionError("live non-anchors must not use get_world_bounding_box in overlay")
-
-        def get_relations(self):
-            return []
-
     yaw = math.pi / 2
-    # xyzw for +90 deg about Z
     quat = (0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2))
     pose = Pose(position_xyz=(10.0, 20.0, 30.0), rotation_xyzw=quat)
-    asset = _FakePlaceable()
-    world = _solver_world_aabb(asset, pose)
-    expected = asset.get_bounding_box().rotated_by_quat(quat).translated(pose.position_xyz)
-    assert np.allclose(world.min_point.numpy(), expected.min_point.numpy())
-    assert np.allclose(world.max_point.numpy(), expected.max_point.numpy())
-    # Must remain axis-aligned in world (solver style), not an OBB at the live pose.
-    # After 90° Z, the long axis (was X) becomes Y: extents ~1 on X, ~4 on Y.
-    size = (world.max_point - world.min_point)[0].tolist()
-    assert size[0] == pytest.approx(1.0, abs=1e-5)
-    assert size[1] == pytest.approx(4.0, abs=1e-5)
+    static_asset = _Asset("static")
+    live_asset = _Asset("live")
+    entries = [
+        placement_geometry_draw._OverlayEntry(
+            name="static",
+            kind="other",
+            color=(1.0, 1.0, 0.0, 1.0),
+            asset=static_asset,
+            mesh=None,
+            is_static=True,
+        ),
+        placement_geometry_draw._OverlayEntry(
+            name="live",
+            kind="other",
+            color=(1.0, 1.0, 0.0, 1.0),
+            asset=live_asset,
+            mesh=None,
+            is_static=False,
+        ),
+    ]
+    drawn_bboxes = []
+    fake_debug_draw = SimpleNamespace(
+        clear=lambda: None,
+        draw_oriented_bbox=lambda min_pt, max_pt, *args, **kwargs: drawn_bboxes.append((min_pt, max_pt)),
+    )
+    draw = placement_geometry_draw.PlacementGeometryDraw.__new__(placement_geometry_draw.PlacementGeometryDraw)
+    draw._entries = entries
+    draw._draw = fake_debug_draw
+    draw._static_geometry_drawn = True
+    draw._reported_aabb_failures = set()
+
+    pose_requests = []
+
+    def live_pose(env, asset):
+        pose_requests.append(asset)
+        return pose
+
+    monkeypatch.setattr(placement_geometry_draw, "_live_pose_for_asset", live_pose)
+    draw.redraw(SimpleNamespace())
+
+    assert pose_requests == [live_asset]
+    assert len(drawn_bboxes) == 1
+    min_pt, max_pt = drawn_bboxes[0]
+    assert np.subtract(max_pt, min_pt) == pytest.approx((1.0, 4.0, 1.0), abs=1e-5)
