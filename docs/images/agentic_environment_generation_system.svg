@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="430" viewBox="0 0 1500 430" role="img" aria-labelledby="title desc">
+  <title id="title">Agentic environment generation system</title>
+  <desc id="desc">A prompt is converted by the environment generation agent into an ArenaEnvGraphSpec. The spec may be edited manually, then becomes an Arena environment. Placement solving and validation produce a runnable environment for evaluation.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#5b6770"/>
+    </marker>
+    <style>
+      .box { fill: #f7f8fa; stroke: #5b6770; stroke-width: 2; rx: 12; }
+      .agent { fill: #e7f2ff; stroke: #2878bd; stroke-width: 3; rx: 12; }
+      .spec { fill: #ecf8ef; stroke: #39834b; stroke-width: 3; rx: 12; }
+      .optional { fill: #fff8e6; stroke: #ad7a00; stroke-width: 2; stroke-dasharray: 8 6; rx: 12; }
+      .label { font: 600 19px sans-serif; fill: #20252a; text-anchor: middle; }
+      .small { font: 15px sans-serif; fill: #384047; text-anchor: middle; }
+      .arrow { fill: none; stroke: #5b6770; stroke-width: 3; marker-end: url(#arrow); }
+      .dashed { fill: none; stroke: #ad7a00; stroke-width: 2.5; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="box" x="30" y="175" width="145" height="90"/>
+  <text class="label" x="102" y="212">Prompt</text>
+  <text class="small" x="102" y="239">natural language</text>
+
+  <rect class="agent" x="235" y="140" width="250" height="160"/>
+  <text class="label" x="360" y="180">Environment</text>
+  <text class="label" x="360" y="205">generation agent</text>
+  <text class="small" x="360" y="238">asset, relation, task catalogs</text>
+  <text class="small" x="360" y="262">structured inference + validation</text>
+
+  <rect class="spec" x="550" y="165" width="225" height="110"/>
+  <text class="label" x="662" y="207">ArenaEnvGraphSpec</text>
+  <text class="small" x="662" y="236">validated graph / YAML</text>
+
+  <rect class="optional" x="565" y="35" width="195" height="75"/>
+  <text class="label" x="662" y="67">Manual edit</text>
+  <text class="small" x="662" y="91">optional GUI or YAML</text>
+
+  <rect class="box" x="845" y="165" width="180" height="110"/>
+  <text class="label" x="935" y="207">Arena</text>
+  <text class="label" x="935" y="232">environment</text>
+
+  <rect class="box" x="1090" y="150" width="225" height="140"/>
+  <text class="label" x="1202" y="190">Placement solving</text>
+  <text class="label" x="1202" y="216">and validators</text>
+  <text class="small" x="1202" y="248">ArenaEnvBuilder</text>
+  <text class="small" x="1202" y="270">compiles runnable env</text>
+
+  <rect class="box" x="1380" y="175" width="90" height="90"/>
+  <text class="label" x="1425" y="225">Eval</text>
+
+  <path class="arrow" d="M175 220 H235"/>
+  <path class="arrow" d="M485 220 H550"/>
+  <path class="arrow" d="M775 220 H845"/>
+  <path class="arrow" d="M1025 220 H1090"/>
+  <path class="arrow" d="M1315 220 H1380"/>
+
+  <path class="dashed" d="M662 165 V110"/>
+  <path class="dashed" d="M760 72 H800 Q825 72 825 97 V150 Q825 175 845 175"/>
+
+  <text class="small" x="662" y="340">Agent output</text>
+  <path class="arrow" d="M610 326 V280"/>
+</svg>
