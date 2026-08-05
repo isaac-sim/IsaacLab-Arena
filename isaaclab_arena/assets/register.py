@@ -103,7 +103,7 @@ def register_task(cls):
 
 
 def agent_ready(cls):
-    """Mark a task class as available to the environment-generation agent."""
+    """Mark a registered class as available to the environment-generation agent."""
     cls.agent_ready = True
     return cls
 

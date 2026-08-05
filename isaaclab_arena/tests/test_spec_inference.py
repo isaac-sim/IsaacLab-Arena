@@ -83,6 +83,18 @@ def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
     assert "user wants avocado on kitchen" in user_msg
 
 
+def test_system_prompt_requires_object_references_to_be_anchors():
+    system_prompt = SpecInference._system_prompt()
+
+    assert "every ``object_reference`` must have an ``is_anchor`` relation" in system_prompt
+
+
+def test_system_prompt_requires_all_required_relation_params():
+    system_prompt = SpecInference._system_prompt()
+
+    assert "For every relation, include all parameters marked ``required`` in the RELATIONS catalog" in system_prompt
+
+
 def test_infer_retries_after_api_error_then_succeeds(spec_inference):
     inference, client = spec_inference
     client.chat.completions.create.side_effect = [

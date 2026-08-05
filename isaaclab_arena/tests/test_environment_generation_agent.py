@@ -13,6 +13,7 @@ import pytest
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
+    build_relation_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadyCandidateCatalogue,
@@ -46,6 +47,29 @@ def agent(stub_openai):
     a = EnvironmentGenerationAgent(api_key="test-key")
     client.chat.completions.create.reset_mock()
     return a, client
+
+
+def test_relation_catalogue_collects_required_optional_and_enum_params():
+    catalogue = build_relation_catalogue()
+    entries = {entry.name: entry for entry in catalogue.relations}
+
+    assert set(entries) == {
+        "face_to",
+        "is_anchor",
+        "next_to",
+        "not_next_to",
+        "on",
+        "rotate_around_solution",
+    }
+    assert entries["next_to"].required_params == ["side"]
+    assert entries["next_to"].optional_params == [
+        "relation_loss_weight",
+        "distance_m",
+        "cross_position_ratio",
+        "tolerance_m",
+    ]
+    assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
+    assert "parent" not in entries["next_to"].required_params + entries["next_to"].optional_params
 
 
 # ---------------------------------------------------------------------------

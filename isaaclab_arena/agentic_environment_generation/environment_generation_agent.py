@@ -7,9 +7,12 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
+import sys
 from dataclasses import dataclass, field, replace
-from typing import Any
+from enum import Enum
+from typing import Any, get_args, get_type_hints
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
@@ -304,6 +307,9 @@ class RelationCatalogueEntry:
 
     name: str
     unary: bool
+    required_params: list[str]
+    optional_params: list[str]
+    enum_options: dict[str, list[str]]
     summary: str
 
 
@@ -318,27 +324,94 @@ class RelationCatalogue:
         lines = []
         for entry in sorted(self.relations, key=lambda r: r.name):
             arity = "unary" if entry.unary else "binary"
-            lines.append(f"- {entry.name} ({arity}): {entry.summary}")
+
+            def _format_param(name: str) -> str:
+                options = entry.enum_options.get(name)
+                return f"{name}={{{', '.join(options)}}}" if options else name
+
+            required = ", ".join(_format_param(name) for name in entry.required_params)
+            optional = ", ".join(_format_param(name) for name in entry.optional_params)
+            params = f"required: {required or 'none'}; optional: {optional or 'none'}"
+            lines.append(f"- {entry.name} ({arity}; {params}): {entry.summary}")
         return f"RELATIONS ({len(self.relations)}):\n" + "\n".join(lines)
 
 
 def build_relation_catalogue(
     registry: ObjectRelationLibraryRegistry | None = None,
 ) -> RelationCatalogue:
-    """Collect registered object relations from ``ObjectRelationLibraryRegistry``."""
+    """Collect agent-ready object relations from ``ObjectRelationLibraryRegistry``."""
     registry = registry or ObjectRelationLibraryRegistry()
     catalogue = RelationCatalogue()
     for name in registry.get_all_keys():
         relation_cls = registry.get_object_relation_by_name(name)
         assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
+        if not getattr(relation_cls, "agent_ready", False):
+            continue
+        required_params, optional_params, enum_options = _collect_init_params(
+            relation_cls,
+            excluded_params={"parent"} if not relation_cls.is_unary() else set(),
+        )
         catalogue.relations.append(
             RelationCatalogueEntry(
                 name=name,
                 unary=relation_cls.is_unary(),
+                required_params=required_params,
+                optional_params=optional_params,
+                enum_options=enum_options,
                 summary=_first_docstring_line(relation_cls),
             )
         )
     return catalogue
+
+
+def _collect_init_params(
+    cls: type,
+    excluded_params: set[str],
+) -> tuple[list[str], list[str], dict[str, list[str]]]:
+    """Collect required, optional, and Enum-valued constructor parameters."""
+    signature = inspect.signature(cls.__init__)
+    params = {
+        name: param
+        for name, param in signature.parameters.items()
+        if name != "self"
+        and name not in excluded_params
+        and param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
+    required = [name for name, param in params.items() if param.default is inspect.Parameter.empty]
+    optional = [name for name, param in params.items() if param.default is not inspect.Parameter.empty]
+    try:
+        type_hints = get_type_hints(cls.__init__)
+    except (NameError, TypeError):
+        module_globals = vars(sys.modules[cls.__module__])
+        type_hints = {}
+        for name, param in params.items():
+            type_hints[name] = _resolve_annotation(param.annotation, module_globals)
+    enum_options = {
+        name: [str(member.value) for member in enum_type]
+        for name, annotation in type_hints.items()
+        if name in params and (enum_type := _find_enum_type(annotation)) is not None
+    }
+    return required, optional, enum_options
+
+
+def _find_enum_type(annotation: Any) -> type[Enum] | None:
+    """Return the Enum type contained in an annotation, including union annotations."""
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return annotation
+    for argument in get_args(annotation):
+        if (enum_type := _find_enum_type(argument)) is not None:
+            return enum_type
+    return None
+
+
+def _resolve_annotation(annotation: Any, module_globals: dict[str, Any]) -> Any:
+    """Resolve one trusted internal string annotation when its names are available."""
+    if not isinstance(annotation, str):
+        return annotation
+    try:
+        return eval(annotation, module_globals)  # noqa: S307 — trusted internal annotations
+    except (NameError, SyntaxError, TypeError):
+        return annotation
 
 
 # ---------------------------------------------------------------------------

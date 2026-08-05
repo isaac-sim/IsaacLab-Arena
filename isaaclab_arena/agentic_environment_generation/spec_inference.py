@@ -155,5 +155,8 @@ GUIDANCE:
 - For each ``object_reference``, leave ``prim_path`` empty.
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
+- REQUIRED: every ``object_reference`` must have an ``is_anchor`` relation.
+- For every relation, include all parameters marked ``required`` in the RELATIONS catalog in
+  that relation's ``params``.
 - All objects need an ``on`` relation with that anchor as ``reference``.
 """
