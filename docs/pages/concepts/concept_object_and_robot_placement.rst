@@ -41,8 +41,10 @@ instead:
        NextTo(microwave, side=Side.POSITIVE_X, distance_m=0.01)
    )
 
-``ArenaEnvBuilder`` collects these relations, solves and validates candidate
-layouts, and applies a selected layout during environment compilation.
+``ArenaEnvBuilder`` collects these relations and prepares candidate layouts
+during environment compilation. It applies selected layouts when environments
+are created and reset.
+
 Replacing an asset or changing its dimensions does not require manually
 recalculating coordinates for related assets. See
 `pick_and_place_maple_table_environment.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/pick_and_place_maple_table_environment.py>`_
@@ -57,7 +59,7 @@ for a complete Python environment definition.
    ``ArenaEnvBuilder`` turns an Arena environment definition into a placement
    problem. The relation solver generates collision-aware candidates, validators
    check and rank them, and per-environment pools supply layouts for
-   construction and reset.
+   environment creation and reset.
 
 .. figure:: ../../images/relations_highlevel.png
    :width: 100%
@@ -67,11 +69,43 @@ for a complete Python environment definition.
    Spatial relations describe the intended layout. Arena computes poses that
    satisfy the relations and collision constraints together.
 
+Asset Roles During Placement
+----------------------------
+
+Objects, object sets, object references, and supported robot embodiments can
+participate in relation-based placement. Their behavior depends on their role:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 30 15 35
+
+   * - Role
+     - Purpose
+     - Moved by solver
+     - Initial pose
+   * - Anchor
+     - Fixed reference marked with ``IsAnchor()``
+     - No
+     - Fixed pose; YAML defaults to identity when omitted, and references derive it
+   * - Placed asset
+     - Object or object set with a positional relation
+     - Yes
+     - Do not set an explicit override; the builder supplies creation and reset poses
+   * - Robot embodiment
+     - Supported embodiment with positional relations
+     - Yes
+     - Do not set an explicit override; the builder supplies creation and reset poses
+   * - Passive obstacle
+     - Fixed collision geometry that placed assets must avoid
+     - No
+     - Usually required; a full-environment ``Background`` in ``MESH`` mode may use identity
+
 When to Use Placement Relations
 -------------------------------
 
-Use explicit poses when an Arena environment has one fixed, known layout. Use
-placement relations when you need one or more of the following:
+Use fixed poses for anchors and passive obstacles when an Arena environment has
+one known layout. Use placement relations for assets whose poses should be
+solved, especially when you need:
 
 - layouts that adapt to different assets or asset dimensions;
 - diverse but reproducible layouts across environments and resets;
@@ -108,38 +142,10 @@ behave across environments and resets.
    select bottles, cans, tools, and packages. Resets keep those selections while
    applying different pooled layouts.
 
-Asset Roles During Placement
-----------------------------
+Relations, Modifiers, Collision, and Validation
+------------------------------------------------
 
-Objects, object sets, object references, and supported robot embodiments share
-the ``PlaceableAsset`` interface. Their placement behavior depends on their
-role:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 30 15 35
-
-   * - Role
-     - Purpose
-     - Moved by solver
-     - Initial pose
-   * - Anchor
-     - Fixed reference marked with ``IsAnchor()``
-     - No
-     - Required, or derived through an ``ObjectReference``
-   * - Placed asset
-     - Layout member with a positional relation
-     - Yes
-     - Do not set one; the builder owns its construction and reset poses
-   * - Passive obstacle
-     - Fixed collision geometry that placed assets must avoid
-     - No
-     - Required
-
-Relations, Modifiers, and Checks
---------------------------------
-
-Relations, modifiers, and checks serve different purposes:
+These placement mechanisms serve different purposes:
 
 - **Spatial relations** constrain positions or orientations, such as ``On``,
   ``NextTo``, or ``FaceTo``.
@@ -149,7 +155,8 @@ Relations, modifiers, and checks serve different purposes:
 - **Collision constraints** prevent placed assets from overlapping each other
   or passive background geometry.
 - **Validation checks** evaluate whether candidate layouts meet required
-  geometric conditions. Candidates that pass are preferred.
+  geometric conditions. Candidates that pass are preferred; optional best-loss
+  fallbacks are described in :doc:`object_placement/pooled_placement`.
 
 Try It Out
 ----------
@@ -202,21 +209,18 @@ included object-set example:
 Each environment selects one fruit and solves a layout using that fruit's
 dimensions.
 
-In both examples, ``--viz kit`` opens the viewer, ``zero_action`` lets you
-inspect the environment without commanded motion, and ``--num_steps`` limits
-the run.
-The first command adds registered table objects with
-``--additional_table_objects``. The second uses ``--num_envs`` to create four
-environments from the graph passed to ``--env_graph_spec_yaml``.
-
-Runner flags precede a registered environment name. Environment-specific flags,
-such as ``--additional_table_objects``, follow it.
+In both examples, runner flags such as ``--viz kit``, ``--policy_type``, and
+``--num_steps`` precede the environment selector. The first command selects a
+registered environment and then passes its ``--additional_table_objects`` flag.
+The second selects an environment graph with ``--env_graph_spec_yaml`` and uses
+``--num_envs`` to create four environments.
 
 Learn More
 ----------
 
-The following guides cover authoring relations, collision handling, the
-placement solver, pooled placement, and validation:
+The following guides explain how to author relations, choose collision
+handling, understand the solver, and configure pooled placement, in that order.
+Validation documentation is forthcoming.
 
 .. toctree::
    :maxdepth: 1

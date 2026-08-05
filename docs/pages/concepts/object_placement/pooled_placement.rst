@@ -1,28 +1,39 @@
 Pooled Placement
 ================
 
-``ArenaEnvBuilder`` manages relation placement through a pool of solved and
-validated layouts. Users describe the intended arrangement; the builder
-generates, stores, and applies layouts for the requested simulation
+``ArenaEnvBuilder`` manages relation placement through a logical pool of solved
+layouts partitioned by environment. Users describe the intended arrangement;
+the builder generates, stores, and applies layouts for the requested simulation
 environments.
 
 How the Pool Is Built
 ---------------------
 
 ``PooledObjectPlacer`` repeatedly uses :doc:`the placement solver <./solver>`
-to generate candidate layouts. Validators rank the candidates, and the selected
-layouts are stored per environment for construction and reset. Arena processes
-candidates across environments together; users do not place each environment
-separately.
+to generate candidate layouts. Inexpensive validators check every candidate;
+expensive validators check candidates that pass the required inexpensive
+checks. The placer ranks candidates by required-check failures, optional-check
+failures, and then solver loss. Selected layouts are stored in the pool
+partition for their environment. Arena processes candidates across environments
+together; users do not place each environment separately.
 
 .. figure:: ../../../images/pooled_placement_flow.png
    :width: 100%
-   :alt: Placement relations are optimized in batches into a solution pool that
-      supplies layouts to parallel Isaac Lab environments.
+   :alt: Placement relations are optimized in batches into a solution pool
+      partitioned across parallel Isaac Lab environments.
    :align: center
 
-   The optimizer generates more solutions than there are environments. During
-   evaluation, each environment draws a placement solution from the pool.
+   The diagram shows the logical solution pool. Arena keeps its layouts
+   partitioned by environment, and each reset draws from the corresponding
+   partition.
+
+.. note::
+
+   Layouts that pass every required check are preferred. By default,
+   ``allow_best_loss_fallbacks=True`` permits the final refill batch to store
+   one or more highest-ranked candidates for an environment when none passes
+   every required check. Arena logs a warning when it uses such a fallback. Set
+   this option to ``False`` when placement must fail instead.
 
 Different Layouts and Objects
 -----------------------------
@@ -100,6 +111,8 @@ look like this:
              random_choice: true
 
          relations:
+           - kind: is_anchor
+             subject: maple_table
            - kind: 'on'
              subject: fruit
              reference: maple_table
@@ -120,21 +133,22 @@ task declarations, with:
 .. important::
 
    Do not set an initial pose on an object whose pose is determined by
-   placement relations. The builder owns that object's construction and reset
+   placement relations. The builder sets that object's creation and reset
    poses. Anchors remain fixed and therefore still need a known pose.
 
 Layouts Across Resets
 ---------------------
 
-The builder prepares a pool of validated layouts for each environment.
-By default, resets consume layouts from these pools, producing different layouts
-without solving every reset. If a pool becomes empty, placement generates more
-layouts during the reset.
+The builder prepares a pool of ranked layouts for each environment. By default,
+each reset assigns the next queued layout from that environment's pool, allowing
+layouts to vary without solving every reset. Layout uniqueness is not
+guaranteed. If a pool becomes empty, placement generates more layouts during
+the reset.
 
 Set ``ObjectPlacerParams.resolve_on_reset=False`` when each environment should
-reuse its initial solved layout. From the command line, use
-``--no-resolve_on_reset``. Keep the default when layouts should vary across
-episodes.
+reuse the layout sampled for it during environment creation. From the command
+line, use ``--no-resolve_on_reset``. Keep the default when layouts should vary
+across episodes.
 
 Reproducibility
 ---------------

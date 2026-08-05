@@ -1,9 +1,8 @@
 Collision Handling
 ==================
 
-Collision constraints guide the solver away from overlapping layouts. Users
-describe where assets belong with spatial relations; they do not add a separate
-no-collision relation.
+Collision avoidance is automatic. Users describe where assets belong with
+spatial relations; they do not add a separate no-collision relation.
 
 What Collision Avoidance Covers
 -------------------------------
@@ -14,6 +13,10 @@ also act as passive obstacles when Arena can obtain their collision bounds. When
 a background uses mesh collision, its collision geometry can act as a passive
 obstacle, allowing placement to avoid furniture and appliances within a complex
 environment.
+
+In ``BBOX`` mode, fixed objects without placement relations can act as passive
+bounding-box obstacles. Full-environment ``Background`` geometry is included
+as a passive obstacle only in ``MESH`` mode.
 
 Choosing a Collision Representation
 -----------------------------------
@@ -74,7 +77,7 @@ Set the solver-wide default when defining an environment in Python:
        placer_params=placer_params,
    )
 
-An individual asset can override that default:
+An individual asset can override that default in either Python or YAML:
 
 .. tab-set::
 
@@ -101,9 +104,9 @@ An individual asset can override that default:
              collision_mode: mesh
 
 When a non-background asset has no extractable collision mesh, Arena uses its
-bounding box as a proxy and logs the fallback. A whole-scene ``Background`` in
-``MESH`` mode requires successful mesh extraction; environment setup fails if
-that mesh cannot be extracted.
+bounding box as a proxy and logs the fallback. A full-environment
+``Background`` in ``MESH`` mode requires successful mesh extraction;
+environment setup fails if that mesh cannot be extracted.
 
 See
 `RelationSolverParams <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/relations/relation_solver_params.py>`_

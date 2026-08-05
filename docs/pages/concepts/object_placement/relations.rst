@@ -7,7 +7,7 @@ on that asset together.
 
 Positional relations use solver strategies that convert the requested
 arrangement into optimization objectives. Orientation relations and placement
-markers are handled separately. Most users keep the default strategies;
+modifiers are handled separately. Most users keep the default strategies;
 advanced users can replace entries in ``RelationSolverParams.strategies``.
 
 .. code-block:: python
@@ -54,7 +54,7 @@ similar prim should support placement.
 Common Relations
 ----------------
 
-Most scenes can be described with a small set of relations:
+Most environments can be described with a small set of relations:
 
 ``On(parent)``
    Places an object on a support surface and keeps its footprint within the
@@ -63,10 +63,12 @@ Most scenes can be described with a small set of relations:
 
    ``On`` uses the top and horizontal footprint of the parent's axis-aligned
    bounding box. For L-shaped, hollow, or concave supports, anchor an
-   ``ObjectReference`` that identifies the valid support surface. During
-   initial sampling, a movable parent directly on an anchor uses that anchor's
-   bounds as a proxy; deeper ``On`` chains fall back to the first anchor's
-   bounds. Final solving and validation still use each relation's actual parent.
+   ``ObjectReference`` that identifies the valid support surface.
+
+   During initial sampling, a movable parent directly on an anchor uses that
+   anchor's bounds as a proxy. Deeper ``On`` chains use the first anchor in the
+   placer's object list. Final solving and validation still use each relation's
+   actual parent.
 
 ``NextTo(parent)``
    Places an object beside another object. A side and distance can be specified
@@ -85,8 +87,8 @@ Most scenes can be described with a small set of relations:
    Defines a side-specific keep-out region next to the parent. The region
    extends outward from the selected side and spans the parent's footprint
    along the perpendicular axis. Validation rejects candidates inside that
-   region. The keep-out margin defaults to 0.1 m. To change it, provide a
-   ``NotNextToLossStrategy`` for ``NotNextTo`` in
+   region. The keep-out margin defaults to 0.1 m. Advanced users can change it
+   by providing a ``NotNextToLossStrategy`` for ``NotNextTo`` in
    ``RelationSolverParams.strategies``.
 
 ``AtPosition(...)``
@@ -113,13 +115,15 @@ Most scenes can be described with a small set of relations:
    camera_prop.add_relation(On(table))
    camera_prop.add_relation(FaceTo(target))
 
-``FaceTo`` determines the heading after position solving. It cannot be combined
-with ``RotateAroundSolution``; when random yaw initialization is enabled,
-``FaceTo`` subjects use the relation-derived heading instead. The target must
-also participate in relation placement. A movable subject may have only one
-``FaceTo`` relation. Neither the subject nor its target can use
-``RandomAroundSolution`` with nonzero XY variation. Their XY positions must
-differ so that the facing direction is defined.
+``FaceTo`` determines the heading after position solving:
+
+- It cannot be combined with ``RotateAroundSolution``.
+- When random yaw initialization is enabled, it replaces the random heading.
+- The target must also participate in relation placement.
+- A movable subject can have only one ``FaceTo`` relation.
+- Neither the subject nor target can use ``RandomAroundSolution`` with nonzero
+  XY offsets.
+- The subject and target must have different XY positions.
 
 Combining Relations
 -------------------
@@ -133,8 +137,8 @@ Relations are most useful in small combinations:
 - A positional relation with ``FaceTo`` controls both location and
   orientation.
 
-Avoid specifying more relations than the scene needs. Extra constraints can
-make the intended layout harder or impossible to satisfy.
+Avoid specifying more relations than the environment needs. Extra constraints
+can make the intended layout harder or impossible to satisfy.
 
 Placement Modifiers
 -------------------
@@ -144,7 +148,7 @@ after solving. They change how a solved pose is used rather than adding spatial
 constraints. In particular, ``RandomAroundSolution`` is intended for direct,
 single-environment ``ObjectPlacer`` use; the default builder does not apply it
 as a continuous reset range. See
-:doc:`./pooled_placement` for variation across environments and resets.
+:doc:`./pooled_placement` for different layouts across environments and resets.
 
 Relations in Environment Specifications
 ---------------------------------------

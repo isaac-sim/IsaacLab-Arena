@@ -1,8 +1,8 @@
 Placement Validation
 ====================
 
-This page will describe how Arena evaluates candidate layouts before applying
-them.
+This placeholder will document how Arena evaluates geometric, reachability, and
+physics conditions for candidate layouts.
 
 .. todo:: xyao-nv
 

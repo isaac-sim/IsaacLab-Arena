@@ -16,7 +16,7 @@ Solving a candidate involves four steps:
 3. ``RelationSolver`` optimizes positions using relation strategies and
    collision constraints.
 4. ``ObjectPlacer`` resolves orientation relations and sends the candidates to
-   the configured validators.
+   validators, which check required geometric or task-specific conditions.
 
 Random Orientation
 ------------------
@@ -77,8 +77,11 @@ for the complete example. Its ``placement_bbox_stand_only: true`` option uses
 only the Droid stand footprint for placement; the robot arm is excluded from
 those placement bounds.
 
-Robot-base placement and task reachability are checked separately. Detailed
-reachability documentation is forthcoming in :doc:`./validation`.
+Robot-base placement and task reachability are checked separately.
+Documentation for validation, including reachability, is forthcoming in
+:doc:`./validation`.
 
 See :doc:`./relations` to define spatial intent and
-:doc:`./collision_handling` to choose a collision representation.
+:doc:`./collision_handling` to choose a collision representation. Next, see
+:doc:`./pooled_placement` for how solved layouts are stored and applied across
+environments and resets.
