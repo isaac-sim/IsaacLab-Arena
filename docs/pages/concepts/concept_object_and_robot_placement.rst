@@ -50,12 +50,14 @@ for a complete Python environment definition.
 
 .. figure:: ../../images/placement_pipeline.png
    :width: 100%
-   :alt: ArenaEnvBuilder collects assets, roles, spatial relationships, and
-      placement configuration for the relation solver.
+   :alt: Placement pipeline from an Arena environment definition through
+      solving, validation, per-environment pools, construction, and reset.
    :align: center
 
    ``ArenaEnvBuilder`` turns an Arena environment definition into a placement
-   problem, and the relation solver generates collision-aware candidate layouts.
+   problem. The relation solver generates collision-aware candidates, validators
+   check and rank them, and per-environment pools supply layouts for
+   construction and reset.
 
 .. figure:: ../../images/relations_highlevel.png
    :width: 100%
