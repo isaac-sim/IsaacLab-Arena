@@ -28,6 +28,20 @@ RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
 
+
+Warnings
+--------
+
+.. note::
+   Agentic environment generation is experimental and changing quickly. The
+   current prompt formats, generated spec structure, GUI behavior, and policy
+   evaluation integrations may change across releases.
+
+   We are actively working on:
+
+   * Support for more complex scene layouts and object placements.
+   * Support for more diverse task specifications.
+
 .. toctree::
    :maxdepth: 1
    :hidden:

@@ -54,4 +54,9 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The runner prints the resolved graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
 
+.. figure:: ../../../../images/tabletop_agentic_env_cans_simready_gui.png
+   :width: 100%
+   :alt: GUI runner view of the environment graph spec. Containing left panel with the YAML editor, right panel with the visualization of the environment graph and the task description.
+   :align: center
+
 .. todo:: add link to concept page covering simready search

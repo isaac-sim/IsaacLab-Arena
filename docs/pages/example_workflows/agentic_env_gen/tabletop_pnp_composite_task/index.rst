@@ -7,7 +7,7 @@ for **pick and place composite task with SimReady assets** on a table-top scene.
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/tabletop_agentic_env_pick_place_cans_hammer_maple_table.png
+.. figure:: ../../../../images/tabletop_agentic_env_cans_simready.png
    :width: 100%
    :alt: Agentic environment-generation GUI showing a table-top pick and place composite task with a DROID arm,
       a pepsi can, a tuna can, a mini plastic basket, a hammer and a bean can.

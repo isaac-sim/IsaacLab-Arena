@@ -7,7 +7,10 @@ for **pick and place atomic task with heterogeneous objects** for table-top mani
 Environment Description
 -----------------------
 
-# insert a image here
+.. figure:: ../../../../images/tabletop_agentic_env_fruits.png
+   :width: 100%
+   :alt: Agentic environment-generation GUI showing a table-top pick and place task with a DROID arm, a bowl and a fruit sampled per environment from a set of fruit assets. The task is to pick up the fruit and place it into the bowl.
+   :align: center
 
 A DROID arm stands at a maple table, picks up a fruit and places it into a bowl
 on the table.

@@ -49,3 +49,8 @@ say that it varies across environments. That is the cue for the agent to emit an
 
       The runner prints the resolved graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
+
+.. figure:: ../../../../images/tabletop_agentic_env_fruits_gui.png
+   :width: 100%
+   :alt: GUI runner view of the environment graph spec. Containing left panel with the YAML editor, right panel with the visualization of the environment graph and the task description.
+   :align: center
