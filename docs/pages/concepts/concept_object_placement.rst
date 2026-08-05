@@ -248,10 +248,11 @@ allowed to fall, and where they come to rest is the placement.
 .. code-block:: python
 
    table.add_relation(IsAnchor())
-   for tool in tools:
-       tool.add_relation(ClutteredOn(table, group="tools"))
+   for tool in (mug, cracker_box, power_drill):
+       tool.add_relation(ClutteredOn(table, group="tools", spread=0.8))
 
-The equivalent YAML:
+The equivalent YAML. Each member declares its own relation, and the ones naming the same
+``reference`` and ``group`` are poured together as a single pile:
 
 .. code-block:: yaml
 
@@ -259,12 +260,19 @@ The equivalent YAML:
      - kind: cluttered_on
        subject: mug
        reference: table
-       params:
-         group: tools
-         spread: 0.8
+       params: {group: tools, spread: 0.8}
+     - kind: cluttered_on
+       subject: cracker_box
+       reference: table
+       params: {group: tools, spread: 0.8}
+     - kind: cluttered_on
+       subject: power_drill
+       reference: table
+       params: {group: tools, spread: 0.8}
 
-Objects sharing a ``reference`` and a ``group`` form one pile. A support may hold several
-groups, and each is poured separately.
+A support may hold several groups, and each is poured separately. Note that ``spread``
+repeats identically across the three: it describes the region they share, so members that
+disagree on it are rejected.
 
 Parameters describing the pile, which every member must declare identically:
 
