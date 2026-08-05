@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import warp as wp
+
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_events import get_placement_pool
 from isaaclab_arena.utils.pose import Pose
@@ -30,15 +32,6 @@ if TYPE_CHECKING:
 IDENTITY_XYZW = (0.0, 0.0, 0.0, 1.0)
 IDENTITY_POS = (0.0, 0.0, 0.0)
 
-# One RGBA color per scene-entity kind.
-KIND_COLORS: dict[str, tuple[float, float, float, float]] = {
-    "background": (1.0, 0.55, 0.0, 1.0),  # orange
-    "embodiment": (0.2, 0.6, 1.0, 1.0),  # blue
-    "object": (0.2, 0.9, 0.3, 1.0),  # green
-    "object_reference": (0.95, 0.35, 0.9, 1.0),  # magenta
-    "other": (0.85, 0.85, 0.2, 1.0),  # yellow
-}
-
 MAX_MESH_EDGES = 8000
 STATIC_GEOMETRY_ROOT = "/World/IsaacLabArenaPlacementStaticGeometry"
 
@@ -48,7 +41,6 @@ class _OverlayEntry:
     """One placement geometry entity scheduled for drawing."""
 
     name: str
-    kind: str
     color: tuple[float, float, float, float]
     asset: CollisionObject
     mesh: trimesh.Trimesh | None
@@ -88,7 +80,7 @@ class PlacementGeometryDraw:
         for entry in self._entries:
             geom_label = "AABB+mesh" if entry.mesh is not None else "AABB"
             print(
-                f"[placement_debug] {entry.kind} '{entry.name}' {geom_label} color={entry.color}",
+                f"[placement_debug] '{entry.name}' {geom_label} color={entry.color}",
                 flush=True,
             )
 
@@ -145,11 +137,7 @@ class PlacementGeometryDraw:
         self._static_geometry_drawn = False
 
     def _build_entries(self, pool: PooledObjectPlacer) -> list[_OverlayEntry]:
-        from isaaclab_arena.assets.object_reference import ObjectReference
-
-        assets: list[tuple[CollisionObject, bool]] = [
-            (asset, asset.is_anchor or isinstance(asset, ObjectReference)) for asset in pool.objects
-        ]
+        assets: list[tuple[CollisionObject, bool]] = [(asset, asset.is_anchor) for asset in pool.objects]
         assets.extend((asset, True) for asset in pool.collision_objects)
         entries: list[_OverlayEntry] = []
         seen: set[int] = set()
@@ -158,13 +146,11 @@ class PlacementGeometryDraw:
             if asset_id in seen:
                 continue
             seen.add(asset_id)
-            kind = classify_entity_kind(asset)
             mesh = asset.get_collision_mesh() if object_uses_mesh_collision(asset, self._default_mode) else None
             entries.append(
                 _OverlayEntry(
-                    name=getattr(asset, "name", kind),
-                    kind=kind,
-                    color=KIND_COLORS.get(kind, KIND_COLORS["other"]),
+                    name=asset.name,
+                    color=_color_for_asset(asset),
                     asset=asset,
                     mesh=mesh,
                     is_static=is_static,
@@ -226,8 +212,8 @@ class PlacementGeometryDraw:
         curves.CreateDisplayOpacityAttr([entry.color[3]])
 
 
-def classify_entity_kind(asset: CollisionObject) -> str:
-    """Return the legend kind for a collision / placement asset."""
+def _color_for_asset(asset: CollisionObject) -> tuple[float, float, float, float]:
+    """Return the debug color for a collision asset's entity kind."""
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -235,14 +221,14 @@ def classify_entity_kind(asset: CollisionObject) -> str:
     from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
 
     if isinstance(asset, (FixedCollisionObject, Background)):
-        return "background"
+        return (1.0, 0.55, 0.0, 1.0)  # orange
     if isinstance(asset, EmbodimentBase):
-        return "embodiment"
+        return (0.2, 0.6, 1.0, 1.0)  # blue
     if isinstance(asset, ObjectReference):
-        return "object_reference"
+        return (0.95, 0.35, 0.9, 1.0)  # magenta
     if isinstance(asset, Object):
-        return "object"
-    return "other"
+        return (0.2, 0.9, 0.3, 1.0)  # green
+    return (0.85, 0.85, 0.2, 1.0)  # yellow
 
 
 def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
@@ -259,14 +245,11 @@ def _live_pose_for_asset(env, asset: CollisionObject) -> Pose | None:
 
     scene = env.unwrapped.scene
     scene_key = asset.get_scene_key()
-    try:
-        scene_asset = scene[scene_key]
-    except KeyError:
-        scene_asset = None
+    scene_asset = scene[scene_key] if scene_key in scene.keys() else None
     if scene_asset is not None and hasattr(scene_asset, "data") and hasattr(scene_asset.data, "root_pos_w"):
-        pos = scene_asset.data.root_pos_w[0].detach().cpu().tolist()
+        pos = wp.to_torch(scene_asset.data.root_pos_w)[0].detach().cpu().tolist()
         # Isaac Lab root_quat_w is (x, y, z, w) — same as Arena Pose.rotation_xyzw.
-        quat_xyzw = scene_asset.data.root_quat_w[0].detach().cpu().tolist()
+        quat_xyzw = wp.to_torch(scene_asset.data.root_quat_w)[0].detach().cpu().tolist()
         return Pose(
             position_xyz=tuple(float(v) for v in pos),
             rotation_xyzw=tuple(float(v) for v in quat_xyzw),

@@ -18,7 +18,7 @@ from isaaclab_arena.visualization.isaac_sim_debug_draw import (
     transform_trimesh_vertices,
     trimesh_edge_segments,
 )
-from isaaclab_arena.visualization.placement_geometry_draw import KIND_COLORS, classify_entity_kind
+from isaaclab_arena.visualization.placement_geometry_draw import _color_for_asset
 
 
 def test_oriented_bbox_corners_identity_pose():
@@ -93,20 +93,14 @@ def test_transform_trimesh_vertices_identity():
     assert np.allclose(out, verts)
 
 
-def test_kind_colors_cover_expected_kinds():
-    for kind in ("background", "embodiment", "object", "object_reference", "other"):
-        assert kind in KIND_COLORS
-        assert len(KIND_COLORS[kind]) == 4
-
-
-def test_classify_entity_kind_fixed_collision_object():
+def test_color_for_fixed_collision_object_uses_background_color():
     import trimesh
 
     from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
 
     mesh = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
     fixed = FixedCollisionObject(mesh, name="fixed_collision_mesh")
-    assert classify_entity_kind(fixed) == "background"
+    assert _color_for_asset(fixed) == (1.0, 0.55, 0.0, 1.0)
 
 
 def test_live_pose_fallback_collapses_per_env_and_ranged_poses():
@@ -132,6 +126,40 @@ def test_live_pose_fallback_collapses_per_env_and_ranged_poses():
     assert _live_pose_for_asset(env, asset).position_xyz == pytest.approx((1.0, 3.0, 5.0))
 
 
+def test_live_pose_converts_warp_scene_buffers_to_torch(monkeypatch):
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.visualization import placement_geometry_draw
+
+    class _Placeable(PlaceableAsset):
+        def get_bounding_box(self):
+            return AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 1.0))
+
+    position_buffer = object()
+    quaternion_buffer = object()
+    scene_asset = SimpleNamespace(
+        data=SimpleNamespace(root_pos_w=position_buffer, root_quat_w=quaternion_buffer),
+    )
+    env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"asset": scene_asset}))
+    asset = _Placeable(name="asset")
+    monkeypatch.setattr(asset, "get_scene_key", lambda: "asset")
+
+    converted = {
+        position_buffer: torch.tensor([[1.0, 2.0, 3.0]]),
+        quaternion_buffer: torch.tensor([[0.0, 0.0, 0.0, 1.0]]),
+    }
+    monkeypatch.setattr(placement_geometry_draw.wp, "to_torch", converted.__getitem__)
+
+    pose = placement_geometry_draw._live_pose_for_asset(env, asset)
+
+    assert pose is not None
+    assert pose.position_xyz == pytest.approx((1.0, 2.0, 3.0))
+    assert pose.rotation_xyzw == pytest.approx((0.0, 0.0, 0.0, 1.0))
+
+
 def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
     from types import SimpleNamespace
 
@@ -147,7 +175,6 @@ def test_redraw_reports_persistent_aabb_failure_once(monkeypatch, capsys):
     asset = _BrokenAsset()
     entry = placement_geometry_draw._OverlayEntry(
         name="broken",
-        kind="other",
         color=(1.0, 1.0, 0.0, 1.0),
         asset=asset,
         mesh=None,
@@ -194,7 +221,6 @@ def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
     entries = [
         placement_geometry_draw._OverlayEntry(
             name="static",
-            kind="other",
             color=(1.0, 1.0, 0.0, 1.0),
             asset=static_asset,
             mesh=None,
@@ -202,7 +228,6 @@ def test_redraw_skips_static_entries_and_transforms_live_aabb(monkeypatch):
         ),
         placement_geometry_draw._OverlayEntry(
             name="live",
-            kind="other",
             color=(1.0, 1.0, 0.0, 1.0),
             asset=live_asset,
             mesh=None,
