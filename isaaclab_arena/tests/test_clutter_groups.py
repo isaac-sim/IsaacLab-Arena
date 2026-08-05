@@ -248,13 +248,47 @@ def test_kinematic_rigid_support_is_accepted():
     assert_support_can_hold_a_pile(_group_on(support))
 
 
-def test_support_without_a_physics_body_is_accepted():
+def test_base_config_without_the_kinematic_flag_is_refused():
+    """A base config is not evidence of no dynamics: Arena backgrounds are BASE yet spawn bodies."""
     from isaaclab.assets import AssetBaseCfg
 
     support = _CfgAsset("ground", AssetBaseCfg(prim_path="/World/ground"))
     support.add_relation(IsAnchor())
 
+    with pytest.raises(AssertionError, match="which physics can move"):
+        assert_support_can_hold_a_pile(_group_on(support))
+
+
+def test_base_config_carrying_a_kinematic_body_is_accepted():
+    """This is the real shape of office_table_background: ObjectType.BASE with rigid_props."""
+    from isaaclab.assets import AssetBaseCfg
+    from isaaclab.sim.schemas import RigidBodyPropertiesCfg
+    from isaaclab.sim.spawners.shapes import CuboidCfg
+
+    cfg = AssetBaseCfg(
+        prim_path="/World/table",
+        spawn=CuboidCfg(size=(1.0, 1.0, 1.0), rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True)),
+    )
+    support = _CfgAsset("table", cfg)
+    support.add_relation(IsAnchor())
+
     assert_support_can_hold_a_pile(_group_on(support))
+
+
+def test_articulated_support_is_refused_even_when_its_root_is_kinematic():
+    """Pinning the root says nothing about the links and joints carrying the pile."""
+    from isaaclab.assets import ArticulationCfg
+    from isaaclab.sim.schemas import RigidBodyPropertiesCfg
+    from isaaclab.sim.spawners.from_files import UsdFileCfg
+
+    cfg = ArticulationCfg(
+        spawn=UsdFileCfg(usd_path="/tmp/none.usd", rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True))
+    )
+    support = _CfgAsset("cabinet", cfg)
+    support.add_relation(IsAnchor())
+
+    with pytest.raises(AssertionError, match="which physics can move"):
+        assert_support_can_hold_a_pile(_group_on(support))
 
 
 def test_support_that_cannot_report_its_config_is_refused():
@@ -305,3 +339,13 @@ def test_relations_between_non_clutter_assets_are_untouched():
     other.add_relation(On(table))
 
     assert_relations_do_not_target_clutter([table, member, other])
+
+
+def test_member_may_carry_a_rotate_marker():
+    """The pour reads RotateAroundSolution itself, so it is honoured rather than dropped."""
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+
+    table, (member,) = _table_with("member")
+    member.add_relation(RotateAroundSolution(pitch_rad=1.0))
+
+    assert_relations_do_not_target_clutter([table, member])

@@ -163,21 +163,26 @@ def support_pose_from_layout(
     support that is neither has no pose yet, which is a caller error rather than a default.
     """
     declared = support.get_initial_pose()
-    # A pour is captured against one support pose, so a declaration that stands for several --
-    # a range to sample from, or a pose per env -- has no single answer to give here. Refusing
-    # is honest; reading position_xyz off one would raise AttributeError from inside the pour.
-    assert declared is None or isinstance(declared, Pose), (
-        f"Clutter support '{support.name}' declares its initial pose as {type(declared).__name__}, "
-        "which does not resolve to one world pose. A pile is poured onto a definite surface, so its "
-        "support must declare a concrete Pose."
-    )
+
+    def _concrete(field: str):
+        # Only the declaration actually being read has to resolve to one pose. A support the
+        # layout solved outright never reaches here, so a range it happens to declare is
+        # irrelevant rather than an error. Reading the field off one would otherwise raise
+        # AttributeError from inside the pour instead of naming the problem.
+        assert isinstance(declared, Pose), (
+            f"Clutter support '{support.name}' falls back to its declared initial pose, which is a "
+            f"{type(declared).__name__} and does not resolve to one world pose. A pile is poured "
+            "onto a definite surface, so a support the layout does not place must declare a Pose."
+        )
+        return getattr(declared, field)
+
     position = layout.positions.get(support)
     if position is None:
         assert declared is not None, (
             f"Clutter support '{support.name}' has neither a solved position nor a declared "
             "initial pose, so there is nothing to pour onto."
         )
-        position = declared.position_xyz
+        position = _concrete("position_xyz")
 
     # A solved support's rotation comes from the layout composed with its marker; an anchored
     # one keeps the pose it was declared with. Synthesising a yaw-only rotation here would also
@@ -185,7 +190,7 @@ def support_pose_from_layout(
     if support in layout.rotations or support in layout.orientations:
         rotation = _world_rotation_from_layout(support, layout)
     elif declared is not None:
-        rotation = declared.rotation_xyzw
+        rotation = _concrete("rotation_xyzw")
     else:
         rotation = get_rotation_xyzw(support)
 

@@ -10,7 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import ClutteredOn
+from isaaclab_arena.relations.relations import ClutteredOn, RotateAroundSolution
+
+_RELATIONS_A_MEMBER_MAY_CARRY = (ClutteredOn, RotateAroundSolution)
+"""Relations a poured member may declare.
+
+``RotateAroundSolution`` survives because the pour reads it directly when composing a member's
+drop rotation, rather than relying on the solver to apply it.
+"""
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -112,7 +119,7 @@ def assert_relations_do_not_target_clutter(objects: list[PlaceableAsset]) -> Non
         if id(asset) not in members:
             continue
         for relation in asset.get_relations():
-            assert isinstance(relation, ClutteredOn), (
+            assert isinstance(relation, _RELATIONS_A_MEMBER_MAY_CARRY), (
                 f"Clutter member '{asset.name}' also declares {type(relation).__name__}, which the "
                 "pour cannot honour: members are held out of the solve, so the relation would be "
                 "silently ignored. Pour the member, or place it with relations instead of pouring it."
@@ -126,17 +133,21 @@ def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     kinematic. A rigid body that is merely marked ``IsAnchor`` does not qualify: the marker fixes
     the asset for the relation solver, which is arithmetic, and says nothing about the simulation.
     """
-    from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+    from isaaclab.assets import ArticulationCfg
 
     get_object_cfg = getattr(support, "get_object_cfg", None)
     if get_object_cfg is None:
         return False
     _, cfg = get_object_cfg()
-    if isinstance(cfg, (RigidObjectCfg, ArticulationCfg)):
-        rigid_props = getattr(getattr(cfg, "spawn", None), "rigid_props", None)
-        return bool(getattr(rigid_props, "kinematic_enabled", False))
-    # Anything else spawns without a dynamics body, so physics has nothing to push.
-    return True
+    # Pinning an articulation's root says nothing about its links and joints, which carry the
+    # pile and can move under it.
+    if isinstance(cfg, ArticulationCfg):
+        return False
+    # Judge the spawner, not the config class. A base config is not evidence of no dynamics:
+    # Arena's backgrounds are ObjectType.BASE yet spawn rigid bodies through spawn_cfg_addon,
+    # so the kinematic flag is the only claim here that physics actually honours.
+    rigid_props = getattr(getattr(cfg, "spawn", None), "rigid_props", None)
+    return bool(getattr(rigid_props, "kinematic_enabled", False))
 
 
 def assert_support_can_hold_a_pile(group: ClutterGroup) -> None:

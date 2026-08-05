@@ -436,3 +436,19 @@ def test_support_pose_that_stands_for_several_is_rejected():
         support._pose = declared
         with pytest.raises(AssertionError, match="does not resolve to one world pose"):
             support_pose_from_layout(support, _Layout())
+
+
+def test_solved_support_pose_is_used_without_consulting_the_declaration():
+    """A layout that places the support outright never reads its declaration, range or not."""
+    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
+    from isaaclab_arena.utils.pose import PoseRange
+
+    support = _Asset("table")
+    support._pose = PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0))
+    layout = _Layout()
+    layout.positions[support] = (0.5, 0.5, 0.0)
+    layout.rotations[support] = (0.0, 0.0, 0.0, 1.0)
+
+    position, rotation = support_pose_from_layout(support, layout)
+    assert position == (0.5, 0.5, 0.0)
+    assert rotation == (0.0, 0.0, 0.0, 1.0)
