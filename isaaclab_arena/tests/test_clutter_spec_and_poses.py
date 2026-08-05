@@ -141,3 +141,28 @@ def test_a_scalar_yaw_still_composes_with_its_marker():
 def test_pose_requires_the_asset_to_be_in_the_layout():
     with pytest.raises(AssertionError, match="missing non-anchor asset"):
         get_pose_from_layout(_Asset("absent"), _Layout())
+
+
+# --------------------------------------------------------------- pour seed derivation
+
+
+def test_pour_seeds_differ_for_every_layout_of_one_placement_seed():
+    from isaaclab_arena.relations.object_placer import clutter_pour_seed
+
+    seeds = {clutter_pour_seed(0, env, layout) for env in range(4) for layout in range(5)}
+    assert len(seeds) == 20, "each (env, layout) pair needs its own pour"
+
+
+def test_pour_seeds_do_not_collide_across_placement_seeds():
+    """A stride-offset scheme gives these two the same seed, so both scenes get one pile."""
+    from isaaclab_arena.relations.object_placer import clutter_pour_seed
+
+    assert clutter_pour_seed(0, 0, 1) != clutter_pour_seed(1_000_003, 0, 0)
+    assert clutter_pour_seed(5, 0, 2) != clutter_pour_seed(5 + 2 * 1_000_003, 0, 0)
+
+
+def test_pour_seed_is_stable_and_in_range():
+    from isaaclab_arena.relations.object_placer import clutter_pour_seed
+
+    assert clutter_pour_seed(7, 1, 2) == clutter_pour_seed(7, 1, 2)
+    assert 0 <= clutter_pour_seed(2**40, 3, 4) < 2**63

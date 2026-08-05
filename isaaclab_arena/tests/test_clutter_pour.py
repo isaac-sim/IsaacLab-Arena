@@ -265,9 +265,9 @@ def test_pour_avoids_an_object_already_on_the_support():
 
     resident_top = 0.2 + 0.1
     lowest = min(layout.positions[member][2] for member in members)
-    assert lowest > resident_top, (
-        f"a member was released at z={lowest:.3f}, at or below the resident's top {resident_top:.3f}"
-    )
+    assert (
+        lowest > resident_top
+    ), f"a member was released at z={lowest:.3f}, at or below the resident's top {resident_top:.3f}"
 
 
 def test_objects_below_the_support_surface_are_ignored():

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -37,9 +38,19 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
-# Spacing between the seeds of successive clutter pours, so layouts drawn from one placement
-# seed do not reuse each other's random draws.
-_CLUTTER_SEED_STRIDE = 1_000_003
+_MAX_SEED = (1 << 63) - 1
+"""Largest seed torch accepts without wrapping."""
+
+
+def clutter_pour_seed(placement_seed: int, env_index: int, layout_index: int) -> int:
+    """Derive the seed for one pour from the placement seed and the layout it belongs to.
+
+    The three inputs are mixed rather than combined arithmetically, because offsetting a shared
+    seed by a per-layout stride collides whenever two configurations reach the same total, and
+    two scenes that should differ then get an identical pile.
+    """
+    payload = f"{placement_seed}:{env_index}:{layout_index}".encode()
+    return int.from_bytes(hashlib.blake2b(payload, digest_size=8).digest(), "big") & _MAX_SEED
 
 
 @dataclass
@@ -348,9 +359,7 @@ class ObjectPlacer:
         generator = torch.Generator()
         for env_index, env_results in enumerate(ranked_results):
             for result_index, layout in enumerate(env_results):
-                generator.manual_seed(
-                    self.params.placement_seed + _CLUTTER_SEED_STRIDE * (env_index * len(env_results) + result_index)
-                )
+                generator.manual_seed(clutter_pour_seed(self.params.placement_seed, env_index, result_index))
                 # Each entry already holds one env's boxes, each of shape (1, 3).
                 plan_clutter_drops(layout, groups, self._per_env_bboxes[env_index], generator, env_index=0)
 
