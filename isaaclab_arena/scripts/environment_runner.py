@@ -19,6 +19,12 @@ Run an environment graph spec:
 
     python isaaclab_arena/scripts/environment_runner.py \
         --env_spec isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+
+Overlay placement AABBs / MESH collision wireframes:
+
+    python isaaclab_arena/scripts/environment_runner.py \
+        --show_placement_overlay \
+        --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.rate_limiter import RateLimiter
+from isaaclab_arena.visualization.placement_geometry_draw import PlacementGeometryDraw
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -49,6 +56,19 @@ def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert not args_cli.distributed, "environment_runner does not support distributed execution"
     assert not args_cli.list_variations, "environment_runner does not support --list_variations"
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
+
+
+def _add_environment_runner_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add placement wireframe overlay flags before the environment subparser."""
+    group = parser.add_argument_group("Environment Runner Arguments")
+    group.add_argument(
+        "--show_placement_overlay",
+        action="store_true",
+        help=(
+            "Overlay relation-solver placement AABBs and MESH-mode collision meshes as Kit wireframes, "
+            "with a console legend of colors and entity names."
+        ),
+    )
 
 
 def _parse_interactive_runner_args(
@@ -112,11 +132,25 @@ def _create_interactive_environment(
 def run_environment(
     simulation_app: SimulationAppContext,
     env: gym.Env,
+    *,
+    show_placement_overlay: bool = False,
 ) -> None:
     """Reset once, then run one environment with zero actions until Kit closes."""
     env.reset()
     zero_actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
     rate_limiter = RateLimiter(period_seconds=env.unwrapped.step_dt)
+
+    placement_overlay = None
+    if show_placement_overlay:
+        placement_overlay = PlacementGeometryDraw.from_env(env)
+        if placement_overlay is None:
+            print(
+                "[environment_runner] --show_placement_overlay set but no placement pool on the env; skipping overlay.",
+                flush=True,
+            )
+        else:
+            placement_overlay.print_legend()
+            placement_overlay.redraw(env)
 
     print(
         "[environment_runner] Environment running. Hold Shift, then left-drag a physics object.",
@@ -128,9 +162,14 @@ def run_environment(
         with torch.inference_mode():
             while simulation_app.is_running() and not simulation_app.is_exiting():
                 env.step(zero_actions)
+                if placement_overlay is not None:
+                    placement_overlay.redraw(env)
                 rate_limiter.sleep()
     except KeyboardInterrupt:
         print("\n[environment_runner] Exiting.", flush=True)
+    finally:
+        if placement_overlay is not None:
+            placement_overlay.close()
 
 
 def main() -> None:
@@ -140,6 +179,7 @@ def main() -> None:
     # directly from USD state. Mouse grabbing still operates through PhysX scene queries and D6 joints.
     args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=False)
     args_parser.allow_abbrev = False
+    _add_environment_runner_arguments(args_parser)
     # AppLauncher may append Kit flags to sys.argv.
     original_cli_args = sys.argv[1:]
     args_cli, _ = args_parser.parse_known_args(original_cli_args)
@@ -152,7 +192,7 @@ def main() -> None:
         env = _create_interactive_environment(args_cli, hydra_overrides)
         try:
             _enable_mouse_interaction()
-            run_environment(simulation_app, env)
+            run_environment(simulation_app, env, show_placement_overlay=args_cli.show_placement_overlay)
         finally:
             env.close()
 
