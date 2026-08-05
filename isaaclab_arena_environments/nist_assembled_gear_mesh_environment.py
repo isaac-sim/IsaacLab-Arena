@@ -82,5 +82,5 @@ class NistAssembledGearMeshEnvironment(ArenaEnvironmentFactory[NistAssembledGear
             scene=scene,
             task=task,
             teleop_device=None,
-            env_cfg_callback=mdp.assembly_env_cfg_callback,
+            env_cfg_callback=mdp.nist_gear_insertion_env_cfg_callback,
         )

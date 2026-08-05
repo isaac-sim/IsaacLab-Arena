@@ -24,7 +24,9 @@ class ArenaPhysicsCfg(PresetCfg):
 
     ``default`` / ``physx`` use the stock PhysX backend.
     ``newton`` uses MuJoCo-Warp via Newton with solver parameters tuned
-    for dexterous manipulation (matches ``KukaAllegroPhysicsCfg.newton``).
+    for assembly tasks. ``impratio=1.0`` (MuJoCo default) keeps initial
+    contact forces stable; ``num_substeps=4`` gives fine-grained contact
+    resolution at the same 30 Hz control rate.
     """
 
     physx = PhysxCfg()
@@ -34,16 +36,16 @@ class ArenaPhysicsCfg(PresetCfg):
             integrator="implicitfast",
             njmax=300,
             nconmax=400,
-            impratio=10.0,
+            impratio=1.0,
             cone="elliptic",
             update_data_interval=2,
             iterations=100,
-            ls_iterations=15,
+            ls_iterations=50,
             ls_parallel=False,
             use_mujoco_contacts=False,
             ccd_iterations=15000,
         ),
-        num_substeps=2,
+        num_substeps=4,
         debug_mode=False,
     )
     default = physx

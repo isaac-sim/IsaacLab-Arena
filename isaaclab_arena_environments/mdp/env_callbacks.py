@@ -70,3 +70,45 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
     env_cfg.decimation = 2
 
     return env_cfg
+
+
+def nist_gear_insertion_env_cfg_callback(
+    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
+) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    """Assembly callback for NIST gear insertion, extended with a Newton-compatible gear-landing slab.
+
+    The SeattleLabTable USD uses USD point instancing, so its CollisionAPI meshes are not
+    reachable at runtime. Newton requires an explicit RigidBodyAPI prim for contact generation,
+    while PhysX handles the table's USD collision geometry automatically.
+
+    A small invisible kinematic cuboid (0.30 x 0.30 x 0.10 m) is added directly under the
+    medium NIST gear drop zone (0.50, -0.24). It is sized to cover only the gear landing area,
+    keeping it well clear of the DROID robot arm workspace so that arm-table contacts (which
+    cause Newton constraint divergence for high-stiffness joints) cannot occur.
+    """
+    from isaaclab.assets.rigid_object import RigidObjectCfg
+    from isaaclab.sim.schemas import CollisionPropertiesCfg, RigidBodyPropertiesCfg
+    from isaaclab.sim.spawners.shapes import CuboidCfg
+
+    env_cfg = assembly_env_cfg_callback(env_cfg)
+
+    # Surface at z = -0.017 m (PhysX-measured gear resting height).
+    # The thick slab prevents high-velocity gear drops from tunneling through in
+    # a single Newton control step.
+    # Center = surface - half_thickness = -0.017 - 0.05 = -0.067 m.
+    _SLAB_HALF_T = 0.05
+    env_cfg.scene.gear_landing_slab = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/gear_landing_slab",
+        spawn=CuboidCfg(
+            size=(0.30, 0.30, _SLAB_HALF_T * 2),
+            rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True),
+            collision_props=CollisionPropertiesCfg(contact_offset=0.005),
+            visible=False,
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(
+            pos=(0.50, -0.24, -0.017 - _SLAB_HALF_T),
+            rot=(0.0, 0.0, 0.0, 1.0),
+        ),
+    )
+
+    return env_cfg
