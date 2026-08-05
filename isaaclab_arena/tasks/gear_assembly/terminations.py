@@ -59,10 +59,21 @@ class selected_gear_on_base(ManagerTermBase):
         rigid_prim = selected_gear_on_base._rigid_body_prim(root_prim)
         assert rigid_prim is not None, f"{asset.cfg.prim_path} has no rigid-body prim"
 
-        bbox_cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_], useExtentsHint=True)
+        bbox_cache = UsdGeom.BBoxCache(
+            0,
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.guide],
+            useExtentsHint=True,
+        )
         corners = []
-        for prim in Usd.PrimRange(root_prim):
-            if not prim.HasAPI(UsdPhysics.CollisionAPI) or not prim.IsA(UsdGeom.Boundable):
+        for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
+            if not prim.IsA(UsdGeom.Boundable):
+                continue
+            collision_prim = prim
+            while collision_prim != root_prim and not collision_prim.HasAPI(UsdPhysics.CollisionAPI):
+                collision_prim = collision_prim.GetParent()
+            if not collision_prim.HasAPI(UsdPhysics.CollisionAPI):
+                continue
+            if UsdPhysics.CollisionAPI(collision_prim).GetCollisionEnabledAttr().Get() is False:
                 continue
             local_box = bbox_cache.ComputeRelativeBound(prim, rigid_prim).ComputeAlignedBox()
             box_min = local_box.GetMin()
@@ -107,11 +118,20 @@ class selected_gear_on_base(ManagerTermBase):
             return values[gear_type_indices]
         return torch.full((env.num_envs,), float(value), device=env.device, dtype=torch.float32)
 
+    def _selected_offset(
+        self, value: dict[str, list[float]] | None, gear_type_indices: torch.Tensor, env: ManagerBasedEnv
+    ) -> torch.Tensor:
+        if value is None:
+            return torch.zeros((env.num_envs, 3), device=env.device, dtype=torch.float32)
+        offsets = torch.tensor([value[gear_name] for gear_name in self.gear_names], device=env.device)
+        return offsets[gear_type_indices]
+
     def __call__(
         self,
         env: ManagerBasedEnv,
         base_asset_cfg: SceneEntityCfg = SceneEntityCfg("factory_gear_base"),
         root_z_above_base: float | dict[str, float] = 0.03,
+        root_xy_offset_from_base: dict[str, list[float]] | None = None,
         xy_threshold: float = 0.015,
         z_threshold: float = 0.01,
         upright_axis_threshold_deg: float = 15.0,
@@ -127,6 +147,7 @@ class selected_gear_on_base(ManagerTermBase):
             env: Environment instance.
             base_asset_cfg: Configuration of the gear-base asset.
             root_z_above_base: Expected selected gear root height above the base root.
+            root_xy_offset_from_base: Expected gear-root offset in the base frame for each gear type.
             xy_threshold: Maximum allowed root XY error relative to the base root.
             z_threshold: Maximum allowed root height error relative to ``root_z_above_base``.
             upright_axis_threshold_deg: Maximum allowed local-Z axis angle between gear and base.
@@ -180,7 +201,9 @@ class selected_gear_on_base(ManagerTermBase):
         base_pos = self.base_asset.data.root_link_pos_w.torch
         base_quat = self.base_asset.data.root_link_quat_w.torch
 
-        xy_error = torch.linalg.norm(gear_pos[:, :2] - base_pos[:, :2], dim=-1)
+        root_offsets = self._selected_offset(root_xy_offset_from_base, gear_type_indices, env)
+        root_targets = base_pos + math_utils.quat_apply(base_quat, root_offsets)
+        xy_error = torch.linalg.norm(gear_pos[:, :2] - root_targets[:, :2], dim=-1)
         root_z_targets = self._selected_param(root_z_above_base, gear_type_indices, env)
         z_error = torch.abs((gear_pos[:, 2] - base_pos[:, 2]) - root_z_targets)
         _, base_top_z = self._world_collision_z_bounds(self.base_collision_corners, base_pos, base_quat)

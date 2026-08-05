@@ -31,7 +31,7 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
+from isaaclab_arena.embodiments.droid.actions import DROID_GRIPPER_JOINT_NAMES, BinaryJointPositionZeroToOneAction
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
@@ -54,6 +54,18 @@ _DROID_STAND_PRIM = StandPrimSpec(
     footprint_scale_xy=(1.2, 1.2),
     stand_default_height=1.35,
 )
+
+
+def configure_droid_robot_for_newton(robot_cfg: ArticulationCfg) -> None:
+    """Configure explicit Robotiq mimic-joint drives for Newton."""
+    robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
+        joint_names_expr=list(DROID_GRIPPER_JOINT_NAMES),
+        effort_limit_sim=5.0,
+        velocity_limit_sim=1.0,
+        stiffness=20.0,
+        damping=5.0,
+        armature=0.1,
+    )
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -283,7 +295,7 @@ class DroidSceneCfg:
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
                 offset=OffsetCfg(
                     pos=[0.0, 0.0, 0.1034],
@@ -331,7 +343,7 @@ class DroidDifferentialIKActionsCfg:
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",
         joint_names=["panda_joint.*"],
-        body_name="panda_link0",
+        body_name="base_link",
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         scale=0.5,
         body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
