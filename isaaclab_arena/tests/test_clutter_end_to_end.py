@@ -236,7 +236,6 @@ def _test_pile_stays_settled_after_the_pool_refills(simulation_app) -> bool:
         after, _ = poses()
         drift = float((after - before).norm(dim=-1).max())
         worst_drift = max(worst_drift, drift)
-        print(f"  reset {reset_index}: drift {drift:.4f} m")
     env.close()
 
     assert worst_drift < 0.05, f"a reset placed a pile that was not settled: worst drift {worst_drift:.3f} m"
