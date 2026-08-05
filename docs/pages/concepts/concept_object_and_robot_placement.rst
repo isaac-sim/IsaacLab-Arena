@@ -58,8 +58,8 @@ for a complete Python environment definition.
 
    ``ArenaEnvBuilder`` turns an Arena environment definition into a placement
    problem. The relation solver generates collision-aware candidates, validators
-   check and rank them, and per-environment pools supply layouts for
-   environment creation and reset.
+   check them, the placer ranks survivors, and per-environment pools supply
+   layouts for environment creation and reset.
 
 .. figure:: ../../images/relations_highlevel.png
    :width: 100%
@@ -169,9 +169,10 @@ Try It Out
    remote or container session, configure display forwarding and set
    ``DISPLAY`` to the active X display, for example ``export DISPLAY=:1``.
 
-The ``pick_and_place_maple_table`` environment provides a simple placement
-example. Additional objects receive an ``On(table_reference)`` relation and are
-placed without manual pose adjustments:
+Run the following commands from the repository root. The
+``pick_and_place_maple_table`` environment provides a simple placement example.
+Additional objects receive an ``On(table_reference)`` relation and are placed
+without manual pose adjustments:
 
 .. code-block:: bash
 
@@ -183,7 +184,8 @@ placed without manual pose adjustments:
      --additional_table_objects cracker_box mug tomato_soup_can
 
 Swap the registered object names to see placement adapt to different dimensions
-and footprints.
+and footprints. The base scene already places a Rubik's cube and a bowl; the
+flag adds the extra objects onto the same table.
 
 .. figure:: ../../images/adaptive_object_placement.gif
    :width: 100%

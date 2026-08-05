@@ -117,8 +117,10 @@ look like this:
              subject: fruit
              reference: maple_table
 
-Run the complete graph example, including its table, anchor, embodiment, and
-task declarations, with:
+The snippets above show the object-set pattern. The complete graph, including
+its table, anchor, embodiment, task, and fuller fruit member list, is in
+``isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml``.
+Run it from the repository root with:
 
 .. code-block:: bash
 

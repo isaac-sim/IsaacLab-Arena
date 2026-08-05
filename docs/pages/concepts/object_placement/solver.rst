@@ -71,11 +71,20 @@ floor, offsets it from a work surface, and fixes its heading:
        params:
          yaw_rad: 1.57
 
-See
-``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``
-for the complete example. Its ``placement_bbox_stand_only: true`` option uses
-only the Droid stand footprint for placement; the robot arm is excluded from
-those placement bounds.
+The complete example is
+``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``.
+Its ``placement_bbox_stand_only: true`` option uses only the Droid stand
+footprint for placement; the robot arm is excluded from those placement bounds.
+Run it from the repository root with:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type zero_action \
+     --num_steps 100 \
+     --env_graph_spec_yaml \
+       isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
 Robot-base placement and task reachability are checked separately.
 Documentation for validation, including reachability, is forthcoming in
