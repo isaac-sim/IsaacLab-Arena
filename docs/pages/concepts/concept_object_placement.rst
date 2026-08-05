@@ -285,10 +285,14 @@ other relations in ways worth knowing:
   box, so a procedurally spawned support without geometry cannot be used.
 - **A placement seed is required.** Clutter refuses to pour without one, since a pile that
   cannot be reproduced defeats the purpose of seeding a layout.
-- **Members are excluded from overlap checking against each other.** A settled pile has
-  objects in contact by definition. They are still checked against everything else.
-- **Members do not participate in the solver.** They carry no loss term, so a clutter
-  group neither constrains nor is constrained by the optimised layout beyond its support.
+- **Members never reach the solver or the build-time checks.** A pour assigns their poses,
+  so any pose the optimiser gave them would be discarded; leaving them in would make them
+  phantom obstacles that push the genuinely constrained objects around. They are therefore
+  held out of the solver and out of every build-time validator, including overlap.
+- **The pour avoids what is already on the surface instead.** Objects the solver placed on
+  the same support, and members of earlier groups, are treated as occupied footprints and
+  clutter is released above them rather than into them. A settled pile is in contact by
+  definition, so checking it for overlap afterwards would reject correct arrangements.
 
 Anchors
 ~~~~~~~
