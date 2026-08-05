@@ -560,3 +560,75 @@ def test_admission_and_region_agree_at_the_tolerance_endpoint():
     # Refused by the guard, so the region builder is never asked to classify it.
     with pytest.raises(AssertionError, match="not a quarter turn about Z"):
         region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})
+
+
+def test_member_released_upside_down_starts_at_its_true_lowest_point():
+    """Orientation beyond yaw is authored, and the box is refitted so the drop height still holds.
+
+    A flipped member's lowest point is its far side, so reading the height off the unrotated box
+    would bury it in the support.
+    """
+    import math
+
+    support, members, bounding_boxes = _scene(1, support_position=(0.0, 0.0, 0.0))
+    members[0].add_relation(RotateAroundSolution(roll_rad=math.pi))
+    layout = _Layout()
+
+    plan_clutter_drops(
+        layout, get_clutter_groups([support, *members]), bounding_boxes, torch.Generator().manual_seed(0)
+    )
+
+    # Support half-height 0.1, member half-height 0.04, default clearance 0.01.
+    lowest_point_z = layout.positions[members[0]][2] - 0.04
+    assert lowest_point_z == pytest.approx(0.11)
+
+
+def test_declared_drop_order_reaches_the_pour():
+    """The relation's drop order must reach compute_drop_poses, not a hardcoded default.
+
+    The enum and its resolver already existed; nothing fed them, so shuffling was unreachable
+    and every pile was released in declaration order.
+    """
+    from isaaclab_arena.relations.clutter_drop_poses import DropOrder
+
+    def pour_with(order):
+        support = _Asset("table")
+        support.add_relation(IsAnchor())
+        members = [_Asset(f"item_{i}") for i in range(6)]
+        boxes = {support: _box(0.5, 0.5, 0.1)}
+        for index, member in enumerate(members):
+            member.add_relation(ClutteredOn(support, group="tools", drop_order=order))
+            # Heights differ so flattest-first has something to sort by.
+            boxes[member] = _box(0.03, 0.03, 0.08 - index * 0.01)
+        layout = _Layout()
+        plan_clutter_drops(layout, get_clutter_groups([support, *members]), boxes, torch.Generator().manual_seed(3))
+        # Keyed by declaration order, not by asset identity: each call builds fresh assets, so
+        # comparing the dicts themselves would compare disjoint keys and never be equal.
+        return [layout.positions[member] for member in members]
+
+    as_listed = pour_with(DropOrder.AS_LISTED)
+    flattest = pour_with(DropOrder.FLATTEST_FIRST)
+    # Members are declared shortest-first, so flattest-first releases them in the same sequence
+    # but assigns the grid cells in a different one. Identical poses mean the parameter never
+    # reached compute_drop_poses.
+    assert as_listed != flattest
+
+
+def test_group_members_must_agree_on_drop_order():
+    from isaaclab_arena.relations.clutter_drop_poses import DropOrder
+    from isaaclab_arena.relations.clutter_groups import assert_group_parameters_agree
+
+    support = _Asset("table")
+    support.add_relation(IsAnchor())
+    first, second = _Asset("a"), _Asset("b")
+    first.add_relation(ClutteredOn(support, group="tools", drop_order=DropOrder.AS_LISTED))
+    second.add_relation(ClutteredOn(support, group="tools", drop_order=DropOrder.SHUFFLE))
+
+    with pytest.raises(AssertionError, match="conflicting drop_order"):
+        assert_group_parameters_agree(get_clutter_groups([support, first, second])[0])
+
+
+def test_unknown_drop_order_is_rejected_at_declaration():
+    support = _Asset("table")
+    with pytest.raises(AssertionError, match="drop_order must be one of"):
+        ClutteredOn(support, group="tools", drop_order="bottom_up")

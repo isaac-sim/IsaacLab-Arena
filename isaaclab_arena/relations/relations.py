@@ -13,6 +13,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.relations.clutter_drop_poses import DropOrder
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
@@ -304,6 +305,7 @@ class ClutteredOn(RelationBase):
         gap_m: float = 0.03,
         clearance_m: float = 0.01,
         random_yaw: bool = True,
+        drop_order: DropOrder | str = DropOrder.AS_LISTED,
     ):
         """
         Args:
@@ -315,17 +317,24 @@ class ClutteredOn(RelationBase):
             gap_m: Vertical gap left between an object and whatever it is dropped on top of.
             clearance_m: Height above the support surface at which the lowest layer starts.
             random_yaw: Whether to sample a yaw per object before dropping.
+            drop_order: Order members are released in, which decides what a pile lands on top
+                of. Declaration order by default; shuffling keeps one member off the bottom of
+                every layout.
         """
         assert 0.0 < spread <= 1.0, f"spread must be in (0, 1], got {spread}"
         assert gap_m >= 0.0, f"gap_m must be non-negative, got {gap_m}"
         assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"
         assert group, "group must be a non-empty name"
+        assert drop_order in tuple(
+            DropOrder
+        ), f"drop_order must be one of {[order.value for order in DropOrder]}, got {drop_order!r}"
         self.parent = parent
         self.group = group
         self.spread = spread
         self.gap_m = gap_m
         self.clearance_m = clearance_m
         self.random_yaw = random_yaw
+        self.drop_order = DropOrder(drop_order)
 
     @staticmethod
     def is_unary() -> bool:

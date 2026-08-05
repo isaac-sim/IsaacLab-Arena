@@ -289,6 +289,43 @@ Parameters describing a single member, which may differ between them:
 - ``random_yaw`` (default ``True``) — sample a yaw for this object before dropping. Turn it
   off for one member to drop it axis-aligned while the rest are turned.
 
+Only the yaw is sampled. Any other release orientation is authored, by giving the member a
+``RotateAroundSolution`` marker that the sampled yaw is then composed onto:
+
+.. code-block:: python
+
+    mug.add_relation(ClutteredOn(table, group="tools"))
+    mug.add_relation(RotateAroundSolution(roll_rad=math.pi))  # released upside down
+
+The drop planner refits the member's bounding box to that rotation, so a flipped object still
+starts with its true lowest point at ``clearance_m`` above the surface. What cannot be expressed
+is a *distribution* over orientations: every member carrying a marker is released at exactly that
+rotation, in every environment and on every reset, and only its yaw varies. "Half of them upside
+down" needs two groups, or two members declared separately.
+
+Resting orientations are another matter — the pile tumbles as it settles, so members come to rest
+at whatever roll and pitch physics gives them, which is why a layout records full quaternions
+rather than a yaw.
+
+``drop_order`` decides the sequence members are released in, which is how you choose what a
+pile lands on top of:
+
+- ``as_listed`` (default) — declaration order, so declaring an object first puts it at the bottom
+- ``flattest_first`` — shortest first, so flat objects reach the surface before it gets lumpy
+  and lie flat rather than coming to rest on an edge
+- ``shuffle`` — randomised per layout, so no one member sits at the bottom of every pile
+
+It is pile-wide, so every member of a group must declare the same value. And it decides the
+release order only: a pile landing on the first object can still shove it aside, so it is a
+strong influence rather than a guarantee.
+
+Not yet reachable from ``cluttered_on``, and worth knowing before designing around it:
+
+- **No pile offset.** A group's region is always concentric with its support, so two groups on
+  one support are poured into the same rectangle. They avoid each other's footprints, but
+  "one pile on the left, one on the right" cannot be expressed; use two supports instead.
+- **Orientation beyond yaw is authored, not sampled**, as above.
+
 Because a pile is produced by simulation rather than optimisation, it differs from the
 other relations in ways worth knowing:
 

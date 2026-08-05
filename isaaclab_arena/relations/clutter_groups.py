@@ -94,6 +94,11 @@ def assert_group_parameters_agree(group: ClutterGroup) -> None:
                 f"'{member.name}' declares {relation.spread}, expected {shared.spread}. A pile is "
                 "poured into one region, so its members must agree on how much of the support it uses."
             )
+            assert relation.drop_order == shared.drop_order, (
+                f"Clutter group '{group.name}' on '{group.support.name}' has conflicting drop_order: "
+                f"'{member.name}' declares {relation.drop_order.value}, expected {shared.drop_order.value}. "
+                "A pile is released in one order, so its members must agree on which."
+            )
 
 
 def assert_relations_do_not_target_clutter(objects: list[PlaceableAsset]) -> None:
