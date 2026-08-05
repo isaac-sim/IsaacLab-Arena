@@ -103,7 +103,7 @@ def test_color_for_fixed_collision_object_uses_background_color():
     assert _color_for_asset(fixed) == (1.0, 0.55, 0.0, 1.0)
 
 
-def test_live_pose_fallback_collapses_per_env_and_ranged_poses():
+def test_live_pose_fallback_accepts_only_fixed_pose():
     from types import SimpleNamespace
 
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -119,11 +119,16 @@ def test_live_pose_fallback_collapses_per_env_and_ranged_poses():
     asset = _Placeable(name="missing_from_scene")
     env_zero_pose = Pose(position_xyz=(1.0, 2.0, 3.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
-    asset.initial_pose = PosePerEnv([env_zero_pose])
+    assert _live_pose_for_asset(env, asset) is None
+
+    asset.initial_pose = env_zero_pose
     assert _live_pose_for_asset(env, asset) == env_zero_pose
 
+    asset.initial_pose = PosePerEnv([env_zero_pose])
+    assert _live_pose_for_asset(env, asset) is None
+
     asset.initial_pose = PoseRange(position_xyz_min=(0.0, 2.0, 4.0), position_xyz_max=(2.0, 4.0, 6.0))
-    assert _live_pose_for_asset(env, asset).position_xyz == pytest.approx((1.0, 3.0, 5.0))
+    assert _live_pose_for_asset(env, asset) is None
 
 
 def test_live_pose_converts_warp_scene_buffers_to_torch(monkeypatch):
