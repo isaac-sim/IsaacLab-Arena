@@ -452,3 +452,33 @@ def test_solved_support_pose_is_used_without_consulting_the_declaration():
     position, rotation = support_pose_from_layout(support, layout)
     assert position == (0.5, 0.5, 0.0)
     assert rotation == (0.0, 0.0, 0.0, 1.0)
+
+
+def test_off_axis_support_is_rejected_by_the_pour_itself():
+    """The limitation must hold on its own, not by relying on the anchor bounding box upstream."""
+    import math
+
+    from isaaclab_arena.relations.clutter_pour import region_for_support
+
+    support = _Asset("table")
+    support._pose = Pose(
+        position_xyz=(0.0, 0.0, 0.0),
+        rotation_xyzw=(0.0, 0.0, math.sin(math.pi / 8.0), math.cos(math.pi / 8.0)),
+    )
+    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
+        region_for_support(support, _Layout(), {support: _box(0.5, 0.5, 0.1)})
+
+
+def test_quarter_turned_support_is_accepted_by_the_pour():
+    import math
+
+    from isaaclab_arena.relations.clutter_pour import region_for_support
+
+    support = _Asset("table")
+    support._pose = Pose(
+        position_xyz=(0.0, 0.0, 0.0),
+        rotation_xyzw=(0.0, 0.0, math.sin(math.pi / 4.0), math.cos(math.pi / 4.0)),
+    )
+    region = region_for_support(support, _Layout(), {support: _box(0.5, 0.3, 0.1)})
+    # A quarter turn swaps the footprint's extents.
+    assert (region.max_x - region.min_x) == pytest.approx(0.6)

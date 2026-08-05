@@ -26,6 +26,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
 from isaaclab_arena.relations.relations import ClutteredOn
+from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
@@ -211,7 +212,27 @@ def region_for_support(
     that does not will reject exactly the layouts the pour got right.
     """
     position, rotation = support_pose_from_layout(support, layout)
+    _assert_support_is_axis_aligned(support, rotation)
     return region_above_support(position, bounding_boxes[support], spread, env_index, rotation)
+
+
+def _assert_support_is_axis_aligned(support: PlaceableAsset, rotation_xyzw: tuple[float, float, float, float]) -> None:
+    """Reject a support turned off the world axes.
+
+    Both the region a pile is poured into and the region it is judged against are axis-aligned
+    boxes. Over a support turned off-axis neither describes its surface, so the pour would place
+    members past an edge and the check would pass them there. Asserting here covers anchored and
+    solved supports alike; leaving it to the anchor bounding box misses the solved ones and
+    reports the wrong abstraction's complaint.
+    """
+    try:
+        quaternion_to_90_deg_z_quarters(rotation_xyzw)
+    except AssertionError as error:
+        raise AssertionError(
+            f"Clutter support '{support.name}' is rotated {rotation_xyzw}, which is not a quarter "
+            "turn about Z. A pile is poured into and judged against axis-aligned boxes, so neither "
+            "would describe this support's surface. Off-axis supports are not yet supported."
+        ) from error
 
 
 def occupied_footprints_in_region(
