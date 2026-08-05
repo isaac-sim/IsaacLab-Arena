@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +15,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     EnvironmentGenerationAgent,
     build_asset_catalogue,
     build_relation_catalogue,
+    build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadyCandidateCatalogue,
@@ -40,6 +42,29 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import task_catal
 # ---------------------------------------------------------------------------
 
 
+class _TestTaskMode(Enum):
+    FAST = "fast"
+    PRECISE = "precise"
+
+
+class _TestTask:
+    """Test task."""
+
+    agent_ready = True
+
+    def __init__(self, target, mode: _TestTaskMode = _TestTaskMode.FAST, retries: int = 1):
+        pass
+
+
+class _TestTaskRegistry:
+    def get_all_keys(self):
+        return ["TestTask"]
+
+    def get_task_by_name(self, name):
+        assert name == "TestTask"
+        return _TestTask
+
+
 @pytest.fixture
 def agent(stub_openai):
     """A constructed ``EnvironmentGenerationAgent`` with a fully mocked openai client."""
@@ -47,6 +72,15 @@ def agent(stub_openai):
     a = EnvironmentGenerationAgent(api_key="test-key")
     client.chat.completions.create.reset_mock()
     return a, client
+
+
+def test_task_catalogue_collects_required_optional_and_enum_params():
+    catalogue = build_task_catalogue(_TestTaskRegistry())
+
+    assert (
+        catalogue.to_catalog_string()
+        == "TASKS (1):\n- TestTask (required: target; optional: mode={fast, precise}, retries): Test task."
+    )
 
 
 def test_relation_catalogue_collects_required_optional_and_enum_params():

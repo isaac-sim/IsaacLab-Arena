@@ -22,7 +22,6 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     search_simready_objects,
 )
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
-from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -425,6 +424,8 @@ class TaskCatalogueEntry:
 
     name: str
     required_params: list[str]
+    optional_params: list[str]
+    enum_options: dict[str, list[str]]
     summary: str
 
 
@@ -438,7 +439,14 @@ class TaskCatalogue:
         """Format this catalogue as the user-message TASKS block."""
         lines = []
         for entry in sorted(self.tasks, key=lambda t: t.name):
-            params = ", ".join(entry.required_params)
+
+            def _format_param(name: str) -> str:
+                options = entry.enum_options.get(name)
+                return f"{name}={{{', '.join(options)}}}" if options else name
+
+            required = ", ".join(_format_param(name) for name in entry.required_params)
+            optional = ", ".join(_format_param(name) for name in entry.optional_params)
+            params = f"required: {required or 'none'}; optional: {optional or 'none'}"
             lines.append(f"- {entry.name} ({params}): {entry.summary}")
         return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
 
@@ -457,10 +465,13 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):
         task_cls = registry.get_task_by_name(name)
+        required_params, optional_params, enum_options = _collect_init_params(task_cls, excluded_params=set())
         catalogue.tasks.append(
             TaskCatalogueEntry(
                 name=name,
-                required_params=required_task_init_param_names(task_cls),
+                required_params=required_params,
+                optional_params=optional_params,
+                enum_options=enum_options,
                 summary=_first_docstring_line(task_cls),
             )
         )
