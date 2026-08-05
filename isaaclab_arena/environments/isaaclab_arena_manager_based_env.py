@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+import torch
 from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
@@ -13,14 +15,23 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import Isa
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+from isaaclab_arena.relations.clutter_pour import region_for_support
+from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
+from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+from isaaclab_arena.relations.placement_events import get_placement_pool
+from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
+from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
-# Physics-step ceiling for settling a clutter pile, measured on piles of 8 to 80 objects:
-# 8 settle by ~250 steps, 40 by ~1000, 80 by ~2000. Settling returns as soon as the poses go
-# quiet, so these bound the wait rather than always being spent.
 _MIN_CLUTTER_SETTLE_STEPS = 400
+"""Physics steps allowed for any clutter pile to settle, however small."""
+
 _CLUTTER_SETTLE_STEPS_PER_MEMBER = 30
+"""Further physics steps allowed per pile member. Settling stops as soon as the poses go
+quiet, so this bounds the wait rather than being spent."""
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -56,14 +67,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         start every episode with the pile in mid-air, so the pool is settled once here and
         each layout keeps its resting arrangement for every reset that draws it.
         """
-        import math
-
-        from isaaclab_arena.relations.clutter_groups import get_clutter_groups
-        from isaaclab_arena.relations.clutter_validation import ClutterSettleParams
-        from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-        from isaaclab_arena.relations.placement_events import get_placement_pool
-        from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
-
         if not self.cfg.settle_clutter_on_build:
             return
         placement_pool = get_placement_pool(self)
@@ -73,9 +76,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if not groups:
             return
 
-        # The default settle budget is sized for a couple of objects nudging into place; a pile
-        # needs orders of magnitude more, growing with how deep it stacks. Settling returns as
-        # soon as the poses go quiet, so a generous ceiling costs nothing on an easy pile.
+        # A pile needs far longer to settle than the default budget allows, and longer the
+        # deeper it stacks, so size the budget by how many members it holds.
         member_count = sum(len(group.members) for group in groups)
         physics_steps = max(_MIN_CLUTTER_SETTLE_STEPS, _CLUTTER_SETTLE_STEPS_PER_MEMBER * member_count)
         settle_params = PhysicsSettleParams(num_steps=math.ceil(physics_steps / self.cfg.decimation))
@@ -100,13 +102,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         afterwards rather than constrained up front. An env keeps its rejects when too few
         layouts survive, since a spilled pile still beats having nothing to draw.
         """
-        import torch
-
-        from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-        from isaaclab_arena.relations.clutter_pour import region_for_support
-        from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
-        from isaaclab_arena.relations.placement_validation import PlacementCheck
-
         per_env_bboxes = build_per_env_bounding_boxes(
             placement_pool.objects, self.num_envs
         ).get_bounding_boxes_for_all_envs()
