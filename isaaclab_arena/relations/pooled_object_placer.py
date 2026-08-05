@@ -237,7 +237,14 @@ class PooledObjectPlacer:
 
         layouts_per_env = count // self._num_envs
         if min(self._available_per_env()) < layouts_per_env:
-            self._solve_and_store(max(self._pool_size, count))
+            if self._recycle_layouts:
+                # Re-read the stored layouts rather than solving new ones, for the same reason
+                # sample_for_envs does: layouts that only become usable after simulation are
+                # prepared once, and a refill here would hand back ones preparation never saw.
+                for pool in self._env_pools:
+                    pool.cursor = 0
+            else:
+                self._solve_and_store(max(self._pool_size, count))
 
         results: list[PlacementResult] = []
         for _ in range(layouts_per_env):
@@ -310,7 +317,10 @@ class PooledObjectPlacer:
         """
         kept = rejected = 0
         for env_id, pool in enumerate(self._env_pools):
-            unread = pool.layouts[pool.cursor :]
+            # A consumed layout is normally gone, but recycling rewinds to it, so under recycling
+            # everything stored is still reachable and has to be judged. Construction consumes one
+            # before the pool is filtered, which is exactly the layout that would come back.
+            unread = list(pool.layouts) if self._recycle_layouts else pool.layouts[pool.cursor :]
             passing = [layout for layout in unread if keep(env_id, layout)]
             if len(passing) < minimum:
                 kept += len(unread)

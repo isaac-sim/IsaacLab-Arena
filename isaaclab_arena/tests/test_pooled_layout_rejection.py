@@ -147,3 +147,18 @@ def test_recycling_survives_rejection_shrinking_the_queue():
 
     drawn = [placer.sample_for_envs([0])[0].tag for _ in range(4)]
     assert drawn == ["a", "c", "a", "c"], "recycling must cycle the layouts rejection left behind"
+
+
+def test_recycling_reconsiders_a_consumed_layout():
+    """Recycling rewinds to layouts behind the cursor, so they must be judged too.
+
+    Preparation consumes one layout before filtering the pool, and that is precisely the one a
+    rewind hands back first, so leaving it unjudged replays a known-bad layout for the run.
+    """
+    placer = _placer_with([_Layout("used", good=False), _Layout("a"), _Layout("b", good=False)])
+    placer.recycle_layouts = True
+    placer._env_pools[0].next()
+
+    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    assert (kept, rejected) == (1, 2)
+    assert _tags(placer, 0) == ["a"]

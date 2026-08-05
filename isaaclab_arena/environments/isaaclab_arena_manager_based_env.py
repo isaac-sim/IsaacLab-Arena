@@ -21,8 +21,7 @@ from isaaclab_arena.relations.clutter_pour import region_for_support, resting_ex
 from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import get_placement_pool
-from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_pool_validation import CAPTURED_OBJECTS_SETTLED, validate_pool_layouts
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -111,7 +110,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # A pile that never went quiet still holds its release poses, which sit above the
             # support and inside the region, so containment alone cannot tell it from a settled
             # one. Drop it rather than replay a falling pile at every reset.
-            if layout.validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED) is False:
+            if layout.validation_results.validation_results.get(CAPTURED_OBJECTS_SETTLED) is False:
                 return False
 
             bboxes = per_env_bboxes[env_id]

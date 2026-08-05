@@ -29,6 +29,14 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 
+CAPTURED_OBJECTS_SETTLED = "captured_objects_settled"
+"""Verdict key for whether the objects whose poses are recorded came to rest.
+
+Distinct from ``PHYSICS_SETTLED``, which covers every movable asset in the scene. A caller
+that records only some of them needs to know about those, not about a robot beside them.
+"""
+
+
 def _is_embodiment(asset: PlaceableAsset) -> bool:
     """Whether an asset is a robot rather than something the scene places.
 
@@ -302,6 +310,12 @@ def validate_pool_layouts(
                     render=render,
                     subset_indices=capture_indices,
                 )
+            if captured_per_env is not None:
+                # The full-scene verdict covers every movable, including a policy-driven
+                # embodiment that may never be still. A consumer judging the captured objects
+                # must not be told they failed because something else was moving.
+                for env_id, layout in layouts:
+                    layout.validation_results.validation_results[CAPTURED_OBJECTS_SETTLED] = captured_per_env[env_id]
             if capture_settled_poses:
                 # Only capture where the captured objects themselves came to rest. Capturing an
                 # env that ran out of budget mid-fall would cache falling poses and replay them
