@@ -41,7 +41,7 @@ Implementation Differences
        the environment count is known and before assets are spawned. Ordered
        sets repeat their member order; sets with ``random_choice=True`` sample
        independently.
-   * - Geometry used for solving
+   * - Dimensions used by spatial relations
      - Arena broadcasts the object's bounding box to every environment.
      - Arena uses the selected member's bounding box in each environment.
    * - Construction
@@ -50,6 +50,10 @@ Implementation Differences
    * - Reset
      - The object identity stays fixed while the layout may change.
      - The selected member stays fixed while the layout may change.
+
+These bounding boxes provide object dimensions for spatial relation solving.
+Collision checks separately use the configured ``BBOX`` or ``MESH``
+representation.
 
 Setting ``placement_seed`` makes random object-set assignments and layout
 generation reproducible. Arena fixes object-set assignments while building the
@@ -137,5 +141,8 @@ observe different members across parallel environments.
    placement relations. The builder supplies its creation and reset poses.
    Anchors remain fixed and therefore still need a known pose.
 
-See :doc:`./pooled_placement` for how layouts and object assignments behave
-across resets, and :doc:`./relations` for the available spatial relations.
+Related References
+------------------
+
+Refer back to :doc:`./pooled_placement` for reset behavior and object
+assignment, or :doc:`./relations` for the available spatial relations.

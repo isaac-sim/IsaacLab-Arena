@@ -6,8 +6,8 @@ Motivation
 
 Placement determines the initial poses of objects and, when configured, the
 robot embodiment in an Arena environment. For a fixed environment, you can set
-every pose manually. This becomes brittle when assets or their dimensions
-change.
+every pose manually. This becomes brittle when the selected assets or their
+dimensions change.
 
 Suppose you want a microwave on a table with a cracker box next to it. Manual
 placement requires looking up the table height, measuring both objects, and
@@ -29,9 +29,9 @@ chaining those dimensions into world coordinates:
        Pose(position_xyz=(cracker_box_x, 0.0, cracker_box_z))
    )
 
-If the table height or either object changes, every dependent coordinate must
-be recalculated. Relation-based placement describes the intended arrangement
-instead:
+If the table height or either object's dimensions change, every dependent
+coordinate must be recalculated. Relation-based placement instead describes
+the intended arrangement:
 
 .. code-block:: python
 
@@ -60,8 +60,8 @@ When to Use Placement Relations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use fixed poses when an Arena environment has one known layout. Use placement
-relations for assets whose poses are to be computed on the fly, especially when
-you need:
+relations for assets whose poses should be computed automatically, especially
+when you need:
 
 - layouts that adapt to different assets or asset dimensions;
 - diverse but reproducible layouts across environments and resets;
@@ -76,21 +76,23 @@ for a complete Python environment definition.
 System Overview
 ---------------
 
-Arena turns one environment definition into layouts for construction and
-reset. The builder collects assets, spatial relations, and placement settings;
-the solver generates candidate poses; validators check them; and the placer
-stores ranked layouts for each environment. Objects and supported robot
-embodiments use this same pipeline.
+Arena turns one environment definition into layouts for environment creation
+and resets. The builder collects assets, spatial relations, and placement
+settings; the solver generates candidate layouts; validators evaluate them;
+and the placer stores ranked layouts for each environment. Objects and
+supported robot embodiments use the same pipeline.
 
-Anchors and passive obstacles remain fixed; passive obstacles contribute
-collision geometry but are not moved. The solver computes poses on the fly for
-placed objects, object sets, and supported robot embodiments. Across parallel
-environments, object identity can be homogeneous or heterogeneous.
+Anchors and passive obstacles remain fixed: anchors serve as relation
+references, while passive obstacles contribute collision geometry. The solver
+computes poses for placed objects, objects selected from object sets, and
+supported robot embodiments. Across parallel environments, object identity can
+be homogeneous or heterogeneous.
 
 .. figure:: ../../images/placement_pipeline.png
    :width: 100%
    :alt: Placement pipeline from an Arena environment definition through
-      solving, validation, per-environment pools, construction, and reset.
+      solving, validation, per-environment pools, environment creation, and
+      reset.
    :align: center
 
 Use this table as a reading map:
@@ -115,12 +117,12 @@ Use this table as a reading map:
        bounding boxes or meshes
      - :doc:`object_placement/collision_handling`
    * - Placement solver and robot embodiments
-     - How candidate poses are generated, including random orientation and
-       robot embodiment placement
+     - How candidate poses are generated, including random yaw initialization
+       and robot embodiment placement
      - :doc:`object_placement/solver`
    * - Placement validation
-     - How geometric, reachability, and physics checks evaluate candidate
-       layouts
+     - How build-time geometric and reachability checks evaluate candidates,
+       and how in-simulation physics checks evaluate stored layouts
      - :doc:`object_placement/validation`
    * - Pooled placement and reset
      - How ranked layouts are stored, assigned to environments, reproduced, and
@@ -138,9 +140,9 @@ Try It Out
 
 Run a quick placement example from the repository root. The
 ``pick_and_place_maple_table`` environment already contains a Rubik's cube and
-a bowl. The command below adds three registered objects; the environment gives
-each one an ``On(table_reference)`` relation, and the solver computes their
-collision-aware poses.
+a bowl. The command below adds three registered objects, each with an
+``On(table_reference)`` relation. The solver computes a collision-aware pose
+for each one.
 
 .. note::
 

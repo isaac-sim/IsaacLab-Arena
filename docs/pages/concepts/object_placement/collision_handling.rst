@@ -1,18 +1,20 @@
 Collision Handling
 ==================
 
-Collision avoidance is automatic. Users describe where assets belong with
-spatial relations; they do not add a separate no-collision relation.
+Collision handling is integrated into placement. Users describe where assets
+belong with spatial relations rather than adding a separate no-collision
+relation. The solver penalizes disallowed overlaps, and validators check the
+resulting candidates.
 
 What Collision Avoidance Covers
 -------------------------------
 
-Every pair of placed, non-anchor assets receives a no-overlap constraint unless
-the pair has a support relationship such as ``On``. Fixed background assets can
-also act as passive obstacles when Arena can obtain their collision bounds. When
-a background uses mesh collision, its collision geometry can act as a passive
-obstacle, allowing placement to avoid furniture and appliances within a complex
-environment.
+Arena checks each movable asset against other movable assets, fixed anchors,
+and passive obstacles. A supporting pair connected by ``On`` is exempt so that
+the placed asset can rest on its support. Fixed background assets can act as
+passive obstacles when Arena can obtain their collision bounds. With mesh
+collision, background geometry can therefore prevent placement inside
+furniture, appliances, and other environment geometry.
 
 In ``BBOX`` mode, fixed objects without placement relations can act as passive
 bounding-box obstacles. Full-environment ``Background`` geometry is included
@@ -45,9 +47,9 @@ Arena supports two collision modes:
    :alt: Comparison of bounding-box and mesh collision modes
    :align: center
 
-   For the same requested placement, overlapping bounding boxes reject the
-   layout, while mesh collision recognizes that the object surfaces do not
-   overlap.
+   For the same requested placement, ``BBOX`` rejects the layout because the
+   axis-aligned boxes overlap, while ``MESH`` accepts it using
+   sphere-versus-mesh collision checks.
 
 Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
 the actual objects can safely occupy. Collision mode changes overlap checking;
@@ -162,3 +164,9 @@ Run the example from the repository root:
 
 ``--viz kit`` opens the viewer, and ``--view_steps 0`` keeps it open until you
 close the application.
+
+Next Steps
+----------
+
+Continue to :doc:`./solver` to see how spatial relations and collision
+constraints produce candidate layouts.

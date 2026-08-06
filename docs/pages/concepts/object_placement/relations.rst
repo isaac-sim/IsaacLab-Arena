@@ -28,8 +28,8 @@ Anchors
 An anchor is a fixed reference in the relation graph. Mark it with
 ``IsAnchor()``; the solver does not move it. A standalone anchor needs a fixed
 initial pose; in YAML, an omitted pose defaults to identity. An
-``ObjectReference`` instead derives its pose from the referenced prim in its
-parent asset. A tabletop or counter reference is a common anchor.
+``ObjectReference`` instead derives its pose from the referenced prim within
+its parent asset. A tabletop or counter reference is a common anchor.
 
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:
@@ -67,9 +67,11 @@ Most environments can be described with a small set of relations:
    ``ObjectReference`` that identifies the valid support surface.
 
    During initial sampling, a movable parent directly on an anchor uses that
-   anchor's bounds as a proxy. Deeper ``On`` chains use the first anchor in the
-   placer's object list. Final solving and validation still use each relation's
-   actual parent.
+   anchor's bounds as a proxy. For a deeper chain, such as a spoon ``On`` a cup
+   ``On`` a tray ``On`` a table, initialization of the spoon uses the first
+   anchor collected by ``ObjectPlacer`` as a proxy. This affects only the
+   starting pose; final solving and validation use each relation's actual
+   parent.
 
 ``NextTo(parent)``
    Places an object beside another object. A side and distance can be specified
@@ -146,10 +148,15 @@ Placement Modifiers
 
 ``RandomAroundSolution`` and ``RotateAroundSolution`` are pose modifiers applied
 after solving. They change how a solved pose is used rather than adding spatial
-constraints. In particular, ``RandomAroundSolution`` is intended for direct,
-single-environment ``ObjectPlacer`` use; the default builder does not apply it
-as a continuous reset range. See
-:doc:`./pooled_placement` for different layouts across environments and resets.
+constraints:
+
+- ``RandomAroundSolution`` creates a range of positions and orientations around
+  the solved pose. It is intended for direct, single-environment
+  ``ObjectPlacer`` use; the default builder does not apply it as a continuous
+  reset range.
+- ``RotateAroundSolution`` adds a fixed roll, pitch, or yaw to the solved pose.
+  The robot-placement example later in this sequence uses it to set the
+  robot's final heading.
 
 Relations in Environment Specifications
 ---------------------------------------
@@ -170,7 +177,14 @@ YAML environment specifications use the same model:
 
 Each entry identifies the relation, its subject, and—when needed—the object it
 references. Add parameters only when the default relation does not express the
-intended arrangement.
+intended arrangement. Quote ``'on'`` so YAML treats it as a string rather than
+a Boolean value.
 
-Collision avoidance is automatic and is not expressed as a relation. See
-:doc:`./collision_handling` for collision representations.
+Collision handling is integrated into placement and is not expressed as a
+relation.
+
+Next Steps
+----------
+
+Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
+against one another and against fixed geometry.
