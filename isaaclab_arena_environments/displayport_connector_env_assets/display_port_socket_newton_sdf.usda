@@ -1,0 +1,127 @@
+#usda 1.0
+(
+    defaultPrim = "socket"
+    subLayers = [
+        @./display_port_socket_fixed_sdf_split_visuals.usd@
+    ]
+)
+
+over "socket"
+{
+    def Material "NewtonPhysicsMaterial" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.0001
+        float physics:restitution = 0
+        float physics:staticFriction = 0.0001
+    }
+
+    over "tn__2584N111_DisplayportCord_jP"
+    {
+        over "Body5"
+        {
+            over "Mesh" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI"]
+            )
+            {
+                rel material:binding:physics = </socket/NewtonPhysicsMaterial> (
+                    bindMaterialAs = "strongerThanDescendants"
+                )
+                float newton:contactGap = 0.005
+                float newton:contactMargin = 0
+                bool newton:hydroelasticEnabled = 0
+                float newton:hydroelasticStiffness = 100000000
+                int newton:sdfMaxResolution = 256
+                float newton:sdfNarrowBandInner = -0.005
+                float newton:sdfNarrowBandOuter = 0.005
+                float newton:sdfPadding = 0.005
+                token newton:sdfTextureFormat = "uint16"
+            }
+        }
+
+        over "Body6"
+        {
+            over "Mesh" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI"]
+            )
+            {
+                rel material:binding:physics = </socket/NewtonPhysicsMaterial> (
+                    bindMaterialAs = "strongerThanDescendants"
+                )
+                float newton:contactGap = 0.005
+                float newton:contactMargin = 0
+                bool newton:hydroelasticEnabled = 0
+                float newton:hydroelasticStiffness = 100000000
+                int newton:sdfMaxResolution = 256
+                float newton:sdfNarrowBandInner = -0.005
+                float newton:sdfNarrowBandOuter = 0.005
+                float newton:sdfPadding = 0.005
+                token newton:sdfTextureFormat = "uint16"
+            }
+        }
+
+        over "Body8"
+        {
+            over "Mesh" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI"]
+            )
+            {
+                rel material:binding:physics = </socket/NewtonPhysicsMaterial> (
+                    bindMaterialAs = "strongerThanDescendants"
+                )
+                float newton:contactGap = 0.005
+                float newton:contactMargin = 0
+                bool newton:hydroelasticEnabled = 0
+                float newton:hydroelasticStiffness = 100000000
+                int newton:sdfMaxResolution = 256
+                float newton:sdfNarrowBandInner = -0.005
+                float newton:sdfNarrowBandOuter = 0.005
+                float newton:sdfPadding = 0.005
+                token newton:sdfTextureFormat = "uint16"
+            }
+        }
+
+        over "Body12"
+        {
+            over "Mesh" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI"]
+            )
+            {
+                rel material:binding:physics = </socket/NewtonPhysicsMaterial> (
+                    bindMaterialAs = "strongerThanDescendants"
+                )
+                float newton:contactGap = 0.005
+                float newton:contactMargin = 0
+                bool newton:hydroelasticEnabled = 0
+                float newton:hydroelasticStiffness = 100000000
+                int newton:sdfMaxResolution = 256
+                float newton:sdfNarrowBandInner = -0.005
+                float newton:sdfNarrowBandOuter = 0.005
+                float newton:sdfPadding = 0.005
+                token newton:sdfTextureFormat = "uint16"
+            }
+        }
+
+        over "Body13"
+        {
+            over "Mesh" (
+                prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI"]
+            )
+            {
+                rel material:binding:physics = </socket/NewtonPhysicsMaterial> (
+                    bindMaterialAs = "strongerThanDescendants"
+                )
+                float newton:contactGap = 0.005
+                float newton:contactMargin = 0
+                bool newton:hydroelasticEnabled = 0
+                float newton:hydroelasticStiffness = 100000000
+                int newton:sdfMaxResolution = 256
+                float newton:sdfNarrowBandInner = -0.005
+                float newton:sdfNarrowBandOuter = 0.005
+                float newton:sdfPadding = 0.005
+                token newton:sdfTextureFormat = "uint16"
+            }
+        }
+    }
+}

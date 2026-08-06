@@ -1,0 +1,37 @@
+#usda 1.0
+(
+    defaultPrim = "plug"
+    subLayers = [
+        @./display_port_plug_fixed_sdf.usd@
+    ]
+)
+
+over "plug"
+{
+    def Material "NewtonPhysicsMaterial" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 3
+        float physics:restitution = 0
+        float physics:staticFriction = 3
+    }
+
+    over "collision_mesh" (
+        prepend apiSchemas = ["NewtonCollisionAPI", "NewtonSDFCollisionAPI", "MaterialBindingAPI"]
+    )
+    {
+        rel material:binding:physics = </plug/NewtonPhysicsMaterial> (
+            bindMaterialAs = "strongerThanDescendants"
+        )
+        float newton:contactGap = 0.005
+        float newton:contactMargin = 0
+        bool newton:hydroelasticEnabled = 0
+        float newton:hydroelasticStiffness = 100000000
+        int newton:sdfMaxResolution = 256
+        float newton:sdfNarrowBandInner = -0.005
+        float newton:sdfNarrowBandOuter = 0.005
+        float newton:sdfPadding = 0.005
+        token newton:sdfTextureFormat = "uint16"
+    }
+}

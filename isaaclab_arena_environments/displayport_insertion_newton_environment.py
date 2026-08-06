@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Newton DisplayPort insertion environment ported from Shaurya's Isaac Lab task."""
+"""Newton DisplayPort connector insertion environment"""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
-_DEFAULT_ASSET_DIRECTORY = Path(__file__).resolve().parents[1] / "local_stuff" / "connector_insertion" / "assets"
+_DEFAULT_ASSET_DIRECTORY = Path(__file__).resolve().parent / "displayport_connector_env_assets"
 _PLUG_USD = "display_port_plug_newton_sdf.usda"
 _SOCKET_USD = "display_port_socket_newton_sdf.usda"
 
@@ -30,10 +30,10 @@ _SDF_PADDING = 0.005
 _SDF_COLLIDER_COUNT = 6
 _USE_SDF_COLLISION = True
 
-# Geometry and grasp calibration copied from the validated upstream task.
-_GEOMETRY_POS = (0.475, 0.125, 0.0375)
+# Geometry and grasp calibration values.
+_INSERTION_TARGET_POS = (0.475, 0.125, 0.0375)
 _SOCKET_ROT = (0.5, 0.5, 0.5, -0.5)
-_PLUG_CLEARANCE_Z = 0.015
+_PLUG_START_OFFSET = (0.0, 0.0, 0.015)
 _SOCKET_INSERTION_OFFSET = (0.0375, 0.0, 0.0)
 _PLUG_INSERTION_OFFSET = (0.0, 0.0, 0.0221)
 _PLUG_GOAL_ROT = (0.0, -0.70711, 0.0, 0.70711)
@@ -78,24 +78,22 @@ def _quat_mul(q1_xyzw, q2_xyzw):
     )
 
 
-def _compute_socket_root(geometry_pos, socket_rot):
+def _compute_socket_root(insertion_target_pos, socket_rot):
     rotated = _quat_rotate_vec(socket_rot, _SOCKET_INSERTION_OFFSET)
-    return tuple(geometry_pos[index] - rotated[index] for index in range(3))
+    return tuple(insertion_target_pos[index] - rotated[index] for index in range(3))
 
 
-def _compute_plug_pose(geometry_pos, socket_rot, z_clearance):
+def _compute_plug_pose(insertion_target_pos, socket_rot, start_offset):
     plug_rot = _quat_mul(socket_rot, _PLUG_GOAL_ROT)
     plug_offset_world = _quat_rotate_vec(plug_rot, _PLUG_INSERTION_OFFSET)
-    plug_root = (
-        geometry_pos[0] - plug_offset_world[0],
-        geometry_pos[1] - plug_offset_world[1],
-        geometry_pos[2] - plug_offset_world[2] + z_clearance,
+    return (
+        tuple(insertion_target_pos[index] - plug_offset_world[index] + start_offset[index] for index in range(3)),
+        plug_rot,
     )
-    return plug_root, plug_rot
 
 
-_SOCKET_ROOT = _compute_socket_root(_GEOMETRY_POS, _SOCKET_ROT)
-_PLUG_ROOT, _PLUG_ROT = _compute_plug_pose(_GEOMETRY_POS, _SOCKET_ROT, _PLUG_CLEARANCE_Z)
+_SOCKET_ROOT = _compute_socket_root(_INSERTION_TARGET_POS, _SOCKET_ROT)
+_PLUG_ROOT, _PLUG_ROT = _compute_plug_pose(_INSERTION_TARGET_POS, _SOCKET_ROT, _PLUG_START_OFFSET)
 
 
 @register_retargeter
@@ -109,12 +107,23 @@ class RizonDisplayportSpaceMouseRetargeter(RetargetterBase):
         return None
 
 
+@register_retargeter
+class RizonDisplayportKeyboardRetargeter(RetargetterBase):
+    """Use the native keyboard command directly with Rizon IK."""
+
+    device = "keyboard"
+    embodiment = "rizon4s_grav_displayport_ik"
+
+    def get_pipeline_builder(self, embodiment: object):
+        return None
+
+
 @dataclass
 class DisplayportInsertionNewtonEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the validated Rizon/Newton DisplayPort insertion environment."""
 
     asset_directory: str | None = None
-    """Directory containing the upstream DisplayPort Newton USD files."""
+    """Directory containing the Newton USD files."""
 
     teleop_device: str | None = "spacemouse"
     """Arena teleoperation device used by Isaac Lab's recorder."""
@@ -128,14 +137,17 @@ def _displayport_insertion_success(env, position_threshold: float = 0.003):
 
     socket = env.scene["dp_socket"]
     plug = env.scene["dp_plug"]
+
     socket_pos = socket.data.root_link_pos_w.torch
     socket_quat = socket.data.root_link_quat_w.torch
     plug_pos = plug.data.root_link_pos_w.torch
     plug_quat = plug.data.root_link_quat_w.torch
+
     socket_offset = torch.tensor(_SOCKET_INSERTION_OFFSET, device=env.device).repeat(env.num_envs, 1)
     plug_offset = torch.tensor(_PLUG_INSERTION_OFFSET, device=env.device).repeat(env.num_envs, 1)
     socket_mate_pos, _ = math_utils.combine_frame_transforms(socket_pos, socket_quat, socket_offset)
     plug_mate_pos, _ = math_utils.combine_frame_transforms(plug_pos, plug_quat, plug_offset)
+
     return torch.linalg.vector_norm(socket_mate_pos - plug_mate_pos, dim=-1) < position_threshold
 
 
@@ -218,7 +230,7 @@ def _configure_newton_displayport_physics(
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonCollisionPipelineCfg
     from isaaclab_physx.sim.spawners.materials import PhysxRigidBodyMaterialCfg
 
-    # Run collision at 200 Hz and the solver at 2 kHz while preserving the 35 ms control period.
+    # Run collision at 200 Hz and the solver at 2 kHz.
     env_cfg.sim.dt = 1.0 / 200.0
     env_cfg.sim.render_interval = 7
     env_cfg.sim.physics_material = PhysxRigidBodyMaterialCfg(
@@ -249,8 +261,7 @@ def _configure_newton_displayport_physics(
         debug_mode=False,
     )
     env_cfg.decimation = 7
-    # Isaac Lab 3.0 Beta 2's Newton replication path convex-hulls every mesh.
-    # Import this single environment directly so the connector remains a triangle mesh.
+    # Must disable replicate physics otherwise Isaac Lab 3.0 Beta 2's Newton replication path convex-hulls every mesh.
     env_cfg.scene.replicate_physics = False
     if _USE_SDF_COLLISION:
         from isaaclab.physics import PhysicsEvent
@@ -266,7 +277,7 @@ def _configure_newton_displayport_physics(
 
 
 def _make_rizon_embodiment():
-    """Build the upstream Rizon robot and a release-compatible IK action."""
+    """Build the upstream Rizon robot and an IK action."""
     import math
     import torch
 
@@ -325,7 +336,7 @@ def _make_rizon_embodiment():
             self._target_initialized[env_ids] = False
 
     class RateLimitedBinaryJointPositionAction(BinaryJointPositionAction):
-        """Ramp binary gripper targets to avoid exciting the lightweight finger joints."""
+        """Ramp binary gripper targets to avoid oscillating the lightweight finger joints."""
 
         def __init__(self, cfg, env):
             super().__init__(cfg, env)
@@ -471,11 +482,11 @@ def _make_rizon_embodiment():
 def _make_displayport_task():
     """Build the reset event and minimal insertion task."""
     import torch
-    from collections.abc import Callable
 
     import isaaclab.envs.mdp as mdp
     import isaaclab.utils.math as math_utils
     from isaaclab.assets import Articulation, RigidObject
+    from isaaclab.controllers import DifferentialIKController, DifferentialIKControllerCfg
     from isaaclab.envs import ManagerBasedEnv
     from isaaclab.envs.common import ViewerCfg
     from isaaclab.managers import EventTermCfg as EventTerm
@@ -483,53 +494,49 @@ def _make_displayport_task():
     from isaaclab.managers import TerminationTermCfg as DoneTerm
     from isaaclab.scene import InteractiveSceneCfg
     from isaaclab.utils.configclass import configclass
-    from isaaclab_tasks.direct.automate import factory_control as fc
 
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.tasks.task_base import TaskBase
 
-    def set_finger_joint_pos_grav(
-        joint_pos: torch.Tensor,
-        reset_rows: list[int],
-        finger_joints: list[int],
-        finger_joint_position: float,
-        joint_name_to_idx: dict[str, int] | None = None,
-    ) -> None:
-        del finger_joints
-        assert joint_name_to_idx is not None, "Grav gripper reset requires a joint-name mapping"
-        missing = [name for name in _GRAV_GRIPPER_MIMIC_GEARING if name not in joint_name_to_idx]
-        assert not missing, f"Grav gripper joints not found on the robot: {missing}"
-        for row in reset_rows:
-            for joint_name, gearing in _GRAV_GRIPPER_MIMIC_GEARING.items():
-                joint_pos[row, joint_name_to_idx[joint_name]] = gearing * finger_joint_position
-
     class SetRobotToObjectGraspPose(ManagerTermBase):
-        """Set the Rizon to a calibrated plug grasp using reset-time IK."""
+        """Set a robot to a calibrated object grasp using reset-time IK."""
 
         def __init__(self, cfg: EventTerm, env: ManagerBasedEnv):
             super().__init__(cfg, env)
-            self.robot: Articulation = env.scene[cfg.params["robot_asset_cfg"].name]
-            self.target_object_name = cfg.params["target_object_name"]
-            self.end_effector_body_name = cfg.params["end_effector_body_name"]
+
+            robot_asset_cfg: SceneEntityCfg = cfg.params["robot_asset_cfg"]
+            self.robot: Articulation = env.scene[robot_asset_cfg.name]
+            self.target_object: RigidObject = env.scene[cfg.params["target_object_name"]]
             self.num_arm_joints = cfg.params["num_arm_joints"]
-            self.gripper_joint_setter_func: Callable = cfg.params["gripper_joint_setter_func"]
-            self.grasp_offset = torch.tensor(cfg.params["grasp_offset"], device=env.device, dtype=torch.float32)
+            self.gripper_close_position = cfg.params["gripper_close_position"]
+
+            self.grasp_offset = torch.tensor(
+                cfg.params["grasp_offset"], device=env.device, dtype=torch.float32
+            ).unsqueeze(0)
             self.grasp_rot_offset = torch.tensor(
                 cfg.params["grasp_rot_offset"], device=env.device, dtype=torch.float32
-            ).repeat(env.num_envs, 1)
-            self.grasp_offsets = torch.zeros(env.num_envs, 3, device=env.device, dtype=torch.float32)
-            self.hand_grasp_width = 0.3
-            self.hand_hold_width = -0.1
-            self.hand_close_width = -0.1
+            ).unsqueeze(0)
 
-            eef_indices, _ = self.robot.find_bodies([self.end_effector_body_name])
-            assert len(eef_indices) == 1, f"Expected one '{self.end_effector_body_name}' body, got {eef_indices}"
+            eef_indices, _ = self.robot.find_bodies([cfg.params["end_effector_body_name"]])
+            assert (
+                len(eef_indices) == 1
+            ), f"Expected one '{cfg.params['end_effector_body_name']}' body, got {eef_indices}"
             self.eef_idx = eef_indices[0]
+            # Preserve the fixed-base Jacobian indexing used by the validated environment.
             self.jacobian_body_idx = self.eef_idx - 1
-            all_joints, all_joint_names = self.robot.find_joints([".*"])
-            self.all_joints = all_joints
-            self.finger_joints = all_joints[self.num_arm_joints :]
-            self.joint_name_to_idx = {name: index for index, name in zip(all_joints, all_joint_names)}
+
+            self.all_joints, all_joint_names = self.robot.find_joints([".*"])
+            joint_name_to_idx = {name: index for index, name in zip(self.all_joints, all_joint_names)}
+            gripper_joint_gearing: dict[str, float] = cfg.params["gripper_joint_gearing"]
+            missing_joints = [name for name in gripper_joint_gearing if name not in joint_name_to_idx]
+            assert not missing_joints, f"Gripper joints not found on the robot: {missing_joints}"
+            self.gripper_joint_ids = torch.tensor(
+                [joint_name_to_idx[name] for name in gripper_joint_gearing], device=env.device, dtype=torch.long
+            )
+            self.gripper_gearing = torch.tensor(
+                list(gripper_joint_gearing.values()), device=env.device, dtype=torch.float32
+            )
+            self._ik_controllers: dict[int, DifferentialIKController] = {}
 
         def __call__(
             self,
@@ -541,129 +548,147 @@ def _make_displayport_task():
             num_arm_joints: int,
             grasp_offset: list[float],
             grasp_rot_offset: list[float],
-            gripper_joint_setter_func: Callable,
+            gripper_joint_gearing: dict[str, float],
+            gripper_close_position: float,
             max_iterations: int = 150,
+            position_threshold: float = 1.0e-6,
+            rotation_threshold: float = 1.0e-6,
         ) -> None:
-            del (
-                robot_asset_cfg,
-                target_object_name,
-                end_effector_body_name,
-                num_arm_joints,
-                grasp_offset,
-                grasp_rot_offset,
-                gripper_joint_setter_func,
+            # Isaac Lab validates these arguments against EventTerm.params; fixed values are cached in __init__.
+            target_pos, target_quat, grasp_offset_batch, grasp_rot_offset_batch = self._compute_target_grasp_pose(
+                env_ids
             )
+            self._solve_arm_ik(
+                env_ids,
+                target_pos,
+                target_quat,
+                max_iterations=max_iterations,
+                position_threshold=position_threshold,
+                rotation_threshold=rotation_threshold,
+            )
+            self._align_object_to_gripper(env_ids, grasp_offset_batch, grasp_rot_offset_batch)
+            self._set_closed_gripper_state(env_ids)
+
+        def _compute_target_grasp_pose(
+            self, env_ids: torch.Tensor
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            """Compute the target hand pose and the batched grasp transform."""
             num_reset_envs = len(env_ids)
-            target_object: RigidObject = env.scene[self.target_object_name]
-            grasp_offsets = self.grasp_offsets[:num_reset_envs]
-            grasp_rot_offset = self.grasp_rot_offset[env_ids]
+            grasp_offset = self.grasp_offset.expand(num_reset_envs, -1)
+            grasp_rot_offset = self.grasp_rot_offset.expand(num_reset_envs, -1)
+            object_pos = self.target_object.data.root_link_pos_w.torch[env_ids]
+            object_quat = self.target_object.data.root_link_quat_w.torch[env_ids]
+            target_quat = math_utils.quat_mul(object_quat, grasp_rot_offset)
+            target_pos = object_pos + math_utils.quat_apply(target_quat, grasp_offset)
+            return target_pos, target_quat, grasp_offset, grasp_rot_offset
+
+        def _solve_arm_ik(
+            self,
+            env_ids: torch.Tensor,
+            target_pos: torch.Tensor,
+            target_quat: torch.Tensor,
+            max_iterations: int,
+            position_threshold: float,
+            rotation_threshold: float,
+        ) -> None:
+            """Iteratively move the arm to the target hand pose."""
+            ik_controller = self._get_ik_controller(len(env_ids))
+            ik_controller.set_command(torch.cat((target_pos, target_quat), dim=-1))
+
+            joint_limits = self.robot.data.joint_pos_limits.torch[env_ids, : self.num_arm_joints]
+            joint_min = joint_limits[:, :, 0]
+            joint_range = joint_limits[:, :, 1] - joint_min
+            finite_limits = torch.isfinite(joint_min) & torch.isfinite(joint_range)
+            wrap_mask = finite_limits & (joint_range > 0)
+            safe_joint_min = torch.where(wrap_mask, joint_min, torch.zeros_like(joint_min))
+            safe_joint_range = torch.where(wrap_mask, joint_range, torch.ones_like(joint_range))
+            zero_joint_vel = torch.zeros_like(self.robot.data.joint_vel.torch[env_ids])
 
             for _ in range(max_iterations):
                 joint_pos = self.robot.data.joint_pos.torch[env_ids].clone()
-                object_pos = target_object.data.root_link_pos_w.torch[env_ids]
-                object_quat = target_object.data.root_link_quat_w.torch[env_ids]
-                target_quat = math_utils.quat_mul(object_quat, grasp_rot_offset)
-                grasp_offsets[:] = self.grasp_offset
-                target_pos = object_pos + math_utils.quat_apply(target_quat, grasp_offsets)
-
                 eef_pos = self.robot.data.body_pos_w.torch[env_ids, self.eef_idx]
                 eef_quat = self.robot.data.body_quat_w.torch[env_ids, self.eef_idx]
-                pos_error, axis_angle_error = fc.get_pose_error(
-                    fingertip_midpoint_pos=eef_pos,
-                    fingertip_midpoint_quat=eef_quat,
-                    ctrl_target_fingertip_midpoint_pos=target_pos,
-                    ctrl_target_fingertip_midpoint_quat=target_quat,
-                    jacobian_type="geometric",
-                    rot_error_type="axis_angle",
+                pos_error, axis_angle_error = math_utils.compute_pose_error(
+                    eef_pos, eef_quat, target_pos, target_quat, rot_error_type="axis_angle"
                 )
-                if torch.all(torch.linalg.vector_norm(pos_error, dim=-1) < 1.0e-6) and torch.all(
-                    torch.linalg.vector_norm(axis_angle_error, dim=-1) < 1.0e-6
+                if torch.all(torch.linalg.vector_norm(pos_error, dim=-1) < position_threshold) and torch.all(
+                    torch.linalg.vector_norm(axis_angle_error, dim=-1) < rotation_threshold
                 ):
                     break
 
-                delta_hand_pose = torch.cat((pos_error, axis_angle_error), dim=-1)
                 jacobians = self.robot.data.body_link_jacobian_w.torch
                 jacobian = jacobians[env_ids, self.jacobian_body_idx, :, self.robot.num_base_dofs :]
-                delta_joint_pos = fc._get_delta_dof_pos(delta_hand_pose, "dls", jacobian, env.device)
-                joint_pos += delta_joint_pos
+                joint_pos = ik_controller.compute(eef_pos, eef_quat, jacobian, joint_pos)
+                self._wrap_arm_joint_positions(joint_pos, safe_joint_min, safe_joint_range, wrap_mask)
 
-                joint_limits = self.robot.data.joint_pos_limits.torch[env_ids, : self.num_arm_joints]
-                joint_min = joint_limits[:, :, 0]
-                joint_max = joint_limits[:, :, 1]
-                joint_range = joint_max - joint_min
-                finite_limits = torch.isfinite(joint_min) & torch.isfinite(joint_max) & torch.isfinite(joint_range)
-                wrap_mask = finite_limits & (joint_range > 0)
-                safe_joint_min = torch.where(wrap_mask, joint_min, torch.zeros_like(joint_min))
-                safe_joint_range = torch.where(wrap_mask, joint_range, torch.ones_like(joint_range))
-                arm_joint_pos = joint_pos[:, : self.num_arm_joints]
-                wrapped_arm_joint_pos = safe_joint_min + torch.remainder(
-                    arm_joint_pos - safe_joint_min, safe_joint_range
-                )
-                joint_pos[:, : self.num_arm_joints] = torch.where(wrap_mask, wrapped_arm_joint_pos, arm_joint_pos)
-                joint_vel = torch.zeros_like(joint_pos)
                 self.robot.set_joint_position_target_index(target=joint_pos, env_ids=env_ids)
-                self.robot.set_joint_velocity_target_index(target=joint_vel, env_ids=env_ids)
+                self.robot.set_joint_velocity_target_index(target=zero_joint_vel, env_ids=env_ids)
                 self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
-                self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
+                self.robot.write_joint_velocity_to_sim_index(velocity=zero_joint_vel, env_ids=env_ids)
 
+        def _get_ik_controller(self, num_envs: int) -> DifferentialIKController:
+            """Return a DLS controller sized for the current reset batch."""
+            controller = self._ik_controllers.get(num_envs)
+            if controller is None:
+                controller = DifferentialIKController(
+                    DifferentialIKControllerCfg(
+                        command_type="pose",
+                        use_relative_mode=False,
+                        ik_method="dls",
+                        ik_params={"lambda_val": 0.1},
+                    ),
+                    num_envs=num_envs,
+                    device=self.device,
+                )
+                self._ik_controllers[num_envs] = controller
+            return controller
+
+        def _wrap_arm_joint_positions(
+            self,
+            joint_pos: torch.Tensor,
+            safe_joint_min: torch.Tensor,
+            safe_joint_range: torch.Tensor,
+            wrap_mask: torch.Tensor,
+        ) -> None:
+            """Apply the environment's existing finite-range joint wrapping."""
+            arm_joint_pos = joint_pos[:, : self.num_arm_joints]
+            wrapped_arm_joint_pos = safe_joint_min + torch.remainder(arm_joint_pos - safe_joint_min, safe_joint_range)
+            joint_pos[:, : self.num_arm_joints] = torch.where(wrap_mask, wrapped_arm_joint_pos, arm_joint_pos)
+
+        def _align_object_to_gripper(
+            self,
+            env_ids: torch.Tensor,
+            grasp_offset: torch.Tensor,
+            grasp_rot_offset: torch.Tensor,
+        ) -> None:
+            """Place the object at the grasp transform achieved by IK."""
+            num_reset_envs = len(env_ids)
             achieved_hand_pos = self.robot.data.body_pos_w.torch[env_ids, self.eef_idx].clone()
             achieved_hand_quat = self.robot.data.body_quat_w.torch[env_ids, self.eef_idx].clone()
             aligned_object_quat = math_utils.quat_mul(achieved_hand_quat, math_utils.quat_conjugate(grasp_rot_offset))
-            grasp_offset_world = math_utils.quat_apply(achieved_hand_quat, grasp_offsets)
-            aligned_object_pos = achieved_hand_pos - grasp_offset_world
-            target_object.write_root_pose_to_sim_index(
+            aligned_object_pos = achieved_hand_pos - math_utils.quat_apply(achieved_hand_quat, grasp_offset)
+            self.target_object.write_root_pose_to_sim_index(
                 root_pose=torch.cat((aligned_object_pos, aligned_object_quat), dim=-1), env_ids=env_ids
             )
-            target_object.write_root_velocity_to_sim_index(
-                root_velocity=torch.zeros((num_reset_envs, 6), device=env.device), env_ids=env_ids
+            self.target_object.write_root_velocity_to_sim_index(
+                root_velocity=torch.zeros((num_reset_envs, 6), device=self.device), env_ids=env_ids
             )
 
+        def _set_closed_gripper_state(self, env_ids: torch.Tensor) -> None:
+            """Set the gripper state and actuator targets directly to the closed grasp."""
             joint_pos = self.robot.data.joint_pos.torch[env_ids].clone()
             joint_vel = torch.zeros_like(joint_pos)
-            reset_rows = list(range(num_reset_envs))
-            self.gripper_joint_setter_func(
-                joint_pos,
-                reset_rows,
-                self.finger_joints,
-                self.hand_grasp_width,
-                self.joint_name_to_idx,
-            )
-            self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
-            self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
-            self.gripper_joint_setter_func(
-                joint_pos,
-                reset_rows,
-                self.finger_joints,
-                self.hand_hold_width,
-                self.joint_name_to_idx,
-            )
-            self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
-            self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
-            self.gripper_joint_setter_func(
-                joint_pos,
-                reset_rows,
-                self.finger_joints,
-                self.hand_close_width,
-                self.joint_name_to_idx,
-            )
+            joint_pos[:, self.gripper_joint_ids] = self.gripper_gearing * self.gripper_close_position
             self.robot.set_joint_position_target_index(target=joint_pos, joint_ids=self.all_joints, env_ids=env_ids)
+            self.robot.set_joint_velocity_target_index(target=joint_vel, joint_ids=self.all_joints, env_ids=env_ids)
+            self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
+            self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
 
     @configclass
     class EventsCfg:
         """DisplayPort grasp reset and robot material events."""
 
         use_cpu_fabric_hierarchy_sync = EventTerm(func=_use_cpu_fabric_hierarchy_sync, mode="startup")
-        robot_physics_material = EventTerm(
-            func=mdp.randomize_rigid_body_material,
-            mode="startup",
-            params={
-                "asset_cfg": SceneEntityCfg("robot", body_names=".*finger.*"),
-                "static_friction_range": (1.0, 1.0),
-                "dynamic_friction_range": (1.0, 1.0),
-                "restitution_range": (0.0, 0.0),
-                "num_buckets": 16,
-            },
-        )
         reset_all = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
         set_robot_to_grasp_pose = EventTerm(
             func=SetRobotToObjectGraspPose,
@@ -675,8 +700,11 @@ def _make_displayport_task():
                 "num_arm_joints": 7,
                 "grasp_offset": list(_GRASP_OFFSET),
                 "grasp_rot_offset": [0.0, 0.0, 0.0, 1.0],
-                "gripper_joint_setter_func": set_finger_joint_pos_grav,
+                "gripper_joint_gearing": _GRAV_GRIPPER_MIMIC_GEARING,
+                "gripper_close_position": _GRIPPER_CLOSE_POSITION,
                 "max_iterations": 150,
+                "position_threshold": 1.0e-6,
+                "rotation_threshold": 1.0e-6,
             },
         )
 
@@ -719,7 +747,7 @@ def _make_displayport_task():
 
 @register_environment
 class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportInsertionNewtonEnvironmentCfg]):
-    """Build the validated Rizon/Newton DisplayPort insertion scene."""
+    """Build the validated NEwton Rizon DisplayPort insertion environment."""
 
     name = "displayport_insertion_newton"
     _legacy_argparse_cfg_type = DisplayportInsertionNewtonEnvironmentCfg
@@ -727,10 +755,10 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
     def build(self, cfg: DisplayportInsertionNewtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build a separate Newton environment without modifying ``connector_insertion``."""
         import isaaclab.sim as sim_utils
-        from isaaclab.devices import Se3SpaceMouse, Se3SpaceMouseCfg
-        from isaaclab_physx.sim.schemas import PhysxCollisionPropertiesCfg, PhysxRigidBodyPropertiesCfg
+        from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
+        from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg, NewtonRigidBodyPropertiesCfg
 
-        from isaaclab_arena.assets.device_library import SpaceMouseCfg
+        from isaaclab_arena.assets.device_library import KeyboardCfg, SpaceMouseCfg
         from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -749,21 +777,9 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
             usd_path=str(plug_usd_path),
             initial_pose=Pose(position_xyz=_PLUG_ROOT, rotation_xyzw=_PLUG_ROT),
             spawn_cfg_addon={
-                "rigid_props": PhysxRigidBodyPropertiesCfg(
-                    disable_gravity=False,
-                    kinematic_enabled=False,
-                    max_depenetration_velocity=0.5,
-                    linear_damping=0.0,
-                    angular_damping=0.0,
-                    max_linear_velocity=1000.0,
-                    max_angular_velocity=3666.0,
-                    enable_gyroscopic_forces=True,
-                    solver_position_iteration_count=128,
-                    solver_velocity_iteration_count=1,
-                    max_contact_impulse=None,
-                ),
+                "rigid_props": NewtonRigidBodyPropertiesCfg(kinematic_enabled=False),
                 "mass_props": sim_utils.MassPropertiesCfg(mass=0.03),
-                "collision_props": PhysxCollisionPropertiesCfg(contact_offset=0.00001, rest_offset=-0.00005),
+                "collision_props": NewtonCollisionPropertiesCfg(contact_offset=0.00001, rest_offset=-0.00005),
             },
         )
         socket = Object(
@@ -772,20 +788,8 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
             usd_path=str(socket_usd_path),
             initial_pose=Pose(position_xyz=_SOCKET_ROOT, rotation_xyzw=_SOCKET_ROT),
             spawn_cfg_addon={
-                "rigid_props": PhysxRigidBodyPropertiesCfg(
-                    disable_gravity=False,
-                    kinematic_enabled=True,
-                    max_depenetration_velocity=5.0,
-                    linear_damping=0.0,
-                    angular_damping=0.0,
-                    max_linear_velocity=1000.0,
-                    max_angular_velocity=3666.0,
-                    enable_gyroscopic_forces=True,
-                    solver_position_iteration_count=128,
-                    solver_velocity_iteration_count=1,
-                    max_contact_impulse=1e32,
-                ),
-                "collision_props": PhysxCollisionPropertiesCfg(contact_offset=0.0001, rest_offset=-0.0001),
+                "rigid_props": NewtonRigidBodyPropertiesCfg(kinematic_enabled=True),
+                "collision_props": NewtonCollisionPropertiesCfg(contact_offset=0.0001, rest_offset=-0.0001),
             },
         )
         table = self.asset_registry.get_asset_by_name("table")()
@@ -801,6 +805,17 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
         )
 
         embodiment = _make_rizon_embodiment()
+
+        class InitiallyClosedKeyboard(Se3Keyboard):
+            """Keyboard whose gripper toggle starts closed to preserve the reset grasp."""
+
+            def __init__(self, cfg):
+                super().__init__(cfg)
+                self._close_gripper = True
+
+            def reset(self):
+                super().reset()
+                self._close_gripper = True
 
         class InitiallyClosedSpaceMouse(Se3SpaceMouse):
             """SpaceMouse whose gripper toggle starts closed to preserve the reset grasp."""
@@ -825,10 +840,25 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
                     class_type=InitiallyClosedSpaceMouse,
                 )
 
+        class DisplayportKeyboardCfg(KeyboardCfg):
+            """Keyboard with a binary Grav gripper command that starts closed."""
+
+            def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+                return Se3KeyboardCfg(
+                    pos_sensitivity=self.pos_sensitivity,
+                    rot_sensitivity=self.rot_sensitivity,
+                    gripper_term=True,
+                    sim_device=self.sim_device,
+                    class_type=InitiallyClosedKeyboard,
+                )
+
         teleop_device = None
-        if cfg.teleop_device is not None:
-            assert cfg.teleop_device == "spacemouse", "This bring-up environment currently supports SpaceMouse"
+        if cfg.teleop_device == "spacemouse":
             teleop_device = DisplayportSpaceMouseCfg(pos_sensitivity=0.15, rot_sensitivity=0.3)
+        elif cfg.teleop_device == "keyboard":
+            teleop_device = DisplayportKeyboardCfg(pos_sensitivity=0.15, rot_sensitivity=0.3)
+        else:
+            assert cfg.teleop_device is None, "This environment supports SpaceMouse or keyboard teleop only."
 
         return IsaacLabArenaEnvironment(
             name=self.name,
