@@ -100,10 +100,14 @@ other relations in ways worth knowing:
 
 - **The support must be provably immovable.** Its spawner must set
   ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough: it fixes an asset for the
-  solver's arithmetic and says nothing about simulation: and neither is an absent
+  solver's arithmetic and says nothing about simulation, and neither is an absent
   ``rigid_props``, since a background asset can spawn a rigid body through ``spawn_cfg_addon``.
   A pile is captured relative to where its support stood while settling, so a support that
   physics can shove replays the pile against a surface that has moved out from under it.
+  This is conservative for a support the solver places rather than anchors. Such a support is
+  itself captured after settling and rewritten at reset alongside the pile, so the two stay
+  consistent even if the pile shoves it. Relaxing the rule for that case would allow pouring
+  into a movable bin, but it is untested and refused for now.
 - **The support must be square to the world axes.** A rotation off a quarter turn is refused:
   the pour region and the region a settled pile is judged against are both axis-aligned boxes,
   so neither would describe a turned support's surface.
