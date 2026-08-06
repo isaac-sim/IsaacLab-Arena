@@ -124,10 +124,13 @@ Use this table as a reading map:
      - How build-time geometric and reachability checks evaluate candidates,
        and how in-simulation physics checks evaluate stored layouts
      - :doc:`object_placement/validation`
+   * - Clutter placement
+     - How a pile of objects is dropped onto a support and settled by physics
+       rather than positioned by the solver
+     - :doc:`object_placement/clutter`
    * - Pooled placement and reset
      - How ranked layouts are stored, assigned to environments, reproduced, and
        refreshed on reset
-     - :doc:`object_placement/clutter`
      - :doc:`object_placement/pooled_placement`
    * - Homogeneous and heterogeneous objects
      - How the same or different registered objects are represented and placed
