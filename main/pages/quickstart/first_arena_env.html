@@ -424,7 +424,6 @@
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../example_workflows/sensitivity_analysis/variation_system.html">Variation System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
@@ -459,13 +458,13 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/variations/variations.html">Variations</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -530,67 +529,248 @@
                   
   <section id="first-arena-environment">
 <h1>First Arena Environment<a class="headerlink" href="#first-arena-environment" title="Link to this heading">#</a></h1>
-<p>Our first environment, <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code>, is a table-top pick-and-place environment where a robot picks up an
-object and places it into a destination container. This page walks through how the environment is
-defined, introducing the core Arena building blocks along the way.</p>
+<p>Our first environment, <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code>, is a table-top pick-and-place environment
+where a robot picks up an object and places it into a destination container.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../_images/default_srl_pnp.png"><img alt="Default pick_and_place_maple_table environment" src="../../_images/default_srl_pnp.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">The <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment: a DROID robot with a Rubik’s cube and bowl on a maple table.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">The <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment: a DROID robot with a Rubik’s cube and bowl on a
+maple table.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<section id="the-three-building-blocks">
-<h2>The Three Building Blocks<a class="headerlink" href="#the-three-building-blocks" title="Link to this heading">#</a></h2>
-<p>Arena builds every environment by composing three independent pieces:</p>
+<p>Arena builds an environment from three parts that can be changed independently:</p>
 <ul class="simple">
-<li><p><strong>Scene</strong> — the physical world: background geometry, objects, and lighting.</p></li>
-<li><p><strong>Embodiment</strong> — the robot: its kinematics, observations, actions, and sensors.</p></li>
-<li><p><strong>Task</strong> — the objective: success criteria, termination conditions, and metrics.</p></li>
+<li><p><strong>Scene — the world around the robot.</strong> This includes the room, table, objects, and lighting.</p></li>
+<li><p><strong>Embodiment — the robot.</strong> This defines its cameras, observations, and controls.</p></li>
+<li><p><strong>Task — the job to complete.</strong> Here, the robot must pick up the selected object and place it in
+the selected destination.</p></li>
 </ul>
-<p>Each piece is swappable without touching the others.
-For example, as we shall see, we can replace the Rubik’s cube in <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code>
-with another object and get a new environment — no task or embodiment code changes at all.</p>
+<p>For this environment, the three parts are:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Part</p></th>
+<th class="head"><p>What this example uses</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Scene</p></td>
+<td><p>Maple table, Rubik’s cube, bowl, and lighting</p></td>
+</tr>
+<tr class="row-odd"><td><p>Embodiment</p></td>
+<td><p>DROID with joint-position control</p></td>
+</tr>
+<tr class="row-even"><td><p>Task</p></td>
+<td><p>Pick up the cube and place it in the bowl</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Keeping these parts separate makes the environment reusable. We can replace the Rubik’s cube with
+a mustard bottle, choose a different destination or background, or use another compatible robot
+without rewriting the task.</p>
+<p>The following examples run the same environment definition with different choices. First, we run
+the reference scene. Then we replace the objects and change the background.</p>
+<section id="run-the-environment">
+<span id="swapping-environment-components"></span><h2>Run the Environment<a class="headerlink" href="#run-the-environment" title="Link to this heading">#</a></h2>
+<p>The examples use the zero-action policy, which keeps the robot still while you inspect the scene.
+No model weights are required.</p>
+<p>Start or enter the Base Docker container from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<section id="run-the-reference-scene">
+<h3>Run the reference scene<a class="headerlink" href="#run-the-reference-scene" title="Link to this heading">#</a></h3>
+<p>Run the environment with a Rubik’s cube, bowl, and home-office background:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_rel_joint_pos<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--hdr<span class="w"> </span>home_office_robolab
+</pre></div>
+</div>
+</section>
+<section id="swap-the-objects">
+<h3>Swap the objects<a class="headerlink" href="#swap-the-objects" title="Link to this heading">#</a></h3>
+<p>Keep the same environment and task, but replace the pick-up object and destination:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_rel_joint_pos<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_up_object<span class="w"> </span>mustard_bottle_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination_location<span class="w"> </span>wooden_bowl_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--hdr<span class="w"> </span>home_office_robolab
+</pre></div>
+</div>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../_images/swap_objects.gif"><img alt="Swapping objects in the pick-and-place environment" src="../../_images/swap_objects.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The same environment definition and task with different pick-up and destination objects.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="change-the-background">
+<h3>Change the background<a class="headerlink" href="#change-the-background" title="Link to this heading">#</a></h3>
+<p>Keep the original objects, but select a different background panorama and ambient lighting:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_rel_joint_pos<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--hdr<span class="w"> </span>billiard_hall_robolab
+</pre></div>
+</div>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../_images/swap_hdr.gif"><img alt="Changing the fixed HDR background in the pick-and-place environment" src="../../_images/swap_hdr.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The same environment definition with a different background panorama.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These commands make explicit choices for each run. Arena <em>variations</em>, introduced on the next
+page, instead choose values automatically when an environment is built or reset and record
+every sampled value.</p>
+</div>
+</section>
+</section>
+<section id="how-the-environment-is-assembled">
+<h2>How the Environment Is Assembled<a class="headerlink" href="#how-the-environment-is-assembled" title="Link to this heading">#</a></h2>
+<p>Under the hood, Arena assembles this environment in seven steps:</p>
+<ol class="arabic simple">
+<li><p><strong>Retrieve assets.</strong> Arena selects the background, objects, and other scene assets from its
+registries using the environment configuration. A registry is a catalog of assets that Arena
+can use.</p></li>
+<li><p><strong>Describe spatial relationships.</strong> The table is marked as an anchor, and the objects are
+placed on it. Arena turns these relationships into concrete poses when it builds the
+environment.</p></li>
+<li><p><strong>Configure lighting.</strong> The configuration sets the light intensity and optional HDR background.</p></li>
+<li><p><strong>Select the embodiment.</strong> The chosen embodiment provides the robot, cameras, observations, and
+controls.</p></li>
+<li><p><strong>Compose the scene.</strong> Arena collects the background, lighting, objects, and their spatial
+references into a scene. The robot remains separate from the scene.</p></li>
+<li><p><strong>Define the task.</strong> The task describes the objective, success and failure conditions, and
+evaluation metrics independently of the selected assets.</p></li>
+<li><p><strong>Assemble the environment.</strong> Arena combines the scene, embodiment, and task into an environment
+that Isaac Lab can run.</p></li>
+</ol>
+<p>For more detail, see <a class="reference internal" href="../concepts/scene/concept_assets_design.html"><span class="doc">Assets</span></a>,
+<a class="reference internal" href="../concepts/scene/index.html"><span class="doc">Scenes</span></a>, <a class="reference internal" href="../concepts/embodiment/index.html"><span class="doc">Embodiments</span></a>,
+<a class="reference internal" href="../concepts/task/index.html"><span class="doc">Tasks</span></a>, and
+<a class="reference internal" href="../concepts/concept_environment_compilation.html"><span class="doc">Environment Compilation</span></a>.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Full Source: <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table_environment.py</span></code></span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+<span class="sd-summary-text">Full source: <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table_environment.py</span></code></span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).</span>
+<span class="c1"># All rights reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_environment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_environment_factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvironmentCfg</span><span class="p">,</span> <span class="n">ArenaEnvironmentFactory</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the Maple-table pick-and-place environment.&quot;&quot;&quot;</span>
+
+    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;droid_abs_joint_pos&quot;</span>
+    <span class="n">hdr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">light_intensity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">500.0</span>
+    <span class="n">pick_up_object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span>
+    <span class="n">destination_location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bowl_ycb_robolab&quot;</span>
+    <span class="n">additional_table_objects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+
+<span class="nd">@register_environment</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Registered provider for the Maple-table pick-and-place environment.&quot;&quot;&quot;</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pick_and_place_maple_table&quot;</span>
+    <span class="n">_legacy_argparse_cfg_type</span> <span class="o">=</span> <span class="n">PickAndPlaceMapleTableEnvironmentCfg</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its typed configuration.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.envs.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">ViewerCfg</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectType</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 
         <span class="c1"># Step 1: Retrieve assets from the registry</span>
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)()</span>
-        <span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)()</span>
+        <span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)()</span>
 
+        <span class="c1"># Step 2: Describe spatial relationships</span>
         <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
             <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/maple_table_robolab/table&quot;</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
             <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
         <span class="p">)</span>
-
-        <span class="c1"># Step 2: Describe spatial relationships</span>
         <span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+
         <span class="n">pick_up_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
         <span class="n">destination_location</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
 
+        <span class="n">additional_table_objects</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">name</span><span class="p">)()</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">additional_table_objects</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">additional_table_objects</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+
         <span class="c1"># Step 3: Configure lighting</span>
-        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)(</span>
-            <span class="n">spawner_cfg</span><span class="o">=</span><span class="n">sim_utils</span><span class="o">.</span><span class="n">DomeLightCfg</span><span class="p">(</span><span class="n">intensity</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">light_intensity</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">args_cli</span><span class="o">.</span><span class="n">hdr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">light</span><span class="o">.</span><span class="n">add_hdr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hdr_registry</span><span class="o">.</span><span class="n">get_hdr_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">hdr</span><span class="p">)())</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
+        <span class="n">light</span><span class="o">.</span><span class="n">set_intensity</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">light_intensity</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">hdr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">light</span><span class="o">.</span><span class="n">add_hdr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hdr_registry</span><span class="o">.</span><span class="n">get_hdr_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">hdr</span><span class="p">)())</span>
+        <span class="n">directional_light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;directional_light&quot;</span><span class="p">)()</span>
 
         <span class="c1"># Step 4: Select the embodiment</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
-            <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
+            <span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Step 5: Compose the scene</span>
-        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">light</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination_location</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">])</span>
+        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span>
+            <span class="n">assets</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">background</span><span class="p">,</span>
+                <span class="n">light</span><span class="p">,</span>
+                <span class="n">directional_light</span><span class="p">,</span>
+                <span class="n">pick_up_object</span><span class="p">,</span>
+                <span class="n">destination_location</span><span class="p">,</span>
+                <span class="n">table_reference</span><span class="p">,</span>
+                <span class="o">*</span><span class="n">additional_table_objects</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
 
         <span class="c1"># Step 6: Define the task</span>
         <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
@@ -600,163 +780,35 @@ with another object and get a new environment — no task or embodiment code cha
             <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Set viewport camera to match the robolab droid view</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_set_viewer_cfg</span><span class="p">(</span><span class="n">env_cfg</span><span class="p">):</span>
+            <span class="n">env_cfg</span><span class="o">.</span><span class="n">viewer</span> <span class="o">=</span> <span class="n">ViewerCfg</span><span class="p">(</span><span class="n">eye</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">lookat</span><span class="o">=</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">env_cfg</span>
+
         <span class="c1"># Step 7: Assemble the environment</span>
         <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
             <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
             <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+            <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">_set_viewer_cfg</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
 
+    <span class="c1"># TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners</span>
+    <span class="c1"># receive typed configuration instead of the environment subparser namespace.</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_cli_args</span><span class="p">(</span><span class="n">parser</span><span class="p">):</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--embodiment&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;droid_abs_joint_pos&quot;</span><span class="p">)</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--hdr&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--light_intensity&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">500.0</span><span class="p">)</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--pick_up_object&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span><span class="p">)</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--destination_location&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;bowl_ycb_robolab&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_legacy_cli_only_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Consumed directly by teleop.py and record_demos.py, not by build(cfg).</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--teleop_device&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 </details></section>
-<section id="step-1-retrieve-assets-from-the-registry">
-<h2>Step 1: Retrieve Assets from the Registry<a class="headerlink" href="#step-1-retrieve-assets-from-the-registry" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
-<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)()</span>
-<span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)()</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> is a catalog of all registered simulation assets — robots, objects,
-backgrounds, and lights. Each call to <code class="docutils literal notranslate"><span class="pre">get_asset_by_name()</span></code> returns an asset class; calling
-that class (the trailing <code class="docutils literal notranslate"><span class="pre">()</span></code>) instantiates it with default configuration.</p>
-<p>Notice that <code class="docutils literal notranslate"><span class="pre">pick_up_object</span></code> and <code class="docutils literal notranslate"><span class="pre">destination_location</span></code> come from <code class="docutils literal notranslate"><span class="pre">args_cli</span></code> rather than
-being hardcoded. This is the variation axis: swapping <code class="docutils literal notranslate"><span class="pre">--pick_up_object</span></code> on the command line
-changes which asset is fetched here, resulting in a new environment, with zero code changes.</p>
-<p>See <a class="reference internal" href="../concepts/scene/concept_assets_design.html"><span class="doc">Assets</span></a> for details on the asset registry and how to register
-custom assets.</p>
-</section>
-<section id="step-2-describe-spatial-relationships">
-<h2>Step 2: Describe Spatial Relationships<a class="headerlink" href="#step-2-describe-spatial-relationships" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/maple_table_robolab/table&quot;</span><span class="p">,</span>
-    <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-    <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
-
-<span class="n">pick_up_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
-<span class="n">destination_location</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">maple_table_robolab</span></code> background is a full room asset; the actual table surface is a
-sub-prim within it. An <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> gives that sub-prim a name Arena can reason about.</p>
-<p><strong>Relations</strong> describe how assets are placed relative to one another:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">IsAnchor()</span></code> marks <code class="docutils literal notranslate"><span class="pre">table_reference</span></code> as a stable anchor point — Arena does not move this asset,
-but rather place other objects relative to it.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">On(table_reference)</span></code> tells Arena to spawn the object (anywhere) on top of the table surface.</p></li>
-</ul>
-<p>Arena resolves these relations at environment-build time to compute concrete spawn poses.</p>
-</section>
-<section id="step-3-configure-lighting">
-<h2>Step 3: Configure Lighting<a class="headerlink" href="#step-3-configure-lighting" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)(</span>
-    <span class="n">spawner_cfg</span><span class="o">=</span><span class="n">sim_utils</span><span class="o">.</span><span class="n">DomeLightCfg</span><span class="p">(</span><span class="n">intensity</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">light_intensity</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="k">if</span> <span class="n">args_cli</span><span class="o">.</span><span class="n">hdr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">light</span><span class="o">.</span><span class="n">add_hdr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hdr_registry</span><span class="o">.</span><span class="n">get_hdr_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">hdr</span><span class="p">)())</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">light</span></code> is a dome light asset whose intensity is controlled by <code class="docutils literal notranslate"><span class="pre">--light_intensity</span></code>. Passing
-<code class="docutils literal notranslate"><span class="pre">--hdr</span></code> wraps the dome light with an HDR environment map, simultaneously changing the background
-panorama and the ambient lighting. See <a class="reference internal" href="first_experiments/index.html"><span class="doc">Running your First Experiments</span></a> for an experiment where the HDR
-background is swapped out for a different ones.</p>
-</section>
-<section id="step-4-select-the-embodiment">
-<h2>Step 4: Select the Embodiment<a class="headerlink" href="#step-4-select-the-embodiment" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
-    <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The embodiment encapsulates everything robot-specific: the USD robot model, joint configuration, action
-space, observation space, and cameras. <code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code> is the DROID setup (Franka arm +
-Robotiq 2F-85 gripper) with absolute joint-position control.</p>
-<p>Swapping <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code> replaces the robot entirely — observations, actions, and sensors update
-automatically. See <a class="reference internal" href="../concepts/embodiment/index.html"><span class="doc">Embodiment</span></a> for details.</p>
-</section>
-<section id="step-5-compose-the-scene">
-<h2>Step 5: Compose the Scene<a class="headerlink" href="#step-5-compose-the-scene" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">light</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination_location</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">])</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">Scene</span></code> collects all physical assets. The embodiment is kept separate — it is passed directly
-to <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> rather than added to the scene — because the robot interacts with
-the scene rather than being part of it.</p>
-<p>See <a class="reference internal" href="../concepts/scene/index.html"><span class="doc">Scene</span></a> for scene composition details.</p>
-</section>
-<section id="step-6-define-the-task">
-<h2>Step 6: Define the Task<a class="headerlink" href="#step-6-define-the-task" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
-    <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_up_object</span><span class="p">,</span>
-    <span class="n">destination_location</span><span class="o">=</span><span class="n">destination_location</span><span class="p">,</span>
-    <span class="n">background_scene</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-    <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The task defines what <em>success</em> and <em>failure</em> mean. <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> declares two termination conditions:</p>
-<ul class="simple">
-<li><p><strong>success</strong> — the pick-up object is resting on the destination (contact + low velocity).</p></li>
-<li><p><strong>failure (object dropped)</strong> — the object falls below the table surface.</p></li>
-</ul>
-<p>It also attaches metrics (<code class="docutils literal notranslate"><span class="pre">SuccessRateMetric</span></code>, <code class="docutils literal notranslate"><span class="pre">ObjectMovedRateMetric</span></code>) that <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code>
-collects at the end of each episode. These metrics will report the proportion of successful episodes,
-as well as the proportion of episodes in which the object was moved.</p>
-<p>See <a class="reference internal" href="../concepts/task/index.html"><span class="doc">Task</span></a> for creating custom tasks.</p>
-</section>
-<section id="step-7-assemble-the-environment">
-<h2>Step 7: Assemble the Environment<a class="headerlink" href="#step-7-assemble-the-environment" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> holds the three pieces together.
-This is Arena’s declarative description of the environment.
-Simple huh?</p>
-<p>Note that behind the scenes, the <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> compiles this description into a
-<code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code> and registers it with Gymnasium.
-This compiled result can then be run in Isaac Lab.
-See <a class="reference internal" href="../concepts/concept_environment_compilation.html"><span class="doc">Environment Compilation</span></a> for how compilation works,
-but these details are not important for how to use Arena.</p>
-</section>
-<section id="variation-via-cli-arguments">
-<h2>Variation via CLI Arguments<a class="headerlink" href="#variation-via-cli-arguments" title="Link to this heading">#</a></h2>
-<p>Each argument that drives variation is wired directly to an <code class="docutils literal notranslate"><span class="pre">asset_registry.get_asset_by_name()</span></code>
-call. Changing <code class="docutils literal notranslate"><span class="pre">--pick_up_object</span></code> at the command line changes which asset is fetched; no other
-code is touched. This is Arena’s core pattern for building scalable task libraries without
-duplicating environment code.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Argument               What it swaps
-─────────────────────  ─────────────────────────────────────────
---pick_up_object       The object the robot must pick up
---destination_location The container the robot must place it in
---embodiment           The robot (kinematics, actions, sensors)
---hdr                  Background panorama and ambient lighting
---light_intensity      Dome light brightness
-</pre></div>
-</div>
-</section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
-<p>Now that you understand how the environment is built, see <a class="reference internal" href="first_experiments/index.html"><span class="doc">Running your First Experiments</span></a> to run it and
-evaluate a policy across object, lighting, and scale variations from the same environment
-definition, with no code changes.</p>
+<p>Continue to <a class="reference internal" href="first_experiments/exploring_variations.html"><span class="doc">Exploring Environment Variations</span></a> to let Arena sample controlled changes
+automatically.</p>
 </section>
 <section id="using-isaaclab-arena-in-your-own-repository">
 <h2>Using IsaacLab-Arena in Your Own Repository<a class="headerlink" href="#using-isaaclab-arena-in-your-own-repository" title="Link to this heading">#</a></h2>
@@ -814,15 +866,13 @@ Arena as an unmodified submodule from an external project.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-three-building-blocks">The Three Building Blocks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-retrieve-assets-from-the-registry">Step 1: Retrieve Assets from the Registry</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-describe-spatial-relationships">Step 2: Describe Spatial Relationships</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-configure-lighting">Step 3: Configure Lighting</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-select-the-embodiment">Step 4: Select the Embodiment</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-compose-the-scene">Step 5: Compose the Scene</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-define-the-task">Step 6: Define the Task</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-7-assemble-the-environment">Step 7: Assemble the Environment</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variation-via-cli-arguments">Variation via CLI Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-environment">Run the Environment</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-reference-scene">Run the reference scene</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#swap-the-objects">Swap the objects</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#change-the-background">Change the background</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-environment-is-assembled">How the Environment Is Assembled</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-isaaclab-arena-in-your-own-repository">Using IsaacLab-Arena in Your Own Repository</a></li>
 </ul>

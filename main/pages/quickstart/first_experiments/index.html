@@ -420,7 +420,6 @@
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/variation_system.html">Variation System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
@@ -455,13 +454,13 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -526,9 +525,9 @@
                   
   <section id="running-your-first-experiments">
 <h1>Running your First Experiments<a class="headerlink" href="#running-your-first-experiments" title="Link to this heading">#</a></h1>
-<p>The following pages walk you through your first Arena experiments — first verifying that
-environment variations work with a zero-action policy (a placeholder policy that sends zero
-commands to the robot every step), then evaluating a real pre-trained policy in closed loop.</p>
+<p>The previous page made explicit environment choices one at a time. The first page in this section
+uses Arena’s variation system to sample and record controlled changes automatically. You will then
+evaluate real pre-trained policies in closed loop across selected environment configurations.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="exploring_variations.html">Exploring Environment Variations</a></li>

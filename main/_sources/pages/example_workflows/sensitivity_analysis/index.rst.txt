@@ -5,28 +5,21 @@ A single success rate tells you how often a policy completed a task. It does not
 *why* the policy succeeded, which conditions made the task harder, or where the policy is
 most likely to fail.
 
-This workflow answers those questions in two parts:
+This workflow varies the position of a robot's wrist camera while running an OpenPI policy.
+Arena records each sampled camera offset with the episode result, then uses those records to
+show which offsets are most closely associated with success or failure.
 
-* :doc:`variation_system` creates controlled changes in the environment. For example, it can
-  change the lighting, choose a different background, or move a wrist camera slightly away
-  from its expected position.
-* :doc:`sensitivity_analysis` connects the exact conditions in each episode to the result of
-  that episode. This reveals which conditions are most closely associated with success or
-  failure.
+Follow the :doc:`camera-sensitivity workflow <sensitivity_analysis>` to run the experiment,
+generate a report, and read the results.
 
-The two parts are designed to work together. Arena draws a value for each enabled variation,
-runs the policy, and records both the drawn values and the episode result. The sensitivity
-report then looks for useful patterns across all recorded episodes.
+For background information, see the :doc:`Variations concept page
+<../../concepts/variations/variations>` and the :doc:`Sensitivity Analysis concept page
+<../../concepts/concept_sensitivity_analysis>`.
 
-Where to start
---------------
-
-Start with the :doc:`variation_system` page to learn what a variation is and when it changes.
-Then continue to :doc:`sensitivity_analysis` to learn how to plan a useful evaluation and read
-the resulting report.
+.. TODO(cvolk): Rework this directory as a single command-led workflow page and move the remaining
+   general explanations to the concept pages.
 
 .. toctree::
    :maxdepth: 1
 
-   variation_system
    sensitivity_analysis

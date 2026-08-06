@@ -232,6 +232,7 @@ TABLE OF CONTENTS
    pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
    pages/concepts/variations/index
+   pages/concepts/concept_sensitivity_analysis
 
 .. toctree::
    :maxdepth: 1

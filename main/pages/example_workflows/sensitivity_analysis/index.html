@@ -54,7 +54,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Variation System" href="variation_system.html" />
+    <link rel="next" title="Sensitivity Analysis" href="sensitivity_analysis.html" />
     <link rel="prev" title="Agentic Environment Generation GUI" href="../agentic_env_gen/gui_runner.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -229,10 +229,6 @@
     </div>
   
 
-  
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
   
 </div>
 
@@ -424,7 +420,6 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Sensitivity Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="variation_system.html">Variation System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
@@ -459,13 +454,13 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -533,30 +528,17 @@
 <p>A single success rate tells you how often a policy completed a task. It does not tell you
 <em>why</em> the policy succeeded, which conditions made the task harder, or where the policy is
 most likely to fail.</p>
-<p>This workflow answers those questions in two parts:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="variation_system.html"><span class="doc">Variation System</span></a> creates controlled changes in the environment. For example, it can
-change the lighting, choose a different background, or move a wrist camera slightly away
-from its expected position.</p></li>
-<li><p><a class="reference internal" href="sensitivity_analysis.html"><span class="doc">Sensitivity Analysis</span></a> connects the exact conditions in each episode to the result of
-that episode. This reveals which conditions are most closely associated with success or
-failure.</p></li>
-</ul>
-<p>The two parts are designed to work together. Arena draws a value for each enabled variation,
-runs the policy, and records both the drawn values and the episode result. The sensitivity
-report then looks for useful patterns across all recorded episodes.</p>
-<section id="where-to-start">
-<h2>Where to start<a class="headerlink" href="#where-to-start" title="Link to this heading">#</a></h2>
-<p>Start with the <a class="reference internal" href="variation_system.html"><span class="doc">Variation System</span></a> page to learn what a variation is and when it changes.
-Then continue to <a class="reference internal" href="sensitivity_analysis.html"><span class="doc">Sensitivity Analysis</span></a> to learn how to plan a useful evaluation and read
-the resulting report.</p>
+<p>This workflow varies the position of a robot’s wrist camera while running an OpenPI policy.
+Arena records each sampled camera offset with the episode result, then uses those records to
+show which offsets are most closely associated with success or failure.</p>
+<p>Follow the <a class="reference internal" href="sensitivity_analysis.html"><span class="doc">camera-sensitivity workflow</span></a> to run the experiment,
+generate a report, and read the results.</p>
+<p>For background information, see the <a class="reference internal" href="../../concepts/variations/variations.html"><span class="doc">Variations concept page</span></a> and the <a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html"><span class="doc">Sensitivity Analysis concept page</span></a>.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="variation_system.html">Variation System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </div>
-</section>
 </section>
 
 
@@ -579,11 +561,11 @@ the resulting report.</p>
       </div>
     </a>
     <a class="right-next"
-       href="variation_system.html"
+       href="sensitivity_analysis.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Variation System</p>
+        <p class="prev-next-title">Sensitivity Analysis</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -594,25 +576,9 @@ the resulting report.</p>
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-start">Where to start</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 

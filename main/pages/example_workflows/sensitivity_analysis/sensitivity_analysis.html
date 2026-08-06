@@ -55,7 +55,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="Concept Overview" href="../../concepts/concept_overview.html" />
-    <link rel="prev" title="Variation System" href="variation_system.html" />
+    <link rel="prev" title="Sensitivity Analysis" href="index.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -424,7 +424,6 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Sensitivity Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="variation_system.html">Variation System</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
@@ -459,13 +458,13 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -547,8 +546,9 @@ wrist-camera. We will build this figure later in this section.</span><a class="h
 </figure>
 <section id="how-arena-generates-sensitivity-reports">
 <h2>How Arena generates sensitivity reports<a class="headerlink" href="#how-arena-generates-sensitivity-reports" title="Link to this heading">#</a></h2>
-<p>For an experiment run with Arena, the input to the sensitivity analysis pipeline
-is the episode-results file discussed in <a class="reference internal" href="variation_system.html"><span class="doc">Variation System</span></a>.</p>
+<p>For an experiment run with Arena, the input to the sensitivity analysis pipeline is the
+episode-results file written during the variation sweep. See the <a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html"><span class="doc">Sensitivity Analysis
+concept page</span></a> for details about this file.</p>
 <p>Arena considers all selected conditions together and estimates the distribution for the
 outcome you choose, such as success or failure, over the selected conditions.
 For example, a user may select to analyze the distribution of success over variations
@@ -588,9 +588,8 @@ You do not need to choose or configure the estimator yourself.</p>
 </section>
 <section id="run-the-camera-sensitivity-example">
 <h2>Run the camera-sensitivity example<a class="headerlink" href="#run-the-camera-sensitivity-example" title="Link to this heading">#</a></h2>
-<p>The preceding documentation page, <a class="reference internal" href="variation_system.html"><span class="doc">Variation System</span></a>, demonstrated our variation system.
-In particular, we varied, among other factors, the wrist camera displacement.
-In that example we used a zero-action policy that kept the robot still.
+<p>The <a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html"><span class="doc">Getting Started variation example</span></a> varied, among other factors, the wrist
+camera displacement. That example used a zero-action policy that kept the robot still.
 This example continues with the same Rubik’s-cube pick-and-place task,
 but uses an OpenPI policy so that each episode has a meaningful success or failure outcome.
 Only the wrist-camera position varies; the object, destination, background, and lighting remain fixed.</p>
@@ -645,7 +644,7 @@ all three recorded conditions are numeric, Arena will use NPE for this analysis.
 </pre></div>
 </div>
 <p>This places the results in the default output path <code class="docutils literal notranslate"><span class="pre">/eval/camera_sensitivity/&lt;timestamp&gt;/droid_pnp_camera_sensitivity_openpi</span></code>.
-In particular, Arena stores one row per completed episode detailing the sampled variation_system
+In particular, Arena stores one row per completed episode detailing the sampled variation values
 and the per-episode outcome.</p>
 <section id="generate-the-report">
 <h3>Generate the report<a class="headerlink" href="#generate-the-report" title="Link to this heading">#</a></h3>
@@ -764,12 +763,12 @@ We use OSMO to orchestrate running experiments quickly on multi-node clusters.</
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="variation_system.html"
+       href="index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Variation System</p>
+        <p class="prev-next-title">Sensitivity Analysis</p>
       </div>
     </a>
     <a class="right-next"
