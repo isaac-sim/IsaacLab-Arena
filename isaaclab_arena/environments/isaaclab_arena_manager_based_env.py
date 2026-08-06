@@ -16,12 +16,13 @@ from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-from isaaclab_arena.relations.clutter_groups import get_clutter_groups
+from isaaclab_arena.relations.clutter_groups import ClutterGroup, get_clutter_groups
 from isaaclab_arena.relations.clutter_pour import region_for_support, resting_extents
 from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import get_placement_pool
 from isaaclab_arena.relations.placement_pool_validation import CAPTURED_OBJECTS_SETTLED, validate_pool_layouts
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -94,7 +95,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         placement_pool.recycle_layouts = True
         self._reject_spilled_clutter_layouts(placement_pool, groups)
 
-    def _reject_spilled_clutter_layouts(self, placement_pool, groups) -> None:
+    def _reject_spilled_clutter_layouts(self, placement_pool: PooledObjectPlacer, groups: list[ClutterGroup]) -> None:
         """Drop cached layouts whose pile did not stay on its support.
 
         Whether a pour spills is only knowable after settling it, so the pool is filtered

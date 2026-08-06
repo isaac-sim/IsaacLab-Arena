@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -315,7 +316,13 @@ class PooledObjectPlacer:
         """
         self._recycle_layouts = bool(recycle)
 
-    def retain_layouts(self, keep, minimum: int = 1, *, include_consumed: bool = False) -> tuple[int, int, list[int]]:
+    def retain_layouts(
+        self,
+        keep: Callable[[int, PlacementResult], bool],
+        minimum: int = 1,
+        *,
+        include_consumed: bool = False,
+    ) -> tuple[int, int, list[int]]:
         """Drop layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
 
         Rejection sampling for outcomes that are only knowable after simulating, such as a
