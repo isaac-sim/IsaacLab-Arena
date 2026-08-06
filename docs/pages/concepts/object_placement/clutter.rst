@@ -6,6 +6,14 @@ one another, but ``On`` requires each child's whole footprint on a single Z plan
 solver's global no-overlap term forbids contact outright. ``ClutteredOn`` instead drops objects
 onto a support and lets physics decide where they come to rest.
 
+.. figure:: ../../../images/clutter_pile.png
+   :width: 100%
+   :alt: Ten objects settled into a pile on a table
+   :align: center
+
+   Ten objects declared with ``cluttered_on`` and settled by physics. They rest on and against
+   one another, which no combination of solver relations can express.
+
 Members are declared against a support and grouped by name. Unlike the relations in
 :doc:`./relations`, they are not positioned by the solver: they are released above the support
 and allowed to fall, and where they come to rest is the placement.
@@ -73,6 +81,15 @@ sampling that split per layout.
 Resting orientations are another matter: the pile tumbles as it settles, so members come to rest
 at whatever roll and pitch physics gives them, which is why a layout records full quaternions
 rather than a yaw.
+
+.. figure:: ../../../images/clutter_spread_wide.png
+   :width: 100%
+   :alt: The same ten objects spread across the whole table
+   :align: center
+
+   The same ten objects and the same seed at ``spread: 1.0``. The parameter scales the region
+   members are released into, so a lower value heaps them together and a higher one spreads
+   them over the support.
 
 ``drop_order`` decides the sequence members are planned in, which is how you choose which of
 them end up underneath: each member is stacked above whatever earlier ones its footprint
