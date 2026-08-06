@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_pose_from_layout, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import PosePerEnv
@@ -24,16 +24,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
-
-
-def _get_passive_collision_objects(
-    assets: Iterable[Asset | RigidObjectSet],
-    include_background: bool = False,
-) -> list[CollisionObject]:
-    """Load passive collision discovery only when relation placement needs it."""
-    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
-
-    return get_passive_collision_objects(assets, include_background=include_background)
 
 
 def solve_and_apply_relation_placement(
@@ -77,12 +67,20 @@ def solve_and_apply_relation_placement(
     # mutating the caller.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
+        # Lazy import to avoid pxr import before SimulationApp is ready.
+        from isaaclab_arena.assets.object_reference import ObjectReference
+        from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
         scene_assets = list(scene_assets)
-        collision_objects = _get_passive_collision_objects(
+        background_mesh_exclusions = [
+            asset for asset in get_anchor_objects(assets) if isinstance(asset, ObjectReference)
+        ]
+        collision_objects = get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
                 assets, scene_assets, placer_params.solver_params.collision_mode
             ),
+            background_mesh_exclusions=background_mesh_exclusions,
         )
     placement_pool = PooledObjectPlacer(
         objects=assets,
@@ -184,8 +182,7 @@ def _apply_dynamic_spawn_pose(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "assets": assets,
-            "placement_pool": placement_pool,
+            "placement_pool": PlacementPoolHandle(placement_pool),
         },
     )
 

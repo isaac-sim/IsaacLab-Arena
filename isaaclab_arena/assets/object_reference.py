@@ -31,8 +31,11 @@ class ObjectReference(ObjectBase):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
-        # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
-        self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
+        # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
+        (
+            self._prim_path_in_parent_usd,
+            self.initial_pose_relative_to_parent,
+        ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
@@ -47,6 +50,11 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
+
+    @property
+    def prim_path_in_parent_usd(self) -> str:
+        """Return the referenced prim's absolute path in its parent USD stage."""
+        return self._prim_path_in_parent_usd
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
@@ -169,8 +177,8 @@ class ObjectReference(ObjectBase):
         )
         return object_cfg
 
-    def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Object) -> Pose:
-        """Get the prim's transform pose relative to the parent's default prim.
+    def _get_referenced_prim_path_and_pose_relative_to_parent(self, parent_asset: Object) -> tuple[str, Pose]:
+        """Get the prim path and transform pose relative to the parent's default prim.
 
         The position is scaled by the parent's scale factor.
         """
@@ -186,7 +194,7 @@ class ObjectReference(ObjectBase):
                 prim_pose.position_xyz[1] * self._parent_scale[1],
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
-            return Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
+            return prim_path_in_usd, Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
 
     @staticmethod
     def isaaclab_prim_path_to_original_prim_path(

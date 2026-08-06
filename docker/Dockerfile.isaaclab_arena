@@ -111,6 +111,7 @@ RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/
 COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
+COPY isaaclab_arena_cosmos ${WORKDIR}/isaaclab_arena_cosmos
 COPY isaaclab_arena_curobo ${WORKDIR}/isaaclab_arena_curobo
 COPY isaaclab_arena_dreamzero ${WORKDIR}/isaaclab_arena_dreamzero
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
@@ -120,8 +121,13 @@ COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
 
-# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml)
-RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
+# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml).
+# simready-search pins boto3==1.42.58, while Isaac Sim prebundles boto3 1.40.61 and isaacsim-kernel pins that version.
+# pip installs into a directory that precedes the prebundle on sys.path, so without this the image
+# would silently run its S3 asset searches against an AWS stack Isaac Sim does not ship.
+RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]" \
+    && /isaac-sim/python.sh -m pip install --force-reinstall --no-deps \
+        boto3==1.40.61 botocore==1.40.61 s3transfer==0.14.0 requests==2.32.3
 
 ################################
 # Install cuRobo (optional)

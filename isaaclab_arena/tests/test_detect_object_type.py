@@ -21,6 +21,7 @@ def _test_detect_object_type(simulation_app):
 
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
+    from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 
     # ObjectType.BASE
     print("Detecting ObjectType.BASE")
@@ -46,6 +47,15 @@ def _test_detect_object_type(simulation_app):
     stage.DefinePrim("/articulation_root/child_1", "Xform")
     stage.DefinePrim("/articulation_root/child_2", "Xform")
     assert detect_object_type(stage=stage) == ObjectType.ARTICULATION
+
+    # Expect FAIL - side by side rigid bodies, whatever holds them together
+    print("Expect Fail: Detecting several rigid bodies at the same depth")
+    stage = new_stage()
+    add_body(stage, "body_01")
+    add_body(stage, "body_02")
+    with pytest.raises(ValueError) as exception_info:
+        detect_object_type(stage=stage)
+    assert "Found multiple rigid body or articulation roots at depth" in str(exception_info.value)
 
     # Expect FAIL - multiple object types at the same depth
     print("Expect Fail: Detecting multiple object types at the same depth")
@@ -73,10 +83,12 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # the simple RIGID/ARTICULATION classification:
         # - For example, the "peg" and "hole" assets have both RigidBodyAPI and ArticulationRootAPI
         #   applied simultaneously, sometimes in different prim layers.
-        # Procedurally generated assets do not have USD paths, so we skip them.
-        if "procedural" in getattr(object_asset, "tags", []):
-            continue
-        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere"):
+        # Assets without a USD path on the class cannot be classified without an instance. That
+        # covers procedurally generated assets and ones whose path arrives as a graph parameter.
+        has_usd_path = getattr(object_asset, "usd_path", None) is not None
+        is_procedural = "procedural" in getattr(object_asset, "tags", [])
+        skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
+        if has_usd_path and not is_procedural and object_asset.name not in skipped_names:
             print(f"Automatically classifying: {object_asset.name}")
             detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
             print(f"database object type: {object_asset.object_type}")

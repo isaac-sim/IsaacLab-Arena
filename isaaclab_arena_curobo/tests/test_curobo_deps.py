@@ -7,8 +7,7 @@
 
 Runs only in the cuRobo image (build with ``./docker/run_docker.sh -c``); the base image has no
 cuRobo. These are pure import checks — they need no SimulationApp — and guard against the gated
-cuRobo / isaaclab_mimic motion-planner deps (and the ``isaaclab_arena_curobo`` package itself)
-silently going missing from that image.
+cuRobo deps (and the ``isaaclab_arena_curobo`` package itself) silently going missing from that image.
 """
 
 import importlib
@@ -17,23 +16,19 @@ import pytest
 
 pytestmark = pytest.mark.curobo_deps
 
-# cuRobo core + the isaaclab_mimic motion-planner layer the IK oracle and planner builder rely on.
+# cuRobo core modules the sim-free IK oracle relies on.
 CUROBO_DEPENDENCY_MODULES = [
     "curobo",
     "curobo.types.math",
     "curobo.wrap.reacher.ik_solver",
-    "curobo.wrap.reacher.motion_gen",
-    "isaaclab_mimic.motion_planners.curobo.curobo_planner",
-    "isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg",
 ]
 
 # The cuRobo-gated package modules, which must import without a running SimulationApp.
 ARENA_CUROBO_MODULES = [
     "isaaclab_arena_curobo.utils.frame_utils",
     "isaaclab_arena_curobo.utils.ik_solver_utils",
-    "isaaclab_arena_curobo.utils.planner_utils",
     "isaaclab_arena_curobo.utils.robot_cfg_utils",
-    "isaaclab_arena_curobo.placement_pool_ik_validation",
+    "isaaclab_arena_curobo.ik_solver",
     "isaaclab_arena_curobo.ik_reachability_validator",
 ]
 

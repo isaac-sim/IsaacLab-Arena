@@ -7,16 +7,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadySearchConfig,
+    search_simready_objects,
+)
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Environment generation agent
@@ -34,6 +43,9 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        *,
+        enable_simready_search: bool = False,
+        simready_config: SimReadySearchConfig | None = None,
     ):
         """Configure the OpenAI-compatible client and validate the model.
 
@@ -51,6 +63,9 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
+            enable_simready_search: When ``True``, search SimReady for objects the asset catalog
+                does not cover.
+            simready_config: Optional SimReady search configuration.
         """
         inference_backend = InferenceBackend(
             api_key=api_key,
@@ -61,13 +76,33 @@ class EnvironmentGenerationAgent:
             max_retries=max_retries,
         )
         self.spec_inference = SpecInference(inference_backend)
+        self.missing_object_inference = MissingObjectInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
+        self.enable_simready_search = enable_simready_search
+        self.simready_config = simready_config or SimReadySearchConfig()
         self._traces: list[str] = []
+        self._unavailable_objects: list[str] = []
+        self._simready_usd_paths: dict[str, str] = {}
 
     @property
     def traces(self) -> tuple[str, ...]:
-        """Diagnostic lines from the most recent :meth:`generate_spec` call."""
+        """Why the most recent :meth:`generate_spec` call failed, empty when it succeeded.
+
+        Callers surface these as errors, so only what defeated the generation belongs here.
+        Progress worth reading but not acting on is logged instead.
+        """
         return tuple(self._traces)
+
+    @property
+    def unavailable_objects(self) -> tuple[str, ...]:
+        """Objects the most recent ``generate_spec`` call needed but found no asset for.
+
+        Only the SimReady search reports these. A catalog object always names a registry entry that
+        exists, so it can be the wrong choice but never a missing one. The generated spec is still
+        valid: these objects were never offered to spec inference, so it built the scene without
+        them.
+        """
+        return tuple(self._unavailable_objects)
 
     def generate_spec(
         self,
@@ -90,12 +125,17 @@ class EnvironmentGenerationAgent:
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and
             ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
-            When validation fails, ``agent.traces`` holds the diagnostic trace.
+            When validation fails, ``agent.traces`` holds the diagnostic trace. ``agent.unavailable_objects``
+            names any object the search found nothing for; the spec is built without it.
         """
         self._traces = []
+        self._unavailable_objects = []
+        self._simready_usd_paths = {}
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
+        if self.enable_simready_search:
+            asset_catalog = self._extend_catalogue_with_simready(prompt, asset_catalog)
         spec, data = self.spec_inference.infer(
             prompt,
             self._traces,
@@ -110,7 +150,72 @@ class EnvironmentGenerationAgent:
             if resolved is None:
                 return None, spec.to_dict()
             spec = resolved
+        unusable = self._add_simready_usd_path_to_searched_objects(spec)
+        if unusable is not None:
+            self._traces.append(unusable)
+            return None, spec.to_dict()
         return spec, None
+
+    def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> str | None:
+        """Point the spec's searched objects at the generic SimReady asset, USD path in params.
+
+        A search name only exists in the process that searched, so a spec keeping it loads nowhere else.
+
+        Args:
+            spec: Generated spec, rewritten in place.
+
+        Returns:
+            An error message, or None when every searched object was rewritten.
+        """
+        # TODO(xinjieyao, 2026-08-03): Lift this once ObjectSetSpec.members can carry a usd_path.
+        for object_set in spec.object_sets or []:
+            searched_members = [name for name in object_set.members if name in self._simready_usd_paths]
+            if searched_members:
+                return (
+                    f"Object set '{object_set.id}' has searched SimReady members {searched_members}."
+                    " Members have nowhere to carry a usd_path; use them as objects instead."
+                )
+        for obj in spec.objects:
+            usd_path = self._simready_usd_paths.get(obj.registry_name)
+            if usd_path is not None:
+                obj.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
+                obj.params = {**obj.params, "usd_path": usd_path}
+        return None
+
+    def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
+        """Search SimReady for the objects the catalog misses, and add what it finds to the catalog.
+
+        Args:
+            prompt: Natural-language env description, used to work out what the catalog misses.
+            asset_catalog: Registered asset vocabulary to extend.
+
+        Returns:
+            A copy of the catalog with one added entry per asset found, or the argument itself
+            when nothing was searched for or nothing was found.
+        """
+        # Imported here rather than at module scope: it pulls in the asset base classes, which
+        # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
+        from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
+
+        phrases = self.missing_object_inference.infer(prompt, asset_catalog)
+        if not phrases:
+            return asset_catalog
+        search_result = search_simready_objects(phrases, self.simready_config)
+        self._unavailable_objects = list(search_result.unmatched_phrases)
+        if not search_result.candidates:
+            return asset_catalog
+        extended = replace(asset_catalog, objects=list(asset_catalog.objects))
+        for candidate in search_result.candidates:
+            asset_cls = register_searched_simready_object(candidate.search_phrase, candidate.usd_path, candidate.tags)
+            tags = [tag for tag in asset_cls.tags if tag != "object"]
+            extended.objects.append({
+                "name": asset_cls.name,
+                "tags": tags,
+                "object_type": asset_cls.object_type.value,
+            })
+            self._simready_usd_paths[asset_cls.name] = candidate.usd_path
+            _logger.info("catalogued %r for %r: %s", asset_cls.name, candidate.search_phrase, candidate.usd_path)
+        return extended
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +268,7 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
             catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
+        # Only assets existed in the catalogue are exposed.
         elif "object" in tags:
             # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
             object_type = getattr(cls, "object_type", None)

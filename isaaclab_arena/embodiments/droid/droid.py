@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 
 import torch
 from abc import ABC
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -36,9 +38,13 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
+
+if TYPE_CHECKING:
+    import trimesh
 
 _DROID_ROBOT_PRIM = RobotPrimSpec(
     robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
@@ -53,6 +59,21 @@ _DROID_STAND_PRIM = StandPrimSpec(
     footprint_translate_xyz=(-0.05, 0.0, 0.0),
     footprint_scale_xy=(1.2, 1.2),
     stand_default_height=1.35,
+)
+_DROID_JOINT_NAMES = (
+    "panda_joint1",
+    "panda_joint2",
+    "panda_joint3",
+    "panda_joint4",
+    "panda_joint5",
+    "panda_joint6",
+    "panda_joint7",
+    "finger_joint",
+    "right_outer_knuckle_joint",
+    "right_inner_finger_joint",
+    "right_inner_finger_knuckle_joint",
+    "left_inner_finger_knuckle_joint",
+    "left_inner_finger_joint",
 )
 
 
@@ -83,8 +104,15 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
         placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            collision_mode=collision_mode,
+        )
         self.stand_height_m = stand_height_m
         self.placement_bbox_stand_only = placement_bbox_stand_only
         self.scene_config = DroidSceneCfg()
@@ -113,8 +141,23 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         prim_path = _DROID_ROBOT_PRIM.stand_prim_path if self.placement_bbox_stand_only else None
         return super().get_bounding_box(prim_path=prim_path)
 
+    def get_collision_mesh(self) -> trimesh.Trimesh:
+        """Return one posed box mesh for the robot and stand."""
+        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
+
+        source = self.get_placement_geometry_source()
+        return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
+
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
-        self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
+        """Set the spawn and reset joint positions in articulation order."""
+        expected_joint_count = len(_DROID_JOINT_NAMES)
+        assert (
+            len(initial_joint_pose) == expected_joint_count
+        ), f"expected {expected_joint_count} joint positions, got {len(initial_joint_pose)}"
+        assert self.scene_config is not None, "scene_config must be populated before setting the joint pose"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting the joint pose"
+        robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_DROID_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
@@ -139,15 +182,17 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
         placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
-            placement_bbox_stand_only,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            placement_bbox_stand_only=placement_bbox_stand_only,
+            collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
 
@@ -168,15 +213,17 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
         placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
-            placement_bbox_stand_only,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            placement_bbox_stand_only=placement_bbox_stand_only,
+            collision_mode=collision_mode,
         )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
@@ -198,15 +245,17 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
         placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
     ):
         super().__init__(
-            enable_cameras,
-            initial_pose,
-            initial_joint_pose,
-            concatenate_observation_terms,
-            arm_mode,
-            stand_height_m,
-            placement_bbox_stand_only,
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            placement_bbox_stand_only=placement_bbox_stand_only,
+            collision_mode=collision_mode,
         )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
@@ -409,27 +458,6 @@ class DroidObservationsCfg:
 class DroidEventCfg:
     """Configuration for Franka."""
 
-    init_franka_arm_pose = EventTerm(
-        func=franka_stack_events.set_default_joint_pose,
-        mode="reset",
-        params={
-            "default_pose": [
-                0.0,  # panda_joint1
-                -1 / 5 * torch.pi,  # panda_joint2
-                0.0,  # panda_joint3
-                -4 / 5 * torch.pi,  # panda_joint4
-                0.0,  # panda_joint5
-                3 / 5 * torch.pi,  # panda_joint6
-                0.0,  # panda_joint7
-                0.0,  # finger_joint
-                0.0,  # right_outer_knuckle_joint
-                0.0,  # right_inner_finger_joint
-                0.0,  # right_inner_finger_knuckle_joint
-                0.0,  # left_inner_finger_knuckle_joint
-                0.0,  # left_inner_finger_joint
-            ],
-        },
-    )
     randomize_franka_joint_state = EventTerm(
         func=franka_stack_events.randomize_joint_by_gaussian_offset,
         mode="reset",

@@ -17,8 +17,9 @@ combinations of conditions are associated with success or failure.
 How Arena generates sensitivity reports
 ---------------------------------------
 
-For an experiment run with Arena, the input to the sensitivity analysis pipeline
-is the episode-results file discussed in :doc:`variation_system`.
+For an experiment run with Arena, the input to the sensitivity analysis pipeline is the
+episode-results file written during the variation sweep. See the :doc:`Sensitivity Analysis
+concept page <../../concepts/concept_sensitivity_analysis>` for details about this file.
 
 Arena considers all selected conditions together and estimates the distribution for the
 outcome you choose, such as success or failure, over the selected conditions.
@@ -54,9 +55,9 @@ You do not need to choose or configure the estimator yourself.
 Run the camera-sensitivity example
 ----------------------------------
 
-The preceding documentation page, :doc:`variation_system`, demonstrated our variation system.
-In particular, we varied, among other factors, the wrist camera displacement.
-In that example we used a zero-action policy that kept the robot still.
+The :doc:`Getting Started variation example
+<../../quickstart/first_experiments/exploring_variations>` varied, among other factors, the wrist
+camera displacement. That example used a zero-action policy that kept the robot still.
 This example continues with the same Rubik's-cube pick-and-place task,
 but uses an OpenPI policy so that each episode has a meaningful success or failure outcome.
 Only the wrist-camera position varies; the object, destination, background, and lighting remain fixed.
@@ -88,7 +89,7 @@ In the Base Docker container, run the evaluation from the repository root:
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 
 This places the results in the default output path ``/eval/camera_sensitivity/<timestamp>/droid_pnp_camera_sensitivity_openpi``.
-In particular, Arena stores one row per completed episode detailing the sampled variation_system
+In particular, Arena stores one row per completed episode detailing the sampled variation values
 and the per-episode outcome.
 
 

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSMO workflows for evaluating complete Arena Experiments."""
+"""OSMO workflow for evaluating complete Arena Experiments."""
 
 from __future__ import annotations
 
@@ -12,46 +12,36 @@ from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
-from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.tasks.policy_server_task import PolicyServerTask
+from osmo.workflows.server_task_registry import ServerTaskRegistry
 from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
-class Pi0ArenaExperimentWorkflow(Workflow):
-    """Run every Arena Experiment Run in its own OSMO group."""
+class ArenaExperimentWorkflow(Workflow):
+    """Run every Arena Experiment Run in its own OSMO group, co-scheduling each Run's server."""
 
     constructs_groups_directly = True
     task_cfg_type = ExperimentRunnerTaskCfg
-    server_task_cfg_type = Pi0ServerTaskCfg
-    """Configuration type used by this policy-server workflow."""
-
     experiment_output_resource_name = "experiment-output"
 
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
         experiment_cfg: ArenaExperimentCfg,
-        server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
         self.experiment_cfg = deepcopy(experiment_cfg)
-        self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
             workflow_cfg=workflow_cfg,
             task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
             group_name=group_name,
         )
-
-        # Every Pi0 Run gets a dedicated server task. Verify that all of those
-        # clients request the variant configured for the server deployment.
-        pi0_policy_variants_by_run = self._get_pi0_policy_variants_by_run()
-        self._assert_pi0_server_compatible(pi0_policy_variants_by_run)
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
         """Create one independently scheduled group per Run, then collect their outputs into one Experiment output."""
@@ -77,22 +67,27 @@ class Pi0ArenaExperimentWorkflow(Workflow):
         run_name: str,
         run_config: ArenaRunCfg,
     ) -> tuple[dict[str, Any], str]:
-        """Create one OSMO group that executes a single-Run Arena Experiment."""
+        """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
+        # Snapshot this Run alone so the Experiment Runner task embeds a single-Run Experiment.
         single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
 
-        pi0_policy_server_tasks: list[BaseTask] = []
+        policy_server_tasks: list[BaseTask] = []
         run_policy_config = single_run_experiment_config.runs[run_name].policy
-        if isinstance(run_policy_config, Pi0RemotePolicyCfg):
-            pi0_server_task_name = f"policy-server-{run_index}"
-            self._configure_pi0_remote_policy_for_server(run_policy_config, pi0_server_task_name)
-            pi0_policy_server_tasks.append(
-                Pi0ServerTask(
-                    self.pi0_server_task_cfg,
-                    lead=False,
-                    task_name=pi0_server_task_name,
-                )
-            )
+        # Look up whether this client policy needs a co-scheduled OSMO inference server.
+        server_type: type[PolicyServerTask] | None = ServerTaskRegistry().get_server_type_for_policy_cfg(
+            run_policy_config
+        )
+        if server_type is not None:
+            server_task_name = f"policy-server-{run_index}"
+            # Point the client policy at this group's dedicated server task host/port.
+            run_policy_config.remote_host = server_type.host_token(server_task_name)
+            run_policy_config.remote_port = POLICY_SERVER_PORT
+            # Build the server deployment config from the Run's client policy (e.g. pi0 variant).
+            server_cfg = server_type.task_cfg_for_policy(run_policy_config)
+            # Instantiate the OSMO server task associated with the client policy.
+            server_task = server_type(server_cfg, lead=False, task_name=server_task_name)
+            policy_server_tasks.append(server_task)
 
         # Construct this after connecting the policy because the task snapshots the Experiment.
         experiment_runner_task = ExperimentRunnerTask(
@@ -102,7 +97,7 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             task_name=experiment_runner_task_name,
             published_output_url=None,
         )
-        run_group_tasks = [experiment_runner_task, *pi0_policy_server_tasks]
+        run_group_tasks = [experiment_runner_task, *policy_server_tasks]
 
         run_group_dict = {
             "name": f"arena-run-{run_index}",
@@ -135,37 +130,3 @@ class Pi0ArenaExperimentWorkflow(Workflow):
             "default": run_task_resource,
             self.experiment_output_resource_name: experiment_output_task_resource,
         }
-
-    def _get_pi0_policy_variants_by_run(self) -> dict[str, str]:
-        """Return effective pi0-remote Run variants needed for compatibility checks."""
-        pi0_policy_variants_by_run = {}
-        for run_name, run_config in self.experiment_cfg.runs.items():
-            if not isinstance(run_config.policy, Pi0RemotePolicyCfg):
-                continue
-            pi0_policy_variants_by_run[run_name] = run_config.policy.policy_variant
-        return pi0_policy_variants_by_run
-
-    def _assert_pi0_server_compatible(self, pi0_policy_variants_by_run: dict[str, str]) -> None:
-        """Require Pi0RemotePolicy Runs whose variants match the deployed server."""
-        assert pi0_policy_variants_by_run, "pi0 server requires at least one Run using Pi0RemotePolicy"
-        incompatible_policy_variants_by_run = {
-            run_name: policy_variant
-            for run_name, policy_variant in pi0_policy_variants_by_run.items()
-            if policy_variant != self.pi0_server_task_cfg.policy_variant
-        }
-        assert not incompatible_policy_variants_by_run, (
-            f"pi0_remote Runs require variants {incompatible_policy_variants_by_run}, but the pi0 server is configured"
-            f" for '{self.pi0_server_task_cfg.policy_variant}'"
-        )
-
-    def _configure_pi0_remote_policy_for_server(
-        self,
-        pi0_remote_policy_config: Pi0RemotePolicyCfg,
-        pi0_server_task_name: str,
-    ) -> None:
-        """Configure a Pi0 remote policy to use its dedicated OSMO server task."""
-        pi0_remote_policy_config.remote_host = Pi0ServerTask.host_token(pi0_server_task_name)
-        pi0_remote_policy_config.remote_port = POLICY_SERVER_PORT
-        # The first OSMO inference may compile longer than the policy's normal
-        # keepalive timeout. Use the timeout owned by this server deployment.
-        pi0_remote_policy_config.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout_s

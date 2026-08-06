@@ -160,17 +160,27 @@ def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
     )
 
 
+def _lights_of_type(arena_env, light_cls) -> list:
+    return [asset for asset in arena_env.scene.assets.values() if isinstance(asset, light_cls)]
+
+
 def _test_default_light_is_injected_when_scene_has_none(simulation_app):
-    from isaaclab_arena.assets.object_library import DomeLight
+    from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight
 
     # A single YCB object with no light asset and no light baked into its USD: the converter
     # must inject a default light so the env does not render black.
     spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
     arena_env = spec.to_arena_env()
 
-    assert any(isinstance(asset, DomeLight) for asset in arena_env.scene.assets.values())
+    assert len(_lights_of_type(arena_env, DomeLight)) == 1
 
-    # An explicit light suppresses injection — no double-lighting.
+    # The directional light comes along so lighting variations have a target, but is off until one
+    # of its variations activates it.
+    directional_lights = _lights_of_type(arena_env, DirectionalLight)
+    assert len(directional_lights) == 1
+    assert directional_lights[0].spawner_cfg.intensity == 0.0
+
+    # An explicit light suppresses injection — no double-lighting, and no directional light either.
     explicit = _minimal_scene_spec(
         objects=[
             AssetSpec(id="mug", registry_name="mug_ycb_robolab"),
@@ -178,7 +188,12 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
         ]
     )
     explicit_env = explicit.to_arena_env()
-    assert sum(isinstance(asset, DomeLight) for asset in explicit_env.scene.assets.values()) == 1
+    assert len(_lights_of_type(explicit_env, DomeLight)) == 1
+    assert len(_lights_of_type(explicit_env, DirectionalLight)) == 0
+
+    # The injected lights own their spawner cfgs: turning the directional light off above must not
+    # have darkened the shared class default for later builds.
+    assert DirectionalLight.default_spawner_cfg.intensity == DirectionalLight.default_intensity
 
     return True
 
@@ -187,4 +202,30 @@ def test_default_light_is_injected_when_scene_has_none():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
     result = run_function_with_persistent_simulation_app(_test_default_light_is_injected_when_scene_has_none)
+    assert result
+
+
+def _test_direction_variation_lights_injected_directional_light(simulation_app):
+    from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight
+
+    spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
+    arena_env = spec.to_arena_env()
+    dome_light = _lights_of_type(arena_env, DomeLight)[0]
+    directional_light = _lights_of_type(arena_env, DirectionalLight)[0]
+
+    direction_variation = directional_light.get_variation("direction")
+    direction_variation.enable()
+    direction_variation.configure_at_build_time()
+
+    # Enabling the variation lights the sun and dims the dome so the sun's shadows are visible.
+    assert directional_light.spawner_cfg.intensity == DirectionalLight.default_intensity
+    assert dome_light.spawner_cfg.intensity == direction_variation.cfg.dome_intensity_when_active
+
+    return True
+
+
+def test_direction_variation_lights_injected_directional_light():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result

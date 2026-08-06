@@ -9,8 +9,6 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 
 DEFAULT_VARIANT = "pi05"
 
-MAX_RECONNECT_ATTEMPTS = 3
-
 
 # TODO(cvolk, 2026-05-18): unify the remote-policy config story across arena.
 # Today openpi uses a Python dataclass (this file) and gr00t uses a YAML config
@@ -31,5 +29,5 @@ class Pi0RemotePolicyCfg(PolicyCfg):
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
 
-    ping_timeout: float | None = 20.0
+    ping_timeout: float | None = 300.0
     """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""

@@ -10,10 +10,13 @@ embodiment:
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
 - id: mustard_bottle
   registry_name: mustard_bottle_hope_robolab

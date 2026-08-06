@@ -12,8 +12,9 @@ from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
 from osmo.workflows.dreamzero_split_workflows import DreamZeroPolicyRunnerWorkflow
-from osmo.workflows.server_plus_policy_runner_workflow import Pi0PlusPolicyRunnerWorkflow
+from osmo.workflows.server_plus_policy_runner_workflow import CosmosPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
 from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 def test_task_name_is_a_required_keyword_argument():
@@ -43,6 +44,23 @@ def test_typed_workflow_config_renders_policy_runner_and_server():
     assert "--ping_timeout 300" in policy_runner_command
     assert "--num_envs 2" in policy_runner_command
     assert "example_environment light.hdr_image.enabled=true" in policy_runner_command
+
+
+def test_cosmos_workflow_renders_policy_runner_and_server():
+    """Pair the Cosmos policy-runner with the Cosmos server it connects to."""
+    workflow = CosmosPolicyRunnerWorkflow(
+        workflow_cfg=WorkflowCfg(),
+        task_cfg=PolicyRunnerTaskCfg(arena_env="example_environment"),
+    )
+
+    tasks = workflow.generate_workflow()["workflow"]["groups"][0]["tasks"]
+    policy_runner_command = tasks[0]["files"][0]["contents"]
+
+    assert [task["name"] for task in tasks] == ["policy_runner", "cosmos_server"]
+    assert "isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy" in policy_runner_command
+    assert "--remote_host {{host:cosmos_server}}" in policy_runner_command
+    assert f"--remote_port {POLICY_SERVER_PORT}" in policy_runner_command
+    assert "action_policy_server_robolab" in tasks[1]["files"][0]["contents"]
 
 
 def test_static_workflow_threads_declared_task_names_into_host_token():

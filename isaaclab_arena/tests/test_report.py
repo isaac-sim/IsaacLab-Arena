@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.video.camera_observation_video_recorder import (
     format_episode_video_filename,
     parse_episode_video_filename,
 )
-from isaaclab_arena.visualization.report import build_report
+from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 
 def test_episode_video_filename_roundtrip_no_rebuild():
@@ -53,6 +54,7 @@ def test_build_report_smoke(tmp_path):
     html = report_path.read_text(encoding="utf-8")
 
     assert "Evaluation Report" in html
+    assert "2 job(s) &middot; 5 episode(s)" in html
     assert "pick_and_place" in html
     assert "wrist_cam" in html and "front_cam" in html
 
@@ -60,3 +62,19 @@ def test_build_report_smoke(tmp_path):
     for name in video_names:
         assert name in html
     assert "not-a-recorder-file.mp4" not in html
+
+
+def test_build_report_with_supplied_run_execution_results(tmp_path):
+    report_path = build_report(
+        tmp_path,
+        run_executions=[
+            RunExecutionReport(run_name="completed-run", status=RunStatus.COMPLETED, process_exit_code=0),
+            RunExecutionReport(run_name="failed-run", status=RunStatus.FAILED, process_exit_code=17),
+        ],
+    )
+
+    report_contents = report_path.read_text(encoding="utf-8")
+    assert "2 run(s) &middot; 1 completed &middot; 1 failed &middot; 0 episode(s)" in report_contents
+    assert "Failed runs (1)" in report_contents
+    assert "failed-run" in report_contents
+    assert "<code>17</code>" in report_contents

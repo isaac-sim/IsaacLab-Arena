@@ -90,9 +90,8 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
 
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
-    assert run.environment.arena_env_args == legacy_environment_args_to_cli_args(
-        legacy_config["jobs"][0]["arena_env_args"]
-    )
+    assert run.environment.env_graph_spec_yaml_path == str(graph_path)
+    assert run.environment.per_run_overrides == {"enable_cameras": True, "object": "dex_cube"}
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
@@ -109,7 +108,8 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
         },
         device="cuda:1",
     )
-    parsed_args = SimpleNamespace()
+    parsed_args = SimpleNamespace(env_graph_spec_yaml=str(graph_path))
+    expected_arena_env = object()
     expected_builder = object()
     captured = {}
 
@@ -120,24 +120,40 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
 
     monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
 
-    def get_builder(args_cli, hydra_overrides):
+    def get_arena_env(env_graph_spec_yaml, args_cli):
+        captured["env_graph_spec_yaml"] = env_graph_spec_yaml
         captured["args_cli"] = args_cli
+        return expected_arena_env
+
+    monkeypatch.setattr(legacy_graph_environment_cli, "arena_env_from_graph_spec", get_arena_env)
+
+    def get_builder(arena_env, builder_cfg, hydra_overrides):
+        captured["arena_env"] = arena_env
+        captured["builder_cfg"] = builder_cfg
         captured["hydra_overrides"] = hydra_overrides
         return expected_builder
 
-    monkeypatch.setattr(legacy_graph_environment_cli, "get_arena_builder_from_cli", get_builder)
+    # Patched by name so ArenaEnvBuilder is imported when the test runs rather than at
+    # collection, which would pull Isaac Lab modules in before SimulationApp starts.
+    monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", get_builder)
 
     builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
         run.environment,
-        device=run.environment_builder.device,
-        language_instruction=run.environment_builder.language_instruction,
+        environment_builder=run.environment_builder,
         hydra_overrides=overrides_from_dict(run.variations),
     )
 
     assert builder is expected_builder
-    assert captured["arguments"] == run.environment.arena_env_args
-    assert parsed_args.device == "cuda:1"
-    assert parsed_args.language_instruction is None
+    assert captured["arguments"] == legacy_environment_args_to_cli_args(
+        {"environment": run.environment.env_graph_spec_yaml_path, **run.environment.per_run_overrides}
+    )
+    assert captured["args_cli"] is parsed_args
+    assert captured["env_graph_spec_yaml"] == str(graph_path)
+    # The Run's typed builder config crosses the boundary directly, so device and
+    # language_instruction never round-trip through the argparse namespace.
+    assert captured["builder_cfg"] is run.environment_builder
+    assert captured["builder_cfg"].device == "cuda:1"
+    assert captured["arena_env"] is expected_arena_env
     assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
 
 

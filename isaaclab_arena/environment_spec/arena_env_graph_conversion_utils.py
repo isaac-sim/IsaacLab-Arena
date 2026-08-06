@@ -19,8 +19,10 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
-_DEFAULT_LIGHT_ASSET_NAME = "light"
-_DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
+_DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
+_DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"
+_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
+_DEFAULT_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -60,17 +62,39 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
         enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
         required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+        debug_visualize=placement_validators is not None and placement_validators.debug_visualize,
+        debug_visualize_output_path=(
+            placement_validators.debug_visualize_output_path if placement_validators is not None else None
+        ),
     )
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:
-    """Inject a default light when the scene would otherwise render black."""
+    """Inject default lighting setup, if no lighting already exists.
+
+    Injects:
+    - dome light
+    - directional light (default turned off). For lighting variations to act on.
+    """
     if _scene_already_has_light(graph_spec, assets_by_node_id):
         return
 
-    node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
-    assets_by_node_id[node_id] = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)()
-    print(f"INFO: no light found in scene or background USD(s); injected default light '{node_id}'.")
+    dome_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DOME_LIGHT_NODE_ID)
+    dome_light = AssetRegistry().get_asset_by_name(_DEFAULT_DOME_LIGHT_ASSET_NAME)()
+    assets_by_node_id[dome_node_id] = dome_light
+
+    directional_node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_DIRECTIONAL_LIGHT_NODE_ID)
+    directional_light = AssetRegistry().get_asset_by_name(_DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME)()
+    directional_light.off()  # a lighting-direction variation turns it back on at build time
+    # Let the direction variation dim this dome when it activates, so shadows show.
+    directional_light.set_dome_light(dome_light)
+    assets_by_node_id[directional_node_id] = directional_light
+
+    print(
+        f"INFO: no light found in scene or background USD(s); injected default light '{dome_node_id}'"
+        f" and directional light '{directional_node_id}'"
+        " (off unless a lighting-direction variation activates it)."
+    )
 
 
 def _unique_node_id(existing_ids: set[str], base: str) -> str:

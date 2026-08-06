@@ -24,6 +24,9 @@ class TaskCfg:
 class BaseTask(ABC):
     """Abstract base task for an Isaac Lab Arena OSMO workflow."""
 
+    task_cfg_type: type[TaskCfg] = TaskCfg
+    """Config dataclass this task consumes."""
+
     def __init__(
         self,
         task_cfg: TaskCfg | None = None,

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import copy
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
@@ -377,6 +378,21 @@ class LightBase(LibraryObject, ABC):
     object_type = ObjectType.BASE
     tags = ["light"]
 
+    default_intensity: float
+    """Intensity the light is lit at by default, and the intensity ``on()`` restores."""
+
+    def __init__(self, *args, spawner_cfg: sim_utils.LightCfg, **kwargs):
+        # Deep-copy here to avoid altering the shared class default.
+        super().__init__(*args, spawner_cfg=copy.deepcopy(spawner_cfg), **kwargs)
+
+    def on(self, intensity: float | None = None) -> None:
+        """Turn the light on, at ``intensity`` if given, else at the class default intensity."""
+        self.set_intensity(intensity if intensity is not None else self.default_intensity)
+
+    def off(self) -> None:
+        """Turn the light off (intensity 0)."""
+        self.set_intensity(0.0)
+
     def set_intensity(self, intensity: float) -> None:
         """Set the light's intensity."""
         assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
@@ -423,7 +439,8 @@ class DomeLight(LightBase):
     name = "light"
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
+    default_intensity = 1500.0
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=default_intensity)
 
     spawner_cfg: sim_utils.DomeLightCfg
     """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
@@ -476,7 +493,8 @@ class DirectionalLight(LightBase):
 
     name = "directional_light"
     default_prim_path = "/World/DirectionalLight"
-    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=1000.0)
+    default_intensity = 1000.0
+    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=default_intensity)
     default_initial_pose = Pose(position_xyz=(0.0, 0.0, 5.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     spawner_cfg: sim_utils.DistantLightCfg
@@ -509,6 +527,10 @@ class DirectionalLight(LightBase):
         position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
         self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()
+
+    def set_dome_light(self, dome_light: LightBase) -> None:
+        """Register a dome light for the direction variation to dim when it activates."""
+        self.get_variation("direction").set_dome_light(dome_light)
 
 
 @register_asset

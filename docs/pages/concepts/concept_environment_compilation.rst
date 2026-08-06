@@ -58,8 +58,17 @@ to each manager are tabulated below:
 ``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
 from each component into a set of complete managers. Then it merges these complete managers
 into a single ``ManagerBasedRLEnvCfg``.
-The Arena Environment Builder also optionally solves spatial relations between
-objects (``--solve_relations``). See :doc:`./concept_object_placement` for more details.
+
+By default, the builder also solves spatial relations for placed objects and
+supported robot embodiments. Set
+``ArenaEnvBuilderCfg(solve_relations=False)`` in Python to disable this step.
+Arena command-line runners expose the equivalent ``--no_solve_relations``
+option.
+
+.. todo:: xyao-nv
+
+   Document how the simulation seed controls random state during environment
+   compilation and how it differs from placement-specific seeding.
 
 
 The compiled config is then registered with the gym registry under the
@@ -79,3 +88,9 @@ in mimic mode.
    python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --mimic ...
+
+Next Steps
+----------
+
+Continue to :doc:`object_placement/relations` to learn how anchors and spatial
+relations describe a placement layout.
