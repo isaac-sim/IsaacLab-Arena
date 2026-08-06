@@ -74,109 +74,39 @@ table.gallery th {
     color: var(--pst-color-text-muted);
 }
 
-/* Teaser code snippets beside images on the landing page.
-   Always use a dark Monokai-like palette so the block reads as a
-   syntax-highlighted dark card even when the site theme is light. */
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code {
+/* Teaser code snippet on the landing page (index.rst ``compact-code``).
+   Force a dark Monokai-like card even when the site theme is light. */
+.compact-code {
     text-align: left;
 }
 
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight {
+.compact-code .highlight {
     background: #272822 !important;
     border-radius: 0.5rem;
     color: #f8f8f2;
 }
 
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight pre {
+.compact-code .highlight pre {
     background: transparent !important;
     color: #f8f8f2;
 }
 
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .c,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .ch,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .cm,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .cp,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .cpf,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .c1,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .cs {
-    color: #75715e !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .k,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kc,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kd,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kn,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kp,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kr,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .kt {
-    color: #66d9ef !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .o,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .ow {
-    color: #f92672 !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .n,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nb,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nd,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .ne,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .ni,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nl,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nn,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nx,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .py,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nt,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nv,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .bp {
+/* Pygments token colors for that teaser only. The snippet is just
+   ``name.method(Class(arg))``, so only .n / .o / .p appear. Pygments
+   tags both On and add_relation as plain Name; the rules below treat
+   Class(...) as pink and .method(...) as green. */
+.compact-code .highlight .n,
+.compact-code .highlight .p {
     color: #f8f8f2 !important;
 }
 
-/* Pygments tags callables as plain Name. Approximate IDE colors:
-   class-like calls (On(...)) in pink, dotted methods (add_relation) in green.
-   The method rule must out-specify the call-site rule because add_relation
-   matches both. Require a trailing '.p' after the arg so a closing ')'
-   before the next line's name is not treated as a call. */
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nc,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .n:has(+ .p + .n + .p) {
+.compact-code .highlight .o,
+.compact-code .highlight .n:has(+ .p + .n + .p) {
     color: #f92672 !important;
 }
 
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .nf,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .fm,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .na,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .o + .n:has(+ .p + .n + .p) {
+.compact-code .highlight .o + .n:has(+ .p + .n + .p) {
     color: #a6e22e !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .s,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sa,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sb,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sc,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .dl,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sd,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .s2,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .se,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sh,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .si,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sx,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .sr,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .s1,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .ss {
-    color: #e6db74 !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .m,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .mb,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .mf,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .mh,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .mi,
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .mo {
-    color: #ae81ff !important;
-}
-
-.bd-article:has(> section#welcome-to-isaac-lab-arena) .compact-code .highlight .p {
-    color: #f8f8f2 !important;
 }
 
 /* Nudge the version switcher alignment in the navbar. */
