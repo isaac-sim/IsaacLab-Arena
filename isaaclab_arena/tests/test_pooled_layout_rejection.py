@@ -244,8 +244,8 @@ def test_recycled_bulk_draw_refuses_a_request_larger_than_the_pool():
 def test_starved_envs_are_named_not_merely_absent_from_the_counts():
     """An env that kept its rejects must be reported, not inferred.
 
-    Falling below the minimum leaves the counts looking like a clean pass -- nothing rejected,
-    everything kept -- which is indistinguishable from every layout having passed.
+    Falling below the minimum leaves the counts looking like a clean pass: nothing rejected,
+    everything kept: which is indistinguishable from every layout having passed.
     """
     placer = _placer_with(
         [_Layout("a0"), _Layout("b0", good=False)],

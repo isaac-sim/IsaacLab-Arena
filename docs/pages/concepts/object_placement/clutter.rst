@@ -41,18 +41,18 @@ disagree on it are rejected.
 
 Parameters describing the pile, which every member must declare identically:
 
-- ``group`` (default ``"clutter"``) — ties members of one pile together
-- ``spread`` (default ``1.0``) — fraction of the support footprint to use, shrunk about
+- ``group`` (default ``"clutter"``): ties members of one pile together
+- ``spread`` (default ``1.0``): fraction of the support footprint to use, shrunk about
   its centre; must be in ``(0, 1]``. A pile is poured into one region, so members
   disagreeing on it is rejected.
-- ``drop_order`` (default ``as_listed``) — which members end up underneath; see below
+- ``drop_order`` (default ``as_listed``): which members end up underneath; see below
 
 Parameters describing a single member, which may differ between them:
 
-- ``gap_m`` (default ``0.03``) — vertical gap this object leaves above whatever it is
+- ``gap_m`` (default ``0.03``): vertical gap this object leaves above whatever it is
   released over
-- ``clearance_m`` (default ``0.01``) — height above the surface at which this object starts
-- ``random_yaw`` (default ``True``) — sample a yaw for this object before dropping. Turn it
+- ``clearance_m`` (default ``0.01``): height above the surface at which this object starts
+- ``random_yaw`` (default ``True``): sample a yaw for this object before dropping. Turn it
   off for one member to drop it axis-aligned while the rest are turned.
 
 Only the yaw is sampled. Any other release orientation is authored, by giving the member a
@@ -70,19 +70,19 @@ rotation, in every environment and on every reset, and only its yaw varies. The 
 member, so half a pile can be marked upside down and half left alone; what cannot be expressed is
 sampling that split per layout.
 
-Resting orientations are another matter — the pile tumbles as it settles, so members come to rest
+Resting orientations are another matter: the pile tumbles as it settles, so members come to rest
 at whatever roll and pitch physics gives them, which is why a layout records full quaternions
 rather than a yaw.
 
 ``drop_order`` decides the sequence members are planned in, which is how you choose which of
-them end up underneath -- each member is stacked above whatever earlier ones its footprint
+them end up underneath: each member is stacked above whatever earlier ones its footprint
 overlaps:
 
-- ``as_listed`` (default) — the order the members appear in the asset list, so listing an object
+- ``as_listed`` (default): the order the members appear in the asset list, so listing an object
   first puts it at the bottom
-- ``flattest_first`` — shortest first, so flat objects reach the surface before it gets lumpy
+- ``flattest_first``: shortest first, so flat objects reach the surface before it gets lumpy
   and lie flat rather than coming to rest on an edge
-- ``shuffle`` — randomised per layout, so no one member sits at the bottom of every pile
+- ``shuffle``: randomised per layout, so no one member sits at the bottom of every pile
 
 It is pile-wide, so every member of a group must declare the same value. And it decides the
 planned stack only: once physics runs, a pile landing on the first object can still shove it
@@ -99,8 +99,8 @@ Because a pile is produced by simulation rather than optimisation, it differs fr
 other relations in ways worth knowing:
 
 - **The support must be provably immovable.** Its spawner must set
-  ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough -- it fixes an asset for the
-  solver's arithmetic and says nothing about simulation -- and neither is an absent
+  ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough: it fixes an asset for the
+  solver's arithmetic and says nothing about simulation: and neither is an absent
   ``rigid_props``, since a background asset can spawn a rigid body through ``spawn_cfg_addon``.
   A pile is captured relative to where its support stood while settling, so a support that
   physics can shove replays the pile against a surface that has moved out from under it.
@@ -110,7 +110,7 @@ other relations in ways worth knowing:
 - **Nothing may be related to a member, and a member may declare little.** A relation naming a
   member as its parent is refused, and a member may carry only ``cluttered_on`` and a single
   ``RotateAroundSolution``. Members are held out of the solve, so anything else would be
-  discarded -- a parent reference deep in the solver, a carried relation in silence.
+  discarded: a parent reference deep in the solver, a carried relation in silence.
 - **A support the layout does not place must declare a concrete Pose.** A ``PoseRange`` or
   ``PosePerEnv`` offers no single surface to pour onto. A solver-placed support may declare
   either, since its pose comes from the layout rather than the declaration.
@@ -126,8 +126,8 @@ other relations in ways worth knowing:
   so any pose the optimiser gave them would be discarded; leaving them in would make them
   phantom obstacles that push the genuinely constrained objects around. They are therefore
   held out of the solver and out of the generic build-time validators, including overlap. The
-  clutter-specific checks -- what a member may declare, whether the pile settled, whether it
-  stayed on its support -- do run.
+  clutter-specific checks: what a member may declare, whether the pile settled, whether it
+  stayed on its support: do run.
 - **A pile that always spills is a configuration error.** Layouts are settled once and the ones
   whose members left the support are discarded. An environment left with none fails at build
   time rather than running episodes against a pile lying beside its support: reduce the members,

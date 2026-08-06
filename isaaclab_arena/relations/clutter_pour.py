@@ -218,7 +218,7 @@ def region_for_support(
     """Return a support's drop region, resolved from the layout that placed it.
 
     Every consumer of a support's region goes through here. Deriving it twice invites the
-    two derivations to disagree -- a pour that accounts for the support's yaw and a check
+    two derivations to disagree: a pour that accounts for the support's yaw and a check
     that does not will reject exactly the layouts the pour got right.
     """
     position, rotation = support_pose_from_layout(support, layout)

@@ -10,7 +10,7 @@ footprint to rest on one Z plane and a global pairwise no-overlap loss forbids c
 whereas a pile is defined by objects touching and resting on one another. Clutter is
 therefore placed by dropping objects into a region and letting the simulator settle them.
 
-This module computes the *drop* poses only -- the pre-settle layout. It is pure geometry
+This module computes the *drop* poses only: the pre-settle layout. It is pure geometry
 with no simulator dependency, so it is cheap and directly testable. Poses are guaranteed
 free of mutual penetration at spawn, which lets them double as the scene's spawn poses.
 
@@ -20,7 +20,7 @@ The two properties that make the layout safe:
   region, rather than only its origin.
 * Objects are lifted only over the footprints they actually overlap (a per-column ladder),
   so an object with a clear column starts just above the floor instead of above the whole
-  pile. This keeps drop heights -- and therefore impact energy and scatter -- small.
+  pile. This keeps drop heights: and therefore impact energy and scatter: small.
 """
 
 from __future__ import annotations
@@ -143,8 +143,8 @@ class DropPose:
 class _Footprint:
     """A bounding box's XY footprint, described relative to the object origin.
 
-    Local boxes are not centred on the origin -- USD pivots sit wherever the asset author
-    put them -- so the footprint's own centre has to be carried separately from its size.
+    Local boxes are not centred on the origin, USD pivots sit wherever the asset author
+    put them: so the footprint's own centre has to be carried separately from its size.
     Treating the origin as the centre would let an object hang off the region by its offset.
     """
 
@@ -244,8 +244,8 @@ def _sample_orientation_that_fits(
 ) -> tuple[tuple[float, float, float, float], AxisAlignedBoundingBox, _Footprint]:
     """Sample a yaw whose rotated footprint fits the region, retrying unlucky draws.
 
-    Yaw changes an elongated object's footprint substantially -- a long object turned
-    diagonally can need far more room than the same object axis-aligned -- so a single
+    Yaw changes an elongated object's footprint substantially: a long object turned
+    diagonally can need far more room than the same object axis-aligned: so a single
     unlucky draw is not evidence that the object cannot be placed. Retry before giving up,
     and only fail when no sampled orientation fits.
     """

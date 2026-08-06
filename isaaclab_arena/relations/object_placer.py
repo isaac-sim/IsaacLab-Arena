@@ -516,7 +516,7 @@ class ObjectPlacer:
 
         Composes each object's static RotateAroundSolution marker rotation (roll/pitch/yaw) with the
         per-candidate yaw (sampled + FaceTo, carried as absolute world yaw in orientations_per_candidate)
-        and refits the box to that combined quaternion -- the same composition _apply_poses uses for the
+        and refits the box to that combined quaternion: the same composition _apply_poses uses for the
         final pose, so overlap boxes match the placed object regardless of rotation axis. Objects with
         no rotation are returned unchanged, keeping the no-rotation path exact.
         """

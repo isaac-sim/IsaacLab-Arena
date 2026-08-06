@@ -133,7 +133,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # back and has to be judged with the rest.
         kept, rejected, starved = placement_pool.retain_layouts(keep, include_consumed=True)
         # An env with nothing left has only spilled piles to draw, and would run every episode
-        # against objects lying beside the support rather than on it -- wrong data that looks
+        # against objects lying beside the support rather than on it: wrong data that looks
         # like data. One layout in the whole pool staying put is a low bar to clear, so failing
         # it means the pour cannot fit this pile on this support, not that physics was unlucky.
         assert not starved, (

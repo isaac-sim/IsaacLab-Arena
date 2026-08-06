@@ -142,8 +142,8 @@ def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     """Return whether physics can be shown never to move this asset.
 
     True only for a support whose spawner explicitly sets ``kinematic_enabled``. An absent
-    ``rigid_props`` is not evidence of no dynamics -- Arena's backgrounds are ``ObjectType.BASE``
-    yet spawn rigid bodies -- so absence is refused rather than read as immobility. ``IsAnchor``
+    ``rigid_props`` is not evidence of no dynamics, Arena's backgrounds are ``ObjectType.BASE``
+    yet spawn rigid bodies: so absence is refused rather than read as immobility. ``IsAnchor``
     does not qualify either: the marker fixes the asset for the relation solver, which is
     arithmetic, and says nothing about the simulation.
     """
