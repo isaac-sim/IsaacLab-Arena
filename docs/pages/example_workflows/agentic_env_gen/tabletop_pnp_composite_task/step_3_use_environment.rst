@@ -9,6 +9,14 @@ For example, you can use the policy runner to evaluate PI policy on the environm
 
 .. todo:: add link to policy evaluation workflow page
 
+Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:
+
+.. code-block:: bash
+
+   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+
+In the other terminal, run the following command to launch the policy runner:
+
 .. tab-set::
 
    .. tab-item:: Policy evaluation (base)
@@ -55,6 +63,8 @@ For example, you can use the policy runner to evaluate PI policy on the environm
 
 .. figure:: ../../../../images/agentic_env_droid_pi_cans_basket_pnp_run1.gif
    :width: 100%
-   :alt: Policy evaluation of the generated environment using OpenPI policy with reachability validation.
-        Showing the robot picking up the pepsi can and bean can and placing them into the mini plastic basket.
+   :alt: Policy evaluation of the generated environment using the OpenPI policy.
    :align: center
+
+   Policy evaluation of the generated environment using the OpenPI policy with reachability validation.
+   The robot picks up the pepsi can and bean can and places them into the mini plastic basket.

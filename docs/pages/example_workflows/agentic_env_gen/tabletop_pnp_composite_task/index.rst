@@ -9,10 +9,12 @@ Environment Description
 
 .. figure:: ../../../../images/tabletop_agentic_env_cans_simready.png
    :width: 100%
-   :alt: Agentic environment-generation GUI showing a table-top pick and place composite task with a DROID arm,
-      a pepsi can, a tuna can, a mini plastic basket, a hammer and a bean can.
-      The task is to pick up the pepsi can and bean can from the maple table and place them into the mini plastic basket.
+   :alt: Generated table-top pick and place composite task shown in the agentic environment-generation GUI.
    :align: center
+
+   The generated table-top scene: a DROID arm, a pepsi can, a tuna can, a mini plastic basket, a hammer and a
+   bean can. The task is to pick up the pepsi can and bean can from the maple table and place them into the
+   mini plastic basket.
 
 The task is *composite*: instead of a single pick and place, the robot picks up
 both the pepsi can and the bean can from the maple table and places them into

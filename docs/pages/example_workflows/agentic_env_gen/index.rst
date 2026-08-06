@@ -1,5 +1,5 @@
-Agentic Environment Generation and Policy Evaluation
-====================================================
+Agentic Environment Generation
+===============================
 
 Agentic environment generation creates Arena environments from natural-language
 prompts. It resolves the prompt into ``ArenaEnvGraphSpec`` by the agent, which specifies the scene layout, tasks, and spatial relations.
@@ -25,13 +25,15 @@ In this section, we will walk through the following example environment generati
 
   - :doc:`kitchen_open_door`
 
-Available Generated Specs
--------------------------
+Available Generated Environments
+--------------------------------
 
-The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment graph specs for
+The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environments for
 RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
+Each environment is generated from a natural-language prompt and can be used for policy evaluation.
+
 
 
 Warnings

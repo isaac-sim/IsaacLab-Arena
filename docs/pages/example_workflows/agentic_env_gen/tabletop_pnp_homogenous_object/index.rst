@@ -9,11 +9,14 @@ Environment Description
 
 .. figure:: ../../../../images/tabletop_agentic_env_banana_bagel_plate.png
    :width: 100%
-   :alt: Agentic environment-generation GUI showing a table-top pick and place task with a DROID arm, a banana, a plate, two bagels and a bowl. The task is to pick up the banana and place it on the plate.
+   :alt: Generated table-top pick and place task shown in the agentic environment-generation GUI.
    :align: center
 
+   The generated table-top scene: a DROID arm, a banana, a plate, two bagels and a bowl. The task is to pick
+   up the banana and place it on the plate.
 
-The scene is *homogeneous* because each parallel environment has the same object, embodiment, background scene, spatial relationships and task.
+
+The scene is *homogeneous* because each parallel environment has the same objects, embodiment, background scene, spatial relationships and task.
 
 The resolved spec for this example is available at
 ``isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml``.

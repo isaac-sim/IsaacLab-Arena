@@ -52,5 +52,8 @@ say that it varies across environments. That is the cue for the agent to emit an
 
 .. figure:: ../../../../images/tabletop_agentic_env_fruits_gui.png
    :width: 100%
-   :alt: GUI runner view of the environment graph spec. Containing left panel with the YAML editor, right panel with the visualization of the environment graph and the task description.
+   :alt: GUI runner view of the environment graph spec.
    :align: center
+
+   GUI runner view of the environment graph spec: the YAML editor on the left, and the environment graph
+   visualization and task description on the right.

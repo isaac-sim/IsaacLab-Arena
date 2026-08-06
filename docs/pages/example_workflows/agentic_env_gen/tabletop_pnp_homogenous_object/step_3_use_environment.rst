@@ -5,6 +5,10 @@ Once you are satisfied with the environment, you can use it to evaluate a policy
 The base container runs the environment as it was generated. The cuRobo-installed container additionally
 gates object placement on whether the robot can reach the target objects.
 
+For example, you can use the policy runner to evaluate PI policy on the environment. For other policy types, please refer to the evaluation workflow page.
+
+.. todo:: add link to policy evaluation workflow page
+
 Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:
 
 .. code-block:: bash
@@ -22,8 +26,6 @@ In the other terminal, run the following command to launch the policy runner:
 
       :docker_run_default:
 
-      For example, you can use the policy runner to evaluate PI policy on the environment.
-
       .. code-block:: bash
 
          python isaaclab_arena/evaluation/policy_runner.py \
@@ -34,9 +36,6 @@ In the other terminal, run the following command to launch the policy runner:
             --num_episodes 3 \
             --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_banana_on_plate_maple_table.yaml
 
-      For other policy types, please refer to the eavluation workflow page.
-
-      .. todo:: add link to policy evaluation workflow page
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
 
@@ -63,6 +62,8 @@ In the other terminal, run the following command to launch the policy runner:
 
 .. figure:: ../../../../images/agentic_env_droid_pi_banana_plate_pnp_run1.gif
    :width: 100%
-   :alt: Policy evaluation of the generated environment using OpenPI policy with reachability validation.
-      Showing the robot picking up the banana and placing it on the plate.
+   :alt: Policy evaluation of the generated environment using the OpenPI policy.
    :align: center
+
+   Policy evaluation of the generated environment using the OpenPI policy with reachability validation.
+   The robot picks up the banana and places it on the plate.
