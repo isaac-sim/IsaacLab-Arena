@@ -189,6 +189,8 @@ def test_shared_run_defaults_merge_before_run_overrides_without_resolving_local_
 shared:
   environment:
     light_intensity: 600.0
+  environment_builder:
+    num_envs: 2
   variations:
     camera:
       enabled: false
@@ -200,7 +202,6 @@ runs:
     environment:
       type: pick_and_place_maple_table
       destination_location: ${pick_up_object}
-    environment_builder: {}
     policy:
       type: zero_action
   second:
@@ -222,12 +223,14 @@ runs:
     )
 
     first_run = experiment_cfg.runs["first"]
+    second_run = experiment_cfg.runs["second"]
     assert first_run.environment.light_intensity == 750.0
     assert first_run.environment.destination_location == first_run.environment.pick_up_object
-    assert first_run.rollout_limit.num_steps == first_run.environment_builder.num_envs == 1
+    assert first_run.rollout_limit.num_steps == first_run.environment_builder.num_envs == 2
     assert first_run.variations["camera"]["enabled"] is True
-    assert experiment_cfg.runs["second"].environment.light_intensity == 650.0
-    assert experiment_cfg.runs["second"].variations["camera"]["enabled"] is False
+    assert second_run.environment.light_intensity == 650.0
+    assert second_run.environment_builder.num_envs == 2
+    assert second_run.variations["camera"]["enabled"] is False
     with pytest.raises(ValueError, match="missing"):
         _load_experiment(config_path, overrides=["shared.missing=true"])
 
@@ -239,7 +242,7 @@ runs:
         ("robolab_20_tasks_pi0_and_cosmos.yaml", 40),
     ],
 )
-def test_robolab_experiments_share_hdr_and_disabled_camera_variations(config_name, expected_run_count):
+def test_robolab_experiments_apply_shared_run_defaults(config_name, expected_run_count):
     config_path = ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY / config_name
 
     default_run_values = load_experiment_run_definitions_from_yaml(config_path)
@@ -250,6 +253,9 @@ def test_robolab_experiments_share_hdr_and_disabled_camera_variations(config_nam
 
     assert len(default_run_values) == expected_run_count
     assert len(enabled_run_values) == expected_run_count
+    assert all(run["environment"]["enable_cameras"] for run in default_run_values.values())
+    assert all(run["environment_builder"]["num_envs"] == 20 for run in default_run_values.values())
+    assert all(run["rollout_limit"]["num_episodes"] == 100 for run in default_run_values.values())
     assert all(run["variations"]["light"]["hdr_image"]["enabled"] for run in default_run_values.values())
     assert not any(
         run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
