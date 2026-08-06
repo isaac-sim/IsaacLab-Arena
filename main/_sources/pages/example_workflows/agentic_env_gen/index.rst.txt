@@ -19,11 +19,11 @@ In this section, we will walk through the following example environment generati
 
 - Kitchen Pick and Place task
 
-  - :doc:`kitchen_pick_and_place`
+  - :doc:`kitchen_pick_and_place/index`
 
 - Kitchen Open/Close Door task
 
-  - :doc:`kitchen_open_door`
+  - :doc:`kitchen_open_door/index`
 
 .. _agentic-env-gen-prerequisites:
 
@@ -76,6 +76,6 @@ Warnings
    tabletop_pnp_homogenous_object/index
    tabletop_pnp_heterogeneous_object/index
    tabletop_pnp_composite_task/index
-   kitchen_pick_and_place
-   kitchen_open_door
+   kitchen_pick_and_place/index
+   kitchen_open_door/index
    gui_runner
