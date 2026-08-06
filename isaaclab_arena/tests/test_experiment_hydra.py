@@ -73,6 +73,7 @@ def test_getting_started_experiment_composes_typed_runs():
         hdr="home_office_robolab",
     )
     assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
+    assert runs["parallel_envs"].environment.hdr is None
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
     assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
