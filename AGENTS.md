@@ -95,3 +95,12 @@ def test_foo():  # pytest-visible outer function
 - **Never** add AI-attribution lines to commits (no `Co-Authored-By: Claude…`, no `Generated with…`). **Instead**, sign off with `git commit -s` — DCO is the only required trailer.
 - **Never** commit models, datasets, or secrets. **Instead**, keep them on the host and mount them via `./docker/run_docker.sh -d <datasets> -m <models> -e <eval>`.
 - **Ask first** before changing `docker/`, `.github/workflows/`, `.pre-commit-config.yaml`, or `submodules/` — these affect every contributor. **Instead** of pushing directly, open a draft PR or raise it in the relevant channel before merging.
+
+<!-- aoe:group-context:start -->
+This session belongs to the aoe group `work/arena`. The group shares a context file.
+
+- Read `./GROUP_CONTEXT.md` before you start; it is the group's shared working memory.
+- After each meaningful step or finding, immediately record a one-line note with `aoe context add "<finding>"`. Do this proactively, without being asked. Your session name is attached automatically, so the group and the curator know who found what.
+- Never hand-edit `GROUP_CONTEXT.md`; always append via `aoe context add` (concurrent hand-edits are lost).
+- To see what other groups know, run `aoe context summaries`.
+<!-- aoe:group-context:end -->

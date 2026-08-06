@@ -48,8 +48,8 @@ def is_clutter_member(asset: PlaceableAsset) -> bool:
 def get_clutter_groups(assets: list[PlaceableAsset]) -> list[ClutterGroup]:
     """Group clutter members by the support and group name they declare.
 
-    Members keep declaration order within a group, and groups keep the order of their
-    first member, so a fixed asset list always yields the same pours in the same order.
+    Members keep asset order within a group, and groups keep the order of their first
+    member, so a fixed asset list always yields the same pours in the same order.
 
     Args:
         assets: The assets participating in placement.

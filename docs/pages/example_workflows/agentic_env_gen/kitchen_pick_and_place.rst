@@ -132,7 +132,8 @@ Run a Policy in the Generated Environment
 Next, run a generalized policy, such as an OpenPI policy, in the generated environment
 to verify that it works end to end.
 
-Start the OpenPI server as described in :doc:`eval_with_openpi`. In a second
+Start the OpenPI server as described in
+:doc:`tabletop_pnp_homogenous_object/step_3_use_environment`. In a second
 terminal, enter the Arena container with ``./docker/run_docker.sh``, then run
 two episodes as a sanity check that the generated environment works with a PI
 policy:

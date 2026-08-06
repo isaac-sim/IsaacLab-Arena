@@ -306,8 +306,6 @@ def plan_group_drops_into_layout(
 
     relation = group.relation
     region = region_above_support(support_position, support_bbox, relation.spread, env_index, support_rotation_xyzw)
-    # clutter_spread stays at its default: the region arrives already scaled by the relation's
-    # spread, and scaling it again here would apply the same fraction twice.
     params = ClutterDropParams(drop_order=relation.drop_order)
     poses = compute_drop_poses(
         member_bboxes,

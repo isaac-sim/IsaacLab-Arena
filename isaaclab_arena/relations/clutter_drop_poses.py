@@ -46,7 +46,7 @@ class XySampling(str, Enum):
 
 
 class DropOrder(str, Enum):
-    """Order in which objects are dropped, which decides what ends up underneath."""
+    """Order objects are planned in, which decides which of them end up underneath."""
 
     AS_LISTED = "as_listed"
     """Keep the caller's order."""
@@ -136,7 +136,7 @@ class DropPose:
     position: tuple[float, float, float]
     rotation_xyzw: tuple[float, float, float, float]
     drop_index: int
-    """Position in the drop sequence; 0 is dropped first and tends to end up lowest."""
+    """Position in the planning sequence; 0 is placed first and tends to end up lowest."""
 
 
 @dataclass(frozen=True)

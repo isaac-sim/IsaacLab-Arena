@@ -127,7 +127,7 @@ class LiftObjectTerminationsCfg:
     termination on success is not desired.
     """
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
     object_dropped: TerminationTermCfg = MISSING
     success: TerminationTermCfg = MISSING
 

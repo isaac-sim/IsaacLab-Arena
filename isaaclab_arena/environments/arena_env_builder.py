@@ -44,6 +44,7 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
+from isaaclab_arena.utils.isaaclab_utils.resolve_clone_plan_source_patch import patch_resolve_clone_plan_source
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
@@ -447,9 +448,14 @@ class ArenaEnvBuilder:
             env_kwargs = {}
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
+        # NOTE(alexmillane, 2026-08-05): Do not spread env_kwargs into the registry kwargs. env_kwargs carries the
+        # VariationRecorder, whose bind_env() holds a reference to the constructed env
+        # (and thus its SimulationContext/PhysX GPU buffers). The Gym registry is process-global
+        # and never cleared, so pinning it there retains every registered env's GPU memory until
+        # process exit — an unbounded leak across a persistent SimulationApp.
+        # TODO(alexmillane, 2026-08-05): Fix this issue and remove this note.
         kwargs = {
             "env_cfg_entry_point": env_cfg,
-            **env_kwargs,
         }
         if env_cfg.demo_recorder_config is not None:
             kwargs["demo_recorder_cfg_entry_point"] = env_cfg.demo_recorder_config
@@ -467,6 +473,12 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             use_fabric=not self.cfg.disable_fabric,
         )
+        # During Lab's env build, ObjectSets give every env cfg its own clone-plan destination
+        # It is an issue for cameras nested under the robot that multiple destination are returned for the same source.
+        # E.g. camera gets /World/envs/env_{}/Robot, /World/envs/env_{}/Robot/panda_link0/external_camera  as destinations.
+        # Lab EA2 cannot pick one so patching to support single destination for the same source.
+        # TODO(xinjieyao, 2026-08-05): Remove this patch once Lab is updated to GA.
+        patch_resolve_clone_plan_source()
         return name, cfg, env_kwargs
 
     def make_registered(

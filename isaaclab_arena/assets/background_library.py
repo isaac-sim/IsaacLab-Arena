@@ -221,3 +221,61 @@ class TableOakRobolab(LibraryBackground):
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
     object_min_z = -0.05
+
+
+# -----------------------------------------------------------------------------
+# Replicator kitchen backgrounds
+# -----------------------------------------------------------------------------
+
+_REPLICATOR_KITCHEN_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/replicator_kitchen"
+
+
+class ReplicatorKitchenBackground(LibraryBackground):
+    """Base class for Replicator-generated kitchen floorplans."""
+
+    tags = ["background", "replicator"]
+    initial_pose = Pose.identity()
+    object_min_z = -0.2
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        return ViewerCfg(eye=(0.0, -1.0, 1.35), lookat=(0.0, 0.0, 1.35))
+
+
+@register_asset
+class ReplicatorKitchenGShape(ReplicatorKitchenBackground):
+    """Replicator G-shaped kitchen."""
+
+    name = "replicator_kitchen_g_shape"
+    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_g_shape.usda"
+
+
+@register_asset
+class ReplicatorKitchenLIsland(ReplicatorKitchenBackground):
+    """Replicator L-shaped kitchen with an island."""
+
+    name = "replicator_kitchen_l_island"
+    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_l_island.usda"
+
+
+@register_asset
+class ReplicatorKitchenLShape(ReplicatorKitchenBackground):
+    """Replicator L-shaped kitchen."""
+
+    name = "replicator_kitchen_l_shape"
+    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_l_shape.usda"
+
+
+@register_asset
+class ReplicatorKitchenPeninsula(ReplicatorKitchenBackground):
+    """Replicator kitchen with a peninsula."""
+
+    name = "replicator_kitchen_peninsula"
+    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_peninsula.usda"
+
+
+@register_asset
+class ReplicatorKitchenUShape(ReplicatorKitchenBackground):
+    """Replicator U-shaped kitchen."""
+
+    name = "replicator_kitchen_u_shape"
+    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_u_shape.usda"

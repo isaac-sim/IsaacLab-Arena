@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -82,11 +83,30 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
         output_dir=tmp_path,
     )
 
+    base_seed = run.environment_builder.seed
+    run_seed_0 = deepcopy(run)  # Rebuild 0 keeps the configured seed.
+    run_seed_1 = deepcopy(run)
+    run_seed_1.environment_builder.seed = base_seed + 1
+
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
-    assert received_run_cfgs == [run, run]
+    # Runs are the same except for their seeds.
+    assert received_run_cfgs == [run_seed_0, run_seed_1]
+    # The original config is never mutated.
     assert run.rollout_limit == RolloutLimitCfg(num_episodes=5)
+    assert run.environment_builder.seed == base_seed
+
+
+def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
+    run = _run(num_rebuilds=3)
+    base_seed = run.environment_builder.seed
+
+    assert run_execution._seed_cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
+    assert run_execution._seed_cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
+    assert run_execution._seed_cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
+    # The original config is never mutated.
+    assert run.environment_builder.seed == base_seed
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):

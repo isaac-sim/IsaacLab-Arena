@@ -4,13 +4,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import torch
+import tqdm
 import traceback
 from unittest.mock import patch
+
+import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
 NUM_ENVS = 10
+# Kept lower than NUM_ENVS because each env renders three 720p cameras. Must stay > 1 so the
+# object set still produces a heterogeneous clone plan.
+NUM_ENVS_WITH_CAMERAS = 4
+NUM_STEPS_WITH_CAMERAS = 2
 OBJECT_SET_1_PRIM_PATH = "/World/envs/env_.*/ObjectSet_1"
 OBJECT_SET_2_PRIM_PATH = "/World/envs/env_.*/ObjectSet_2"
 OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
@@ -475,6 +483,81 @@ def _test_multi_object_sets(simulation_app):
     return True
 
 
+def _test_object_set_with_robot_mounted_cameras(simulation_app) -> bool:
+    """An object set clones correctly in a scene whose cameras are mounted on the robot.
+
+    An object set spawns one USD variant per env, which puts the scene on Isaac Lab's
+    heterogeneous clone-plan path: every cfg gets its own destination template instead of a
+    single env-root one. DROID's cameras live under the robot, so their templates nest
+    inside the robot's, and resolving them used to raise. See the resolve_clone_plan_source
+    patch. Needs more than one env; a single env takes the homogeneous fast path and never
+    builds the nested templates.
+    """
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    args_parser = get_isaaclab_arena_cli_parser()
+    args_cli = args_parser.parse_args(["--enable_cameras"])
+    args_cli.num_envs = NUM_ENVS_WITH_CAMERAS
+
+    asset_registry = AssetRegistry()
+    background = asset_registry.get_asset_by_name("packing_table")()
+    sweet_potato = asset_registry.get_asset_by_name("sweet_potato")()
+    jug = asset_registry.get_asset_by_name("jug")()
+
+    object_set = RigidObjectSet(name="object_set", objects=[sweet_potato, jug])
+    object_set.set_initial_pose(
+        Pose(position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5), rotation_xyzw=(0, 0, 0, 1))
+    )
+
+    scene = Scene(assets=[background, object_set])
+
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
+        name="object_set_with_cameras_test",
+        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
+        scene=scene,
+    )
+
+    # Scene construction is what used to raise, so reaching the first observation is the
+    # regression signal.
+    builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
+    env = builder.make_registered()
+    env.reset()
+
+    # The observation dict is the env's own buffer, so it must be read before env.close().
+    try:
+        for _ in tqdm.tqdm(range(NUM_STEPS_WITH_CAMERAS)):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                obs, _, _, _, _ = env.step(actions)
+
+                assert "camera_obs" in obs, f"No camera observation group; got groups {sorted(obs)}"
+                camera_obs = obs["camera_obs"]
+                # Every camera nested under the robot must survive cloning: the two external
+                # ones under panda_link0 and the wrist one under the gripper.
+                for camera_key in ("external_camera_rgb", "external_camera_2_rgb", "wrist_camera_rgb"):
+                    assert camera_key in camera_obs, f"Missing {camera_key!r}; got {sorted(camera_obs)}"
+                    images = camera_obs[camera_key]
+                    num_envs = images.shape[0]
+                    assert num_envs == NUM_ENVS_WITH_CAMERAS, f"{camera_key} has {num_envs} envs"
+                    assert images.shape[3] == 3, f"{camera_key} rgb observation does not have three channels"
+                    assert images.any(), f"{camera_key} observation contains only 0s"
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    finally:
+        env.close()
+
+    return True
+
+
 def test_empty_object_set():
     result = run_function_with_persistent_simulation_app(
         _test_empty_object_set,
@@ -547,9 +630,20 @@ def test_multi_object_sets():
     assert result, f"Test {_test_multi_object_sets.__name__} failed"
 
 
+@pytest.mark.with_cameras
+def test_object_set_with_robot_mounted_cameras():
+    result = run_function_with_persistent_simulation_app(
+        _test_object_set_with_robot_mounted_cameras,
+        headless=HEADLESS,
+        enable_cameras=True,
+    )
+    assert result, f"Test {_test_object_set_with_robot_mounted_cameras.__name__} failed"
+
+
 if __name__ == "__main__":
     test_empty_object_set()
     test_articulation_object_set()
     test_single_object_in_one_object_set()
     test_multi_objects_in_one_object_set()
     test_multi_object_sets()
+    test_object_set_with_robot_mounted_cameras()

@@ -98,8 +98,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Drop cached layouts whose pile did not stay on its support.
 
         Whether a pour spills is only knowable after settling it, so the pool is filtered
-        afterwards rather than constrained up front. An env keeps its rejects when too few
-        layouts survive, since a spilled pile still beats having nothing to draw.
+        afterwards rather than constrained up front. An env left with nothing is a configuration
+        error rather than a shortage to tolerate, and is refused.
         """
         per_env_bboxes = build_per_env_bounding_boxes(
             placement_pool.objects, self.num_envs
@@ -142,7 +142,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             f"margin_m (currently {self.cfg.clutter_containment_margin_m}), or lower the group's "
             "spread so members are released further from the edge."
         )
-        print(f"[clutter] rejected {rejected} spilled layout(s); {kept} cached")
+        print(
+            f"[clutter] cached {kept} settled layout(s)" + (f"; rejected {rejected} that spilled" if rejected else "")
+        )
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:

@@ -69,7 +69,7 @@ class SuccessAfterNStepsTask(TaskBase):
 
 @configclass
 class SuccessAfterNStepsTerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
     success: TerminationTermCfg = MISSING
 
 
