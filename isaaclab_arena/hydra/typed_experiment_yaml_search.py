@@ -41,7 +41,7 @@ def find_environment_field_values(
         Run names mapped to their value for the field, in YAML declaration order.
     """
     shared_overrides, run_overrides = partition_shared_experiment_overrides(overrides or [])
-    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path, overrides=shared_overrides)
+    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path, shared_overrides=shared_overrides)
     override_values_by_run_name = _environment_field_values_from_overrides(field_name, run_overrides)
 
     field_values_by_run_name: dict[str, Any] = {}

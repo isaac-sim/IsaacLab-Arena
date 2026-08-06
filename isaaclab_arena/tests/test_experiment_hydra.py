@@ -235,40 +235,40 @@ runs:
     assert serialized_values["runs"]["first"]["variations"] == experiment_cfg.runs["first"].variations
 
 
-def test_shared_and_run_local_interpolations_resolve_in_the_run_scope(tmp_path):
+def test_shared_references_preserve_environment_and_run_interpolation_scopes(tmp_path):
     config_path = _write_experiment(
         tmp_path,
         """
 shared:
   light_intensity: 600.0
+  rollout_limit:
+    num_steps: ${environment_builder.num_envs}
 
 runs:
   maple_table:
     environment:
       type: pick_and_place_maple_table
       light_intensity: ${shared.light_intensity}
-    environment_builder:
-      num_envs: 3
+      destination_location: ${pick_up_object}
+    environment_builder: {}
     policy:
       type: zero_action
-    rollout_limit:
-      num_steps: ${environment_builder.num_envs}
+    rollout_limit: ${shared.rollout_limit}
 """,
     )
 
     run_cfg = _load_experiment(config_path, overrides=["shared.light_intensity=750.0"]).runs["maple_table"]
 
     assert run_cfg.environment.light_intensity == 750.0
-    assert run_cfg.environment_builder.num_envs == 3
-    assert run_cfg.rollout_limit.num_steps == 3
+    assert run_cfg.environment.destination_location == run_cfg.environment.pick_up_object
+    assert run_cfg.environment_builder.num_envs == 1
+    assert run_cfg.rollout_limit.num_steps == 1
 
 
-def test_prefixed_shared_overrides_are_partitioned_without_changing_their_hydra_operations():
+def test_prefixed_shared_overrides_are_partitioned_without_changing_their_values():
     shared_overrides, remaining_overrides = partition_shared_experiment_overrides(
         [
-            "+experiment_cfg.shared.new_value=1",
-            "++experiment_cfg.shared.replaced_value={enabled:true}",
-            "~experiment_cfg.shared.removed_value",
+            "experiment_cfg.shared.enabled=true",
             "experiment_cfg.shared.label='camera=enabled'",
             "experiment_cfg.runs.first.rollout_limit.num_steps=5",
             "osmo.workflow_name=shared-values",
@@ -277,9 +277,7 @@ def test_prefixed_shared_overrides_are_partitioned_without_changing_their_hydra_
     )
 
     assert shared_overrides == [
-        "+shared.new_value=1",
-        "++shared.replaced_value={enabled:true}",
-        "~shared.removed_value",
+        "shared.enabled=true",
         "shared.label='camera=enabled'",
     ]
     assert remaining_overrides == [
@@ -301,7 +299,7 @@ def test_robolab_experiments_share_hdr_and_disabled_camera_variations(config_nam
     default_run_values = load_experiment_run_definitions_from_yaml(config_path)
     enabled_run_values = load_experiment_run_definitions_from_yaml(
         config_path,
-        overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
+        shared_overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
     )
 
     assert len(default_run_values) == expected_run_count
@@ -462,6 +460,25 @@ runs:
 
     with pytest.raises(AssertionError, match="Experiment 'shared' must be a mapping"):
         _load_experiment(config_path)
+
+
+def test_shared_override_must_target_a_declared_value(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  enabled: false
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+    )
+
+    with pytest.raises(ValueError, match="missing"):
+        _load_experiment(config_path, overrides=["shared.missing=true"])
 
 
 def test_experiment_requires_at_least_one_run(tmp_path):

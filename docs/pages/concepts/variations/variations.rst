@@ -196,6 +196,7 @@ Values in ``shared`` apply only where a run references them; they do not limit w
 overridden. Use ``shared.*`` to change every referencing run, or ``runs.<run_name>.*`` to change one
 run. A direct run override takes precedence over a shared value. For example,
 ``runs.banana_in_bowl_cosmos.environment_builder.num_envs=10`` changes only that run.
+Each ``${shared...}`` reference must replace one complete YAML value rather than part of a string.
 
 ``--list_variations`` works with ``experiment_runner.py`` too, printing the variations catalogue for
 each run's environment:
