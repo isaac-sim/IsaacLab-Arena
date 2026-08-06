@@ -53,6 +53,10 @@ Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
 the actual objects can safely occupy. Collision mode changes overlap checking;
 it does not change the meaning of relations such as ``On`` or ``NextTo``.
 
+.. todo::
+
+   Document overlap-checking implementation details and debugging guidance.
+
 Set the solver-wide default when defining an environment in Python:
 
 .. code-block:: python
@@ -121,6 +125,13 @@ Assets do not need placement relations to act as obstacles. A table can be an
 anchor that supports an ``On`` relation, while a nearby appliance can remain a
 fixed passive obstacle. This lets Arena place objects on a surface while
 avoiding the rest of a complex environment.
+
+Here, **passive** means that the asset contributes collision geometry but the
+solver does not move it. In contrast, placed objects and supported robot
+embodiments are active placement participants whose poses the solver computes.
+Passive obstacles therefore usually need a fixed initial pose. A
+full-environment ``Background`` in ``MESH`` mode may use identity when its pose
+is omitted.
 
 The included kitchen example shows objects placed on a counter while avoiding
 the background mesh.

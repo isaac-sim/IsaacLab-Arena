@@ -27,8 +27,9 @@ Anchors
 
 An anchor is a fixed reference in the relation graph. Mark it with
 ``IsAnchor()``; the solver does not move it. A standalone anchor needs a fixed
-initial pose, while an ``ObjectReference`` derives its pose from the referenced
-prim in its parent asset. A tabletop or counter reference is a common anchor.
+initial pose; in YAML, an omitted pose defaults to identity. An
+``ObjectReference`` instead derives its pose from the referenced prim in its
+parent asset. A tabletop or counter reference is a common anchor.
 
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:

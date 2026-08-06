@@ -58,8 +58,8 @@ to each manager are tabulated below:
 ``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
 from each component into a set of complete managers. Then it merges these complete managers
 into a single ``ManagerBasedRLEnvCfg``.
-The Arena Environment Builder also optionally solves spatial relations between
-objects (``--solve_relations``). See
+The Arena Environment Builder also solves spatial relations between objects by
+default. Use ``--no_solve_relations`` to disable this behavior. See
 :doc:`./concept_object_and_robot_placement` for more details.
 
 .. todo:: xyao-nv

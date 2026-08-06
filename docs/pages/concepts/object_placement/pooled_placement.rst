@@ -1,7 +1,7 @@
 Pooled Placement
 ================
 
-``ArenaEnvBuilder`` manages relation placement through a logical pool of solved
+``ArenaEnvBuilder`` manages relational placement through a logical pool of solved
 layouts partitioned by environment. Users describe the intended arrangement;
 the builder generates, stores, and applies layouts for the requested simulation
 environments.
@@ -35,108 +35,17 @@ together; users do not place each environment separately.
    every required check. Arena logs a warning when it uses such a fallback. Set
    this option to ``False`` when placement must fail instead.
 
-Different Layouts and Objects
------------------------------
+Object Identity and Layouts
+---------------------------
 
-Arena can independently change a layout and the objects in it:
+Object identity and layout selection are independent. Homogeneous placement
+uses the same registered objects while their layouts can differ. Heterogeneous
+placement keeps each object's per-environment member assignment fixed while
+layouts can change across resets. Every layout is solved and checked using the
+object geometry assigned to its environment.
 
-- **Different layouts:** the same objects receive different positions or
-  orientations across environments or resets.
-- **Different objects:** a ``RigidObjectSet`` selects one member for each
-  environment.
-
-Object selections remain fixed across resets while layouts can change. Each
-layout is solved and checked using the selected object's dimensions. See
-:ref:`Same and Different Objects Across Environments
-<same-and-different-objects-across-environments>` for a visual example.
-
-.. figure:: ../../../images/same_objects_different_layouts.gif
-   :width: 100%
-   :alt: The same objects placed in different layouts across four environments
-   :align: center
-
-   The same six objects appear in every environment, but each environment
-   receives a different solved layout.
-
-.. figure:: ../../../images/heterogeneous_placement.gif
-   :width: 100%
-   :alt: Different objects placed across four parallel environments
-   :align: center
-
-   The orange and banana stay the same in every environment. Object sets select
-   bottles, cans, tools, and packages, and the solver uses each selected
-   object's dimensions.
-
-Within a complete environment graph, an object set and its placement relation
-look like this:
-
-.. tab-set::
-
-   .. tab-item:: Python
-      :selected:
-
-      .. code-block:: python
-
-         from isaaclab_arena.assets.object_set import RigidObjectSet
-         from isaaclab_arena.relations.relations import IsAnchor, On
-
-         maple_table = asset_registry.get_asset_by_name(
-             "maple_table_robolab"
-         )()
-         maple_table.add_relation(IsAnchor())
-
-         fruit = RigidObjectSet(
-             name="fruit",
-             objects=[
-                 asset_registry.get_asset_by_name(
-                     "apple_01_objaverse_robolab"
-                 )(),
-                 asset_registry.get_asset_by_name(
-                     "orange_01_fruits_veggies_robolab"
-                 )(),
-             ],
-             random_choice=True,
-         )
-         fruit.add_relation(On(maple_table))
-
-   .. tab-item:: YAML
-
-      .. code-block:: yaml
-
-         object_sets:
-           - id: fruit
-             members:
-               - apple_01_objaverse_robolab
-               - orange_01_fruits_veggies_robolab
-             random_choice: true
-
-         relations:
-           - kind: is_anchor
-             subject: maple_table
-           - kind: 'on'
-             subject: fruit
-             reference: maple_table
-
-The snippets above show the object-set pattern. The complete graph, including
-its table, anchor, embodiment, task, and fuller fruit member list, is in
-``isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml``.
-Run it from the repository root with:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_envs 4 \
-     --num_steps 100 \
-     --env_graph_spec_yaml \
-       isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml
-
-.. important::
-
-   Do not set an initial pose on an object whose pose is determined by
-   placement relations. The builder sets that object's creation and reset
-   poses. Anchors remain fixed and therefore still need a known pose.
+See :doc:`./homogeneous_and_heterogeneous_placement` for the implementation
+differences, visual examples, and runnable commands.
 
 Layouts Across Resets
 ---------------------
@@ -157,7 +66,7 @@ Reproducibility
 
 Set ``placement_seed`` when placement must be repeatable. With the same Arena
 environment definition, placement seed, and environment count, layout
-generation is repeatable.
+generation and random object-set assignment are repeatable.
 
 This command produces a repeatable sequence of layouts across resets:
 

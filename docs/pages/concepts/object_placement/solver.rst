@@ -50,6 +50,9 @@ workflow as objects. The builder includes an embodiment in placement when it
 has relations. A typical mobile-manipulation layout places the robot on the
 floor, offsets it from a work surface, and fixes its heading:
 
+Do not set an explicit initial-pose override on a relation-placed embodiment;
+the builder supplies its creation and reset poses.
+
 .. code-block:: yaml
 
    relations:

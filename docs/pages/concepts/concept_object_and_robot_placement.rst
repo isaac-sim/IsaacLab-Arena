@@ -1,6 +1,9 @@
 Object and Robot Placement
 ==========================
 
+Motivation
+----------
+
 Placement determines the initial poses of objects and, when configured, the
 robot embodiment in an Arena environment. For a fixed environment, you can set
 every pose manually. This becomes brittle when assets or their dimensions
@@ -45,10 +48,44 @@ instead:
 during environment compilation. It applies selected layouts when environments
 are created and reset.
 
-Replacing an asset or changing its dimensions does not require manually
-recalculating coordinates for related assets. See
+.. figure:: ../../images/relations_highlevel.png
+   :width: 100%
+   :alt: High-level visualization of spatial relations between objects on a table
+   :align: center
+
+   Spatial relations describe the intended layout. Arena optimizes poses
+   against the relations and collision constraints together.
+
+When to Use Placement Relations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use fixed poses when an Arena environment has one known layout. Use placement
+relations for assets whose poses are to be computed on the fly, especially when
+you need:
+
+- layouts that adapt to different assets or asset dimensions;
+- diverse but reproducible layouts across environments and resets;
+- collision-aware placement among placed assets and fixed geometry;
+- a shared layout description across parallel environments; or
+- geometric relation checks and optional physics stability testing.
+
+See
 `pick_and_place_maple_table_environment.py <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/pick_and_place_maple_table_environment.py>`_
 for a complete Python environment definition.
+
+System Overview
+---------------
+
+Arena turns one environment definition into layouts for construction and
+reset. The builder collects assets, spatial relations, and placement settings;
+the solver generates candidate poses; validators check them; and the placer
+stores ranked layouts for each environment. Objects and supported robot
+embodiments use this same pipeline.
+
+Anchors and passive obstacles remain fixed; passive obstacles contribute
+collision geometry but are not moved. The solver computes poses on the fly for
+placed objects, object sets, and supported robot embodiments. Across parallel
+environments, object identity can be homogeneous or heterogeneous.
 
 .. figure:: ../../images/placement_pipeline.png
    :width: 100%
@@ -56,123 +93,60 @@ for a complete Python environment definition.
       solving, validation, per-environment pools, construction, and reset.
    :align: center
 
-   ``ArenaEnvBuilder`` turns an Arena environment definition into a placement
-   problem. The relation solver generates collision-aware candidates, validators
-   check them, the placer ranks survivors, and per-environment pools supply
-   layouts for environment creation and reset.
-
-.. figure:: ../../images/relations_highlevel.png
-   :width: 100%
-   :alt: High-level visualization of spatial relations between objects on a table
-   :align: center
-
-   Spatial relations describe the intended layout. Arena computes poses that
-   satisfy the relations and collision constraints together.
-
-Asset Roles During Placement
-----------------------------
-
-Objects, object sets, object references, and supported robot embodiments can
-participate in relation-based placement. Their behavior depends on their role:
+Use this table as a reading map:
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 30 15 35
+   :widths: 25 45 30
 
-   * - Role
-     - Purpose
-     - Moved by solver
-     - Initial pose
-   * - Anchor
-     - Fixed reference marked with ``IsAnchor()``
-     - No
-     - Fixed pose; YAML defaults to identity when omitted, and references derive it
-   * - Placed asset
-     - Object or object set with a positional relation
-     - Yes
-     - Do not set an explicit override; the builder supplies creation and reset poses
-   * - Robot embodiment
-     - Supported embodiment with positional relations
-     - Yes
-     - Do not set an explicit override; the builder supplies creation and reset poses
-   * - Passive obstacle
-     - Fixed collision geometry that placed assets must avoid
-     - No
-     - Usually required; a full-environment ``Background`` in ``MESH`` mode may use identity
-
-When to Use Placement Relations
--------------------------------
-
-Use fixed poses for anchors and passive obstacles when an Arena environment has
-one known layout. Use placement relations for assets whose poses should be
-solved, especially when you need:
-
-- layouts that adapt to different assets or asset dimensions;
-- diverse but reproducible layouts across environments and resets;
-- automatic collision avoidance between placed assets and background assets or
-  other fixed collision geometry that the solver treats as passive obstacles;
-- a shared layout description across Arena environments; or
-- geometric relation checks and optional physics stability testing.
-
-See :doc:`object_placement/collision_handling` for passive obstacles and
-collision representations.
-
-.. _same-and-different-objects-across-environments:
-
-Same and Different Objects Across Environments
-----------------------------------------------
-
-Across parallel environments, placement supports two patterns:
-
-- The same registered objects can appear in every environment while their
-  solved poses differ.
-- Different registered objects can appear in each environment. Arena solves and
-  validates each layout using the selected object's dimensions.
-
-Both patterns use the same placement process. See
-:doc:`object_placement/pooled_placement` for how layouts and object selections
-behave across environments and resets.
-
-.. figure:: ../../images/heterogeneous_placement.gif
-   :width: 100%
-   :alt: Different objects placed across four parallel environments
-   :align: center
-
-   The orange and banana stay the same in every environment, while object sets
-   select bottles, cans, tools, and packages. Resets keep those selections while
-   applying different pooled layouts.
-
-Relations, Modifiers, Collision, and Validation
-------------------------------------------------
-
-These placement mechanisms serve different purposes:
-
-- **Spatial relations** constrain positions or orientations, such as ``On``,
-  ``NextTo``, or ``FaceTo``.
-- **Placement modifiers** alter a solved pose after solving. The builder applies
-  ``RotateAroundSolution`` to pooled layouts; ``RandomAroundSolution`` is
-  limited to direct, single-environment placement.
-- **Collision constraints** prevent placed assets from overlapping each other
-  or passive background geometry.
-- **Validation checks** evaluate whether candidate layouts meet required
-  geometric conditions. Candidates that pass are preferred; optional best-loss
-  fallbacks are described in :doc:`object_placement/pooled_placement`.
+   * - Topic
+     - What it explains
+     - Read
+   * - Environment compilation
+     - How ``ArenaEnvBuilder`` turns an Arena environment definition into an
+       Isaac Lab environment configuration
+     - :doc:`concept_environment_compilation`
+   * - Spatial relations and anchors
+     - How to mark fixed references and describe intended positions and
+       orientations
+     - :doc:`object_placement/relations`
+   * - Collision handling and passive obstacles
+     - How overlap is checked among placed assets and fixed geometry using
+       bounding boxes or meshes
+     - :doc:`object_placement/collision_handling`
+   * - Placement solver and robot embodiments
+     - How candidate poses are generated, including random orientation and
+       robot embodiment placement
+     - :doc:`object_placement/solver`
+   * - Placement validation
+     - How geometric, reachability, and physics checks evaluate candidate
+       layouts
+     - :doc:`object_placement/validation`
+   * - Pooled placement and reset
+     - How ranked layouts are stored, assigned to environments, reproduced, and
+       refreshed on reset
+     - :doc:`object_placement/pooled_placement`
+   * - Homogeneous and heterogeneous objects
+     - How the same or different registered objects are represented and placed
+       across parallel environments
+     - :doc:`object_placement/homogeneous_and_heterogeneous_placement`
 
 Try It Out
 ----------
 
 .. _placement-viewer-display:
 
+Run a quick placement example from the repository root. The
+``pick_and_place_maple_table`` environment already contains a Rubik's cube and
+a bowl. The command below adds three registered objects; the environment gives
+each one an ``On(table_reference)`` relation, and the solver computes their
+collision-aware poses.
+
 .. note::
 
    Commands using ``--viz kit`` require an available graphical display. In a
    remote or container session, configure display forwarding and set
    ``DISPLAY`` to the active X display, for example ``export DISPLAY=:1``.
-
-Run the following commands from the repository root. The
-``pick_and_place_maple_table`` environment provides a simple placement example.
-Additional objects receive an ``On(table_reference)`` relation and are placed
-without manual pose adjustments:
 
 .. code-block:: bash
 
@@ -183,52 +157,24 @@ without manual pose adjustments:
      pick_and_place_maple_table \
      --additional_table_objects cracker_box mug tomato_soup_can
 
-Swap the registered object names to see placement adapt to different dimensions
-and footprints. The base scene already places a Rubik's cube and a bowl; the
-flag adds the extra objects onto the same table.
-
 .. figure:: ../../images/adaptive_object_placement.gif
    :width: 100%
    :alt: Relation-based placement adapting as objects are added
    :align: center
 
    Each run adds registered objects with different dimensions. The solver
-   recomputes a collision-free layout without manual pose changes.
+   recomputes a collision-aware layout without manual pose changes.
 
-To see different fruit objects placed across four environments, run the
-included object-set example:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_envs 4 \
-     --num_steps 100 \
-     --env_graph_spec_yaml \
-       isaaclab_arena_environments/droid_pick_fruit_into_bowl_maple_table.yaml
-
-Each environment selects one fruit and solves a layout using that fruit's
-dimensions.
-
-In both examples, runner flags such as ``--viz kit``, ``--policy_type``, and
-``--num_steps`` precede the environment selector. The first command selects a
-registered environment and then passes its ``--additional_table_objects`` flag.
-The second selects an environment graph with ``--env_graph_spec_yaml`` and uses
-``--num_envs`` to create four environments.
-
-Learn More
-----------
-
-The following guides explain how to author relations, choose collision
-handling, understand the solver, and configure pooled placement, in that order.
-Validation documentation is forthcoming.
+Replace the names after ``--additional_table_objects`` with other registered
+objects to see placement adapt to different dimensions and footprints.
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
 
    object_placement/relations
    object_placement/collision_handling
    object_placement/solver
-   object_placement/pooled_placement
    object_placement/validation
+   object_placement/pooled_placement
+   object_placement/homogeneous_and_heterogeneous_placement
