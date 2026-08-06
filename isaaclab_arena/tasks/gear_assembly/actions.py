@@ -8,7 +8,19 @@
 import torch
 from collections.abc import Sequence
 
+from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
+
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
+from isaaclab_arena.tasks.gear_assembly.specs import GEAR_TYPES
+
+
+class NewtonDroidDifferentialInverseKinematicsAction(DifferentialInverseKinematicsAction):
+    """Use Isaac Lab differential IK with Newton's DROID Jacobian layout."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        # Newton places the arm columns before the floating-base columns for this asset.
+        self._jacobi_joint_ids = self._joint_ids
 
 
 class GearAssemblyBinaryJointPositionAction(BinaryJointPositionZeroToOneAction):
@@ -17,11 +29,11 @@ class GearAssemblyBinaryJointPositionAction(BinaryJointPositionZeroToOneAction):
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
         self._gear_close_commands = torch.tensor(
-            [env.cfg.hand_close_width[name] for name in ("gear_small", "gear_medium", "gear_large")],
+            [env.cfg.hand_close_width[name] for name in GEAR_TYPES],
             device=self.device,
         ).unsqueeze(-1) * torch.sign(self._close_command).unsqueeze(0)
         self._gear_open_commands = torch.tensor(
-            [env.cfg.hand_grasp_width[name] for name in ("gear_small", "gear_medium", "gear_large")],
+            [env.cfg.hand_grasp_width[name] for name in GEAR_TYPES],
             device=self.device,
         ).unsqueeze(-1) * torch.sign(self._close_command).unsqueeze(0)
         self._gear_type_manager = env._gear_type_manager

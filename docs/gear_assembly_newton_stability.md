@@ -25,7 +25,7 @@ The first six values are relative Cartesian pose commands. They use axis-angle r
 
 Newton exposes the DROID arm Jacobian columns at articulation joint indices `0:7`. Isaac Lab's standard action normally offsets those indices by six floating-base columns. For this asset that selects the wrong columns and produces no Cartesian motion.
 
-`NewtonDroidDifferentialInverseKinematicsAction` changes only the Jacobian column selection. Pose processing, differential IK, joint target generation, and action application remain Isaac Lab code. The adapter is installed only for the Newton DROID differential-IK embodiment, so the PhysX path is unchanged.
+`NewtonDroidDifferentialInverseKinematicsAction` changes only the Jacobian column selection. Pose processing, differential IK, joint target generation, and action application remain Isaac Lab code. The Gear Assembly factory installs the adapter on its own Newton embodiment instance. Arena's registered DROID embodiment and its PhysX action configuration remain unchanged.
 
 The reset event is separate from runtime control. It uses finite-difference IK to place the robot at the selected gear's grasp pose because the upstream reset helper makes the same floating-base Jacobian assumption. Runtime rollout motion still uses Isaac Lab differential IK.
 
@@ -106,6 +106,42 @@ Only the selected gear can complete the episode. It must meet all conditions for
 
 This prevents a gear that is falling through or briefly crossing the target volume from being reported as assembled.
 
+## Run a rollout
+
+The maintained rollout entry point is `isaaclab_arena/scripts/run_gear_assembly_rollout.py`. It explicitly builds one
+`GearAssemblyEnvironmentCfg` with the Newton backend and differential-IK DROID embodiment. It records the Kit
+viewport, so the gripper, selected gear, and base are all visible; robot-mounted cameras are not required.
+
+Start the Arena development container if this clone does not already have one:
+
+```bash
+./docker/run_docker.sh
+```
+
+From another host terminal, discover this clone's container and record one small-gear rollout:
+
+```bash
+ARENA_CONTAINER=$(docker ps \
+  --filter "volume=$(git rev-parse --show-toplevel)" \
+  --format '{{.Names}}' | head -1)
+ROLLOUT_DIR=artifacts/gear_assembly_newton/small_seed_42
+
+docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
+  "cd /workspaces/isaaclab_arena && \
+   /isaac-sim/python.sh isaaclab_arena/scripts/run_gear_assembly_rollout.py \
+     --gear gear_small --seed 42 --output-dir $ROLLOUT_DIR"
+```
+
+Change `--gear` to `gear_medium` or `gear_large` for the other parts. Each output directory contains:
+
+- `rl-video-step-0.mp4`, the 1280 by 720 viewport recording; and
+- `summary.json`, including success, phase lengths, final error, and peak robot and gear speeds.
+
+The command exits unsuccessfully if state becomes non-finite, the gripper loses the gear during motion, or the seated
+success condition is not reached. The rollout is a deterministic physics validation trajectory, not a learned policy.
+Newton's high contact-solver settings make viewport rollouts compute-intensive, especially for medium and large gears;
+the script prints phase progress so a slow contact solve is distinguishable from startup failure.
+
 ## Rollout procedure
 
 The validation rollout starts from the task's deterministic grasp reset and then:
@@ -120,7 +156,67 @@ The validation rollout starts from the task's deterministic grasp reset and then
 
 The preload matters because very small relative Cartesian commands do not build enough arm position-target error under grasp load. A 3 mm descent command tracks reliably while remaining slow at contact. This is a rollout command choice, not a second controller or a change to Newton.
 
-A rollout is accepted only if robot and object tensors remain finite, the grasp is retained through transport, the selected gear passes the seated-success check after release, and the video visibly shows the gripper and gear. The 3 by 3 artifact is composed from nine labeled, independent one-environment runs: three executions for each of the three gear sizes. It is a visualization matrix, not a claim that nine environments were simulated in one batch.
+A rollout is accepted only if robot and object tensors remain finite, the grasp is retained through transport, the selected gear passes the seated-success check after release, and the video visibly shows the gripper and gear. The 3 by 3 artifact is composed from nine labeled, independent one-environment runs: three executions for each of the three gear sizes. The current artifact uses seed 42 for repeatability; it is a visualization matrix, not a claim that nine environments were simulated in one batch.
+
+All nine recorded executions passed. The largest final insertion error was `1.01 mm`.
+
+### Reproduce the 3 by 3 visualization
+
+Run three fresh processes per gear so every cell is an independent environment execution:
+
+```bash
+MATRIX_DIR=artifacts/gear_assembly_newton/matrix_seed_42
+
+for gear in gear_small gear_medium gear_large; do
+  for run in 1 2 3; do
+    output_dir="$MATRIX_DIR/individual/${gear}_run_${run}"
+    docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
+      "cd /workspaces/isaaclab_arena && \
+       /isaac-sim/python.sh isaaclab_arena/scripts/run_gear_assembly_rollout.py \
+         --gear $gear --seed 42 --output-dir $output_dir"
+  done
+done
+```
+
+Then compose the nine videos on the host with FFmpeg. The `setpts=0.25*PTS` filters make the matrix a concise 4x
+time-lapse; they do not affect simulation or the individual recordings.
+
+```bash
+FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+ffmpeg -y \
+  -i "$MATRIX_DIR/individual/gear_small_run_1/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_small_run_2/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_small_run_3/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_medium_run_1/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_medium_run_2/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_medium_run_3/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_large_run_1/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_large_run_2/rl-video-step-0.mp4" \
+  -i "$MATRIX_DIR/individual/gear_large_run_3/rl-video-step-0.mp4" \
+  -filter_complex "
+    [0:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Small | Run 1':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v0];
+    [1:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Small | Run 2':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v1];
+    [2:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Small | Run 3':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v2];
+    [3:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Medium | Run 1':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v3];
+    [4:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Medium | Run 2':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v4];
+    [5:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Medium | Run 3':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v5];
+    [6:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Large | Run 1':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v6];
+    [7:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Large | Run 2':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v7];
+    [8:v]setpts=0.25*PTS,scale=640:360,drawtext=fontfile='$FONT':text='Large | Run 3':x=8:y=8:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.65[v8];
+    [v0][v1][v2][v3][v4][v5][v6][v7][v8]xstack=inputs=9:layout=0_0|640_0|1280_0|0_360|640_360|1280_360|0_720|640_720|1280_720:fill=black[v]
+  " \
+  -map "[v]" -an -c:v libx264 -crf 18 -pix_fmt yuv420p \
+  "$MATRIX_DIR/gear_assembly_newton_3x3.mp4"
+```
+
+Optionally make the review-friendly GIF:
+
+```bash
+ffmpeg -y -i "$MATRIX_DIR/gear_assembly_newton_3x3.mp4" \
+  -vf "fps=10,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+  -loop 0 "$MATRIX_DIR/gear_assembly_newton_3x3.gif"
+```
 
 ## Automated validation
 
@@ -137,12 +233,12 @@ The checks cover scene composition, active collision leaves, disabled source col
 
 | Area | Responsibility |
 |---|---|
-| `isaaclab_arena/embodiments/droid/actions.py` | Newton Jacobian column adapter and Robotiq action behavior. |
-| `isaaclab_arena/embodiments/droid/droid.py` | DROID scene and action configuration. |
-| `isaaclab_arena/tasks/gear_assembly/actions.py` | Gear-specific, rate-limited gripper targets. |
-| `isaaclab_arena/tasks/gear_assembly/assets.py` | Gear, base, fingertip-pad, and tabletop collision proxies. |
+| `isaaclab_arena/tasks/gear_assembly/actions.py` | Newton Jacobian adapter and gear-specific, rate-limited gripper targets. |
+| `isaaclab_arena/tasks/gear_assembly/assets.py` | Gear, base, and tabletop collision proxies. |
 | `isaaclab_arena/tasks/gear_assembly/events.py` | Reset placement and Newton runtime material assignment. |
+| `isaaclab_arena/tasks/gear_assembly/newton.py` | Gear-only DROID USD conversion, inertias, gravity compensation, and fingertip pads. |
 | `isaaclab_arena/tasks/gear_assembly/specs.py` | Poses, grasp geometry, materials, and success thresholds. |
 | `isaaclab_arena/tasks/gear_assembly/terminations.py` | Seated-and-settled success evaluation. |
-| `isaaclab_arena_environments/gear_assembly_environment.py` | Default embodiment and Newton-specific composition. |
+| `isaaclab_arena_environments/gear_assembly_environment.py` | Environment-local DROID configuration and Newton-specific composition. |
+| `isaaclab_arena/scripts/run_gear_assembly_rollout.py` | Deterministic pick, transport, insert, release, and viewport recording. |
 | `isaaclab_arena/tests/test_gear_assembly_environment.py` | Focused configuration and runtime regressions. |

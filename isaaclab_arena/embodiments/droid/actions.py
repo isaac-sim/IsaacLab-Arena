@@ -6,29 +6,6 @@
 import torch
 
 from isaaclab.envs.mdp.actions.binary_joint_actions import BinaryJointPositionAction
-from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
-
-DROID_GRIPPER_MIMIC_SIGNS = {
-    "finger_joint": 1.0,
-    "left_inner_finger_joint": -1.0,
-    "left_inner_finger_knuckle_joint": -1.0,
-    "right_outer_knuckle_joint": 1.0,
-    "right_inner_finger_joint": 1.0,
-    "right_inner_finger_knuckle_joint": -1.0,
-}
-DROID_GRIPPER_JOINT_NAMES = tuple(DROID_GRIPPER_MIMIC_SIGNS)
-DROID_GRIPPER_OPEN_COMMAND = dict.fromkeys(DROID_GRIPPER_JOINT_NAMES, 0.0)
-DROID_GRIPPER_CLOSE_COMMAND = {name: sign * 0.7 for name, sign in DROID_GRIPPER_MIMIC_SIGNS.items()}
-
-
-class NewtonDroidDifferentialInverseKinematicsAction(DifferentialInverseKinematicsAction):
-    """Use Isaac Lab differential IK with Newton's DROID Jacobian layout."""
-
-    def __init__(self, cfg, env):
-        super().__init__(cfg, env)
-        # Newton currently places the DROID arm columns at their articulation joint indices,
-        # before the six floating-base columns expected by Isaac Lab's Jacobian contract.
-        self._jacobi_joint_ids = self._joint_ids
 
 
 class BinaryJointPositionZeroToOneAction(BinaryJointPositionAction):

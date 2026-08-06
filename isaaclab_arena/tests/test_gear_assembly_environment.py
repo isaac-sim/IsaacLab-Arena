@@ -9,9 +9,10 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 
 def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
-    from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
+    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.tasks.gear_assembly.actions import NewtonDroidDifferentialInverseKinematicsAction
     from isaaclab_arena.tasks.gear_assembly.assets import (
         GEAR_GREEN_DIFFUSE_COLOR,
         GEAR_GREEN_VISUAL_MATERIAL_PATH,
@@ -35,6 +36,7 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         GEAR_ASSEMBLED_XY_THRESHOLD,
         GEAR_ASSEMBLED_Z_THRESHOLD,
         GEAR_POSE_RANGE,
+        GEAR_TABLETOP_PARKING_POSITIONS,
         MAPLE_TABLE_POSE,
         MAPLE_TABLE_TOP_COLLISION_POSE,
         MAPLE_TABLE_TOP_COLLISION_SIZE,
@@ -45,6 +47,7 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         NEWTON_GEAR_TABLETOP_ORIENTATION_XYZW,
         NEWTON_GEAR_TABLETOP_PARKING_POSITIONS,
         SELECTED_GEAR_POS_RANGE,
+        get_droid_robot_spec,
     )
     from isaaclab_arena.tasks.gear_assembly.terminations import selected_gear_on_base
     from isaaclab_arena_environments.gear_assembly_environment import (
@@ -52,11 +55,27 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         GearAssemblyEnvironmentCfg,
     )
 
+    def assert_stock_droid(embodiment):
+        assert (
+            embodiment.action_config.arm_action.class_type
+            == "isaaclab.envs.mdp.actions.task_space_actions:DifferentialInverseKinematicsAction"
+        )
+        assert embodiment.action_config.arm_action.body_name == "panda_link0"
+        assert embodiment.scene_config.ee_frame.target_frames[0].prim_path == "{ENV_REGEX_NS}/Robot/panda_link0"
+        assert embodiment.scene_config.robot.actuators["gripper"].joint_names_expr == ["finger_joint"]
+        assert embodiment.scene_config.robot.spawn.rigid_props.disable_gravity is True
+
+    assert_stock_droid(DroidDifferentialIKEmbodiment())
     arena_env = GearAssemblyEnvironment().build(GearAssemblyEnvironmentCfg())
 
     assert arena_env.name == "gear_assembly"
     assert arena_env.embodiment.name == "droid_differential_ik"
     assert arena_env.embodiment.action_config.arm_action.class_type == NewtonDroidDifferentialInverseKinematicsAction
+    assert arena_env.embodiment.action_config.arm_action.body_name == "base_link"
+    assert (
+        arena_env.embodiment.scene_config.ee_frame.target_frames[0].prim_path
+        == "{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link"
+    )
     assert arena_env.rl_framework_entry_point is None
     assert arena_env.rl_policy_cfg is None
 
@@ -192,6 +211,7 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     )
     assert env_cfg.terminations.success.params["support_z_offset"] == NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
     assert env_cfg.terminations.success.params["base_support_prim_name"] == "platform"
+    assert env_cfg.terminations.success.params["enabled_colliders_only"] is True
     assert env_cfg.terminations.success.params["support_z_threshold"] == GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD
     assert env_cfg.terminations.success.params["consecutive_success_steps"] == GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS
     assert env_cfg.terminations.time_out is None
@@ -204,6 +224,30 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     assert randomized_env.task.termination_cfg.time_out is not None
     assert randomized_env.task.termination_cfg.gear_dropped is not None
     assert randomized_env.task.termination_cfg.gear_orientation_exceeded is not None
+
+    # Building the Newton environment must not mutate the registered DROID defaults.
+    assert_stock_droid(DroidDifferentialIKEmbodiment())
+
+    # Keep the existing PhysX task values unchanged.
+    physx_env = GearAssemblyEnvironment().build(
+        GearAssemblyEnvironmentCfg(physics_backend="physx", embodiment="droid_abs_joint_pos")
+    )
+    physx_robot_spec = get_droid_robot_spec()
+    assert physx_robot_spec.gear_offsets_grasp == {
+        "gear_small": [0.0, 0.076125, -0.19],
+        "gear_medium": [0.0, 0.030375, -0.19],
+        "gear_large": [0.0, -0.045375, -0.19],
+    }
+    assert physx_robot_spec.startup_materials["robot"] == (0.75, 0.75, 0.0)
+    assert physx_env.task.events_cfg.randomize_gears_and_base_pose.params["parking_positions"] == (
+        GEAR_TABLETOP_PARKING_POSITIONS
+    )
+    assert physx_env.task.events_cfg.set_robot_to_grasp_pose.params["pos_randomization_range"] == (
+        physx_robot_spec.set_grasp_pos_randomization_range
+    )
+    assert "root_xy_offset_from_base" not in physx_env.task.termination_cfg.success.params
+    assert "base_support_prim_name" not in physx_env.task.termination_cfg.success.params
+    assert "enabled_colliders_only" not in physx_env.task.termination_cfg.success.params
     return True
 
 
@@ -214,9 +258,9 @@ def test_gear_assembly_scene_and_newton_cfg():
 def _test_gear_assembly_newton_differential_ik(simulation_app):
     import torch
 
-    from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.tasks.gear_assembly.actions import NewtonDroidDifferentialInverseKinematicsAction
     from isaaclab_arena_environments.gear_assembly_environment import (
         GearAssemblyEnvironment,
         GearAssemblyEnvironmentCfg,
@@ -271,10 +315,10 @@ def _test_gear_assembly_newton_gears_settle(simulation_app):
     from isaaclab_newton.physics import NewtonManager
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.embodiments.droid.actions import DROID_GRIPPER_MIMIC_SIGNS
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.tasks.gear_assembly.specs import (
+        DROID_GRIPPER_MIMIC_SIGNS,
         GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
         MAPLE_TABLE_TOP_COLLISION_POSE,
         NEWTON_GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,

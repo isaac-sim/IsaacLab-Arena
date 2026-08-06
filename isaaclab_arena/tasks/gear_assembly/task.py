@@ -99,9 +99,7 @@ class GearAssemblyTask(TaskBase):
             NEWTON_GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE if newton_backend else GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE
         )
         support_z_offset = NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET if newton_backend else GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
-        root_xy_offsets = (
-            self.gear_offsets if newton_backend else {gear_type: [0.0, 0.0, 0.0] for gear_type in GEAR_TYPES}
-        )
+        root_xy_offsets = self.gear_offsets if newton_backend else None
         self.observation_cfg = ObservationsCfg(robot_spec=robot_spec, mode=mode, gear_offsets=self.gear_offsets)
         self.events_cfg = EventsCfg(
             robot_spec=robot_spec,
@@ -118,6 +116,7 @@ class GearAssemblyTask(TaskBase):
             root_xy_offsets=root_xy_offsets,
             support_z_offset=support_z_offset,
             base_support_prim_name="platform" if newton_backend else None,
+            enabled_colliders_only=newton_backend,
         )
 
     def get_scene_cfg(self) -> Any:
@@ -317,7 +316,9 @@ class EventsCfg:
                 "robot_asset_cfg": SceneEntityCfg("robot"),
                 # The source reset term samples this range on every IK iteration. Keep play resets deterministic
                 # so the solver converges to one grasp target; randomized training retains source behavior.
-                "pos_randomization_range": None if mode == "play" else robot_spec.set_grasp_pos_randomization_range,
+                "pos_randomization_range": (
+                    None if newton_backend and mode == "play" else robot_spec.set_grasp_pos_randomization_range
+                ),
                 "gear_offsets_grasp": robot_spec.gear_offsets_grasp,
                 "end_effector_body_name": robot_spec.end_effector_body_name,
                 "num_arm_joints": robot_spec.num_arm_joints,
@@ -394,29 +395,35 @@ class TerminationsCfg:
         robot_spec: GearAssemblyRobotSpec,
         mode: GearAssemblyMode,
         assembled_root_z: dict[str, float],
-        root_xy_offsets: dict[str, list[float]],
+        root_xy_offsets: dict[str, list[float]] | None,
         support_z_offset: dict[str, float],
         base_support_prim_name: str | None,
+        enabled_colliders_only: bool,
     ):
         self.time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
         self.success = None
         if mode == "play":
+            success_params = {
+                "base_asset_cfg": SceneEntityCfg("factory_gear_base"),
+                "root_z_above_base": assembled_root_z,
+                "xy_threshold": GEAR_ASSEMBLED_XY_THRESHOLD,
+                "z_threshold": GEAR_ASSEMBLED_Z_THRESHOLD,
+                "upright_axis_threshold_deg": GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
+                "linear_velocity_threshold": GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
+                "angular_velocity_threshold": GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
+                "support_z_offset": support_z_offset,
+                "support_z_threshold": GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
+                "consecutive_success_steps": GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
+            }
+            if root_xy_offsets is not None:
+                success_params["root_xy_offset_from_base"] = root_xy_offsets
+            if base_support_prim_name is not None:
+                success_params["base_support_prim_name"] = base_support_prim_name
+            if enabled_colliders_only:
+                success_params["enabled_colliders_only"] = True
             self.success = TerminationTermCfg(
                 func=selected_gear_on_base,
-                params={
-                    "base_asset_cfg": SceneEntityCfg("factory_gear_base"),
-                    "root_z_above_base": assembled_root_z,
-                    "root_xy_offset_from_base": root_xy_offsets,
-                    "xy_threshold": GEAR_ASSEMBLED_XY_THRESHOLD,
-                    "z_threshold": GEAR_ASSEMBLED_Z_THRESHOLD,
-                    "upright_axis_threshold_deg": GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
-                    "linear_velocity_threshold": GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
-                    "angular_velocity_threshold": GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
-                    "support_z_offset": support_z_offset,
-                    "base_support_prim_name": base_support_prim_name,
-                    "support_z_threshold": GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
-                    "consecutive_success_steps": GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
-                },
+                params=success_params,
             )
         self.gear_dropped = TerminationTermCfg(
             func=reset_when_gear_dropped,

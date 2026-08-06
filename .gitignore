@@ -101,5 +101,5 @@ core.*
 # uv venv (Arena native install)
 .venv*/
 
-###### custom for this branch ######
+# Local experiment outputs
 artifacts/

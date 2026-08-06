@@ -16,7 +16,11 @@ from isaaclab_arena.tasks.gear_assembly.specs import (
     DROID_ARM_JOINT_NAMES,
     DROID_BASE_GEAR_POSE,
     DROID_GEAR_ASSEMBLY_EMBODIMENTS,
+    DROID_GRIPPER_CLOSE_COMMAND,
+    DROID_GRIPPER_JOINT_NAMES,
+    DROID_GRIPPER_OPEN_COMMAND,
     DROID_IK_SEED_JOINT_POSITIONS,
+    GEAR_TYPES,
     MAPLE_TABLE_POSE,
     MAPLE_TABLE_TOP_COLLISION_POSE,
     NEWTON_DROID_BASE_GEAR_POSE,
@@ -27,6 +31,7 @@ from isaaclab_arena.tasks.gear_assembly.specs import (
 )
 
 if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.droid.droid import DroidEmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.tasks.gear_assembly.task import GearAssemblyTask
@@ -80,31 +85,15 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
 
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         if cfg.physics_backend == "newton":
-            from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
-            from isaaclab_arena.embodiments.droid.droid import configure_droid_robot_for_newton
-            from isaaclab_arena.utils.usd.newton import ensure_newton_compatible_droid_usd
-
-            configure_droid_robot_for_newton(embodiment.scene_config.robot)
-            if cfg.embodiment == "droid_differential_ik":
-                embodiment.action_config.arm_action.class_type = NewtonDroidDifferentialInverseKinematicsAction
-            embodiment.scene_config.robot.spawn.usd_path = ensure_newton_compatible_droid_usd(
-                embodiment.scene_config.robot.spawn.usd_path
-            )
-            # Newton's pinned importer treats disableGravity as scene-wide. Keep
-            # world gravity active and use per-body MuJoCo gravity compensation.
-            embodiment.scene_config.robot.spawn.rigid_props.disable_gravity = False
+            _configure_newton_droid_embodiment(embodiment)
         embodiment.observation_config = None
-        newton_mesh_collisions = cfg.physics_backend == "newton"
-        robot_spec = get_droid_robot_spec(newton_backend=newton_mesh_collisions)
-        base_pose = NEWTON_DROID_BASE_GEAR_POSE if newton_mesh_collisions else DROID_BASE_GEAR_POSE
-        gear_poses = (
-            NEWTON_DROID_GEAR_POSES
-            if newton_mesh_collisions
-            else {gear_type: DROID_BASE_GEAR_POSE for gear_type in ("gear_small", "gear_medium", "gear_large")}
-        )
+        newton_backend = cfg.physics_backend == "newton"
+        robot_spec = get_droid_robot_spec(newton_backend=newton_backend)
+        base_pose = NEWTON_DROID_BASE_GEAR_POSE if newton_backend else DROID_BASE_GEAR_POSE
+        gear_poses = NEWTON_DROID_GEAR_POSES if newton_backend else dict.fromkeys(GEAR_TYPES, DROID_BASE_GEAR_POSE)
         maple_table = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         maple_table.set_initial_pose(MAPLE_TABLE_POSE)
-        if newton_mesh_collisions:
+        if newton_backend:
             maple_table.object_cfg.spawn.func = spawn_newton_maple_table_usd
         table_reference = ObjectReference(
             name="table",
@@ -117,11 +106,11 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         assets = [
             make_ground(),
             maple_table,
-            *([make_maple_table_top_collision(MAPLE_TABLE_TOP_COLLISION_POSE)] if newton_mesh_collisions else []),
-            make_factory_gear_base(base_pose, newton_mesh_collisions=newton_mesh_collisions),
-            make_factory_gear_small(gear_poses["gear_small"], newton_mesh_collisions=newton_mesh_collisions),
-            make_factory_gear_medium(gear_poses["gear_medium"], newton_mesh_collisions=newton_mesh_collisions),
-            make_factory_gear_large(gear_poses["gear_large"], newton_mesh_collisions=newton_mesh_collisions),
+            *([make_maple_table_top_collision(MAPLE_TABLE_TOP_COLLISION_POSE)] if newton_backend else []),
+            make_factory_gear_base(base_pose, newton_mesh_collisions=newton_backend),
+            make_factory_gear_small(gear_poses["gear_small"], newton_mesh_collisions=newton_backend),
+            make_factory_gear_medium(gear_poses["gear_medium"], newton_mesh_collisions=newton_backend),
+            make_factory_gear_large(gear_poses["gear_large"], newton_mesh_collisions=newton_backend),
             table_reference,
             DomeLight(
                 instance_name="light",
@@ -130,7 +119,7 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
             ),
         ]
 
-        task = GearAssemblyTask(robot_spec=robot_spec, mode=cfg.mode, newton_backend=newton_mesh_collisions)
+        task = GearAssemblyTask(robot_spec=robot_spec, mode=cfg.mode, newton_backend=newton_backend)
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -138,6 +127,32 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
             task=task,
             env_cfg_callback=_make_env_cfg_callback(cfg, task),
         )
+
+
+def _configure_newton_droid_embodiment(embodiment: DroidEmbodimentBase) -> None:
+    """Apply Gear Assembly's Newton settings to one DROID embodiment instance."""
+    from isaaclab.actuators import ImplicitActuatorCfg
+
+    from isaaclab_arena.tasks.gear_assembly.actions import NewtonDroidDifferentialInverseKinematicsAction
+    from isaaclab_arena.tasks.gear_assembly.newton import ensure_newton_compatible_droid_usd
+
+    robot_cfg = embodiment.scene_config.robot
+    robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
+        joint_names_expr=list(DROID_GRIPPER_JOINT_NAMES),
+        effort_limit_sim=5.0,
+        velocity_limit_sim=1.0,
+        stiffness=20.0,
+        damping=5.0,
+        armature=0.1,
+    )
+    robot_cfg.spawn.usd_path = ensure_newton_compatible_droid_usd(robot_cfg.spawn.usd_path)
+    # Newton's pinned importer treats disableGravity as scene-wide. Keep world
+    # gravity active and use per-body MuJoCo gravity compensation.
+    robot_cfg.spawn.rigid_props.disable_gravity = False
+    embodiment.scene_config.ee_frame.target_frames[0].prim_path = "{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link"
+    if embodiment.name == "droid_differential_ik":
+        embodiment.action_config.arm_action.body_name = "base_link"
+        embodiment.action_config.arm_action.class_type = NewtonDroidDifferentialInverseKinematicsAction
 
 
 def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTask):
@@ -156,11 +171,6 @@ def _make_env_cfg_callback(cfg: GearAssemblyEnvironmentCfg, task: GearAssemblyTa
         env_cfg.sim.dt = 1.0 / 120.0
 
         if cfg.physics_backend == "newton":
-            from isaaclab_arena.embodiments.droid.actions import (
-                DROID_GRIPPER_CLOSE_COMMAND,
-                DROID_GRIPPER_JOINT_NAMES,
-                DROID_GRIPPER_OPEN_COMMAND,
-            )
             from isaaclab_arena.tasks.gear_assembly.actions import GearAssemblyBinaryJointPositionAction
             from isaaclab_arena.tasks.gear_assembly.events import set_robot_to_grasp_pose_with_finite_difference_ik
 

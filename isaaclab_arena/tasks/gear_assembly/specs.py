@@ -13,7 +13,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from isaaclab_arena.embodiments.droid.actions import DROID_GRIPPER_MIMIC_SIGNS
 from isaaclab_arena.utils.pose import Pose
 
 DroidGearAssemblyEmbodiment = Literal["droid_abs_joint_pos", "droid_rel_joint_pos", "droid_differential_ik"]
@@ -65,36 +64,55 @@ MAPLE_TABLE_TOP_COLLISION_POSE = Pose(
         DROID_BASE_GEAR_POSE.position_xyz[2],
     )
 )
-PHYSX_GEAR_TABLETOP_PARKING_Z = MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[2] + 0.046
+GEAR_TABLETOP_PARKING_Z = MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[2] + 0.043
 NEWTON_GEAR_TABLETOP_PARKING_Z = (
     MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[2] + 0.01875 + 2.0 * NEWTON_GEAR_CONTACT_OFFSET
 )
 
 
-def _tabletop_parking_positions(z: float) -> dict[str, tuple[float, float, float]]:
+def _newton_tabletop_parking_positions() -> dict[str, tuple[float, float, float]]:
     return {
         "gear_small": (
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] - 0.15,
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
-            z,
+            NEWTON_GEAR_TABLETOP_PARKING_Z,
         ),
         "gear_medium": (
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] + 0.15,
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
-            z,
+            NEWTON_GEAR_TABLETOP_PARKING_Z,
         ),
         "gear_large": (
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0],
             MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.32,
-            z,
+            NEWTON_GEAR_TABLETOP_PARKING_Z,
         ),
     }
 
 
-GEAR_TABLETOP_PARKING_POSITIONS = _tabletop_parking_positions(PHYSX_GEAR_TABLETOP_PARKING_Z)
-NEWTON_GEAR_TABLETOP_PARKING_POSITIONS = _tabletop_parking_positions(NEWTON_GEAR_TABLETOP_PARKING_Z)
+GEAR_TABLETOP_PARKING_POSITIONS = {
+    "gear_small": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] - 0.20,
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+    "gear_medium": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0] + 0.20,
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.12,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+    "gear_large": (
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[0],
+        MAPLE_TABLE_TOP_COLLISION_POSE.position_xyz[1] + 0.32,
+        GEAR_TABLETOP_PARKING_Z,
+    ),
+}
+NEWTON_GEAR_TABLETOP_PARKING_POSITIONS = _newton_tabletop_parking_positions()
 GEAR_TABLETOP_ORIENTATION_XYZW = (1.0, 0.0, 0.0, 0.0)
 NEWTON_GEAR_TABLETOP_ORIENTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
+GEAR_INACTIVE_TABLE_PARKING_Z = GEAR_TABLETOP_PARKING_Z
+GEAR_INACTIVE_PARKING_POSITIONS = GEAR_TABLETOP_PARKING_POSITIONS
+GEAR_INACTIVE_TABLETOP_ORIENTATION_XYZW = GEAR_TABLETOP_ORIENTATION_XYZW
 GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE = {
     "gear_small": 0.0135,
     "gear_medium": 0.03,
@@ -147,6 +165,17 @@ DROID_IK_SEED_JOINT_POSITIONS = (
     2.71,
     1.35,
 )
+DROID_GRIPPER_MIMIC_SIGNS = {
+    "finger_joint": 1.0,
+    "left_inner_finger_joint": -1.0,
+    "left_inner_finger_knuckle_joint": -1.0,
+    "right_outer_knuckle_joint": 1.0,
+    "right_inner_finger_joint": 1.0,
+    "right_inner_finger_knuckle_joint": -1.0,
+}
+DROID_GRIPPER_JOINT_NAMES = tuple(DROID_GRIPPER_MIMIC_SIGNS)
+DROID_GRIPPER_OPEN_COMMAND = dict.fromkeys(DROID_GRIPPER_JOINT_NAMES, 0.0)
+DROID_GRIPPER_CLOSE_COMMAND = {name: sign * 0.7 for name, sign in DROID_GRIPPER_MIMIC_SIGNS.items()}
 
 
 @dataclass(frozen=True)
@@ -173,10 +202,12 @@ def get_droid_robot_spec(newton_backend: bool = False) -> GearAssemblyRobotSpec:
     """Return the Gear Assembly spec for Arena's Droid Franka/Robotiq embodiment."""
     grasp_rot_offset = [math.sqrt(2.0) / 2.0, math.sqrt(2.0) / 2.0, 0.0, 0.0]
     gear_offsets_grasp = {
-        "gear_small": [-0.0136, GEAR_OFFSETS["gear_small"][0], 0.084],
-        "gear_medium": [-0.0120, GEAR_OFFSETS["gear_medium"][0], 0.084],
-        "gear_large": [-0.0110, GEAR_OFFSETS["gear_large"][0], 0.084],
+        "gear_small": [0.0, GEAR_OFFSETS["gear_small"][0], -0.19],
+        "gear_medium": [0.0, GEAR_OFFSETS["gear_medium"][0], -0.19],
+        "gear_large": [0.0, GEAR_OFFSETS["gear_large"][0], -0.19],
     }
+    gripper_joint_setter_func = _set_droid_gripper_joint_pos
+    robot_material = (0.75, 0.75, 0.0)
     if newton_backend:
         half_segment = math.pi / 6.0
         grasp_rot_offset = [
@@ -191,6 +222,8 @@ def get_droid_robot_spec(newton_backend: bool = False) -> GearAssemblyRobotSpec:
             "gear_medium": [-0.16085, 0.0, 0.0],
             "gear_large": [-0.15985, 0.0, 0.0],
         }
+        gripper_joint_setter_func = _set_newton_droid_gripper_joint_pos
+        robot_material = (2.0, 2.0, 0.0)
     hand_grasp_width = {"gear_small": 0.64, "gear_medium": 0.46, "gear_large": 0.4}
     hand_close_width = {"gear_small": 0.69, "gear_medium": 0.51, "gear_large": 0.45}
     if newton_backend:
@@ -208,7 +241,7 @@ def get_droid_robot_spec(newton_backend: bool = False) -> GearAssemblyRobotSpec:
         gear_offsets_grasp=gear_offsets_grasp,
         hand_grasp_width=hand_grasp_width,
         hand_close_width=hand_close_width,
-        gripper_joint_setter_func=_set_droid_gripper_joint_pos,
+        gripper_joint_setter_func=gripper_joint_setter_func,
         state_space=28,
         observation_space=21,
         startup_materials={
@@ -216,7 +249,7 @@ def get_droid_robot_spec(newton_backend: bool = False) -> GearAssemblyRobotSpec:
             "factory_gear_medium": (0.75, 0.75, 0.0),
             "factory_gear_large": (0.75, 0.75, 0.0),
             "factory_gear_base": (0.75, 0.75, 0.0),
-            "robot": (2.0, 2.0, 0.0),
+            "robot": robot_material,
         },
         reset_randomizes_robot=False,
         set_grasp_pos_randomization_range={
@@ -227,6 +260,11 @@ def get_droid_robot_spec(newton_backend: bool = False) -> GearAssemblyRobotSpec:
     )
 
 
+def gear_pose_for_mode(mode: GearAssemblyMode) -> Pose:
+    """Return the construction gear/base pose for Droid Gear Assembly."""
+    return DROID_BASE_GEAR_POSE
+
+
 def _set_droid_gripper_joint_pos(
     joint_pos: torch.Tensor,
     reset_ind_joint_pos: list[int],
@@ -234,6 +272,23 @@ def _set_droid_gripper_joint_pos(
     joint_position: float,
 ) -> None:
     """Set Droid's Robotiq gripper joints for the source reset term."""
+    assert len(gripper_joints) >= 6, f"Droid gripper requires at least 6 gripper joints, got {len(gripper_joints)}"
+    for idx in reset_ind_joint_pos:
+        joint_pos[idx, gripper_joints[0]] = joint_position
+        joint_pos[idx, gripper_joints[1]] = joint_position
+        joint_pos[idx, gripper_joints[2]] = -joint_position
+        joint_pos[idx, gripper_joints[3]] = joint_position
+        joint_pos[idx, gripper_joints[4]] = -joint_position
+        joint_pos[idx, gripper_joints[5]] = -joint_position
+
+
+def _set_newton_droid_gripper_joint_pos(
+    joint_pos: torch.Tensor,
+    reset_ind_joint_pos: list[int],
+    gripper_joints: list[int],
+    joint_position: float,
+) -> None:
+    """Set all explicit Robotiq mimic joints for Newton."""
     assert len(gripper_joints) >= 6, f"Droid gripper requires at least 6 gripper joints, got {len(gripper_joints)}"
     mimic_signs = tuple(DROID_GRIPPER_MIMIC_SIGNS.values())
     for idx in reset_ind_joint_pos:
