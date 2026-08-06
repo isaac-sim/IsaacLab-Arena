@@ -21,8 +21,8 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEn
 def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> str:
     """Serialize an effective Arena Experiment to a typed Experiment YAML-formatted string.
 
-    The output contains the fully composed configuration, including resolved
-    defaults and overrides. Source formatting and comments are not preserved.
+    The output contains only fully composed Runs, including resolved defaults,
+    shared values, and overrides. Source formatting and comments are not preserved.
 
     Args:
         experiment_cfg: Effective typed Arena Experiment to serialize.

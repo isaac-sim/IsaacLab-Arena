@@ -25,7 +25,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
         help=(
             "Path to a typed YAML Experiment or legacy JSON evaluation config. "
-            "For YAML, append Hydra KEY=VALUE overrides for fields on declared Runs."
+            "For YAML, append Hydra KEY=VALUE overrides for shared values or fields on declared Runs."
         ),
     )
     parser.add_argument(

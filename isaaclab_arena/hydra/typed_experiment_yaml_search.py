@@ -13,7 +13,10 @@ from typing import Any
 
 from hydra.core.override_parser.overrides_parser import OverridesParser
 
-from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_definitions_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import (
+    load_experiment_run_definitions_from_yaml,
+    partition_shared_experiment_overrides,
+)
 
 
 def find_environment_field_values(
@@ -30,14 +33,16 @@ def find_environment_field_values(
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         field_name: Environment field to read from each Run.
-        overrides: Hydra field overrides applied to the Runs declared in YAML.
+        overrides: Hydra field overrides for shared values or Runs declared in YAML. Shared-value
+            overrides are resolved before direct Run overrides.
         default: Value returned for Runs that leave the field unset.
 
     Returns:
         Run names mapped to their value for the field, in YAML declaration order.
     """
-    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path)
-    override_values_by_run_name = _environment_field_values_from_overrides(field_name, overrides or [])
+    shared_overrides, run_overrides = partition_shared_experiment_overrides(overrides or [])
+    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path, overrides=shared_overrides)
+    override_values_by_run_name = _environment_field_values_from_overrides(field_name, run_overrides)
 
     field_values_by_run_name: dict[str, Any] = {}
     for run_name, run_values in run_values_by_name.items():
@@ -51,7 +56,8 @@ def typed_experiment_requires_cameras(yaml_path: str | Path, overrides: list[str
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
-        overrides: Hydra field overrides applied to the Runs declared in YAML.
+        overrides: Hydra field overrides for shared values or Runs declared in YAML. Shared-value
+            overrides are resolved before direct Run overrides.
 
     Returns:
         Whether any declared Run enables environment cameras.

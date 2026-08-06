@@ -494,6 +494,73 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert "--policy.dir=gs://openpi-assets-simeval/pi0_droid_jointpos" in server_command
 
 
+def test_submission_resolves_shared_overrides_before_remaining_overrides(tmp_path):
+    """Apply shared values to every Run before composing per-Run submission overrides."""
+    experiment_path = tmp_path / "shared_experiment.yaml"
+    experiment_path.write_text(
+        """shared:
+  variations:
+    droid_abs_joint_pos:
+      camera_extrinsics_wrist_camera:
+        enabled: false
+        sampler_cfg:
+          low: [-0.05, -0.05, -0.05]
+          high: [0.05, 0.05, 0.05]
+
+runs:
+  first:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 1
+    variations: ${shared.variations}
+
+  second:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 1
+    variations: ${shared.variations}
+""",
+        encoding="utf-8",
+    )
+
+    submission_cfg = _compose_submission(
+        [
+            "experiment_cfg.shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true",
+            "experiment_cfg.runs.second.rollout_limit.num_steps=7",
+            "osmo.workflow_name=shared-values",
+        ],
+        experiment_path,
+    )
+
+    assert submission_cfg.osmo.workflow_name == "shared-values"
+    assert submission_cfg.experiment_cfg.runs["first"].rollout_limit.num_steps == 1
+    assert submission_cfg.experiment_cfg.runs["second"].rollout_limit.num_steps == 7
+    for run_cfg in submission_cfg.experiment_cfg.runs.values():
+        camera_variation = run_cfg.variations["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]
+        assert camera_variation["enabled"] is True
+        assert camera_variation["sampler_cfg"]["low"] == [-0.05, -0.05, -0.05]
+
+    listed_submission = yaml.safe_load(submission_cfg_to_str(submission_cfg))
+    assert set(listed_submission["experiment_cfg"]) == {"runs"}
+
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=submission_cfg.osmo,
+        experiment_cfg=submission_cfg.experiment_cfg,
+        task_cfg=submission_cfg.experiment_runner,
+    ).generate_workflow()
+    for group_index, run_name in enumerate(("first", "second")):
+        embedded_experiment = _embedded_experiment(_workflow_tasks(workflow, group_index)[0])
+        assert set(embedded_experiment) == {"runs"}
+        embedded_variation = embedded_experiment["runs"][run_name]["variations"]["droid_abs_joint_pos"]
+        assert embedded_variation["camera_extrinsics_wrist_camera"]["enabled"] is True
+
+
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()

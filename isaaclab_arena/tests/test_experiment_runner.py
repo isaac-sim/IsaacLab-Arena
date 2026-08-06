@@ -25,12 +25,14 @@ def test_experiment_runner_parses_native_hydra_overrides():
         "experiment.yaml",
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
+        "shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true",
     ])
 
     assert args_cli.experiment_config == "experiment.yaml"
     assert experiment_overrides == [
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
+        "shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true",
     ]
 
 

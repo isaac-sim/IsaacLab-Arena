@@ -16,6 +16,7 @@ from typing import Any
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.override_parser.overrides_parser import OverridesParser
 from hydra.errors import HydraException
 from omegaconf import OmegaConf
 from omegaconf.errors import OmegaConfBaseException
@@ -50,18 +51,20 @@ def load_arena_experiment_from_yaml(
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping, or
     names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update fields on Runs declared in YAML, but cannot add Runs.
+    Hydra overrides can update shared values or fields on Runs declared in YAML,
+    but cannot add Runs. Shared-value overrides are resolved before Run overrides.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for Runs already declared in YAML.
+        overrides: Hydra field overrides for shared values or Runs already declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
     """
-    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path)
+    shared_overrides, run_overrides = partition_shared_experiment_overrides(overrides or [])
+    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path, overrides=shared_overrides)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
@@ -85,7 +88,7 @@ def load_arena_experiment_from_yaml(
                 name=hydra_experiment_config_name,
                 node=ArenaExperimentCfg(runs=arena_runs_by_name),
             )
-            composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=overrides or [])
+            composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=run_overrides)
             experiment_cfg = OmegaConf.to_object(composed_experiment)
     except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
         raise ValueError(f"Could not compose Arena Experiment '{yaml_path}': {exc}") from exc
@@ -102,17 +105,61 @@ def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
     )
 
 
-def load_experiment_run_definitions_from_yaml(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
-    """Read an Arena Experiment YAML file and return its Run values by name.
+def partition_shared_experiment_overrides(
+    overrides: list[str],
+    root_prefix: str = "",
+) -> tuple[list[str], list[str]]:
+    """Separate shared-value overrides from overrides applied after Run resolution.
 
-    This validates the shared YAML envelope. Fields belonging to a Run,
-    environment, or policy are validated later against their typed configs.
+    Args:
+        overrides: Hydra overrides rooted at an Arena Experiment Definition.
+        root_prefix: Optional outer-config path containing the Experiment. Matching shared
+            overrides have this prefix removed so they can be applied to the Experiment YAML.
+
+    Returns:
+        Shared-value overrides followed by all remaining overrides, preserving order within each group.
+    """
+    assert not root_prefix.startswith(".") and not root_prefix.endswith(
+        "."
+    ), "root_prefix must not start or end with a dot"
+    parsed_overrides = OverridesParser.create().parse_overrides(overrides)
+    assert len(parsed_overrides) == len(overrides)
+
+    shared_key_prefix = f"{root_prefix}.shared" if root_prefix else "shared"
+    shared_overrides: list[str] = []
+    remaining_overrides: list[str] = []
+    for override_text, parsed_override in zip(overrides, parsed_overrides):
+        override_key = parsed_override.key_or_group
+        if override_key == shared_key_prefix or override_key.startswith(f"{shared_key_prefix}."):
+            if root_prefix:
+                key_start = override_text.find(override_key)
+                assert key_start >= 0
+                unprefixed_key = override_key.removeprefix(f"{root_prefix}.")
+                override_text = (
+                    f"{override_text[:key_start]}{unprefixed_key}{override_text[key_start + len(override_key):]}"
+                )
+            shared_overrides.append(override_text)
+        else:
+            remaining_overrides.append(override_text)
+    return shared_overrides, remaining_overrides
+
+
+def load_experiment_run_definitions_from_yaml(
+    yaml_path: str | Path,
+    overrides: list[str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Read an Arena Experiment YAML file and return its resolved Run values by name.
+
+    Shared-value overrides are applied before ``${shared...}`` interpolations are
+    resolved. Fields belonging to a Run, environment, or policy are validated
+    later against their typed configs.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
+        overrides: Hydra overrides for values below the optional shared mapping.
 
     Returns:
-        Run names mapped to their unresolved YAML values, in mapping declaration order.
+        Run names mapped to their resolved YAML values, in mapping declaration order.
     """
     path = Path(yaml_path)
     assert path.suffix.lower() in {".yaml", ".yml"}, f"Experiment config must be YAML, got '{path}'"
@@ -124,23 +171,55 @@ def load_experiment_run_definitions_from_yaml(yaml_path: str | Path) -> dict[str
         raise ValueError(f"Could not load Experiment YAML '{path}': {exc}") from exc
     assert OmegaConf.is_dict(raw_experiment_config), "Experiment config must be a mapping"
 
-    unknown_fields = sorted(set(raw_experiment_config.keys()) - {"runs"})
+    unknown_fields = sorted(set(raw_experiment_config.keys()) - {"runs", "shared"})
     assert not unknown_fields, f"Unknown Experiment fields: {', '.join(unknown_fields)}"
+    if "shared" in raw_experiment_config:
+        assert OmegaConf.is_dict(raw_experiment_config.shared), "Experiment 'shared' must be a mapping"
     assert "runs" in raw_experiment_config, "Experiment config is missing the 'runs' field"
     assert OmegaConf.is_dict(
         raw_experiment_config.runs
     ), "Experiment 'runs' must be a mapping from Run names to Run configurations"
     assert raw_experiment_config.runs, "Experiment must define at least one Run"
 
-    runs: dict[str, dict[str, Any]] = {}
-    for run_name, raw_run_config in raw_experiment_config.runs.items():
-        assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
-        _assert_run_name_is_hydra_compatible(run_name)
-        assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-        run_values = OmegaConf.to_container(raw_run_config, resolve=False)
-        assert isinstance(run_values, dict)
-        assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
-        runs[run_name] = run_values
+    shared_overrides, remaining_overrides = partition_shared_experiment_overrides(overrides or [])
+    assert not remaining_overrides, "Only shared-value overrides can be applied while loading Run definitions"
+
+    source_config_name = "isaaclab_arena_typed_experiment_loader_source"
+    try:
+        with _get_new_hydra_context_if_none_exists():
+            ConfigStore.instance().store(name=source_config_name, node=raw_experiment_config)
+            shared_overridden_experiment_config = compose(config_name=source_config_name, overrides=shared_overrides)
+
+            if "shared" in shared_overridden_experiment_config:
+                assert OmegaConf.is_dict(
+                    shared_overridden_experiment_config.shared
+                ), "Experiment 'shared' must remain a mapping after overrides"
+                shared_values = OmegaConf.to_container(shared_overridden_experiment_config.shared, resolve=False)
+                assert isinstance(shared_values, dict)
+            else:
+                shared_values = {}
+
+            runs: dict[str, dict[str, Any]] = {}
+            for run_name, raw_run_config in shared_overridden_experiment_config.runs.items():
+                assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
+                _assert_run_name_is_hydra_compatible(run_name)
+                assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
+                unresolved_run_values = OmegaConf.to_container(raw_run_config, resolve=False)
+                assert isinstance(unresolved_run_values, dict)
+                assert (
+                    "name" not in unresolved_run_values
+                ), f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
+                assert (
+                    "shared" not in unresolved_run_values
+                ), f"Run '{run_name}' must not define 'shared'; use the Experiment-level shared mapping"
+
+                run_resolution_config = OmegaConf.create({"shared": shared_values, **unresolved_run_values})
+                resolved_run_values = OmegaConf.to_container(run_resolution_config, resolve=True)
+                assert isinstance(resolved_run_values, dict)
+                resolved_run_values.pop("shared")
+                runs[run_name] = resolved_run_values
+    except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
+        raise ValueError(f"Could not resolve shared values in Arena Experiment '{yaml_path}': {exc}") from exc
     return runs
 
 
@@ -153,14 +232,14 @@ def _build_arena_run_cfg_from_yaml_values(
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
 ) -> ArenaRunCfg:
-    """Build one typed Arena Run from its unresolved YAML values.
+    """Build one typed Arena Run from its resolved YAML values.
 
     Args:
         config_store: Hydra store used for the temporary typed schemas.
         hydra_config_namespace: Unique prefix for this Experiment's temporary Hydra configs.
         index: Position of the Run in YAML declaration order.
         run_name: Name declared by the Run's YAML mapping key.
-        run_values: Unresolved values declared for the Run.
+        run_values: Values declared for the Run after resolving shared-value interpolations.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
 

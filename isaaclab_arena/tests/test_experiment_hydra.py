@@ -16,7 +16,11 @@ from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
-from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import (
+    load_arena_experiment_from_yaml,
+    load_experiment_run_definitions_from_yaml,
+    partition_shared_experiment_overrides,
+)
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -26,6 +30,7 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
+ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "robolab" / "experiment_configs"
 
 
 def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[ZeroActionPolicyCfg]:
@@ -178,6 +183,139 @@ runs:
     assert experiment_cfg.runs["second"].environment.enable_cameras is True
 
 
+def test_shared_values_apply_to_all_referencing_runs_before_run_overrides(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  variations:
+    droid_abs_joint_pos:
+      camera_extrinsics_wrist_camera:
+        enabled: false
+        sampler_cfg:
+          low: [-0.05, -0.05, -0.05]
+          high: [0.05, 0.05, 0.05]
+
+runs:
+  first:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    variations: ${shared.variations}
+  second:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    variations: ${shared.variations}
+""",
+    )
+
+    experiment_cfg = _load_experiment(
+        config_path,
+        overrides=[
+            "shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true",
+            "runs.second.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=false",
+        ],
+    )
+
+    first_camera_variation = experiment_cfg.runs["first"].variations["droid_abs_joint_pos"][
+        "camera_extrinsics_wrist_camera"
+    ]
+    second_camera_variation = experiment_cfg.runs["second"].variations["droid_abs_joint_pos"][
+        "camera_extrinsics_wrist_camera"
+    ]
+    assert first_camera_variation["enabled"] is True
+    assert second_camera_variation["enabled"] is False
+    assert first_camera_variation["sampler_cfg"]["low"] == [-0.05, -0.05, -0.05]
+
+    serialized_values = yaml.safe_load(serialize_arena_experiment_to_yaml(experiment_cfg))
+    assert set(serialized_values) == {"runs"}
+    assert serialized_values["runs"]["first"]["variations"] == experiment_cfg.runs["first"].variations
+
+
+def test_shared_and_run_local_interpolations_resolve_in_the_run_scope(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  light_intensity: 600.0
+
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+      light_intensity: ${shared.light_intensity}
+    environment_builder:
+      num_envs: 3
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: ${environment_builder.num_envs}
+""",
+    )
+
+    run_cfg = _load_experiment(config_path, overrides=["shared.light_intensity=750.0"]).runs["maple_table"]
+
+    assert run_cfg.environment.light_intensity == 750.0
+    assert run_cfg.environment_builder.num_envs == 3
+    assert run_cfg.rollout_limit.num_steps == 3
+
+
+def test_prefixed_shared_overrides_are_partitioned_without_changing_their_hydra_operations():
+    shared_overrides, remaining_overrides = partition_shared_experiment_overrides(
+        [
+            "+experiment_cfg.shared.new_value=1",
+            "++experiment_cfg.shared.replaced_value={enabled:true}",
+            "~experiment_cfg.shared.removed_value",
+            "experiment_cfg.shared.label='camera=enabled'",
+            "experiment_cfg.runs.first.rollout_limit.num_steps=5",
+            "osmo.workflow_name=shared-values",
+        ],
+        root_prefix="experiment_cfg",
+    )
+
+    assert shared_overrides == [
+        "+shared.new_value=1",
+        "++shared.replaced_value={enabled:true}",
+        "~shared.removed_value",
+        "shared.label='camera=enabled'",
+    ]
+    assert remaining_overrides == [
+        "experiment_cfg.runs.first.rollout_limit.num_steps=5",
+        "osmo.workflow_name=shared-values",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("config_name", "expected_run_count"),
+    [
+        ("robolab_18_tasks_pi0_and_cosmos.yaml", 36),
+        ("robolab_20_tasks_pi0_and_cosmos.yaml", 40),
+    ],
+)
+def test_robolab_experiments_share_hdr_and_disabled_camera_variations(config_name, expected_run_count):
+    config_path = ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY / config_name
+
+    default_run_values = load_experiment_run_definitions_from_yaml(config_path)
+    enabled_run_values = load_experiment_run_definitions_from_yaml(
+        config_path,
+        overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
+    )
+
+    assert len(default_run_values) == expected_run_count
+    assert len(enabled_run_values) == expected_run_count
+    for run_values in default_run_values.values():
+        assert run_values["variations"]["light"]["hdr_image"] == {
+            "enabled": True,
+            "hdr_names": ["home_office_robolab"],
+        }
+        assert run_values["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"] is False
+    for run_values in enabled_run_values.values():
+        assert run_values["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"] is True
+
+
 def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
     experiment_cfg = _load_experiment(
         GETTING_STARTED_EXPERIMENT_PATH,
@@ -305,6 +443,24 @@ runs:
     )
 
     with pytest.raises(AssertionError, match="must be a mapping from Run names"):
+        _load_experiment(config_path)
+
+
+def test_shared_values_must_be_a_mapping(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared: true
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+    )
+
+    with pytest.raises(AssertionError, match="Experiment 'shared' must be a mapping"):
         _load_experiment(config_path)
 
 
