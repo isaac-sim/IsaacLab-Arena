@@ -487,8 +487,8 @@ def test_quarter_turned_support_is_accepted_by_the_pour():
 def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
     """The rotation maps are sparse: a solved support whose yaw is identity appears in neither.
 
-    Reading that absence as 'unsolved' sent an ordinary solved support to its declaration, so a
-    ranged declaration it never needed was rejected.
+    Reading that absence as 'unsolved' would send an ordinary solved support to its declaration,
+    rejecting a ranged declaration it never needed.
     """
     from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
     from isaaclab_arena.utils.pose import PoseRange
@@ -506,8 +506,8 @@ def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
 def test_support_just_off_a_quarter_turn_is_rejected_not_silently_shrunk():
     """Admission and region construction must share one threshold.
 
-    At a 1 degree admission tolerance a 0.5 degree support passed the guard and then took the
-    off-axis branch, collapsing its footprint to an inscribed square the guard had approved.
+    A support just off a quarter turn must not clear the guard only to be reclassified off-axis
+    by the region builder, which would collapse its footprint to an inscribed square.
     """
     import math
 
@@ -523,7 +523,7 @@ def test_support_just_off_a_quarter_turn_is_rejected_not_silently_shrunk():
 def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_positions():
     """An anchor appears in layout.positions too, so presence there cannot mean 'solved'.
 
-    Treating it as solved replaced the declared yaw with the marker rotation, silently
+    Treating it as solved replaces the declared yaw with the marker rotation, silently
     un-rotating a quarter-turned support.
     """
     import math
@@ -544,9 +544,8 @@ def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_position
 def test_admission_and_region_agree_at_the_tolerance_endpoint():
     """The guard and the region builder must accept exactly the same rotations.
 
-    They compared against the same tolerance with different strictness, so a yaw exactly
-    _QUARTER_TURN_TOLERANCE_RAD from a quarter turn was refused by one and treated as a quarter
-    turn by the other.
+    Sharing a tolerance is not enough: comparing against it with different strictness leaves a
+    yaw exactly _QUARTER_TURN_TOLERANCE_RAD from a quarter turn admitted by one and not the other.
     """
     import math
 

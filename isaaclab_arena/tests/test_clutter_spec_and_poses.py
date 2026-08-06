@@ -7,7 +7,7 @@
 
 These cover the seams between clutter and the surrounding placement machinery: the spec
 parser that builds the relation, and the pose path that carries a settled rotation into the
-scene. Both were previously exercised only by running the feature.
+scene.
 """
 
 from __future__ import annotations

@@ -166,8 +166,8 @@ def test_include_consumed_reconsiders_a_layout_behind_the_cursor():
 def test_reach_is_the_callers_to_declare_not_read_from_recycling():
     """The consumed layout is judged on the caller's say-so, whatever the recycling flag reads.
 
-    Reading the flag instead made the fix inert where it mattered: the env sets recycling after
-    filtering, so the filter saw it off and skipped exactly the layout a rewind returns first.
+    The flag describes present sampling, not future reach: a caller may filter first and enable
+    recycling afterwards, so reading it here would skip exactly the layout a rewind returns first.
     """
     placer = _placer_with([_Layout("used", good=False), _Layout("a")])
     placer._env_pools[0].next()
@@ -201,8 +201,8 @@ def test_recycled_bulk_draw_rewinds_only_the_short_pools():
 def test_recycled_bulk_draw_reaches_a_layout_the_batch_size_does_not_divide():
     """A batch that does not divide the pool must still reach every layout.
 
-    Rewinding before the draw stranded whatever sat behind the cursor: three layouts drawn two
-    at a time returned the first two forever and the third never appeared.
+    Rewinding before the draw strands whatever sits behind the cursor: three layouts drawn two
+    at a time would return the first two forever and never reach the third.
     """
     placer = _drawing_placer([_Layout("a"), _Layout("b"), _Layout("c")])
     placer.recycle_layouts = True

@@ -407,8 +407,8 @@ def test_off_centre_boxes_are_contained_under_both_samplers():
 def test_flattest_first_ranks_by_height_after_the_authored_rotation():
     """A plate stood on its edge is tall, whatever its local extents say.
 
-    Ranking the raw box released a pitched 20 cm plate before a genuinely 5 cm-tall block,
-    which is the opposite of what flattest-first promises.
+    Ranking the raw box would release a pitched 20 cm plate before a genuinely 5 cm-tall block,
+    the opposite of what flattest-first promises.
     """
     import math
 
