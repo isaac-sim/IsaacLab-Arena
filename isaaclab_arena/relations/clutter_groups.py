@@ -142,7 +142,7 @@ def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     """Return whether physics can be shown never to move this asset.
 
     True only for a support whose spawner explicitly sets ``kinematic_enabled``. An absent
-    ``rigid_props`` is not evidence of no dynamics, Arena's backgrounds are ``ObjectType.BASE``
+    ``rigid_props`` is not evidence of no dynamics. Arena's backgrounds are ``ObjectType.BASE``
     yet spawn rigid bodies, so absence is refused rather than read as immobility. ``IsAnchor``
     does not qualify either: the marker fixes the asset for the relation solver, which is
     arithmetic, and says nothing about the simulation.
@@ -157,7 +157,7 @@ def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     # pile and can move under it.
     if isinstance(cfg, ArticulationCfg):
         return False
-    # Judge the spawner, not the config class. A base config is not evidence of no dynamics:
+    # Judge the spawner, not the config class. A base config is not evidence of no dynamics.
     # Arena's backgrounds are ObjectType.BASE yet spawn rigid bodies through spawn_cfg_addon,
     # so the kinematic flag is the only claim here that physics actually honours.
     rigid_props = getattr(getattr(cfg, "spawn", None), "rigid_props", None)

@@ -143,7 +143,7 @@ class DropPose:
 class _Footprint:
     """A bounding box's XY footprint, described relative to the object origin.
 
-    Local boxes are not centred on the origin, USD pivots sit wherever the asset author
+    Local boxes are not centred on the origin, because USD pivots sit wherever the asset author
     put them, so the footprint's own centre has to be carried separately from its size.
     Treating the origin as the centre would let an object hang off the region by its offset.
     """
@@ -170,7 +170,7 @@ def _footprint_of(bbox: AxisAlignedBoundingBox) -> _Footprint:
     )
 
 
-def rotated_by(
+def refit_bbox_to_rotation(
     bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
 ) -> AxisAlignedBoundingBox:
     """Return the box refitted to a rotation, or the box itself when there is nothing to turn."""
@@ -196,7 +196,8 @@ def _resolve_order(
         return indices
     if drop_order is DropOrder.FLATTEST_FIRST:
         heights = [
-            float(rotated_by(bbox, rotation).size[0][2]) for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
+            float(refit_bbox_to_rotation(bbox, rotation).size[0][2])
+            for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
         ]
         return sorted(indices, key=lambda i: heights[i])
     permutation = torch.randperm(len(indices), generator=generator)
@@ -255,7 +256,7 @@ def _sample_orientation_that_fits(
         yaw = get_random_rotation(generator) if member.random_yaw else 0.0
         rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
-        rotated = rotated_by(bbox, rotation)
+        rotated = refit_bbox_to_rotation(bbox, rotation)
         footprint = _footprint_of(rotated)
         if _footprint_fits(footprint, region):
             return rotation, rotated, footprint

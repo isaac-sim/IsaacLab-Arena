@@ -281,7 +281,7 @@ class PooledObjectPlacer:
         exhausted = [env_id for env_id in env_ids if self._env_pools[env_id].available < 1]
         if exhausted and self._recycle_layouts:
             # Re-read the stored layouts instead of solving new ones. Layouts that only become
-            # usable after simulation: a settled clutter pile is the case in hand: are
+            # usable after simulation, such as a settled clutter pile, are
             # prepared once, outside any reset. A refill here would hand back layouts that
             # preparation never saw, silently dropping the guarantee it established.
             for env_id in exhausted:
@@ -310,7 +310,7 @@ class PooledObjectPlacer:
         """Turn recycling on for pools whose layouts required preparation beyond solving.
 
         A refill solves new layouts in the middle of a reset, where the preparation that made
-        the stored ones usable: settling a poured pile, for instance: cannot run. Recycling
+        the stored ones usable, such as settling a poured pile, cannot run. Recycling
         keeps drawing from the prepared set instead, so the guarantee holds for the pool's whole
         life at the cost of a fixed number of distinct layouts.
         """

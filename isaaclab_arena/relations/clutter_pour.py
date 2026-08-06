@@ -22,7 +22,7 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     MemberDropParams,
     OccupiedFootprint,
     compute_drop_poses,
-    rotated_by,
+    refit_bbox_to_rotation,
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw
@@ -110,7 +110,7 @@ def _placed_bounding_box(
     Layout boxes carry object geometry only; orientation is applied per candidate elsewhere,
     so a box read straight from the layout describes the asset unrotated.
     """
-    return rotated_by(bbox, _world_rotation_from_layout(asset, layout))
+    return refit_bbox_to_rotation(bbox, _world_rotation_from_layout(asset, layout))
 
 
 def _world_rotation_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> tuple[float, float, float, float]:

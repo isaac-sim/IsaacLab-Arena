@@ -99,12 +99,13 @@ Because a pile is produced by simulation rather than optimisation, it differs fr
 other relations in ways worth knowing:
 
 - **The support must be provably immovable.** Its spawner must set
-  ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough: it fixes an asset for the
-  solver's arithmetic and says nothing about simulation, and neither is an absent
-  ``rigid_props``, since a background asset can spawn a rigid body through ``spawn_cfg_addon``.
+  ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough, because it only fixes an
+  asset for the solver's arithmetic and says nothing about simulation. An absent
+  ``rigid_props`` is not enough either, since a background asset can spawn a rigid body through
+  ``spawn_cfg_addon``.
   A pile is captured relative to where its support stood while settling, so a support that
   physics can shove replays the pile against a surface that has moved out from under it.
-  This is conservative for a support the solver places rather than anchors. Such a support is
+  This is conservative for a solver-placed rather than anchored support. Such a support is
   itself captured after settling and rewritten at reset alongside the pile, so the two stay
   consistent even if the pile shoves it. Relaxing the rule for that case would allow pouring
   into a movable bin, but it is untested and refused for now.
@@ -113,8 +114,10 @@ other relations in ways worth knowing:
   so neither would describe a turned support's surface.
 - **Nothing may be related to a member, and a member may declare little.** A relation naming a
   member as its parent is refused, and a member may carry only ``cluttered_on`` and a single
-  ``RotateAroundSolution``. Members are held out of the solve, so anything else would be
-  discarded: a parent reference deep in the solver, a carried relation in silence.
+  ``RotateAroundSolution``. Members are held out of the solve, so anything else is discarded,
+  and the two cases failed differently: naming a member as a parent reached the solver and
+  raised a bare ``KeyError`` about a missing index, while a relation carried by a member was
+  dropped without a word.
 - **A support the layout does not place must declare a concrete Pose.** A ``PoseRange`` or
   ``PosePerEnv`` offers no single surface to pour onto. A solver-placed support may declare
   either, since its pose comes from the layout rather than the declaration.
@@ -130,8 +133,8 @@ other relations in ways worth knowing:
   so any pose the optimiser gave them would be discarded; leaving them in would make them
   phantom obstacles that push the genuinely constrained objects around. They are therefore
   held out of the solver and out of the generic build-time validators, including overlap. The
-  clutter-specific checks: what a member may declare, whether the pile settled, whether it
-  stayed on its support: do run.
+  clutter-specific checks still run, including what a member may declare, whether the pile
+  settled, and whether it stayed on its support.
 - **A pile that always spills is a configuration error.** Layouts are settled once and the ones
   whose members left the support are discarded. An environment left with none fails at build
   time rather than running episodes against a pile lying beside its support: reduce the members,

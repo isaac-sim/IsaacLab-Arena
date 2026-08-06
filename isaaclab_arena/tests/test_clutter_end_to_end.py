@@ -225,10 +225,10 @@ def _test_every_parallel_env_gets_its_own_settled_pile(simulation_app) -> bool:
 def _test_every_cached_layout_holds_its_pile_across_draws(simulation_app) -> bool:
     """Every cached layout must hold its pile on the support, across repeated draws.
 
-    This does not prove rejection happened: a pour where nothing spilled passes it too. What
-    a pool does with rejected layouts, and that an env left with none is reported rather than
-    silently kept, is pinned sim-free in test_pooled_layout_rejection; the clutter-specific
-    predicate that decides a pile spilled is exercised by check_resting_poses' own tests.
+    This does not prove rejection happened, since a pour where nothing spilled passes it too.
+    test_pooled_layout_rejection pins how a pool treats rejected layouts and reports a starved
+    env, and test_clutter_validation pins the containment verdict. Neither covers the keep
+    closure that joins them, which is exercised only here and only when a pile does spill.
     """
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 
