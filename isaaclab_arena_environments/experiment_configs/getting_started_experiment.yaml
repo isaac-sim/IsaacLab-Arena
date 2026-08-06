@@ -30,8 +30,6 @@ runs:
       hdr: billiard_hall_robolab
 
   parallel_envs:
-    environment:
-      hdr: null
     environment_builder:
       num_envs: 64
       env_spacing: 2.5
