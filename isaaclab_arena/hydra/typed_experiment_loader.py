@@ -62,8 +62,11 @@ def load_arena_experiment_from_yaml(
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
     """
-    shared_overrides, run_overrides = partition_shared_experiment_overrides(overrides or [])
-    run_values_by_name = load_experiment_run_definitions_from_yaml(yaml_path, shared_overrides=shared_overrides)
+    shared_default_overrides, run_overrides = split_shared_run_default_overrides(overrides or [])
+    run_values_by_name = load_experiment_run_definitions_from_yaml(
+        yaml_path,
+        shared_default_overrides=shared_default_overrides,
+    )
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
@@ -104,35 +107,35 @@ def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
     )
 
 
-def partition_shared_experiment_overrides(
+def split_shared_run_default_overrides(
     overrides: list[str],
-    root_prefix: str = "",
+    experiment_config_prefix: str = "",
 ) -> tuple[list[str], list[str]]:
-    """Separate shared Run-default overrides from typed Run overrides.
+    """Split overrides into shared Run defaults and all remaining overrides.
 
     Args:
         overrides: Command-line overrides rooted at an Arena Experiment Definition.
-        root_prefix: Optional outer-config path containing the Experiment. Matching shared
-            overrides have this prefix removed so they can be applied to the Experiment YAML.
+        experiment_config_prefix: Optional path to the Experiment within an outer configuration.
+            Matching shared overrides have this prefix removed before they are applied to the Experiment YAML.
 
     Returns:
         Shared Run-default overrides followed by all remaining overrides, preserving order within each group.
     """
-    root_override_prefix = f"{root_prefix}." if root_prefix else ""
-    shared_override_prefix = f"{root_override_prefix}shared."
-    shared_overrides: list[str] = []
+    experiment_override_prefix = f"{experiment_config_prefix}." if experiment_config_prefix else ""
+    shared_override_prefix = f"{experiment_override_prefix}shared."
+    shared_default_overrides: list[str] = []
     remaining_overrides: list[str] = []
     for override in overrides:
         if override.startswith(shared_override_prefix):
-            shared_overrides.append(override.removeprefix(root_override_prefix))
+            shared_default_overrides.append(override.removeprefix(experiment_override_prefix))
         else:
             remaining_overrides.append(override)
-    return shared_overrides, remaining_overrides
+    return shared_default_overrides, remaining_overrides
 
 
 def load_experiment_run_definitions_from_yaml(
     yaml_path: str | Path,
-    shared_overrides: list[str] | None = None,
+    shared_default_overrides: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
@@ -143,7 +146,7 @@ def load_experiment_run_definitions_from_yaml(
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
-        shared_overrides: Hydra overrides already separated for the optional shared Run defaults.
+        shared_default_overrides: Hydra overrides already separated for the optional shared Run defaults.
 
     Returns:
         Run names mapped to their YAML values, in mapping declaration order.
@@ -171,7 +174,7 @@ def load_experiment_run_definitions_from_yaml(
     try:
         shared_defaults_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
         OmegaConf.set_struct(shared_defaults_config, True)
-        shared_defaults_config.merge_with_dotlist(shared_overrides or [])
+        shared_defaults_config.merge_with_dotlist(shared_default_overrides or [])
         shared_run_defaults = OmegaConf.to_container(shared_defaults_config.shared, resolve=False)
         assert isinstance(shared_run_defaults, dict)
 

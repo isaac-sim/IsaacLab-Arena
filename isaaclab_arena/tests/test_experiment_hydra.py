@@ -245,7 +245,7 @@ def test_robolab_experiments_share_hdr_and_disabled_camera_variations(config_nam
     default_run_values = load_experiment_run_definitions_from_yaml(config_path)
     enabled_run_values = load_experiment_run_definitions_from_yaml(
         config_path,
-        shared_overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
+        shared_default_overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
     )
 
     assert len(default_run_values) == expected_run_count

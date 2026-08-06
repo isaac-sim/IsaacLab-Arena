@@ -19,7 +19,7 @@ from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from isaaclab_arena.hydra.typed_experiment_loader import partition_shared_experiment_overrides
+from isaaclab_arena.hydra.typed_experiment_loader import split_shared_run_default_overrides
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
@@ -78,14 +78,14 @@ def build_arena_experiment_submission_cfg(
         ".yaml",
         ".yml",
     }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_cfg_path}'"
-    shared_experiment_overrides, submission_overrides = partition_shared_experiment_overrides(
+    shared_default_overrides, submission_overrides = split_shared_run_default_overrides(
         overrides or [],
-        root_prefix="experiment_cfg",
+        experiment_config_prefix="experiment_cfg",
     )
     experiment_cfg = load_arena_experiment_from_config_file(
         experiment_cfg_path,
         device="cuda:0",
-        overrides=shared_experiment_overrides,
+        overrides=shared_default_overrides,
     )
     base_submission = ArenaExperimentSubmissionCfg(experiment_cfg=experiment_cfg)
 
