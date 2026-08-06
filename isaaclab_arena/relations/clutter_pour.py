@@ -165,7 +165,7 @@ def support_pose_from_layout(
     """
     declared = support.get_initial_pose()
 
-    def _concrete(field: str):
+    def _concrete(field: str) -> tuple[float, ...]:
         # Only the declaration actually being read has to resolve to one pose. A support the
         # layout solved outright never reaches here, so a range it happens to declare is
         # irrelevant rather than an error. Reading the field off one would otherwise raise
