@@ -477,7 +477,6 @@ def test_admission_and_region_agree_at_the_tolerance_endpoint():
     support.add_relation(IsAnchor())
     support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half)))
 
-    # Refused by the guard, so the region builder is never asked to classify it.
     with pytest.raises(AssertionError, match="not a quarter turn about Z"):
         region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})
 
@@ -572,7 +571,9 @@ def test_every_drop_order_is_reproducible_under_a_seed(order):
             boxes[member] = _box(0.03, 0.03, 0.07 - index * 0.01)
         layout = _Layout()
         plan_clutter_drops(layout, get_clutter_groups([support, *members]), boxes, torch.Generator().manual_seed(seed))
-        return [layout.positions[member] for member in members]
+        # Rotations as well as positions: a pile that reproduces where its members sit but not
+        # how they are turned is not reproducible.
+        return [(layout.positions[member], layout.rotations[member]) for member in members]
 
     assert pour(11) == pour(11), f"{order} did not reproduce under the same seed"
     assert pour(11) != pour(12), f"{order} ignored the seed"
