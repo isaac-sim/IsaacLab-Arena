@@ -72,6 +72,16 @@ Step 1: Start Recording
         --task gr1_open_microwave \
         --arena_teleop_device openxr
 
+   .. warning::
+
+      If you exit Sim with Ctrl-C, you need to manually clean up the spawned CloudXR
+      process with::
+
+         pkill -KILL -f '[i]saacteleop.cloudxr.runtime'
+
+      Otherwise the next ``record_demos.py`` run will crash with an error looking like
+      ``XR_ERROR_INSTANCE_LOST in xrPollEvent: Call to "xrt_session_poll_events" failed``.
+
 #. In the running application, start the session from the **XR** tab in the application window.
 
    .. figure:: ../../../images/xr_start_button.png
