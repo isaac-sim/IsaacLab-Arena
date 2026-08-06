@@ -20,8 +20,8 @@ from pydantic import BaseModel
 MAX_RETRIES_LIMIT = 10
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
-DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "azure/anthropic/claude-opus-4-8"
+DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
+DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1"
 
 
 @dataclass(frozen=True)

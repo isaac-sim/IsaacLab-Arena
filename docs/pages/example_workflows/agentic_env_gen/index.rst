@@ -36,14 +36,23 @@ Every workflow in this section shares the same setup.
 
 :docker_run_default:
 
-The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:
+The generation agent calls NVIDIA's hosted OpenAI-compatible endpoint at
+``https://integrate.api.nvidia.com/v1``. Obtain an API key as follows:
+
+1. Sign in (or create a free NVIDIA Developer Program account) at
+   `build.nvidia.com <https://build.nvidia.com>`_.
+2. Open `API Keys <https://build.nvidia.com/settings/api-keys>`_ (or click
+   **Get API Key** on any model page) and generate a key. Keys start with
+   ``nvapi-``; copy the value immediately — it is shown only once.
+3. See the
+   `API Catalog Quickstart <https://docs.api.nvidia.com/nim/docs/api-quickstart>`_
+   for more detail.
+
+Export the key inside the container before launching the runner:
 
 .. code-block:: bash
 
-   export NV_API_KEY=<your-api-key>
-
-.. todo:: add instructions for obtaining the NVIDIA-hosted service API key (internal and external)
+   export NV_API_KEY=nvapi-...
 
 Available Generated Environments
 --------------------------------
