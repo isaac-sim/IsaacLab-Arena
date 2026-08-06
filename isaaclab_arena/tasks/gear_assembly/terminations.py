@@ -38,7 +38,8 @@ class selected_gear_on_base(ManagerTermBase):
         self.env_indices = torch.arange(env.num_envs, device=env.device)
         self.up_axis = torch.tensor([[0.0, 0.0, 1.0]], device=env.device, dtype=torch.float32).repeat(env.num_envs, 1)
         self.consecutive_success_count = torch.zeros(env.num_envs, device=env.device, dtype=torch.int32)
-        self.base_collision_corners = self._collision_corners(self.base_asset, env.device)
+        self.base_support_prim_name = cfg.params.get("base_support_prim_name")
+        self.base_collision_corners = self._collision_corners(self.base_asset, env.device, self.base_support_prim_name)
         self.gear_collision_corners = {
             gear_name: self._collision_corners(asset, env.device) for gear_name, asset in self.gear_assets.items()
         }
@@ -50,7 +51,7 @@ class selected_gear_on_base(ManagerTermBase):
         self.consecutive_success_count[env_ids] = 0
 
     @staticmethod
-    def _collision_corners(asset: RigidObject, device: str) -> torch.Tensor:
+    def _collision_corners(asset: RigidObject, device: str, collision_prim_name: str | None = None) -> torch.Tensor:
         from pxr import Usd, UsdGeom, UsdPhysics
 
         root_prims = sim_utils.find_matching_prims(asset.cfg.prim_path)
@@ -74,6 +75,8 @@ class selected_gear_on_base(ManagerTermBase):
             if not collision_prim.HasAPI(UsdPhysics.CollisionAPI):
                 continue
             if UsdPhysics.CollisionAPI(collision_prim).GetCollisionEnabledAttr().Get() is False:
+                continue
+            if collision_prim_name is not None and collision_prim.GetName() != collision_prim_name:
                 continue
             local_box = bbox_cache.ComputeRelativeBound(prim, rigid_prim).ComputeAlignedBox()
             box_min = local_box.GetMin()
@@ -138,6 +141,7 @@ class selected_gear_on_base(ManagerTermBase):
         linear_velocity_threshold: float = 0.05,
         angular_velocity_threshold: float = 0.5,
         support_z_offset: float | dict[str, float] = 0.0,
+        base_support_prim_name: str | None = None,
         support_z_threshold: float = 0.005,
         consecutive_success_steps: int = 10,
     ) -> torch.Tensor:
@@ -154,6 +158,7 @@ class selected_gear_on_base(ManagerTermBase):
             linear_velocity_threshold: Maximum selected gear linear speed.
             angular_velocity_threshold: Maximum selected gear angular speed.
             support_z_offset: Expected gear-bottom height relative to the base-top collision surface.
+            base_support_prim_name: Optional base collision prim used as the support surface.
             support_z_threshold: Maximum allowed error around ``support_z_offset``.
             consecutive_success_steps: Number of consecutive checks required before terminating.
 
@@ -166,6 +171,9 @@ class selected_gear_on_base(ManagerTermBase):
         assert (
             base_asset_cfg.name == self.base_asset_cfg.name
         ), "selected_gear_on_base does not support changing base_asset_cfg after initialization"
+        assert (
+            base_support_prim_name == self.base_support_prim_name
+        ), "selected_gear_on_base does not support changing base_support_prim_name after initialization"
 
         gear_type_indices = env._gear_type_manager.get_all_gear_type_indices()
 

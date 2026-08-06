@@ -9,6 +9,7 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 
 def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
+    from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.tasks.gear_assembly.assets import (
@@ -20,13 +21,15 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         spawn_newton_maple_table_usd,
         spawn_newton_mesh_collision_usd,
     )
-    from isaaclab_arena.tasks.gear_assembly.events import randomize_gears_and_base_pose_with_inactive_gear_parking
+    from isaaclab_arena.tasks.gear_assembly.events import (
+        randomize_gears_and_base_pose_with_inactive_gear_parking,
+        set_newton_rigid_body_material,
+    )
     from isaaclab_arena.tasks.gear_assembly.specs import (
         DROID_BASE_GEAR_POSE,
         GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
         GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
         GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
-        GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
         GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
         GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
         GEAR_ASSEMBLED_XY_THRESHOLD,
@@ -37,6 +40,7 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         MAPLE_TABLE_TOP_COLLISION_SIZE,
         MAPLE_TABLE_TOP_COLLISION_THICKNESS,
         NEWTON_GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+        NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
         NEWTON_GEAR_OFFSETS,
         NEWTON_GEAR_TABLETOP_ORIENTATION_XYZW,
         NEWTON_GEAR_TABLETOP_PARKING_POSITIONS,
@@ -51,7 +55,8 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     arena_env = GearAssemblyEnvironment().build(GearAssemblyEnvironmentCfg())
 
     assert arena_env.name == "gear_assembly"
-    assert arena_env.embodiment.name == "droid_abs_joint_pos"
+    assert arena_env.embodiment.name == "droid_differential_ik"
+    assert arena_env.embodiment.action_config.arm_action.class_type == NewtonDroidDifferentialInverseKinematicsAction
     assert arena_env.rl_framework_entry_point is None
     assert arena_env.rl_policy_cfg is None
 
@@ -123,6 +128,14 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
         arena_env.task.events_cfg.randomize_gears_and_base_pose.func
         == randomize_gears_and_base_pose_with_inactive_gear_parking
     )
+    for material_term_name in (
+        "small_gear_physics_material",
+        "medium_gear_physics_material",
+        "large_gear_physics_material",
+        "gear_base_physics_material",
+        "robot_physics_material",
+    ):
+        assert getattr(arena_env.task.events_cfg, material_term_name).func == set_newton_rigid_body_material
     assert (
         arena_env.task.events_cfg.randomize_gears_and_base_pose.params["parking_positions"]
         == NEWTON_GEAR_TABLETOP_PARKING_POSITIONS
@@ -177,7 +190,8 @@ def _test_gear_assembly_scene_and_newton_cfg(simulation_app):
     assert (
         env_cfg.terminations.success.params["angular_velocity_threshold"] == GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD
     )
-    assert env_cfg.terminations.success.params["support_z_offset"] == GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
+    assert env_cfg.terminations.success.params["support_z_offset"] == NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
+    assert env_cfg.terminations.success.params["base_support_prim_name"] == "platform"
     assert env_cfg.terminations.success.params["support_z_threshold"] == GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD
     assert env_cfg.terminations.success.params["consecutive_success_steps"] == GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS
     assert env_cfg.terminations.time_out is None
@@ -197,11 +211,64 @@ def test_gear_assembly_scene_and_newton_cfg():
     assert run_simulation_app_function(_test_gear_assembly_scene_and_newton_cfg, headless=True)
 
 
+def _test_gear_assembly_newton_differential_ik(simulation_app):
+    import torch
+
+    from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena_environments.gear_assembly_environment import (
+        GearAssemblyEnvironment,
+        GearAssemblyEnvironmentCfg,
+    )
+
+    arena_env = GearAssemblyEnvironment().build(GearAssemblyEnvironmentCfg(enable_cameras=False))
+    arena_env.name = "gear_assembly_newton_differential_ik"
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1))
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env = builder.make_registered(env_cfg, env_kwargs)
+    uenv = env.unwrapped
+    env.reset()
+    robot = uenv.scene["robot"]
+    arm_action = uenv.action_manager.get_term("arm_action")
+
+    assert isinstance(arm_action, NewtonDroidDifferentialInverseKinematicsAction)
+    jacobian = arm_action.jacobian_w
+    assert jacobian.shape == (1, 6, 7)
+    assert torch.isfinite(jacobian).all()
+    assert torch.linalg.norm(jacobian).item() > 2.0
+
+    end_effector_index = robot.body_names.index("base_link")
+    start_position = robot.data.body_pos_w.torch[:, end_effector_index].clone()
+    action = torch.zeros(env.action_space.shape, dtype=torch.float32, device=uenv.device)
+    action[:, 2] = 0.01
+    for _ in range(30):
+        env.step(action)
+    action[:, 2] = 0.0
+    for _ in range(30):
+        env.step(action)
+
+    displacement = robot.data.body_pos_w.torch[:, end_effector_index] - start_position
+    assert displacement[0, 2].item() > 0.015
+    assert torch.linalg.norm(displacement[0, :2]).item() < 0.002
+    assert torch.isfinite(robot.data.joint_pos.torch).all()
+    assert torch.isfinite(robot.data.joint_vel.torch).all()
+
+    env.close()
+    return True
+
+
+def test_gear_assembly_newton_differential_ik():
+    assert run_simulation_app_function(_test_gear_assembly_newton_differential_ik, headless=True)
+
+
 def _test_gear_assembly_newton_gears_settle(simulation_app):
     import torch
 
     import isaaclab.utils.math as math_utils
+    import warp as wp
     from isaaclab.sim.utils import get_current_stage
+    from isaaclab_newton.physics import NewtonManager
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.embodiments.droid.actions import DROID_GRIPPER_MIMIC_SIGNS
@@ -227,6 +294,25 @@ def _test_gear_assembly_newton_gears_settle(simulation_app):
     env = builder.make_registered(env_cfg, env_kwargs)
     uenv = env.unwrapped
     robot = uenv.scene["robot"]
+
+    model = NewtonManager.get_model()
+    shape_labels = [str(label) for label in model.shape_label]
+    friction = wp.to_torch(model.shape_material_mu)
+    restitution = wp.to_torch(model.shape_material_restitution)
+    gear_and_base_shape_indices = torch.tensor(
+        [index for index, label in enumerate(shape_labels) if "/FactoryGear" in label],
+        device=uenv.device,
+    )
+    finger_pad_shape_indices = torch.tensor(
+        [index for index, label in enumerate(shape_labels) if label.endswith("/newton_pad_collision")],
+        device=uenv.device,
+    )
+    assert len(gear_and_base_shape_indices) == 48 * uenv.num_envs
+    assert len(finger_pad_shape_indices) == 2 * uenv.num_envs
+    assert torch.all(friction[gear_and_base_shape_indices] == 0.75)
+    assert torch.all(friction[finger_pad_shape_indices] == 2.0)
+    assert torch.all(restitution[gear_and_base_shape_indices] == 0.0)
+    assert torch.all(restitution[finger_pad_shape_indices] == 0.0)
 
     stage = get_current_stage()
     base_collision_root = stage.GetPrimAtPath("/World/envs/env_0/FactoryGearBase/factory_gear_base/newton_collisions")
@@ -274,6 +360,16 @@ def _test_gear_assembly_newton_gears_settle(simulation_app):
                 for point in UsdGeom.Mesh(prim).GetPointsAttr().Get()
             ])
             assert torch.min(radial_coordinates).item() > 0.005
+
+        source_collision_root = stage.GetPrimAtPath(
+            f"/World/envs/env_0/FactoryGear{asset_name}/factory_gear_{asset_name.lower()}/collisions"
+        )
+        source_collision_meshes = [prim for prim in Usd.PrimRange(source_collision_root) if prim.IsA(UsdGeom.Mesh)]
+        assert source_collision_meshes
+        assert all(
+            not UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get() for prim in source_collision_meshes
+        )
+        assert all(not any("SDF" in schema for schema in prim.GetAppliedSchemas()) for prim in collision_meshes)
 
     gripper_joint_names = tuple(DROID_GRIPPER_MIMIC_SIGNS)
     gripper_joint_indices = [robot.joint_names.index(name) for name in gripper_joint_names]

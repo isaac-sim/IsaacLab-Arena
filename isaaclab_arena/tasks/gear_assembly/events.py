@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 import torch
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,60 @@ from isaaclab_arena.tasks.gear_assembly.specs import GEAR_TABLETOP_ORIENTATION_X
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation, RigidObject
     from isaaclab.envs import ManagerBasedEnv
+
+
+def set_newton_rigid_body_material(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    asset_cfg: SceneEntityCfg,
+    static_friction: float,
+    restitution: float,
+) -> None:
+    """Set Newton material values on the selected runtime collision shapes."""
+    import warp as wp
+    from isaaclab_newton.assets import Articulation as NewtonArticulation
+    from isaaclab_newton.physics import NewtonManager
+    from newton.solvers import SolverNotifyFlags
+
+    asset = env.scene[asset_cfg.name]
+    model = NewtonManager.get_model()
+
+    if env_ids is None:
+        env_ids = torch.arange(env.num_envs, device=env.device, dtype=torch.long)
+    else:
+        env_ids = env_ids.to(device=env.device, dtype=torch.long)
+
+    if isinstance(asset, NewtonArticulation) and asset_cfg.body_ids != slice(None):
+        template_shape_indices = []
+        for body_id in asset_cfg.body_ids:
+            template_shape_indices.extend(asset._root_view.link_shapes[body_id])
+    else:
+        template_shape_indices = range(len(asset._root_view.shape_labels))
+
+    # Newton's per-articulation material view assumes uniform contiguous layouts. Match global
+    # runtime labels so heterogeneous rigid-object and robot views cannot overwrite each other.
+    shape_suffixes = []
+    for shape_index in template_shape_indices:
+        shape_label = str(asset._root_view.shape_labels[shape_index])
+        label_match = re.match(r"^/World/envs/env_\d+(.*)$", shape_label)
+        assert label_match is not None, f"Unexpected Newton shape label: {shape_label}"
+        shape_suffixes.append(label_match.group(1))
+    target_labels = {
+        f"/World/envs/env_{env_id}{shape_suffix}"
+        for env_id in env_ids.cpu().tolist()
+        for shape_suffix in shape_suffixes
+    }
+    global_shape_indices = [
+        index for index, shape_label in enumerate(model.shape_label) if str(shape_label) in target_labels
+    ]
+    assert len(global_shape_indices) == len(
+        target_labels
+    ), f"Resolved {len(global_shape_indices)} of {len(target_labels)} Newton shapes for {asset_cfg.name}"
+
+    shape_indices = torch.tensor(global_shape_indices, device=env.device, dtype=torch.long)
+    wp.to_torch(model.shape_material_mu)[shape_indices] = static_friction
+    wp.to_torch(model.shape_material_restitution)[shape_indices] = restitution
+    NewtonManager.add_model_change(SolverNotifyFlags.SHAPE_PROPERTIES)
 
 
 class set_robot_to_grasp_pose_with_finite_difference_ik(ManagerTermBase):

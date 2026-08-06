@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class GearAssemblyEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Arena Droid Gear Assembly environment."""
 
-    embodiment: str = "droid_abs_joint_pos"
+    embodiment: str = "droid_differential_ik"
     mode: str = "play"
     physics_backend: str = "newton"
 
@@ -80,10 +80,13 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
 
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         if cfg.physics_backend == "newton":
+            from isaaclab_arena.embodiments.droid.actions import NewtonDroidDifferentialInverseKinematicsAction
             from isaaclab_arena.embodiments.droid.droid import configure_droid_robot_for_newton
             from isaaclab_arena.utils.usd.newton import ensure_newton_compatible_droid_usd
 
             configure_droid_robot_for_newton(embodiment.scene_config.robot)
+            if cfg.embodiment == "droid_differential_ik":
+                embodiment.action_config.arm_action.class_type = NewtonDroidDifferentialInverseKinematicsAction
             embodiment.scene_config.robot.spawn.usd_path = ensure_newton_compatible_droid_usd(
                 embodiment.scene_config.robot.spawn.usd_path
             )

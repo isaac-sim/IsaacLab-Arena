@@ -41,7 +41,10 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.droid.observations import gripper_pos as droid_gripper_pos
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.gear_assembly import rewards as gear_rewards
-from isaaclab_arena.tasks.gear_assembly.events import randomize_gears_and_base_pose_with_inactive_gear_parking
+from isaaclab_arena.tasks.gear_assembly.events import (
+    randomize_gears_and_base_pose_with_inactive_gear_parking,
+    set_newton_rigid_body_material,
+)
 from isaaclab_arena.tasks.gear_assembly.specs import (
     GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
     GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
@@ -58,6 +61,7 @@ from isaaclab_arena.tasks.gear_assembly.specs import (
     GEAR_TABLETOP_PARKING_POSITIONS,
     GEAR_TYPES,
     NEWTON_GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE,
+    NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
     NEWTON_GEAR_OFFSETS,
     NEWTON_GEAR_TABLETOP_ORIENTATION_XYZW,
     NEWTON_GEAR_TABLETOP_PARKING_POSITIONS,
@@ -94,6 +98,7 @@ class GearAssemblyTask(TaskBase):
         assembled_root_z = (
             NEWTON_GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE if newton_backend else GEAR_ASSEMBLED_ROOT_Z_ABOVE_BASE
         )
+        support_z_offset = NEWTON_GEAR_ASSEMBLED_SUPPORT_Z_OFFSET if newton_backend else GEAR_ASSEMBLED_SUPPORT_Z_OFFSET
         root_xy_offsets = (
             self.gear_offsets if newton_backend else {gear_type: [0.0, 0.0, 0.0] for gear_type in GEAR_TYPES}
         )
@@ -101,6 +106,7 @@ class GearAssemblyTask(TaskBase):
         self.events_cfg = EventsCfg(
             robot_spec=robot_spec,
             mode=mode,
+            newton_backend=newton_backend,
             parking_positions=parking_positions,
             tabletop_orientation=tabletop_orientation,
         )
@@ -110,6 +116,8 @@ class GearAssemblyTask(TaskBase):
             mode=mode,
             assembled_root_z=assembled_root_z,
             root_xy_offsets=root_xy_offsets,
+            support_z_offset=support_z_offset,
+            base_support_prim_name="platform" if newton_backend else None,
         )
 
     def get_scene_cfg(self) -> Any:
@@ -236,6 +244,7 @@ class EventsCfg:
         self,
         robot_spec: GearAssemblyRobotSpec,
         mode: GearAssemblyMode,
+        newton_backend: bool,
         parking_positions: dict[str, tuple[float, float, float]],
         tabletop_orientation: tuple[float, float, float, float],
     ):
@@ -264,11 +273,21 @@ class EventsCfg:
                 },
             )
 
-        self.small_gear_physics_material = _material_event("factory_gear_small", ".*", robot_spec.startup_materials)
-        self.medium_gear_physics_material = _material_event("factory_gear_medium", ".*", robot_spec.startup_materials)
-        self.large_gear_physics_material = _material_event("factory_gear_large", ".*", robot_spec.startup_materials)
-        self.gear_base_physics_material = _material_event("factory_gear_base", ".*", robot_spec.startup_materials)
-        self.robot_physics_material = _material_event("robot", ".*finger.*", robot_spec.startup_materials)
+        self.small_gear_physics_material = _material_event(
+            "factory_gear_small", ".*", robot_spec.startup_materials, newton_backend
+        )
+        self.medium_gear_physics_material = _material_event(
+            "factory_gear_medium", ".*", robot_spec.startup_materials, newton_backend
+        )
+        self.large_gear_physics_material = _material_event(
+            "factory_gear_large", ".*", robot_spec.startup_materials, newton_backend
+        )
+        self.gear_base_physics_material = _material_event(
+            "factory_gear_base", ".*", robot_spec.startup_materials, newton_backend
+        )
+        self.robot_physics_material = _material_event(
+            "robot", ".*finger.*", robot_spec.startup_materials, newton_backend
+        )
 
         gear_types = list(GEAR_TYPES)
         pose_range = dict(GEAR_POSE_RANGE)
@@ -376,6 +395,8 @@ class TerminationsCfg:
         mode: GearAssemblyMode,
         assembled_root_z: dict[str, float],
         root_xy_offsets: dict[str, list[float]],
+        support_z_offset: dict[str, float],
+        base_support_prim_name: str | None,
     ):
         self.time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
         self.success = None
@@ -391,7 +412,8 @@ class TerminationsCfg:
                     "upright_axis_threshold_deg": GEAR_ASSEMBLED_UPRIGHT_AXIS_THRESHOLD_DEG,
                     "linear_velocity_threshold": GEAR_ASSEMBLED_LINEAR_VELOCITY_THRESHOLD,
                     "angular_velocity_threshold": GEAR_ASSEMBLED_ANGULAR_VELOCITY_THRESHOLD,
-                    "support_z_offset": GEAR_ASSEMBLED_SUPPORT_Z_OFFSET,
+                    "support_z_offset": support_z_offset,
+                    "base_support_prim_name": base_support_prim_name,
                     "support_z_threshold": GEAR_ASSEMBLED_SUPPORT_Z_THRESHOLD,
                     "consecutive_success_steps": GEAR_ASSEMBLED_CONSECUTIVE_SUCCESS_STEPS,
                 },
@@ -419,8 +441,23 @@ class TerminationsCfg:
         )
 
 
-def _material_event(asset_name: str, body_names: str, materials: dict[str, tuple[float, float, float]]) -> EventTermCfg:
+def _material_event(
+    asset_name: str,
+    body_names: str,
+    materials: dict[str, tuple[float, float, float]],
+    newton_backend: bool,
+) -> EventTermCfg:
     static_friction, dynamic_friction, restitution = materials[asset_name]
+    if newton_backend:
+        return EventTermCfg(
+            func=set_newton_rigid_body_material,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg(asset_name, body_names=body_names),
+                "static_friction": static_friction,
+                "restitution": restitution,
+            },
+        )
     return EventTermCfg(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
