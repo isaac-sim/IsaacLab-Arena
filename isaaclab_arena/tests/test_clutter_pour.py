@@ -320,15 +320,17 @@ def test_half_turned_support_keeps_its_extents():
     assert (turned.max_y - turned.min_y) == pytest.approx(0.8)
 
 
-def test_off_axis_support_shrinks_rather_than_overreaching():
-    """An axis-aligned region cannot cover a turned support, so it must not try."""
-    bbox = _box(0.6, 0.4, 0.1)
-    turned = region_above_support((0.0, 0.0, 0.0), bbox, support_rotation_xyzw=_yaw_quat(45.0))
+def test_off_axis_support_is_refused_where_the_region_is_built():
+    """One contract: the region builder refuses what it cannot describe.
 
-    # Fits inside the footprint's inscribed circle, which no rotation can shrink.
-    inscribed_diameter = 0.8
-    assert (turned.max_x - turned.min_x) == pytest.approx(inscribed_diameter / math.sqrt(2.0))
-    assert (turned.max_x - turned.min_x) < 0.8
+    An enclosing box would be larger than the support and drop clutter past the real edge, and
+    an inscribed square would silently shrink a support the caller believed was usable.
+    """
+    support_bbox = _box(0.4, 0.4, 0.1)
+    off_axis = _yaw_quat(30.0)
+
+    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
+        region_above_support((0.0, 0.0, 0.0), support_bbox, 1.0, 0, off_axis)
 
 
 def test_off_centre_support_region_follows_its_rotation():

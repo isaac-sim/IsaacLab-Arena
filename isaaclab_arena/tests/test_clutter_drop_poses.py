@@ -179,20 +179,6 @@ def test_axis_aligned_layouts_try_a_single_orientation():
         compute_drop_poses([oversized], REGION, params, generator=seeded(), member_params=axis_aligned())
 
 
-def test_clutter_spread_narrows_the_usable_area():
-    bboxes = [make_bbox(0.02, 0.02, 0.02) for _ in range(8)]
-    tight = ClutterDropParams(clutter_spread=0.25, xy_sampling=XySampling.UNIFORM)
-    poses = compute_drop_poses(bboxes, REGION, tight, generator=seeded(5))
-
-    centre_x = (REGION.min_x + REGION.max_x) / 2.0
-    half_width = (REGION.max_x - REGION.min_x) / 2.0
-    for pose in poses:
-        assert abs(pose.position[0] - centre_x) <= half_width * 0.25 + 1e-6
-
-
-# ------------------------------------------------------------------ drop heights
-
-
 def test_clear_column_starts_just_above_the_floor():
     """An object with nothing beneath it must not be lifted over unrelated objects."""
     bbox = make_bbox(0.04, 0.04, 0.06)

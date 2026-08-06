@@ -87,9 +87,6 @@ class ClutterRegion:
 class ClutterDropParams:
     """Tuning that describes a pile as a whole."""
 
-    clutter_spread: float = 1.0
-    """Scales the usable region about its centre; below 1.0 concentrates the pile."""
-
     xy_sampling: XySampling = XySampling.GRID_CELLS
     drop_order: DropOrder = DropOrder.AS_LISTED
 
@@ -360,7 +357,7 @@ def compute_drop_poses(
         bounding_boxes
     ), "base_rotations_xyzw must contain one rotation per bounding box"
 
-    usable = region.scaled(params.clutter_spread)
+    usable = region
     order = _resolve_order(bounding_boxes, params.drop_order, generator, base_rotations_xyzw)
     centres = (
         _grid_cell_centres(len(order), usable, generator)

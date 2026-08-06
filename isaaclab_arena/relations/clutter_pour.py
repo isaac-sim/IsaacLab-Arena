@@ -26,7 +26,6 @@ from isaaclab_arena.relations.clutter_drop_poses import (
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
 from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
 from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor
-from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
@@ -51,11 +50,10 @@ def region_above_support(
     Bounding boxes hold extents local to the object origin, so the support's world position
     offsets them and its yaw turns them. The floor of the region is the support's top surface.
 
-    A region is axis-aligned, so a support turned off-axis cannot be covered exactly. Its
-    enclosing box would be larger than the support itself and would drop clutter past the
-    real edge, so an off-axis support instead gets the largest axis-aligned square that fits
-    inside the footprint's inscribed circle. That is conservative in the safe direction and
-    rotation-invariant. Quarter turns are exact, since they only swap the extents.
+    A region is axis-aligned, so it can only describe a support square to the world axes.
+    Quarter turns are exact, since they only swap the extents; any other rotation is refused
+    rather than approximated, because neither this region nor the one a settled pile is judged
+    against would then describe the surface underneath it.
 
     Args:
         support_position: World position of the support, in the environment-local frame.
@@ -85,14 +83,13 @@ def region_above_support(
     centre_y = support_position[1] + local_centre_x * sin_yaw + local_centre_y * cos_yaw
 
     quarter_turns = round(yaw / (math.pi / 2.0))
-    # Strict, matching the comparison the admission guard makes through
-    # quaternion_to_90_deg_z_quarters. Differing at the endpoint would let the guard refuse a
-    # rotation this builder would have treated as a quarter turn.
-    if abs(yaw - quarter_turns * (math.pi / 2.0)) < _QUARTER_TURN_TOLERANCE_RAD:
-        if quarter_turns % 2:
-            half_x, half_y = half_y, half_x
-    else:
-        half_x = half_y = min(half_x, half_y) / math.sqrt(2.0)
+    assert abs(yaw - quarter_turns * (math.pi / 2.0)) < _QUARTER_TURN_TOLERANCE_RAD, (
+        f"Clutter support is turned {math.degrees(yaw):.3f} degrees, which is not a quarter turn "
+        "about Z. A pile is poured into and judged against axis-aligned boxes, so neither would "
+        "describe this support's surface. Off-axis supports are not yet supported."
+    )
+    if quarter_turns % 2:
+        half_x, half_y = half_y, half_x
 
     region = ClutterRegion(
         min_x=centre_x - half_x,
@@ -225,30 +222,7 @@ def region_for_support(
     that does not will reject exactly the layouts the pour got right.
     """
     position, rotation = support_pose_from_layout(support, layout)
-    _assert_support_is_axis_aligned(support, rotation)
     return region_above_support(position, bounding_boxes[support], spread, env_index, rotation)
-
-
-def _assert_support_is_axis_aligned(support: PlaceableAsset, rotation_xyzw: tuple[float, float, float, float]) -> None:
-    """Reject a support turned off the world axes.
-
-    Both the region a pile is poured into and the region it is judged against are axis-aligned
-    boxes. Over a support turned off-axis neither describes its surface, so the pour would place
-    members past an edge and the check would pass them there. Asserting here covers anchored and
-    solved supports alike; leaving it to the anchor bounding box misses the solved ones and
-    reports the wrong abstraction's complaint.
-    """
-    try:
-        # Admit exactly what region_above_support will then treat as a quarter turn. A looser
-        # tolerance here would pass a support that the region builder still classifies as
-        # off-axis, collapsing its footprint to an inscribed square the guard had just approved.
-        quaternion_to_90_deg_z_quarters(rotation_xyzw, tol_deg=math.degrees(_QUARTER_TURN_TOLERANCE_RAD))
-    except AssertionError as error:
-        raise AssertionError(
-            f"Clutter support '{support.name}' is rotated {rotation_xyzw}, which is not a quarter "
-            "turn about Z. A pile is poured into and judged against axis-aligned boxes, so neither "
-            "would describe this support's surface. Off-axis supports are not yet supported."
-        ) from error
 
 
 def occupied_footprints_in_region(

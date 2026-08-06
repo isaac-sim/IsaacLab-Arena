@@ -333,8 +333,22 @@ Not yet reachable from ``cluttered_on``, and worth knowing before designing arou
 Because a pile is produced by simulation rather than optimisation, it differs from the
 other relations in ways worth knowing:
 
-- **The support must be collidable.** Objects fall through a background asset that has no
-  rigid-body properties, and the pile ends up on the ground.
+- **The support must be provably immovable.** Its spawner must set
+  ``rigid_props.kinematic_enabled``. ``IsAnchor`` is not enough -- it fixes an asset for the
+  solver's arithmetic and says nothing about simulation -- and neither is an absent
+  ``rigid_props``, since a background asset can spawn a rigid body through ``spawn_cfg_addon``.
+  A pile is captured relative to where its support stood while settling, so a support that
+  physics can shove replays the pile against a surface that has moved out from under it.
+- **The support must be square to the world axes.** A rotation off a quarter turn is refused:
+  the pour region and the region a settled pile is judged against are both axis-aligned boxes,
+  so neither would describe a turned support's surface.
+- **Nothing may be related to a member, and a member may declare little.** A relation naming a
+  member as its parent is refused, and a member may carry only ``cluttered_on`` and a single
+  ``RotateAroundSolution``. Members are held out of the solve, so anything else would be
+  discarded -- a parent reference deep in the solver, a carried relation in silence.
+- **A support the layout does not place must declare a concrete Pose.** A ``PoseRange`` or
+  ``PosePerEnv`` offers no single surface to pour onto. A solver-placed support may declare
+  either, since its pose comes from the layout rather than the declaration.
 - **The support must have a readable USD.** The drop region is derived from its bounding
   box, so a procedurally spawned support without geometry cannot be used.
 - **A placement seed is required.** Clutter refuses to pour without one, since a pile that
