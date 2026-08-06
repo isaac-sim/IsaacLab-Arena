@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Typed YAML equivalent of eval_jobs_configs/getting_started_jobs_config.json.
-# Reusable defaults for all Runs; override them from the command line with shared.<path>=<value>.
+# Values under shared are used by every Run below.
+# A Run only needs to list what is different; its values override the shared ones.
+# Use shared.<path>=<value> on the command line to change a value for all Runs.
 shared:
   environment:
     type: pick_and_place_maple_table

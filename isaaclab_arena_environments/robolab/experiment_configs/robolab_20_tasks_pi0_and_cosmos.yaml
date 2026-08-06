@@ -5,7 +5,9 @@
 
 # 20 single-subtask robolab tasks, each run with both the OpenPI (pi0) and Cosmos policies
 # (40 runs, 20 parallel environments each).
-# Reusable defaults for all Runs; override them from the command line with shared.<path>=<value>.
+# Values under shared are used by every Run below.
+# A Run only needs to list what is different; its values override the shared ones.
+# Use shared.<path>=<value> on the command line to change a value for all Runs.
 shared:
   environment:
     enable_cameras: true
