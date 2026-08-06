@@ -235,7 +235,7 @@ class WarpMeshAndSphereCache:
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device
             )
-            self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
+            self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices, bvh_constructor="sah")
         return self._warp_mesh_cache[key]
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
