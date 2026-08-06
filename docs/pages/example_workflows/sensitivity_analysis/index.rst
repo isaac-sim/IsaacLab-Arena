@@ -1,6 +1,14 @@
 Sensitivity Analysis
 ====================
 
+A single success rate tells you how often a policy completed a task. It does not tell you
+which conditions made the task harder or where the policy is most likely to fail. Sensitivity
+analysis connects the sampled conditions recorded for each episode to its outcome.
+
+For background information, see the :doc:`Variations concept page
+<../../concepts/variations/variations>` and the :doc:`Sensitivity Analysis concept page
+<../../concepts/concept_sensitivity_analysis>`.
+
 Generate the report
 -------------------
 
