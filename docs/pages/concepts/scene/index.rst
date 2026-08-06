@@ -34,3 +34,4 @@ More details
 
    concept_assets_design
    concept_affordances_design
+   concept_runtime_asset_lookup_design
