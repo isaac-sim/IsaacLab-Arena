@@ -16,15 +16,13 @@ import pathlib
 import re
 from dataclasses import dataclass, field
 
-from isaaclab_arena.evaluation.experiment_manifest import read_experiment_manifest
-from isaaclab_arena.evaluation.reconstruct_experiment_manifest import infer_task_and_policy_labels
-from isaaclab_arena.evaluation.run_status import RunStatus
-from isaaclab_arena.recording.episode_results_files import (
+from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
+from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_rebuild_index,
     read_episode_results,
 )
-from isaaclab_arena.video.episode_video_files import parse_episode_video_filename
 
 # Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
 # per-episode metadata list to avoid duplication.
@@ -36,6 +34,11 @@ _PREDICATE_ARGUMENTS_PATTERN = re.compile(r"\(.*\)$")
 
 # Name used to group Runs when no task label can be established.
 UNGROUPED_TASK = "(ungrouped)"
+
+# Longest policy-name suffix considered when factorizing Run names, in underscore-separated tokens.
+# Covers multi-token policy labels such as ``pi0_remote`` without letting a task name's trailing
+# tokens be mistaken for a policy.
+_MAX_POLICY_NAME_TOKENS = 3
 
 
 @dataclass
@@ -407,7 +410,7 @@ class ExperimentSummary:
     """Run process results, when provided by a parallel Experiment collector."""
 
     grouping_source: str = "none"
-    """How task and policy labels were established: ``manifest``, ``run_names``, or ``none``."""
+    """How task and policy labels were established: ``run_names`` or ``none``."""
 
     @property
     def jobs(self) -> list[JobSummary]:
@@ -531,27 +534,48 @@ def scan_jobs(root: pathlib.Path) -> list[tuple[str, list[str], list[EpisodeSumm
     return jobs
 
 
-def resolve_job_labels(root: pathlib.Path, job_names: list[str]) -> tuple[dict[str, tuple[str, str]], str]:
-    """Resolve each job's task and policy labels, preferring the Experiment manifest.
+def infer_task_and_policy_labels(job_names: list[str]) -> dict[str, tuple[str, str]] | None:
+    """Factorize Run names into task and policy labels by trying each trailing-token split.
 
-    Falls back to factorizing the job names, and finally to leaving every job ungrouped, so a report
-    can always be built for output directories that predate manifests.
+    A split is accepted only when the Run names form a complete task x policy grid over at least two
+    policies, which is strong evidence that the trailing tokens really are a policy axis rather than
+    part of the task name. The shortest such suffix wins.
 
     Args:
-        root: Experiment output directory, which may hold an ``experiment_manifest.json``.
+        job_names: Run names to factorize.
+
+    Returns:
+        Run name -> (task, policy), or ``None`` when no split yields a complete grid.
+    """
+    for num_tokens in range(1, _MAX_POLICY_NAME_TOKENS + 1):
+        candidate: dict[str, tuple[str, str]] = {}
+        for job_name in job_names:
+            tokens = job_name.split("_")
+            if len(tokens) <= num_tokens:
+                candidate = {}
+                break
+            candidate[job_name] = ("_".join(tokens[:-num_tokens]), "_".join(tokens[-num_tokens:]))
+        if not candidate:
+            continue
+        tasks = {task for task, _ in candidate.values()}
+        policies = {policy for _, policy in candidate.values()}
+        if len(policies) >= 2 and len(job_names) == len(tasks) * len(policies):
+            return candidate
+    return None
+
+
+def resolve_job_labels(job_names: list[str]) -> tuple[dict[str, tuple[str, str]], str]:
+    """Resolve each job's task and policy labels by factorizing the Run names.
+
+    Falls back to leaving every job ungrouped, so a report can always be built for an output
+    directory whose Run names carry no policy axis.
+
+    Args:
         job_names: Job names discovered by scanning.
 
     Returns:
         A ``(job name -> (task, policy), grouping source)`` pair.
     """
-    manifest = read_experiment_manifest(root)
-    if manifest is not None and any(manifest.run_by_name(job_name) is not None for job_name in job_names):
-        labels = {}
-        for job_name in job_names:
-            entry = manifest.run_by_name(job_name)
-            labels[job_name] = (entry.task, entry.policy) if entry is not None else (job_name or UNGROUPED_TASK, "")
-        return labels, "manifest"
-
     inferred = infer_task_and_policy_labels(job_names) if len(job_names) > 1 else None
     if inferred is not None:
         return inferred, "run_names"
@@ -581,7 +605,7 @@ def build_experiment_summary(
     }
     scanned = [entry for entry in scanned if entry[0] not in failed_run_names]
 
-    labels, grouping_source = resolve_job_labels(root, [job_name for job_name, _, _ in scanned])
+    labels, grouping_source = resolve_job_labels([job_name for job_name, _, _ in scanned])
 
     jobs_by_task: dict[str, list[JobSummary]] = {}
     for job_name, cameras, episodes in scanned:

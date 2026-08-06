@@ -8,7 +8,7 @@
 import json
 import re
 
-from isaaclab_arena.evaluation.run_status import RunStatus
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.video.camera_observation_video_recorder import (
     format_episode_video_filename,
     parse_episode_video_filename,

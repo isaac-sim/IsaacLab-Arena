@@ -16,7 +16,7 @@ import pathlib
 import re
 import string
 
-from isaaclab_arena.evaluation.run_status import RunStatus
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.visualization.report_data import ExperimentSummary, JobSummary, RunExecutionReport, TaskSummary
 
 _TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
@@ -207,12 +207,10 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
 
 def _grouping_note(summary: ExperimentSummary) -> str:
     """State where the task and policy labels came from, since it bounds how much they can be trusted."""
-    if summary.grouping_source == "manifest":
-        return "Grouped by the task and policy labels recorded in <code>experiment_manifest.json</code>."
     if summary.grouping_source == "run_names":
         return (
-            "No <code>experiment_manifest.json</code> was found, so tasks and policies were inferred by"
-            " factorizing the run names. Run the experiment manifest reconstruction tool to record them."
+            "Tasks and policies were inferred by factorizing the run names, because a run records no"
+            " task or policy of its own."
         )
     return "Runs could not be grouped into tasks and policies, so they are listed individually."
 

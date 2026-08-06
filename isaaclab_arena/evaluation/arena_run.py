@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from enum import Enum
 from prettytable import PrettyTable
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
@@ -38,17 +38,6 @@ class RolloutLimitCfg:
         ), "num_steps and num_episodes are mutually exclusive"
         assert self.num_steps is None or self.num_steps > 0, "num_steps must be greater than zero"
         assert self.num_episodes is None or self.num_episodes > 0, "num_episodes must be greater than zero"
-
-
-@dataclass
-class RunLabelsCfg:
-    """Label a Run so reports and analysis can group it with related Runs."""
-
-    task: str | None = None
-    """Task label, or ``None`` to derive it from the Run's environment configuration."""
-
-    policy: str | None = None
-    """Policy label, or ``None`` to derive it from the Run's policy configuration."""
 
 
 @dataclass
@@ -76,9 +65,6 @@ class ArenaRunCfg:
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
-    labels: RunLabelsCfg = field(default_factory=RunLabelsCfg)
-    """Task and policy labels used to group this Run's results, derived when left unset."""
-
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
@@ -87,6 +73,13 @@ class ArenaRunCfg:
                 f"Run '{self.name}': num_episodes ({self.rollout_limit.num_episodes}) must be >= num_rebuilds "
                 f"({self.num_rebuilds}) so each rebuild runs at least one episode"
             )
+
+
+class RunStatus(Enum):
+    """Describe whether a run completed or failed."""
+
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 @dataclass

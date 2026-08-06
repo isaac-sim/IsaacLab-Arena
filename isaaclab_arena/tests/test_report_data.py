@@ -7,18 +7,14 @@
 
 import json
 
-from isaaclab_arena.evaluation.experiment_manifest import (
-    ExperimentManifest,
-    RunManifestEntry,
-    write_experiment_manifest,
-)
-from isaaclab_arena.evaluation.run_status import RunStatus
-from isaaclab_arena.video.episode_video_files import format_episode_video_filename
+from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.video.camera_observation_video_recorder import format_episode_video_filename
 from isaaclab_arena.visualization.report_data import (
     EpisodeSummary,
     JobSummary,
     RunExecutionReport,
     build_experiment_summary,
+    infer_task_and_policy_labels,
 )
 
 
@@ -263,48 +259,45 @@ def test_success_rate_is_none_when_nothing_was_scored():
     assert job.success_rate is None
 
 
-def test_summary_groups_runs_by_task_and_policy_from_the_manifest(tmp_path):
+def test_summary_groups_runs_by_task_and_policy_factorized_from_run_names(tmp_path):
     for task in ("banana_in_bowl", "bowl_in_bin"):
         for policy in ("pi0", "cosmos"):
             _write_run(
                 tmp_path,
-                f"{task}-{policy}",
+                f"{task}_{policy}",
                 [{"env_id": 0, "episode_in_env": index, "success": index == 0} for index in range(2)],
             )
-    # Hyphenated run names do not factorize on underscores, so only the manifest can group these.
-    write_experiment_manifest(
-        ExperimentManifest(
-            runs=[
-                RunManifestEntry(name=f"{task}-{policy}", task=task, policy=policy)
-                for task in ("banana_in_bowl", "bowl_in_bin")
-                for policy in ("pi0", "cosmos")
-            ]
-        ),
-        tmp_path,
-    )
-
-    summary = build_experiment_summary(tmp_path, "Report")
-
-    assert summary.grouping_source == "manifest"
-    assert [task.name for task in summary.tasks] == ["banana_in_bowl", "bowl_in_bin"]
-    assert summary.policies == ["cosmos", "pi0"]
-    assert summary.overall_success_rate == 0.5
-    assert summary.success_rate_for_policy("pi0") == 0.5
-    assert summary.num_episodes_for_policy("pi0") == 4
-    assert summary.tasks[0].job_for_policy("pi0").name == "banana_in_bowl-pi0"
-    assert summary.tasks[0].job_for_policy("absent") is None
-
-
-def test_summary_falls_back_to_factorizing_run_names_without_a_manifest(tmp_path):
-    for task in ("banana_in_bowl", "bowl_in_bin"):
-        for policy in ("pi0", "cosmos"):
-            _write_run(tmp_path, f"{task}_{policy}", [{"env_id": 0, "episode_in_env": 0, "success": True}])
 
     summary = build_experiment_summary(tmp_path, "Report")
 
     assert summary.grouping_source == "run_names"
     assert [task.name for task in summary.tasks] == ["banana_in_bowl", "bowl_in_bin"]
     assert summary.policies == ["cosmos", "pi0"]
+    assert summary.overall_success_rate == 0.5
+    assert summary.success_rate_for_policy("pi0") == 0.5
+    assert summary.num_episodes_for_policy("pi0") == 4
+    assert summary.tasks[0].job_for_policy("pi0").name == "banana_in_bowl_pi0"
+    assert summary.tasks[0].job_for_policy("absent") is None
+
+
+def test_infer_labels_rejects_run_names_that_are_not_a_grid():
+    # Three tasks against one policy is not evidence of a policy axis.
+    assert infer_task_and_policy_labels(["banana_in_bowl_pi0", "bagels_on_plate_pi0", "bowl_in_bin_pi0"]) is None
+    # An incomplete grid must not be silently accepted.
+    assert infer_task_and_policy_labels(["banana_in_bowl_pi0", "banana_in_bowl_cosmos", "bagels_on_plate_pi0"]) is None
+
+
+def test_infer_labels_recovers_multi_token_policy_names():
+    # A one-token split leaves a single policy ("remote"), so only the two-token split is a grid.
+    labels = infer_task_and_policy_labels([
+        "banana_in_bowl_pi0_remote",
+        "banana_in_bowl_cosmos_remote",
+        "bagels_on_plate_pi0_remote",
+        "bagels_on_plate_cosmos_remote",
+    ])
+
+    assert labels["banana_in_bowl_pi0_remote"] == ("banana_in_bowl", "pi0_remote")
+    assert labels["bagels_on_plate_cosmos_remote"] == ("bagels_on_plate", "cosmos_remote")
 
 
 def test_summary_leaves_runs_ungrouped_when_no_labels_can_be_established(tmp_path):
