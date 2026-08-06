@@ -22,9 +22,10 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     MemberDropParams,
     OccupiedFootprint,
     compute_drop_poses,
+    rotated_by,
 )
 from isaaclab_arena.relations.clutter_groups import ClutterGroup, assert_group_parameters_agree
-from isaaclab_arena.relations.placement_events import IDENTITY_ROTATION_XYZW, get_rotation_xyzw
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 from isaaclab_arena.relations.relations import ClutteredOn, IsAnchor
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
@@ -109,10 +110,7 @@ def _placed_bounding_box(
     Layout boxes carry object geometry only; orientation is applied per candidate elsewhere,
     so a box read straight from the layout describes the asset unrotated.
     """
-    rotation = _world_rotation_from_layout(asset, layout)
-    if rotation == IDENTITY_ROTATION_XYZW:
-        return bbox
-    return bbox.rotated_by_quat(torch.tensor([rotation], dtype=torch.float32))
+    return rotated_by(bbox, _world_rotation_from_layout(asset, layout))
 
 
 def _world_rotation_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> tuple[float, float, float, float]:

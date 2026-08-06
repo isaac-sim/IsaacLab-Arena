@@ -170,7 +170,7 @@ def _footprint_of(bbox: AxisAlignedBoundingBox) -> _Footprint:
     )
 
 
-def _rotated_by(
+def rotated_by(
     bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
 ) -> AxisAlignedBoundingBox:
     """Return the box refitted to a rotation, or the box itself when there is nothing to turn."""
@@ -196,7 +196,7 @@ def _resolve_order(
         return indices
     if drop_order is DropOrder.FLATTEST_FIRST:
         heights = [
-            float(_rotated_by(bbox, rotation).size[0][2]) for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
+            float(rotated_by(bbox, rotation).size[0][2]) for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
         ]
         return sorted(indices, key=lambda i: heights[i])
     permutation = torch.randperm(len(indices), generator=generator)
@@ -255,7 +255,7 @@ def _sample_orientation_that_fits(
         yaw = get_random_rotation(generator) if member.random_yaw else 0.0
         rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
         # Refit the box to the sampled yaw so footprint and height match the placed object.
-        rotated = _rotated_by(bbox, rotation)
+        rotated = rotated_by(bbox, rotation)
         footprint = _footprint_of(rotated)
         if _footprint_fits(footprint, region):
             return rotation, rotated, footprint
