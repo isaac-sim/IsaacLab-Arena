@@ -14,8 +14,8 @@ from isaaclab_arena.visualization.report_data import (
     JobSummary,
     RunExecutionReport,
     _infer_labels_from_explicit_suffixes,
+    _infer_task_and_policy_labels_with_source,
     build_experiment_summary,
-    infer_task_and_policy_labels,
     normalize_run_status,
 )
 
@@ -89,11 +89,12 @@ def test_funnel_counts_objective_instances_rather_than_events():
     })
     job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[episode])
 
-    assert [(stage.index, stage.name, stage.num_reached) for stage in job.funnel] == [
+    assert len(job.funnels) == 1
+    assert job.funnels[0].num_instances == 2
+    assert [(stage.index, stage.name, stage.num_reached) for stage in job.funnels[0].stages] == [
         (0, "objects_settled", 2),
         (1, "object_is_above_height", 1),
     ]
-    assert job.num_objective_instances == 2
 
 
 def test_objectives_list_predicates_the_episode_never_reached():
@@ -237,11 +238,12 @@ def test_summary_groups_sparse_runs_by_repeated_policy_tokens(tmp_path):
 
 
 def test_infer_labels_recovers_explicit_multi_token_policy_suffixes():
-    labels = infer_task_and_policy_labels(
+    labels, source = _infer_task_and_policy_labels_with_source(
         ["banana_pi0_remote", "banana_cosmos_remote", "bowl_cosmos_remote"],
         policy_suffixes=("pi0_remote", "cosmos_remote"),
     )
 
+    assert source == "policy_suffixes"
     assert labels["banana_pi0_remote"] == ("banana", "pi0_remote")
     assert labels["bowl_cosmos_remote"] == ("bowl", "cosmos_remote")
 
@@ -249,11 +251,12 @@ def test_infer_labels_recovers_explicit_multi_token_policy_suffixes():
 def test_explicit_policy_suffixes_do_not_partially_group_runs():
     assert _infer_labels_from_explicit_suffixes(["task_pi0", "task_openvla", "other_openvla"], ("pi0",)) is None
 
-    labels = infer_task_and_policy_labels(
+    labels, source = _infer_task_and_policy_labels_with_source(
         ["task_pi0", "task_openvla", "other_openvla"],
         policy_suffixes=("pi0",),
     )
 
+    assert source == "run_names"
     assert labels == {
         "task_pi0": ("task", "pi0"),
         "task_openvla": ("task", "openvla"),
@@ -273,9 +276,10 @@ def test_partial_explicit_policy_suffixes_fall_back_to_run_name_grouping(tmp_pat
 
 
 def test_default_grouping_rejects_repeated_task_words_as_policy_names():
-    labels = infer_task_and_policy_labels(["small_cube_pick", "large_cube_pick", "banana_in_bowl"])
+    labels, source = _infer_task_and_policy_labels_with_source(["small_cube_pick", "large_cube_pick", "banana_in_bowl"])
 
     assert labels is None
+    assert source == "none"
 
 
 def test_explicit_policy_suffix_can_group_a_single_run(tmp_path):

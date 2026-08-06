@@ -30,41 +30,22 @@ class DataIssue:
     """One recoverable problem found while reading result artifacts."""
 
     path: str
-    """Path related to the issue, relative to the scanned root when possible."""
-
     message: str
-    """Human-readable description of the problem."""
 
 
 @dataclass(frozen=True)
 class ParsedEpisodeResultsName:
-    """Fields encoded in an episode results JSONL filename."""
-
     rebuild_index: int
-    """Environment rebuild index; files without a rebuild suffix map to zero."""
-
     rank_index: int | None
-    """Distributed rank index, when the file is rank-specific."""
 
 
 @dataclass(frozen=True)
 class ParsedEpisodeVideoName:
-    """Fields recovered from a per-camera episode video filename."""
-
     prefix: str
-    """Filename prefix before the optional rebuild segment."""
-
     rebuild_index: int
-    """Environment rebuild index; files without a rebuild suffix map to zero."""
-
     env_index: int
-    """Vectorized environment index."""
-
     camera_name: str
-    """Recorder camera name."""
-
     episode_index: int
-    """Episode index recorded by the environment."""
 
 
 def parse_episode_results_filename(filename: str) -> ParsedEpisodeResultsName | None:
@@ -78,12 +59,6 @@ def parse_episode_results_filename(filename: str) -> ParsedEpisodeResultsName | 
         rebuild_index=0 if rebuild is None else int(rebuild),
         rank_index=None if rank is None else int(rank),
     )
-
-
-def parse_episode_results_rebuild_index(filename: str) -> int | None:
-    """Return the rebuild index encoded in ``filename``, or ``None`` when it is not a results file."""
-    parsed = parse_episode_results_filename(filename)
-    return None if parsed is None else parsed.rebuild_index
 
 
 def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None:
@@ -108,7 +83,6 @@ def format_episode_video_filename(name_prefix: str, env_index: int, camera_name:
 
 
 def _is_under_generated_report(path: Path, root: Path) -> bool:
-    """Return whether ``path`` is inside the generated report directory."""
     try:
         relative = path.relative_to(root)
     except ValueError:
@@ -164,7 +138,6 @@ def read_episode_results(path: str | Path, root: str | Path | None = None) -> tu
 
 
 def _display_path(path: Path, root: str | Path | None) -> str:
-    """Return a stable path for issue messages."""
     if root is None:
         return str(path)
     try:

@@ -40,84 +40,47 @@ UNGROUPED_TASK = "(ungrouped)"
 
 @dataclass(frozen=True)
 class EpisodeIdentity:
-    """Stable identity for one recorded episode before display renumbering."""
-
     result_source: str
-    """Results source identity; empty for non-rank files and video-only episodes."""
-
     rebuild_index: int
-    """Environment rebuild index."""
-
     env_index: int
-    """Vectorized environment index."""
-
     recorder_episode_index: int
-    """Episode index recorded by the environment."""
 
 
 @dataclass
 class EpisodeSummary:
-    """One recorded episode: outcome, progress, and videos."""
-
     identity: EpisodeIdentity
-    """Source identity used to pair records and videos without rank overwrites."""
-
     episode_index: int
-    """Episode index within the run/env, renumbered for display."""
-
     video_by_camera: dict[str, str]
-    """Camera name -> mp4 path, relative to the scanned root."""
-
     record: dict[str, Any] = field(default_factory=dict)
-    """Matching per-episode results record; empty for video-only episodes."""
 
     @property
     def env_index(self) -> int:
-        """Return the vectorized environment index."""
         return self.identity.env_index
 
     @property
     def rebuild_index(self) -> int:
-        """Return the environment rebuild index."""
         return self.identity.rebuild_index
 
     @property
-    def recorder_episode_index(self) -> int:
-        """Return the episode index encoded in the source artifacts."""
-        return self.identity.recorder_episode_index
-
-    @property
     def success(self) -> bool | None:
-        """Return whether the episode succeeded, or ``None`` when unscored."""
         success = self.record.get("success")
         return success if isinstance(success, bool) else None
 
     @property
-    def score(self) -> float | None:
-        """Return the episode's achieved progress score."""
-        progress = self.record.get("progress")
-        if not isinstance(progress, dict):
-            return None
-        return _as_float(progress.get("overall_score"))
-
-    @property
     def max_score(self) -> float | None:
-        """Return the maximum score the episode's objectives could have reached."""
         objectives = _progress_objectives(self.record)
         total = sum(_as_float(objective.get("total_groups")) or 0.0 for objective in objectives.values())
         return total if total > 0 else None
 
     @property
     def progress_fraction(self) -> float | None:
-        """Return achieved progress as a fraction of achievable score, or ``None`` when unknown."""
-        score, max_score = self.score, self.max_score
+        score, max_score = _as_float(_progress(self.record).get("overall_score")), self.max_score
         if score is None or max_score is None:
             return None
         return max(0.0, min(1.0, score / max_score))
 
     @property
     def all_objectives_complete(self) -> bool | None:
-        """Return whether every objective completed, or ``None`` when progress was not recorded."""
         progress = self.record.get("progress")
         if not isinstance(progress, dict) or "all_complete" not in progress:
             return None
@@ -126,13 +89,11 @@ class EpisodeSummary:
 
     @property
     def outcome_disagrees_with_progress(self) -> bool:
-        """Return whether the success term and progress objectives disagree."""
         success, complete = self.success, self.all_objectives_complete
         return success is not None and complete is not None and success != complete
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Return record fields not already shown as status or progress."""
         return {
             key: value
             for key, value in self.record.items()
@@ -142,83 +103,40 @@ class EpisodeSummary:
 
 @dataclass
 class FunnelStage:
-    """How many objective instances reached one predicate stage."""
-
     index: int
-    """Predicate position within the objective family sequence."""
-
     name: str
-    """Predicate name with arguments stripped."""
-
     num_reached: int
-    """Objective instances that fired this predicate at least once."""
 
 
 @dataclass
 class ObjectiveFunnel:
-    """Progress funnel for one compatible objective family."""
-
     name: str
-    """Objective family name."""
-
     num_instances: int
-    """Number of episode/objective instances in this family."""
-
     stages: list[FunnelStage]
-    """Observed predicate stages in order."""
 
 
 @dataclass
 class PredicateSignal:
-    """Whether one predicate of an objective family fired during a single episode."""
-
     index: int
-    """Position of the predicate within the sequence."""
-
     name: str
-    """Predicate name with arguments stripped."""
-
     triggered: bool
-    """Whether the predicate fired."""
-
     step: int | None = None
-    """Environment step the predicate fired at, when recorded."""
-
     detail: str = ""
-    """Full predicate text including arguments."""
-
     blocked: bool = False
-    """Whether the objective was waiting on this predicate when the episode ended."""
 
 
 @dataclass
 class ObjectiveProgress:
-    """How far one objective of an episode got through its success predicate sequence."""
-
     name: str
-    """Objective name from the progress record."""
-
     family: str
-    """Objective family used for funneling."""
-
     score: float
-    """Score the objective achieved."""
-
     max_score: float
-    """Score the objective could have achieved."""
-
     is_complete: bool
-    """Whether the objective completed."""
-
     signals: list[PredicateSignal]
-    """Known predicates in this objective family sequence."""
-
     blocked_predicates: list[str] = field(default_factory=list)
-    """Active predicates that could not be placed in the known sequence."""
 
     @property
     def num_triggered(self) -> int:
-        """Return how many known predicates fired."""
         return sum(1 for signal in self.signals if signal.triggered)
 
 
@@ -227,47 +145,23 @@ class RunExecutionReport:
     """Record whether one Run process completed and its process exit code."""
 
     run_name: str
-    """Name of the Run that produced this execution result."""
-
     status: object
-    """Execution status; strings and enum-like objects with ``.value`` are accepted."""
-
     process_exit_code: int
-    """Exit code returned by the Run process."""
-
-    @property
-    def normalized_status(self) -> str:
-        """Return the execution status as a lowercase string."""
-        return normalize_run_status(self.status)
 
 
 @dataclass
 class JobSummary:
-    """All recorded episodes for a single Run, with aggregate outcome and progress."""
-
     name: str
-    """Run name, which is usually its output sub-directory."""
-
     task: str
-    """Task label grouping this run with runs of the same task."""
-
     policy: str
-    """Policy label grouping this run with runs of the same policy."""
-
     cameras: list[str]
-    """Ordered camera names recorded for this run."""
-
     episodes: list[EpisodeSummary]
-    """Every recorded episode, ordered by environment then display episode index."""
-
     issues: list[DataIssue] = field(default_factory=list)
-    """Recoverable data issues local to this run."""
 
     _objective_family_by_name: dict[str, str] = field(init=False, repr=False)
     _family_sequences: dict[str, dict[int, str]] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Precompute objective-family diagnostics so issues are not access-order dependent."""
         self._objective_family_by_name, family_issues = _build_objective_family_map(self.name, self.episodes)
         self._family_sequences, sequence_issues = _build_family_sequences(
             self.name, self.episodes, self._objective_family_by_name
@@ -277,68 +171,51 @@ class JobSummary:
 
     @property
     def num_episodes(self) -> int:
-        """Return the number of recorded episodes."""
         return len(self.episodes)
 
     @property
     def num_successes(self) -> int:
-        """Return the number of episodes whose success term evaluated true."""
         return sum(1 for episode in self.episodes if episode.success is True)
 
     @property
     def num_scored_episodes(self) -> int:
-        """Return the number of episodes carrying a success term."""
         return sum(1 for episode in self.episodes if episode.success is not None)
 
     @property
     def success_rate(self) -> float | None:
-        """Return the fraction of scored episodes that succeeded, or ``None`` when none are scored."""
         scored = self.num_scored_episodes
         return None if scored == 0 else self.num_successes / scored
 
     @property
     def mean_progress(self) -> float | None:
-        """Return the mean achieved progress fraction over episodes that report progress."""
         fractions = [episode.progress_fraction for episode in self.episodes if episode.progress_fraction is not None]
         return None if not fractions else sum(fractions) / len(fractions)
 
     @property
     def num_videos(self) -> int:
-        """Return the number of recorded video files across all episodes."""
         return sum(len(episode.video_by_camera) for episode in self.episodes)
-
-    @property
-    def objective_family_by_name(self) -> dict[str, str]:
-        """Return objective name -> compatible family name."""
-        return self._objective_family_by_name
-
-    @property
-    def family_sequences(self) -> dict[str, dict[int, str]]:
-        """Return each objective family's observed predicate names by index."""
-        return self._family_sequences
 
     @functools.cached_property
     def funnels(self) -> list[ObjectiveFunnel]:
-        """Return progress funnels for each objective family."""
         instances_by_family: dict[str, set[tuple[int, int, str]]] = defaultdict(set)
         reached_by_family_index: dict[tuple[str, int], set[tuple[int, int, str]]] = defaultdict(set)
         for episode in self.episodes:
             for objective_name in _episode_objective_names(episode):
-                family = self.objective_family_by_name.get(objective_name, objective_name)
+                family = self._objective_family_by_name.get(objective_name, objective_name)
                 instances_by_family[family].add((episode.env_index, episode.episode_index, objective_name))
             for event in _progress_events(episode.record):
                 objective_name = _event_objective_name(event)
                 index = _as_int(event.get("predicate_index"))
                 if objective_name is None or index is None:
                     continue
-                family = self.objective_family_by_name.get(objective_name, objective_name)
+                family = self._objective_family_by_name.get(objective_name, objective_name)
                 instance = (episode.env_index, episode.episode_index, objective_name)
                 instances_by_family[family].add(instance)
                 reached_by_family_index[(family, index)].add(instance)
 
         funnels = []
-        for family in sorted(self.family_sequences):
-            sequence = self.family_sequences[family]
+        for family in sorted(self._family_sequences):
+            sequence = self._family_sequences[family]
             stages = [
                 FunnelStage(
                     index=index, name=sequence[index], num_reached=len(reached_by_family_index[(family, index)])
@@ -350,26 +227,15 @@ class JobSummary:
             )
         return funnels
 
-    @property
-    def funnel(self) -> list[FunnelStage]:
-        """Return a flattened funnel stage list for backward-compatible tests and callers."""
-        return [stage for funnel in self.funnels for stage in funnel.stages]
-
-    @property
-    def num_objective_instances(self) -> int:
-        """Return the total number of objective instances across all funnels."""
-        return sum(funnel.num_instances for funnel in self.funnels)
-
     def objectives_for(self, episode: EpisodeSummary) -> list[ObjectiveProgress]:
-        """Return each objective of ``episode`` with known predicate signals and blocked predicates."""
         objectives = _progress_objectives(episode.record)
         names = list(objectives) if objectives else sorted(_event_objectives(episode.record))
         results = []
         fired = _events_by_objective_and_index(episode.record)
         for name in names:
             detail = objectives.get(name, {}) if objectives else {}
-            family = self.objective_family_by_name.get(name, name)
-            sequence = self.family_sequences.get(family, {})
+            family = self._objective_family_by_name.get(name, name)
+            sequence = self._family_sequences.get(family, {})
             active_names = [
                 _base_predicate_name(predicate)
                 for predicate in (detail.get("active_predicates") or {}).values()
@@ -409,16 +275,10 @@ class JobSummary:
 
 @dataclass
 class TaskSummary:
-    """Every Run evaluating one task."""
-
     name: str
-    """Task label."""
-
     jobs: list[JobSummary]
-    """Runs of this task, ordered by policy then run name."""
 
     def job_for_policy(self, policy: str) -> JobSummary | None:
-        """Return this task's first Run for ``policy``, or ``None`` when absent."""
         for job in self.jobs:
             if job.policy == policy:
                 return job
@@ -426,71 +286,44 @@ class TaskSummary:
 
     @property
     def num_episodes(self) -> int:
-        """Return the total recorded episodes across this task's Runs."""
         return sum(job.num_episodes for job in self.jobs)
-
-    @property
-    def best_success_rate(self) -> float | None:
-        """Return the highest success rate any policy reached on this task."""
-        rates = [job.success_rate for job in self.jobs if job.success_rate is not None]
-        return max(rates) if rates else None
 
 
 @dataclass
 class ExperimentSummary:
-    """A whole evaluation: every Run, grouped by task and policy when labels are available."""
-
     title: str
-    """Title displayed at the top of the report."""
-
     tasks: list[TaskSummary]
-    """Tasks evaluated, ordered by name."""
-
     policies: list[str]
-    """Distinct policy labels, ordered by name."""
-
     run_executions: list[RunExecutionReport] = field(default_factory=list)
-    """Run process results, when provided by a parallel Experiment collector."""
-
     grouping_source: str = "none"
-    """How task and policy labels were established."""
-
     issues: list[DataIssue] = field(default_factory=list)
-    """Recoverable data issues found while scanning."""
 
     @property
     def jobs(self) -> list[JobSummary]:
-        """Return every Run across every task."""
         return [job for task in self.tasks for job in task.jobs]
 
     @property
     def num_episodes(self) -> int:
-        """Return the total recorded episodes."""
         return sum(job.num_episodes for job in self.jobs)
 
     @property
     def num_videos(self) -> int:
-        """Return the total recorded video files."""
         return sum(job.num_videos for job in self.jobs)
 
     @property
     def is_grouped(self) -> bool:
-        """Return whether Runs carry task/policy labels rather than a flat fallback."""
         return self.grouping_source != "none" and bool(self.policies)
 
     def success_rate_for_policy(self, policy: str) -> float | None:
-        """Return the overall success rate for one policy across every task."""
         jobs = [job for job in self.jobs if job.policy == policy]
         scored = sum(job.num_scored_episodes for job in jobs)
         return None if scored == 0 else sum(job.num_successes for job in jobs) / scored
 
     def num_episodes_for_policy(self, policy: str) -> int:
-        """Return recorded episodes for one policy across every task."""
         return sum(job.num_episodes for job in self.jobs if job.policy == policy)
 
     @property
     def overall_success_rate(self) -> float | None:
-        """Return the success rate across every scored episode of the Experiment."""
         scored = sum(job.num_scored_episodes for job in self.jobs)
         return None if scored == 0 else sum(job.num_successes for job in self.jobs) / scored
 
@@ -520,12 +353,10 @@ def is_completed_execution(execution: RunExecutionReport) -> bool:
 
 
 def _base_predicate_name(predicate_name: object) -> str:
-    """Return a predicate name with its argument list stripped."""
     return _PREDICATE_ARGUMENTS_PATTERN.sub("", str(predicate_name))
 
 
 def _candidate_family_name(objective_name: str) -> str:
-    """Return the optional coalesced family name for an objective."""
     match = _SUBTASK_OBJECTIVE_PATTERN.match(objective_name)
     return objective_name if match is None else match.group("family")
 
@@ -534,7 +365,6 @@ def _build_objective_family_map(
     job_name: str,
     episodes: list[EpisodeSummary],
 ) -> tuple[dict[str, str], list[DataIssue]]:
-    """Return objective name -> compatible family name plus compatibility issues."""
     exact_names = sorted(_objective_names(episodes))
     candidates: dict[str, list[str]] = defaultdict(list)
     for name in exact_names:
@@ -566,7 +396,6 @@ def _build_family_sequences(
     episodes: list[EpisodeSummary],
     family_by_name: dict[str, str],
 ) -> tuple[dict[str, dict[int, str]], list[DataIssue]]:
-    """Return family predicate sequences plus sequence-shape issues."""
     names_by_family_index: dict[tuple[str, int], set[str]] = defaultdict(set)
     for episode in episodes:
         for event in _progress_events(episode.record):
@@ -592,7 +421,6 @@ def _build_family_sequences(
 
 
 def _objective_names_are_compatible(episodes: list[EpisodeSummary], objective_names: list[str]) -> bool:
-    """Return whether objectives can be safely pooled into one family."""
     names_by_index: dict[int, set[str]] = defaultdict(set)
     objective_name_set = set(objective_names)
     for episode in episodes:
@@ -605,41 +433,34 @@ def _objective_names_are_compatible(episodes: list[EpisodeSummary], objective_na
 
 
 def _progress(record: dict[str, Any]) -> dict[str, Any]:
-    """Return a record's progress block when it is shaped as a dictionary."""
     progress = record.get("progress")
     return progress if isinstance(progress, dict) else {}
 
 
 def _progress_objectives(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Return the objective details from a record's progress block."""
     objectives = _progress(record).get("objectives")
     return objectives if isinstance(objectives, dict) else {}
 
 
 def _progress_events(record: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return valid event dictionaries from a record's progress block."""
     events = _progress(record).get("events")
     return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
 
 
 def _event_objective_name(event: dict[str, Any]) -> str | None:
-    """Return an event's objective name when present."""
     objective = event.get("objective")
     return str(objective) if objective is not None else None
 
 
 def _event_objectives(record: dict[str, Any]) -> set[str]:
-    """Return objective names that appear in progress events."""
     return {objective for event in _progress_events(record) if (objective := _event_objective_name(event)) is not None}
 
 
 def _episode_objective_names(episode: EpisodeSummary) -> set[str]:
-    """Return every objective name known for one episode."""
     return set(_progress_objectives(episode.record)) | _event_objectives(episode.record)
 
 
 def _objective_names(episodes: list[EpisodeSummary]) -> set[str]:
-    """Return every objective name known for a set of episodes."""
     names = set()
     for episode in episodes:
         names.update(_episode_objective_names(episode))
@@ -647,7 +468,6 @@ def _objective_names(episodes: list[EpisodeSummary]) -> set[str]:
 
 
 def _events_by_objective_and_index(record: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
-    """Return events keyed by objective and predicate index."""
     result: dict[str, dict[int, dict[str, Any]]] = {}
     for event in _progress_events(record):
         objective_name = _event_objective_name(event)
@@ -658,7 +478,6 @@ def _events_by_objective_and_index(record: dict[str, Any]) -> dict[str, dict[int
 
 
 def _as_int(value: object) -> int | None:
-    """Return ``value`` as an int, or ``None`` when conversion fails."""
     try:
         return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -666,7 +485,6 @@ def _as_int(value: object) -> int | None:
 
 
 def _as_float(value: object) -> float | None:
-    """Return ``value`` as a float, or ``None`` when conversion fails."""
     try:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -674,13 +492,11 @@ def _as_float(value: object) -> float | None:
 
 
 def _job_name_for_path(path: pathlib.Path, root: pathlib.Path) -> str:
-    """Return the run name represented by an artifact path."""
     relative = path.relative_to(root)
     return "" if relative.parent == pathlib.Path(".") else str(relative.parent)
 
 
 def _validate_record(record: dict[str, Any], path: pathlib.Path, root: pathlib.Path) -> tuple[int, int] | DataIssue:
-    """Return ``(env_id, episode_in_env)`` for a usable record, or a data issue."""
     display_path = str(path.relative_to(root))
     env_id = _as_int(record.get("env_id"))
     episode = _as_int(record.get("episode_in_env"))
@@ -692,7 +508,6 @@ def _validate_record(record: dict[str, Any], path: pathlib.Path, root: pathlib.P
 
 
 def _scan_results(root: pathlib.Path) -> tuple[dict[str, dict[EpisodeIdentity, dict[str, Any]]], list[DataIssue]]:
-    """Scan result JSONL files, keyed so rank files cannot overwrite each other."""
     results: dict[str, dict[EpisodeIdentity, dict[str, Any]]] = defaultdict(dict)
     issues: list[DataIssue] = []
     for path in find_episode_results_files(root):
@@ -719,7 +534,6 @@ def _scan_results(root: pathlib.Path) -> tuple[dict[str, dict[EpisodeIdentity, d
 def _scan_videos(
     root: pathlib.Path,
 ) -> tuple[dict[str, dict[tuple[int, int, int], dict[str, str]]], dict[str, list[str]]]:
-    """Scan recorder mp4 filenames without opening video files."""
     videos: dict[str, dict[tuple[int, int, int], dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
     cameras_by_job: dict[str, list[str]] = defaultdict(list)
     for path in find_episode_video_files(root):
@@ -734,7 +548,6 @@ def _scan_videos(
 
 
 def _scan_jobs(root: pathlib.Path) -> tuple[list[_ScannedJob], list[DataIssue]]:
-    """Recursively scan ``root`` for episode results and recorder mp4s, grouped by run."""
     root = pathlib.Path(root)
     results, result_issues = _scan_results(root)
     videos, cameras_by_job = _scan_videos(root)
@@ -804,20 +617,10 @@ def _scan_jobs(root: pathlib.Path) -> tuple[list[_ScannedJob], list[DataIssue]]:
     return jobs, issues
 
 
-def infer_task_and_policy_labels(
-    job_names: list[str],
-    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
-) -> dict[str, tuple[str, str]] | None:
-    """Infer sparse task/policy labels from run-name suffixes."""
-    labels, _ = _infer_task_and_policy_labels_with_source(job_names, policy_suffixes)
-    return labels
-
-
 def _infer_task_and_policy_labels_with_source(
     job_names: list[str],
     policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
 ) -> tuple[dict[str, tuple[str, str]] | None, str]:
-    """Infer task/policy labels and describe which strategy produced them."""
     labels = _infer_labels_from_explicit_suffixes(job_names, policy_suffixes)
     if labels is not None:
         return labels, "policy_suffixes"
@@ -831,7 +634,6 @@ def _infer_labels_from_explicit_suffixes(
     job_names: list[str],
     policy_suffixes: tuple[str, ...],
 ) -> dict[str, tuple[str, str]] | None:
-    """Infer labels from explicit policy suffixes only when every run matches one."""
     labels: dict[str, tuple[str, str]] = {}
     suffixes = tuple(sorted((suffix for suffix in policy_suffixes if suffix), key=len, reverse=True))
     if not suffixes:
@@ -848,7 +650,6 @@ def _infer_labels_from_explicit_suffixes(
 
 
 def _infer_labels_from_repeated_final_tokens(job_names: list[str]) -> dict[str, tuple[str, str]] | None:
-    """Infer labels from final run-name tokens when there is comparison evidence."""
     final_tokens: dict[str, int] = defaultdict(int)
     split_names: dict[str, tuple[str, str]] = {}
     for job_name in job_names:
@@ -871,7 +672,6 @@ def _resolve_job_labels(
     job_names: list[str],
     policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
 ) -> tuple[dict[str, tuple[str, str]], str]:
-    """Resolve each job's task and policy labels."""
     inferred, source = (
         _infer_task_and_policy_labels_with_source(job_names, policy_suffixes) if job_names else (None, "none")
     )

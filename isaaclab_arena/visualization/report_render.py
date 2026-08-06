@@ -54,22 +54,18 @@ def unique_slugs(names: list[str]) -> dict[str, str]:
 
 
 def episode_anchor(episode) -> str:
-    """Return the stable HTML anchor for one episode on its run page."""
     return f"ep-{episode.env_index}-{episode.episode_index}"
 
 
 def _percent(fraction: float | None) -> str:
-    """Format a fraction as a whole-number percentage, or an em dash when unknown."""
     return "&mdash;" if fraction is None else f"{fraction * 100:.0f}%"
 
 
 def _ramp_rank(fraction: float) -> int:
-    """Return the sequential-ramp step index for a fraction in [0, 1]."""
     return min(_NUM_RAMP_STEPS - 1, max(0, int(fraction * _NUM_RAMP_STEPS)))
 
 
 def _episode_outcome(episode) -> str:
-    """Return the status bucket an episode falls into: success, partial, fail, or unknown."""
     if episode.success is True:
         return "success"
     if episode.success is None:
@@ -79,7 +75,6 @@ def _episode_outcome(episode) -> str:
 
 
 def _tile(label: str, value: str, sub: str = "") -> str:
-    """Render one headline figure."""
     sub_html = f'<div class="sub">{sub}</div>' if sub else ""
     return (
         f'<div class="tile"><div class="label">{html.escape(label)}</div>'
@@ -88,7 +83,6 @@ def _tile(label: str, value: str, sub: str = "") -> str:
 
 
 def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str:
-    """Render a compact table of Runs whose processes failed."""
     failed = [execution for execution in run_executions if is_failed_execution(execution)]
     if not failed:
         return ""
@@ -106,7 +100,6 @@ def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str
 
 
 def _render_issues(issues: list[DataIssue]) -> str:
-    """Render recoverable data issues found during scanning."""
     if not issues:
         return ""
     rows = "\n".join(
@@ -122,13 +115,11 @@ def _render_issues(issues: list[DataIssue]) -> str:
 
 
 def _render_ramp_legend() -> str:
-    """Render the success-rate ramp key."""
     swatches = "".join(f'<span class="swatch cell" data-rank="{rank}"></span>' for rank in range(_NUM_RAMP_STEPS))
     return f'<div class="ramp-legend"><span>0%</span>{swatches}<span>100%</span><span>success rate</span></div>'
 
 
 def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
-    """Render the task x policy success-rate heatmap that opens the report."""
     header_cells = "".join(
         f'<th class="num" data-sort-col="{index}">{html.escape(policy)}</th>'
         for index, policy in enumerate(summary.policies)
@@ -165,7 +156,6 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
 
 
 def _render_ungrouped_job_list(summary: ExperimentSummary, job_hrefs: dict[str, str]) -> str:
-    """Render a flat list of Runs when no task/policy labels are available."""
     rows = "\n".join(
         f'<tr><th><a href="{_href(job_hrefs[job.name])}">{html.escape(job.name or "results")}</a></th>'
         f'<td class="num">{job.num_episodes}</td>'
@@ -218,7 +208,6 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
 
 
 def _grouping_note(summary: ExperimentSummary) -> str:
-    """State where task and policy labels came from."""
     if summary.grouping_source == "policy_suffixes":
         return "Tasks and policies were inferred from run-name policy suffixes."
     if summary.grouping_source == "run_names":
@@ -227,7 +216,6 @@ def _grouping_note(summary: ExperimentSummary) -> str:
 
 
 def _experiment_summary_line(summary: ExperimentSummary) -> str:
-    """Render the one-line count summary under the page heading."""
     if summary.run_executions:
         completed = sum(is_completed_execution(execution) for execution in summary.run_executions)
         failed = sum(is_failed_execution(execution) for execution in summary.run_executions)
@@ -241,7 +229,6 @@ def _experiment_summary_line(summary: ExperimentSummary) -> str:
 
 
 def _render_funnel(funnel: ObjectiveFunnel) -> str:
-    """Render one objective-family progress funnel."""
     if not funnel.stages:
         return ""
     rows = []
@@ -263,7 +250,6 @@ def _render_funnel(funnel: ObjectiveFunnel) -> str:
 
 
 def _render_job_funnels(job: JobSummary) -> str:
-    """Render every objective-family funnel for one run."""
     funnels = "".join(_render_funnel(funnel) for funnel in job.funnels)
     if not funnels:
         return ""
@@ -276,7 +262,6 @@ def _render_job_funnels(job: JobSummary) -> str:
 
 
 def _render_chip(episode, href: str) -> str:
-    """Render one episode as a status chip."""
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f", progress {progress * 100:.0f}%"
@@ -287,7 +272,6 @@ def _render_chip(episode, href: str) -> str:
 
 
 def _render_legend() -> str:
-    """Render the status legend for episode chips."""
     items = "".join(
         f'<span class="item"><span class="chip {outcome}">{_OUTCOME_GLYPHS[outcome]}</span>'
         f"{html.escape(_OUTCOME_LABELS[outcome])}</span>"
@@ -348,7 +332,6 @@ def render_task_page(
 
 
 def _render_metadata_entry(key: str, value: object) -> str:
-    """Render one metadata field as a labelled block."""
     if isinstance(value, dict):
         sub_rows = "".join(
             f'<div class="subitem"><span class="k">{html.escape(str(sub_key))}</span>'
@@ -360,7 +343,6 @@ def _render_metadata_entry(key: str, value: object) -> str:
 
 
 def _render_signal(signal) -> str:
-    """Render one success predicate as a chip stating whether it fired, and when."""
     if signal.triggered:
         state, glyph = "on", "&check;"
         suffix = "" if signal.step is None else f'<span class="step">step {signal.step}</span>'
@@ -378,7 +360,6 @@ def _render_signal(signal) -> str:
 
 
 def _render_objective(objective) -> str:
-    """Render one objective as its score plus known predicate signals."""
     track = "".join(_render_signal(signal) for signal in objective.signals)
     if objective.blocked_predicates:
         blocked = ", ".join(objective.blocked_predicates)
@@ -394,7 +375,6 @@ def _render_objective(objective) -> str:
 
 
 def _render_signals(objectives: list) -> str:
-    """Render an episode's progress breakdown."""
     if not objectives:
         return ""
     if len(objectives) == 1:
@@ -411,7 +391,6 @@ def _render_signals(objectives: list) -> str:
 
 
 def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", objectives=None) -> str:
-    """Render one episode with lazily mounted videos and progress diagnostics."""
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f'<span class="sub">progress {progress * 100:.0f}%</span>'
@@ -510,7 +489,6 @@ def render_job_page(
 
 
 def _render_page_nav(page_index: int, page_hrefs: list[str]) -> str:
-    """Render run-page pagination controls."""
     if len(page_hrefs) <= 1:
         return ""
     links = []
@@ -523,7 +501,6 @@ def _render_page_nav(page_index: int, page_hrefs: list[str]) -> str:
 
 
 def _render_page(title: str, heading: str, breadcrumb: str, summary: str, content: str, context: str = "") -> str:
-    """Fill the shared page shell."""
     template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
     return template.substitute(
         title=title, heading=heading, breadcrumb=breadcrumb, summary=summary, content=content, context=context
@@ -531,7 +508,6 @@ def _render_page(title: str, heading: str, breadcrumb: str, summary: str, conten
 
 
 def _render_pill(key: str, value: str, extra_class: str = "") -> str:
-    """Render one labelled pill naming a dimension of what the page is showing."""
     classes = f"pill {extra_class}".strip()
     return (
         f'<span class="{classes}"><span class="key">{html.escape(key)}</span>'
@@ -540,28 +516,23 @@ def _render_pill(key: str, value: str, extra_class: str = "") -> str:
 
 
 def _render_context(pills: list[str]) -> str:
-    """Wrap pills into the context row shown under a page heading."""
     return f'<div class="context">{"".join(pills)}</div>' if pills else ""
 
 
 def _render_up_button(href: str, label: str, extra_class: str = "") -> str:
-    """Render a button that climbs one level of the hierarchy."""
     wrapper_open = f'<span class="{extra_class}">' if extra_class else ""
     wrapper_close = "</span>" if extra_class else ""
     return f'{wrapper_open}<a class="upbutton" href="{_href(href)}">&uarr; {html.escape(label)}</a>{wrapper_close}'
 
 
 def _render_footer_nav(buttons: list[str]) -> str:
-    """Render the navigation block closing a page."""
     buttons = [button for button in buttons if button]
     return f'<div class="footernav">{"".join(buttons)}</div>' if buttons else ""
 
 
 def _href(path: str) -> str:
-    """Return a URL-safe href for a generated relative path."""
     return quote(path, safe="/#._-~")
 
 
 def _media_src(prefix: str, source: str) -> str:
-    """Return a URL-safe relative media source."""
     return quote(prefix + source, safe="/._-~")

@@ -52,16 +52,6 @@ def _write_pages(
     episode_hrefs: dict[tuple[str, int, int], str],
     episodes_per_page: int,
 ) -> int:
-    """Write the task and Run pages into the report sub-directory, returning how many were written.
-
-    Args:
-        summary: Aggregated Experiment to render.
-        video_dir: Directory the report is written into.
-        task_hrefs: Task name -> page filename, relative to the pages sub-directory.
-        job_page_hrefs: Run name -> page filenames, relative to the pages sub-directory.
-        episode_hrefs: Episode identity -> page anchor, relative to the pages sub-directory.
-        episodes_per_page: Maximum number of episode cards per run page.
-    """
     pages_dir = video_dir / PAGES_DIRNAME
     pages_dir.mkdir(parents=True, exist_ok=True)
     # Drop pages from an earlier build so a re-run over changed results cannot leave stale, orphaned
@@ -165,7 +155,6 @@ def build_report(
 
 
 def _job_page_hrefs(summary: ExperimentSummary, episodes_per_page: int) -> dict[str, list[str]]:
-    """Return run page filenames for each job, with collision-free slugs."""
     slugs = unique_slugs([job.name for job in summary.jobs])
     hrefs = {}
     for job in summary.jobs:
@@ -182,7 +171,6 @@ def _episode_hrefs(
     job_page_hrefs: dict[str, list[str]],
     episodes_per_page: int,
 ) -> dict[tuple[str, int, int], str]:
-    """Return run-page deep links for every episode chip on task pages."""
     hrefs = {}
     for job in summary.jobs:
         pages = job_page_hrefs[job.name]
@@ -226,15 +214,6 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
 
 
 def _resolve_results_dir(video_dir: pathlib.Path) -> pathlib.Path:
-    """Return the directory to report on, descending into the most recent dated run dir when present.
-
-    When ``video_dir`` is a parent that holds reverse-dated run sub-directories (as written by
-    ``timestamped_run_dir``, e.g. ``isaaclab_arena/output``), the newest one is used so the user can
-    point at the output root and get the latest results. Otherwise ``video_dir`` is returned unchanged.
-
-    Args:
-        video_dir: Directory the user pointed at.
-    """
     if not video_dir.is_dir():
         return video_dir
     run_dirs = sorted(child for child in video_dir.iterdir() if child.is_dir() and _RUN_DIR_PATTERN.match(child.name))
