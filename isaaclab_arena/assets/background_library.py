@@ -88,7 +88,10 @@ class PackingTableBackground(LibraryBackground):
     name = "packing_table"
     tags = ["background"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/packing_table/packing_table.usd"
-    initial_pose = Pose(position_xyz=(0.72193, -0.04727, -0.92512), rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711))
+    initial_pose = Pose(
+        position_xyz=(0.72193, -0.04727, -0.92512),
+        rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
+    )
     object_min_z = -0.2
 
     def __init__(self):
@@ -209,6 +212,7 @@ class MapleTableRobolab(LibraryBackground):
     name = "maple_table_robolab"
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
+    spawn_cfg_addon = {"rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)}
     object_min_z = -0.05
 
     def __init__(self):
