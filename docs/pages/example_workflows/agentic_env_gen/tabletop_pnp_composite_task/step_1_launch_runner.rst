@@ -1,10 +1,10 @@
-Launch the Runner
------------------
+Run Agentic Environment Generation
+----------------------------------
 
 **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
 
-The runner resolves the prompt into an ``ArenaEnvGraphSpec`` YAML. It comes in
-two modes:
+The Arena environment generation agent infers an ``ArenaEnvGraphSpec`` YAML from a user prompt.
+The agent runs in two modes:
 
 * **GUI runner** — a browser live editor. Generate from a prompt, then edit,
   visualize, and simulation-preview the spec in the same session.
@@ -40,6 +40,14 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The task panel shows one row per subtask, so a composite task is visible as two
       ``PickAndPlaceTask`` rows under the root task.
 
+      .. figure:: ../../../../images/tabletop_agentic_env_cans_simready_gui.png
+         :width: 100%
+         :alt: GUI runner view of the environment graph spec.
+         :align: center
+
+         GUI runner view of the environment graph spec: the YAML editor on the left, and the environment graph
+         visualization and task description on the right.
+
    .. tab-item:: CLI runner (no editing)
 
       Run the runner in ``resolve`` mode with SimReady search enabled:
@@ -51,15 +59,7 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
             --enable_simready_search \
             --prompt "Droid picks up the pepsi can and the bean can from the maple table and places them into the mini plastic basket. There is a hammer next to the pepsi can and a tuna can on the table, and the bean can sits next to the basket."
 
-      The runner prints the resolved graph and writes ``<env_name>.yaml`` under
+      The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
-
-.. figure:: ../../../../images/tabletop_agentic_env_cans_simready_gui.png
-   :width: 100%
-   :alt: GUI runner view of the environment graph spec.
-   :align: center
-
-   GUI runner view of the environment graph spec: the YAML editor on the left, and the environment graph
-   visualization and task description on the right.
 
 .. todo:: add link to concept page covering simready search

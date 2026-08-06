@@ -1,7 +1,8 @@
 Edit the Environment Graph Spec
 -------------------------------
 
-You may want to review or edit the spec before building the environment. Agent resolves the spec based on the prompt using a LLM model, and may be mistaken in its choices.
+You may want to review or edit the spec before building the environment. The agent infers the spec from the
+prompt using a LLM model, and may be mistaken in its choices.
 For a composite task, check that the subtask list covers every pick and place pair you asked for, and that the SimReady hits are the assets you expected.
 
 Understanding the YAML
@@ -128,29 +129,38 @@ object it acts on and the subtask itself:
 #. Keep the root ``description`` in sync with the subtask list — it is the language
    instruction a policy receives.
 
-Editing in the browser
-^^^^^^^^^^^^^^^^^^^^^^
+Applying your edits
+^^^^^^^^^^^^^^^^^^^
 
-The GUI is the recommended way to make these edits, because it validates and previews as you type:
+.. tab-set::
 
-#. Edit the spec directly in the **YAML editor** panel.
-#. Click **Clear cache and render** to update the visualization of the environment graph.
-#. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
-#. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
+   .. tab-item:: Edit in the browser (GUI)
+      :selected:
 
-See :doc:`../gui_runner` for the full UI walkthrough.
+      The GUI is the recommended way to make these edits, because it validates and previews as you type:
 
-Editing outside the GUI
-^^^^^^^^^^^^^^^^^^^^^^^
+      #. Edit the spec directly in the **YAML editor** panel.
+      #. Click **Clear cache and render** to update the visualization of the environment graph.
+      #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
+      #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-The YAML written by the CLI runner is locally stored so you can also edit it in
-any text editor and validate it by building and spawning a simulation environment:
+      See :doc:`../gui_runner` for the full UI walkthrough.
 
-.. code-block:: bash
+   .. tab-item:: Edit outside the GUI (text editor)
 
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode build \
-      --viz kit \
-      --num_envs 1 \
-      --num_steps 100 \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/simready_droid_pick_place_cans_hammer_maple_table.yaml
+      The YAML written by the CLI runner is locally stored so you can also edit it in
+      any text editor and validate it by building and spawning a simulation environment:
+
+      .. code-block:: bash
+
+         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+            --mode build \
+            --viz kit \
+            --num_envs 1 \
+            --num_steps 100 \
+            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+
+      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
+      A spec you generated yourself is written to
+      ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` — named after ``env_name``, without the
+      ``simready_`` prefix — so pass that path instead to build your own.

@@ -1,7 +1,7 @@
 Pick and Place atomic task with heterogeneous objects
 =====================================================
 
-This example uses the agentic environment-generation system to resolve a prompt into an environment graph spec
+This example uses the agentic environment-generation system to infer an environment graph spec from a prompt
 for **pick and place atomic task with heterogeneous objects** for table-top manipulation.
 
 Environment Description
@@ -25,7 +25,7 @@ interchangeable assets under a single id, distributed one member per
 environment. Running with ``--num_envs 1`` shows a single fruit, so raise
 ``--num_envs`` to see the variation.
 
-The resolved spec for this example is available at
+The generated spec for this example is available at
 ``isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml``.
 
 Workflow
@@ -34,16 +34,8 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
-
-:docker_run_default:
-
-The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:
-
-.. code-block:: bash
-
-   export NV_API_KEY=<your-api-key>
+See :ref:`agentic-env-gen-prerequisites` for the container and API key setup shared by
+every agentic environment-generation workflow.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

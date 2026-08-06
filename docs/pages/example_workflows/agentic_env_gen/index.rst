@@ -25,6 +25,26 @@ In this section, we will walk through the following example environment generati
 
   - :doc:`kitchen_open_door`
 
+.. _agentic-env-gen-prerequisites:
+
+Prerequisites
+-------------
+
+Every workflow in this section shares the same setup.
+
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+
+:docker_run_default:
+
+The generation agent calls a remote LLM endpoint, so export your API key inside
+the container before launching the runner:
+
+.. code-block:: bash
+
+   export NV_API_KEY=<your-api-key>
+
+.. todo:: add instructions for obtaining the NVIDIA-hosted service API key (internal and external)
+
 Available Generated Environments
 --------------------------------
 

@@ -15,7 +15,9 @@ Open one terminal and run the following command outside the Arena docker contain
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-In the other terminal, run the following command to launch the policy runner:
+In the other terminal, run the following command to launch the policy runner. The commands below use the
+ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
+``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 .. tab-set::
 
@@ -34,7 +36,7 @@ In the other terminal, run the following command to launch the policy runner:
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_banana_on_plate_maple_table.yaml
+            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
@@ -56,7 +58,25 @@ In the other terminal, run the following command to launch the policy runner:
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_banana_on_plate_maple_table.yaml
+            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+
+      While the environment builds, every batch of candidate layouts reports how many of them passed each
+      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
+
+      .. code-block:: text
+
+         [placement] Validated 128 candidate layout(s); passed per check: no_overlap=128/128, on_relation=126/128, ik_reachable=41/128
+
+      A low ``ik_reachable`` ratio means most sampled layouts put the banana or the plate outside the arm's
+      workspace, and the placer keeps resampling. When an environment finds no reachable layout at all, it
+      falls back to its lowest-loss layout and says so:
+
+      .. code-block:: text
+
+         Falling back to best-loss layouts for envs: [3, 7]
+
+      Frequent fallbacks are the signal to bring the objects closer to the robot in the spec — for example by
+      relating them to an object near the arm — or to thin out the clutter on the table.
 
       .. todo:: add link to reachability concept page
 

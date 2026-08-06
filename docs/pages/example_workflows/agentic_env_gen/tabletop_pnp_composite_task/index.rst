@@ -1,7 +1,7 @@
 Pick and Place composite task with SimReady assets
 ==================================================
 
-This example uses the agentic environment-generation system to resolve a prompt into an environment graph spec
+This example uses the agentic environment-generation system to infer an environment graph spec from a prompt
 for **pick and place composite task with SimReady assets** on a table-top scene.
 
 Environment Description
@@ -21,10 +21,10 @@ both the pepsi can and the bean can from the maple table and places them into
 the mini plastic basket. Two atomic ``PickAndPlaceTask`` subtasks are combined
 under one root task. A hammer and a tuna can are on the table as distractors.
 
-Two of the assets (i.e. pepsi can and plastic basket) are not in the Arena asset catalog. They are resolved by
-asset search through SimReady service and entered the spec as ``simready_usd_object`` entries carrying a ``usd_path``.
+Two of the assets (i.e. pepsi can and plastic basket) are not in the Arena asset catalog. They are found by
+asset search through the SimReady service and enter the spec as ``simready_usd_object`` entries carrying a ``usd_path``.
 
-The resolved spec for this example is available at
+The generated spec for this example is available at
 ``isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml``.
 
 Workflow
@@ -33,16 +33,8 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
-
-:docker_run_default:
-
-The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:
-
-.. code-block:: bash
-
-   export NV_API_KEY=<your-api-key>
+See :ref:`agentic-env-gen-prerequisites` for the container and API key setup shared by
+every agentic environment-generation workflow.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

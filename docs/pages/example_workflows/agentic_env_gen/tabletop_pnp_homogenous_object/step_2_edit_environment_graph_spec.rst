@@ -1,7 +1,8 @@
 Edit the Environment Graph Spec
 -------------------------------
 
-You may want to review or edit the spec before building the environment. Agent resolved the spec based on the prompt using a LLM model, and could be mistaken in its choices.
+You may want to review or edit the spec before building the environment. The agent infers the spec from the
+prompt using a LLM model, and could be mistaken in its choices.
 You could add or remove objects or change the spatial relationships between objects.
 
 Understanding the YAML
@@ -103,31 +104,37 @@ its placement relation:
         reference: bagel_2
         params: {}
 
-Editing in the browser
-^^^^^^^^^^^^^^^^^^^^^^
+Applying your edits
+^^^^^^^^^^^^^^^^^^^
 
-The GUI is the recommended way to make these edits, because it validates and previews as you type:
+.. tab-set::
 
-#. Edit the spec directly in the **YAML editor** panel.
-#. Click **Clear cache and render** to update the visualization of the environment graph.
-#. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
-#. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
+   .. tab-item:: Edit in the browser (GUI)
+      :selected:
 
-Once you are satisfied with the spec, you can also
+      The GUI is the recommended way to make these edits, because it validates and previews as you type:
 
-See :doc:`../gui_runner` for the full UI walkthrough.
+      #. Edit the spec directly in the **YAML editor** panel.
+      #. Click **Clear cache and render** to update the visualization of the environment graph.
+      #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
+      #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-Editing outside the GUI
-^^^^^^^^^^^^^^^^^^^^^^^
+      See :doc:`../gui_runner` for the full UI walkthrough.
 
-The YAML written by the CLI runner is locally stored so you can also edit it in
-any text editor and validate it by building and spawning a simulation environment:
+   .. tab-item:: Edit outside the GUI (text editor)
 
-.. code-block:: bash
+      The YAML written by the CLI runner is locally stored so you can also edit it in
+      any text editor and validate it by building and spawning a simulation environment:
 
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode build \
-      --viz kit \
-      --num_envs 1 \
-      --num_steps 100 \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/droid_banana_on_plate_maple_table.yaml
+      .. code-block:: bash
+
+         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+            --mode build \
+            --viz kit \
+            --num_envs 1 \
+            --num_steps 100 \
+            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+
+      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
+      A spec you generated yourself is written to
+      ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.
