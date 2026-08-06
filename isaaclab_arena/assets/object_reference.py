@@ -52,8 +52,16 @@ class ObjectReference(ObjectBase):
         return T_W_O
 
     def get_bounding_box_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
-        """Get the pose of the parent-frame-aligned bounding box."""
-        object_pose = self.get_object_pose(env, is_relative=is_relative)
+        """Get one parent-frame-aligned bounding-box pose per environment."""
+        unwrapped_env = env.unwrapped
+        object_pose = self.get_object_pose(unwrapped_env, is_relative=False)
+        if object_pose.shape[0] == 1:
+            # Static reference views hold the live source prim created before environment cloning.
+            object_pose = object_pose.expand(unwrapped_env.num_envs, -1).clone()
+            object_pose[:, :3] += unwrapped_env.scene.env_origins - unwrapped_env.scene.env_origins[:1]
+        if is_relative:
+            object_pose[:, :3] -= unwrapped_env.scene.env_origins
+
         relative_pose = self.initial_pose_relative_to_parent.to_tensor(device=object_pose.device).to(
             dtype=object_pose.dtype
         )

@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
@@ -60,6 +62,15 @@ def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedB
         min_point=bbox.min_point.expand(num_envs, 3),
         max_point=bbox.max_point.expand(num_envs, 3),
     )
+
+
+def get_spawned_bounding_box_per_env(asset: PlaceableAsset, env: ManagerBasedEnv) -> AxisAlignedBoundingBox:
+    """Return local bounds for the asset instance spawned in each live environment."""
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    if isinstance(asset, RigidObjectSet):
+        return asset.get_spawned_bounding_box_per_env(env)
+    return get_bounding_box_per_env(asset, env.unwrapped.num_envs)
 
 
 @dataclass(frozen=True)

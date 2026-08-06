@@ -16,7 +16,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
 
-from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
+from isaaclab_arena.relations.bounding_box_helpers import get_spawned_bounding_box_per_env
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 
@@ -115,8 +115,8 @@ def object_in_container(
     """
 
     unwrapped_env = get_env(env)
-    object_bounding_box = get_bounding_box_per_env(object_asset, unwrapped_env.num_envs).to(unwrapped_env.device)
-    container_bounding_box = get_bounding_box_per_env(container_asset, unwrapped_env.num_envs).to(unwrapped_env.device)
+    object_bounding_box = get_spawned_bounding_box_per_env(object_asset, unwrapped_env).to(unwrapped_env.device)
+    container_bounding_box = get_spawned_bounding_box_per_env(container_asset, unwrapped_env).to(unwrapped_env.device)
 
     object_bounding_box_pose_w = object_asset.get_bounding_box_pose(unwrapped_env, is_relative=False)
     container_bounding_box_pose_w = container_asset.get_bounding_box_pose(unwrapped_env, is_relative=False)

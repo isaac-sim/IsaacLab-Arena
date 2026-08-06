@@ -7,6 +7,7 @@ import torch
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
+from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.object import Object
@@ -148,6 +149,77 @@ class RigidObjectSet(Object):
         min_pts = torch.stack([bounding_boxes[idx].min_point[0] for idx in self.variant_indices_by_env], dim=0)
         max_pts = torch.stack([bounding_boxes[idx].max_point[0] for idx in self.variant_indices_by_env], dim=0)
         return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+
+    def get_spawned_bounding_box_per_env(self, env: ManagerBasedEnv) -> AxisAlignedBoundingBox:
+        """Return bounds for the object-set members actually spawned in each environment.
+
+        Args:
+            env: Live environment whose clone plan records the spawned variants.
+        """
+        unwrapped_env = env.unwrapped
+        num_envs = unwrapped_env.num_envs
+        if len(self.objects) == 1:
+            bounding_box = self.objects[0].get_bounding_box()
+            return AxisAlignedBoundingBox(
+                min_point=bounding_box.min_point.expand(num_envs, 3),
+                max_point=bounding_box.max_point.expand(num_envs, 3),
+            )
+
+        scene_object = unwrapped_env.scene[self.get_scene_key()]
+        spawn_cfg = scene_object.cfg.spawn
+        assert isinstance(
+            spawn_cfg, sim_utils.MultiUsdFileCfg
+        ), f"RigidObjectSet '{self.name}' must use MultiUsdFileCfg."
+        assert isinstance(spawn_cfg.usd_path, list), f"RigidObjectSet '{self.name}' must have multiple USD paths."
+        if len(spawn_cfg.usd_path) == 1:
+            spawned_usd_path = spawn_cfg.usd_path[0]
+            assert (
+                spawned_usd_path in self.member_usd_paths
+            ), f"Spawned USD '{spawned_usd_path}' is not a member of RigidObjectSet '{self.name}'."
+            bounding_box = self.objects[self.member_usd_paths.index(spawned_usd_path)].get_bounding_box()
+            return AxisAlignedBoundingBox(
+                min_point=bounding_box.min_point.expand(num_envs, 3),
+                max_point=bounding_box.max_point.expand(num_envs, 3),
+            )
+
+        clone_plan = unwrapped_env.scene.clone_plan
+        assert clone_plan is not None, "The scene has no clone plan."
+
+        object_destination_path = scene_object.cfg.prim_path.replace(
+            unwrapped_env.scene.env_regex_ns,
+            unwrapped_env.scene.env_fmt,
+        )
+        # Clone rows keep the same order as the configured MultiUsdFile paths.
+        object_variant_rows = [
+            row_index
+            for row_index, clone_destination in enumerate(clone_plan.destinations)
+            if clone_destination == object_destination_path
+        ]
+        assert len(object_variant_rows) == len(spawn_cfg.usd_path), (
+            f"RigidObjectSet '{self.name}' has {len(spawn_cfg.usd_path)} configured variants but"
+            f" {len(object_variant_rows)} matching clone-plan rows."
+        )
+
+        object_variant_mask = clone_plan.clone_mask[object_variant_rows]
+        assert torch.all(
+            object_variant_mask.sum(dim=0) == 1
+        ), f"Clone plan must select exactly one variant per environment for RigidObjectSet '{self.name}'."
+        configured_variant_indices_by_env = object_variant_mask.to(torch.int).argmax(dim=0).cpu().tolist()
+        member_index_by_configured_variant = []
+        for member_usd_path in spawn_cfg.usd_path:
+            assert (
+                member_usd_path in self.member_usd_paths
+            ), f"Spawned USD '{member_usd_path}' is not a member of RigidObjectSet '{self.name}'."
+            member_index_by_configured_variant.append(self.member_usd_paths.index(member_usd_path))
+
+        spawned_bounding_boxes = [
+            self.objects[member_index_by_configured_variant[index]].get_bounding_box()
+            for index in configured_variant_indices_by_env
+        ]
+        return AxisAlignedBoundingBox(
+            min_point=torch.cat([bounding_box.min_point for bounding_box in spawned_bounding_boxes]),
+            max_point=torch.cat([bounding_box.max_point for bounding_box in spawned_bounding_boxes]),
+        )
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We assume that by here, our USDs have been modified to be compatible with each other

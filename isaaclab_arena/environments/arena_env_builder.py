@@ -38,7 +38,6 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
-from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -213,15 +212,6 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        placement_seed = self.cfg.placement_seed
-        if placement_seed is None and self.arena_env.placer_params is not None:
-            placement_seed = self.arena_env.placer_params.placement_seed
-        assign_variants_for_envs(
-            list(self.arena_env.scene.assets.values()),
-            num_envs=self.cfg.num_envs,
-            placement_seed=placement_seed,
-        )
-
         # Solve relations before building scene config so positions are captured correctly.
         if self.cfg.solve_relations:
             self._solve_relations()
