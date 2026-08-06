@@ -1,0 +1,74 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_banana_to_bowl_kitchen_l_shape
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_l_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: corner_counter
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: corner_counter
+  params:
+    side: negative_y
+    distance_m: 0.15
+    tolerance_m: 0.15
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: banana
+  reference: corner_counter
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: corner_counter
+  params: {}
+task:
+  composition: atomic
+  description: pick up the banana from the corner counter and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: bowl
+      background_scene: kitchen
