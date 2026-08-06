@@ -16,55 +16,24 @@ This workflow covers collecting demonstrations for the G1 loco-manipulation task
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
    is required before starting the steps below.
 
-Step 1: Start the CloudXR Runtime
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Before starting teleoperation, configure the host firewall to allow CloudXR traffic. The required
+ports depend on the client type:
 
-#. On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
+.. code-block:: bash
 
-   .. code-block:: bash
+   sudo ufw allow 49100/tcp   # Signaling
+   sudo ufw allow 47998/udp   # Media stream
+   sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
-      sudo ufw allow 49100/tcp   # Signaling
-      sudo ufw allow 47998/udp   # Media stream
-      sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
-
-#. Start the CloudXR runtime from the Arena Docker container:
-
-   :docker_run_default:
-
-   .. code-block:: bash
-
-      python -m isaacteleop.cloudxr
-
-.. attention::
-
-   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
-   To accept the EULA, reply ``Yes`` when prompted with the below message:
-
-   .. code:: bash
-
-      NVIDIA CloudXR EULA must be accepted to run. View: https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
-
-      Accept NVIDIA CloudXR EULA? [y/N]: Yes
-
-
-Step 2: Start Arena Teleop
+Step 1: Start Arena Teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. In another terminal, start the Arena Docker container:
+#. Start the Arena Docker container:
 
    :docker_run_default:
 
-#. Run the following command to activate IsaacTeleop CloudXR environment settings:
-
-   .. code-block:: bash
-
-      source ~/.cloudxr/run/cloudxr.env
-
-   .. important::
-      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
-      and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
-
-#. Run Isaac Lab's teleop script with Arena's environment registration callback:
+#. Run Isaac Lab's teleop script with Arena's environment registration callback. The script
+   launches the CloudXR runtime automatically:
 
    .. code-block:: bash
 
@@ -72,7 +41,6 @@ Step 2: Start Arena Teleop
         --viz kit \
         --device cpu \
         --xr \
-        --no-auto_launch_cloudxr \
         --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
         --task galileo_g1_locomanip_pick_and_place \
         --arena_teleop_device openxr
@@ -87,7 +55,7 @@ Step 2: Start Arena Teleop
       Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
 
 
-Step 3: Connect from Meta Quest 3
+Step 2: Connect from Meta Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detail instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
@@ -122,16 +90,8 @@ For detail instructions please refer to `Connect an XR Device <https://isaac-sim
 
 Once you have verified the teleoperation pipeline, exit VR from the Quest 3 headset, and stop the Arena teleop app.
 
-Step 4: Record with Quest 3
+Step 3: Record with Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. note::
-
-   Run the following command to activate IsaacTeleop CloudXR environment settings again if you are starting the recording app from a different terminal.
-
-   .. code-block:: bash
-
-      source ~/.cloudxr/run/cloudxr.env
 
 #. Run the recording script from the Arena container:
 
@@ -145,7 +105,6 @@ Step 4: Record with Quest 3
         --viz kit \
         --device cpu \
         --xr \
-        --no-auto_launch_cloudxr \
         --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 2 \
@@ -155,7 +114,7 @@ Step 4: Record with Quest 3
 
 #. In the running application, start the session from the XR tab in the application window.
 
-#. Follow Step 3 to connect the Quest 3 headset again.
+#. Follow Step 2 to connect the Quest 3 headset again.
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
 
@@ -184,7 +143,7 @@ Step 4: Record with Quest 3
    #. Use the **right joystick** (up) to stand the robot back up.
    #. Use the control panel to **Reset**, then **Play** to start the next demo.
 
-Step 5: Replay Recorded Demos (Optional)
+Step 4: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To replay the recorded demos:
