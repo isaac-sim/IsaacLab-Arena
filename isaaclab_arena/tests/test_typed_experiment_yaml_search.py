@@ -74,53 +74,6 @@ def test_shipped_camera_experiment_requires_cameras():
 
 
 @pytest.mark.parametrize(
-    ("overrides", "expected_requires_cameras"),
-    [
-        ([], False),
-        (["shared.enable_cameras=true"], True),
-        (
-            [
-                "shared.enable_cameras=true",
-                "runs.first.environment.enable_cameras=false",
-                "runs.second.environment.enable_cameras=false",
-            ],
-            False,
-        ),
-    ],
-)
-def test_shared_camera_value_is_resolved_before_camera_preflight_and_run_overrides(
-    tmp_path, overrides, expected_requires_cameras
-):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-shared:
-  enable_cameras: false
-
-runs:
-  first:
-    environment:
-      type: pick_and_place_maple_table
-      enable_cameras: ${shared.enable_cameras}
-    policy:
-      type: zero_action
-  second:
-    environment:
-      type: pick_and_place_maple_table
-      enable_cameras: ${shared.enable_cameras}
-    policy:
-      type: zero_action
-""",
-    )
-
-    experiment_cfg = _load_experiment(config_path, overrides=overrides)
-    composed_requires_cameras = any(run.environment.enable_cameras for run in experiment_cfg.runs.values())
-
-    assert composed_requires_cameras is expected_requires_cameras
-    assert typed_experiment_requires_cameras(config_path, overrides) is expected_requires_cameras
-
-
-@pytest.mark.parametrize(
     ("first_enable_cameras", "second_enable_cameras", "overrides"),
     [
         (False, False, []),

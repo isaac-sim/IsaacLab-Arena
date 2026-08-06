@@ -28,7 +28,6 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEn
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 _SHARED_VALUE_REFERENCE_PATTERN = re.compile(r"\$\{shared\.([^{}]+)\}")
-_MISSING_SHARED_VALUE = object()
 
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
@@ -122,11 +121,8 @@ def partition_shared_experiment_overrides(
     Returns:
         Shared-value overrides followed by all remaining overrides, preserving order within each group.
     """
-    assert not root_prefix.startswith(".") and not root_prefix.endswith(
-        "."
-    ), "root_prefix must not start or end with a dot"
-    shared_override_prefix = f"{root_prefix}.shared." if root_prefix else "shared."
     root_override_prefix = f"{root_prefix}." if root_prefix else ""
+    shared_override_prefix = f"{root_override_prefix}shared."
     shared_overrides: list[str] = []
     remaining_overrides: list[str] = []
     for override in overrides:
@@ -151,11 +147,11 @@ def _expand_shared_value_references(value: Any, shared_values: Any) -> Any:
         return value
 
     shared_value_path = reference_match.group(1)
-    referenced_value = OmegaConf.select(shared_values, shared_value_path, default=_MISSING_SHARED_VALUE)
-    if referenced_value is _MISSING_SHARED_VALUE:
-        raise ValueError(f"Unknown shared value 'shared.{shared_value_path}'")
-    if OmegaConf.is_config(referenced_value):
-        referenced_value = OmegaConf.to_container(referenced_value, resolve=False)
+    referenced_value = shared_values
+    for key in shared_value_path.split("."):
+        if not isinstance(referenced_value, dict) or key not in referenced_value:
+            raise ValueError(f"Unknown shared value 'shared.{shared_value_path}'")
+        referenced_value = referenced_value[key]
     return deepcopy(referenced_value)
 
 
@@ -197,30 +193,24 @@ def load_experiment_run_definitions_from_yaml(
     assert raw_experiment_config.runs, "Experiment must define at least one Run"
 
     try:
-        raw_shared_values = (
-            OmegaConf.to_container(raw_experiment_config.shared, resolve=False)
-            if "shared" in raw_experiment_config
-            else {}
-        )
-        assert isinstance(raw_shared_values, dict)
-        shared_config = OmegaConf.create({"shared": raw_shared_values})
+        shared_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
         OmegaConf.set_struct(shared_config, True)
-        shared_config = OmegaConf.merge(shared_config, OmegaConf.from_dotlist(shared_overrides or []))
+        shared_config.merge_with_dotlist(shared_overrides or [])
+        shared_values = OmegaConf.to_container(shared_config.shared, resolve=False)
+        assert isinstance(shared_values, dict)
 
         runs: dict[str, dict[str, Any]] = {}
         for run_name, raw_run_config in raw_experiment_config.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
             _assert_run_name_is_hydra_compatible(run_name)
             assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-            unresolved_run_values = OmegaConf.to_container(raw_run_config, resolve=False)
-            assert isinstance(unresolved_run_values, dict)
-            assert (
-                "name" not in unresolved_run_values
-            ), f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
-            expanded_run_values = _expand_shared_value_references(unresolved_run_values, shared_config.shared)
-            assert isinstance(expanded_run_values, dict)
-            runs[run_name] = expanded_run_values
-    except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
+            run_values = OmegaConf.to_container(raw_run_config, resolve=False)
+            assert isinstance(run_values, dict)
+            assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
+            run_values = _expand_shared_value_references(run_values, shared_values)
+            assert isinstance(run_values, dict)
+            runs[run_name] = run_values
+    except (OmegaConfBaseException, TypeError, ValueError) as exc:
         raise ValueError(f"Could not resolve shared values in Arena Experiment '{yaml_path}': {exc}") from exc
     return runs
 
