@@ -227,8 +227,9 @@ def _test_every_cached_layout_holds_its_pile_across_draws(simulation_app) -> boo
 
     This does not prove rejection happened, since a pour where nothing spilled passes it too.
     test_pooled_layout_rejection pins how a pool treats rejected layouts and reports a starved
-    env, and test_clutter_validation pins the containment verdict. Neither covers the keep
-    closure that joins them, which is exercised only here and only when a pile does spill.
+    env, and test_clutter_validation pins the containment verdict. Neither covers the rejection
+    path through the keep closure that joins them, which this test reaches only if a pile
+    spills.
     """
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 

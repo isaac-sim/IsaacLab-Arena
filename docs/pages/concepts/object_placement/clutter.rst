@@ -114,10 +114,10 @@ other relations in ways worth knowing:
   so neither would describe a turned support's surface.
 - **Nothing may be related to a member, and a member may declare little.** A relation naming a
   member as its parent is refused, and a member may carry only ``cluttered_on`` and a single
-  ``RotateAroundSolution``. Members are held out of the solve, so anything else is discarded,
-  and the two cases failed differently: naming a member as a parent reached the solver and
-  raised a bare ``KeyError`` about a missing index, while a relation carried by a member was
-  dropped without a word.
+  ``RotateAroundSolution``. Members are held out of the solve, so nothing else can be honoured.
+  Without these guards the two cases failed differently: naming a member as a parent reached the
+  solver and raised a bare ``KeyError`` about a missing index, while a relation carried by a
+  member was dropped without a word.
 - **A support the layout does not place must declare a concrete Pose.** A ``PoseRange`` or
   ``PosePerEnv`` offers no single surface to pour onto. A solver-placed support may declare
   either, since its pose comes from the layout rather than the declaration.

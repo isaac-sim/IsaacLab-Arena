@@ -187,7 +187,7 @@ def support_pose_from_layout(
     # one keeps the pose it was declared with. Synthesising a yaw-only rotation here would also
     # hide a tilted support from the check that exists to reject it.
     #
-    # The rotation maps are sparse, so a support absent from both may still have been solved --
+    # The rotation maps are sparse, so a support absent from both may still have been solved
     # with identity yaw. Presence in layout.positions cannot tell the two apart either, because
     # an anchor is recorded there as well; asking that alone sends an anchor down the solved
     # path, where the marker rotation replaces the yaw it was declared with. Anchoring is the
