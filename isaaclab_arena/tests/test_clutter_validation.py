@@ -11,12 +11,7 @@ import math
 import torch
 
 from isaaclab_arena.relations.clutter_drop_poses import ClutterRegion
-from isaaclab_arena.relations.clutter_validation import (
-    ClutterSettleParams,
-    SettleTracker,
-    check_resting_poses,
-    quaternion_angle_deg,
-)
+from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker, check_resting_poses
 
 IDENTITY = (0.0, 0.0, 0.0, 1.0)
 REGION = ClutterRegion(min_x=-0.5, min_y=-0.5, max_x=0.5, max_y=0.5, floor_z=0.75)
@@ -77,23 +72,6 @@ def test_verdict_describes_offenders_by_name():
     description = verdict.describe(["mug", "can"])
     assert "fell off" in description and "mug" in description
     assert "fell through" in description and "can" in description
-
-
-def test_quaternion_angle_is_zero_for_identical_rotations():
-    angles = quaternion_angle_deg(_rotations(2), _rotations(2))
-    assert torch.allclose(angles, torch.zeros(2), atol=1e-4)
-
-
-def test_quaternion_angle_ignores_sign_convention():
-    first = _rotations(1)
-    negated = -_rotations(1)
-    # q and -q are the same rotation.
-    assert float(quaternion_angle_deg(first, negated).max()) < 1e-3
-
-
-def test_quaternion_angle_measures_yaw():
-    angles = quaternion_angle_deg(_rotations(1), _rotations(1, _yaw_quaternion(90.0)))
-    assert abs(float(angles.max()) - 90.0) < 1e-3
 
 
 def test_first_poll_is_never_settled():

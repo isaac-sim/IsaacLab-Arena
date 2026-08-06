@@ -18,6 +18,8 @@ from __future__ import annotations
 import torch
 from dataclasses import dataclass, field
 
+from isaaclab.utils.math import quat_error_magnitude
+
 from isaaclab_arena.relations.clutter_drop_poses import ClutterRegion
 
 
@@ -77,18 +79,6 @@ class ClutterRestVerdict:
         return "; ".join(parts) if parts else "all members at rest"
 
 
-def quaternion_angle_deg(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
-    """Return the angle in degrees between two batches of quaternions.
-
-    Args:
-        first: Quaternions, shape ``(N, 4)``.
-        second: Quaternions, shape ``(N, 4)``.
-    """
-    # A quaternion and its negation are the same rotation, so compare magnitudes.
-    dots = (first * second).sum(dim=-1).abs().clamp(max=1.0)
-    return torch.rad2deg(2.0 * torch.acos(dots))
-
-
 class SettleTracker:
     """Decides when a pile has stopped, from a sequence of pose snapshots.
 
@@ -136,7 +126,7 @@ class SettleTracker:
 
         previous_positions, previous_rotations = self._previous
         moved = float((positions - previous_positions).norm(dim=-1).max())
-        turned = float(quaternion_angle_deg(rotations, previous_rotations).max())
+        turned = float(torch.rad2deg(quat_error_magnitude(rotations, previous_rotations)).max())
         quiet = moved <= self._params.move_thresh_m and turned <= self._params.turn_thresh_deg
 
         self._quiet_windows = self._quiet_windows + 1 if quiet else 0
