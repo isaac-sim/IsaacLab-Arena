@@ -123,9 +123,14 @@ def test_rejects_batched_bounding_box():
 
 
 @pytest.mark.parametrize("sampling", [XySampling.UNIFORM, XySampling.GRID_CELLS])
-def test_rotated_footprint_stays_inside_region(sampling):
-    """The whole footprint must land inside the region, not merely the object origin."""
-    bboxes = [make_bbox(0.12, 0.04, 0.03) for _ in range(6)]
+@pytest.mark.parametrize("size_xy", [(0.12, 0.04), (0.16, 0.02)])
+def test_rotated_footprint_stays_inside_region(sampling, size_xy):
+    """The whole footprint must land inside the region, not merely the object origin.
+
+    The elongated case matters because yaw widens a long object's footprint far more than a
+    squat one's, so it is the shape most likely to be placed past an edge.
+    """
+    bboxes = [make_bbox(size_xy[0], size_xy[1], 0.03) for _ in range(6)]
     params = ClutterDropParams(xy_sampling=sampling)
     poses = compute_drop_poses(bboxes, REGION, params, generator=seeded(3))
 
@@ -321,21 +326,6 @@ def test_rotation_is_a_unit_yaw_quaternion():
         assert (x, y) == (0.0, 0.0), "clutter yaw must rotate about Z only"
 
 
-def test_yaw_widens_footprint_and_placement_accounts_for_it():
-    """A long object turned 45 degrees needs more room, and must still land inside."""
-    elongated = [make_bbox(0.16, 0.02, 0.02) for _ in range(4)]
-    poses = compute_drop_poses(elongated, REGION, generator=seeded(4))
-    for bbox, pose in zip(elongated, poses):
-        half_x, half_y = footprint_half_extents(bbox, pose.rotation_xyzw)
-        assert pose.position[0] - half_x >= REGION.min_x - 1e-6
-        assert pose.position[0] + half_x <= REGION.max_x + 1e-6
-        assert pose.position[1] - half_y >= REGION.min_y - 1e-6
-        assert pose.position[1] + half_y <= REGION.max_y + 1e-6
-
-
-# ------------------------------------------------------------------------ region
-
-
 def test_region_rejects_inverted_bounds():
     with pytest.raises(AssertionError):
         ClutterRegion(min_x=0.2, min_y=-0.1, max_x=-0.2, max_y=0.1, floor_z=0.0)
@@ -350,44 +340,6 @@ def test_region_scaled_keeps_centre_and_floor():
 
 
 # ------------------------------------------------------- off-centre bounding boxes
-
-
-def test_off_centre_footprint_stays_inside_the_region():
-    # Origin at one corner of the box, the shape a USD pivot commonly takes.
-    bboxes = [make_bbox(0.06, 0.06, 0.04, origin_offset_x=0.03, origin_offset_y=0.03) for _ in range(6)]
-    poses = compute_drop_poses(bboxes, REGION, generator=seeded())
-    assert_footprints_inside(bboxes, poses, REGION)
-
-
-def test_off_centre_footprint_does_not_interpenetrate():
-    bboxes = [
-        make_bbox(0.05, 0.05, 0.04, origin_offset_x=0.025, origin_offset_y=-0.025),
-        make_bbox(0.06, 0.04, 0.03, origin_offset_x=-0.03),
-        make_bbox(0.04, 0.06, 0.05, origin_offset_y=0.03),
-        make_bbox(0.05, 0.05, 0.04),
-    ]
-    for seed in range(5):
-        poses = compute_drop_poses(bboxes, REGION, generator=seeded(seed))
-        assert_no_penetration(bboxes, poses)
-        assert_footprints_inside(bboxes, poses, REGION)
-
-
-def test_strongly_offset_origin_is_still_contained_without_yaw():
-    # A box lying entirely on the +X side of its origin has nothing centred about it.
-    params = ClutterDropParams()
-    bboxes = [make_bbox(0.08, 0.04, 0.03, origin_offset_x=0.04) for _ in range(4)]
-    poses = compute_drop_poses(bboxes, REGION, params, generator=seeded())
-    assert_footprints_inside(bboxes, poses, REGION)
-    assert_no_penetration(bboxes, poses)
-
-
-def test_off_centre_boxes_are_contained_under_both_samplers():
-    bboxes = [make_bbox(0.05, 0.05, 0.03, origin_offset_x=0.025, origin_offset_y=0.025) for _ in range(8)]
-    for sampling in (XySampling.GRID_CELLS, XySampling.UNIFORM):
-        params = ClutterDropParams(xy_sampling=sampling)
-        poses = compute_drop_poses(bboxes, REGION, params, generator=seeded(3))
-        assert_footprints_inside(bboxes, poses, REGION)
-        assert_no_penetration(bboxes, poses)
 
 
 def test_flattest_first_ranks_by_height_after_the_authored_rotation():
@@ -418,3 +370,25 @@ def test_flattest_first_ranks_by_height_after_the_authored_rotation():
 
     # The block is now the flatter of the two, so it must be released first.
     assert poses[1].drop_index < poses[0].drop_index, "pitched plate was ranked by its local thickness"
+
+
+@pytest.mark.parametrize("sampling", [XySampling.GRID_CELLS, XySampling.UNIFORM])
+@pytest.mark.parametrize(
+    "offsets",
+    [
+        # A USD pivot sits wherever the asset author put it, so an off-centre box is the
+        # normal case: at a corner, on one side only, mixed across a group, or centred.
+        [(0.03, 0.03)] * 6,
+        [(0.04, 0.0)] * 6,
+        [(0.025, -0.025), (-0.03, 0.0), (0.0, 0.03), (0.0, 0.0)],
+        [(0.0, 0.0)] * 6,
+    ],
+)
+def test_off_centre_origins_stay_contained_and_apart(sampling, offsets):
+    """Placement must follow the footprint, not the origin, whatever the pivot offset."""
+    bboxes = [make_bbox(0.05, 0.05, 0.03, origin_offset_x=dx, origin_offset_y=dy) for dx, dy in offsets]
+    params = ClutterDropParams(xy_sampling=sampling)
+    for seed in range(3):
+        poses = compute_drop_poses(bboxes, REGION, params, generator=seeded(seed))
+        assert_footprints_inside(bboxes, poses, REGION)
+        assert_no_penetration(bboxes, poses)

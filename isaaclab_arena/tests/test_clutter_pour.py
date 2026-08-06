@@ -404,22 +404,6 @@ def test_support_pose_that_stands_for_several_is_rejected():
             support_pose_from_layout(support, _Layout())
 
 
-def test_solved_support_pose_is_used_without_consulting_the_declaration():
-    """A layout that places the support outright never reads its declaration, range or not."""
-    from isaaclab_arena.relations.clutter_pour import support_pose_from_layout
-    from isaaclab_arena.utils.pose import PoseRange
-
-    support = _Asset("table")
-    support._pose = PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0))
-    layout = _Layout()
-    layout.positions[support] = (0.5, 0.5, 0.0)
-    layout.rotations[support] = (0.0, 0.0, 0.0, 1.0)
-
-    position, rotation = support_pose_from_layout(support, layout)
-    assert position == (0.5, 0.5, 0.0)
-    assert rotation == (0.0, 0.0, 0.0, 1.0)
-
-
 def test_quarter_turned_support_is_accepted_by_the_pour():
     import math
 
@@ -435,7 +419,8 @@ def test_quarter_turned_support_is_accepted_by_the_pour():
     assert (region.max_x - region.min_x) == pytest.approx(0.6)
 
 
-def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
+@pytest.mark.parametrize("record_rotation", [False, True], ids=["sparse-identity", "explicit"])
+def test_solved_support_does_not_consult_its_declaration(record_rotation):
     """The rotation maps are sparse: a solved support whose yaw is identity appears in neither.
 
     Reading that absence as 'unsolved' would send an ordinary solved support to its declaration,
@@ -448,6 +433,8 @@ def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
     support._pose = PoseRange(position_xyz_min=(0.0, 0.0, 0.0), position_xyz_max=(1.0, 1.0, 0.0))
     layout = _Layout()
     layout.positions[support] = (0.5, 0.5, 0.0)
+    if record_rotation:
+        layout.rotations[support] = (0.0, 0.0, 0.0, 1.0)
 
     position, rotation = support_pose_from_layout(support, layout)
     assert position == (0.5, 0.5, 0.0)
