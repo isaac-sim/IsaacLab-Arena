@@ -27,6 +27,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview_panel import _group_camera_videos
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -36,11 +37,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     parse_sim_preview_params,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
-    ENV_SPACING_M,
-    NUM_ENVS,
-    NUM_STEPS,
-)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import NUM_ENVS, NUM_STEPS
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     build_asset_cards,
     object_set_member_key,
@@ -56,6 +53,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+    resolve_background_preview,
     resolve_background_prim_tree,
 )
 
@@ -87,11 +85,23 @@ class TestSimPreviewParams:
             parse_sim_preview_params({})
 
     def test_parse_sim_preview_params_custom(self):
-        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
+        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3}) == (8, 3)
 
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
-            parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
+            parse_sim_preview_params({"num_envs": 0, "num_steps": 10})
+
+    def test_groups_camera_videos_by_camera_and_env(self):
+        videos = [
+            {"camera_name": "wrist", "env_id": 1, "video": b"wrist-1"},
+            {"camera_name": "front", "env_id": 0, "video": b"front-0"},
+            {"camera_name": "wrist", "env_id": 0, "video": b"wrist-0"},
+        ]
+
+        assert _group_camera_videos(videos) == {
+            "front": {0: b"front-0"},
+            "wrist": {0: b"wrist-0", 1: b"wrist-1"},
+        }
 
 
 class TestBuildAssetCards:
@@ -186,6 +196,24 @@ class TestBackgroundPrimTree:
         prim_tree = resolve_background_prim_tree(spec)
         assert any(record.relative_path == "fridge_main_group" for record in prim_tree)
 
+    def test_resolve_background_preview_from_invalid_spec_with_valid_background(self, monkeypatch):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict, kitchen_prim_tree
+
+        spec_dict = kitchen_pass1_dict()
+        spec_dict["relations"] = [{"bad": "relation"}]
+        broken_yaml = yaml.safe_dump(spec_dict, sort_keys=False)
+        monkeypatch.setattr(
+            "isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path",
+            lambda self, *_args, **_kwargs: "/tmp/scene.usd",
+        )
+        monkeypatch.setattr(
+            "isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree",
+            lambda *_args, **_kwargs: kitchen_prim_tree(),
+        )
+        preview = resolve_background_preview(broken_yaml)
+        assert preview.usd_path == "/tmp/scene.usd"
+        assert any(record.relative_path == "fridge_main_group" for record in preview.prim_tree)
+
 
 class TestValidateYamlText:
     @pytest.mark.parametrize("text", ["", "   \n  "], ids=["empty", "whitespace"])
@@ -260,7 +288,6 @@ class TestInitializeState:
         assert session_state["editor_version"] == 0
         assert session_state["sim_preview_num_envs"] == NUM_ENVS
         assert session_state["sim_preview_num_steps"] == NUM_STEPS
-        assert session_state["sim_preview_env_spacing"] == ENV_SPACING_M
 
     def test_loads_yaml_from_disk(self, session_state, valid_spec_yaml: str, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -526,17 +553,17 @@ class TestSimAppSimPreview:
             response = client.run_sim_preview(
                 yaml_text,
                 num_envs=1,
-                num_steps=0,
-                env_spacing=1.5,
+                num_steps=1,
             )
             assert response["ok"] is True
 
-            first_frame = Path(response["first_frame"])
-            last_frame = Path(response["last_frame"])
-            assert first_frame.is_file() and first_frame.stat().st_size > 0
-            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            viewport_video = Path(response["viewport_video"])
+            assert viewport_video.is_file() and viewport_video.stat().st_size > 0
+            assert response["camera_videos"]
+            assert all(Path(video["path"]).is_file() for video in response["camera_videos"])
             assert response["num_envs"] == 1
-            assert response["num_steps"] == 0
+            assert response["num_steps"] == 1
+            assert response["env_spacing"] > 0.5
 
             client.shutdown()
         finally:

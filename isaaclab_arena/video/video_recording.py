@@ -29,6 +29,9 @@ class VideoRecordingCfg:
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
+    flush_partial_camera_videos: bool = False
+    """Write partial camera episodes when the recorder closes."""
+
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
@@ -102,6 +105,7 @@ def wrap_env_for_video(
             env,
             video_folder=video_cfg.video_base_dir,
             name_prefix=video_cfg.camera_name_prefix,
+            flush_partial_on_close=video_cfg.flush_partial_camera_videos,
         )
         print(f"Recording per-episode per-camera videos to: {video_cfg.video_base_dir}")
 

@@ -145,7 +145,8 @@ def _handle_render_spec(
         return {"ok": False, "error": f"spec parse failed: {exc}", "traceback": traceback.format_exc()}
 
     try:
-        paths, aabb_dimensions_m = render_fn(app, spec)
+        background_panorama = bool(req.get("background_panorama", False))
+        paths, aabb_dimensions_m = render_fn(app, spec, background_panorama=background_panorama)
     except Exception as exc:
         return {"ok": False, "error": f"render failed: {exc}", "traceback": traceback.format_exc()}
 
@@ -168,7 +169,7 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": "run_sim_preview requires string 'yaml_text'"}
 
     try:
-        num_envs, num_steps, env_spacing = parse_sim_preview_params(req)
+        num_envs, num_steps = parse_sim_preview_params(req)
     except (TypeError, ValueError, AssertionError) as exc:
         return {"ok": False, "error": f"invalid sim preview params: {exc}"}
 
@@ -178,7 +179,6 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
             yaml_text,
             num_envs=num_envs,
             num_steps=num_steps,
-            env_spacing=env_spacing,
         )
     except Exception as exc:
         return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}

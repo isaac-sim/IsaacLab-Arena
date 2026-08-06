@@ -10,16 +10,26 @@ import streamlit as st
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import run_sim_preview_pipeline
 
+_CAMERA_VIDEO_WIDTH_PX = 250
+
+
+def _group_camera_videos(camera_videos: list[dict]) -> dict[str, dict[int, bytes]]:
+    """Group recorded camera videos by camera name and environment."""
+    grouped: dict[str, dict[int, bytes]] = {}
+    for video in camera_videos:
+        grouped.setdefault(str(video["camera_name"]), {})[int(video["env_id"])] = video["video"]
+    return grouped
+
 
 def render_sim_preview_panel(validation: SpecParseResult) -> None:
-    """Sim-preview controls and viewport frame display in the right column."""
+    """Render full-width sim-preview controls and recorded videos."""
     st.subheader("Sim preview")
     st.caption(
-        "Runs to_arena_env → relation solver, then zero-action steps. "
-        "Viewport captures use a world-frame overview of the full env grid."
+        "Runs a zero-action policy with viewport and embodiment-camera recording. "
+        "Environment spacing is the background's largest XY dimension plus 0.5 m."
     )
 
-    preview_cols = st.columns(3)
+    preview_cols = st.columns(2)
     with preview_cols[0]:
         num_envs = st.number_input(
             "Parallel envs",
@@ -32,21 +42,11 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
     with preview_cols[1]:
         num_steps = st.number_input(
             "Zero-action steps",
-            min_value=0,
+            min_value=1,
             max_value=1000,
             step=1,
             key="sim_preview_num_steps",
-            help="Number of zero-action policy steps after reset before the second capture.",
-        )
-    with preview_cols[2]:
-        env_spacing = st.number_input(
-            "Env spacing (m)",
-            min_value=0.1,
-            max_value=50.0,
-            step=0.1,
-            format="%.1f",
-            key="sim_preview_env_spacing",
-            help="Spacing between cloned environments in the preview grid.",
+            help="Number of zero-action policy steps to record.",
         )
 
     if st.button(
@@ -56,15 +56,12 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         disabled=not validation.is_valid,
         help="Requires valid YAML and a healthy SimApp. This may take several minutes.",
     ):
-        with st.spinner(
-            f"Building env, solving relations, and rolling out {num_steps} steps ({num_envs} envs @ {env_spacing} m)…"
-        ):
+        with st.spinner(f"Building env, solving relations, and recording {num_steps} steps ({num_envs} envs)…"):
             ok, message = run_sim_preview_pipeline(
                 st.session_state["edited_text"],
                 validation=validation,
                 num_envs=int(num_envs),
                 num_steps=int(num_steps),
-                env_spacing=float(env_spacing),
             )
         if ok:
             st.success(message, icon="✅")
@@ -72,15 +69,47 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         else:
             st.error(f"Sim preview failed\n\n```\n{message}\n```", icon="🛑")
 
-    first_frame = st.session_state.get("sim_preview_first")
-    last_frame = st.session_state.get("sim_preview_last")
+    viewport_video = st.session_state.get("sim_preview_viewport_video")
+    camera_videos = st.session_state.get("sim_preview_camera_videos") or []
     run_params = st.session_state.get("sim_preview_run_params") or {}
-    displayed_steps = int(run_params.get("num_steps", num_steps))
-    if first_frame and last_frame:
-        frame_cols = st.columns(2)
-        with frame_cols[0]:
-            st.caption("Viewport — frame 1 (after reset)")
-            st.image(first_frame, width="stretch")
-        with frame_cols[1]:
-            st.caption(f"Viewport — frame 2 (after {displayed_steps} zero-action steps)")
-            st.image(last_frame, width="stretch")
+    if viewport_video:
+        st.caption(
+            f"Viewport — {run_params.get('num_steps', num_steps)} steps, "
+            f"{run_params.get('env_spacing', '?')} m auto spacing"
+        )
+        st.video(viewport_video)
+
+    if camera_videos:
+        st.caption("Embodiment cameras (per environment)")
+        st.html(f"""
+            <style>
+            div[class*="st-key-sim-preview-camera-row-"] {{
+                display: flex;
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                align-items: flex-start;
+                padding-bottom: 0.5rem;
+            }}
+            div[class*="st-key-sim-preview-camera-row-"] > div {{
+                flex: 0 0 {_CAMERA_VIDEO_WIDTH_PX}px !important;
+                min-width: {_CAMERA_VIDEO_WIDTH_PX}px !important;
+            }}
+            </style>
+            """)
+        videos_by_camera = _group_camera_videos(camera_videos)
+        recorded_num_envs = int(run_params.get("num_envs", 0))
+        for row_index, (camera_name, videos_by_env) in enumerate(sorted(videos_by_camera.items())):
+            st.markdown(f"**{camera_name}**")
+            with st.container(
+                key=f"sim-preview-camera-row-{row_index}",
+                horizontal=True,
+                gap="small",
+            ):
+                for env_id in range(recorded_num_envs):
+                    with st.container(width=_CAMERA_VIDEO_WIDTH_PX, border=True):
+                        st.caption(f"Env {env_id}")
+                        video = videos_by_env.get(env_id)
+                        if video is None:
+                            st.caption("No recording")
+                        else:
+                            st.video(video, width="stretch")
