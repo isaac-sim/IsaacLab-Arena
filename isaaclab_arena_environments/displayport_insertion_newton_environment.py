@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
-_DEFAULT_ASSET_DIRECTORY = Path(__file__).resolve().parent / "displayport_connector_env_assets"
+_DEFAULT_ASSET_DIRECTORY = Path(__file__).resolve().parent / "displayport_insertion_newton_assets"
 _PLUG_USD = "display_port_plug_newton_sdf.usda"
 _SOCKET_USD = "display_port_socket_newton_sdf.usda"
 
