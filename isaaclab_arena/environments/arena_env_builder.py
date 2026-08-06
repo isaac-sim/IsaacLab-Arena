@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+import os
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -51,6 +53,111 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
+def _parse_viewer_vec(env_var_name: str, default: str | None = None) -> tuple[float, float, float]:
+    """Parse a comma-separated "x,y,z" environment variable into a float triple."""
+    raw = os.environ.get(env_var_name, default)
+    assert raw is not None, f"{env_var_name} is not set"
+    parts = raw.split(",")
+    assert len(parts) == 3, f"{env_var_name} must be 'x,y,z', got {raw!r}"
+    return tuple(float(part) for part in parts)
+
+
+# HACK(alexmillane, 2026-08-05): Temporary override for recording videos with a pinned viewer
+# camera. Remove once we have a proper way to configure the viewport from the CLI.
+def viewer_cfg_override_from_env() -> ViewerCfg | None:
+    """Build a viewer config from ARENA_VIEWER_* environment variables, or None if unset.
+
+    Set ARENA_VIEWER_EYE to enable the override, e.g.::
+
+        ARENA_VIEWER_EYE=2.5,-3.0,1.8 ARENA_VIEWER_LOOKAT=0,0,0.9 <run command> --record_viewport_video
+
+    ARENA_VIEWER_LOOKAT (default "0,0,0"), ARENA_VIEWER_ORIGIN_TYPE (default "world") and
+    ARENA_VIEWER_RESOLUTION (default "1920,1080") are optional.
+    """
+    if "ARENA_VIEWER_EYE" not in os.environ:
+        return None
+
+    origin_type = os.environ.get("ARENA_VIEWER_ORIGIN_TYPE", "world")
+    assert origin_type in ("world", "env", "asset_root", "asset_body"), f"Bad origin type: {origin_type}"
+
+    resolution = os.environ.get("ARENA_VIEWER_RESOLUTION", "1920,1080").split(",")
+    assert len(resolution) == 2, f"ARENA_VIEWER_RESOLUTION must be 'width,height', got {resolution!r}"
+
+    viewer_cfg = ViewerCfg(
+        eye=_parse_viewer_vec("ARENA_VIEWER_EYE"),
+        lookat=_parse_viewer_vec("ARENA_VIEWER_LOOKAT", default="0,0,0"),
+        origin_type=origin_type,
+        resolution=(int(resolution[0]), int(resolution[1])),
+    )
+    print(f"[arena] ARENA_VIEWER_* override active: {viewer_cfg}")
+    return viewer_cfg
+
+
+# HACK(alexmillane, 2026-08-05): Companion to viewer_cfg_override_from_env for --record_viewport_video.
+def apply_viewer_override_to_video_recorder(env) -> None:
+    """Point the ``--record_viewport_video`` capture camera at the ARENA_VIEWER_* override.
+
+    Isaac Lab seeds the recording camera from ``cfg.viewer``, but when a Kit visualizer is active
+    (``--viz kit``) ``VideoRecorder.__init__`` overwrites it with the *visualizer* config's
+    eye/lookat, which default to (4, -4, 3) looking at the origin. The Kit capture applies that
+    pose to the shared ``/OmniverseKit_Persp`` prim on its first frame, so both the recorded video
+    and the on-screen viewport jump away from the override. The capture reads its config lazily on
+    that first frame, so overwriting it here (after gym.make, before any render) wins.
+    """
+    viewer_cfg = viewer_cfg_override_from_env()
+    if viewer_cfg is None:
+        return
+
+    capture = getattr(getattr(env.unwrapped, "video_recorder", None), "_capture", None)
+    if capture is None:
+        return
+
+    capture.cfg.eye = viewer_cfg.eye
+    capture.cfg.lookat = viewer_cfg.lookat
+    capture.cfg.window_width, capture.cfg.window_height = viewer_cfg.resolution
+    print(f"[arena] ARENA_VIEWER_* override applied to the video recorder camera: {capture.cfg}")
+
+
+# HACK(alexmillane, 2026-08-06): Temporary short episodes for recording object-placement variety.
+def apply_reset_period_override_from_env(env_cfg) -> None:
+    """Force a time-out reset every ARENA_RESET_STEPS environment steps, if that variable is set.
+
+    Each reset draws a fresh layout from the placement pool, so a short period makes the automatic
+    object placement visible in a recorded video::
+
+        ARENA_RESET_STEPS=60 <run command> --num_steps 600 --record_viewport_video
+
+    Mirrors the per-environment pattern in gr1_table_multi_object_no_collision_environment: set the
+    episode length and add the time_out termination term that acts on it.
+    """
+    raw = os.environ.get("ARENA_RESET_STEPS", "")
+    if not raw:
+        return
+
+    import isaaclab.envs.mdp as mdp_isaac_lab
+    from isaaclab.managers import TerminationTermCfg
+
+    reset_steps = int(raw)
+    assert reset_steps > 0, f"ARENA_RESET_STEPS must be positive, got {reset_steps}"
+
+    # One environment step advances sim.dt * decimation seconds.
+    step_dt = env_cfg.sim.dt * env_cfg.decimation
+    env_cfg.episode_length_s = reset_steps * step_dt
+    env_cfg.terminations.time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
+    print(f"[arena] ARENA_RESET_STEPS={reset_steps}: resetting every {env_cfg.episode_length_s:.3f}s")
+
+
+# HACK(alexmillane, 2026-08-06): Temporary robot-free scene for recording beauty shots.
+def drop_embodiment_from_env() -> bool:
+    """Whether ARENA_NO_ROBOT asks for the embodiment to be left out of the scene.
+
+    Set ARENA_NO_ROBOT=1 to build the scene without the robot, e.g.::
+
+        ARENA_NO_ROBOT=1 <run command> --policy_type zero_action --record_viewport_video
+    """
+    return os.environ.get("ARENA_NO_ROBOT", "") not in ("", "0", "false", "False")
+
+
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
@@ -60,6 +167,12 @@ class ArenaEnvBuilder:
         cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
     ):
+        # HACK: drop the robot before anything reads it — relation solving, variations and
+        # config composition all branch on `arena_env.embodiment is None`, and the composer
+        # already substitutes NoEmbodiment() for it.
+        if drop_embodiment_from_env() and arena_env.embodiment is not None:
+            print(f"[arena] ARENA_NO_ROBOT set: dropping embodiment '{arena_env.embodiment.name}' from the scene")
+            arena_env.embodiment = None
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
@@ -324,7 +437,7 @@ class ArenaEnvBuilder:
 
         episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
 
-        viewer_cfg = task.get_viewer_cfg()
+        viewer_cfg = viewer_cfg_override_from_env() or task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
 
@@ -392,6 +505,14 @@ class ArenaEnvBuilder:
         # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+
+        # HACK(alexmillane, 2026-08-05): Re-apply so the ARENA_VIEWER_* override also beats
+        # environments whose callback sets its own viewer (e.g. pick_and_place_maple_table).
+        env_cfg.viewer = viewer_cfg_override_from_env() or env_cfg.viewer
+
+        # HACK(alexmillane, 2026-08-06): Applied after the callback so it also overrides an
+        # environment that sets its own episode length.
+        apply_reset_period_override_from_env(env_cfg)
 
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
@@ -515,4 +636,5 @@ class ArenaEnvBuilder:
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
+        apply_viewer_override_to_video_recorder(env)
         return env, cfg

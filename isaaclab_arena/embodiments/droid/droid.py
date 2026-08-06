@@ -57,7 +57,7 @@ _DROID_STAND_PRIM = StandPrimSpec(
     ref_prim_path="/World/franka_table",
     payload_child_name="franka_table",
     footprint_translate_xyz=(-0.05, 0.0, 0.0),
-    footprint_scale_xy=(1.2, 1.2),
+    footprint_scale_xy=(0.5, 1.2),
     stand_default_height=1.35,
 )
 _DROID_JOINT_NAMES = (
