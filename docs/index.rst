@@ -11,7 +11,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 | **Modular Environments**
 | Compose environments from reusable parts.
 
-.. figure:: images/variation_axis.png
+.. figure:: images/variation_axis_web.webp
    :width: 80%
    :align: center
 
@@ -21,23 +21,68 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 .. container:: image-gallery gallery-3col
 
-   .. image:: ./images/teaser_page/object_swapping/alphabet_soup_can.gif
+   .. video:: ./images/teaser_page/object_swapping/alphabet_soup_can_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/lemon.gif
+   .. video:: ./images/teaser_page/object_swapping/lemon_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/mug.gif
+   .. video:: ./images/teaser_page/object_swapping/mug_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/mustard_bottle.gif
+   .. video:: ./images/teaser_page/object_swapping/mustard_bottle_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/orange.gif
+   .. video:: ./images/teaser_page/object_swapping/orange_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/rubiks_cube_home_office.gif
+   .. video:: ./images/teaser_page/object_swapping/rubiks_cube_home_office_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/sugar_box.gif
+   .. video:: ./images/teaser_page/object_swapping/sugar_box_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/tomato_sauce_can.gif
+   .. video:: ./images/teaser_page/object_swapping/tomato_sauce_can_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/object_swapping/billiard_hall.gif
+   .. video:: ./images/teaser_page/object_swapping/billiard_hall_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
 
 | **Automatic Object Placement**
@@ -64,7 +109,12 @@ to simplify the creation of simulation environments, and for running them *fast*
    .. grid-item::
       :columns: 12 12 7 7
 
-      .. image:: ./images/teaser_page/automatic_object_placement/bagels_on_plate.gif
+      .. video:: ./images/teaser_page/automatic_object_placement/bagels_on_plate_web.mp4
+         :autoplay:
+         :loop:
+         :muted:
+         :playsinline:
+         :nocontrols:
          :width: 70%
 
 
@@ -73,13 +123,33 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 .. container:: image-gallery
 
-   .. image:: ./images/teaser_page/parallel_evaluation/big_pumpkin_in_bin.gif
+   .. video:: ./images/teaser_page/parallel_evaluation/big_pumpkin_in_bin_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/parallel_evaluation/mouse_on_keyboard.gif
+   .. video:: ./images/teaser_page/parallel_evaluation/mouse_on_keyboard_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/parallel_evaluation/small_pumpkin_in_bin.gif
+   .. video:: ./images/teaser_page/parallel_evaluation/small_pumpkin_in_bin_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/parallel_evaluation/mustard_in_left_bin.gif
+   .. video:: ./images/teaser_page/parallel_evaluation/mustard_in_left_bin_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
 
 | **Agentic environment creation**
@@ -87,33 +157,38 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 .. container:: image-gallery
 
-   .. image:: ./images/teaser_page/agentic_environment_creation/penisula_mustard_mesh.gif
+   .. video:: ./images/teaser_page/agentic_environment_creation/penisula_mustard_mesh_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/agentic_environment_creation/object-ref-replicator-counter.png
+   .. image:: ./images/teaser_page/agentic_environment_creation/object-ref-replicator-counter_web.webp
 
 
 | **Built-in Evaluation Environments**
-Test policies out of the box with a set of pre-defined environments.
+| Test policies out of the box with a set of pre-defined environments.
 
 .. container:: image-gallery gallery-3col
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/big_pumpkin_in_bin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/big_pumpkin_in_bin_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/bagels_on_plate.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/bagels_on_plate_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/canned_food_in_bin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/canned_food_in_bin_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/mouse_on_keyboard.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/mouse_on_keyboard_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/rubiks_cube_and_banana.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/rubiks_cube_and_banana_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/bbq_sauce_in_bin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/bbq_sauce_in_bin_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/small_pumpkin_in_bin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/small_pumpkin_in_bin_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/mustard_in_left_bin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/mustard_in_left_bin_web.webp
 
-   .. image:: ./images/teaser_page/built_in_evaluation_environments/clutter_pumpkin.png
+   .. image:: ./images/teaser_page/built_in_evaluation_environments/clutter_pumpkin_web.webp
 
 
 | **Environmental Variations**
@@ -121,13 +196,33 @@ Test policies out of the box with a set of pre-defined environments.
 
 .. container:: image-gallery
 
-   .. image:: ./images/teaser_page/variations/color.gif
+   .. video:: ./images/teaser_page/variations/color_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/variations/hdr.gif
+   .. video:: ./images/teaser_page/variations/hdr_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/variations/shadows.gif
+   .. video:: ./images/teaser_page/variations/shadows_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/teaser_page/variations/temperature.gif
+   .. video:: ./images/teaser_page/variations/temperature_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
 
 | **Multi-node Evaluation**
@@ -151,9 +246,19 @@ Test policies out of the box with a set of pre-defined environments.
 
 .. container:: image-gallery
 
-   .. image:: ./images/g1_galileo_arena_box_pnp_locomanip_trimmed.gif
+   .. video:: ./images/g1_galileo_arena_box_pnp_locomanip_trimmed_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
-   .. image:: ./images/gr1_sequential_static_manipulation_env.gif
+   .. video:: ./images/gr1_sequential_static_manipulation_env_web.mp4
+      :autoplay:
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
 
 
 License
