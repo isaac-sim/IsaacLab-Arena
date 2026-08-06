@@ -97,4 +97,4 @@ Next steps
 
 Continue to :doc:`running_a_real_policy/index` to replace the zero-action policy with a trained
 policy. To measure which variations are associated with success or failure, follow the
-:doc:`sensitivity-analysis workflow <../../example_workflows/sensitivity_analysis/index>`.
+:doc:`Analysis workflow <../../example_workflows/analysis/index>`.
