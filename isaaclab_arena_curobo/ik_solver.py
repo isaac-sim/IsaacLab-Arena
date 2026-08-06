@@ -28,8 +28,8 @@ class CuroboIKSolver:
 
     Constructs a cuRobo solver from an embodiment's registered cuRobo config on an explicit CUDA
     device, holds a bounding-box collision world, and answers per-pose IK feasibility via a single
-    batched solve. Feasibility is pose reachability (position/rotation convergence) only; the
-    collision-free check is not wired up yet (see ``solve_ik_feasibility``'s ``require_collision_free``).
+    batched solve. Feasibility is pose reachability (position/rotation convergence), optionally also
+    collision-freeness against that world (see ``solve_ik_feasibility``'s ``require_collision_free``).
     """
 
     # Note(xinjieyao, 2026-07-23): When validating params like EventTermCfg.params, Isaac Lab's configclass recursively
@@ -43,7 +43,8 @@ class CuroboIKSolver:
     #     tensor_args: The tensor arguments for the solver.
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
-    __slots__ = ("logger", "device", "tensor_args", "robot_cfg", "ik_solver")
+    #     hand_link_names: The robot's hand links, muted during a collision-free solve.
+    __slots__ = ("logger", "device", "tensor_args", "robot_cfg", "ik_solver", "hand_link_names")
 
     def __init__(
         self,
@@ -79,6 +80,7 @@ class CuroboIKSolver:
         collision_cache = collision_cache_size or {"obb": 150, "mesh": 150}
 
         self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
+        self.hand_link_names = list(curobo_cfg.hand_link_names)
         # Start with an empty collision world; update_world() fills it per layout.
         world_cfg = WorldConfig(cuboid=[])
 

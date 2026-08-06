@@ -1,0 +1,81 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_bowl_to_sink_kitchen_l_shape
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_l_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: sink
+  parent_id: kitchen
+  prim_path: Sink/BasinBottom
+  object_type: base
+  params: {}
+- id: sink_counter
+  parent_id: kitchen
+  prim_path: CapSurface_02
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: sink
+  params: {}
+- kind: is_anchor
+  subject: sink_counter
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: sink
+  params:
+    side: positive_x
+    distance_m: 0.15
+    tolerance_m: 0.15
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 3.14
+- kind: 'on'
+  subject: bowl
+  reference: sink_counter
+  params: {}
+- kind: next_to
+  subject: bowl
+  reference: sink
+  params:
+    side: negative_y
+    distance_m: 0.1
+task:
+  composition: atomic
+  description: pick up the bowl from the counter next to the sink and place it in the sink
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: bowl
+      destination_location: sink
+      background_scene: kitchen
