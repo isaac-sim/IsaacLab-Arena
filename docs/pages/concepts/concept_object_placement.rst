@@ -280,6 +280,7 @@ Parameters describing the pile, which every member must declare identically:
 - ``spread`` (default ``1.0``) — fraction of the support footprint to use, shrunk about
   its centre; must be in ``(0, 1]``. A pile is poured into one region, so members
   disagreeing on it is rejected.
+- ``drop_order`` (default ``as_listed``) — which members end up underneath; see below
 
 Parameters describing a single member, which may differ between them:
 
@@ -300,24 +301,27 @@ Only the yaw is sampled. Any other release orientation is authored, by giving th
 The drop planner refits the member's bounding box to that rotation, so a flipped object still
 starts with its true lowest point at ``clearance_m`` above the surface. What cannot be expressed
 is a *distribution* over orientations: every member carrying a marker is released at exactly that
-rotation, in every environment and on every reset, and only its yaw varies. "Half of them upside
-down" needs two groups, or two members declared separately.
+rotation, in every environment and on every reset, and only its yaw varies. The marker is per
+member, so half a pile can be marked upside down and half left alone; what cannot be expressed is
+sampling that split per layout.
 
 Resting orientations are another matter — the pile tumbles as it settles, so members come to rest
 at whatever roll and pitch physics gives them, which is why a layout records full quaternions
 rather than a yaw.
 
-``drop_order`` decides the sequence members are released in, which is how you choose what a
-pile lands on top of:
+``drop_order`` decides the sequence members are planned in, which is how you choose which of
+them end up underneath -- each member is stacked above whatever earlier ones its footprint
+overlaps:
 
-- ``as_listed`` (default) — declaration order, so declaring an object first puts it at the bottom
+- ``as_listed`` (default) — the order the members appear in the asset list, so listing an object
+  first puts it at the bottom
 - ``flattest_first`` — shortest first, so flat objects reach the surface before it gets lumpy
   and lie flat rather than coming to rest on an edge
 - ``shuffle`` — randomised per layout, so no one member sits at the bottom of every pile
 
 It is pile-wide, so every member of a group must declare the same value. And it decides the
-release order only: a pile landing on the first object can still shove it aside, so it is a
-strong influence rather than a guarantee.
+planned stack only: once physics runs, a pile landing on the first object can still shove it
+aside, so it is a strong influence rather than a guarantee.
 
 Not yet reachable from ``cluttered_on``, and worth knowing before designing around it:
 
@@ -335,13 +339,20 @@ other relations in ways worth knowing:
   box, so a procedurally spawned support without geometry cannot be used.
 - **A placement seed is required.** Clutter refuses to pour without one, since a pile that
   cannot be reproduced defeats the purpose of seeding a layout.
-- **Layouts must resolve on reset.** A pile is settled after the environment is built and its
+- **Layouts must resolve on reset.** A pile is settled after the environment is built (the
+  default; ``settle_clutter_on_build`` turns it off for callers that settle themselves) and its
   resting poses are written back into the pool each reset draws from. Static placement keeps
   no such pool, so the combination is rejected rather than spawning a pile in mid-air.
 - **Members never reach the solver or the build-time checks.** A pour assigns their poses,
   so any pose the optimiser gave them would be discarded; leaving them in would make them
   phantom obstacles that push the genuinely constrained objects around. They are therefore
-  held out of the solver and out of every build-time validator, including overlap.
+  held out of the solver and out of the generic build-time validators, including overlap. The
+  clutter-specific checks -- what a member may declare, whether the pile settled, whether it
+  stayed on its support -- do run.
+- **A pile that always spills is a configuration error.** Layouts are settled once and the ones
+  whose members left the support are discarded. An environment left with none fails at build
+  time rather than running episodes against a pile lying beside its support: reduce the members,
+  lower the group's ``spread``, or raise ``clutter_containment_margin_m``.
 - **The pour avoids what is already on the surface instead.** Objects the solver placed on
   the same support, and members of earlier groups, are treated as occupied footprints and
   clutter is released above them rather than into them. A settled pile is in contact by

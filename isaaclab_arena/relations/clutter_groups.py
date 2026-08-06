@@ -34,7 +34,7 @@ class ClutterGroup:
     """Group name shared by every member."""
 
     members: tuple[PlaceableAsset, ...]
-    """Members in declaration order, which is also the order they are dropped in."""
+    """Members in asset order, which ``drop_order`` may then permute for planning."""
 
     relation: ClutteredOn
     """The relation of the first member, carrying the pile's shared parameters."""
@@ -97,7 +97,7 @@ def assert_group_parameters_agree(group: ClutterGroup) -> None:
             assert relation.drop_order == shared.drop_order, (
                 f"Clutter group '{group.name}' on '{group.support.name}' has conflicting drop_order: "
                 f"'{member.name}' declares {relation.drop_order.value}, expected {shared.drop_order.value}. "
-                "A pile is released in one order, so its members must agree on which."
+                "A pile is planned in one order, so its members must agree on which."
             )
 
 
@@ -141,9 +141,11 @@ def assert_relations_do_not_target_clutter(objects: list[PlaceableAsset]) -> Non
 def support_is_provably_immovable(support: PlaceableAsset) -> bool:
     """Return whether physics can be shown never to move this asset.
 
-    True only for a support with no physics body at all, or a rigid body explicitly configured
-    kinematic. A rigid body that is merely marked ``IsAnchor`` does not qualify: the marker fixes
-    the asset for the relation solver, which is arithmetic, and says nothing about the simulation.
+    True only for a support whose spawner explicitly sets ``kinematic_enabled``. An absent
+    ``rigid_props`` is not evidence of no dynamics -- Arena's backgrounds are ``ObjectType.BASE``
+    yet spawn rigid bodies -- so absence is refused rather than read as immobility. ``IsAnchor``
+    does not qualify either: the marker fixes the asset for the relation solver, which is
+    arithmetic, and says nothing about the simulation.
     """
     from isaaclab.assets import ArticulationCfg
 
@@ -173,6 +175,6 @@ def assert_support_can_hold_a_pile(group: ClutterGroup) -> None:
     assert support_is_provably_immovable(group.support), (
         f"Clutter group '{group.name}' rests on '{group.support.name}', which physics can move. "
         "A pile is captured relative to where its support stood while settling, so a support that "
-        "shifts replays the pile against a surface that has moved out from under it. Use a static "
-        "support, or set rigid_props.kinematic_enabled=True on this one."
+        "shifts replays the pile against a surface that has moved out from under it. Set "
+        "rigid_props.kinematic_enabled=True on its spawner."
     )

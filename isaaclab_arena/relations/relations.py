@@ -317,9 +317,9 @@ class ClutteredOn(RelationBase):
             gap_m: Vertical gap left between an object and whatever it is dropped on top of.
             clearance_m: Height above the support surface at which the lowest layer starts.
             random_yaw: Whether to sample a yaw per object before dropping.
-            drop_order: Order members are released in, which decides what a pile lands on top
-                of. Declaration order by default; shuffling keeps one member off the bottom of
-                every layout.
+            drop_order: Order members are planned in, which decides which of them end up
+                underneath: each is stacked above whatever earlier members its footprint overlaps.
+                Asset order by default; shuffling keeps one member off the bottom of every layout.
         """
         assert 0.0 < spread <= 1.0, f"spread must be in (0, 1], got {spread}"
         assert gap_m >= 0.0, f"gap_m must be non-negative, got {gap_m}"

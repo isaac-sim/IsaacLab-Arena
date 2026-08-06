@@ -131,9 +131,18 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
         # Recycling rewinds past the cursor, so the layout construction already consumed comes
         # back and has to be judged with the rest.
-        kept, rejected = placement_pool.retain_layouts(keep, include_consumed=True)
-        if rejected:
-            print(f"[clutter] rejected {rejected} spilled layout(s); {kept} cached")
+        kept, rejected, starved = placement_pool.retain_layouts(keep, include_consumed=True)
+        # An env with nothing left has only spilled piles to draw, and would run every episode
+        # against objects lying beside the support rather than on it -- wrong data that looks
+        # like data. One layout in the whole pool staying put is a low bar to clear, so failing
+        # it means the pour cannot fit this pile on this support, not that physics was unlucky.
+        assert not starved, (
+            f"Every cached clutter layout spilled in env(s) {starved}. The pile does not fit the "
+            "support it is poured onto: use fewer or smaller members, raise clutter_containment_"
+            f"margin_m (currently {self.cfg.clutter_containment_margin_m}), or lower the group's "
+            "spread so members are released further from the edge."
+        )
+        print(f"[clutter] rejected {rejected} spilled layout(s); {kept} cached")
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:

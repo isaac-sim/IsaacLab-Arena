@@ -315,7 +315,7 @@ class PooledObjectPlacer:
         """
         self._recycle_layouts = bool(recycle)
 
-    def retain_layouts(self, keep, minimum: int = 1, *, include_consumed: bool = False) -> tuple[int, int]:
+    def retain_layouts(self, keep, minimum: int = 1, *, include_consumed: bool = False) -> tuple[int, int, list[int]]:
         """Drop layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
 
         Rejection sampling for outcomes that are only knowable after simulating, such as a
@@ -330,24 +330,28 @@ class PooledObjectPlacer:
                 otherwise gone and judging it would discard a queue position for no reason.
 
         Returns:
-            ``(kept, rejected)`` counts across every env.
+            ``(kept, rejected, starved)``: counts across every env, and the ids of envs that kept
+            their rejects because too few passed. A starved env is holding layouts the caller
+            judged unusable, which it has to know rather than infer from the counts.
         """
         assert include_consumed or not self._recycle_layouts, (
             "Recycling makes every stored layout reachable, so filtering only the unread suffix "
             "would leave a rejected layout to come back on the next rewind. Pass include_consumed."
         )
         kept = rejected = 0
+        starved: list[int] = []
         for env_id, pool in enumerate(self._env_pools):
             unread = list(pool.layouts) if include_consumed else pool.layouts[pool.cursor :]
             passing = [layout for layout in unread if keep(env_id, layout)]
             if len(passing) < minimum:
+                starved.append(env_id)
                 kept += len(unread)
                 continue
             rejected += len(unread) - len(passing)
             kept += len(passing)
             pool.layouts = passing
             pool.cursor = 0
-        return kept, rejected
+        return kept, rejected, starved
 
     @property
     def num_envs(self) -> int:

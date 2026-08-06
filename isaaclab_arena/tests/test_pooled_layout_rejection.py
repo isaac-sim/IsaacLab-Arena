@@ -34,7 +34,7 @@ def _tags(placer: PooledObjectPlacer, env_id: int) -> list[str]:
 
 def test_rejected_layouts_are_dropped():
     placer = _placer_with([_Layout("a"), _Layout("b", good=False), _Layout("c")])
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good)
 
     assert (kept, rejected) == (2, 1)
     assert _tags(placer, 0) == ["a", "c"]
@@ -42,16 +42,16 @@ def test_rejected_layouts_are_dropped():
 
 def test_every_layout_kept_when_all_pass():
     placer = _placer_with([_Layout("a"), _Layout("b")])
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good)
 
     assert (kept, rejected) == (2, 0)
     assert _tags(placer, 0) == ["a", "b"]
 
 
 def test_env_keeps_its_rejects_when_too_few_survive():
-    """An imperfect layout still beats an env having nothing to draw."""
+    """Emptying a pool is worse than reporting it: the env is named so the caller can refuse."""
     placer = _placer_with([_Layout("a", good=False), _Layout("b", good=False)])
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good)
 
     assert rejected == 0, "an env with no passing layout must not be emptied"
     assert kept == 2
@@ -63,12 +63,12 @@ def test_minimum_governs_whether_rejection_applies():
     placer = _placer_with([*passing, _Layout("bad", good=False)])
 
     # Two survivors clear a minimum of two, so the reject is dropped.
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, minimum=2)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good, minimum=2)
     assert (kept, rejected) == (2, 1)
 
     # The same queue against a minimum of three keeps everything instead.
     placer = _placer_with([*passing, _Layout("bad", good=False)])
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, minimum=3)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good, minimum=3)
     assert (kept, rejected) == (3, 0)
 
 
@@ -77,7 +77,7 @@ def test_each_env_is_filtered_independently():
         [_Layout("a0"), _Layout("b0", good=False)],
         [_Layout("a1"), _Layout("b1")],
     )
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good)
 
     assert (kept, rejected) == (3, 1)
     assert _tags(placer, 0) == ["a0"]
@@ -101,7 +101,7 @@ def test_consumed_layouts_are_not_reconsidered():
     placer = _placer_with([_Layout("used", good=False), _Layout("a"), _Layout("b", good=False)])
     placer._env_pools[0].next()
 
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good)
     assert (kept, rejected) == (1, 1)
     assert _tags(placer, 0) == ["a"]
 
@@ -158,7 +158,7 @@ def test_include_consumed_reconsiders_a_layout_behind_the_cursor():
     placer = _placer_with([_Layout("used", good=False), _Layout("a"), _Layout("b", good=False)])
     placer._env_pools[0].next()
 
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
     assert (kept, rejected) == (1, 2)
     assert _tags(placer, 0) == ["a"]
 
@@ -173,7 +173,7 @@ def test_reach_is_the_callers_to_declare_not_read_from_recycling():
     placer._env_pools[0].next()
     assert placer.recycle_layouts is False, "recycling is still off at the moment the env filters"
 
-    kept, rejected = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
+    kept, rejected, _ = placer.retain_layouts(lambda _env, layout: layout.good, include_consumed=True)
     assert (kept, rejected) == (1, 1)
     assert _tags(placer, 0) == ["a"]
 
@@ -239,3 +239,21 @@ def test_recycled_bulk_draw_refuses_a_request_larger_than_the_pool():
     # Refused before anything moved: the half-served round must not have advanced the cursor.
     assert placer._env_pools[0].cursor == 1
     assert [layout.tag for layout in placer.sample_without_replacement(1)] == ["b"]
+
+
+def test_starved_envs_are_named_not_merely_absent_from_the_counts():
+    """An env that kept its rejects must be reported, not inferred.
+
+    Falling below the minimum leaves the counts looking like a clean pass -- nothing rejected,
+    everything kept -- which is indistinguishable from every layout having passed.
+    """
+    placer = _placer_with(
+        [_Layout("a0"), _Layout("b0", good=False)],
+        [_Layout("a1", good=False), _Layout("b1", good=False)],
+    )
+    kept, rejected, starved = placer.retain_layouts(lambda _env, layout: layout.good)
+
+    assert starved == [1], "the env with no passing layout must be named"
+    assert (kept, rejected) == (3, 1)
+    # Env 1 keeps both rejects, so its queue is untouched.
+    assert _tags(placer, 1) == ["a1", "b1"]
