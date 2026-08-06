@@ -3,11 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Render an aggregated Experiment into the report's three levels of HTML pages.
-
-The overview holds no video at all, and a run page emits video slots that mount only once scrolled
-into view, so opening any single page stays cheap however large the Experiment is.
-"""
+"""Render an aggregated Experiment into static HTML report pages."""
 
 from __future__ import annotations
 
@@ -15,21 +11,26 @@ import html
 import pathlib
 import re
 import string
+from urllib.parse import quote
 
-from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.visualization.report_data import ExperimentSummary, JobSummary, RunExecutionReport, TaskSummary
+from isaaclab_arena.visualization.episode_results_files import REPORT_DIRNAME, DataIssue
+from isaaclab_arena.visualization.report_data import (
+    ExperimentSummary,
+    JobSummary,
+    ObjectiveFunnel,
+    RunExecutionReport,
+    TaskSummary,
+    is_completed_execution,
+    is_failed_execution,
+)
 
 _TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
 
 # Sub-directory holding the task and run pages, keeping them out of the results directory itself.
-PAGES_DIRNAME = "report"
+PAGES_DIRNAME = REPORT_DIRNAME
 
-# Number of steps in the sequential ramp the overview's success-rate cells are bucketed into.
 _NUM_RAMP_STEPS = 7
-
-# Highest ordinal step defined for funnel bars; deeper stages reuse the darkest step.
 _MAX_FUNNEL_STAGE_STEP = 2
-
 _UNSAFE_FILENAME_CHARACTERS = re.compile(r"[^A-Za-z0-9._-]+")
 
 _OUTCOME_GLYPHS = {"success": "&check;", "partial": "&#9680;", "fail": "&times;", "unknown": "&middot;"}
@@ -37,11 +38,7 @@ _OUTCOME_LABELS = {"success": "success", "partial": "partial", "fail": "no progr
 
 
 def unique_slugs(names: list[str]) -> dict[str, str]:
-    """Return a filesystem-safe, collision-free slug for each name.
-
-    Args:
-        names: Names to slugify, such as task or Run names.
-    """
+    """Return a filesystem-safe, collision-free slug for each name."""
     slugs: dict[str, str] = {}
     used: set[str] = set()
     for name in names:
@@ -54,6 +51,11 @@ def unique_slugs(names: list[str]) -> dict[str, str]:
         used.add(slug)
         slugs[name] = slug
     return slugs
+
+
+def episode_anchor(episode) -> str:
+    """Return the stable HTML anchor for one episode on its run page."""
+    return f"ep-{episode.env_index}-{episode.episode_index}"
 
 
 def _percent(fraction: float | None) -> str:
@@ -77,7 +79,7 @@ def _episode_outcome(episode) -> str:
 
 
 def _tile(label: str, value: str, sub: str = "") -> str:
-    """Render one headline figure, which needs no plot."""
+    """Render one headline figure."""
     sub_html = f'<div class="sub">{sub}</div>' if sub else ""
     return (
         f'<div class="tile"><div class="label">{html.escape(label)}</div>'
@@ -87,7 +89,7 @@ def _tile(label: str, value: str, sub: str = "") -> str:
 
 def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str:
     """Render a compact table of Runs whose processes failed."""
-    failed = [execution for execution in run_executions if execution.status is RunStatus.FAILED]
+    failed = [execution for execution in run_executions if is_failed_execution(execution)]
     if not failed:
         return ""
     rows = "\n".join(
@@ -103,8 +105,24 @@ def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str
     )
 
 
+def _render_issues(issues: list[DataIssue]) -> str:
+    """Render recoverable data issues found during scanning."""
+    if not issues:
+        return ""
+    rows = "\n".join(
+        f"<tr><th>{html.escape(issue.path)}</th><td>{html.escape(issue.message)}</td></tr>" for issue in issues[:200]
+    )
+    more = "" if len(issues) <= 200 else f'<p class="note">Showing 200 of {len(issues):,} issue(s).</p>'
+    return (
+        f"<section><h2>Data issues ({len(issues):,})</h2>"
+        '<p class="note">The report skipped malformed records and kept rendering usable artifacts.</p>'
+        "<table><thead><tr><th>path</th><th>issue</th></tr></thead>"
+        f"<tbody>\n{rows}\n</tbody></table>{more}</section>"
+    )
+
+
 def _render_ramp_legend() -> str:
-    """Render the sequential ramp's key, so the heatmap's direction is stated rather than guessed."""
+    """Render the success-rate ramp key."""
     swatches = "".join(f'<span class="swatch cell" data-rank="{rank}"></span>' for rank in range(_NUM_RAMP_STEPS))
     return f'<div class="ramp-legend"><span>0%</span>{swatches}<span>100%</span><span>success rate</span></div>'
 
@@ -112,25 +130,24 @@ def _render_ramp_legend() -> str:
 def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
     """Render the task x policy success-rate heatmap that opens the report."""
     header_cells = "".join(
-        f'<th class="num" data-sort="{html.escape(policy)}">{html.escape(policy or "run")}</th>'
-        for policy in summary.policies
+        f'<th class="num" data-sort-col="{index}">{html.escape(policy)}</th>'
+        for index, policy in enumerate(summary.policies)
     )
     rows = []
     for task in summary.tasks:
         cells = [
-            f'<th data-key="task" data-value="{html.escape(task.name)}">'
-            f'<a href="{html.escape(task_hrefs[task.name])}">{html.escape(task.name)}</a></th>'
+            f'<th data-sort-col="task" data-value="{html.escape(task.name)}">'
+            f'<a href="{_href(task_hrefs[task.name])}">{html.escape(task.name)}</a></th>'
         ]
-        for policy in summary.policies:
+        for index, policy in enumerate(summary.policies):
             job = task.job_for_policy(policy)
             rate = job.success_rate if job is not None else None
             if job is None or rate is None:
-                cells.append(f'<td class="cell missing" data-key="{html.escape(policy)}" data-value="">&mdash;</td>')
+                cells.append(f'<td class="cell missing" data-sort-col="{index}" data-value="">&mdash;</td>')
                 continue
             cells.append(
-                f'<td class="cell" data-rank="{_ramp_rank(rate)}" data-key="{html.escape(policy)}"'
-                f' data-value="{rate:.6f}">'
-                f'<a href="{html.escape(task_hrefs[task.name])}"'
+                f'<td class="cell" data-rank="{_ramp_rank(rate)}" data-sort-col="{index}" data-value="{rate:.6f}">'
+                f'<a href="{_href(task_hrefs[task.name])}"'
                 f' title="{html.escape(job.name)}: {job.num_successes}/{job.num_scored_episodes} episodes">'
                 f"{_percent(rate)}</a></td>"
             )
@@ -138,8 +155,7 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
 
     return (
         f"<section><h2>Success rate by task and policy</h2>{_render_ramp_legend()}"
-        '<table class="matrix"><thead><tr>'
-        '<th data-sort="task">task</th>'
+        '<table class="matrix"><thead><tr><th data-sort-col="task">task</th>'
         f"{header_cells}</tr></thead><tbody>\n"
         + "\n".join(rows)
         + "</tbody></table>"
@@ -149,9 +165,9 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
 
 
 def _render_ungrouped_job_list(summary: ExperimentSummary, job_hrefs: dict[str, str]) -> str:
-    """Render a flat list of Runs, used when no task and policy labels could be established."""
+    """Render a flat list of Runs when no task/policy labels are available."""
     rows = "\n".join(
-        f'<tr><th><a href="{html.escape(job_hrefs[job.name])}">{html.escape(job.name or "results")}</a></th>'
+        f'<tr><th><a href="{_href(job_hrefs[job.name])}">{html.escape(job.name or "results")}</a></th>'
         f'<td class="num">{job.num_episodes}</td>'
         f'<td class="num">{_percent(job.success_rate)}</td></tr>'
         for job in summary.jobs
@@ -164,13 +180,7 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, job_hrefs: dict[str, 
 
 
 def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hrefs: dict[str, str]) -> str:
-    """Render the overview page: headline figures and the task x policy heatmap.
-
-    Args:
-        summary: Aggregated Experiment to render.
-        task_hrefs: Task name -> link to its page, relative to the report root.
-        job_hrefs: Run name -> link to its page, relative to the report root.
-    """
+    """Render the overview page."""
     tiles = [
         _tile("Tasks", str(len(summary.tasks))),
         _tile("Runs", str(len(summary.jobs))),
@@ -180,17 +190,20 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
     if summary.is_grouped:
         tiles.insert(1, _tile("Policies", str(len(summary.policies))))
     for policy in summary.policies:
-        if policy:
-            tiles.append(
-                _tile(
-                    policy,
-                    _percent(summary.success_rate_for_policy(policy)),
-                    f"{summary.num_episodes_for_policy(policy):,} episodes",
-                )
+        tiles.append(
+            _tile(
+                policy,
+                _percent(summary.success_rate_for_policy(policy)),
+                f"{summary.num_episodes_for_policy(policy):,} episodes",
             )
+        )
 
     body = _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, job_hrefs)
-    content = f'<div class="tiles">{"".join(tiles)}</div>{_render_failed_runs_section(summary.run_executions)}{body}'
+    content = (
+        f'<div class="tiles">{"".join(tiles)}</div>'
+        f"{_render_failed_runs_section(summary.run_executions)}"
+        f"{_render_issues(summary.issues)}{body}"
+    )
     if not summary.tasks and not summary.run_executions:
         content += "<p>No results recorded yet.</p>"
     content += f'<p class="note">{_grouping_note(summary)}</p>'
@@ -198,7 +211,6 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
     return _render_page(
         title=html.escape(summary.title),
         heading=html.escape(summary.title),
-        # The sticky bar keeps the experiment named while the matrix scrolls past.
         breadcrumb=f'<span class="current">{html.escape(summary.title)}</span>',
         summary=_experiment_summary_line(summary),
         content=content,
@@ -206,20 +218,19 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
 
 
 def _grouping_note(summary: ExperimentSummary) -> str:
-    """State where the task and policy labels came from, since it bounds how much they can be trusted."""
+    """State where task and policy labels came from."""
+    if summary.grouping_source == "policy_suffixes":
+        return "Tasks and policies were inferred from run-name policy suffixes."
     if summary.grouping_source == "run_names":
-        return (
-            "Tasks and policies were inferred by factorizing the run names, because a run records no"
-            " task or policy of its own."
-        )
+        return "Tasks and policies were inferred from repeated final tokens in run names."
     return "Runs could not be grouped into tasks and policies, so they are listed individually."
 
 
 def _experiment_summary_line(summary: ExperimentSummary) -> str:
     """Render the one-line count summary under the page heading."""
     if summary.run_executions:
-        completed = sum(execution.status is RunStatus.COMPLETED for execution in summary.run_executions)
-        failed = sum(execution.status is RunStatus.FAILED for execution in summary.run_executions)
+        completed = sum(is_completed_execution(execution) for execution in summary.run_executions)
+        failed = sum(is_failed_execution(execution) for execution in summary.run_executions)
         return (
             f"{len(summary.run_executions)} run(s) &middot; {completed} completed &middot; "
             f"{failed} failed &middot; {summary.num_episodes} episode(s)"
@@ -229,19 +240,13 @@ def _experiment_summary_line(summary: ExperimentSummary) -> str:
     )
 
 
-def _render_funnel(job: JobSummary) -> str:
-    """Render one Run's progress funnel as ordinal stage bars.
-
-    The bars count (episode, objective) pairs rather than episodes, because a multi-object task
-    declares one objective per object and fires each predicate once per object.
-    """
-    stages = job.funnel
-    if not stages:
+def _render_funnel(funnel: ObjectiveFunnel) -> str:
+    """Render one objective-family progress funnel."""
+    if not funnel.stages:
         return ""
-    total = job.num_objective_instances
     rows = []
-    for stage in stages:
-        fraction = 0.0 if total == 0 else stage.num_reached / total
+    for stage in funnel.stages:
+        fraction = 0.0 if funnel.num_instances == 0 else stage.num_reached / funnel.num_instances
         step = min(stage.index, _MAX_FUNNEL_STAGE_STEP)
         rows.append(
             '<div class="funnel-row">'
@@ -250,29 +255,39 @@ def _render_funnel(job: JobSummary) -> str:
             f'<div class="bar-track"><div class="bar" data-stage="{step}"'
             f' style="width: {fraction * 100:.1f}%"></div></div></div>'
         )
-    unit = "objective instances" if total != job.num_episodes else "episodes"
+    return (
+        f'<div class="funnel"><h3>{html.escape(funnel.name)}</h3>'
+        + "".join(rows)
+        + f'<p class="note">{funnel.num_instances:,} objective instance(s)</p></div>'
+    )
+
+
+def _render_job_funnels(job: JobSummary) -> str:
+    """Render every objective-family funnel for one run."""
+    funnels = "".join(_render_funnel(funnel) for funnel in job.funnels)
+    if not funnels:
+        return ""
     return (
         f'<div class="funnel"><h3>{html.escape(job.policy or job.name)}</h3>'
-        + "".join(rows)
-        + f'<p class="note">{total:,} {unit} &middot; success {_percent(job.success_rate)}'
-        f" &middot; mean progress {_percent(job.mean_progress)}</p></div>"
+        f'<p class="note">success {_percent(job.success_rate)} &middot; mean progress {_percent(job.mean_progress)}</p>'
+        "</div>"
+        + funnels
     )
 
 
 def _render_chip(episode, href: str) -> str:
-    """Render one episode as a status chip carrying a glyph, so state is never colour alone."""
+    """Render one episode as a status chip."""
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f", progress {progress * 100:.0f}%"
     tooltip = f"env {episode.env_index} episode {episode.episode_index}: {_OUTCOME_LABELS[outcome]}{progress_text}"
     return (
-        f'<a class="chip {outcome}" href="{html.escape(href)}" title="{html.escape(tooltip)}">'
-        f"{_OUTCOME_GLYPHS[outcome]}</a>"
+        f'<a class="chip {outcome}" href="{_href(href)}" title="{html.escape(tooltip)}">{_OUTCOME_GLYPHS[outcome]}</a>'
     )
 
 
 def _render_legend() -> str:
-    """Render the status legend for the episode chips."""
+    """Render the status legend for episode chips."""
     items = "".join(
         f'<span class="item"><span class="chip {outcome}">{_OUTCOME_GLYPHS[outcome]}</span>'
         f"{html.escape(_OUTCOME_LABELS[outcome])}</span>"
@@ -285,21 +300,15 @@ def render_task_page(
     summary: ExperimentSummary,
     task: TaskSummary,
     job_hrefs: dict[str, str],
+    episode_hrefs: dict[tuple[str, int, int], str],
     index_href: str,
 ) -> str:
-    """Render one task's page: each policy's funnel and its grid of episode outcomes.
-
-    Args:
-        summary: Aggregated Experiment the task belongs to.
-        task: Task to render.
-        job_hrefs: Run name -> link to its page, relative to this page.
-        index_href: Link back to the overview, relative to this page.
-    """
+    """Render one task's page: each policy's funnel and episode outcome chips."""
     tiles = [_tile("Episodes", f"{task.num_episodes:,}")]
     for job in task.jobs:
         tiles.append(_tile(job.policy or job.name, _percent(job.success_rate), f"{job.num_successes:,} successes"))
 
-    funnels = "".join(_render_funnel(job) for job in task.jobs)
+    funnels = "".join(_render_job_funnels(job) for job in task.jobs)
     funnel_section = (
         f'<section><h2>Where episodes got to</h2><div class="funnels">{funnels}</div></section>' if funnels else ""
     )
@@ -307,18 +316,18 @@ def render_task_page(
     chip_sections = []
     for job in task.jobs:
         chips = "".join(
-            _render_chip(episode, f"{job_hrefs[job.name]}#ep-{episode.env_index}-{episode.episode_index}")
+            _render_chip(episode, episode_hrefs[(job.name, episode.env_index, episode.episode_index)])
             for episode in job.episodes
         )
         chip_sections.append(
             f"<section><h2>{html.escape(job.policy or job.name)} episodes</h2>"
-            f'<p class="note"><a href="{html.escape(job_hrefs[job.name])}">Open '
+            f'<p class="note"><a href="{_href(job_hrefs[job.name])}">Open '
             f"{html.escape(job.name)} to watch the videos</a></p>"
             f'{_render_legend()}<div class="chips">{chips}</div></section>'
         )
 
     breadcrumb = (
-        f'<a href="{html.escape(index_href)}">{html.escape(summary.title)}</a>'
+        f'<a href="{_href(index_href)}">{html.escape(summary.title)}</a>'
         f'<span class="sep">/</span><span class="current">{html.escape(task.name)}</span>'
         + _render_up_button(index_href, "Back to the overview", extra_class="up")
     )
@@ -361,7 +370,6 @@ def _render_signal(signal) -> str:
     else:
         state, glyph = "off", "&#9675;"
         suffix = ""
-    # The full predicate text names the object on multi-object tasks, which the bare name does not.
     tooltip = signal.detail or signal.name
     return (
         f'<span class="signal {state}" title="{html.escape(tooltip)}">'
@@ -370,23 +378,23 @@ def _render_signal(signal) -> str:
 
 
 def _render_objective(objective) -> str:
-    """Render one objective as its score plus the full sequence of its success predicates."""
+    """Render one objective as its score plus known predicate signals."""
     track = "".join(_render_signal(signal) for signal in objective.signals)
+    if objective.blocked_predicates:
+        blocked = ", ".join(objective.blocked_predicates)
+        track += f'<span class="signal blocked"><span class="glyph">&#9654;</span>{html.escape(blocked)}</span>'
     score = f"{round(objective.score, 2):g} / {round(objective.max_score, 2):g}"
+    family = "" if objective.family == objective.name else f'<span class="score">{html.escape(objective.family)}</span>'
     return (
         '<div class="objective"><div class="objective-head">'
-        f'<span class="name">{html.escape(objective.name)}</span>'
+        f'<span class="name">{html.escape(objective.name)}</span>{family}'
         f'<span class="score">{html.escape(score)}</span></div>'
         f'<div class="track">{track}</div></div>'
     )
 
 
 def _render_signals(objectives: list) -> str:
-    """Render an episode's progress breakdown, collapsing it when a task has many objectives.
-
-    A single-objective task is a short row and is always shown; a multi-object task declares an
-    objective per object, so its breakdown is folded behind a summary that states the totals.
-    """
+    """Render an episode's progress breakdown."""
     if not objectives:
         return ""
     if len(objectives) == 1:
@@ -397,21 +405,13 @@ def _render_signals(objectives: list) -> str:
     num_complete = sum(1 for objective in objectives if objective.is_complete)
     body = "".join(_render_objective(objective) for objective in objectives)
     return (
-        f'<details class="signals"><summary>{num_triggered} of {num_signals} signals triggered '
+        f'<details class="signals"><summary>{num_triggered} of {num_signals} known signals triggered '
         f"across {len(objectives)} objectives &middot; {num_complete} complete</summary>{body}</details>"
     )
 
 
 def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", objectives=None) -> str:
-    """Render one episode: its outcome, its videos as lazily mounted slots, and its metadata.
-
-    Args:
-        episode: Episode to render.
-        cameras: Camera names to lay out a slot for, in order.
-        video_prefix: Prefix turning a root-relative video path into one relative to the page.
-        policy: Policy label repeated on the card, so it stays visible deep into a long run page.
-        objectives: The episode's objectives and their per-predicate signals, when available.
-    """
+    """Render one episode with lazily mounted videos and progress diagnostics."""
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f'<span class="sub">progress {progress * 100:.0f}%</span>'
@@ -423,7 +423,7 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
         if source is None:
             body = '<div class="placeholder">not recorded</div>'
         else:
-            body = f'<div class="placeholder" data-video-src="{html.escape(video_prefix + source)}">video</div>'
+            body = f'<div class="placeholder" data-video-src="{_media_src(video_prefix, source)}">video</div>'
         slots.append(f'<div class="videoslot"><div class="camera">{html.escape(camera)}</div>{body}</div>')
 
     signals_html = _render_signals(objectives or [])
@@ -436,7 +436,7 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
     metadata = "".join(_render_metadata_entry(key, value) for key, value in episode.metadata.items())
     metadata_html = f'<div class="meta">{metadata}</div>' if metadata else ""
     return (
-        f'<article class="episode" id="ep-{episode.env_index}-{episode.episode_index}" data-outcome="{outcome}">'
+        f'<article class="episode" id="{episode_anchor(episode)}" data-outcome="{outcome}">'
         f'<div class="episode-head"><span class="id">env {episode.env_index} &middot; '
         f"episode {episode.episode_index}</span>"
         f'<span class="badge {outcome}">{html.escape(_OUTCOME_LABELS[outcome])}</span>'
@@ -451,16 +451,12 @@ def render_job_page(
     task_href: str,
     index_href: str,
     video_prefix: str,
+    episodes: list,
+    page_index: int,
+    num_pages: int,
+    page_hrefs: list[str],
 ) -> str:
-    """Render one Run's page: every episode, with videos that mount when scrolled into view.
-
-    Args:
-        summary: Aggregated Experiment the Run belongs to.
-        job: Run to render.
-        task_href: Link to the Run's task page, relative to this page.
-        index_href: Link back to the overview, relative to this page.
-        video_prefix: Prefix turning a root-relative video path into one relative to this page.
-    """
+    """Render one Run page holding one page of episodes."""
     tiles = [
         _tile("Episodes", f"{job.num_episodes:,}"),
         _tile("Success rate", _percent(job.success_rate), f"{job.num_successes:,} successes"),
@@ -471,20 +467,20 @@ def render_job_page(
         '<button data-filter="all" aria-pressed="true">all</button>'
         '<button data-filter="success" aria-pressed="false">successes</button>'
         '<button data-filter="partial" aria-pressed="false">partial</button>'
-        '<button data-filter="fail" aria-pressed="false">no progress</button></div>'
+        '<button data-filter="fail" aria-pressed="false">no progress</button>'
+        '<button data-filter="unknown" aria-pressed="false">not scored</button></div>'
     )
     cards = "".join(
         _render_episode_card(
             episode, job.cameras, video_prefix, policy=job.policy, objectives=job.objectives_for(episode)
         )
-        for episode in job.episodes
+        for episode in episodes
     )
+    issues = _render_issues(job.issues)
 
-    # The policy is named in the sticky bar, in a pill under the heading, and again on every episode
-    # card, so it stays answerable however far into the episodes the reader has scrolled.
     breadcrumb = (
-        f'<a href="{html.escape(index_href)}">{html.escape(summary.title)}</a><span class="sep">/</span>'
-        f'<a href="{html.escape(task_href)}">{html.escape(job.task)}</a>'
+        f'<a href="{_href(index_href)}">{html.escape(summary.title)}</a><span class="sep">/</span>'
+        f'<a href="{_href(task_href)}">{html.escape(job.task)}</a>'
         f'<span class="sep">/</span><span class="current">{html.escape(job.policy or job.name)}</span>'
         + _render_up_button(task_href, f"Back to {job.task}", extra_class="up")
     )
@@ -492,35 +488,42 @@ def render_job_page(
     if job.policy:
         context.append(_render_pill("policy", job.policy, extra_class="policy"))
     context.append(_render_pill("run", job.name or "results"))
+    if num_pages > 1:
+        context.append(_render_pill("page", f"{page_index + 1} of {num_pages}"))
 
-    # Repeated at the end because this page is hundreds of episodes long: the sticky button stays
-    # reachable while scrolling, and this one lands where the reader runs out of episodes.
     footer = _render_footer_nav([
+        _render_page_nav(page_index, page_hrefs),
         _render_up_button(task_href, f"Back to {job.task}"),
         _render_up_button(index_href, "Back to the overview"),
     ])
+    pager = _render_page_nav(page_index, page_hrefs)
+    content = f'<div class="tiles">{"".join(tiles)}</div>{issues}{pager}{controls}{cards}{footer}'
 
     return _render_page(
         title=f"{html.escape(job.name)} &mdash; {html.escape(summary.title)}",
         heading=html.escape(job.policy or job.name or "results"),
         breadcrumb=breadcrumb,
         summary=f"{job.num_episodes} episode(s) &middot; {job.num_videos} video(s)",
-        content=f'<div class="tiles">{"".join(tiles)}</div>{controls}{cards}{footer}',
+        content=content,
         context=_render_context(context),
     )
 
 
-def _render_page(title: str, heading: str, breadcrumb: str, summary: str, content: str, context: str = "") -> str:
-    """Fill the shared page shell.
+def _render_page_nav(page_index: int, page_hrefs: list[str]) -> str:
+    """Render run-page pagination controls."""
+    if len(page_hrefs) <= 1:
+        return ""
+    links = []
+    if page_index > 0:
+        links.append(f'<a class="upbutton" href="{_href(page_hrefs[page_index - 1])}">Previous</a>')
+    links.append(f'<span class="note">Page {page_index + 1} of {len(page_hrefs)}</span>')
+    if page_index + 1 < len(page_hrefs):
+        links.append(f'<a class="upbutton" href="{_href(page_hrefs[page_index + 1])}">Next</a>')
+    return f'<nav class="pagenav">{"".join(links)}</nav>'
 
-    Args:
-        title: Document title.
-        heading: Page heading.
-        breadcrumb: Links back up the hierarchy, rendered into the sticky bar.
-        summary: One-line count summary under the heading.
-        content: The page body.
-        context: Pills naming what the page is showing, such as its task and policy.
-    """
+
+def _render_page(title: str, heading: str, breadcrumb: str, summary: str, content: str, context: str = "") -> str:
+    """Fill the shared page shell."""
     template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
     return template.substitute(
         title=title, heading=heading, breadcrumb=breadcrumb, summary=summary, content=content, context=context
@@ -542,21 +545,23 @@ def _render_context(pills: list[str]) -> str:
 
 
 def _render_up_button(href: str, label: str, extra_class: str = "") -> str:
-    """Render a button that climbs one level of the hierarchy.
-
-    Args:
-        href: Link target, relative to the page the button is rendered on.
-        label: Text naming where the button goes.
-        extra_class: Extra class placed on the wrapping element, such as ``up`` for the sticky bar.
-    """
+    """Render a button that climbs one level of the hierarchy."""
     wrapper_open = f'<span class="{extra_class}">' if extra_class else ""
     wrapper_close = "</span>" if extra_class else ""
-    return (
-        f'{wrapper_open}<a class="upbutton" href="{html.escape(href)}">'
-        f'<span class="arrow">&uarr;</span>{html.escape(label)}</a>{wrapper_close}'
-    )
+    return f'{wrapper_open}<a class="upbutton" href="{_href(href)}">&uarr; {html.escape(label)}</a>{wrapper_close}'
 
 
 def _render_footer_nav(buttons: list[str]) -> str:
-    """Render the navigation block closing a page, reachable without scrolling back to the top."""
+    """Render the navigation block closing a page."""
+    buttons = [button for button in buttons if button]
     return f'<div class="footernav">{"".join(buttons)}</div>' if buttons else ""
+
+
+def _href(path: str) -> str:
+    """Return a URL-safe href for a generated relative path."""
+    return quote(path, safe="/#._-~")
+
+
+def _media_src(prefix: str, source: str) -> str:
+    """Return a URL-safe relative media source."""
+    return quote(prefix + source, safe="/._-~")

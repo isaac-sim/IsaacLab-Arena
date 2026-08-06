@@ -68,6 +68,7 @@
     margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--border);
   }
   .footernav .upbutton { font-size: 0.85rem; padding: 0.4rem 1rem; }
+  .pagenav { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0.4rem 0 1rem; }
   .summary { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.2rem; }
   .note { color: var(--muted); font-size: 0.78rem; margin: 0.4rem 0 0; }
 
@@ -239,6 +240,17 @@ $content
       player.appendChild(source);
       slot.replaceChildren(player);
     }
+    function unmount(slot) {
+      if (!slot.dataset.mounted) return;
+      var player = slot.querySelector("video");
+      if (player) {
+        player.pause();
+        player.removeAttribute("src");
+        player.load();
+      }
+      delete slot.dataset.mounted;
+      slot.textContent = "video";
+    }
     if (!("IntersectionObserver" in window)) {
       slots.forEach(mount);
       return;
@@ -247,7 +259,8 @@ $content
       entries.forEach(function (entry) {
         if (entry.isIntersecting) {
           mount(entry.target);
-          observer.unobserve(entry.target);
+        } else {
+          unmount(entry.target);
         }
       });
     }, { rootMargin: "300px" });
@@ -277,18 +290,18 @@ $content
     var table = document.querySelector("table.matrix");
     if (!table) return;
     var ascending = {};
-    table.querySelectorAll("th[data-sort]").forEach(function (header) {
+    table.querySelectorAll("th[data-sort-col]").forEach(function (header) {
       header.style.cursor = "pointer";
       header.title = "Click to sort";
       header.addEventListener("click", function () {
-        var key = header.dataset.sort;
+        var key = header.dataset.sortCol;
         var body = table.tBodies[0];
         var rows = Array.prototype.slice.call(body.rows);
         ascending[key] = !ascending[key];
         var direction = ascending[key] ? 1 : -1;
         rows.sort(function (a, b) {
-          var left = a.querySelector('[data-key="' + key + '"]');
-          var right = b.querySelector('[data-key="' + key + '"]');
+          var left = a.querySelector('[data-sort-col="' + key + '"]');
+          var right = b.querySelector('[data-sort-col="' + key + '"]');
           var leftValue = left ? left.dataset.value : "";
           var rightValue = right ? right.dataset.value : "";
           var leftNumber = parseFloat(leftValue);

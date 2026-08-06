@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Scan recorded evaluation results and aggregate them into the evaluation report's data model.
+"""Aggregate recorded evaluation artifacts into the report's data model.
 
-Separated from rendering so the aggregation can be tested without producing HTML. Scanning reads only
-the per-episode results and the recorder's mp4 filenames; no video file is opened.
+This module is intentionally leaf-only: it reads JSONL records and filenames without importing the
+evaluation, video, policy, environment, Isaac Sim, or Isaac Lab stacks.
 """
 
 from __future__ import annotations
@@ -14,73 +14,102 @@ from __future__ import annotations
 import functools
 import pathlib
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
-from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
 from isaaclab_arena.visualization.episode_results_files import (
+    DataIssue,
     find_episode_results_files,
-    parse_episode_results_rebuild_index,
+    find_episode_video_files,
+    parse_episode_results_filename,
+    parse_episode_video_filename,
     read_episode_results,
 )
 
-# Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
-# per-episode metadata list to avoid duplication.
+COMPLETED_STATUS = "completed"
+FAILED_STATUS = "failed"
+DEFAULT_POLICY_SUFFIXES = ()
+
+# Record fields rendered explicitly elsewhere, so excluded from per-episode metadata.
 _METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name", "progress"})
-
-# Strips a predicate's arguments so ``object_on_destination(force_threshold=0.1)`` and its
-# per-object variants collapse to the one funnel stage they represent.
 _PREDICATE_ARGUMENTS_PATTERN = re.compile(r"\(.*\)$")
-
-# Name used to group Runs when no task label can be established.
+_SUBTASK_OBJECTIVE_PATTERN = re.compile(r"^subtask_\d+/(?P<family>.+)$")
 UNGROUPED_TASK = "(ungrouped)"
 
-# Longest policy-name suffix considered when factorizing Run names, in underscore-separated tokens.
-# Covers multi-token policy labels such as ``pi0_remote`` without letting a task name's trailing
-# tokens be mistaken for a policy.
-_MAX_POLICY_NAME_TOKENS = 3
+
+@dataclass(frozen=True)
+class EpisodeIdentity:
+    """Stable identity for one recorded episode before display renumbering."""
+
+    result_source: str
+    """Results source identity; empty for non-rank files and video-only episodes."""
+
+    rebuild_index: int
+    """Environment rebuild index."""
+
+    env_index: int
+    """Vectorized environment index."""
+
+    recorder_episode_index: int
+    """Episode index recorded by the environment."""
 
 
 @dataclass
 class EpisodeSummary:
-    """One recorded episode: its outcome, its progress through the task, and its videos."""
+    """One recorded episode: outcome, progress, and videos."""
 
-    env_index: int
-    """Index of the environment the episode ran in."""
+    identity: EpisodeIdentity
+    """Source identity used to pair records and videos without rank overwrites."""
 
     episode_index: int
-    """Episode index within the (job, env), renumbered to be contiguous across rebuilds."""
+    """Episode index within the run/env, renumbered for display."""
 
     video_by_camera: dict[str, str]
     """Camera name -> mp4 path, relative to the scanned root."""
 
-    record: dict = field(default_factory=dict)
-    """The matching per-episode results record; empty when no record was found."""
+    record: dict[str, Any] = field(default_factory=dict)
+    """Matching per-episode results record; empty for video-only episodes."""
+
+    @property
+    def env_index(self) -> int:
+        """Return the vectorized environment index."""
+        return self.identity.env_index
+
+    @property
+    def rebuild_index(self) -> int:
+        """Return the environment rebuild index."""
+        return self.identity.rebuild_index
+
+    @property
+    def recorder_episode_index(self) -> int:
+        """Return the episode index encoded in the source artifacts."""
+        return self.identity.recorder_episode_index
 
     @property
     def success(self) -> bool | None:
-        """Return whether the episode succeeded, or ``None`` when the task records no success term."""
-        return self.record.get("success")
+        """Return whether the episode succeeded, or ``None`` when unscored."""
+        success = self.record.get("success")
+        return success if isinstance(success, bool) else None
 
     @property
     def score(self) -> float | None:
         """Return the episode's achieved progress score."""
-        return (self.record.get("progress") or {}).get("overall_score")
+        progress = self.record.get("progress")
+        if not isinstance(progress, dict):
+            return None
+        return _as_float(progress.get("overall_score"))
 
     @property
     def max_score(self) -> float | None:
-        """Return the maximum score the episode's objectives could have reached.
-
-        Objectives score one point per completed group, so their group total is the achievable
-        maximum. Multi-object tasks declare one objective per object, so this is well above 1.
-        """
-        objectives = (self.record.get("progress") or {}).get("objectives") or {}
-        total = sum(objective.get("total_groups", 0) for objective in objectives.values())
-        return float(total) if total > 0 else None
+        """Return the maximum score the episode's objectives could have reached."""
+        objectives = _progress_objectives(self.record)
+        total = sum(_as_float(objective.get("total_groups")) or 0.0 for objective in objectives.values())
+        return total if total > 0 else None
 
     @property
     def progress_fraction(self) -> float | None:
-        """Return the achieved fraction of the episode's achievable score, or ``None`` when unknown."""
+        """Return achieved progress as a fraction of achievable score, or ``None`` when unknown."""
         score, max_score = self.score, self.max_score
         if score is None or max_score is None:
             return None
@@ -89,23 +118,21 @@ class EpisodeSummary:
     @property
     def all_objectives_complete(self) -> bool | None:
         """Return whether every objective completed, or ``None`` when progress was not recorded."""
-        progress = self.record.get("progress") or {}
-        return progress.get("all_complete") if "all_complete" in progress else None
+        progress = self.record.get("progress")
+        if not isinstance(progress, dict) or "all_complete" not in progress:
+            return None
+        all_complete = progress.get("all_complete")
+        return all_complete if isinstance(all_complete, bool) else None
 
     @property
     def outcome_disagrees_with_progress(self) -> bool:
-        """Return whether the success term and the progress objectives reached opposite conclusions.
-
-        These are separate mechanisms — the task's success term is not required to be the conjunction
-        of its progress objectives — so they can and do disagree. Worth surfacing rather than hiding,
-        because a disagreement usually means one of the two is mis-specified.
-        """
+        """Return whether the success term and progress objectives disagree."""
         success, complete = self.success, self.all_objectives_complete
         return success is not None and complete is not None and success != complete
 
     @property
-    def metadata(self) -> dict:
-        """Return the record fields not already shown as the episode's status or progress."""
+    def metadata(self) -> dict[str, Any]:
+        """Return record fields not already shown as status or progress."""
         return {
             key: value
             for key, value in self.record.items()
@@ -115,39 +142,53 @@ class EpisodeSummary:
 
 @dataclass
 class FunnelStage:
-    """How many objective instances reached one stage of a task's success predicate sequence."""
+    """How many objective instances reached one predicate stage."""
 
     index: int
-    """Position of the predicate within its objective's sequence."""
+    """Predicate position within the objective family sequence."""
 
     name: str
-    """Predicate name with its arguments stripped."""
+    """Predicate name with arguments stripped."""
 
     num_reached: int
     """Objective instances that fired this predicate at least once."""
 
 
 @dataclass
+class ObjectiveFunnel:
+    """Progress funnel for one compatible objective family."""
+
+    name: str
+    """Objective family name."""
+
+    num_instances: int
+    """Number of episode/objective instances in this family."""
+
+    stages: list[FunnelStage]
+    """Observed predicate stages in order."""
+
+
+@dataclass
 class PredicateSignal:
-    """Whether one predicate of an objective's success sequence fired during a single episode."""
+    """Whether one predicate of an objective family fired during a single episode."""
 
     index: int
     """Position of the predicate within the sequence."""
 
     name: str
-    """Predicate name with its arguments stripped."""
+    """Predicate name with arguments stripped."""
 
     triggered: bool
     """Whether the predicate fired."""
 
     step: int | None = None
-    """Environment step the predicate fired at, when it did."""
+    """Environment step the predicate fired at, when recorded."""
 
     detail: str = ""
-    """Full predicate text including arguments, which name the object for multi-object tasks."""
+    """Full predicate text including arguments."""
 
     blocked: bool = False
-    """Whether the objective was still waiting on this predicate when the episode ended."""
+    """Whether the objective was waiting on this predicate when the episode ended."""
 
 
 @dataclass
@@ -155,7 +196,10 @@ class ObjectiveProgress:
     """How far one objective of an episode got through its success predicate sequence."""
 
     name: str
-    """Objective name, e.g. ``pick_and_place`` or ``subtask_3/pick_and_place``."""
+    """Objective name from the progress record."""
+
+    family: str
+    """Objective family used for funneling."""
 
     score: float
     """Score the objective achieved."""
@@ -167,92 +211,69 @@ class ObjectiveProgress:
     """Whether the objective completed."""
 
     signals: list[PredicateSignal]
-    """Every predicate of the sequence, in order, marked triggered or not."""
+    """Known predicates in this objective family sequence."""
+
+    blocked_predicates: list[str] = field(default_factory=list)
+    """Active predicates that could not be placed in the known sequence."""
 
     @property
     def num_triggered(self) -> int:
-        """Return how many of the objective's predicates fired."""
+        """Return how many known predicates fired."""
         return sum(1 for signal in self.signals if signal.triggered)
 
 
-def _base_predicate_name(predicate_name: object) -> str:
-    """Return a predicate name with its argument list stripped."""
-    return _PREDICATE_ARGUMENTS_PATTERN.sub("", str(predicate_name))
+@dataclass(frozen=True)
+class RunExecutionReport:
+    """Record whether one Run process completed and its process exit code."""
 
+    run_name: str
+    """Name of the Run that produced this execution result."""
 
-def _episode_objectives(episode: EpisodeSummary, sequence: dict[int, str]) -> list[ObjectiveProgress]:
-    """Break one episode down into its objectives and their per-predicate signals.
+    status: object
+    """Execution status; strings and enum-like objects with ``.value`` are accepted."""
 
-    Args:
-        episode: Episode to break down.
-        sequence: Predicate position -> name, pooled over the Run so predicates this episode never
-            reached are still listed.
-    """
-    progress = episode.record.get("progress") or {}
-    objectives = progress.get("objectives") or {}
+    process_exit_code: int
+    """Exit code returned by the Run process."""
 
-    # Events carry the predicates that fired, keyed by the objective they belong to.
-    fired: dict[str, dict[int, dict]] = {}
-    for event in progress.get("events") or []:
-        index = event.get("predicate_index")
-        if index is not None:
-            fired.setdefault(str(event.get("objective")), {})[index] = event
-
-    ordered_indices = sorted(sequence)
-    results = []
-    for name in objectives if objectives else sorted(fired):
-        detail = objectives.get(name, {}) if objectives else {}
-        events_for_objective = fired.get(name, {})
-        # An incomplete objective names the predicate it is still waiting on, which is where it stalled.
-        blocked_names = {
-            _base_predicate_name(predicate)
-            for predicate in (detail.get("active_predicates") or {}).values()
-            if predicate
-        }
-        signals = []
-        for index in ordered_indices:
-            event = events_for_objective.get(index)
-            signals.append(
-                PredicateSignal(
-                    index=index,
-                    name=sequence[index],
-                    triggered=event is not None,
-                    step=event.get("step") if event is not None else None,
-                    detail=str(event.get("predicate_name", "")) if event is not None else "",
-                    blocked=event is None and sequence[index] in blocked_names,
-                )
-            )
-        total_groups = detail.get("total_groups", 0)
-        results.append(
-            ObjectiveProgress(
-                name=name,
-                score=float(detail.get("score", 0.0)),
-                max_score=float(total_groups) if total_groups else 1.0,
-                is_complete=bool(detail.get("is_complete", False)),
-                signals=signals,
-            )
-        )
-    return results
+    @property
+    def normalized_status(self) -> str:
+        """Return the execution status as a lowercase string."""
+        return normalize_run_status(self.status)
 
 
 @dataclass
 class JobSummary:
-    """All recorded episodes for a single Run, with its aggregate outcome."""
+    """All recorded episodes for a single Run, with aggregate outcome and progress."""
 
     name: str
-    """The Run (job) name, which is also its output sub-directory."""
+    """Run name, which is usually its output sub-directory."""
 
     task: str
-    """Task label grouping this Run with Runs of the same task."""
+    """Task label grouping this run with runs of the same task."""
 
     policy: str
-    """Policy label grouping this Run with Runs of the same policy."""
+    """Policy label grouping this run with runs of the same policy."""
 
     cameras: list[str]
-    """Ordered camera names recorded for this Run."""
+    """Ordered camera names recorded for this run."""
 
     episodes: list[EpisodeSummary]
-    """Every recorded episode, ordered by environment then episode index."""
+    """Every recorded episode, ordered by environment then display episode index."""
+
+    issues: list[DataIssue] = field(default_factory=list)
+    """Recoverable data issues local to this run."""
+
+    _objective_family_by_name: dict[str, str] = field(init=False, repr=False)
+    _family_sequences: dict[str, dict[int, str]] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Precompute objective-family diagnostics so issues are not access-order dependent."""
+        self._objective_family_by_name, family_issues = _build_objective_family_map(self.name, self.episodes)
+        self._family_sequences, sequence_issues = _build_family_sequences(
+            self.name, self.episodes, self._objective_family_by_name
+        )
+        self.issues.extend(family_issues)
+        self.issues.extend(sequence_issues)
 
     @property
     def num_episodes(self) -> int:
@@ -286,82 +307,118 @@ class JobSummary:
         """Return the number of recorded video files across all episodes."""
         return sum(len(episode.video_by_camera) for episode in self.episodes)
 
+    @property
+    def objective_family_by_name(self) -> dict[str, str]:
+        """Return objective name -> compatible family name."""
+        return self._objective_family_by_name
+
+    @property
+    def family_sequences(self) -> dict[str, dict[int, str]]:
+        """Return each objective family's observed predicate names by index."""
+        return self._family_sequences
+
     @functools.cached_property
-    def predicate_sequence(self) -> dict[int, str]:
-        """Return the task's success predicates by position, pooled over every episode of this Run.
-
-        An episode's own events only name the predicates it actually reached, so the sequence is
-        pooled across the Run to recover the ones a given episode never got to.
-
-        Cached, because rendering asks for it once per episode and building it walks every episode.
-        """
-        names: dict[int, str] = {}
+    def funnels(self) -> list[ObjectiveFunnel]:
+        """Return progress funnels for each objective family."""
+        instances_by_family: dict[str, set[tuple[int, int, str]]] = defaultdict(set)
+        reached_by_family_index: dict[tuple[str, int], set[tuple[int, int, str]]] = defaultdict(set)
         for episode in self.episodes:
-            for event in (episode.record.get("progress") or {}).get("events") or []:
-                index = event.get("predicate_index")
-                if index is not None:
-                    names.setdefault(index, _base_predicate_name(event.get("predicate_name", "")))
-        return names
+            for objective_name in _episode_objective_names(episode):
+                family = self.objective_family_by_name.get(objective_name, objective_name)
+                instances_by_family[family].add((episode.env_index, episode.episode_index, objective_name))
+            for event in _progress_events(episode.record):
+                objective_name = _event_objective_name(event)
+                index = _as_int(event.get("predicate_index"))
+                if objective_name is None or index is None:
+                    continue
+                family = self.objective_family_by_name.get(objective_name, objective_name)
+                instance = (episode.env_index, episode.episode_index, objective_name)
+                instances_by_family[family].add(instance)
+                reached_by_family_index[(family, index)].add(instance)
+
+        funnels = []
+        for family in sorted(self.family_sequences):
+            sequence = self.family_sequences[family]
+            stages = [
+                FunnelStage(
+                    index=index, name=sequence[index], num_reached=len(reached_by_family_index[(family, index)])
+                )
+                for index in sorted(sequence)
+            ]
+            funnels.append(
+                ObjectiveFunnel(name=family, num_instances=len(instances_by_family.get(family, ())), stages=stages)
+            )
+        return funnels
 
     @property
     def funnel(self) -> list[FunnelStage]:
-        """Return how far objective instances got through the task's predicate sequence.
-
-        The unit is one (episode, objective) pair rather than one episode, because a multi-object
-        task declares an objective per object and fires the same predicate once per object. Counting
-        events instead would report far more than the number of episodes.
-        """
-        reached: dict[int, set[tuple[int, int, str]]] = {}
-        for episode in self.episodes:
-            for event in (episode.record.get("progress") or {}).get("events") or []:
-                index = event.get("predicate_index")
-                if index is None:
-                    continue
-                instance = (episode.env_index, episode.episode_index, str(event.get("objective")))
-                reached.setdefault(index, set()).add(instance)
-        names = self.predicate_sequence
-        return [
-            FunnelStage(index=index, name=names[index], num_reached=len(reached.get(index, ())))
-            for index in sorted(names)
-        ]
-
-    def objectives_for(self, episode: EpisodeSummary) -> list[ObjectiveProgress]:
-        """Return each objective of ``episode`` with which of its predicates fired and which did not.
-
-        Args:
-            episode: Episode of this Run to break down.
-        """
-        return _episode_objectives(episode, self.predicate_sequence)
+        """Return a flattened funnel stage list for backward-compatible tests and callers."""
+        return [stage for funnel in self.funnels for stage in funnel.stages]
 
     @property
     def num_objective_instances(self) -> int:
-        """Return the number of (episode, objective) pairs the funnel is measured over."""
-        instances = 0
-        for episode in self.episodes:
-            objectives = (episode.record.get("progress") or {}).get("objectives") or {}
-            instances += len(objectives)
-        # Fall back to the widest funnel stage when objectives were not recorded, so a stage can
-        # never report more instances than the total it is a fraction of.
-        widest_stage = max((stage.num_reached for stage in self.funnel), default=0)
-        return max(instances, widest_stage)
+        """Return the total number of objective instances across all funnels."""
+        return sum(funnel.num_instances for funnel in self.funnels)
+
+    def objectives_for(self, episode: EpisodeSummary) -> list[ObjectiveProgress]:
+        """Return each objective of ``episode`` with known predicate signals and blocked predicates."""
+        objectives = _progress_objectives(episode.record)
+        names = list(objectives) if objectives else sorted(_event_objectives(episode.record))
+        results = []
+        fired = _events_by_objective_and_index(episode.record)
+        for name in names:
+            detail = objectives.get(name, {}) if objectives else {}
+            family = self.objective_family_by_name.get(name, name)
+            sequence = self.family_sequences.get(family, {})
+            active_names = [
+                _base_predicate_name(predicate)
+                for predicate in (detail.get("active_predicates") or {}).values()
+                if predicate
+            ]
+            signals = []
+            matched_blocked: set[str] = set()
+            for index in sorted(sequence):
+                event = fired.get(name, {}).get(index)
+                blocked = event is None and sequence[index] in active_names
+                if blocked:
+                    matched_blocked.add(sequence[index])
+                signals.append(
+                    PredicateSignal(
+                        index=index,
+                        name=sequence[index],
+                        triggered=event is not None,
+                        step=_as_int(event.get("step")) if event is not None else None,
+                        detail=str(event.get("predicate_name", "")) if event is not None else "",
+                        blocked=blocked,
+                    )
+                )
+            total_groups = _as_float(detail.get("total_groups")) if isinstance(detail, dict) else None
+            results.append(
+                ObjectiveProgress(
+                    name=name,
+                    family=family,
+                    score=_as_float(detail.get("score")) or 0.0 if isinstance(detail, dict) else 0.0,
+                    max_score=total_groups if total_groups and total_groups > 0 else 1.0,
+                    is_complete=bool(detail.get("is_complete", False)) if isinstance(detail, dict) else False,
+                    signals=signals,
+                    blocked_predicates=[name for name in active_names if name not in matched_blocked],
+                )
+            )
+        return results
 
 
 @dataclass
 class TaskSummary:
-    """Every Run evaluating one task, one per policy."""
+    """Every Run evaluating one task."""
 
     name: str
     """Task label."""
 
     jobs: list[JobSummary]
-    """Runs of this task, ordered by policy."""
+    """Runs of this task, ordered by policy then run name."""
 
     def job_for_policy(self, policy: str) -> JobSummary | None:
-        """Return this task's Run for ``policy``, or ``None`` when it was not evaluated.
-
-        Args:
-            policy: Policy label to look up.
-        """
+        """Return this task's first Run for ``policy``, or ``None`` when absent."""
         for job in self.jobs:
             if job.policy == policy:
                 return job
@@ -379,23 +436,9 @@ class TaskSummary:
         return max(rates) if rates else None
 
 
-@dataclass(frozen=True)
-class RunExecutionReport:
-    """Record whether one Run process completed and its process exit code."""
-
-    run_name: str
-    """Name of the Run that produced this execution result."""
-
-    status: RunStatus
-    """Whether the Run process completed or failed."""
-
-    process_exit_code: int
-    """Exit code returned by the Run process."""
-
-
 @dataclass
 class ExperimentSummary:
-    """A whole evaluation: every Run, grouped by task and policy."""
+    """A whole evaluation: every Run, grouped by task and policy when labels are available."""
 
     title: str
     """Title displayed at the top of the report."""
@@ -404,13 +447,16 @@ class ExperimentSummary:
     """Tasks evaluated, ordered by name."""
 
     policies: list[str]
-    """Distinct policy labels, ordered by name; a single empty label when Runs are ungrouped."""
+    """Distinct policy labels, ordered by name."""
 
     run_executions: list[RunExecutionReport] = field(default_factory=list)
     """Run process results, when provided by a parallel Experiment collector."""
 
     grouping_source: str = "none"
-    """How task and policy labels were established: ``run_names`` or ``none``."""
+    """How task and policy labels were established."""
+
+    issues: list[DataIssue] = field(default_factory=list)
+    """Recoverable data issues found while scanning."""
 
     @property
     def jobs(self) -> list[JobSummary]:
@@ -429,25 +475,17 @@ class ExperimentSummary:
 
     @property
     def is_grouped(self) -> bool:
-        """Return whether Runs carry real task and policy labels rather than a flat fallback."""
-        return self.grouping_source != "none"
+        """Return whether Runs carry task/policy labels rather than a flat fallback."""
+        return self.grouping_source != "none" and bool(self.policies)
 
     def success_rate_for_policy(self, policy: str) -> float | None:
-        """Return the overall success rate for one policy across every task.
-
-        Args:
-            policy: Policy label to aggregate.
-        """
+        """Return the overall success rate for one policy across every task."""
         jobs = [job for job in self.jobs if job.policy == policy]
         scored = sum(job.num_scored_episodes for job in jobs)
         return None if scored == 0 else sum(job.num_successes for job in jobs) / scored
 
     def num_episodes_for_policy(self, policy: str) -> int:
-        """Return the recorded episodes for one policy across every task.
-
-        Args:
-            policy: Policy label to aggregate.
-        """
+        """Return recorded episodes for one policy across every task."""
         return sum(job.num_episodes for job in self.jobs if job.policy == policy)
 
     @property
@@ -457,172 +495,434 @@ class ExperimentSummary:
         return None if scored == 0 else sum(job.num_successes for job in self.jobs) / scored
 
 
-def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], dict]]:
-    """Scan ``root`` for the recorder's JSONL files, indexed per job by ``(env, rebuild, episode)``.
-
-    Args:
-        root: Directory of evaluation results to scan.
-    """
-    results: dict[str, dict[tuple[int, int, int], dict]] = {}
-    for path in find_episode_results_files(root):
-        relative = path.relative_to(root)
-        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
-        rebuild = parse_episode_results_rebuild_index(path.name)
-        assert rebuild is not None, f"'{path.name}' was matched as a results file but carries no rebuild index"
-        job_results = results.setdefault(job, {})
-        for record in read_episode_results(path):
-            job_results[(int(record["env_id"]), rebuild, int(record["episode_in_env"]))] = record
-    return results
+@dataclass
+class _ScannedJob:
+    name: str
+    cameras: list[str]
+    episodes: list[EpisodeSummary]
+    issues: list[DataIssue]
 
 
-def scan_jobs(root: pathlib.Path) -> list[tuple[str, list[str], list[EpisodeSummary]]]:
-    """Recursively scan ``root`` for episode results and recorder mp4s, grouped by job.
+def normalize_run_status(status: object) -> str:
+    """Normalize a string or enum-like run status to a lowercase string."""
+    value = getattr(status, "value", status)
+    return str(value).lower()
 
-    Intended for two different output folder structures: the experiment runner writes one per-job
-    sub-directory under ``root``, while the policy runner writes directly under ``root``. Files that
-    do not match the recorder's naming pattern are ignored.
 
-    Args:
-        root: Directory of evaluation results to scan.
+def is_failed_execution(execution: RunExecutionReport) -> bool:
+    """Return whether a run execution record describes a failed run."""
+    return normalize_run_status(execution.status) == FAILED_STATUS
 
-    Returns:
-        One ``(job name, camera names, episodes)`` tuple per job, ordered by job name.
-    """
-    # job -> env -> {(rebuild, recorder_episode): {camera: relative_path}}
-    raw: dict[str, dict[int, dict[tuple[int, int], dict[str, str]]]] = {}
-    cameras_by_job: dict[str, list[str]] = {}
-    results = _scan_results(root)
 
-    for path in sorted(root.rglob("*.mp4")):
-        parsed = parse_episode_video_filename(path.name)
-        if parsed is None:
+def is_completed_execution(execution: RunExecutionReport) -> bool:
+    """Return whether a run execution record describes a completed run."""
+    return normalize_run_status(execution.status) == COMPLETED_STATUS
+
+
+def _base_predicate_name(predicate_name: object) -> str:
+    """Return a predicate name with its argument list stripped."""
+    return _PREDICATE_ARGUMENTS_PATTERN.sub("", str(predicate_name))
+
+
+def _candidate_family_name(objective_name: str) -> str:
+    """Return the optional coalesced family name for an objective."""
+    match = _SUBTASK_OBJECTIVE_PATTERN.match(objective_name)
+    return objective_name if match is None else match.group("family")
+
+
+def _build_objective_family_map(
+    job_name: str,
+    episodes: list[EpisodeSummary],
+) -> tuple[dict[str, str], list[DataIssue]]:
+    """Return objective name -> compatible family name plus compatibility issues."""
+    exact_names = sorted(_objective_names(episodes))
+    candidates: dict[str, list[str]] = defaultdict(list)
+    for name in exact_names:
+        candidates[_candidate_family_name(name)].append(name)
+
+    issues = []
+    family_by_name: dict[str, str] = {}
+    for candidate, names in sorted(candidates.items()):
+        if len(names) == 1:
+            family_by_name[names[0]] = names[0]
             continue
-        relative = path.relative_to(root)
-        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
-        rebuild = parsed.rebuild_index if parsed.rebuild_index is not None else 0
+        if _objective_names_are_compatible(episodes, names):
+            for name in names:
+                family_by_name[name] = candidate
+        else:
+            issues.append(
+                DataIssue(
+                    job_name or ".",
+                    f"objective family '{candidate}' has conflicting predicate sequences; showing exact objectives",
+                )
+            )
+            for name in names:
+                family_by_name[name] = name
+    return family_by_name, issues
 
-        envs = raw.setdefault(job, {})
-        recordings = envs.setdefault(parsed.env_index, {})
-        recordings.setdefault((rebuild, parsed.episode_index), {})[parsed.camera_name] = str(relative)
 
-        cameras = cameras_by_job.setdefault(job, [])
-        if parsed.camera_name not in cameras:
-            cameras.append(parsed.camera_name)
+def _build_family_sequences(
+    job_name: str,
+    episodes: list[EpisodeSummary],
+    family_by_name: dict[str, str],
+) -> tuple[dict[str, dict[int, str]], list[DataIssue]]:
+    """Return family predicate sequences plus sequence-shape issues."""
+    names_by_family_index: dict[tuple[str, int], set[str]] = defaultdict(set)
+    for episode in episodes:
+        for event in _progress_events(episode.record):
+            objective_name = _event_objective_name(event)
+            index = _as_int(event.get("predicate_index"))
+            if objective_name is None or index is None:
+                continue
+            family = family_by_name.get(objective_name, objective_name)
+            names_by_family_index[(family, index)].add(_base_predicate_name(event.get("predicate_name", "")))
 
+    issues = []
+    sequences: dict[str, dict[int, str]] = defaultdict(dict)
+    for (family, index), names in names_by_family_index.items():
+        if len(names) > 1:
+            issues.append(
+                DataIssue(
+                    job_name or ".",
+                    f"objective family '{family}' has multiple predicate names at index {index}: {sorted(names)}",
+                )
+            )
+        sequences[family][index] = sorted(names)[0]
+    return dict(sequences), issues
+
+
+def _objective_names_are_compatible(episodes: list[EpisodeSummary], objective_names: list[str]) -> bool:
+    """Return whether objectives can be safely pooled into one family."""
+    names_by_index: dict[int, set[str]] = defaultdict(set)
+    objective_name_set = set(objective_names)
+    for episode in episodes:
+        for event in _progress_events(episode.record):
+            objective_name = _event_objective_name(event)
+            index = _as_int(event.get("predicate_index"))
+            if objective_name in objective_name_set and index is not None:
+                names_by_index[index].add(_base_predicate_name(event.get("predicate_name", "")))
+    return all(len(names) <= 1 for names in names_by_index.values())
+
+
+def _progress(record: dict[str, Any]) -> dict[str, Any]:
+    """Return a record's progress block when it is shaped as a dictionary."""
+    progress = record.get("progress")
+    return progress if isinstance(progress, dict) else {}
+
+
+def _progress_objectives(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Return the objective details from a record's progress block."""
+    objectives = _progress(record).get("objectives")
+    return objectives if isinstance(objectives, dict) else {}
+
+
+def _progress_events(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return valid event dictionaries from a record's progress block."""
+    events = _progress(record).get("events")
+    return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
+
+
+def _event_objective_name(event: dict[str, Any]) -> str | None:
+    """Return an event's objective name when present."""
+    objective = event.get("objective")
+    return str(objective) if objective is not None else None
+
+
+def _event_objectives(record: dict[str, Any]) -> set[str]:
+    """Return objective names that appear in progress events."""
+    return {objective for event in _progress_events(record) if (objective := _event_objective_name(event)) is not None}
+
+
+def _episode_objective_names(episode: EpisodeSummary) -> set[str]:
+    """Return every objective name known for one episode."""
+    return set(_progress_objectives(episode.record)) | _event_objectives(episode.record)
+
+
+def _objective_names(episodes: list[EpisodeSummary]) -> set[str]:
+    """Return every objective name known for a set of episodes."""
+    names = set()
+    for episode in episodes:
+        names.update(_episode_objective_names(episode))
+    return names
+
+
+def _events_by_objective_and_index(record: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
+    """Return events keyed by objective and predicate index."""
+    result: dict[str, dict[int, dict[str, Any]]] = {}
+    for event in _progress_events(record):
+        objective_name = _event_objective_name(event)
+        index = _as_int(event.get("predicate_index"))
+        if objective_name is not None and index is not None:
+            result.setdefault(objective_name, {})[index] = event
+    return result
+
+
+def _as_int(value: object) -> int | None:
+    """Return ``value`` as an int, or ``None`` when conversion fails."""
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_float(value: object) -> float | None:
+    """Return ``value`` as a float, or ``None`` when conversion fails."""
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _job_name_for_path(path: pathlib.Path, root: pathlib.Path) -> str:
+    """Return the run name represented by an artifact path."""
+    relative = path.relative_to(root)
+    return "" if relative.parent == pathlib.Path(".") else str(relative.parent)
+
+
+def _validate_record(record: dict[str, Any], path: pathlib.Path, root: pathlib.Path) -> tuple[int, int] | DataIssue:
+    """Return ``(env_id, episode_in_env)`` for a usable record, or a data issue."""
+    display_path = str(path.relative_to(root))
+    env_id = _as_int(record.get("env_id"))
+    episode = _as_int(record.get("episode_in_env"))
+    if env_id is None:
+        return DataIssue(display_path, "record missing integer env_id")
+    if episode is None:
+        return DataIssue(display_path, "record missing integer episode_in_env")
+    return env_id, episode
+
+
+def _scan_results(root: pathlib.Path) -> tuple[dict[str, dict[EpisodeIdentity, dict[str, Any]]], list[DataIssue]]:
+    """Scan result JSONL files, keyed so rank files cannot overwrite each other."""
+    results: dict[str, dict[EpisodeIdentity, dict[str, Any]]] = defaultdict(dict)
+    issues: list[DataIssue] = []
+    for path in find_episode_results_files(root):
+        parsed = parse_episode_results_filename(path.name)
+        assert parsed is not None, f"'{path.name}' was matched as a results file but did not parse"
+        job = _job_name_for_path(path, root)
+        source = str(path.relative_to(root)) if parsed.rank_index is not None else ""
+        records, read_issues = read_episode_results(path, root)
+        issues.extend(read_issues)
+        for record in records:
+            validated = _validate_record(record, path, root)
+            if isinstance(validated, DataIssue):
+                issues.append(validated)
+                continue
+            env_id, episode_in_env = validated
+            identity = EpisodeIdentity(source, parsed.rebuild_index, env_id, episode_in_env)
+            if identity in results[job]:
+                issues.append(DataIssue(str(path.relative_to(root)), "duplicate episode record ignored"))
+                continue
+            results[job][identity] = record
+    return dict(results), issues
+
+
+def _scan_videos(
+    root: pathlib.Path,
+) -> tuple[dict[str, dict[tuple[int, int, int], dict[str, str]]], dict[str, list[str]]]:
+    """Scan recorder mp4 filenames without opening video files."""
+    videos: dict[str, dict[tuple[int, int, int], dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
+    cameras_by_job: dict[str, list[str]] = defaultdict(list)
+    for path in find_episode_video_files(root):
+        parsed = parse_episode_video_filename(path.name)
+        assert parsed is not None, f"'{path.name}' was matched as a video file but did not parse"
+        job = _job_name_for_path(path, root)
+        key = (parsed.rebuild_index, parsed.env_index, parsed.episode_index)
+        videos[job][key][parsed.camera_name] = str(path.relative_to(root))
+        if parsed.camera_name not in cameras_by_job[job]:
+            cameras_by_job[job].append(parsed.camera_name)
+    return {job: dict(entries) for job, entries in videos.items()}, dict(cameras_by_job)
+
+
+def _scan_jobs(root: pathlib.Path) -> tuple[list[_ScannedJob], list[DataIssue]]:
+    """Recursively scan ``root`` for episode results and recorder mp4s, grouped by run."""
+    root = pathlib.Path(root)
+    results, result_issues = _scan_results(root)
+    videos, cameras_by_job = _scan_videos(root)
+    issues = list(result_issues)
     jobs = []
-    for job in sorted(set(raw) | set(results)):
-        episodes = []
-        result_keys_by_env: dict[int, set[tuple[int, int]]] = {}
-        for env_index, rebuild, recorder_episode in results.get(job, {}):
-            result_keys_by_env.setdefault(env_index, set()).add((rebuild, recorder_episode))
+    for job in sorted(set(results) | set(videos)):
+        job_results = results.get(job, {})
+        job_videos = videos.get(job, {})
+        result_keys_by_video_key: dict[tuple[int, int, int], list[EpisodeIdentity]] = defaultdict(list)
+        for identity in job_results:
+            result_keys_by_video_key[
+                (identity.rebuild_index, identity.env_index, identity.recorder_episode_index)
+            ].append(identity)
 
-        video_envs = raw.get(job, {})
-        for env_index in sorted(set(video_envs) | set(result_keys_by_env)):
-            # Renumber (rebuild, recorder_episode) pairs into a contiguous, rebuild-agnostic index.
-            video_recordings = video_envs.get(env_index, {})
-            recording_keys = set(video_recordings) | result_keys_by_env.get(env_index, set())
-            for episode_index, recording_key in enumerate(sorted(recording_keys)):
-                episodes.append(
-                    EpisodeSummary(
-                        env_index=env_index,
-                        episode_index=episode_index,
-                        video_by_camera=video_recordings.get(recording_key, {}),
-                        record=results.get(job, {}).get((env_index, *recording_key), {}),
+        episodes_by_env: dict[int, list[tuple[EpisodeIdentity, dict[str, Any], dict[str, str]]]] = defaultdict(list)
+        consumed_video_keys: set[tuple[int, int, int]] = set()
+        for identity, record in job_results.items():
+            video_key = (identity.rebuild_index, identity.env_index, identity.recorder_episode_index)
+            same_record_keys = result_keys_by_video_key[video_key]
+            if len(same_record_keys) == 1:
+                video_by_camera = job_videos.get(video_key, {})
+                consumed_video_keys.add(video_key)
+            else:
+                video_by_camera = {}
+                issues.append(
+                    DataIssue(
+                        job or ".",
+                        "multiple rank records share one video key; leaving videos unpaired for that key",
                     )
                 )
-        jobs.append((job, sorted(cameras_by_job.get(job, [])), episodes))
-    return jobs
+            episodes_by_env[identity.env_index].append((identity, record, video_by_camera))
+
+        for video_key, video_by_camera in job_videos.items():
+            if video_key in consumed_video_keys:
+                continue
+            rebuild_index, env_index, recorder_episode_index = video_key
+            identity = EpisodeIdentity("", rebuild_index, env_index, recorder_episode_index)
+            episodes_by_env[env_index].append((identity, {}, video_by_camera))
+
+        episodes = []
+        for env_index in sorted(episodes_by_env):
+            env_entries = sorted(
+                episodes_by_env[env_index],
+                key=lambda item: (
+                    item[0].rebuild_index,
+                    item[0].recorder_episode_index,
+                    item[0].result_source,
+                ),
+            )
+            for display_episode_index, (identity, record, video_by_camera) in enumerate(env_entries):
+                episodes.append(
+                    EpisodeSummary(
+                        identity=identity,
+                        episode_index=display_episode_index,
+                        video_by_camera=video_by_camera,
+                        record=record,
+                    )
+                )
+        jobs.append(
+            _ScannedJob(
+                name=job,
+                cameras=sorted(cameras_by_job.get(job, [])),
+                episodes=episodes,
+                issues=[issue for issue in issues if issue.path == (job or ".")],
+            )
+        )
+    return jobs, issues
 
 
-def infer_task_and_policy_labels(job_names: list[str]) -> dict[str, tuple[str, str]] | None:
-    """Factorize Run names into task and policy labels by trying each trailing-token split.
+def infer_task_and_policy_labels(
+    job_names: list[str],
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
+) -> dict[str, tuple[str, str]] | None:
+    """Infer sparse task/policy labels from run-name suffixes."""
+    labels, _ = _infer_task_and_policy_labels_with_source(job_names, policy_suffixes)
+    return labels
 
-    A split is accepted only when the Run names form a complete task x policy grid over at least two
-    policies, which is strong evidence that the trailing tokens really are a policy axis rather than
-    part of the task name. The shortest such suffix wins.
 
-    Args:
-        job_names: Run names to factorize.
+def _infer_task_and_policy_labels_with_source(
+    job_names: list[str],
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
+) -> tuple[dict[str, tuple[str, str]] | None, str]:
+    """Infer task/policy labels and describe which strategy produced them."""
+    labels = _infer_labels_from_explicit_suffixes(job_names, policy_suffixes)
+    if labels is not None:
+        return labels, "policy_suffixes"
+    labels = _infer_labels_from_repeated_final_tokens(job_names)
+    if labels is not None:
+        return labels, "run_names"
+    return None, "none"
 
-    Returns:
-        Run name -> (task, policy), or ``None`` when no split yields a complete grid.
-    """
-    for num_tokens in range(1, _MAX_POLICY_NAME_TOKENS + 1):
-        candidate: dict[str, tuple[str, str]] = {}
-        for job_name in job_names:
-            tokens = job_name.split("_")
-            if len(tokens) <= num_tokens:
-                candidate = {}
+
+def _infer_labels_from_explicit_suffixes(
+    job_names: list[str],
+    policy_suffixes: tuple[str, ...],
+) -> dict[str, tuple[str, str]] | None:
+    """Infer labels from explicit policy suffixes only when every run matches one."""
+    labels: dict[str, tuple[str, str]] = {}
+    suffixes = tuple(sorted((suffix for suffix in policy_suffixes if suffix), key=len, reverse=True))
+    if not suffixes:
+        return None
+    for job_name in job_names:
+        for suffix in suffixes:
+            marker = f"_{suffix}"
+            if job_name.endswith(marker) and len(job_name) > len(marker):
+                labels[job_name] = (job_name[: -len(marker)], suffix)
                 break
-            candidate[job_name] = ("_".join(tokens[:-num_tokens]), "_".join(tokens[-num_tokens:]))
-        if not candidate:
-            continue
-        tasks = {task for task, _ in candidate.values()}
-        policies = {policy for _, policy in candidate.values()}
-        if len(policies) >= 2 and len(job_names) == len(tasks) * len(policies):
-            return candidate
-    return None
+        else:
+            return None
+    return labels if labels else None
 
 
-def resolve_job_labels(job_names: list[str]) -> tuple[dict[str, tuple[str, str]], str]:
-    """Resolve each job's task and policy labels by factorizing the Run names.
+def _infer_labels_from_repeated_final_tokens(job_names: list[str]) -> dict[str, tuple[str, str]] | None:
+    """Infer labels from final run-name tokens when there is comparison evidence."""
+    final_tokens: dict[str, int] = defaultdict(int)
+    split_names: dict[str, tuple[str, str]] = {}
+    for job_name in job_names:
+        task, separator, policy = job_name.rpartition("_")
+        if not separator or not task or not policy:
+            return None
+        split_names[job_name] = (task, policy)
+        final_tokens[policy] += 1
+    if len(final_tokens) < 2:
+        return None
+    policies_by_task: dict[str, set[str]] = defaultdict(set)
+    for task, policy in split_names.values():
+        policies_by_task[task].add(policy)
+    if not any(len(policies) > 1 for policies in policies_by_task.values()):
+        return None
+    return split_names
 
-    Falls back to leaving every job ungrouped, so a report can always be built for an output
-    directory whose Run names carry no policy axis.
 
-    Args:
-        job_names: Job names discovered by scanning.
+def _resolve_job_labels(
+    job_names: list[str],
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
+) -> tuple[dict[str, tuple[str, str]], str]:
+    """Resolve each job's task and policy labels."""
+    inferred, source = (
+        _infer_task_and_policy_labels_with_source(job_names, policy_suffixes) if job_names else (None, "none")
+    )
+    if inferred is None:
+        return {job_name: (job_name or UNGROUPED_TASK, "") for job_name in job_names}, "none"
 
-    Returns:
-        A ``(job name -> (task, policy), grouping source)`` pair.
-    """
-    inferred = infer_task_and_policy_labels(job_names) if len(job_names) > 1 else None
-    if inferred is not None:
-        return inferred, "run_names"
-
-    return {job_name: (job_name or UNGROUPED_TASK, "") for job_name in job_names}, "none"
+    labels = {job_name: (job_name or UNGROUPED_TASK, "") for job_name in job_names}
+    labels.update(inferred)
+    return labels, source
 
 
 def build_experiment_summary(
     root: str | pathlib.Path,
     title: str,
     run_executions: list[RunExecutionReport] | None = None,
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
 ) -> ExperimentSummary:
-    """Scan ``root`` and aggregate its recorded results into the report's data model.
-
-    Args:
-        root: Directory of evaluation results to scan.
-        title: Title displayed at the top of the report.
-        run_executions: Optional Run process results supplied by a distributed collector.
-
-    Returns:
-        The aggregated Experiment, with Runs grouped by task and policy.
-    """
+    """Scan ``root`` and aggregate recorded results into the report's data model."""
     root = pathlib.Path(root)
-    scanned = scan_jobs(root)
+    scanned, issues = _scan_jobs(root)
+    run_executions = list(run_executions or [])
     failed_run_names = {
-        run_execution.run_name for run_execution in (run_executions or []) if run_execution.status is RunStatus.FAILED
+        run_execution.run_name for run_execution in run_executions if is_failed_execution(run_execution)
     }
-    scanned = [entry for entry in scanned if entry[0] not in failed_run_names]
+    scanned = [entry for entry in scanned if entry.name not in failed_run_names]
 
-    labels, grouping_source = resolve_job_labels([job_name for job_name, _, _ in scanned])
-
+    labels, grouping_source = _resolve_job_labels([entry.name for entry in scanned], policy_suffixes)
     jobs_by_task: dict[str, list[JobSummary]] = {}
-    for job_name, cameras, episodes in scanned:
-        task, policy = labels[job_name]
+    for scanned_job in scanned:
+        task, policy = labels[scanned_job.name]
         jobs_by_task.setdefault(task, []).append(
-            JobSummary(name=job_name, task=task, policy=policy, cameras=cameras, episodes=episodes)
+            JobSummary(
+                name=scanned_job.name,
+                task=task,
+                policy=policy,
+                cameras=scanned_job.cameras,
+                episodes=scanned_job.episodes,
+                issues=scanned_job.issues,
+            )
         )
 
     tasks = [
-        TaskSummary(name=task, jobs=sorted(jobs_by_task[task], key=lambda job: job.policy))
+        TaskSummary(name=task, jobs=sorted(jobs_by_task[task], key=lambda job: (job.policy, job.name)))
         for task in sorted(jobs_by_task)
     ]
-    policies = sorted({job.policy for task in tasks for job in task.jobs})
+    policies = sorted({job.policy for task in tasks for job in task.jobs if job.policy})
     return ExperimentSummary(
         title=title,
         tasks=tasks,
         policies=policies,
-        run_executions=list(run_executions or []),
+        run_executions=run_executions,
         grouping_source=grouping_source,
+        issues=issues,
     )

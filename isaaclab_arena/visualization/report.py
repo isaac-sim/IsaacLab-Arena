@@ -20,9 +20,15 @@ import pathlib
 import re
 import socketserver
 
-from isaaclab_arena.visualization.report_data import ExperimentSummary, RunExecutionReport, build_experiment_summary
+from isaaclab_arena.visualization.report_data import (
+    DEFAULT_POLICY_SUFFIXES,
+    ExperimentSummary,
+    RunExecutionReport,
+    build_experiment_summary,
+)
 from isaaclab_arena.visualization.report_render import (
     PAGES_DIRNAME,
+    episode_anchor,
     render_index,
     render_job_page,
     render_task_page,
@@ -42,7 +48,9 @@ def _write_pages(
     summary: ExperimentSummary,
     video_dir: pathlib.Path,
     task_hrefs: dict[str, str],
-    job_hrefs: dict[str, str],
+    job_page_hrefs: dict[str, list[str]],
+    episode_hrefs: dict[tuple[str, int, int], str],
+    episodes_per_page: int,
 ) -> int:
     """Write the task and Run pages into the report sub-directory, returning how many were written.
 
@@ -50,7 +58,9 @@ def _write_pages(
         summary: Aggregated Experiment to render.
         video_dir: Directory the report is written into.
         task_hrefs: Task name -> page filename, relative to the pages sub-directory.
-        job_hrefs: Run name -> page filename, relative to the pages sub-directory.
+        job_page_hrefs: Run name -> page filenames, relative to the pages sub-directory.
+        episode_hrefs: Episode identity -> page anchor, relative to the pages sub-directory.
+        episodes_per_page: Maximum number of episode cards per run page.
     """
     pages_dir = video_dir / PAGES_DIRNAME
     pages_dir.mkdir(parents=True, exist_ok=True)
@@ -61,21 +71,38 @@ def _write_pages(
 
     for task in summary.tasks:
         (pages_dir / task_hrefs[task.name]).write_text(
-            render_task_page(summary, task, job_hrefs, index_href="../index.html"), encoding="utf-8"
-        )
-    for job in summary.jobs:
-        (pages_dir / job_hrefs[job.name]).write_text(
-            render_job_page(
+            render_task_page(
                 summary,
-                job,
-                task_href=task_hrefs[job.task],
+                task,
+                {job: pages[0] for job, pages in job_page_hrefs.items()},
+                episode_hrefs,
                 index_href="../index.html",
-                # Videos are recorded relative to the results root, one level above the pages.
-                video_prefix="../",
             ),
             encoding="utf-8",
         )
-    return len(summary.tasks) + len(summary.jobs)
+    num_pages = len(summary.tasks)
+    for job in summary.jobs:
+        pages = job_page_hrefs[job.name]
+        for page_index, page_href in enumerate(pages):
+            start = page_index * episodes_per_page
+            page_episodes = job.episodes[start : start + episodes_per_page]
+            (pages_dir / page_href).write_text(
+                render_job_page(
+                    summary,
+                    job,
+                    task_href=task_hrefs[job.task],
+                    index_href="../index.html",
+                    # Videos are recorded relative to the results root, one level above the pages.
+                    video_prefix="../",
+                    episodes=page_episodes,
+                    page_index=page_index,
+                    num_pages=len(pages),
+                    page_hrefs=pages,
+                ),
+                encoding="utf-8",
+            )
+            num_pages += 1
+    return num_pages
 
 
 def build_report(
@@ -83,6 +110,8 @@ def build_report(
     title: str = _DEFAULT_TITLE,
     *,
     run_executions: list[RunExecutionReport] | None = None,
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
+    episodes_per_page: int = 100,
 ) -> pathlib.Path:
     """Scan ``video_dir`` for results and write the report ``index.html`` into it, returning its path.
 
@@ -94,15 +123,20 @@ def build_report(
         video_dir: Directory of recorded results to scan (the report is written here).
         title: Title and heading for the generated page.
         run_executions: Optional Run process results supplied by a distributed collector.
+        policy_suffixes: Run-name suffixes that identify policies for task/policy grouping.
+        episodes_per_page: Maximum number of episode cards per generated run page.
     """
+    assert episodes_per_page > 0, "episodes_per_page must be greater than zero"
     video_dir = pathlib.Path(video_dir).resolve()
     video_dir.mkdir(parents=True, exist_ok=True)
 
-    summary = build_experiment_summary(video_dir, title, run_executions)
+    summary = build_experiment_summary(video_dir, title, run_executions, policy_suffixes=policy_suffixes)
     # Page filenames are derived once and threaded through both levels, so a link and the file it
     # points at can never disagree.
     task_hrefs = {name: f"task_{slug}.html" for name, slug in unique_slugs([t.name for t in summary.tasks]).items()}
-    job_hrefs = {name: f"job_{slug}.html" for name, slug in unique_slugs([j.name for j in summary.jobs]).items()}
+    job_page_hrefs = _job_page_hrefs(summary, episodes_per_page)
+    job_hrefs = {name: pages[0] for name, pages in job_page_hrefs.items()}
+    episode_hrefs = _episode_hrefs(summary, job_page_hrefs, episodes_per_page)
 
     index_html = render_index(
         summary,
@@ -111,7 +145,11 @@ def build_report(
     )
     output = video_dir / "index.html"
     output.write_text(index_html, encoding="utf-8")
-    num_pages = _write_pages(summary, video_dir, task_hrefs, job_hrefs) if summary.tasks else 0
+    num_pages = (
+        _write_pages(summary, video_dir, task_hrefs, job_page_hrefs, episode_hrefs, episodes_per_page)
+        if summary.tasks
+        else 0
+    )
 
     print(
         f"Wrote evaluation report with {len(summary.tasks)} task(s), {len(summary.jobs)} run(s) and "
@@ -124,6 +162,34 @@ def build_report(
     elif summary.num_videos == 0:
         print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
+
+
+def _job_page_hrefs(summary: ExperimentSummary, episodes_per_page: int) -> dict[str, list[str]]:
+    """Return run page filenames for each job, with collision-free slugs."""
+    slugs = unique_slugs([job.name for job in summary.jobs])
+    hrefs = {}
+    for job in summary.jobs:
+        num_pages = max(1, (len(job.episodes) + episodes_per_page - 1) // episodes_per_page)
+        if num_pages == 1:
+            hrefs[job.name] = [f"job_{slugs[job.name]}.html"]
+        else:
+            hrefs[job.name] = [f"job_{slugs[job.name]}_{index + 1}.html" for index in range(num_pages)]
+    return hrefs
+
+
+def _episode_hrefs(
+    summary: ExperimentSummary,
+    job_page_hrefs: dict[str, list[str]],
+    episodes_per_page: int,
+) -> dict[tuple[str, int, int], str]:
+    """Return run-page deep links for every episode chip on task pages."""
+    hrefs = {}
+    for job in summary.jobs:
+        pages = job_page_hrefs[job.name]
+        for index, episode in enumerate(job.episodes):
+            page_href = pages[index // episodes_per_page]
+            hrefs[(job.name, episode.env_index, episode.episode_index)] = f"{page_href}#{episode_anchor(episode)}"
+    return hrefs
 
 
 def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> None:
@@ -202,6 +268,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--port", type=int, default=_DEFAULT_PORT, help=f"Port to serve on. Defaults to {_DEFAULT_PORT}."
     )
+    parser.add_argument(
+        "--policy_suffix",
+        action="append",
+        default=None,
+        help="Run-name policy suffix used for grouping. May be supplied more than once.",
+    )
+    parser.add_argument(
+        "--episodes_per_page",
+        type=int,
+        default=100,
+        help="Maximum number of episode cards per run page. Defaults to 100.",
+    )
     parser.add_argument("--no_serve", action="store_true", help="Write the report without serving it.")
     return parser.parse_args()
 
@@ -209,7 +287,12 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     video_dir = _resolve_results_dir(pathlib.Path(args.video_dir))
-    output = build_report(video_dir, args.title)
+    output = build_report(
+        video_dir,
+        args.title,
+        policy_suffixes=tuple(args.policy_suffix or DEFAULT_POLICY_SUFFIXES),
+        episodes_per_page=args.episodes_per_page,
+    )
     if not args.no_serve:
         serve_until_ctrl_c(output.parent, args.port, output.name)
 

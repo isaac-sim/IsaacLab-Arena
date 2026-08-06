@@ -7,13 +7,15 @@
 
 import json
 import re
+import subprocess
+import sys
 
-from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.video.camera_observation_video_recorder import (
+from isaaclab_arena.visualization.episode_results_files import (
     format_episode_video_filename,
     parse_episode_video_filename,
 )
-from isaaclab_arena.visualization.report import RunExecutionReport, build_report
+from isaaclab_arena.visualization.report import RunExecutionReport, _resolve_results_dir, build_report
+from isaaclab_arena.visualization.report_render import unique_slugs
 
 # Matches a real video element, as opposed to the word "video" in the page's script or prose.
 _VIDEO_ELEMENT_PATTERN = re.compile(r"<video[\s>]")
@@ -48,11 +50,52 @@ def test_episode_video_filename_roundtrip_no_rebuild():
         "wrist_cam",
         5,
     )
-    assert parsed.rebuild_index is None
-    # Re-formatting the recovered fields reproduces the original filename.
+    assert parsed.rebuild_index == 0
     assert (
         format_episode_video_filename(parsed.prefix, parsed.env_index, parsed.camera_name, parsed.episode_index) == name
     )
+
+
+def test_unique_slugs_deduplicates_names_with_the_same_safe_form():
+    slugs = unique_slugs(["my run", "my+run"])
+
+    assert slugs == {"my run": "my_run", "my+run": "my_run_2"}
+
+
+def test_resolve_results_dir_uses_the_latest_timestamped_child(tmp_path):
+    old = tmp_path / "2026-01-01_00-00-00"
+    latest = tmp_path / "2026-01-02_00-00-00"
+    old.mkdir()
+    latest.mkdir()
+    (tmp_path / "not-a-run").mkdir()
+
+    assert _resolve_results_dir(tmp_path) == latest
+
+
+def test_resolve_results_dir_returns_input_when_there_are_no_timestamped_children(tmp_path):
+    (tmp_path / "results").mkdir()
+    missing = tmp_path / "missing"
+
+    assert _resolve_results_dir(tmp_path) == tmp_path
+    assert _resolve_results_dir(missing) == missing
+
+
+def test_report_import_is_leaf_only():
+    code = """
+import sys
+import isaaclab_arena.visualization.report
+blocked = [
+    name for name in sys.modules
+    if name.startswith('isaaclab_arena.evaluation')
+    or name.startswith('isaaclab_arena.video')
+    or name.split('.')[0] in {'torch', 'gymnasium', 'moviepy'}
+]
+print('\\n'.join(sorted(blocked)))
+raise SystemExit(1 if blocked else 0)
+"""
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_build_report_writes_a_page_per_task_and_run(tmp_path):
@@ -78,9 +121,35 @@ def test_build_report_writes_a_page_per_task_and_run(tmp_path):
     assert len(list(pages.glob("job_*.html"))) == 4
 
 
+def test_build_report_writes_distinct_pages_for_slug_collisions(tmp_path):
+    _write_run(tmp_path, "my run")
+    _write_run(tmp_path, "my+run")
+
+    build_report(tmp_path)
+
+    pages = tmp_path / "report"
+    assert (pages / "task_my_run.html").exists()
+    assert (pages / "task_my_run_2.html").exists()
+    assert (pages / "job_my_run.html").exists()
+    assert (pages / "job_my_run_2.html").exists()
+    assert "my run" in (pages / "job_my_run.html").read_text(encoding="utf-8")
+    assert "my+run" in (pages / "job_my_run_2.html").read_text(encoding="utf-8")
+
+
+def test_sparse_task_policy_matrix_stays_grouped(tmp_path):
+    _write_run(tmp_path, "banana_in_bowl_pi0")
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+    _write_run(tmp_path, "bowl_in_bin_cosmos")
+
+    build_report(tmp_path)
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "Success rate by task and policy" in index
+    assert "bowl_in_bin" in index
+    assert '<td class="cell missing"' in index
+
+
 def test_overview_and_task_pages_reference_no_video(tmp_path):
-    # The overview is what a large experiment opens first, so it must stay free of video entirely:
-    # emitting one element per recording is what made the previous single-page report unusable.
     for policy in ("pi0", "cosmos"):
         _write_run(tmp_path, f"banana_in_bowl_{policy}")
         _write_run(tmp_path, f"bowl_in_bin_{policy}")
@@ -98,16 +167,31 @@ def test_overview_and_task_pages_reference_no_video(tmp_path):
 def test_run_page_defers_every_video_until_it_scrolls_into_view(tmp_path):
     video_names = _write_run(tmp_path, "banana_in_bowl_pi0", num_episodes=3)
     _write_run(tmp_path, "banana_in_bowl_cosmos")
+    (tmp_path / "banana_in_bowl_pi0" / "not-a-recorder-file.mp4").write_bytes(b"")
 
     build_report(tmp_path)
 
     run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
-    # Every recording is referenced, but as a slot the script mounts later, never as a <video> tag.
     assert not _VIDEO_ELEMENT_PATTERN.search(run_page)
     for name in video_names:
         assert f'data-video-src="../banana_in_bowl_pi0/{name}"' in run_page
     assert run_page.count("data-video-src=") == len(video_names)
     assert "not-a-recorder-file.mp4" not in run_page
+
+
+def test_run_pages_are_paginated(tmp_path):
+    _write_run(tmp_path, "banana_in_bowl_pi0", num_episodes=5, cameras=("wrist_cam",))
+    _write_run(tmp_path, "banana_in_bowl_cosmos", num_episodes=1, cameras=("wrist_cam",))
+
+    build_report(tmp_path, episodes_per_page=2)
+
+    pages = tmp_path / "report"
+    assert (pages / "job_banana_in_bowl_pi0_1.html").exists()
+    assert (pages / "job_banana_in_bowl_pi0_2.html").exists()
+    assert (pages / "job_banana_in_bowl_pi0_3.html").exists()
+    first_page = (pages / "job_banana_in_bowl_pi0_1.html").read_text(encoding="utf-8")
+    assert "Page 1 of 3" in first_page
+    assert first_page.count("data-video-src=") == 2
 
 
 def test_report_pages_link_down_and_back_up(tmp_path):
@@ -126,14 +210,11 @@ def test_report_pages_link_down_and_back_up(tmp_path):
     assert 'href="../index.html"' in task_page
     assert 'href="../index.html"' in run_page
     assert 'href="task_banana_in_bowl.html"' in run_page
-    # Episode chips deep-link to the matching card on the run page.
     assert 'href="job_banana_in_bowl_pi0.html#ep-0-0"' in task_page
     assert 'id="ep-0-0"' in run_page
 
 
 def test_run_page_names_its_policy_throughout(tmp_path):
-    # A run page is scrolled through hundreds of episodes, so the policy has to stay answerable
-    # after the heading has scrolled away.
     _write_run(tmp_path, "banana_in_bowl_pi0", num_episodes=3)
     _write_run(tmp_path, "banana_in_bowl_cosmos")
 
@@ -143,14 +224,12 @@ def test_run_page_names_its_policy_throughout(tmp_path):
     assert "<h1>pi0</h1>" in run_page
     assert '<span class="key">policy</span><span class="value">pi0</span>' in run_page
     assert '<span class="key">task</span><span class="value">banana_in_bowl</span>' in run_page
-    # Repeated on every episode card, and marked as the current item in the sticky bar.
     assert run_page.count("policy <strong>pi0</strong>") == 3
     assert '<span class="current">pi0</span>' in run_page
 
 
 def test_run_page_shows_which_success_signals_fired_and_which_did_not(tmp_path):
     def record(index: int, reached: int) -> dict:
-        """One episode that fired the first ``reached`` predicates of a three-predicate sequence."""
         names = ["objects_settled", "object_is_above_height(object_name='banana')", "object_on_destination()"]
         objective = {"score": reached / 3, "is_complete": reached == 3, "total_groups": 1}
         if reached < 3:
@@ -180,12 +259,72 @@ def test_run_page_shows_which_success_signals_fired_and_which_did_not(tmp_path):
     build_report(tmp_path)
     run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
 
-    # The stalled episode still lists all three predicates: one fired, one waiting, one never reached.
     assert 'class="signal on"' in run_page and 'class="signal blocked"' in run_page
     assert 'class="signal off"' in run_page
     assert "step 10" in run_page and "waiting" in run_page
-    # The predicate the run never reached is named even though no episode fired it in that episode.
     assert run_page.count("object_on_destination") >= 2
+
+
+def test_unknown_blocked_predicate_is_shown_without_known_sequence(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": False,
+            "progress": {
+                "objectives": {
+                    "pick": {
+                        "score": 0.0,
+                        "is_complete": False,
+                        "total_groups": 1,
+                        "active_predicates": {"default": "never_seen(arg=1)"},
+                    }
+                },
+                "events": [],
+            },
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert "never_seen" in run_page
+
+
+def test_run_page_reports_conflicting_objective_family_sequences(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": False,
+            "progress": {
+                "objectives": {
+                    "subtask_0/pick": {"score": 0.0, "is_complete": False, "total_groups": 1},
+                    "subtask_1/pick": {"score": 0.0, "is_complete": False, "total_groups": 1},
+                },
+                "events": [
+                    {"objective": "subtask_0/pick", "predicate_index": 0, "predicate_name": "first_predicate"},
+                    {"objective": "subtask_1/pick", "predicate_index": 0, "predicate_name": "other_predicate"},
+                ],
+            },
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert "Data issues" in run_page
+    assert "conflicting predicate sequences" in run_page
 
 
 def test_every_page_below_the_overview_can_climb_back_up(tmp_path):
@@ -196,7 +335,6 @@ def test_every_page_below_the_overview_can_climb_back_up(tmp_path):
     task_page = (tmp_path / "report" / "task_banana_in_bowl.html").read_text(encoding="utf-8")
     run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
 
-    # A run page is long, so it carries the button both in the sticky bar and at the very end.
     assert run_page.count('<a class="upbutton" href="task_banana_in_bowl.html"') == 2
     assert 'class="upbutton" href="../index.html"' in run_page
     assert "Back to banana_in_bowl" in run_page
@@ -244,8 +382,8 @@ def test_build_report_with_supplied_run_execution_results(tmp_path):
     report_path = build_report(
         tmp_path,
         run_executions=[
-            RunExecutionReport(run_name="completed-run", status=RunStatus.COMPLETED, process_exit_code=0),
-            RunExecutionReport(run_name="failed-run", status=RunStatus.FAILED, process_exit_code=17),
+            RunExecutionReport(run_name="completed-run", status="completed", process_exit_code=0),
+            RunExecutionReport(run_name="failed-run", status="failed", process_exit_code=17),
         ],
     )
 
@@ -262,9 +400,7 @@ def test_failed_runs_are_listed_but_excluded_from_the_results(tmp_path):
 
     build_report(
         tmp_path,
-        run_executions=[
-            RunExecutionReport(run_name="banana_in_bowl_cosmos", status=RunStatus.FAILED, process_exit_code=9)
-        ],
+        run_executions=[RunExecutionReport(run_name="banana_in_bowl_cosmos", status="failed", process_exit_code=9)],
     )
 
     index = (tmp_path / "index.html").read_text(encoding="utf-8")
@@ -274,7 +410,6 @@ def test_failed_runs_are_listed_but_excluded_from_the_results(tmp_path):
 
 
 def test_ungrouped_results_still_produce_a_report(tmp_path):
-    # The policy runner writes results directly into the output directory, with no per-run folder.
     (tmp_path / "episode_results_rank0.jsonl").write_text(
         json.dumps({"env_id": 0, "episode_in_env": 0, "success": True}) + "\n", encoding="utf-8"
     )
@@ -287,3 +422,40 @@ def test_ungrouped_results_still_produce_a_report(tmp_path):
     assert "Runs" in index
     assert "could not be grouped" in index
     assert not _VIDEO_ELEMENT_PATTERN.search(index)
+
+
+def test_malformed_jsonl_is_reported_without_crashing(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text("{bad json\n", encoding="utf-8")
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    report_path = build_report(tmp_path)
+
+    index = report_path.read_text(encoding="utf-8")
+    assert "Data issues" in index
+    assert "invalid JSON" in index
+
+
+def test_media_paths_are_url_quoted_and_text_is_escaped(tmp_path):
+    run_dir = tmp_path / "task_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": True,
+            "language_instruction": "<script>alert(1)</script>",
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    video_name = format_episode_video_filename("robot-cam-rebuild0", 0, "wrist cam?rgb", 0)
+    (run_dir / video_name).write_bytes(b"")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_task_pi0.html").read_text(encoding="utf-8")
+    assert "wrist%20cam%3Frgb" in run_page
+    assert "<script>alert(1)</script>" not in run_page
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in run_page
