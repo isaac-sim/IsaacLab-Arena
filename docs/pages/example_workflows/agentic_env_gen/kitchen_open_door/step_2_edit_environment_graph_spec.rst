@@ -23,7 +23,7 @@ The generated spec has one block per part of the environment graph:
      id: kitchen
      registry_name: lightwheel_robocasa_kitchen
      params: {}
-   objects: []                       # nothing is spawned; the task uses kitchen prims only
+   objects: []
    object_references:                # prims that already exist inside the background
    - id: floor
      parent_id: kitchen
@@ -64,7 +64,7 @@ The generated spec has one block per part of the environment graph:
      - kind: OpenDoorTask
        params:
          openable_object: fridge     # object id, not registry name
-         openness_threshold: 0.2     # fraction of joint range counted as success
+         openness_threshold: 0.2     # how open the door has to be to complete the task
          reset_openness: 0.0         # the door starts fully closed on every reset
 
 An ``object_references`` entry is a prim that the background already contains, addressed by its
@@ -85,9 +85,25 @@ to. The three parameters to tune are:
 
 * ``side`` and ``distance_m`` under ``next_to`` — which side of the fridge the robot stands on and how far
   from it.
-* ``yaw_rad`` under ``rotate_around_solution`` — the rotation applied after the solver places the robot, so
+* ``yaw_rad`` under ``rotate_around_solution`` — the rotation applied after the solver computes the robot position, so
   that it faces the door.
 * ``openness_threshold`` under ``OpenDoorTask`` — how far the door has to swing before the task succeeds.
+
+To check which prim paths and joint names the kitchen background offers, browse the GUI's
+``Background prim tree``, or print the same listing with the runner:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+      --mode prim_tree \
+      --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml \
+      | grep fridge_main_group
+
+The fridge drives three joints, so ``openable_joint_name`` selects which one the task opens:
+
+.. code-block:: text
+
+   fridge_main_group  object_type=articulation  joints=freezer0_door_joint,fridge_door_joint,fridge_drawer0_joint
 
 .. code-block:: yaml
 
@@ -133,6 +149,5 @@ Applying your edits
             --num_steps 100 \
             --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml
 
-      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

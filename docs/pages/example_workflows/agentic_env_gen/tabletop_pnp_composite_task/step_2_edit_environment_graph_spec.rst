@@ -160,7 +160,6 @@ Applying your edits
             --num_steps 100 \
             --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
-      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` — named after ``env_name``, without the
       ``simready_`` prefix — so pass that path instead to build your own.

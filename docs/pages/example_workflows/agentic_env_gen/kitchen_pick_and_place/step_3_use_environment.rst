@@ -13,10 +13,10 @@ Open one terminal and run the following command outside the Arena docker contain
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-In the other terminal, run the following command to launch the policy runner as a sanity check that the
-generated environment works with a PI policy. The command below uses the ready-made spec that ships with
-Arena; to evaluate a spec you generated yourself, point ``--env_graph_spec_yaml`` at
-``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+In the other terminal, run the following command to launch the policy runner. The commands below use the
+ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
+``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+
 
 **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
 

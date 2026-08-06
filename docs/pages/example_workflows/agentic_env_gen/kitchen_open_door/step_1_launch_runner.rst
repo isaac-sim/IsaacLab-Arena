@@ -12,8 +12,8 @@ The agent runs in two modes:
   Use it for scripted or batch generation.
 
 Name the background prims the task depends on — the fridge and the floor — so the agent emits them as
-``object_references`` instead of spawning new assets, and state the openness the door has to reach. That
-target is the cue for the agent to emit an ``OpenDoorTask`` against the fridge articulation.
+``object_references`` instead of spawning new assets, and state the openness the door has to reach to complete the task.
+That is, the task is to open the fridge door to the 0.2 openness threshold in the ``OpenDoorTask``.
 
 .. tab-set::
 

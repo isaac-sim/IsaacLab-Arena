@@ -90,26 +90,51 @@ For more details on the env graph spec, see more in concept.
 Resolving the countertop ambiguity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The prompt does not identify which countertop to use. Expand the GUI's
-``Background prim tree`` and search for ``counter``. The kitchen contains five
-candidate counter surfaces:
+The prompt does not identify which countertop to use, and the kitchen contains five candidate counter
+surfaces. List them from the background prim tree — the set of prims the agent itself chooses
+``prim_path`` from — either in the GUI or from the command line:
 
-* ``counter_main_main_group/top_geometry_back``
-* ``counter_main_main_group/top_geometry_front``
-* ``counter_main_main_group/top_geometry_left``
-* ``counter_main_main_group/top_geometry_right``
-* ``counter_right_main_group/top_geometry``
+.. tab-set::
 
-.. figure:: ../../../../images/agentic_ui_kitchen_pnp_prim_tree.png
-   :width: 40%
-   :alt: Background prim tree showing five candidate kitchen counter surfaces
-   :align: center
+   .. tab-item:: Browse the prim tree (GUI)
+      :selected:
 
-   The background prim tree disambiguates the counter surfaces available in the
-   Lightwheel RoboCasa kitchen.
+      Expand the GUI's ``Background prim tree`` and search for ``counter``:
+
+      .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prim_tree.png
+         :width: 40%
+         :alt: Background prim tree showing five candidate kitchen counter surfaces
+         :align: center
+
+         The background prim tree disambiguates the counter surfaces available in the
+         Lightwheel RoboCasa kitchen.
+
+   .. tab-item:: Print the prim tree (CLI)
+
+      The prim tree can be read from the background USD with the runner in ``prim_tree`` mode:
+
+      .. code-block:: bash
+
+         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+            --mode prim_tree \
+            --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml \
+            | grep counter
+
+      It prints each line as a ``prim_path`` candidate with its ``object_type``, plus the joint names when the prim
+      is an articulation.
+
+      .. code-block:: text
+
+         counter_main_main_group  object_type=base
+         counter_main_main_group/top_geometry_back  object_type=base
+         counter_main_main_group/top_geometry_front  object_type=base
+         counter_main_main_group/top_geometry_left  object_type=base
+         counter_main_main_group/top_geometry_right  object_type=base
+         counter_right_main_group  object_type=base
+         counter_right_main_group/top_geometry  object_type=base
 
 For this task, select the center-right countertop by updating the object
-reference in the YAML editor:
+reference in the spec:
 
 .. code-block:: yaml
 
@@ -172,6 +197,5 @@ Applying your edits
             --num_steps 100 \
             --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
-      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

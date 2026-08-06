@@ -15,10 +15,9 @@ Environment Description
    The generated kitchen scene: a DROID arm standing on the floor next to the fridge and facing it. The task
    is to open the fridge door past an openness threshold.
 
-No assets are spawned for this task. The agent picks out prims *inside* the kitchen background — the floor
-and the fridge — and emits them as ``object_references``. The fridge is referenced as an articulation with
-an openable joint, which is what the ``OpenDoorTask`` measures; Arena's relation solver places the robot on
-the floor next to and facing it.
+The agent picks out prims *inside* the kitchen background — the floor and the fridge — and emits them as ``object_references``.
+The fridge is referenced as an articulation with an openable joint, expected by the ``OpenDoorTask`` task.
+Arena's relation solver places the robot on the floor next to and facing it.
 
 The generated spec for this example is available at
 ``isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml``.
@@ -29,8 +28,7 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup shared by
-every agentic environment-generation workflow.
+See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

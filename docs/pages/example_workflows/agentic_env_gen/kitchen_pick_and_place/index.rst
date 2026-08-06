@@ -15,8 +15,7 @@ Environment Description
    The generated kitchen scene: a DROID arm standing on the floor next to the counter, a mustard bottle and
    a bowl on the countertop. The task is to pick up the mustard bottle and place it in the bowl.
 
-Unlike the table-top examples, the objects are not placed on a standalone table asset. The agent picks out
-prims *inside* the kitchen background — a countertop surface and the floor — and emits them as
+The agent picks out prims *inside* the kitchen background — a countertop surface and the floor — and emits them as
 ``object_references``. Arena's relation solver then places the objects on the referenced countertop and the
 robot on the floor next to it.
 
@@ -29,8 +28,7 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup shared by
-every agentic environment-generation workflow.
+See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
 
 Workflow Steps
 ^^^^^^^^^^^^^^
