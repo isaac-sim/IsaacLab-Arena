@@ -5,6 +5,7 @@
 
 # The 18 robolab tasks not in robolab_20_tasks_pi0_and_cosmos.yaml, each run with both the OpenPI (pi0)
 # and Cosmos policies (36 runs, 20 parallel environments each).
+# Reusable defaults for all Runs; override them from the command line with shared.<path>=<value>.
 shared:
   variations:
     light:
@@ -33,7 +34,7 @@ runs:
       openpi_embodiment_adapter: droid
     environment_builder: &pi0_builder
       num_envs: 20
-    variations: &hdr_variation ${shared.variations}
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -47,7 +48,7 @@ runs:
       remote_port: 8000
     environment_builder: &cosmos_builder
       num_envs: 20
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -57,7 +58,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -65,7 +66,7 @@ runs:
     environment: *bagels_on_plate_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -75,7 +76,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -83,7 +84,7 @@ runs:
     environment: *banana_then_rubiks_cube_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -93,7 +94,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -101,7 +102,7 @@ runs:
     environment: *bbq_sauce_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -111,7 +112,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -119,7 +120,7 @@ runs:
     environment: *black_items_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -129,7 +130,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -137,7 +138,7 @@ runs:
     environment: *clear_organic_objects_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -147,7 +148,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -155,7 +156,7 @@ runs:
     environment: *clutter_plastic_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -165,7 +166,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -173,7 +174,7 @@ runs:
     environment: *clutter_pumpkin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -183,7 +184,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -191,7 +192,7 @@ runs:
     environment: *condiments_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -201,7 +202,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -209,7 +210,7 @@ runs:
     environment: *electronics_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -219,7 +220,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -227,7 +228,7 @@ runs:
     environment: *hammers_in_left_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -237,7 +238,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -245,7 +246,7 @@ runs:
     environment: *mustard_in_right_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -255,7 +256,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -263,7 +264,7 @@ runs:
     environment: *non_hammer_tools_in_right_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -273,7 +274,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -281,7 +282,7 @@ runs:
     environment: *rubiks_cube_and_banana_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -291,7 +292,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -299,7 +300,7 @@ runs:
     environment: *rubiks_cube_then_banana_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -309,7 +310,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -317,7 +318,7 @@ runs:
     environment: *small_pumpkin_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -327,7 +328,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -335,7 +336,7 @@ runs:
     environment: *smaller_object_butter_in_bin_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -345,7 +346,7 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
 
@@ -353,6 +354,6 @@ runs:
     environment: *throw_away_snacks_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
-    variations: *hdr_variation
+    variations: ${shared.variations}
     rollout_limit:
       num_episodes: 100
