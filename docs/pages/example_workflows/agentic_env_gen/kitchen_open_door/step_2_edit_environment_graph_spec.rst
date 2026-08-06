@@ -89,22 +89,6 @@ to. The three parameters to tune are:
   that it faces the door.
 * ``openness_threshold`` under ``OpenDoorTask`` — how far the door has to swing before the task succeeds.
 
-To check which prim paths and joint names the kitchen background offers, browse the GUI's
-``Background prim tree``, or print the same listing with the runner:
-
-.. code-block:: bash
-
-   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
-      --mode prim_tree \
-      --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml \
-      | grep fridge_main_group
-
-The fridge drives three joints, so ``openable_joint_name`` selects which one the task opens:
-
-.. code-block:: text
-
-   fridge_main_group  object_type=articulation  joints=freezer0_door_joint,fridge_door_joint,fridge_drawer0_joint
-
 .. code-block:: yaml
 
    - kind: next_to
