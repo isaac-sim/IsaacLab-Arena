@@ -65,18 +65,11 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 
       .. code-block:: text
 
-         [placement] Validated 128 candidate layout(s); passed per check: no_overlap=128/128, on_relation=126/128, ik_reachable=41/128
+         [placement] Validated 50 candidate layout(s); passed per check: on_relation=45/50, next_to=50/50, not_next_to=50/50, face_to=50/50, no_overlap=44/50, ik_reachable=8/42
 
       A low ``ik_reachable`` ratio means most sampled layouts put the banana or the plate outside the arm's
-      workspace, and the placer keeps resampling. When an environment finds no reachable layout at all, it
-      falls back to its lowest-loss layout and says so:
-
-      .. code-block:: text
-
-         Falling back to best-loss layouts for envs: [3, 7]
-
-      Frequent fallbacks are the signal to bring the objects closer to the robot in the spec — for example by
-      relating them to an object near the arm — or to thin out the clutter on the table.
+      workspace, and the placer keeps resampling.
+      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
       .. todo:: add link to reachability concept page
 

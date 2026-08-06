@@ -66,19 +66,12 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 
       .. code-block:: text
 
-         [placement] Validated 128 candidate layout(s); passed per check: no_overlap=128/128, on_relation=126/128, ik_reachable=41/128
+         [placement] Validated 50 candidate layout(s); passed per check: on_relation=47/50, next_to=39/50, not_next_to=50/50, face_to=50/50, no_overlap=39/50, ik_reachable=6/36
 
-      A low ``ik_reachable`` ratio means most sampled layouts put one of the target objects outside the arm's
-      workspace, and the placer keeps resampling. A composite task rejects more layouts than an atomic one,
-      because every pick target and the shared destination must be reachable in the same layout. When an
-      environment finds no reachable layout at all, it falls back to its lowest-loss layout and says so:
-
-      .. code-block:: text
-
-         Falling back to best-loss layouts for envs: [3, 7]
-
-      Frequent fallbacks are the signal to bring the objects closer to the robot in the spec — for example by
-      relating them to an object near the arm — or to thin out the clutter on the table.
+      A low ``ik_reachable`` ratio means most sampled layouts put the pepsi or bean can or the basket outside the
+      arm's workspace, and the placer keeps resampling. A composite task rejects more layouts than an atomic
+      one, because every pick target and the place target must be reachable in the same layout.
+      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
       .. todo:: add link to reachability concept page
 

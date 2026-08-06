@@ -66,19 +66,11 @@ yourself, point ``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent
 
       .. code-block:: text
 
-         [placement] Validated 128 candidate layout(s); passed per check: no_overlap=128/128, on_relation=126/128, ik_reachable=41/128
+         [placement] Validated 600 candidate layout(s); passed per check: on_relation=600/600, next_to=600/600, not_next_to=600/600, face_to=600/600, no_overlap=597/600, ik_reachable=478/597
 
       A low ``ik_reachable`` ratio means most sampled layouts put the fruit or the bowl outside the arm's
-      workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member, since
-      each environment draws a different fruit. When an environment finds no reachable layout at all, it falls
-      back to its lowest-loss layout and says so:
-
-      .. code-block:: text
-
-         Falling back to best-loss layouts for envs: [3, 7]
-
-      Frequent fallbacks are the signal to bring the objects closer to the robot in the spec — for example by
-      relating them to an object near the arm — or to thin out the clutter on the table.
+      workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member.
+      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
       .. todo:: add link to reachability concept page
 
