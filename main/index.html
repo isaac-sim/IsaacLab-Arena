@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=c2627d67" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e2b6e10d" />
   
   <!-- So that users can add custom icons -->
   <script defer src="_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
@@ -327,6 +327,13 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Why is Isaac Lab Arena needed?</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Why is Isaac Lab Arena needed?</a></li>
+
+
+
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="pages/quickstart/first_arena_env.html">First Arena Environment</a></li>
@@ -504,155 +511,104 @@
                   
   <section id="welcome-to-isaac-lab-arena">
 <h1>Welcome to Isaac Lab Arena!<a class="headerlink" href="#welcome-to-isaac-lab-arena" title="Link to this heading">#</a></h1>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
+<p>Isaac Lab Arena extends <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a>
+to simplify the creation of simulation environments, and for running them <em>fast</em>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is the development version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
 For the tested version, please refer to the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html">release/0.2.1 branch</a>.</p>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">Isaac</span> <span class="pre">Lab</span> <span class="pre">Arena</span></code> extends <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a>
-to simplify the creation of task/environment libraries.</p>
-<figure class="align-center" id="id1">
-<a class="reference internal image-reference" href="_images/g1_galileo_arena_box_pnp_locomanip.gif"><img alt="G1 Locomanipulation Box Pick and Place Task" src="_images/g1_galileo_arena_box_pnp_locomanip.gif" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">A G1 humanoid robot performing a locomanipulation task of transporting a box to a tray.
-This environment was designed using Isaac Lab Arena.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</section>
-<section id="the-problem">
-<h1>The Problem<a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h1>
-<p>With the advent of <em>generalist</em> robot policies, such as <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>
-and <a class="reference external" href="https://github.com/Physical-Intelligence/openpi">Pi_0</a>,
-there is a growing need to evaluate these policies in a variety of tasks/environments.</p>
-<p>Traditional approaches to building task libraries suffer from significant limitations.
-Each new environment variation—whether testing a different robot embodiment or swapping objects—requires tedious manual creation of a new task configuration.
-This leads to redundant, unscalable tasks where most of the environment setup, scene configuration, and task logic is duplicated across variations.
-As the number of robot types and objects grows, maintaining and extending such task libraries becomes increasingly impractical.</p>
-<figure class="align-center" id="id2">
-<a class="reference internal image-reference" href="_images/task_duplications.png"><img alt="Task duplications in a task library" src="_images/task_duplications.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Task duplications in a task library.
-When evaluating policies across different robot embodiments and objects, most of the environment setup and task logic remains the same, leading to significant code duplication.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</section>
-<section id="can-we-simplify-environment-creation">
-<h1>Can we simplify environment creation?<a class="headerlink" href="#can-we-simplify-environment-creation" title="Link to this heading">#</a></h1>
-<figure class="align-center" id="id3">
-<a class="reference internal image-reference" href="_images/variation_axis.png"><img alt="Axis of variation for the pick and place task" src="_images/variation_axis.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Axis of variation of a pick and place task.
-Each environment differs along two axis, the robot embodiment and the object to be manipulated.
-All other aspects of the environment and the task remain the same.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<p>Tasks in a task library are typically highly redundant.
-For example, you may want to test how well a policy performs on a pick and place task,
-on many different objects.
-In this example, each environment differs in the object-to-be-manipulated,
-but all other aspects remain the same.
-For example, the scene layout, the robot, the observations, actions, rewards, etc are all
-conserved across the environments.
-Isaac Lab’s manager-based environment API is convenient for expressing one such task,
-but does not naturally support expressing this type of variation.</p>
-<p>Isaac Lab Arena extends the manager-based interface to provide
-a convenient way of expressing task variation, while benefiting from
-the modularity, performance, and accuracy of Isaac Lab.</p>
-</section>
-<section id="isaac-lab-arena">
-<h1>Isaac Lab Arena<a class="headerlink" href="#isaac-lab-arena" title="Link to this heading">#</a></h1>
-<p>Isaac Lab Arena is a framework that simplifies the creation and maintenance of such task/environment libraries.
-To simplify the expression of task/environment variation in Isaac Lab Arena,
-we <em>compose</em> the environment on-the-fly from independent sub-pieces.
-Because the sub-pieces are independent, they can be reused and independently varied.
-Furthermore, because the environment is built on the fly, we never need to write and maintain
-duplicate code.</p>
+<div class="line-block">
+<div class="line"><strong>Modular Environments</strong></div>
+<div class="line">Compose environments from reusable parts.</div>
+</div>
 <figure class="align-center">
-<a class="reference internal image-reference" href="_images/isaac_lab_arena_arch_overview.png"><img alt="Isaac Lab Arena Architecture Overview" src="_images/isaac_lab_arena_arch_overview.png" style="width: 100%;" />
+<a class="reference internal image-reference" href="_images/variation_axis_web.webp"><img alt="_images/variation_axis_web.webp" src="_images/variation_axis_web.webp" style="width: 80%;" />
 </a>
 </figure>
-<p>Isaac Lab Arena decomposes the environment into three independent sub-pieces:</p>
-<ul class="simple">
-<li><p><strong>Scene</strong>: The physical environment layout. The scene is a collection of objects.</p></li>
-<li><p><strong>Embodiment</strong>: The robot embodiment, its observations, actions, sensors etc.</p></li>
-<li><p><strong>Task</strong>: A definition of what is to be accomplished in the environment.</p></li>
-</ul>
-<p>The <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> composes the environment from these sub-pieces,
-into a <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code> which can be run in Isaac Lab.</p>
-</section>
-<section id="usage-example">
-<h1>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h1>
-<p>The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to set up a manager-based RL environment using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">tomato_soup_can</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;tomato_soup_can&quot;</span><span class="p">)()</span>
-<span class="n">destination_location</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;destination_location&quot;</span><span class="p">,</span>
-         <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
-         <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-         <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
-     <span class="p">)</span>
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;keyboard&quot;</span><span class="p">)()</span>
-
-<span class="c1"># Compose the scene</span>
-<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">([</span><span class="n">background</span><span class="p">,</span> <span class="n">tomato_soup_can</span><span class="p">])</span>
-
-<span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-   <span class="n">name</span><span class="o">=</span><span class="s2">&quot;franka_kitchen_pickup&quot;</span><span class="p">,</span>
-   <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-   <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-   <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">tomato_soup_can</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
-   <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span> <span class="c1"># This will register the environment with the gym registry.</span>
+<div class="line-block">
+<div class="line"><strong>Swappable assets</strong></div>
+<div class="line">Easily switch the assets in an environment without rewriting the environment code.</div>
+</div>
+<div class="image-gallery gallery-3col docutils container">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/alphabet_soup_can_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/lemon_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mug_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mustard_bottle_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/orange_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/rubiks_cube_home_office_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/sugar_box_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/tomato_sauce_can_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/billiard_hall_web.mp4" type="video/mp4"></video></div></div>
+<div class="line-block">
+<div class="line"><strong>Automatic Object Placement</strong></div>
+<div class="line">Objects are placed automatically at run-time based on semantic spatial relationships.</div>
+</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-5 sd-col-lg-5 docutils">
+<div class="compact-code docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plate</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+<span class="n">banana</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">plate</span><span class="p">))</span>
+<span class="n">bowl</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+<span class="n">bagel_1</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+<span class="n">bagel_2</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
 </pre></div>
 </div>
-<figure class="align-center" id="id4">
-<a class="reference internal image-reference" href="_images/franka_kitchen_pickup.gif"><img alt="Franka Kitchen Pickup Task" src="_images/franka_kitchen_pickup.gif" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Franka — Kitchen Pickup Task</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<p>To get started with <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>, please finish the installation process by following the instructions in <a class="reference internal" href="pages/quickstart/installation.html"><span class="doc">Installation</span></a> and refer to the <a class="reference internal" href="pages/quickstart/first_arena_env.html"><span class="doc">First Arena Environment</span></a> example.</p>
-</section>
-<section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>See our <a class="reference internal" href="pages/quickstart/installation.html"><span class="doc">Installation</span></a> page for instructions.
-Note that <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> version <code class="docutils literal notranslate"><span class="pre">v0.1.0</span></code> only supports installation from source in a docker container.</p>
-</section>
-<section id="examples">
-<h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
-<p>Below are some example environments built using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
-<div class="pst-scrollable-table-container"><table class="gallery table">
-<tbody>
-<tr class="row-odd"><td><figure class="gallery-fig align-center" id="id5">
-<a class="reference external image-reference" href="pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task.html"><img alt="G1 Locomanipulation Box Pick and Place Task" src="_images/g1_galileo_arena_box_pnp_locomanip.gif" style="height: 400px;" />
-</a>
-<figcaption>
-<p><span class="caption-text">G1 — Locomanipulation: Box Pick &amp; Place</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</td>
-</tr>
-<tr class="row-even"><td><figure class="gallery-fig align-center" id="id6">
-<a class="reference external image-reference" href="pages/sample_tasks/gr1_open_microwave_task.html"><img alt="GR1 Open Microwave Task" src="_images/kitchen_gr1_arena.gif" style="height: 400px;" />
-</a>
-<figcaption>
-<p><span class="caption-text">GR1 — Open Microwave Task</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</td>
-</tr>
-</tbody>
-</table>
 </div>
-<p>Check out more of our examples environments here: <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/examples/example_environments">IsaacLab Arena Examples</a>.</p>
+</div>
+<div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-7 sd-col-lg-7 docutils">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" width="70%" playsinline="True"><source src="_images/bagels_on_plate_web.mp4" type="video/mp4"></video></div></div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><strong>Parallel Evaluation</strong></div>
+<div class="line">Evaluate policies in multiple parallel environments <em>fast</em>.</div>
+</div>
+<div class="image-gallery docutils container">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/big_pumpkin_in_bin_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mouse_on_keyboard_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/small_pumpkin_in_bin_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mustard_in_left_bin_web.mp4" type="video/mp4"></video></div></div>
+<div class="line-block">
+<div class="line"><strong>Agentic environment creation</strong></div>
+<div class="line">Work with an agent to create environments with randomization.</div>
+</div>
+<div class="image-gallery docutils container">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/penisula_mustard_mesh_web.mp4" type="video/mp4"></video></div><img alt="_images/object-ref-replicator-counter_web.webp" src="_images/object-ref-replicator-counter_web.webp" />
+</div>
+<div class="line-block">
+<div class="line"><strong>Built-in Evaluation Environments</strong></div>
+<div class="line">Test policies out of the box with a set of pre-defined environments.</div>
+</div>
+<div class="image-gallery gallery-3col docutils container">
+<img alt="_images/big_pumpkin_in_bin_web.webp" src="_images/big_pumpkin_in_bin_web.webp" />
+<img alt="_images/bagels_on_plate_web.webp" src="_images/bagels_on_plate_web.webp" />
+<img alt="_images/canned_food_in_bin_web.webp" src="_images/canned_food_in_bin_web.webp" />
+<img alt="_images/mouse_on_keyboard_web.webp" src="_images/mouse_on_keyboard_web.webp" />
+<img alt="_images/rubiks_cube_and_banana_web.webp" src="_images/rubiks_cube_and_banana_web.webp" />
+<img alt="_images/bbq_sauce_in_bin_web.webp" src="_images/bbq_sauce_in_bin_web.webp" />
+<img alt="_images/small_pumpkin_in_bin_web.webp" src="_images/small_pumpkin_in_bin_web.webp" />
+<img alt="_images/mustard_in_left_bin_web.webp" src="_images/mustard_in_left_bin_web.webp" />
+<img alt="_images/clutter_pumpkin_web.webp" src="_images/clutter_pumpkin_web.webp" />
+</div>
+<div class="line-block">
+<div class="line"><strong>Environmental Variations</strong></div>
+<div class="line">Inject controlled sources of randomness into the environment at run-time.</div>
+</div>
+<div class="image-gallery docutils container">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/color_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/hdr_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/shadows_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/temperature_web.mp4" type="video/mp4"></video></div></div>
+<div class="line-block">
+<div class="line"><strong>Multi-node Evaluation</strong></div>
+<div class="line">Scale-out evaluation across multiple compute nodes.</div>
+</div>
+<figure class="align-center">
+<a class="reference internal image-reference" href="_images/multinode_evaluation.png"><img alt="_images/multinode_evaluation.png" src="_images/multinode_evaluation.png" style="width: 80%;" />
+</a>
+</figure>
+<div class="line-block">
+<div class="line"><strong>Sensitivity Analysis</strong></div>
+<div class="line">Analyze the impact of variations on policy performance.</div>
+</div>
+<figure class="align-center">
+<a class="reference internal image-reference" href="_images/sensitivity_report_200_trails.png"><img alt="_images/sensitivity_report_200_trails.png" src="_images/sensitivity_report_200_trails.png" style="width: 100%;" />
+</a>
+</figure>
+<div class="line-block">
+<div class="line"><strong>Teleoperation</strong></div>
+<div class="line">Teleoperate robots in Arena-defined environments.</div>
+</div>
+<div class="image-gallery docutils container">
+<div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/g1_galileo_arena_box_pnp_locomanip_trimmed_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/gr1_sequential_static_manipulation_env_web.mp4" type="video/mp4"></video></div></div>
 </section>
 <section id="license">
 <h1>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h1>
@@ -677,6 +633,15 @@ in close collaboration with <a class="reference external" href="https://lightwhe
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Why is Isaac Lab Arena needed?</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Why is Isaac Lab Arena needed?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#the-problem">The Problem</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#can-we-simplify-environment-creation">Can we simplify environment creation?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#isaac-lab-arena">Isaac Lab Arena</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
@@ -779,12 +744,6 @@ in close collaboration with <a class="reference external" href="https://lightwhe
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Welcome to Isaac Lab Arena!</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem">The Problem</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#can-we-simplify-environment-creation">Can we simplify environment creation?</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-arena">Isaac Lab Arena</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-example">Usage Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#acknowledgments">Acknowledgments</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing">Contributing</a></li>
