@@ -432,7 +432,15 @@
 <li class="toctree-l2"><a class="reference internal" href="embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="policy/concept_evaluation_types.html">Evaluation Types</a></li>
 <li class="toctree-l2"><a class="reference internal" href="policy/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
@@ -511,11 +519,11 @@ scene, embodiment, and task — into a runnable Isaac Lab environment.
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> does this by collecting the partial configuration each
 component contributes and merging them into a single
 <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>.</p>
-<figure class="align-center" id="id1">
+<figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../_images/arena_env_builder.png"><img alt="ArenaEnvBuilder merges Scene, Embodiment, and Task into a ManagerBasedRLEnv" src="../../_images/arena_env_builder.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> merges the Scene, Embodiment, and Task into a runnable <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> merges the Scene, Embodiment, and Task into a runnable <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
@@ -587,9 +595,18 @@ Manager</p></th>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder.compose_manager_cfg()</span></code> first assembles the partial manager contributions
 from each component into a set of complete managers. Then it merges these complete managers
-into a single <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>.
-The Arena Environment Builder also optionally solves spatial relations between
-objects (<code class="docutils literal notranslate"><span class="pre">--solve_relations</span></code>). See <a class="reference internal" href="concept_object_placement.html"><span class="doc">Object Placement</span></a> for more details.</p>
+into a single <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>.</p>
+<p>By default, the builder also solves spatial relations for placed objects and
+supported robot embodiments. Set
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(solve_relations=False)</span></code> in Python to disable this step.
+Arena command-line runners expose the equivalent <code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code>
+option.</p>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>xyao-nv</p>
+<p>Document how the simulation seed controls random state during environment
+compilation and how it differs from placement-specific seeding.</p>
+</div>
 <p>The compiled config is then registered with the gym registry under the
 environment’s name, and <code class="docutils literal notranslate"><span class="pre">gym.make()</span></code> returns the gym environment.</p>
 </section>
@@ -605,6 +622,11 @@ in mimic mode.</p>
 <span class="w">  </span>--mimic<span class="w"> </span>...
 </pre></div>
 </div>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
+<p>Continue to <a class="reference internal" href="object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> to learn how anchors and spatial
+relations describe a placement layout.</p>
 </section>
 </section>
 
@@ -659,6 +681,7 @@ in mimic mode.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How it works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mimic-mode">Mimic mode</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>
 
