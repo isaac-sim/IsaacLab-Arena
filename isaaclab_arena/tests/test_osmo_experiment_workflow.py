@@ -495,31 +495,28 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
 
 
 def test_submission_resolves_shared_override_before_run_override(tmp_path):
-    """Apply a shared value to every Run before a direct Run override."""
+    """Apply shared Run defaults before a direct Run override."""
     experiment_path = tmp_path / "shared_experiment.yaml"
     experiment_path.write_text(
         """shared:
-  num_steps: 1
+  rollout_limit:
+    num_steps: 1
 
 runs:
   first:
     environment: {type: pick_and_place_maple_table}
     policy: {type: zero_action}
-    rollout_limit:
-      num_steps: ${shared.num_steps}
 
   second:
     environment: {type: pick_and_place_maple_table}
     policy: {type: zero_action}
-    rollout_limit:
-      num_steps: ${shared.num_steps}
 """,
         encoding="utf-8",
     )
 
     submission_cfg = _compose_submission(
         [
-            "experiment_cfg.shared.num_steps=5",
+            "experiment_cfg.shared.rollout_limit.num_steps=5",
             "experiment_cfg.runs.second.rollout_limit.num_steps=7",
         ],
         experiment_path,

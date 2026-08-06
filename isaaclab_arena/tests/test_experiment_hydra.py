@@ -182,42 +182,40 @@ runs:
     assert experiment_cfg.runs["second"].environment.enable_cameras is True
 
 
-def test_shared_values_expand_before_run_overrides_without_resolving_local_interpolations(tmp_path):
+def test_shared_run_defaults_merge_before_run_overrides_without_resolving_local_interpolations(tmp_path):
     config_path = _write_experiment(
         tmp_path,
         """
 shared:
-  light_intensity: 600.0
+  environment:
+    light_intensity: 600.0
   variations:
     camera:
       enabled: false
-  num_steps: ${environment_builder.num_envs}
+  rollout_limit:
+    num_steps: ${environment_builder.num_envs}
 
 runs:
   first:
     environment:
       type: pick_and_place_maple_table
-      light_intensity: ${shared.light_intensity}
       destination_location: ${pick_up_object}
     environment_builder: {}
     policy:
       type: zero_action
-    rollout_limit:
-      num_steps: ${shared.num_steps}
-    variations: ${shared.variations}
   second:
     environment:
       type: pick_and_place_maple_table
+      light_intensity: 650.0
     policy:
       type: zero_action
-    variations: ${shared.variations}
 """,
     )
 
     experiment_cfg = _load_experiment(
         config_path,
         overrides=[
-            "shared.light_intensity=750.0",
+            "shared.environment.light_intensity=750.0",
             "shared.variations.camera.enabled=true",
             "runs.second.variations.camera.enabled=false",
         ],
@@ -228,6 +226,7 @@ runs:
     assert first_run.environment.destination_location == first_run.environment.pick_up_object
     assert first_run.rollout_limit.num_steps == first_run.environment_builder.num_envs == 1
     assert first_run.variations["camera"]["enabled"] is True
+    assert experiment_cfg.runs["second"].environment.light_intensity == 650.0
     assert experiment_cfg.runs["second"].variations["camera"]["enabled"] is False
     with pytest.raises(ValueError, match="missing"):
         _load_experiment(config_path, overrides=["shared.missing=true"])

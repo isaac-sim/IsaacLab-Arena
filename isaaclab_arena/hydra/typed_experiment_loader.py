@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
-from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +25,6 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
-
-_SHARED_VALUE_REFERENCE_PATTERN = re.compile(r"\$\{shared\.([^{}]+)\}")
 
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
@@ -53,14 +50,14 @@ def load_arena_experiment_from_yaml(
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping, or
     names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update shared values or fields on Runs declared in YAML,
-    but cannot add Runs. Shared-value overrides are resolved before Run overrides.
+    Hydra overrides can update shared Run defaults or fields on Runs declared in
+    YAML, but cannot add Runs. Shared defaults are applied before Run overrides.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for shared values or Runs already declared in YAML.
+        overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
@@ -111,7 +108,7 @@ def partition_shared_experiment_overrides(
     overrides: list[str],
     root_prefix: str = "",
 ) -> tuple[list[str], list[str]]:
-    """Separate ordinary shared ``KEY=VALUE`` overrides from typed Run overrides.
+    """Separate shared Run-default overrides from typed Run overrides.
 
     Args:
         overrides: Command-line overrides rooted at an Arena Experiment Definition.
@@ -119,7 +116,7 @@ def partition_shared_experiment_overrides(
             overrides have this prefix removed so they can be applied to the Experiment YAML.
 
     Returns:
-        Shared-value overrides followed by all remaining overrides, preserving order within each group.
+        Shared Run-default overrides followed by all remaining overrides, preserving order within each group.
     """
     root_override_prefix = f"{root_prefix}." if root_prefix else ""
     shared_override_prefix = f"{root_override_prefix}shared."
@@ -133,41 +130,20 @@ def partition_shared_experiment_overrides(
     return shared_overrides, remaining_overrides
 
 
-def _expand_shared_value_references(value: Any, shared_values: Any) -> Any:
-    """Expand whole-value ``${shared...}`` references without resolving other interpolations."""
-    if isinstance(value, dict):
-        return {key: _expand_shared_value_references(item, shared_values) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_expand_shared_value_references(item, shared_values) for item in value]
-    if not isinstance(value, str):
-        return value
-
-    reference_match = _SHARED_VALUE_REFERENCE_PATTERN.fullmatch(value)
-    if reference_match is None:
-        return value
-
-    shared_value_path = reference_match.group(1)
-    referenced_value = shared_values
-    for key in shared_value_path.split("."):
-        if not isinstance(referenced_value, dict) or key not in referenced_value:
-            raise ValueError(f"Unknown shared value 'shared.{shared_value_path}'")
-        referenced_value = referenced_value[key]
-    return deepcopy(referenced_value)
-
-
 def load_experiment_run_definitions_from_yaml(
     yaml_path: str | Path,
     shared_overrides: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
-    Shared-value overrides are applied before whole-value ``${shared...}``
-    references are expanded. Other interpolations remain unresolved for the
-    environment, policy, or Run composition stage that owns them.
+    Values below ``shared`` are defaults for every Run. Shared overrides update
+    those defaults before each Run is merged over them. Interpolations remain
+    unresolved for the environment, policy, or Run composition stage that owns
+    them.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
-        shared_overrides: Hydra overrides already separated for values below the optional shared mapping.
+        shared_overrides: Hydra overrides already separated for the optional shared Run defaults.
 
     Returns:
         Run names mapped to their YAML values, in mapping declaration order.
@@ -193,25 +169,24 @@ def load_experiment_run_definitions_from_yaml(
     assert raw_experiment_config.runs, "Experiment must define at least one Run"
 
     try:
-        shared_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
-        OmegaConf.set_struct(shared_config, True)
-        shared_config.merge_with_dotlist(shared_overrides or [])
-        shared_values = OmegaConf.to_container(shared_config.shared, resolve=False)
-        assert isinstance(shared_values, dict)
+        shared_defaults_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
+        OmegaConf.set_struct(shared_defaults_config, True)
+        shared_defaults_config.merge_with_dotlist(shared_overrides or [])
+        shared_run_defaults = OmegaConf.to_container(shared_defaults_config.shared, resolve=False)
+        assert isinstance(shared_run_defaults, dict)
 
         runs: dict[str, dict[str, Any]] = {}
         for run_name, raw_run_config in raw_experiment_config.runs.items():
             assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
             _assert_run_name_is_hydra_compatible(run_name)
             assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-            run_values = OmegaConf.to_container(raw_run_config, resolve=False)
+            merged_run_config = OmegaConf.merge(shared_run_defaults, raw_run_config)
+            run_values = OmegaConf.to_container(merged_run_config, resolve=False)
             assert isinstance(run_values, dict)
             assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
-            run_values = _expand_shared_value_references(run_values, shared_values)
-            assert isinstance(run_values, dict)
             runs[run_name] = run_values
     except (OmegaConfBaseException, TypeError, ValueError) as exc:
-        raise ValueError(f"Could not resolve shared values in Arena Experiment '{yaml_path}': {exc}") from exc
+        raise ValueError(f"Could not apply shared Run defaults in Arena Experiment '{yaml_path}': {exc}") from exc
     return runs
 
 
@@ -231,7 +206,7 @@ def _build_arena_run_cfg_from_yaml_values(
         hydra_config_namespace: Unique prefix for this Experiment's temporary Hydra configs.
         index: Position of the Run in YAML declaration order.
         run_name: Name declared by the Run's YAML mapping key.
-        run_values: Values declared for the Run after expanding shared-value references.
+        run_values: Values declared for the Run after applying shared defaults.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
 
