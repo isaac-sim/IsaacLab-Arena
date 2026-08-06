@@ -11,6 +11,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     validate_experiment_config_path,
 )
 from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+from isaaclab_arena.evaluation.experiment_manifest import build_experiment_manifest, write_experiment_manifest
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
@@ -126,6 +127,13 @@ def main():
         )
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
         metrics_logger = MetricsLogger()
+
+        # Written before the Runs execute so the Experiment's structure is recoverable even if it crashes.
+        manifest_path = write_experiment_manifest(
+            build_experiment_manifest(experiment_cfg, experiment_name=experiment_output_directory.name),
+            experiment_output_directory,
+        )
+        print(f"Wrote Experiment manifest to: {manifest_path}")
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
