@@ -87,6 +87,7 @@ class ObjectPlacer:
         objects: list[PlaceableAsset],
         num_envs: int = 1,
         collision_objects: list[CollisionObject] | None = None,
+        device: torch.device | str | None = None,
     ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
@@ -102,6 +103,7 @@ class ObjectPlacer:
                 placement (one layout per env).
             collision_objects: Optional fixed background obstacles avoided during
                 placement but never optimized or relation-constrained.
+            device: Solver device. Defaults to CUDA when available, otherwise CPU.
 
         Returns:
             One PlacementResult per environment.
@@ -117,6 +119,7 @@ class ObjectPlacer:
             attempts_per_result=max_attempts,
             generator=generator,
             collision_objects=collision_objects,
+            device=device,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
@@ -141,6 +144,7 @@ class ObjectPlacer:
         num_envs: int,
         results_per_env: int,
         collision_objects: list[CollisionObject] | None = None,
+        device: torch.device | str | None = None,
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
@@ -153,6 +157,7 @@ class ObjectPlacer:
         Args:
             collision_objects: Optional fixed background obstacles avoided during
                 placement but never optimized or relation-constrained.
+            device: Solver device. Defaults to CUDA when available, otherwise CPU.
         """
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
@@ -166,6 +171,7 @@ class ObjectPlacer:
             attempts_per_result=max_attempts,
             generator=generator,
             collision_objects=collision_objects,
+            device=device,
         )
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
@@ -213,6 +219,7 @@ class ObjectPlacer:
         attempts_per_result: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
+        device: torch.device | str | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -254,6 +261,7 @@ class ObjectPlacer:
             env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
             orientations=orientations_per_candidate,
             collision_objects=collision_objects,
+            device=device,
         )
         self._apply_face_to_orientations(all_positions, orientations_per_candidate)
         # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.

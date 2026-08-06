@@ -189,6 +189,7 @@ class RelationSolver:
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[PlaceableAsset, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        device: torch.device | str | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -209,12 +210,13 @@ class RelationSolver:
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
+            device: Solver device. Defaults to CUDA when available, otherwise CPU.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )

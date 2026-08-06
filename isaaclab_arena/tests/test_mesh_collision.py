@@ -773,6 +773,27 @@ def test_object_collision_mode_can_enable_mesh_in_bbox_solver():
 
 
 @requires_warp
+def test_pooled_mesh_placement_initializes_solver_on_cpu():
+    """Build-time pooled MESH placement avoids CUDA initialization before PhysX Fabric starts."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.05)
+    b = _make_cylinder("b", radius=0.05)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=20, verbose=False)
+    )
+
+    pool = PooledObjectPlacer(objects=[table, a, b], placer_params=params, pool_size=1)
+
+    assert pool._placer._solver._mesh_manager is not None
+    assert pool._placer._solver._mesh_manager.device == "cpu"
+
+
+@requires_warp
 def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
     """AABB-only subjects paired with mesh targets use the candidate/env bbox, not the default bbox."""
     table = _make_table()

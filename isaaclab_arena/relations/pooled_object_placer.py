@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -98,7 +99,14 @@ class PooledObjectPlacer:
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
-        self._solve_and_store(pool_size)
+        default_collision_mode = placer_params.solver_params.collision_mode
+        uses_mesh_collision = any(
+            object_uses_mesh_collision(obj, default_collision_mode)
+            for obj in [*self._objects, *self._collision_objects]
+        )
+        # Build-time CUDA Warp initialization can corrupt PhysX Fabric GPU-interoperable rendering.
+        # Runtime refills occur after PhysX/Fabric initialization and can use the default CUDA device.
+        self._solve_and_store(pool_size, device="cpu" if uses_mesh_collision else None)
         for cur_env, pool in enumerate(self._env_pools):
             if not pool.layouts:
                 raise RuntimeError(
@@ -130,7 +138,7 @@ class PooledObjectPlacer:
         self._placer.params.placement_seed = self._base_placement_seed + self._next_seed_offset
         self._next_seed_offset += num_candidates
 
-    def _solve_and_store(self, num_layouts: int) -> None:
+    def _solve_and_store(self, num_layouts: int, device: torch.device | str | None = None) -> None:
         """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
 
         Bounded by max_placement_attempts; raises if the target cannot be met.
@@ -146,7 +154,7 @@ class PooledObjectPlacer:
 
             batch_size = max_missing * self._num_envs
             allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
-            ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+            ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size, device=device)
             self._store_env_matched_results(
                 ranked_results_per_env,
                 layouts_per_env,
@@ -162,7 +170,9 @@ class PooledObjectPlacer:
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}."
         )
 
-    def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
+    def _solve_env_ranked_layouts(
+        self, num_layouts: int, device: torch.device | str | None = None
+    ) -> tuple[list[list[PlacementResult]], int]:
         """Solve ranked layouts tied to each env's actual object geometry.
 
         Returns ranked candidate lists per real env so the pool can store
@@ -181,6 +191,7 @@ class PooledObjectPlacer:
                 num_envs=self._num_envs,
                 results_per_env=layouts_per_env,
                 collision_objects=self._collision_objects,
+                device=device,
             )
 
         return ranked_results_per_env, layouts_per_env
