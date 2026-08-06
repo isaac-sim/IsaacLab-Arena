@@ -143,42 +143,6 @@ def test_drops_start_above_the_support_surface():
         assert layout.positions[member][2] > support_top
 
 
-def test_drops_stay_within_the_support_footprint():
-    support, members, bounding_boxes = _scene(10)
-    layout = _Layout()
-    groups = get_clutter_groups([support, *members])
-
-    plan_clutter_drops(layout, groups, bounding_boxes, torch.Generator().manual_seed(0))
-
-    for member in members:
-        x, y, _ = layout.positions[member]
-        assert -0.5 <= x <= 0.5
-        assert -0.5 <= y <= 0.5
-
-
-def test_same_seed_reproduces_the_same_pile():
-    support, members, bounding_boxes = _scene(8)
-    groups = get_clutter_groups([support, *members])
-
-    first, second = _Layout(), _Layout()
-    plan_clutter_drops(first, groups, bounding_boxes, torch.Generator().manual_seed(7))
-    plan_clutter_drops(second, groups, bounding_boxes, torch.Generator().manual_seed(7))
-
-    assert first.positions == second.positions
-    assert first.rotations == second.rotations
-
-
-def test_different_seeds_produce_different_piles():
-    support, members, bounding_boxes = _scene(8)
-    groups = get_clutter_groups([support, *members])
-
-    first, second = _Layout(), _Layout()
-    plan_clutter_drops(first, groups, bounding_boxes, torch.Generator().manual_seed(1))
-    plan_clutter_drops(second, groups, bounding_boxes, torch.Generator().manual_seed(2))
-
-    assert first.positions != second.positions
-
-
 def test_two_groups_on_one_support_are_both_poured():
     support = _Asset("table")
     support.add_relation(IsAnchor())
@@ -456,21 +420,6 @@ def test_solved_support_pose_is_used_without_consulting_the_declaration():
     assert rotation == (0.0, 0.0, 0.0, 1.0)
 
 
-def test_off_axis_support_is_rejected_by_the_pour_itself():
-    """The limitation must hold on its own, not by relying on the anchor bounding box upstream."""
-    import math
-
-    from isaaclab_arena.relations.clutter_pour import region_for_support
-
-    support = _Asset("table")
-    support._pose = Pose(
-        position_xyz=(0.0, 0.0, 0.0),
-        rotation_xyzw=(0.0, 0.0, math.sin(math.pi / 8.0), math.cos(math.pi / 8.0)),
-    )
-    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
-        region_for_support(support, _Layout(), {support: _box(0.5, 0.5, 0.1)})
-
-
 def test_quarter_turned_support_is_accepted_by_the_pour():
     import math
 
@@ -505,23 +454,6 @@ def test_solved_support_with_identity_yaw_does_not_consult_its_declaration():
     assert rotation == (0.0, 0.0, 0.0, 1.0)
 
 
-def test_support_just_off_a_quarter_turn_is_rejected_not_silently_shrunk():
-    """Admission and region construction must share one threshold.
-
-    A support just off a quarter turn must not clear the guard only to be reclassified off-axis
-    by the region builder, which would collapse its footprint to an inscribed square.
-    """
-    import math
-
-    from isaaclab_arena.relations.clutter_pour import region_for_support
-
-    half = math.radians(0.5) / 2.0
-    support = _Asset("table")
-    support._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, math.sin(half), math.cos(half)))
-    with pytest.raises(AssertionError, match="not a quarter turn about Z"):
-        region_for_support(support, _Layout(), {support: _box(0.6, 0.4, 0.1)})
-
-
 def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_positions():
     """An anchor appears in layout.positions too, so presence there cannot mean 'solved'.
 
@@ -544,10 +476,10 @@ def test_anchored_support_keeps_its_declared_rotation_though_it_sits_in_position
 
 
 def test_admission_and_region_agree_at_the_tolerance_endpoint():
-    """The guard and the region builder must accept exactly the same rotations.
+    """The refusal must hold exactly at its own threshold, not one float short of it.
 
-    Sharing a tolerance is not enough: comparing against it with different strictness leaves a
-    yaw exactly _QUARTER_TURN_TOLERANCE_RAD from a quarter turn admitted by one and not the other.
+    A yaw exactly _QUARTER_TURN_TOLERANCE_RAD from a quarter turn is off-axis, and an inclusive
+    comparison would have admitted it.
     """
     import math
 

@@ -222,8 +222,13 @@ def _test_every_parallel_env_gets_its_own_settled_pile(simulation_app) -> bool:
     return True
 
 
-def _test_spilled_layouts_are_rejected_from_the_cache(simulation_app) -> bool:
-    """Every cached layout must hold its pile on the support, across repeated draws."""
+def _test_every_cached_layout_holds_its_pile_across_draws(simulation_app) -> bool:
+    """Every cached layout must hold its pile on the support, across repeated draws.
+
+    This does not prove rejection happened -- a pour where nothing spilled passes it too. That
+    the filter drops what spills, and refuses an env left with nothing, is pinned sim-free in
+    test_pooled_layout_rejection.
+    """
     from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, check_resting_poses
 
     layouts_per_env = 6
@@ -288,8 +293,8 @@ def test_every_parallel_env_gets_its_own_settled_pile():
     assert run_function_with_persistent_simulation_app(_test_every_parallel_env_gets_its_own_settled_pile)
 
 
-def test_spilled_layouts_are_rejected_from_the_cache():
-    assert run_function_with_persistent_simulation_app(_test_spilled_layouts_are_rejected_from_the_cache)
+def test_every_cached_layout_holds_its_pile_across_draws():
+    assert run_function_with_persistent_simulation_app(_test_every_cached_layout_holds_its_pile_across_draws)
 
 
 def test_pile_stays_settled_after_the_pool_refills():
