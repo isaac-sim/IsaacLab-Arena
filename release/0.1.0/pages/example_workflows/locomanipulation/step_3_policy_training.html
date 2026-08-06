@@ -424,9 +424,10 @@
 <p>This workflow covers post-training an example policy using the generated dataset,
 here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.5</a> as the base model.</p>
 <p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
-</pre></div>
-</div>
+<dl class="field-list simple">
+<dt class="field-odd">docker_run_gr00t<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
 <p>Once inside the container, set the dataset and models directories.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/locomanipulation_tutorial
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/locomanipulation_tutorial

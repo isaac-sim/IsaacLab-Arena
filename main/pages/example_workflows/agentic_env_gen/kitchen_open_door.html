@@ -54,8 +54,8 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Pick and Place on a Kitchen Countertop" href="kitchen_pick_and_place.html" />
-    <link rel="prev" title="Evaluate with OpenPI" href="eval_with_openpi.html" />
+    <link rel="next" title="Agentic Environment Generation GUI" href="gui_runner.html" />
+    <link rel="prev" title="Pick and Place on a Kitchen Countertop" href="kitchen_pick_and_place.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -399,12 +399,28 @@
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Environment Generation and Policy Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="eval_with_gr00t.html">Evaluate with GR00T</a></li>
-<li class="toctree-l2"><a class="reference internal" href="eval_with_openpi.html">Evaluate with OpenPI</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Open a Kitchen Fridge Door</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Environment Generation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_homogenous_object/index.html">Pick and Place atomic task with homogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/index.html">Pick and Place atomic task with heterogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_composite_task/index.html">Pick and Place composite task with SimReady assets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2"><a class="reference internal" href="kitchen_pick_and_place.html">Pick and Place on a Kitchen Countertop</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Open a Kitchen Fridge Door</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gui_runner.html">Agentic Environment Generation GUI</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -496,7 +512,7 @@
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Agentic Environment Generation and Policy Evaluation</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Agentic Environment Generation</a></li>
     
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Open a Kitchen Fridge Door</span></li>
   </ul>
@@ -621,7 +637,8 @@ for this example, the generated path is
 <h2>Run a Policy in the Generated Environment<a class="headerlink" href="#run-a-policy-in-the-generated-environment" title="Link to this heading">#</a></h2>
 <p>Next, run a generalized policy, such as an OpenPI policy, in the generated environment
 to verify that it works end to end.</p>
-<p>Start the OpenPI server as described in <a class="reference internal" href="eval_with_openpi.html"><span class="doc">Evaluate with OpenPI</span></a>. In a second
+<p>Start the OpenPI server as described in
+<a class="reference internal" href="tabletop_pnp_homogenous_object/step_3_use_environment.html"><span class="doc">Use the Generated Environment</span></a>. In a second
 terminal, enter the Arena container with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>, then run
 two episodes as a sanity check that the generated environment works with a PI
 policy:</p>
@@ -659,20 +676,20 @@ generated kitchen environment.</span><a class="headerlink" href="#id2" title="Li
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="eval_with_openpi.html"
+       href="kitchen_pick_and_place.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Evaluate with OpenPI</p>
+        <p class="prev-next-title">Pick and Place on a Kitchen Countertop</p>
       </div>
     </a>
     <a class="right-next"
-       href="kitchen_pick_and_place.html"
+       href="gui_runner.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Pick and Place on a Kitchen Countertop</p>
+        <p class="prev-next-title">Agentic Environment Generation GUI</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
