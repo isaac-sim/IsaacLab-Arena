@@ -55,7 +55,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="Concept Overview" href="../../concepts/concept_overview.html" />
-    <link rel="prev" title="Sensitivity Analysis" href="index.html" />
+    <link rel="prev" title="Variations" href="../analysis/variations.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -442,10 +442,7 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../analysis/index.html">Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Variations</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Sensitivity Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 </ul>
@@ -534,9 +531,6 @@
     
     <li class="breadcrumb-item"><a href="../analysis/index.html" class="nav-link">Analysis</a></li>
     
-    
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Sensitivity Analysis</a></li>
-    
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Sensitivity Analysis</span></li>
   </ul>
 </nav>
@@ -556,223 +550,125 @@
                   
   <section id="sensitivity-analysis">
 <h1>Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Link to this heading">#</a></h1>
-<p>A policy’s overall success rate tells you how often it completed a task, but not under which
-conditions it worked or failed. During a variation sweep, Arena records every tested condition
-alongside the episode result. Sensitivity analysis uses those records to estimate which
-combinations of conditions are associated with success or failure.</p>
-<figure class="align-center" id="id1">
-<a class="reference internal image-reference" href="../../../_images/sensitivity_report_200_trails.png"><img alt="../../../_images/sensitivity_report_200_trails.png" src="../../../_images/sensitivity_report_200_trails.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">An example sensitivity report which shows the sensitivity of the Pi0.5 policy to displacements of the
-wrist-camera. We will build this figure later in this section.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<section id="how-arena-generates-sensitivity-reports">
-<h2>How Arena generates sensitivity reports<a class="headerlink" href="#how-arena-generates-sensitivity-reports" title="Link to this heading">#</a></h2>
-<p>For an experiment run with Arena, the input to the sensitivity analysis pipeline is the
-episode-results file written during the variation sweep. See the <a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html"><span class="doc">Sensitivity Analysis
-concept page</span></a> for details about this file.</p>
-<p>Arena considers all selected conditions together and estimates the distribution for the
-outcome you choose, such as success or failure, over the selected conditions.
-For example, a user may select to analyze the distribution of success over variations
-in the wrist-camera position offsets.</p>
-<p>Note that you may select to analyze the distribution of a single condition over multiple conditions.
-Considering the conditions together preserves patterns where two conditions matter in combination,
-and reduces the risk of crediting one condition for a pattern that is actually linked to another.</p>
-<p>Arena chooses an estimator automatically from the recorded conditions:</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 20.0%" />
-<col style="width: 50.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Recorded conditions</p></th>
-<th class="head"><p>Estimator</p></th>
-<th class="head"><p>Example</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>All conditions are numeric</p></td>
-<td><p>NPE</p></td>
-<td><p>Light intensity and camera-position offsets</p></td>
-</tr>
-<tr class="row-odd"><td><p>Mixed numeric conditions and named choices</p></td>
-<td><p>MNPE</p></td>
-<td><p>Light intensity together with background or material choices</p></td>
-</tr>
-</tbody>
-</table>
+<p>An overall success rate tells you how often a policy completed the task, but not which tested
+conditions were associated with success. Sensitivity analysis connects each episode’s outcome to
+the conditions sampled during that episode.</p>
+<p>Sensitivity analysis can help you:</p>
+<ul class="simple">
+<li><p><strong>Find a robust operating range.</strong> See whether success is associated with a broad part of the
+tested range or only a narrow region.</p></li>
+<li><p><strong>Identify the most sensitive factors.</strong> Compare the posteriors to see which conditions
+constrain the policy most strongly.</p></li>
+<li><p><strong>Target additional training data.</strong> Collect or augment data across sensitive conditions to
+improve the policy’s robustness.</p></li>
+<li><p><strong>Compare policies.</strong> Repeat the same sweep for multiple policies and compare their sensitivity
+alongside their overall success rates.</p></li>
+</ul>
+<p>This workflow continues from <a class="reference internal" href="../analysis/variations.html"><span class="doc">Variations</span></a>. It uses the saved episode
+results to estimate the posterior distribution over wrist-camera offsets conditioned on success.
+Arena models the selected factors together, then displays one marginal posterior for each camera
+axis. This is not a success-rate-versus-offset plot.</p>
+<p>The earlier sweep is deliberately small: it demonstrates the workflow, but it is not enough to
+judge the policy’s robustness. For background on the method, see the <a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html"><span class="doc">Sensitivity Analysis
+concept page</span></a>.</p>
+<section id="estimate-the-success-conditioned-posterior">
+<h2>Estimate the success-conditioned posterior<a class="headerlink" href="#estimate-the-success-conditioned-posterior" title="Link to this heading">#</a></h2>
+<p>In the Base Docker container, set the paths used by the download and analysis commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/eval/camera_sensitivity_workflow&quot;</span>
+<span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">/droid_pnp_camera_sensitivity_openpi&quot;</span>
+<span class="nv">EPISODE_RESULTS_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/episode_results_rebuild0.jsonl&quot;</span>
+<span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/camera_sensitivity_posterior.png&quot;</span>
+</pre></div>
 </div>
-<p>NPE stands for <em>neural posterior estimation</em>. MNPE is its mixed-data counterpart, used when
-the conditions include both numbers and named choices. Both produce a joint posterior: an
-estimated distribution of the recorded conditions and the selected outcome.
-You do not need to choose or configure the estimator yourself.</p>
-</section>
-<section id="run-the-camera-sensitivity-example">
-<h2>Run the camera-sensitivity example<a class="headerlink" href="#run-the-camera-sensitivity-example" title="Link to this heading">#</a></h2>
-<p>The <a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html"><span class="doc">Getting Started variation example</span></a> varied, among other factors, the wrist
-camera displacement. That example used a zero-action policy that kept the robot still.
-This example continues with the same Rubik’s-cube pick-and-place task,
-but uses an OpenPI policy so that each episode has a meaningful success or failure outcome.
-Only the wrist-camera position varies; the object, destination, background, and lighting remain fixed.</p>
-<p>The camera offset is drawn independently along three axes between -10 mm and 10 mm. Because
-all three recorded conditions are numeric, Arena will use NPE for this analysis.</p>
+<p>To start here without running the Variations workflow, download the saved episode results:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">droid_pnp_camera_sensitivity_openpi_experiment.yaml</span></code>)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).</span>
-<span class="c1"># All rights reserved.</span>
-<span class="c1">#</span>
-<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="sd-summary-text">Download episode results (skip Variations workflow)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands download a small sample of episode results from the camera-sensitivity
+experiment, so you can follow this workflow without first running the variation sweep.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">&quot;</span>
 
-<span class="nt">runs</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">droid_pnp_camera_sensitivity_openpi</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
-<span class="w">      </span><span class="nt">enable_cameras</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">      </span><span class="nt">embodiment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_abs_joint_pos</span>
-<span class="w">      </span><span class="nt">pick_up_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rubiks_cube_hot3d_robolab</span>
-<span class="w">      </span><span class="nt">destination_location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl_ycb_robolab</span>
-<span class="w">      </span><span class="nt">hdr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">home_office_robolab</span>
-<span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik&#39;s cube and place it in the bowl.</span>
-<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy</span>
-<span class="w">      </span><span class="nt">policy_variant</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pi05</span>
-<span class="w">      </span><span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda:0</span>
-<span class="w">      </span><span class="nt">remote_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
-<span class="w">      </span><span class="nt">remote_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-<span class="w">      </span><span class="nt">openpi_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
-<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<span class="w">    </span><span class="c1"># The variations to enable for this run.</span>
-<span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.03</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.03</span><span class="p p-Indicator">]</span>
+<span class="nv">HF_DATASET_REPOSITORY</span><span class="o">=</span><span class="s2">&quot;nvidia/Arena-DROID-Camera-Sensitivity-Workflow-Sample&quot;</span>
+<span class="nv">HF_DATASET_REVISION</span><span class="o">=</span><span class="s2">&quot;arena_v0.2_lab_v3.0&quot;</span>
+
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">HF_DATASET_REPOSITORY</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>episode_results_rebuild0.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--revision<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">HF_DATASET_REVISION</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 </div>
-</details><p>Start the OpenPI server in one terminal:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh
-</pre></div>
-</div>
-<p>Leave the server running. For installation, model variants, and server options, see
-<a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/openpi.html"><span class="doc">OpenPi</span></a>.</p>
-<p>In the Base Docker container, run the evaluation from the repository root:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output_base_dir<span class="w"> </span>/eval/camera_sensitivity<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
-</pre></div>
-</div>
-<p>This places the results in the default output path <code class="docutils literal notranslate"><span class="pre">/eval/camera_sensitivity/&lt;timestamp&gt;/droid_pnp_camera_sensitivity_openpi</span></code>.
-In particular, Arena stores one row per completed episode detailing the sampled variation values
-and the per-episode outcome.</p>
-<section id="generate-the-report">
-<h3>Generate the report<a class="headerlink" href="#generate-the-report" title="Link to this heading">#</a></h3>
-<p>We now generate a sensitivity report from the results we just collected.</p>
-<p>Point the report command at that episode-results file.
-The flag <code class="docutils literal notranslate"><span class="pre">--factors</span> <span class="pre">droid_abs_joint_pos.camera_extrinsics_wrist_camera</span></code> selects the wrist-camera
-variation and keeps all three components of its recorded offset:</p>
+</details><p>Whether generated by the Variations workflow or downloaded above, the results are stored in the
+output directory configured on the Analysis page. Run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.analysis.sensitivity.generate_report<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--episode_results<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">EPISODE_RESULTS_PATH</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--outcome<span class="w"> </span>success<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--factors<span class="w"> </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output<span class="w"> </span>/eval/camera_sensitivity_report.png<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--episode_results<span class="w"> </span>/eval/camera_sensitivity/&lt;timestamp&gt;/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
+<span class="w">  </span>--output<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
-<p>This places the report as a <code class="docutils literal notranslate"><span class="pre">.png</span></code> file at the requested output path <code class="docutils literal notranslate"><span class="pre">/eval/camera_sensitivity_report.png</span></code>.</p>
-<figure class="align-center" id="id2">
-<a class="reference internal image-reference" href="../../../_images/sensitivity_report_5_trails.png"><img alt="Sensitivity report for three wrist-camera translation components" src="../../../_images/sensitivity_report_5_trails.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Example sensitivity report from the five-episode experiment. Horizontal axes show offsets in metres. The
-blue curve is the estimated distribution for successful episodes, its shading marks the 5%
-to 95% range, and the grey dashed line is the uniform sampling distribution. A blue curve
-close to the dashed line suggests no clear relationship; concentration in one region
-suggests a stronger association with success.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<p>Note that your report will look different due to randomness in the experiments.</p>
+<p>This command trains a neural posterior estimator (NPE) on all episodes in the JSONL file and
+writes the resulting posterior-marginal plot to <code class="docutils literal notranslate"><span class="pre">${POSTERIOR_FIGURE_PATH}</span></code>, which we inspect in
+the next step.</p>
+<p>For the downloaded sample, the terminal output includes:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[INFO] SensitivityAnalyzer: fitting NPE_C on 10 episodes (theta dim=3, x dim=1).
+...
+[INFO] Wrote report → /eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
+</pre></div>
+</div>
 </section>
-<section id="read-the-report">
-<h3>Read the report<a class="headerlink" href="#read-the-report" title="Link to this heading">#</a></h3>
-<p>This section explains how to read the report.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>For this section we use data from an experiment generated from more episodes
-than the command we ran above (here we use 200 episodes).
-In general, you need a large number of episodes to generate consistent results.
-The data file we use is included in the repository under
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl</span></code></p>
-</div>
-<p>Generate the report using:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.analysis.sensitivity.generate_report<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--outcome<span class="w"> </span>success<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--factors<span class="w"> </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output<span class="w"> </span>/eval/camera_sensitivity_report.png<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--episode_results<span class="w"> </span>isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl
+<section id="read-the-posterior-marginals">
+<h2>Read the posterior marginals<a class="headerlink" href="#read-the-posterior-marginals" title="Link to this heading">#</a></h2>
+<p>From another terminal on the host, set the corresponding host path and open the generated image:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png&quot;</span>
+xdg-open<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
-<figure class="align-center" id="id3">
-<a class="reference internal image-reference" href="../../../_images/sensitivity_report_200_trails.png"><img alt="../../../_images/sensitivity_report_200_trails.png" src="../../../_images/sensitivity_report_200_trails.png" style="width: 100%;" />
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_posterior.png"><img alt="Posterior marginals for the three wrist-camera position offsets conditioned on success" src="../../../_images/droid_camera_sensitivity_posterior.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">The sensitivity report from a 200-episode experiment included in the Isaac Lab - Arena repo.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+<p><span class="caption-text">Posterior marginals generated from the small camera-position sweep in the Variations workflow.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>Each panel shows one axis/direction of the wrist-camera offset for the selected outcome. The report
-title shows the outcome used for the analysis; here, <code class="docutils literal notranslate"><span class="pre">success=1</span></code> means that the report focuses
-on successful episodes. In the camera’s optical frame:</p>
+<p>Each panel shows the marginal posterior for one component of the wrist-camera offset, measured in
+metres. In the camera’s optical frame:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">[0]</span></code> is horizontal displacement: negative moves left and positive moves right;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">[1]</span></code> is vertical displacement: negative moves up and positive moves down; and</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">[2]</span></code> is depth displacement: negative moves backward and positive moves forward.</p></li>
 </ul>
-<p>Each of the plots shows the probability distribution over the varied quantity (i.e.
-the particular axis of the wrist-camera offset) for the selected outcome.
-A flat, i.e. uniform, distribution indicates that the outcome is insensitive to the varied quantity.
-In this case such a graph would suggest that the policy is insensitive to changes in the
-wrist-camera offset in that direction.
-A peaked distribution suggests that the outcome is sensitive to the varied quantity.</p>
-<p>Our generated report shows that:</p>
+<p>The blue curve is the estimated posterior density conditioned on success. The grey dashed line is
+a uniform reference over the recorded range. A curve close to the dashed line suggests no clear
+association in the recorded data. A curve concentrated in part of the range suggests that those
+values are more strongly associated with successful episodes.</p>
+</section>
+<section id="turn-the-posterior-into-practical-takeaways">
+<h2>Turn the posterior into practical takeaways<a class="headerlink" href="#turn-the-posterior-into-practical-takeaways" title="Link to this heading">#</a></h2>
+<p>Because this walkthrough uses a small sweep, the interpretation below is hypothetical. If the
+same posterior shapes persisted in a larger experiment, they would support these takeaways:</p>
 <ul class="simple">
-<li><p><strong>Horizontal (x) displacement:</strong> Pi0.5 appears to be sensitive to horizontal displacement of the wrist-camera.
-The proportion of successful episodes drops as horizontal distance from the nominal position increases.
-At the extremum of our experiment (5cm displacement), there are significantly fewer successful episodes.</p></li>
-<li><p><strong>Vertical displacement (y):</strong> Pi0.5 appears relatively <strong>more</strong> sensitive to vertical displacement of the
-camera. This is indicated by the posterior distribution being more peaked than the uniform reference, or
-the posteriors from x and z. The success of the policy drops rapidly as the camera moves away from
-the nominal position in y.</p></li>
+<li><p><strong>Horizontal offset ([0]):</strong> The broad posterior suggests less sensitivity to left-right camera
+offsets than to the other axes.</p></li>
+<li><p><strong>Vertical offset ([1]):</strong> The narrow posterior peaks at a small upward offset. Check the camera
+calibration and mounting position before deployment.</p></li>
+<li><p><strong>Depth offset ([2]):</strong> The posterior peaks near nominal and declines for forward offsets. Keep
+the camera standoff close to nominal and limit forward mounting error.</p></li>
 </ul>
+<p>Together, these results make vertical and depth alignment the priorities for camera mounting,
+calibration, and additional training data. Horizontal alignment can allow more variation over the
+tested range.</p>
+<p>Finally, each panel is a marginal of the joint posterior. The three individual peaks do not
+necessarily form the best combined camera position: one offset may compensate for another. Use a
+joint or pairwise posterior view before choosing a new three-dimensional mounting transform.</p>
 </section>
-<section id="insights-you-can-take-from-the-report">
-<h3>Insights you can take from the report<a class="headerlink" href="#insights-you-can-take-from-the-report" title="Link to this heading">#</a></h3>
-<p>A sensitivity report can support several practical decisions:</p>
-<ul class="simple">
-<li><p><strong>Find a robust operating range.</strong> A broad, flat distribution associated with success,
-suggests that changes of the varied quantity in that region do not affect the policy’s success rate.</p></li>
-<li><p><strong>Identify the most sensitive direction.</strong> Compare the horizontal, vertical, and depth
-panels. A strong concentration or a clear difference between the success and failure reports
-points to a direction that deserves closer attention.</p></li>
-<li><p><strong>Improve the training-data distribution.</strong> Because the real-world is highly varied,
-factors of high sensitivity are candidates for additional training examples, to improve
-the policy’s robustness, and therefore performance on the real-world.</p></li>
-<li><p><strong>Compare policies.</strong> One is able to compare the sensitivity of different policies to the same variation.
-In general, policies that are less sensitive are more desirable.</p></li>
-</ul>
-</section>
-<section id="running-on-osmo">
-<h3>Running on OSMO<a class="headerlink" href="#running-on-osmo" title="Link to this heading">#</a></h3>
-<p>Running experiments for several environments and many episodes can be time-consuming.
-We use OSMO to orchestrate running experiments quickly on multi-node clusters.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>OSMO docs coming soon…</p>
-</div>
-</section>
+<section id="scale-up-with-a-multi-node-experiment">
+<h2>Scale up with a multi-node experiment<a class="headerlink" href="#scale-up-with-a-multi-node-experiment" title="Link to this heading">#</a></h2>
+<p>The local sweep demonstrates how recorded episodes become posterior marginals. The upcoming
+<strong>Multi-node Experiment</strong> workflow will introduce Arena’s distributed experiment runner and show
+how to collect more episode results across compute nodes.</p>
 </section>
 </section>
 
@@ -787,12 +683,12 @@ We use OSMO to orchestrate running experiments quickly on multi-node clusters.</
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="../analysis/variations.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Sensitivity Analysis</p>
+        <p class="prev-next-title">Variations</p>
       </div>
     </a>
     <a class="right-next"
@@ -825,14 +721,10 @@ We use OSMO to orchestrate running experiments quickly on multi-node clusters.</
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-arena-generates-sensitivity-reports">How Arena generates sensitivity reports</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-camera-sensitivity-example">Run the camera-sensitivity example</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-the-report">Generate the report</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#read-the-report">Read the report</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#insights-you-can-take-from-the-report">Insights you can take from the report</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-on-osmo">Running on OSMO</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#estimate-the-success-conditioned-posterior">Estimate the success-conditioned posterior</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#read-the-posterior-marginals">Read the posterior marginals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#turn-the-posterior-into-practical-takeaways">Turn the posterior into practical takeaways</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scale-up-with-a-multi-node-experiment">Scale up with a multi-node experiment</a></li>
 </ul>
   </nav></div>
 

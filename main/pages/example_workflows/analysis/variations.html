@@ -54,7 +54,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Sensitivity Analysis" href="../sensitivity_analysis/index.html" />
+    <link rel="next" title="Sensitivity Analysis" href="../sensitivity_analysis/sensitivity_analysis.html" />
     <link rel="prev" title="Analysis" href="index.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -442,10 +442,7 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Variations</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../sensitivity_analysis/index.html">Sensitivity Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 </details></li>
 </ul>
@@ -607,10 +604,16 @@ are enough to walk through the workflow.</p>
 </pre></div>
 </div>
 </div>
-</details><p>With the OpenPI server running, run the evaluation from the repository root in the Base Docker
-container:</p>
+</details><p>In the Base Docker container, set the output directory used by this workflow:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/eval/camera_sensitivity_workflow&quot;</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Arena requires this directory to be empty. With the OpenPI server running, run the evaluation from
+the repository root:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 </pre></div>
 </div>
@@ -625,13 +628,15 @@ and samples a new wrist-camera position for each episode.</span><a class="header
 </figcaption>
 </figure>
 <p>The runner writes the episode results to:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>outputs/&lt;timestamp&gt;/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
 </pre></div>
 </div>
 <p>The JSONL file contains one object per completed episode with its sampled variation values and
 outcome.</p>
-<p>Continue to <a class="reference internal" href="../sensitivity_analysis/index.html"><span class="doc">Sensitivity Analysis</span></a> to generate and interpret
-a report from this file.</p>
+<p>Continue to <a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html"><span class="doc">Sensitivity Analysis</span></a> to estimate
+and inspect the posterior distribution over camera offsets conditioned on success. The next
+workflow reuses this output directory directly. To continue without running this sweep, use the
+<strong>Download episode results</strong> dropdown there to download sample results instead.</p>
 </section>
 </section>
 
@@ -655,7 +660,7 @@ a report from this file.</p>
       </div>
     </a>
     <a class="right-next"
-       href="../sensitivity_analysis/index.html"
+       href="../sensitivity_analysis/sensitivity_analysis.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
