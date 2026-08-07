@@ -2,7 +2,7 @@ Predicates and Subtask Progress Tracking
 ========================================
 
 A task's success termination tells you if the task was completed. However, this doesn't give
-any insight into intermidate goals or stages of the task.
+any insight into intermediate goals or stages of the task.
 Subtask progress tracking allows for finer-grained tracking of a task's progress.
 
 Arena subtask tracking represents intermediate milestones as **predicates** and organizes them into scored
@@ -17,14 +17,12 @@ receive partial progress even when the task ultimately fails.
 Predicates
 ----------
 
-A predicate is a callable that receives the manager-based environment and returns one Boolean per
-parallel environment. For example:
+A predicate represents a boolean condition in a task, such as an object settling,
+being lifted, or reaching its destination. In Arena, a predicate is a callable that receives
+the manager-based environment (and optionally additional configuration arguments) and returns one Boolean per parallel environment.
 
-.. code-block:: python
-
-   def object_grasped(env) -> torch.Tensor:
-       # Return value shape: (env.num_envs,)
-       ...
+Included predicates
+~~~~~~~~~~~~~~~~~~~
 
 Arena comes with an existing collection of predicates under ``isaaclab_arena.tasks.predicates``, including:
 
@@ -40,6 +38,32 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
     ``objects_settled`` records each object's first resting pose. Later predicates can use that
     environment-specific pose as a reference, which is more robust than assuming every object starts at
     the same world height. Arena clears the recorded poses for the environments being reset.
+
+
+Defining a custom predicate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Define a custom predicate when Arena's included predicates do not express the condition you need.
+A custom predicate must:
+
+* Accept ``env`` as its first argument.
+* Evaluate all parallel environments in one call.
+* Return a Boolean tensor with shape ``(env.num_envs,)``.
+
+A predicate may accept any task-specific arguments it needs after ``env``. For example:
+
+.. code-block:: python
+
+   import torch
+
+   from isaaclab_arena.tasks.predicates.predicate_utils import get_root_pos_w
+
+   def object_inside_x_bounds(env, object_name: str, min_x: float, max_x: float) -> torch.Tensor:
+       object_x = get_root_pos_w(env, object_name)[:, 0]
+       return (object_x >= min_x) & (object_x <= max_x)
+
+The arguments after ``env`` are configured when the predicate is added to a progress objective
+(shown in the next section).
 
 
 Defining a progress objective
@@ -84,6 +108,10 @@ a single three-predicate chain: settle, lift, then place.
            )
        ]
 
+.. note::
+
+    The progress tracker calls each predicate with only ``env``. When a predicate accepts additional
+    arguments, use ``functools.partial`` in the progress objective to bind their task-specific values.
 
 Use a dictionary to specify ``predicate_groups`` when a progress objective has multiple independent predicate chains. Predicates
 within each group remain sequential while groups advance independently:
@@ -113,6 +141,8 @@ Subtask progress tracking in composite and sequential tasks
 
 ``CompositeTaskBase`` collects the progress objectives from every child and namespaces their names
 as ``subtask_<index>/<objective_name>``. It also records the child index on each objective.
+Standalone tasks retain their original objective names, such as ``pick_and_place``. The
+``subtask_<index>/`` prefix is added only when the task is part of a composite task.
 
 For an order-independent composite task, every child's progress objectives are active. For a
 ``SequentialTaskBase``, Arena gates each objective per environment using that environment's current
@@ -122,6 +152,14 @@ their physical conditions already happen to be true.
 This progress gating follows composite-task ordering, but remains separate from the composite
 task's success state. See :doc:`concept_composite_tasks_design` for composition and success
 semantics.
+
+.. figure:: ../../../images/composite_vs_sequential_progress_tracking.png
+   :width: 100%
+   :alt: Comparison of predicate tracking activation in composite and sequential tasks
+   :align: center
+
+   Composite tasks activate tracking on all subtasks' predicates together, while sequential tasks activate
+   tracking on each subtask's predicates only after the preceding subtask succeeds.
 
 
 Reading subtask progress tracking at runtime
@@ -154,3 +192,49 @@ that reset.
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without progress objectives have
 no progress-tracking configuration and produce no progress fields.
+
+For example, one entry of the JSONL record may look like:
+
+.. code-block:: json
+
+   {
+     "progress": {
+       "overall_score": 0.67,
+       "all_complete": false,
+       "objectives": {
+         "subtask_0/pick_and_place": {
+           "score": 0.67,
+           "is_complete": false,
+           "completed_groups": 0,
+           "total_groups": 1,
+           "active_predicates": {
+             "default_group": "object_on_destination"
+           }
+         }
+       },
+       "events": [
+         {
+           "step": 4,
+           "objective": "subtask_0/pick_and_place",
+           "group": "default_group",
+           "predicate_index": 0,
+           "predicate_name": "objects_settled",
+           "score_delta": 0.33
+         },
+         {
+           "step": 18,
+           "objective": "subtask_0/pick_and_place",
+           "group": "default_group",
+           "predicate_index": 1,
+           "predicate_name": "object_is_above_height(object_name='can', use_settled_state=True)",
+           "score_delta": 0.33
+         }
+       ]
+     }
+   }
+
+In this example, the object has settled and then been lifted, completing two of the three predicates
+and producing a progress score of ``0.67``. The objective is not complete however because the final predicate
+(``object_on_destination``) has not been satisfied. The events record when each completed predicate advanced
+the task and how much it contributed to the score. Here, there have been two events recorded so far, one for when
+the ``objects_settled`` predicate was satisfied and one for when the ``object_is_above_height`` predicate was satisfied.

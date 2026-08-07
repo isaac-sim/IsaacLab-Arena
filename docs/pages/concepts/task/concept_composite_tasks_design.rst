@@ -14,7 +14,7 @@ terminations with one success condition for the complete task.
 
 .. note::
 
-    "Order-independent" does not mean every subtask must be satisfied simultaneously. Arena remembers
+    "Order-independent" does not mean every subtask must be satisfied simultaneously. The environment tracks and remembers
     which subtasks have succeeded during the episode. This makes ``CompositeTaskBase`` appropriate for
     goals such as placing several objects into a bin, where the policy may choose the object order.
 
@@ -75,11 +75,14 @@ before closing the refrigerator:
        task_description="Place the object in the refrigerator, then close the door.",
    )
 
+See :doc:`../../example_workflows/sequential_static_manipulation/index` for a complete sequential-task
+workflow that places an object in a refrigerator and then closes the door.
+
 
 Specifying a final subtask state
 --------------------------------
 
-By default, both composite and sequential tasks only requires every subtask to have succeeded at some point. Use
+By default, both composite and sequential tasks only require every subtask to have succeeded at some point. Use
 ``desired_subtask_success_state`` if you want the final simulator state to be a specific one:
 
 .. code-block:: python
