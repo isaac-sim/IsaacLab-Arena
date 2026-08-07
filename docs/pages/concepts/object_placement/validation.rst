@@ -29,7 +29,10 @@ Verdicts land in each candidate's ``PlacementValidationResults``. A
 **optional** (enabled but not required) check still runs and is reported, but
 does not invalidate the layout. ``PooledObjectPlacer``
 (:doc:`./pooled_placement`) uses these results to rank candidates and to
-reject-and-refill until each environment has enough valid layouts.
+reject-and-refill until each environment has enough valid layouts. By default,
+if the final refill batch still has no valid candidate, Arena can store a
+best-loss layout that failed required checks
+(``allow_best_loss_fallbacks=True``); see :doc:`./pooled_placement`.
 
 Types of Validators
 --------------------
@@ -80,9 +83,12 @@ Geometric and Relation Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``no_overlap``, ``on_relation``, ``next_to``, ``not_next_to``, and
-``face_to`` are always registered. Each mirrors the corresponding relation's
-loss term, so low-loss solver output and validator verdicts stay consistent.
-A check for a relation kind unused in the environment passes trivially.
+``face_to`` are always registered. The first four mirror the corresponding
+relation's loss term, so low-loss solver output and validator verdicts stay
+consistent. ``face_to`` is different: ``FaceTo`` is applied as a post-solve
+heading rather than a continuous loss, and the check only verifies that a
+facing yaw was computed. A check for a relation kind unused in the
+environment passes trivially.
 
 Set ``debug_visualize=True`` (or ``placement_validators.debug_visualize:
 true`` in YAML) to inspect candidates in a `Rerun <https://rerun.io/>`_
@@ -118,9 +124,9 @@ extension. It registers when that package imports successfully and the
 embodiment has a cuRobo config (e.g. Droid). ``ArenaEnvBuilder`` wires
 the env's embodiment into ``reachability_config`` automatically.
 
-It gates only objects marked ``RequiresReachability`` — a relation tasks such
-as ``PickAndPlaceTask`` stamp automatically. With no such relation, the check
-passes trivially. Grasp offset and IK tolerances are configurable; see
+It gates only objects marked ``RequiresReachability`` — a relation that tasks
+such as ``PickAndPlaceTask`` stamp automatically. With no such relation, the
+check passes trivially. Grasp offset and IK tolerances are configurable; see
 :doc:`../environment/env_spec`.
 
 .. figure:: ../../../images/reachability_rerun_viz.gif
