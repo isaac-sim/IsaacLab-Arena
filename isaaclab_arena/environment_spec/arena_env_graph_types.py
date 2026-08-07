@@ -253,6 +253,14 @@ class SpatialRelationSpec(BaseModel):
         description="Optional kind-specific parameters; leave empty by default.",
     )
 
+    @field_validator("reference", mode="before")
+    @classmethod
+    def _none_if_empty_reference(cls, value: Any) -> Any:
+        """Normalize an empty optional reference to None before arity validation."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @model_validator(mode="after")
     def _validate_kind_and_arity(self) -> SpatialRelationSpec:
         registry = ObjectRelationLibraryRegistry()
