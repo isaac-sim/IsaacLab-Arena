@@ -9,11 +9,98 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import isaaclab.sim as sim_utils
+from isaaclab.assets import RigidObjectCfg
+
+from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+_PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.8, 1.5, 0.04),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    visible=False,
+)
+
+
+class ProceduralTable(Object):
+    """Kinematic cuboid table (invisible collision surface). Newton-safe, single geometry."""
+
+    tags = ["background", "procedural"]
+    object_min_z: float = 0.0
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "table"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/table"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)
+
+
+_PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.05, 0.1, 0.1),
+    physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        solver_position_iteration_count=16,
+        solver_velocity_iteration_count=0,
+        disable_gravity=False,
+    ),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+)
+
+
+class ProceduralCube(Object):
+    """Rigid cuboid manipuland (0.2 kg, 5x10x10 cm). Newton-safe, single geometry."""
+
+    tags = ["object", "procedural"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "object"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/Object"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)
 
 
 @dataclass
@@ -40,12 +127,12 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
-        from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena.utils.pose import PoseRange
 
-        dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+        dexsuite_table = ProceduralTable()
         dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
 
-        manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+        manip_object = ProceduralCube()
         manip_object.set_initial_pose(
             PoseRange(
                 position_xyz_min=(-0.75, -0.1, 0.35),

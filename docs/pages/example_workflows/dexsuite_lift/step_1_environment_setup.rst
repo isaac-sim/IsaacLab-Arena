@@ -36,10 +36,10 @@ The environment is defined in
               from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
               from isaaclab_arena.utils.pose import Pose, PoseRange
 
-              dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+              dexsuite_table = ProceduralTable()
               dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
 
-              manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+              manip_object = ProceduralCube()
               manip_object.set_initial_pose(
                   PoseRange(
                       position_xyz_min=(-0.75, -0.1, 0.35),

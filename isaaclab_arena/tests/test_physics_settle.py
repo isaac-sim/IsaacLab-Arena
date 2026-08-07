@@ -143,12 +143,13 @@ def _build_parallel_layout_env(num_envs, expected_settled):
     Returns the gym-wrapped env (already reset) and the two sphere names (the floor is excluded, like a
     background/anchor object would be in a real settle check).
     """
-    from isaaclab_arena.assets.object_library import ProceduralTable, Sphere
+    from isaaclab_arena.assets.object_library import Sphere
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
+    from isaaclab_arena_environments.dexsuite_lift_environment import ProceduralTable
 
     floor_top_z = 0.02  # ProceduralTable is 0.04 thick, centered at z=0.
     rest_z = floor_top_z + 0.1  # Sphere radius is 0.1, so this rests it on the floor.
