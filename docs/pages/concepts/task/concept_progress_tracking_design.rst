@@ -1,7 +1,7 @@
 Predicates and Subtask Progress Tracking
 ========================================
 
-A task's success termination tells you if the task was completed. However, this doesn't give 
+A task's success termination tells you if the task was completed. However, this doesn't give
 any insight into intermidate goals or stages of the task.
 Subtask progress tracking allows for finer-grained tracking of a task's progress.
 
@@ -35,7 +35,7 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
 * ``object_on_destination`` and ``objects_on_destinations`` — contact and velocity checks for
   placement goals.
 
-.. note:: 
+.. note::
 
     ``objects_settled`` records each object's first resting pose. Later predicates can use that
     environment-specific pose as a reference, which is more robust than assuming every object starts at
@@ -85,7 +85,7 @@ a single three-predicate chain: settle, lift, then place.
        ]
 
 
-Use a dictionary to specify ``preidcate_groups``when a progress objective has multiple independent predicate chains. Predicates
+Use a dictionary to specify ``predicate_groups`` when a progress objective has multiple independent predicate chains. Predicates
 within each group remain sequential while groups advance independently:
 
 .. code-block:: python
@@ -127,7 +127,7 @@ semantics.
 Reading subtask progress tracking at runtime
 --------------------------------------------
 
-When a task provides progress objectives, Arena will track and record the progress of the task according to the 
+When a task provides progress objectives, Arena will track and record the progress of the task according to the
 supplied progress objectives. The current per-environment state and the episode's accumulated predicate
 transitions are available through ``env.extras``:
 
