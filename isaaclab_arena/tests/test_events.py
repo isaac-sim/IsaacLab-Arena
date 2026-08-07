@@ -13,6 +13,9 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 NUM_STEPS = 10
 HEADLESS = True
+# The cracker box settles slightly after the per-env reset. Keep this rollout short (~0.2 s: 3 steps at the
+# 15 Hz control rate, 1/15 s per step) so the box is checked before it can drift or slide off an edge.
+SETTLE_STEPS = 3
 INITIAL_POSITION_EPS = 0.1  # The cracker box falls slightly.
 
 # For object initial velocity test: min displacement in velocity direction
@@ -83,7 +86,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
     try:
 
         # Run some zero actions.
-        for _ in tqdm.tqdm(range(NUM_STEPS)):
+        for _ in tqdm.tqdm(range(SETTLE_STEPS)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
