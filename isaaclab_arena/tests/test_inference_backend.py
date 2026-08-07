@@ -22,22 +22,15 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
 
+_SPEC_PROPERTIES = {"env_name": {"type": "string"}, "objects": {"type": "array"}}
+"""Schema fields of a request whose declared fields a wrapper key has to stand out from."""
 
-def _request() -> StructuredOutputRequest:
+
+def _request(properties: dict | None = None) -> StructuredOutputRequest:
+    """Return a structured-output request whose schema declares ``properties``."""
     return StructuredOutputRequest(
         schema_name="TestSchema",
-        schema={"type": "object", "properties": {}},
-        system="system",
-        user="user",
-        retry_label="test",
-    )
-
-
-def _spec_request() -> StructuredOutputRequest:
-    """Request whose schema has real fields, so a wrapper key stands out from them."""
-    return StructuredOutputRequest(
-        schema_name="TestSchema",
-        schema={"type": "object", "properties": {"env_name": {"type": "string"}, "objects": {"type": "array"}}},
+        schema={"type": "object", "properties": properties or {}},
         system="system",
         user="user",
         retry_label="test",
@@ -46,7 +39,7 @@ def _spec_request() -> StructuredOutputRequest:
 
 @pytest.fixture(autouse=True)
 def clean_endpoint_env(monkeypatch):
-    """Keep the developer's endpoint selection out of endpoint-resolution tests."""
+    """Keep the developer's own endpoint selection out of endpoint-resolution tests."""
     monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
     monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
     monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
@@ -117,33 +110,33 @@ class TestInit:
 
 
 class TestRunJson:
-    def test_tolerates_unescaped_control_chars(self, stub_openai):
+    @pytest.fixture
+    def stubbed_backend(self, stub_openai):
+        """An ``InferenceBackend`` and the mocked client it calls."""
         _, client = stub_openai
-        backend = inference_backend(stub_openai)
-        payload = {"env_name": "pick\tup"}
-        raw = json.dumps(payload).replace("\\t", "\t")
+        return inference_backend(stub_openai), client
+
+    def test_tolerates_unescaped_control_chars(self, stubbed_backend):
+        backend, client = stubbed_backend
+        raw = json.dumps({"env_name": "pick\tup"}).replace("\\t", "\t")
         assert "\t" in raw
         client.chat.completions.create.return_value = chat_response(content=raw)
-        result = backend.run_json(_request())
-        assert "\t" in result["env_name"]
+        assert "\t" in backend.run_json(_request())["env_name"]
 
-    def test_unwraps_provider_envelope_around_payload(self, stub_openai):
-        _, client = stub_openai
-        backend = inference_backend(stub_openai)
+    def test_unwraps_provider_envelope_around_payload(self, stubbed_backend):
+        backend, client = stubbed_backend
         spec = {"env_name": "pick_and_place", "objects": []}
         client.chat.completions.create.return_value = chat_response(content=json.dumps({"input": spec}))
-        assert backend.run_json(_spec_request()) == spec
+        assert backend.run_json(_request(_SPEC_PROPERTIES)) == spec
 
-    def test_keeps_single_field_response_declared_by_the_schema(self, stub_openai):
-        _, client = stub_openai
-        backend = inference_backend(stub_openai)
+    def test_keeps_single_field_response_declared_by_the_schema(self, stubbed_backend):
+        backend, client = stubbed_backend
         payload = {"env_name": {"unexpected": "shape"}}
         client.chat.completions.create.return_value = chat_response(content=json.dumps(payload))
-        assert backend.run_json(_spec_request()) == payload
+        assert backend.run_json(_request(_SPEC_PROPERTIES)) == payload
 
-    def test_raises_when_response_has_no_choices(self, stub_openai):
-        _, client = stub_openai
-        backend = inference_backend(stub_openai)
+    def test_raises_when_response_has_no_choices(self, stubbed_backend):
+        backend, client = stubbed_backend
         resp = MagicMock()
         resp.choices = []
         client.chat.completions.create.return_value = resp
@@ -151,15 +144,13 @@ class TestRunJson:
             backend.run_json(_request())
         assert client.chat.completions.create.call_count == 4
 
-    def test_retries_after_api_error_then_succeeds(self, stub_openai):
-        _, client = stub_openai
-        backend = inference_backend(stub_openai)
+    def test_retries_after_api_error_then_succeeds(self, stubbed_backend):
+        backend, client = stubbed_backend
         client.chat.completions.create.side_effect = [
             ConnectionError("timeout"),
             chat_response(content='{"ok": true}'),
         ]
-        result = backend.run_json(_request())
-        assert result == {"ok": True}
+        assert backend.run_json(_request()) == {"ok": True}
         assert client.chat.completions.create.call_count == 2
 
     def test_raises_after_api_errors_exhaust_retries(self, stub_openai):

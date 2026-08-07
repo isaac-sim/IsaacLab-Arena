@@ -17,7 +17,11 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     StructuredOutputRequest,
     build_strict_schema,
 )
-from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
+from isaaclab_arena.agentic_environment_generation.spec_validation import (
+    format_validation_error,
+    openable_object_reference_ids,
+)
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 
@@ -40,8 +44,9 @@ class PrimPathInference:
         """Resolve the background USD prim_path for object references using semantic/physical hints.
 
         The input spec carries object_references inferred from the natural-language
-        prompt, each with semantic hints and an object_type but no prim_path.
-        This step maps them to prim paths drawn from the background prim tree.
+        prompt, each with semantic hints and an object_type but no prim_path. This step
+        maps them to prim paths drawn from the background prim tree, and takes each
+        reference's object_type from the prim it resolves to.
 
         Args:
             spec: Spec whose object references have unresolved ``prim_path`` values.
@@ -68,8 +73,7 @@ class PrimPathInference:
         )
         try:
             parsed = ResolvedObjectReferences.model_validate(data)
-            _validate_against_prim_tree(parsed.object_references, prim_tree)
-            return _merge_resolved_object_references(spec, parsed.object_references)
+            return _merge_resolved_object_references(spec, parsed.object_references, prim_tree)
         except ValidationError as exc:
             traces.extend(format_validation_error(exc))
             return None
@@ -92,15 +96,16 @@ GUIDANCE:
 - Pick prim_path only from those full relative_path values.
 - prim_path must be a relative suffix under the parent background — never include
   {ENV_REGEX_NS} or the background registry name.
-- Respect each input object_reference object_type: pick a prim_path whose object_type in
-  BACKGROUND PRIM TREE matches the object_type from the input spec. Do not change object_type.
-- When the input object_type is articulation, pick the articulation root prim (the line that
-  lists joint names), not a rigid child mesh or collision prim under it.
-- When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
-- When an OpenDoorTask targets an articulation object_reference, set params.openable_joint_name
-  to one of the joint names listed for that prim.
-- Return one object_references entry per unresolved reference from the input, preserving id,
-  parent_id, and object_type. Only change prim_path and params.
+- Read each input object_reference object_type as a hint about the prim's role, not as a
+  constraint on the prim's own type. The prim tree decides the type; you only pick the prim.
+- When a task in TASKS INVOLVING OBJECT REFERENCES names a reference as its openable_object,
+  pick the articulation root prim (the line that lists joint names) and set openable_joint_name
+  to one of the joint names listed for it, whatever object_type the input reference claims.
+- Otherwise set openable_joint_name to null, and when the input object_type is articulation pick
+  the articulation root prim, not a rigid child mesh or collision prim under it; when it is base
+  or rigid pick a surface or fixture prim (counter top, shelf, floor, etc.), never an
+  articulation root.
+- Return one object_references entry per unresolved reference from the input, preserving id.
 - Do not invent prim paths absent from BACKGROUND PRIM TREE.
 """
 
@@ -161,55 +166,98 @@ def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
     )
 
 
-class ResolvedObjectReferences(BaseModel):
-    """Resolver output: resolved prim_path values for object_reference nodes."""
+class ResolvedObjectReference(BaseModel):
+    """Resolver output for one object_reference: the prim it names and the joint a task drives."""
 
-    object_references: list[ObjectReferenceSpec] = Field(
-        description="Resolved object references with prim_path set to a relative suffix under the parent background.",
+    id: str = Field(description="Id of the input object_reference, copied unchanged.")
+    prim_path: str = Field(
+        description="Full relative_path from BACKGROUND PRIM TREE, a relative suffix under the parent background.",
+    )
+    openable_joint_name: str | None = Field(
+        description=(
+            "When a task opens this reference, the joint name BACKGROUND PRIM TREE lists for prim_path; "
+            "null when no task opens it."
+        ),
     )
 
 
-def _validate_against_prim_tree(
-    object_references: list[ObjectReferenceSpec],
-    prim_tree: list[UsdPrimRecord],
-) -> None:
-    """Validate resolved object references against the background USD prim tree."""
-    records_by_path = {record.relative_path: record for record in prim_tree}
-    for ref in object_references:
-        assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
-        prim_path = ref.prim_path.lstrip("/")
-        record = records_by_path.get(prim_path)
-        assert (
-            record is not None
-        ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
-        assert ref.object_type == record.object_type, (
-            f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
-            f"object_type {record.object_type!r} for {prim_path!r}"
-        )
+class ResolvedObjectReferences(BaseModel):
+    """Resolver output: resolved prim_path values for object_reference nodes."""
+
+    object_references: list[ResolvedObjectReference] = Field(
+        description="One entry per input object_reference, in the same order.",
+    )
+
+
+def _resolved_prim_record(
+    ref: ObjectReferenceSpec,
+    patch: ResolvedObjectReference,
+    records_by_path: dict[str, UsdPrimRecord],
+    *,
+    opened: bool,
+) -> UsdPrimRecord:
+    """Return the prim tree record the resolver picked for the unresolved object reference ``ref``.
+
+    Args:
+        ref: Unresolved object reference from the spec, whose ``object_type`` is the prompt's
+            reading of the prim's role.
+        patch: Resolver output for that reference, naming the prim it picked.
+        records_by_path: Background prim tree records keyed by relative path.
+        opened: Whether a subtask opens this reference.
+
+    Returns:
+        The record for the picked prim.
+    """
+    prim_path = patch.prim_path.lstrip("/")
+    record = records_by_path.get(prim_path)
+    assert record is not None, f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
+    # A prim's object_type follows from its own physics schemas, which the prompt cannot describe,
+    # so the record decides it and the reference's own object_type is only a hint. What the prompt
+    # does decide is the use: a reference a task opens needs the joints only an articulation root has.
+    if not opened:
+        return record
+    assert record.object_type == ObjectType.ARTICULATION, (
+        f"Object reference '{ref.id}' is opened by a task, so prim_path {prim_path!r} must be an "
+        f"articulation root, got object_type {record.object_type.value!r}"
+    )
+    assert patch.openable_joint_name in record.joint_names, (
+        f"Object reference '{ref.id}' is opened by a task, so it needs an openable_joint_name from "
+        f"{record.joint_names}, got {patch.openable_joint_name!r}"
+    )
+    return record
 
 
 def _merge_resolved_object_references(
     spec: ArenaEnvGraphSpec,
-    resolved: list[ObjectReferenceSpec],
+    resolved: list[ResolvedObjectReference],
+    prim_tree: list[UsdPrimRecord],
 ) -> ArenaEnvGraphSpec:
-    """Merge resolved prim_path and params into an environment graph spec."""
+    """Merge the resolved prim_path, its prim tree object_type, and openable joint into a graph spec."""
+    records_by_path = {record.relative_path: record for record in prim_tree}
     resolved_by_id = {ref.id: ref for ref in resolved}
     assert len(resolved_by_id) == len(resolved), "resolve_usd_prim returned duplicate object_reference ids"
+    opened_ids = openable_object_reference_ids(spec)
     merged_refs: list[ObjectReferenceSpec] = []
     for ref in spec.object_references or []:
         assert ref.id in resolved_by_id, f"resolve_usd_prim missing object_reference id {ref.id!r}"
         patch = resolved_by_id[ref.id]
-        assert (
-            patch.object_type == ref.object_type
-        ), f"object_reference {ref.id!r} object_type mismatch: {ref.object_type!r} != {patch.object_type!r}"
-        assert patch.prim_path is not None, f"object_reference {ref.id!r} requires a prim_path"
-        prim_path = patch.prim_path.lstrip("/")
+        opened = ref.id in opened_ids
+        record = _resolved_prim_record(ref, patch, records_by_path, opened=opened)
+        if ref.object_type != record.object_type:
+            print(
+                f"[resolve_usd_prim] expanded object_reference {ref.id!r} object_type"
+                f" {ref.object_type.value!r} into the prim tree's {record.object_type.value!r}"
+                f" for {record.relative_path!r}",
+                flush=True,
+            )
         merged_params = dict(ref.params)
-        merged_params.update(patch.params)
+        if opened:
+            merged_params["openable_joint_name"] = patch.openable_joint_name
         merged_refs.append(
             ref.model_copy(
                 update={
-                    "prim_path": prim_path,
+                    "prim_path": record.relative_path,
+                    "object_type": record.object_type,
                     "params": merged_params,
                 }
             )

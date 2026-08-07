@@ -155,9 +155,10 @@ class ObjectReferenceSpec(BaseModel):
     object_type: ObjectType = Field(
         description=(
             "Physics type for the referenced prim. Use the first matching value:\n"
-            "- articulation: door or other articulated prim in open/close door tasks\n"
-            "- rigid: manipulable prim in pick-and-place tasks\n"
-            "- base: static anchor prim (e.g. table surface) in is_anchor or placement relations"
+            "- articulation: openable prim (door, drawer) an open/close door task targets\n"
+            "- base: static surface or fixture (counter top, table top, shelf, floor) other\n"
+            "  objects rest on or are anchored to, even in a pick-and-place task\n"
+            "- rigid: prim the robot moves, or that moves when something is placed on it"
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
@@ -200,7 +201,10 @@ class CompositeTaskSpec(BaseModel):
     """Root task node for an environment graph."""
 
     composition: TaskCompositionType = Field(
-        description="How the subtasks combine: " + ", ".join([f"'{e.value}'" for e in TaskCompositionType])
+        description=(
+            "How the subtasks combine: 'atomic' for a single subtask, 'sequential' when the prompt orders "
+            "them (e.g. 'then', 'after'), 'parallel' when any order satisfies the prompt."
+        )
     )
     description: str = Field(
         min_length=1,

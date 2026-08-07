@@ -36,8 +36,8 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
 
       .. code-block:: text
 
-         There is a counter top in the lightwheel_robocasa_kitchen background.
-         DROID picks up a mustard bottle on the counter top and places it in a bowl.
+         There is a center counter top next to the sink, and a floor in the lightwheel_robocasa_kitchen background.
+         On the counter top, there is a mustard bottle and a bowl. DROID picks up the mustard bottle and places it in the bowl.
 
       The generated environment graph contains the kitchen, the mustard bottle, the bowl, and a reference to
       a counter surface, but no placement for the robot itself.
@@ -53,10 +53,9 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
 
       .. code-block:: text
 
-         There is a center-right counter top and a floor in the
-         lightwheel_robocasa_kitchen background. DROID picks up a mustard bottle on
-         the counter top and places it in a bowl. DROID is next to the counter top
-         and on the floor.
+         There is a center counter top next to the sink, and a floor in the lightwheel_robocasa_kitchen background.
+         On the counter top, there is a mustard bottle and a bowl. DROID picks up the mustard bottle and places it in the bowl.
+         DROID is next to the counter top and on the floor.
 
       .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prompt_robot.png
          :width: 100%
@@ -73,7 +72,7 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
 
          python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
             --mode resolve \
-            --prompt "There is a center-right counter top and a floor in the lightwheel_robocasa_kitchen background. DROID picks up a mustard bottle on the counter top and places it in a bowl. DROID is next to the counter top and on the floor."
+            --prompt "There is a center counter top next to the sink, and a floor in the lightwheel_robocasa_kitchen background. On the counter top, there is a mustard bottle and a bowl. DROID picks up the mustard bottle and places it in the bowl. DROID is next to the counter top and on the floor."
 
       The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.

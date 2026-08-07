@@ -53,7 +53,7 @@ say that it varies across environments. That is the cue for the agent to emit an
 
          python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
             --mode resolve \
-            --prompt "Droid picks up a fruit from the maple table and places it into the bowl on the table. Each environment should get a different fruit."
+            --prompt "Droid picks up a fruit from the maple table and places it into the bowl on the table. Each environment should get a different fruit sampled from the fruit set."
 
       The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.

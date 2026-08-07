@@ -76,41 +76,65 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
     assert fridge.prim_path == "fridge_main_group"
 
 
+@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
+def test_prim_path_inference_takes_object_type_from_prim_tree(mock_resolve_usd, mock_load_tree, stub_openai):
+    mock_resolve_usd.return_value = "/tmp/scene.usd"
+    mock_load_tree.return_value = kitchen_prim_tree()
+    pass1 = kitchen_pass1_dict()
+    next(ref for ref in pass1["object_references"] if ref["id"] == "counter_top")["object_type"] = "rigid"
+    _, client = stub_openai
+    backend = inference_backend(stub_openai)
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(kitchen_resolve_response()))
+    inference = PrimPathInference(backend)
+    spec = ArenaEnvGraphSpec.model_validate(pass1)
+    merged = inference.infer(spec, [])
+    counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
+    assert counter.prim_path == "counter_right_main_group/top_geometry"
+    assert counter.object_type == ObjectType.BASE
+
+
+@pytest.mark.parametrize(
+    ("fridge_patch", "match"),
+    [
+        ({"prim_path": "counter_right_main_group/top_geometry"}, "must be an articulation root"),
+        ({"openable_joint_name": "not_a_joint"}, "needs an openable_joint_name"),
+        ({"openable_joint_name": None}, "needs an openable_joint_name"),
+    ],
+)
+@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
+def test_prim_path_inference_rejects_an_unopenable_prim_for_an_opened_reference(
+    mock_resolve_usd,
+    mock_load_tree,
+    stub_openai,
+    fridge_patch,
+    match,
+):
+    mock_resolve_usd.return_value = "/tmp/scene.usd"
+    mock_load_tree.return_value = kitchen_prim_tree()
+    response = kitchen_resolve_response()
+    next(ref for ref in response["object_references"] if ref["id"] == "fridge").update(fridge_patch)
+    _, client = stub_openai
+    backend = inference_backend(stub_openai)
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(response))
+    inference = PrimPathInference(backend)
+    spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+    traces: list[str] = []
+    assert inference.infer(spec, traces) is None
+    assert any(match in line for line in traces), traces
+
+
 @pytest.mark.parametrize(
     ("response", "match"),
     [
         (
-            {
-                "object_references": [{
-                    "id": "counter_top",
-                    "parent_id": "lightwheel_robocasa_kitchen",
-                    "prim_path": None,
-                    "object_type": "base",
-                }]
-            },
-            "requires a prim_path",
+            {"object_references": [{"id": "counter_top", "prim_path": None, "openable_joint_name": None}]},
+            "object_references.0.prim_path",
         ),
         (
-            {
-                "object_references": [{
-                    "id": "counter_top",
-                    "parent_id": "lightwheel_robocasa_kitchen",
-                    "prim_path": "missing_prim",
-                    "object_type": "base",
-                }]
-            },
+            {"object_references": [{"id": "counter_top", "prim_path": "missing_prim", "openable_joint_name": None}]},
             "is not in the background prim tree",
-        ),
-        (
-            {
-                "object_references": [{
-                    "id": "counter_top",
-                    "parent_id": "lightwheel_robocasa_kitchen",
-                    "prim_path": "counter_right_main_group/top_geometry",
-                    "object_type": "rigid",
-                }]
-            },
-            "does not match prim tree",
         ),
     ],
 )

@@ -29,6 +29,25 @@ def required_task_init_param_names(task_cls: type) -> list[str]:
     return required
 
 
+def openable_object_reference_ids(spec: ArenaEnvGraphSpec) -> set[str]:
+    """Return the ids of the nodes a subtask opens, which only an articulation with a joint can be.
+
+    The affordance is matched by annotation name rather than by importing it, because this module
+    is imported before ``SimulationApp`` starts and the affordances pull in Isaac Lab.
+    """
+    task_registry = TaskRegistry()
+    opened: set[str] = set()
+    for task in spec.task.subtasks:
+        signature = inspect.signature(task_registry.get_task_by_name(task.kind).__init__)
+        for name, param in signature.parameters.items():
+            if getattr(param.annotation, "__name__", param.annotation) != "Openable":
+                continue
+            value = task.params.get(name)
+            if isinstance(value, str):
+                opened.add(value)
+    return opened
+
+
 _ASSERTION_FAILED_PREFIX = "Assertion failed, "
 
 

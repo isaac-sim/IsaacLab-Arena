@@ -23,11 +23,7 @@ import pytest
 # because of this modules appearance in pytest_plugins. This causes issues with the packaging
 # tests, which run in a bare venv with only pytest installed.
 if TYPE_CHECKING:
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-        AssetCatalogue,
-        RelationCatalogue,
-        TaskCatalogue,
-    )
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
     from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
     from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
@@ -68,6 +64,11 @@ def inference_backend(stub_openai, *, model: str = "test-model", max_retries: in
     return backend
 
 
+def stub_responses(client: MagicMock, *payloads: Any) -> None:
+    """Queue ``payloads`` as the JSON content of consecutive chat completions from ``client``."""
+    client.chat.completions.create.side_effect = [chat_response(content=json.dumps(p)) for p in payloads]
+
+
 def load_test_yaml(name: str) -> dict[str, Any]:
     """Load a YAML fixture from ``isaaclab_arena/tests/test_data``."""
     import yaml
@@ -91,6 +92,11 @@ def load_test_json(name: str) -> dict[str, Any]:
 def minimal_spec_dict() -> dict[str, Any]:
     """Return the minimal maple-table pass-1 graph spec used in agent tests."""
     return load_test_yaml("minimal_maple_table_env_graph.yaml")
+
+
+def object_set_spec_dict() -> dict[str, Any]:
+    """Return the maple-table graph spec whose pick-up object is an object set."""
+    return load_test_yaml("object_set_maple_table_env_graph.yaml")
 
 
 def kitchen_pass1_dict() -> dict[str, Any]:
@@ -132,24 +138,40 @@ def catalog(text: str) -> AssetCatalogue:
     """Return an asset catalogue that renders ``text`` in the user message."""
     from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
 
-    catalogue = AssetCatalogue()
-    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
-    return catalogue
+    return _rendering(AssetCatalogue(), text)
 
 
-def relation_catalog(text: str) -> RelationCatalogue:
-    """Return a relation catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import RelationCatalogue
+def catalogs(
+    assets: str | None = "ASSETS",
+    relations: str | None = "RELATIONS",
+    tasks: str | None = "TASKS",
+) -> dict[str, Any]:
+    """Return the catalogue keyword arguments spec generation takes, each rendering the given text.
 
-    catalogue = RelationCatalogue()
-    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
-    return catalogue
+    Args:
+        assets: Asset catalogue text, or ``None`` to leave the argument out so the real
+            catalogue is built.
+        relations: Relation catalogue text, or ``None`` to leave the argument out.
+        tasks: Task catalogue text, or ``None`` to leave the argument out.
+
+    Returns:
+        Keyword arguments for ``generate_spec`` / ``SpecInference.infer``.
+    """
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+        AssetCatalogue,
+        RelationCatalogue,
+        TaskCatalogue,
+    )
+
+    catalogues = {
+        "asset_catalog": (AssetCatalogue, assets),
+        "relation_catalog": (RelationCatalogue, relations),
+        "task_catalog": (TaskCatalogue, tasks),
+    }
+    return {arg: _rendering(cls(), text) for arg, (cls, text) in catalogues.items() if text is not None}
 
 
-def task_catalog(text: str) -> TaskCatalogue:
-    """Return a task catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import TaskCatalogue
-
-    catalogue = TaskCatalogue()
+def _rendering(catalogue: Any, text: str) -> Any:
+    """Return ``catalogue`` with its catalog string replaced by ``text``."""
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
