@@ -106,6 +106,44 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert data["embodiment"]["registry_name"] == "not_a_real_asset"
     assert traces
     assert any("registry_name" in line for line in traces)
+    assert client.chat.completions.create.call_count == 3
+
+
+def test_infer_feeds_validation_errors_back_and_recovers(spec_inference):
+    inference, client = spec_inference
+    invalid = dict(minimal_spec_dict())
+    invalid["embodiment"]["registry_name"] = "not_a_real_asset"
+    client.chat.completions.create.side_effect = [
+        chat_response(content=json.dumps(invalid)),
+        chat_response(content=json.dumps(minimal_spec_dict())),
+    ]
+    traces: list[str] = []
+    spec, data = _infer(inference, client, traces=traces)
+    assert isinstance(spec, ArenaEnvGraphSpec)
+    assert data["embodiment"]["registry_name"] == "franka_ik"
+    assert traces == []
+    assert client.chat.completions.create.call_count == 2
+    critic_message = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "CRITIC FEEDBACK" in critic_message
+    assert "not_a_real_asset" in critic_message
+    assert "registry_name" in critic_message
+
+
+def test_infer_retries_agent_ready_task_validation_errors(spec_inference):
+    inference, client = spec_inference
+    invalid = minimal_spec_dict()
+    del invalid["task"]["subtasks"][0]["params"]["pick_up_object"]
+    client.chat.completions.create.side_effect = [
+        chat_response(content=json.dumps(invalid)),
+        chat_response(content=json.dumps(minimal_spec_dict())),
+    ]
+    traces: list[str] = []
+    spec, _ = _infer(inference, client, traces=traces)
+    assert isinstance(spec, ArenaEnvGraphSpec)
+    assert traces == []
+    assert client.chat.completions.create.call_count == 2
+    critic_message = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "missing required param 'pick_up_object'" in critic_message
 
 
 def test_infer_never_mentions_the_asset_search(spec_inference):

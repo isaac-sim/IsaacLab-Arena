@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import ValidationError
@@ -21,6 +22,9 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     format_validation_error,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+MAX_SPEC_INFERENCE_CALLS = 3
+"""Maximum generation calls, including critic retries after validation failures."""
 
 
 class SpecInference:
@@ -52,27 +56,65 @@ class SpecInference:
             parsed model JSON. On failure, ``spec`` is ``None`` and ``data`` is the raw
             response object.
         """
-        data = self._inference_backend.run_json(
-            StructuredOutputRequest(
-                schema_name="ArenaEnvGraphSpec",
-                schema=self._schema,
-                system=self._system_prompt(),
-                user=self._user_message(
-                    prompt,
-                    asset_catalog,
-                    relation_catalog,
-                    task_catalog,
-                ),
-                retry_label="generate_spec",
-            )
+        base_user_message = self._user_message(
+            prompt,
+            asset_catalog,
+            relation_catalog,
+            task_catalog,
         )
-        try:
-            spec = ArenaEnvGraphSpec.model_validate(data)
-        except ValidationError as exc:
-            traces.extend(format_validation_error(exc))
-            return None, data
-        traces.extend(collect_agent_ready_task_validation_traces(spec))
-        return spec, data
+        user_message = base_user_message
+        data: dict[str, Any] = {}
+        for call_index in range(MAX_SPEC_INFERENCE_CALLS):
+            data = self._inference_backend.run_json(
+                StructuredOutputRequest(
+                    schema_name="ArenaEnvGraphSpec",
+                    schema=self._schema,
+                    system=self._system_prompt(),
+                    user=user_message,
+                    retry_label="generate_spec",
+                )
+            )
+            try:
+                spec = ArenaEnvGraphSpec.model_validate(data)
+                validation_traces = collect_agent_ready_task_validation_traces(spec)
+            except ValidationError as exc:
+                spec = None
+                validation_traces = format_validation_error(exc)
+            if spec is not None and not validation_traces:
+                return spec, data
+            if call_index + 1 < MAX_SPEC_INFERENCE_CALLS:
+                print(
+                    f"[generate_spec] critic retry {call_index + 1}/{MAX_SPEC_INFERENCE_CALLS - 1} "
+                    f"after validation failed: {'; '.join(validation_traces)}",
+                    flush=True,
+                )
+                user_message = self._critic_user_message(base_user_message, data, validation_traces)
+                continue
+            traces.extend(validation_traces)
+        return None, data
+
+    @staticmethod
+    def _critic_user_message(
+        previous_user_message: str,
+        rejected_data: dict[str, Any],
+        validation_traces: list[str],
+    ) -> str:
+        """Append rejected output and validation feedback for another complete generation."""
+        errors = "\n".join(f"- {trace}" for trace in validation_traces)
+        rejected = json.dumps(rejected_data, indent=2, default=str)
+        return f"""\
+{previous_user_message}
+
+CRITIC FEEDBACK:
+The previous response failed validation. Regenerate the complete ArenaEnvGraphSpec, correcting
+every error below. Return only the corrected structured response.
+
+VALIDATION ERRORS:
+{errors}
+
+REJECTED RESPONSE:
+{rejected}
+"""
 
     @staticmethod
     def _user_message(

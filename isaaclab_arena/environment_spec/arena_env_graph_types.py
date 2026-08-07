@@ -216,9 +216,10 @@ class CompositeTaskSpec(BaseModel):
         if self.composition is TaskCompositionType.ATOMIC:
             assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
         else:
-            assert (
-                len(self.subtasks) >= 2
-            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
+            assert len(self.subtasks) >= 2, (
+                f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}."
+                " Use atomic as composition instead."
+            )
         return self
 
 
