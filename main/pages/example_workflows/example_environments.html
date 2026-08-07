@@ -451,8 +451,11 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
@@ -554,7 +557,7 @@
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/</span></code>. Environments can be provided in two ways:</p>
 <ul class="simple">
 <li><p><strong>Python registered environments</strong>: small compositions of the building blocks
-introduced in <a class="reference internal" href="../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> — <strong>Scene</strong>,
+introduced in <a class="reference internal" href="../concepts/environment/index.html"><span class="doc">Environment</span></a> — <strong>Scene</strong>,
 <strong>Embodiment</strong>, and <strong>Task</strong> — wrapped in an <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code>
 subclass and registered with the global <code class="docutils literal notranslate"><span class="pre">EnvironmentRegistry</span></code>. The
 registered <code class="docutils literal notranslate"><span class="pre">Task</span> <span class="pre">ID</span></code> is passed as the positional <code class="docutils literal notranslate"><span class="pre">example_environment</span></code>
@@ -1365,7 +1368,7 @@ microwave, followed by closing the microwave door.</p>
 <section id="see-also">
 <h2><a class="toc-backref" href="#id10" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> — the Scene / Embodiment / Task building blocks used by every environment listed here.</p></li>
+<li><p><a class="reference internal" href="../concepts/environment/index.html"><span class="doc">Environment</span></a> — the Scene / Embodiment / Task building blocks used by every environment listed here.</p></li>
 <li><p><a class="reference internal" href="../quickstart/first_arena_env.html"><span class="doc">First Arena Environment</span></a> — walkthrough of the <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment.</p></li>
 <li><p><a class="reference internal" href="../arena_in_your_repo/index.html"><span class="doc">Arena in Your Repository</span></a> — how to register your own <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code> subclass alongside the built-in ones.</p></li>
 </ul>

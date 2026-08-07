@@ -451,8 +451,11 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_assets_design.html">Assets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_affordances_design.html">Affordances</a></li>
@@ -685,7 +688,7 @@ The task includes:</p>
 </div>
 <p>Finally, we assemble all the pieces into a complete, runnable RL environment. The <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>
 connects the embodiment (the robot), the scene (the world), and the task (the objective and rewards).
-See <a class="reference internal" href="../../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> for environment composition details.</p>
+See <a class="reference internal" href="../../concepts/environment/index.html"><span class="doc">Environment</span></a> for environment composition details.</p>
 </section>
 <section id="validation-run-random-policy">
 <h2>Validation: Run Random Policy<a class="headerlink" href="#validation-run-random-policy" title="Link to this heading">#</a></h2>

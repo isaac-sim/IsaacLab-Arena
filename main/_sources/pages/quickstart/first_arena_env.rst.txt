@@ -153,7 +153,7 @@ Under the hood, Arena assembles this environment in seven steps:
 For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 :doc:`Scenes <../concepts/scene/index>`, :doc:`Embodiments <../concepts/embodiment/index>`,
 :doc:`Tasks <../concepts/task/index>`, and
-:doc:`Environment Compilation <../concepts/concept_environment_compilation>`.
+:doc:`Environment Builder <../concepts/environment/env_builder>`.
 
 .. dropdown:: Full source: ``pick_and_place_maple_table_environment.py``
    :animate: fade-in

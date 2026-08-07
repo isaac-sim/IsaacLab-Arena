@@ -323,8 +323,7 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Concepts
 
-   pages/concepts/concept_overview
-   pages/concepts/concept_environment_compilation
+   pages/concepts/environment/index
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index

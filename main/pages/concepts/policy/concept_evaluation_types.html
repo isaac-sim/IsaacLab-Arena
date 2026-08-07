@@ -452,8 +452,11 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
@@ -559,7 +562,7 @@
 multiple jobs in one process. This section summarizes when to use each and how
 they work. Each section below links to the relevant concept docs:
 <a class="reference internal" href="index.html"><span class="doc">Policy Design</span></a>,
-<a class="reference internal" href="../concept_overview.html"><span class="doc">Environment Design</span></a>, and
+<a class="reference internal" href="../environment/index.html"><span class="doc">Environment Design</span></a>, and
 <a class="reference internal" href="../task/concept_metrics_design.html"><span class="doc">Metrics Design</span></a>.</p>
 <p>Both runners support a <strong>server–client</strong> setup, where simulation runs locally
 (client) and policy inference runs in a separate process or machine (server).
@@ -697,7 +700,7 @@ and length (steps or episodes). This is suited for benchmarking many
 configurations (e.g. many objects or tasks) without launching multiple processes
 by hand. Persistence of the simulation application is maintained between jobs.</p>
 <p><strong>Design context:</strong> For how environments are composed and how metrics are
-defined and computed, see <a class="reference internal" href="../concept_overview.html"><span class="doc">Environment Design</span></a>
+defined and computed, see <a class="reference internal" href="../environment/index.html"><span class="doc">Environment Design</span></a>
 and <a class="reference internal" href="../task/concept_metrics_design.html"><span class="doc">Metrics Design</span></a>. Policies used per job
 follow <a class="reference internal" href="index.html"><span class="doc">Policy Design</span></a>.</p>
 <p><strong>Features:</strong></p>

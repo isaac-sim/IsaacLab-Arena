@@ -1,5 +1,5 @@
-Environment Compilation
-=======================
+Environment Builder
+===================
 
 Environment compilation is the step that turns the three independent components —
 scene, embodiment, and task — into a runnable Isaac Lab environment.
@@ -7,7 +7,7 @@ scene, embodiment, and task — into a runnable Isaac Lab environment.
 component contributes and merging them into a single
 ``ManagerBasedRLEnvCfg``.
 
-.. figure:: ../../images/arena_env_builder.png
+.. figure:: ../../../images/arena_env_builder.png
    :width: 100%
    :alt: ArenaEnvBuilder merges Scene, Embodiment, and Task into a ManagerBasedRLEnv
    :align: center
@@ -92,5 +92,5 @@ in mimic mode.
 Next Steps
 ----------
 
-Continue to :doc:`object_placement/relations` to learn how anchors and spatial
+Continue to :doc:`../object_placement/relations` to learn how anchors and spatial
 relations describe a placement layout.
