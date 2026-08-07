@@ -51,7 +51,7 @@ relations:
   reference: right_counter_top
   params:
     side: negative_y
-    distance_m: 0.15
+    distance_m: 0.3
 - kind: rotate_around_solution
   subject: droid
   params:
