@@ -143,6 +143,7 @@ Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
 GUIDANCE:
 - Follow the per-field ``description`` strings in the schema.
+- REQUIRED: leave ``placement_validators`` and ``cli_override_specs`` null.
 - Use only exact names from the catalog for ``registry_name``:
   EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
 - Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.
