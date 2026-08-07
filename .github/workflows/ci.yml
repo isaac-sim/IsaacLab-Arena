@@ -105,7 +105,8 @@ jobs:
     timeout-minutes: 80
     needs: [pre_commit]
     env:
-      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+      # CI calls the internal inference endpoint for agentic env-gen live-endpoint tests.
+      ARENA_INFERENCE_ENDPOINT: internal
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
 
     container:
@@ -379,7 +380,9 @@ jobs:
           - variant: source
             uv_flags: ""
     env:
-      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+      # CI calls the internal inference endpoint; the agentic env-gen live-endpoint
+      # tests read NV_API_KEY for it.
+      ARENA_INFERENCE_ENDPOINT: internal
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
       # Accept the Isaac Sim EULA so the first launch is non-interactive.
       OMNI_KIT_ACCEPT_EULA: "YES"

@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# 20 single-subtask robolab tasks, each run with both the OpenPI (pi0) and Cosmos policies
-# (40 runs, 20 parallel environments each).
+# 20 single-subtask robolab tasks, each run with the OpenPI (pi0) policy
+# (20 runs, 20 parallel environments each).
 # Values under shared are used by every Run below.
 # A Run only needs to list what is different; its values override the shared ones.
 # To change a shared value for every Run on the command line:
@@ -32,7 +32,7 @@ shared:
 runs:
 
   banana_in_bowl_pi0:
-    environment: &banana_in_bowl_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
     policy: &openpi_policy
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
@@ -42,182 +42,97 @@ runs:
       remote_port: 8000
       openpi_embodiment_adapter: droid
 
-  banana_in_bowl_cosmos:
-    environment: *banana_in_bowl_env
-    policy: &cosmos_policy
-      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
-      cosmos_embodiment_adapter: droid
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-
   banana_on_plate_pi0:
-    environment: &banana_on_plate_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
     policy: *openpi_policy
 
-  banana_on_plate_cosmos:
-    environment: *banana_on_plate_env
-    policy: *cosmos_policy
-
   big_pumpkin_in_bin_pi0:
-    environment: &big_pumpkin_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
     policy: *openpi_policy
 
-  big_pumpkin_in_bin_cosmos:
-    environment: *big_pumpkin_in_bin_env
-    policy: *cosmos_policy
-
   bowl_in_bin_pi0:
-    environment: &bowl_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/bowl_in_bin.yaml
     policy: *openpi_policy
 
-  bowl_in_bin_cosmos:
-    environment: *bowl_in_bin_env
-    policy: *cosmos_policy
-
   butter_above_raisin_pi0:
-    environment: &butter_above_raisin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
     policy: *openpi_policy
 
-  butter_above_raisin_cosmos:
-    environment: *butter_above_raisin_env
-    policy: *cosmos_policy
-
   canned_food_in_bin_pi0:
-    environment: &canned_food_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/canned_food_in_bin.yaml
     policy: *openpi_policy
 
-  canned_food_in_bin_cosmos:
-    environment: *canned_food_in_bin_env
-    policy: *cosmos_policy
-
   clamp_in_right_bin_pi0:
-    environment: &clamp_in_right_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
     policy: *openpi_policy
 
-  clamp_in_right_bin_cosmos:
-    environment: *clamp_in_right_bin_env
-    policy: *cosmos_policy
-
   coffee_pot_in_bin_pi0:
-    environment: &coffee_pot_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/coffee_pot_in_bin.yaml
     policy: *openpi_policy
 
-  coffee_pot_in_bin_cosmos:
-    environment: *coffee_pot_in_bin_env
-    policy: *cosmos_policy
-
   food_packing_1_boxes_pi0:
-    environment: &food_packing_1_boxes_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/food_packing_1_boxes.yaml
     policy: *openpi_policy
 
-  food_packing_1_boxes_cosmos:
-    environment: *food_packing_1_boxes_env
-    policy: *cosmos_policy
-
   food_packing_1_cans_pi0:
-    environment: &food_packing_1_cans_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/food_packing_1_cans.yaml
     policy: *openpi_policy
 
-  food_packing_1_cans_cosmos:
-    environment: *food_packing_1_cans_env
-    policy: *cosmos_policy
-
   larger_object_raisin_box_in_bin_pi0:
-    environment: &larger_object_raisin_box_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
     policy: *openpi_policy
 
-  larger_object_raisin_box_in_bin_cosmos:
-    environment: *larger_object_raisin_box_in_bin_env
-    policy: *cosmos_policy
-
   marker_in_mug_pi0:
-    environment: &marker_in_mug_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/marker_in_mug.yaml
     policy: *openpi_policy
 
-  marker_in_mug_cosmos:
-    environment: *marker_in_mug_env
-    policy: *cosmos_policy
-
   mouse_on_keyboard_pi0:
-    environment: &mouse_on_keyboard_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/mouse_on_keyboard.yaml
     policy: *openpi_policy
 
-  mouse_on_keyboard_cosmos:
-    environment: *mouse_on_keyboard_env
-    policy: *cosmos_policy
-
   mustard_above_raisin_pi0:
-    environment: &mustard_above_raisin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
     policy: *openpi_policy
 
-  mustard_above_raisin_cosmos:
-    environment: *mustard_above_raisin_env
-    policy: *cosmos_policy
-
   mustard_in_left_bin_pi0:
-    environment: &mustard_in_left_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/mustard_in_left_bin.yaml
     policy: *openpi_policy
 
-  mustard_in_left_bin_cosmos:
-    environment: *mustard_in_left_bin_env
-    policy: *cosmos_policy
-
   rubiks_cube_pi0:
-    environment: &rubiks_cube_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
     policy: *openpi_policy
 
-  rubiks_cube_cosmos:
-    environment: *rubiks_cube_env
-    policy: *cosmos_policy
-
   sauce_bottles_crate_pi0:
-    environment: &sauce_bottles_crate_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/sauce_bottles_crate.yaml
     policy: *openpi_policy
 
-  sauce_bottles_crate_cosmos:
-    environment: *sauce_bottles_crate_env
-    policy: *cosmos_policy
-
   smartphone_in_bin_pi0:
-    environment: &smartphone_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml
     policy: *openpi_policy
 
-  smartphone_in_bin_cosmos:
-    environment: *smartphone_in_bin_env
-    policy: *cosmos_policy
-
   throw_away_apple_pi0:
-    environment: &throw_away_apple_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/throw_away_apple.yaml
     policy: *openpi_policy
 
-  throw_away_apple_cosmos:
-    environment: *throw_away_apple_env
-    policy: *cosmos_policy
-
   toy_in_bin_pi0:
-    environment: &toy_in_bin_env
+    environment:
       type: isaaclab_arena_environments/robolab/tasks/toy_in_bin.yaml
     policy: *openpi_policy
-
-  toy_in_bin_cosmos:
-    environment: *toy_in_bin_env
-    policy: *cosmos_policy

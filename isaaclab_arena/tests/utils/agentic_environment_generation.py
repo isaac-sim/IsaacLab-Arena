@@ -45,6 +45,19 @@ def stub_openai():
         yield mock_cls, client
 
 
+def skip_without_live_endpoint_key() -> pytest.MarkDecorator:
+    """Return a skip marker for tests that call the selected inference endpoint for real."""
+    import os
+
+    from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
+
+    endpoint = resolve_inference_endpoint()
+    return pytest.mark.skipif(
+        not os.environ.get(endpoint.api_key_env_var),
+        reason=f"live endpoint test requires {endpoint.api_key_env_var} for the {endpoint.name!r} endpoint",
+    )
+
+
 def inference_backend(stub_openai, *, model: str = "test-model", max_retries: int = 3) -> InferenceBackend:
     """Build an ``InferenceBackend`` against the patched OpenAI client from ``stub_openai``."""
     from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend

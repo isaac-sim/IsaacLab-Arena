@@ -32,12 +32,18 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
+from isaaclab_arena.agentic_environment_generation.inference_backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
+from isaaclab_arena.agentic_environment_generation.spec_io import (
+    DEFAULT_AGENTIC_OUTPUT_DIR,
+    write_env_graph_spec,
+    write_rejected_env_graph_spec,
+)
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -78,6 +84,16 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         type=str,
         default=None,
         help="Override the LLM model id (default: agent's built-in default).",
+    )
+    group.add_argument(
+        "--inference_endpoint",
+        type=str,
+        choices=tuple(INFERENCE_ENDPOINTS),
+        default=None,
+        help=(
+            "Inference endpoint to call (default: the ARENA_INFERENCE_ENDPOINT environment variable, "
+            f"else '{DEFAULT_ENDPOINT_NAME}')."
+        ),
     )
     group.add_argument(
         "--temperature",
@@ -161,8 +177,10 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     }
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
+    if args_cli.inference_endpoint:
+        agent_kwargs["endpoint"] = args_cli.inference_endpoint
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    env_graph_spec, _ = agent.generate_spec(
+    env_graph_spec, rejected = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
@@ -172,10 +190,15 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
-        print("\n[runner] the agent returned an invalid spec. Nothing was written.", flush=True)
+        print("\n[runner] the agent returned an invalid spec.", flush=True)
         print("\n[runner] validation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
+        # Print and write the rejected response so it can be read, or fixed by hand, without
+        # re-running the prompt.
+        print(f"\n[runner] rejected spec:\n{json.dumps(rejected, indent=2, default=str)}", flush=True)
+        rejected_path = write_rejected_env_graph_spec(rejected or {}, args_cli.out_dir, agent.traces)
+        print(f"\n[runner] wrote rejected environment graph spec → {rejected_path}", flush=True)
         return None
     # The spec is valid either way: an object no asset was found for was never offered to spec
     # inference, so it was built without it. Say so, or the substitution goes unnoticed.
@@ -198,8 +221,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
 
 def print_schema() -> None:
     """Print the Pydantic ArenaEnvGraphSpec JSON schema."""
-    import json
-
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
     print(json.dumps(ArenaEnvGraphSpec.model_json_schema(), indent=2))

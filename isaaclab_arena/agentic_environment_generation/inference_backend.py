@@ -19,9 +19,51 @@ from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
 
-# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
-DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "azure/anthropic/claude-opus-4-8"
+INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
+INTERNAL_MODEL = "azure/anthropic/claude-opus-4-8"
+PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
+PUBLIC_MODEL = "openai/gpt-oss-120b"
+
+INFERENCE_ENDPOINT_ENV_VAR = "ARENA_INFERENCE_ENDPOINT"
+"""Environment variable naming the inference endpoint every agentic command uses."""
+
+
+@dataclass(frozen=True)
+class InferenceEndpoint:
+    """One named inference endpoint: where to call, which model, and which API key to read."""
+
+    name: str
+    base_url: str
+    model: str
+    api_key_env_var: str
+
+
+INTERNAL_ENDPOINT = InferenceEndpoint("internal", INTERNAL_BASE_URL, INTERNAL_MODEL, "NV_API_KEY")
+"""NVIDIA-internal inference endpoint, reached with an internal API key."""
+
+PUBLIC_ENDPOINT = InferenceEndpoint("public", PUBLIC_BASE_URL, PUBLIC_MODEL, "NVIDIA_API_KEY")
+"""Publicly reachable build.nvidia.com endpoint, reached with an NGC API key."""
+
+INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT)}
+DEFAULT_ENDPOINT_NAME = PUBLIC_ENDPOINT.name
+
+
+def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
+    """Return the inference endpoint named by ``name``, the environment, or the default.
+
+    Args:
+        name: Endpoint name, or ``None`` to read ``ARENA_INFERENCE_ENDPOINT`` and fall back
+            to the public endpoint.
+
+    Returns:
+        The selected endpoint preset.
+    """
+    resolved = name or os.getenv(INFERENCE_ENDPOINT_ENV_VAR) or DEFAULT_ENDPOINT_NAME
+    assert resolved in INFERENCE_ENDPOINTS, (
+        f"Unknown inference endpoint {resolved!r}: set {INFERENCE_ENDPOINT_ENV_VAR} to one of "
+        f"{sorted(INFERENCE_ENDPOINTS)}"
+    )
+    return INFERENCE_ENDPOINTS[resolved]
 
 
 @dataclass(frozen=True)
@@ -46,33 +88,53 @@ class InferenceBackend:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        endpoint: str | None = None,
     ):
         """Configure an OpenAI-compatible structured-output client.
 
         Args:
-            api_key: API token for the inference endpoint. Falls back to the
-                ``NV_API_KEY`` environment variable.
-            model: Model identifier passed to the chat completion API.
-            base_url: OpenAI-compatible inference endpoint.
+            api_key: API token for the inference endpoint. Falls back to the environment
+                variable the selected endpoint reads.
+            model: Model identifier passed to the chat completion API. Defaults to the
+                selected endpoint's model.
+            base_url: OpenAI-compatible inference endpoint. Defaults to the selected
+                endpoint's base URL.
             temperature: Sampling temperature for completion requests.
             max_tokens: Maximum tokens in each completion response.
             max_retries: Additional attempts after a recoverable failure; must be in
                 ``[0, MAX_RETRIES_LIMIT)``.
+            endpoint: Inference endpoint name, ``internal`` or ``public``. Falls back to
+                the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
         """
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
-        resolved_api_key = api_key or os.getenv("NV_API_KEY")
-        assert resolved_api_key, "API key required: set NV_API_KEY or pass api_key."
-        resolved_base_url = base_url or DEFAULT_BASE_URL
-        resolved_model = model or DEFAULT_MODEL
+        inference_endpoint = resolve_inference_endpoint(endpoint)
+        resolved_api_key = api_key or os.getenv(inference_endpoint.api_key_env_var)
+        assert resolved_api_key, (
+            f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
+            f"{inference_endpoint.api_key_env_var} or pass api_key. Select another endpoint with "
+            f"{INFERENCE_ENDPOINT_ENV_VAR}."
+        )
+        resolved_base_url = base_url or inference_endpoint.base_url
+        resolved_model = model or inference_endpoint.model
+        print(
+            f"[inference] endpoint {inference_endpoint.name!r} model {resolved_model!r} at {resolved_base_url}",
+            flush=True,
+        )
         client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
         self._client: OpenAI = client
+        self._endpoint = inference_endpoint
         self._model = resolved_model
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
         _ping(client, resolved_model)
+
+    @property
+    def endpoint(self) -> InferenceEndpoint:
+        """Inference endpoint preset the client was configured from."""
+        return self._endpoint
 
     @property
     def model(self) -> str:

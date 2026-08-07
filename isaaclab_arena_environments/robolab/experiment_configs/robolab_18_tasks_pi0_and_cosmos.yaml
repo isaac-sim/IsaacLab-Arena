@@ -7,7 +7,9 @@
 # and Cosmos policies (36 runs, 20 parallel environments each).
 # Values under shared are used by every Run below.
 # A Run only needs to list what is different; its values override the shared ones.
-# Use shared.<path>=<value> on the command line to change a value for all Runs.
+# To change a shared value for every Run on the command line:
+# - with experiment_runner.py, use shared.<path>=<value>
+# - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
 shared:
   environment:
     enable_cameras: true

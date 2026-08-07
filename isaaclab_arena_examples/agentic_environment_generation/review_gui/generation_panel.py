@@ -21,6 +21,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
+from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadySearchConfig,
     SimReadySourceKind,
@@ -70,7 +71,7 @@ def _simready_config_from_session() -> SimReadySearchConfig:
 
 
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
-    """Lazy-init the LLM agent when ``NV_API_KEY`` is available."""
+    """Lazy-init the LLM agent when the selected inference endpoint's API key is available."""
     if st.session_state.get("generation_agent_error"):
         return None
     simready_enabled = bool(st.session_state.get("enable_simready_search", False))
@@ -150,7 +151,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     if agent is None:
         err = st.session_state.get(
             "generation_agent_error",
-            "Set NV_API_KEY in the environment before generating specs.",
+            f"Set {resolve_inference_endpoint().api_key_env_var} in the environment before generating specs.",
         )
         return False, err
 
