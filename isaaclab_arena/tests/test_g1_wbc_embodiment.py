@@ -53,6 +53,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     from isaaclab_arena.embodiments.g1.g1 import G1WBCJointEmbodiment, G1WBCPinkEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
@@ -72,6 +73,9 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
         name="g1_standing_test",
         embodiment=embodiment,
         scene=scene,
+        # The whole-body controller requires 50 Hz control; at the 15 Hz default the standing
+        # policy drifts off its initial position.
+        env_cfg_callback=set_control_rate_50hz,
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
