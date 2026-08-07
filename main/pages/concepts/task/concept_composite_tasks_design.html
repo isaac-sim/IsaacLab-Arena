@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Sequential Tasks &#8212; isaaclab_arena</title>
+    <title>Composite and Sequential Tasks &#8212; isaaclab_arena</title>
   
   
   
@@ -49,12 +49,12 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/task/concept_sequential_tasks_design';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/task/concept_composite_tasks_design';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="RL Tasks" href="concept_rl_tasks_design.html" />
+    <link rel="next" title="Predicates and Subtask Progress Tracking" href="concept_progress_tracking_design.html" />
     <link rel="prev" title="Task" href="index.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -152,13 +152,13 @@
   </button>
   <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
     <a class="list-group-item list-group-item-action py-1 active"
-       href="concept_sequential_tasks_design.html" role="option" aria-current="true">main</a>
+       href="concept_composite_tasks_design.html" role="option" aria-current="true">main</a>
     <a class="list-group-item list-group-item-action py-1"
-       href="../../../../release/0.3.0-prerelease/pages/concepts/task/concept_sequential_tasks_design.html" role="option">0.3.0-prerelease</a>
+       href="../../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
     <a class="list-group-item list-group-item-action py-1"
-       href="../../../../release/0.2.1/pages/concepts/task/concept_sequential_tasks_design.html" role="option">0.2.1</a>
+       href="../../../../release/0.2.1/index.html" role="option">0.2.1</a>
     <a class="list-group-item list-group-item-action py-1"
-       href="../../../../release/0.2.0/pages/concepts/task/concept_sequential_tasks_design.html" role="option">0.2.0</a>
+       href="../../../../release/0.2.0/index.html" role="option">0.2.0</a>
     <a class="list-group-item list-group-item-action py-1"
        href="../../../../release/0.1.1/index.html" role="option">0.1.1</a>
     <a class="list-group-item list-group-item-action py-1"
@@ -229,6 +229,10 @@
     </div>
   
 
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
   
 </div>
 
@@ -458,7 +462,8 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Sequential Tasks</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
@@ -533,7 +538,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Task</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Sequential Tasks</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Composite and Sequential Tasks</span></li>
   </ul>
 </nav>
 </div>
@@ -550,29 +555,104 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="sequential-tasks">
-<h1>Sequential Tasks<a class="headerlink" href="#sequential-tasks" title="Link to this heading">#</a></h1>
-<p>Tasks can be composed sequentially to form longer horizon, more complex tasks using the <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> class.
-<code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> takes a list of <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances and automatically composes them into a single task.
-The order of the tasks in the list determines the order in which subtasks must be completed.
-Internally, the Arena Environment Builder will automatically track that each sub-task is
-completed successfully in turn.
-It will also automatically compose the sub-task metrics, resets etc.</p>
-<p><strong>Usage Example (Pick and Place Task and Close Door Task Composition)</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
-<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
-<span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
+  <section id="composite-and-sequential-tasks">
+<h1>Composite and Sequential Tasks<a class="headerlink" href="#composite-and-sequential-tasks" title="Link to this heading">#</a></h1>
+<p>An Arena task describes what the robot should do in an environment, such as opening a door or placing an object in a bin.
+Arena can combine multiple tasks (subtasks) into one longer-horizon task in two ways:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> creates an <strong>order-independent</strong> task. Its subtasks may succeed in any order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> creates an <strong>ordered</strong> task. It is a <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> subclass that
+requires subtasks to succeed in the listed order.</p></li>
+</ul>
+<p>Both classes collect the subtasks scene configuration, reset events, failure terminations,
+metrics, Mimic configuration, and progress objectives. They replace the individual success
+terminations with one success condition for the complete task.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>“Order-independent” does not mean every subtask must be satisfied simultaneously. The environment tracks and remembers
+which subtasks have succeeded during the episode. This makes <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> appropriate for
+goals such as placing several objects into a bin, where the policy may choose the object order.</p>
+</div>
+<section id="choosing-the-composition-type">
+<h2>Choosing the composition type<a class="headerlink" href="#choosing-the-composition-type" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 30.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Class</p></th>
+<th class="head"><p>Ordering</p></th>
+<th class="head"><p>Completion Criteria</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code></p></td>
+<td><p>No required order</p></td>
+<td><p>Every subtask must report success at least once. A subtask may return to an unsuccessful
+state after it has been completed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code></p></td>
+<td><p>List order</p></td>
+<td><p>Each subtask must report success after the preceding subtask has completed. A completed
+subtask may subsequently return to an unsuccessful state.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="composing-tasks">
+<h2>Composing tasks<a class="headerlink" href="#composing-tasks" title="Link to this heading">#</a></h2>
+<p>Pass ordinary <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances to the composition class. For example, use <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> to
+create an order-independent packing task for two objects:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.composite_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeTaskBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 
-<span class="n">openable_object</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">)</span>
-<span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+<span class="n">place_can</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">can</span><span class="p">,</span> <span class="n">bin_reference</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+<span class="n">place_bottle</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">bottle</span><span class="p">,</span> <span class="n">bin_reference</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
 
-<span class="n">sequential_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span><span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">])</span>
+<span class="n">packing_task</span> <span class="o">=</span> <span class="n">CompositeTaskBase</span><span class="p">(</span>
+    <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">place_can</span><span class="p">,</span> <span class="n">place_bottle</span><span class="p">],</span>
+    <span class="n">task_description</span><span class="o">=</span><span class="s2">&quot;Place the can and bottle into the bin.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>We demonstrate the use of a sequential task in one of our workflows.
-See <a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html"><span class="doc">GR1 Sequential Pick &amp; Place and Close Door Task</span></a> to see a
-sequential task is use - picking up an object and placing it in a refrigerator and then
-closing the door.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> when the order is part of the task. Here, placing the object must happen
+before closing the refrigerator:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.close_door_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">CloseDoorTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.sequential_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequentialTaskBase</span>
+
+<span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">refrigerator_shelf</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
+<span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">refrigerator</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+
+<span class="n">put_away_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span>
+    <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">],</span>
+    <span class="n">task_description</span><span class="o">=</span><span class="s2">&quot;Place the object in the refrigerator, then close the door.&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html"><span class="doc">GR1 Sequential Pick &amp; Place and Close Door Task</span></a> for a complete sequential-task
+workflow that places an object in a refrigerator and then closes the door.</p>
+</section>
+<section id="specifying-a-final-subtask-state">
+<h2>Specifying a final subtask state<a class="headerlink" href="#specifying-a-final-subtask-state" title="Link to this heading">#</a></h2>
+<p>By default, both composite and sequential tasks only require every subtask to have succeeded at some point. Use
+<code class="docutils literal notranslate"><span class="pre">desired_subtask_success_state</span></code> if you want the final simulator state to be a specific one:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span>
+    <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">],</span>
+    <span class="n">desired_subtask_success_state</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Each entry corresponds to one subtask with ordering corresponding to the order of the subtask list in the definition:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code> requires the subtask to have succeeded previously and to be succeeding now.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code> requires the subtask to have succeeded previously but to be unsuccessful now.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> ignores that subtask when checking the final state.</p></li>
+</ul>
+</section>
 </section>
 
 
@@ -595,11 +675,11 @@ closing the door.</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_rl_tasks_design.html"
+       href="concept_progress_tracking_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">RL Tasks</p>
+        <p class="prev-next-title">Predicates and Subtask Progress Tracking</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -610,9 +690,27 @@ closing the door.</p>
             
             
 
-<div class="bd-sidebar-secondary"></div>
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-the-composition-type">Choosing the composition type</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#composing-tasks">Composing tasks</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-a-final-subtask-state">Specifying a final subtask state</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
 

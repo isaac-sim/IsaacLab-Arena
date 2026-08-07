@@ -54,7 +54,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Sequential Tasks" href="concept_sequential_tasks_design.html" />
+    <link rel="next" title="Composite and Sequential Tasks" href="concept_composite_tasks_design.html" />
     <link rel="prev" title="Affordances" href="../scene/concept_affordances_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -462,7 +462,8 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
@@ -591,12 +592,16 @@ making it reusable with any openable object.</span><a class="headerlink" href="#
 and scenes without any changes.</p>
 <p>Available tasks include (but are not limited to) <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code>, <code class="docutils literal notranslate"><span class="pre">LiftObjectTask</span></code>,
 <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code>, <code class="docutils literal notranslate"><span class="pre">CloseDoorTask</span></code>, and <code class="docutils literal notranslate"><span class="pre">PressButtonTask</span></code>.</p>
+<p>Individual tasks can be combined into order-independent or sequential composite tasks. Tasks can also
+define predicate-based progress objectives to report partial completion without changing their
+success termination.</p>
 </section>
 <section id="more-details">
 <h2>More details<a class="headerlink" href="#more-details" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
@@ -624,11 +629,11 @@ and scenes without any changes.</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_sequential_tasks_design.html"
+       href="concept_composite_tasks_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Sequential Tasks</p>
+        <p class="prev-next-title">Composite and Sequential Tasks</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
