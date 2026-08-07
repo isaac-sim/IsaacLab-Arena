@@ -126,7 +126,19 @@ def split_shared_run_default_overrides(
     shared_default_overrides: list[str] = []
     remaining_overrides: list[str] = []
     for override in overrides:
-        if override.startswith(shared_override_prefix):
+        override_without_hydra_operator = override.lstrip("+~")
+        is_shared_default_override = override_without_hydra_operator.startswith(shared_override_prefix)
+
+        # NOTE(cvolk, 2026-08-07): Shared defaults are applied before Hydra composes the
+        # typed Experiment, so Hydra's +, ++, and ~ operators are not available here.
+        # This restriction can be removed once Hydra composes the complete Experiment.
+        assert override == override_without_hydra_operator or not is_shared_default_override, (
+            f"Shared Run-default override '{override}' uses an unsupported Hydra operator. "
+            f"Use '{shared_override_prefix}<path>=<value>'; the path must already be declared "
+            "under 'shared' in the Experiment YAML."
+        )
+
+        if is_shared_default_override:
             shared_default_overrides.append(override.removeprefix(experiment_override_prefix))
         else:
             remaining_overrides.append(override)

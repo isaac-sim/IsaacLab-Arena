@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEn
 from isaaclab_arena.hydra.typed_experiment_loader import (
     load_arena_experiment_from_yaml,
     load_experiment_run_definitions_from_yaml,
+    split_shared_run_default_overrides,
 )
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -234,6 +235,16 @@ runs:
     assert second_run.variations["camera"]["enabled"] is False
     with pytest.raises(ValueError, match="missing"):
         _load_experiment(config_path, overrides=["shared.missing=true"])
+
+
+@pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
+@pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
+def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
+    override_prefix = f"{experiment_config_prefix}." if experiment_config_prefix else ""
+    override = f"{operator}{override_prefix}shared.rollout_limit.num_steps{assignment}"
+
+    with pytest.raises(AssertionError, match="uses an unsupported Hydra operator"):
+        split_shared_run_default_overrides([override], experiment_config_prefix)
 
 
 @pytest.mark.parametrize(
