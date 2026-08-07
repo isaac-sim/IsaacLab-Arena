@@ -440,8 +440,12 @@
 <li class="toctree-l2"><a class="reference internal" href="../agentic_env_gen/gui_runner.html">Agentic Environment Generation GUI</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Sensitivity Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../analysis/index.html">Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Variations</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Sensitivity Analysis</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
 </ul>
 </details></li>
 </ul>
@@ -527,6 +531,9 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
+    
+    <li class="breadcrumb-item"><a href="../analysis/index.html" class="nav-link">Analysis</a></li>
+    
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Sensitivity Analysis</a></li>
     
@@ -639,12 +646,12 @@ all three recorded conditions are numeric, Arena will use NPE for this analysis.
 <span class="w">      </span><span class="nt">remote_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
 <span class="w">      </span><span class="nt">openpi_embodiment_adapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
 <span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">    </span><span class="c1"># The variations to enable for this run.</span>
 <span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.01</span><span class="p p-Indicator">]</span>
-<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.01</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-0.03</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.03</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.03</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
 </div>
