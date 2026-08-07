@@ -494,6 +494,38 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert "--policy.dir=gs://openpi-assets-simeval/pi0_droid_jointpos" in server_command
 
 
+def test_submission_resolves_shared_override_before_run_override(tmp_path):
+    """Apply shared Run defaults before a direct Run override."""
+    experiment_path = tmp_path / "shared_experiment.yaml"
+    experiment_path.write_text(
+        """shared:
+  rollout_limit:
+    num_steps: 1
+
+runs:
+  first:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+
+  second:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+""",
+        encoding="utf-8",
+    )
+
+    submission_cfg = _compose_submission(
+        [
+            "experiment_cfg.shared.rollout_limit.num_steps=5",
+            "experiment_cfg.runs.second.rollout_limit.num_steps=7",
+        ],
+        experiment_path,
+    )
+
+    assert submission_cfg.experiment_cfg.runs["first"].rollout_limit.num_steps == 5
+    assert submission_cfg.experiment_cfg.runs["second"].rollout_limit.num_steps == 7
+
+
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()

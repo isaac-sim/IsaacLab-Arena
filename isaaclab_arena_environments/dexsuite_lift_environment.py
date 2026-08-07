@@ -38,6 +38,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -76,4 +77,6 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
             teleop_device=None,
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
+            # 50 Hz control, the rate the RL policies for this task were trained at.
+            env_cfg_callback=set_control_rate_50hz,
         )

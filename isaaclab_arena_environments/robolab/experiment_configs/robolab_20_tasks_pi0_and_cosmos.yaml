@@ -5,12 +5,33 @@
 
 # 20 single-subtask robolab tasks, each run with both the OpenPI (pi0) and Cosmos policies
 # (40 runs, 20 parallel environments each).
+# Values under shared are used by every Run below.
+# A Run only needs to list what is different; its values override the shared ones.
+# Use shared.<path>=<value> on the command line to change a value for all Runs.
+shared:
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 20
+  rollout_limit:
+    num_episodes: 100
+  variations:
+    light:
+      hdr_image:
+        enabled: true
+        hdr_names: ["home_office_robolab"]
+    droid_abs_joint_pos:
+      camera_extrinsics_wrist_camera:
+        enabled: false
+        sampler_cfg:
+          low: [-0.05, -0.05, -0.05]
+          high: [0.05, 0.05, 0.05]
+
 runs:
 
   banana_in_bowl_pi0:
     environment: &banana_in_bowl_env
       type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
-      enable_cameras: true
     policy: &openpi_policy
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
       policy_variant: pi05
@@ -18,15 +39,6 @@ runs:
       remote_host: 127.0.0.1
       remote_port: 8000
       openpi_embodiment_adapter: droid
-    environment_builder: &pi0_builder
-      num_envs: 20
-    variations: &hdr_variation
-      light:
-        hdr_image:
-          enabled: true
-          hdr_names: ["home_office_robolab"]
-    rollout_limit:
-      num_episodes: 100
 
   banana_in_bowl_cosmos:
     environment: *banana_in_bowl_env
@@ -36,350 +48,174 @@ runs:
       policy_device: cuda:0
       remote_host: 127.0.0.1
       remote_port: 8000
-    environment_builder: &cosmos_builder
-      num_envs: 20
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   banana_on_plate_pi0:
     environment: &banana_on_plate_env
       type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   banana_on_plate_cosmos:
     environment: *banana_on_plate_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   big_pumpkin_in_bin_pi0:
     environment: &big_pumpkin_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   big_pumpkin_in_bin_cosmos:
     environment: *big_pumpkin_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   bowl_in_bin_pi0:
     environment: &bowl_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/bowl_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   bowl_in_bin_cosmos:
     environment: *bowl_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   butter_above_raisin_pi0:
     environment: &butter_above_raisin_env
       type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   butter_above_raisin_cosmos:
     environment: *butter_above_raisin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   canned_food_in_bin_pi0:
     environment: &canned_food_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/canned_food_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   canned_food_in_bin_cosmos:
     environment: *canned_food_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   clamp_in_right_bin_pi0:
     environment: &clamp_in_right_bin_env
       type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   clamp_in_right_bin_cosmos:
     environment: *clamp_in_right_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   coffee_pot_in_bin_pi0:
     environment: &coffee_pot_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/coffee_pot_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   coffee_pot_in_bin_cosmos:
     environment: *coffee_pot_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   food_packing_1_boxes_pi0:
     environment: &food_packing_1_boxes_env
       type: isaaclab_arena_environments/robolab/tasks/food_packing_1_boxes.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   food_packing_1_boxes_cosmos:
     environment: *food_packing_1_boxes_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   food_packing_1_cans_pi0:
     environment: &food_packing_1_cans_env
       type: isaaclab_arena_environments/robolab/tasks/food_packing_1_cans.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   food_packing_1_cans_cosmos:
     environment: *food_packing_1_cans_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   larger_object_raisin_box_in_bin_pi0:
     environment: &larger_object_raisin_box_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   larger_object_raisin_box_in_bin_cosmos:
     environment: *larger_object_raisin_box_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   marker_in_mug_pi0:
     environment: &marker_in_mug_env
       type: isaaclab_arena_environments/robolab/tasks/marker_in_mug.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   marker_in_mug_cosmos:
     environment: *marker_in_mug_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mouse_on_keyboard_pi0:
     environment: &mouse_on_keyboard_env
       type: isaaclab_arena_environments/robolab/tasks/mouse_on_keyboard.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mouse_on_keyboard_cosmos:
     environment: *mouse_on_keyboard_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mustard_above_raisin_pi0:
     environment: &mustard_above_raisin_env
       type: isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mustard_above_raisin_cosmos:
     environment: *mustard_above_raisin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mustard_in_left_bin_pi0:
     environment: &mustard_in_left_bin_env
       type: isaaclab_arena_environments/robolab/tasks/mustard_in_left_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   mustard_in_left_bin_cosmos:
     environment: *mustard_in_left_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   rubiks_cube_pi0:
     environment: &rubiks_cube_env
       type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   rubiks_cube_cosmos:
     environment: *rubiks_cube_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   sauce_bottles_crate_pi0:
     environment: &sauce_bottles_crate_env
       type: isaaclab_arena_environments/robolab/tasks/sauce_bottles_crate.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   sauce_bottles_crate_cosmos:
     environment: *sauce_bottles_crate_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   smartphone_in_bin_pi0:
     environment: &smartphone_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   smartphone_in_bin_cosmos:
     environment: *smartphone_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   throw_away_apple_pi0:
     environment: &throw_away_apple_env
       type: isaaclab_arena_environments/robolab/tasks/throw_away_apple.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   throw_away_apple_cosmos:
     environment: *throw_away_apple_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   toy_in_bin_pi0:
     environment: &toy_in_bin_env
       type: isaaclab_arena_environments/robolab/tasks/toy_in_bin.yaml
-      enable_cameras: true
     policy: *openpi_policy
-    environment_builder: *pi0_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100
 
   toy_in_bin_cosmos:
     environment: *toy_in_bin_env
     policy: *cosmos_policy
-    environment_builder: *cosmos_builder
-    variations: *hdr_variation
-    rollout_limit:
-      num_episodes: 100

@@ -13,6 +13,10 @@ Usage::
     # Print the catalog sent to the agent (no agent call, no Isaac Sim):
     python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode catalog
 
+    # Print the background prim tree of a graph spec (no agent call, no Isaac Sim):
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \\
+        --mode prim_tree --env_graph_spec_yaml <env>_env_graph.yaml
+
     # Resolve a prompt into an environment graph spec YAML (no Isaac Sim):
     python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode resolve --prompt ...
 
@@ -52,13 +56,15 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     group.add_argument(
         "--mode",
         type=str,
-        choices=("full", "resolve", "build", "schema", "catalog"),
+        choices=("full", "resolve", "build", "schema", "catalog", "prim_tree"),
         default="full",
         help=(
             "Which phases to run: 'schema' (print the spec JSON schema and exit), "
-            "'catalog' (print the agent catalog and exit), 'resolve' (prompt -> spec YAML, no Isaac Sim), "
+            "'catalog' (print the agent catalog and exit), "
+            "'prim_tree' (print the background prim tree of --env_graph_spec_yaml and exit), "
+            "'resolve' (prompt -> spec YAML, no Isaac Sim), "
             "'build' (needs --env_graph_spec_yaml), or 'full' (resolve and build in one process; default). "
-            "'schema' and 'catalog' make no agent call."
+            "'schema', 'catalog', and 'prim_tree' make no agent call."
         ),
     )
     group.add_argument(
@@ -214,6 +220,28 @@ def print_catalog() -> None:
     print(build_task_catalogue().to_catalog_string())
 
 
+def print_background_prim_tree(env_graph_spec_path: Path) -> None:
+    """Print the background prim tree of a graph spec, the candidates for object_reference prim paths.
+
+    One line per prim: its ``prim_path`` suffix, its object type, and — for an articulation — the joint
+    names an ``openable_joint_name`` can be picked from.
+
+    Args:
+        env_graph_spec_path: Path to the environment graph spec YAML whose background is inspected.
+    """
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+
+    spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
+    usd_path = spec.background.resolve_usd_path()
+    assert usd_path, f"background {spec.background.registry_name!r} resolves to no USD path"
+
+    print(f"\n=== background prim tree (background={spec.background.registry_name!r}) ===")
+    for record in load_usd_prim_tree(usd_path):
+        joints_str = f"  joints={','.join(record.joint_names)}" if record.joint_names else ""
+        print(f"  {record.relative_path}  object_type={record.object_type.value}{joints_str}")
+
+
 def _iter_printable_assets(spec: ArenaEnvGraphSpec):
     yield "embodiment", spec.embodiment.id, spec.embodiment.registry_name, spec.embodiment.params
     yield "background", spec.background.id, spec.background.registry_name, spec.background.params
@@ -296,7 +324,7 @@ def build_env_and_run_policy(env_graph_spec_path: Path, args_cli: argparse.Names
 
 def _resolved_graph_spec_yaml(args_cli: argparse.Namespace) -> Path:
     path_arg = args_cli.env_graph_spec_yaml
-    assert path_arg is not None, "--mode build requires --env_graph_spec_yaml"
+    assert path_arg is not None, f"--mode {args_cli.mode} requires --env_graph_spec_yaml"
     path = Path(path_arg)
     assert path.is_file(), f"env graph spec YAML not found: {path}"
     return path
@@ -313,6 +341,10 @@ def main() -> int:
 
     if args_cli.mode == "catalog":
         print_catalog()
+        return 0
+
+    if args_cli.mode == "prim_tree":
+        print_background_prim_tree(_resolved_graph_spec_yaml(args_cli))
         return 0
 
     if args_cli.mode == "resolve":

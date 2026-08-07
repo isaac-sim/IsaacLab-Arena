@@ -13,7 +13,11 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 NUM_STEPS = 10
 HEADLESS = True
-INITIAL_POSITION_EPS = 0.1  # The cracker box falls slightly.
+# The per-env pose is checked right after reset, before any physics step: the box at (0.4, 0.4) is ejected
+# from the kitchen geometry within the first step in some run orderings, so stepping first is unreliable
+# regardless of how few steps we take. The tolerance only needs to absorb the reset write's round-trip
+# precision - far tighter than the 0.4 m spacing between the two envs, so a swapped per-env index is caught.
+PLACEMENT_EPS = 0.02
 
 # For object initial velocity test: min displacement in velocity direction
 OBJECT_VELOCITY_MIN_DISPLACEMENT = 0.05  # minimum movement in meters
@@ -82,13 +86,8 @@ def _test_set_object_pose_per_env_event(simulation_app):
 
     try:
 
-        # Run some zero actions.
-        for _ in tqdm.tqdm(range(NUM_STEPS)):
-            with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                env.step(actions)
-
-        # Check that the cracker box ended up in the correct position.
+        # Check the pose right after reset, before the box is stepped: the reset event is the unit under
+        # test, so we verify each env received its assigned pose rather than where physics carries it.
         cracker_box_poses = cracker_box.get_object_pose(env)
         initial_poses = torch.cat(
             (
@@ -101,7 +100,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
         print(f"Cranker box poses: {cracker_box_poses}")
         print(f"Initial poses: {initial_poses}")
         print(f"Position errors: {position_errors}")
-        assert torch.all(position_errors < INITIAL_POSITION_EPS), "Position errors are too large"
+        assert torch.all(position_errors < PLACEMENT_EPS), "Position errors are too large"
 
     except Exception as e:
         print(f"Error: {e}")

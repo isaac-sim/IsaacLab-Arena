@@ -319,6 +319,7 @@ TABLE OF CONTENTS
    pages/example_workflows/agentic_env_gen/index
    pages/example_workflows/sensitivity_analysis/index
    pages/example_workflows/multi_node_evaluation/index
+   pages/example_workflows/analysis/index
 
 .. toctree::
    :maxdepth: 1

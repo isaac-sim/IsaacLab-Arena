@@ -16,8 +16,8 @@ For background information, see the :doc:`Variations concept page
 <../../concepts/variations/variations>` and the :doc:`Sensitivity Analysis concept page
 <../../concepts/concept_sensitivity_analysis>`.
 
-.. TODO(cvolk): Rework this directory as a single command-led workflow page and move the remaining
-   general explanations to the concept pages.
+.. TODO(cvolk): Rework the Sensitivity Analysis workflow to continue from the preceding
+   Variations workflow and move the remaining general explanations to the concept pages.
 
 .. toctree::
    :maxdepth: 1

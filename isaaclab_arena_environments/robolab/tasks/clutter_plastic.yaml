@@ -14,19 +14,19 @@ task:
       pick_up_object: white_packer_bottle
       destination_location: container_f24
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0
       max_separation: [0.1, 0.1, 0.1]
   - kind: PickAndPlaceTask
     params:
       pick_up_object: milk_jug
       destination_location: container_f24
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0
       max_separation: [0.1, 0.1, 0.1]
   - kind: PickAndPlaceTask
     params:
       pick_up_object: utilityjug
       destination_location: container_f24
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0
       max_separation: [0.1, 0.1, 0.1]
