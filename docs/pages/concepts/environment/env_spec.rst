@@ -11,7 +11,7 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 .. figure:: ../../../images/env_spec_py_yaml.png
    :alt: Python factory and Graph YAML both produce an IsaacLabArenaEnvironment, which ArenaEnvBuilder compiles into a ManagerBasedRLEnv.
 
-* **Python** — a registered ``ArenaEnvironmentFactory``. ``build()`` constructs
+* **Python** — a registered ``ArenaEnvironmentCfg``. ``build()`` constructs
   the scene, embodiment, and task in code.
 * **YAML** — an ``ArenaEnvGraphSpec``: a declarative environment graph. Nodes are
   assets; edges are spatial relations and task parameters.
