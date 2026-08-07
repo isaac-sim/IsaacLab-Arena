@@ -9,7 +9,7 @@ Sensitivity analysis can help you:
 
 * **Find a robust operating range.** See whether success is associated with a broad part of the
   tested range or only a narrow region.
-* **Identify the most sensitive direction.** Compare each posterior with its sampling reference to
+* **Identify the most sensitive factors.** Compare each posterior with its sampling reference to
   see which conditions constrain the policy most strongly.
 * **Target additional training data.** Collect or augment data across sensitive conditions to
   improve the policy's robustness.
