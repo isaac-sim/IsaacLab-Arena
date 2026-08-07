@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.agentic_environment_generation.inference_backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
 from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -78,6 +79,16 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         type=str,
         default=None,
         help="Override the LLM model id (default: agent's built-in default).",
+    )
+    group.add_argument(
+        "--inference_endpoint",
+        type=str,
+        choices=tuple(INFERENCE_ENDPOINTS),
+        default=None,
+        help=(
+            "Inference endpoint to call (default: the ARENA_INFERENCE_ENDPOINT environment variable, "
+            f"else '{DEFAULT_ENDPOINT_NAME}')."
+        ),
     )
     group.add_argument(
         "--temperature",
@@ -161,6 +172,8 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     }
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
+    if args_cli.inference_endpoint:
+        agent_kwargs["endpoint"] = args_cli.inference_endpoint
     agent = EnvironmentGenerationAgent(**agent_kwargs)
     env_graph_spec, _ = agent.generate_spec(
         args_cli.prompt,

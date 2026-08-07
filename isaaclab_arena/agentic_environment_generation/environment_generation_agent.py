@@ -43,6 +43,7 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        endpoint: str | None = None,
         *,
         enable_simready_search: bool = False,
         simready_config: SimReadySearchConfig | None = None,
@@ -50,8 +51,8 @@ class EnvironmentGenerationAgent:
         """Configure the OpenAI-compatible client and validate the model.
 
         Args:
-            api_key: API token for the inference endpoint. Falls back
-                to the ``NV_API_KEY`` environment variable.
+            api_key: API token for the inference endpoint. Falls back to the environment
+                variable the selected endpoint reads.
             model: Model identifier at the inference endpoint.
                 Must support OpenAI-compatible structured outputs.
             base_url: OpenAI-compatible inference endpoint.
@@ -63,6 +64,8 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
+            endpoint: Inference endpoint name, ``internal`` or ``public``. Falls back to
+                the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
             enable_simready_search: When ``True``, search SimReady for objects the asset catalog
                 does not cover.
             simready_config: Optional SimReady search configuration.
@@ -74,6 +77,7 @@ class EnvironmentGenerationAgent:
             temperature=temperature,
             max_tokens=max_tokens,
             max_retries=max_retries,
+            endpoint=endpoint,
         )
         self.spec_inference = SpecInference(inference_backend)
         self.missing_object_inference = MissingObjectInference(inference_backend)

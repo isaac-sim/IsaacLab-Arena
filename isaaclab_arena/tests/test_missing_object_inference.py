@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 
 import pytest
 
@@ -19,7 +18,11 @@ from isaaclab_arena.agentic_environment_generation.missing_object_inference impo
     MissingObjectInference,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
-from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
+from isaaclab_arena.tests.utils.agentic_environment_generation import (
+    chat_response,
+    inference_backend,
+    skip_without_live_endpoint_key,
+)
 
 INFERENCE_LOGGER = "isaaclab_arena.agentic_environment_generation.missing_object_inference"
 """Where this pass reports what it found; the agent's traces carry only errors."""
@@ -91,7 +94,7 @@ _LIVE_CATALOG = (
 
 
 # Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@skip_without_live_endpoint_key()
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_infer_names_the_uncatalogued_object_against_live_endpoint():
     """Live test: the one object the catalog has no match for comes back as a search phrase."""
@@ -103,7 +106,7 @@ def test_infer_names_the_uncatalogued_object_against_live_endpoint():
     assert any("watering can" in phrase.lower() for phrase in phrases), f"got {phrases!r}"
 
 
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@skip_without_live_endpoint_key()
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_infer_names_nothing_when_the_catalog_covers_the_prompt_against_live_endpoint():
     """Live test: a prompt every object of which is catalogued searches for nothing."""
