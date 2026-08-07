@@ -19,11 +19,6 @@ from pxr import Gf, Sdf, UsdGeom, UsdLux
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import instantiate_assets_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.utils.isaac_sim_debug_draw import (
-    axis_length_from_extents,
-    local_xyz_axis_segments,
-    overlay_rgb_segments_on_png,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
     aabb_dimensions_from_asset,
@@ -32,6 +27,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     resolve_aabb_dimensions_m,
     resolve_node_usd_paths,
     usd_cache_key,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.axis_overlay import (
+    axis_length_from_extents,
+    local_xyz_axis_segments,
+    overlay_rgb_segments_on_png,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
@@ -86,7 +86,6 @@ def render_thumbnails_with_app(
 
     cache_dir = thumbnail_cache_dir()
     panorama_dir = panorama_cache_dir()
-    background_id = spec.background.id if spec.background is not None else None
 
     thumbnail_paths: dict[str, Path] = {}
     jobs_by_usd: dict[str, _UsdSnapshotJob] = {}
@@ -94,7 +93,7 @@ def render_thumbnails_with_app(
     panorama_render_count = 0
     ref_render_count = 0
     for node_id, usd_path in asset_paths.items():
-        use_panorama = background_panorama and node_id == background_id
+        use_panorama = background_panorama and node_id == spec.background.id
         if use_panorama:
             cache_path = panorama_dir / f"{usd_cache_key(usd_path)}_panorama.png"
             if cache_path.exists() and cache_path.stat().st_size > 0:
@@ -210,15 +209,11 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
 
     if job.asset_captures:
         cache_path = job.asset_captures[0][1]
-        target_prim = stage.GetDefaultPrim()
-        if not target_prim or not target_prim.IsValid():
-            target_prim = stage.GetPrimAtPath(Sdf.Path("/"))
         png_bytes = _capture_stage_snapshot(
             app,
-            stage,
             cache_path,
             viewer_cfg=job.viewer_cfg,
-            axis_prim=target_prim,
+            axis_prim=_root_prim(stage),
         )
         if png_bytes:
             for node_id, _cache_path in job.asset_captures:
@@ -250,8 +245,7 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
                         f"[thumbnail_capture]   warning: frame_viewport_prims failed for {root_path}",
                         file=sys.stderr,
                     )
-                prim = stage.GetPrimAtPath(root_path)
-                png_bytes = _capture_with_origin_axes(app, prim, cache_path)
+                png_bytes = _capture_with_origin_axes(app, stage.GetPrimAtPath(root_path), cache_path)
                 if png_bytes:
                     out[node_id] = png_bytes
                 else:
@@ -268,20 +262,22 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
     return out
 
 
+def _root_prim(stage):
+    """Return the stage default prim, or the stage root when unset."""
+    prim = stage.GetDefaultPrim()
+    if prim and prim.IsValid():
+        return prim
+    return stage.GetPrimAtPath(Sdf.Path("/"))
+
+
 def _capture_stage_snapshot(
     app,
-    stage,
     cache_path: Path,
     *,
     viewer_cfg,
     axis_prim,
 ) -> bytes | None:
     """Capture the active viewport for an already-open stage."""
-    if not axis_prim or not axis_prim.IsValid():
-        axis_prim = stage.GetDefaultPrim()
-    if not axis_prim or not axis_prim.IsValid():
-        axis_prim = stage.GetPrimAtPath(Sdf.Path("/"))
-
     if viewer_cfg is not None:
         _apply_viewer_cfg(app, viewer_cfg)
     else:
@@ -306,22 +302,16 @@ def _capture_with_origin_axes(app, prim, cache_path: Path) -> bytes | None:
     if png_bytes is None or prim is None or not prim.IsValid():
         return png_bytes
 
-    segments_px = _project_prim_xyz_axes_to_pixels(prim, image_size=_png_ihdr_size(png_bytes))
+    # Capture writes at viewport resolution, so project in that pixel space.
+    viewport = get_active_viewport()
+    image_size = tuple(int(v) for v in viewport.resolution)
+    segments_px = _project_prim_xyz_axes_to_pixels(prim, image_size=image_size)
     if not segments_px:
         return png_bytes
 
     overlaid = overlay_rgb_segments_on_png(png_bytes, segments_px, width_px=_AXIS_LINE_WIDTH_PX)
     cache_path.write_bytes(overlaid)
     return overlaid
-
-
-def _png_ihdr_size(png_bytes: bytes) -> tuple[int, int]:
-    """Read PNG width/height from the IHDR chunk without decoding pixels."""
-    import struct
-
-    # signature(8) + length(4) + type(4) + width(4) + height(4)
-    assert len(png_bytes) >= 24 and png_bytes[:8] == b"\x89PNG\r\n\x1a\n", "expected PNG bytes"
-    return struct.unpack(">II", png_bytes[16:24])
 
 
 def _project_prim_xyz_axes_to_pixels(
@@ -332,22 +322,18 @@ def _project_prim_xyz_axes_to_pixels(
     """Project local XYZ axis segments for ``prim`` into image-pixel line segments."""
     origin, x_dir, y_dir, z_dir = _prim_local_axes_world(prim)
     length_m = axis_length_from_extents(_prim_world_aabb_extents(prim))
-    starts, ends, colors = local_xyz_axis_segments(origin, x_dir=x_dir, y_dir=y_dir, z_dir=z_dir, length_m=length_m)
+    world_segments = local_xyz_axis_segments(origin, x_dir=x_dir, y_dir=y_dir, z_dir=z_dir, length_m=length_m)
     viewport = get_active_viewport()
     viewport_size = tuple(int(v) for v in viewport.resolution)
     segments: list[tuple[tuple[int, int], tuple[int, int], tuple[int, int, int]]] = []
-    for start, end, color in zip(starts, ends, colors):
+    for start, end, color in world_segments:
         start_px = _world_to_image_pixel(viewport, start, image_size=image_size, viewport_size=viewport_size)
         end_px = _world_to_image_pixel(viewport, end, image_size=image_size, viewport_size=viewport_size)
         if start_px is None or end_px is None:
             continue
-        segments.append((start_px, end_px, _rgba01_to_rgb8(color)))
+        rgb = tuple(int(round(c * 255.0)) for c in color[:3])
+        segments.append((start_px, end_px, rgb))
     return segments
-
-
-def _rgba01_to_rgb8(rgba: tuple[float, float, float, float]) -> tuple[int, int, int]:
-    """Convert float RGBA in ``[0, 1]`` to 8-bit RGB."""
-    return tuple(int(round(c * 255.0)) for c in rgba[:3])
 
 
 def _world_to_image_pixel(
@@ -396,14 +382,21 @@ def _prim_local_axes_world(prim) -> tuple[
     )
 
 
-def _prim_world_aabb_extents(prim) -> tuple[float, float, float]:
-    """Return world-space AABB extents ``(x, y, z)`` for ``prim``, or a unit cube fallback."""
+def _world_aligned_box(prim):
+    """Return the world-space aligned AABB for ``prim``, or None when UsdGeom fails."""
     cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
     try:
-        bbox = cache.ComputeWorldBound(prim).ComputeAlignedBox()
+        return cache.ComputeWorldBound(prim).ComputeAlignedBox()
     except Exception as exc:
         # UsdGeom may raise Tf.ErrorException when Visibility attrs are broken on kitchen assets.
         print(f"[thumbnail_capture]   warning: AABB failed for {prim.GetPath()}: {exc}", file=sys.stderr)
+        return None
+
+
+def _prim_world_aabb_extents(prim) -> tuple[float, float, float]:
+    """Return world-space AABB extents ``(x, y, z)`` for ``prim``, or a unit cube fallback."""
+    bbox = _world_aligned_box(prim)
+    if bbox is None:
         return (1.0, 1.0, 1.0)
     min_pt, max_pt = bbox.GetMin(), bbox.GetMax()
     extents = (
@@ -421,9 +414,11 @@ def _capture_background_panorama(app, stage, cache_path: Path) -> bytes | None:
     if stage.GetPrimAtPath(PANORAMA_CAMERA_PRIM_PATH):
         stage.RemovePrim(Sdf.Path(PANORAMA_CAMERA_PRIM_PATH))
 
-    cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
     root = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-    bbox = cache.ComputeWorldBound(root).ComputeAlignedBox()
+    bbox = _world_aligned_box(root)
+    if bbox is None:
+        print(f"[thumbnail_capture]   panorama AABB failed for {root.GetPath()}", file=sys.stderr)
+        return None
     min_pt, max_pt = bbox.GetMin(), bbox.GetMax()
     centroid = Gf.Vec3d(
         (min_pt[0] + max_pt[0]) * 0.5,
