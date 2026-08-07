@@ -127,7 +127,19 @@ To view the results, we first need to download the results.
 To view the experiment results, double click on the ``index.html`` file in the downloaded folder.
 This will open the results in your browser.
 
-The results of the evaluation can also be plotted:
+The results of the evaluation can also be plotted as a grouped success-rate bar chart. Point the
+plotting script at the downloaded folder and list the policy suffixes present in the Run names:
+
+.. code-block:: bash
+
+   python -m isaaclab_arena.visualization.plot_success_rates \
+     <PATH_TO_DOWNLOAD_FOLDER> \
+     --policies pi0 cosmos \
+     --output <PATH_TO_DOWNLOAD_FOLDER>/success_rates.png
+
+The script reads every ``episode_results`` file below the folder and groups the bars by task,
+where each task name is a Run name with its ``_pi0`` or ``_cosmos`` suffix removed. This produces
+a plot like:
 
 .. figure:: ../../../images/robolab_20tasks_pi_vs_cosmos_100ep.png
    :width: 100%
@@ -139,8 +151,6 @@ The results of the evaluation can also be plotted:
    experiment configuration file ``robolab_20_tasks_pi0_and_cosmos.yaml``.
 
 *Note that the results are subject to multiple sources of randomness, so your results will not be exactly the same.*
-
-.. todo:: Add the plotting command above when that plotting is available.
 
 
 
