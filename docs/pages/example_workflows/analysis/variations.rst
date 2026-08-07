@@ -29,13 +29,21 @@ The experiment is defined by this configuration:
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
       :language: yaml
 
-With the OpenPI server running, run the evaluation from the repository root in the Base Docker
-container:
+In the Base Docker container, set the output directory used by this workflow:
+
+.. code-block:: bash
+
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   mkdir -p "${CAMERA_SENSITIVITY_OUTPUT_DIR}"
+
+Arena requires this directory to be empty. With the OpenPI server running, run the evaluation from
+the repository root:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
+     --experiment_output_directory "${CAMERA_SENSITIVITY_OUTPUT_DIR}" \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 
 At each episode reset, Arena samples a new wrist-camera position. OpenPI then uses observations from
@@ -53,10 +61,12 @@ The runner writes the episode results to:
 
 .. code-block:: text
 
-   outputs/<timestamp>/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
+   ${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
 
 The JSONL file contains one object per completed episode with its sampled variation values and
 outcome.
 
-Continue to :doc:`Sensitivity Analysis <../sensitivity_analysis/index>` to generate and interpret
-a report from this file.
+Continue to :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>` to estimate
+and inspect the posterior distribution over camera offsets conditioned on success. The next
+workflow reuses this output directory directly. To continue without running this sweep, use the
+**Download episode results** dropdown there to download sample results instead.

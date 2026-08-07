@@ -1,209 +1,147 @@
 Sensitivity Analysis
 ====================
 
-A policy's overall success rate tells you how often it completed a task, but not under which
-conditions it worked or failed. During a variation sweep, Arena records every tested condition
-alongside the episode result. Sensitivity analysis uses those records to estimate which
-combinations of conditions are associated with success or failure.
+An overall success rate tells you how often a policy completed the task, but not which tested
+conditions were associated with success. Sensitivity analysis connects each episode's outcome to
+the conditions sampled during that episode.
 
-.. figure:: ../../../images/sensitivity_report_200_trails.png
-   :width: 100%
-   :align: center
+Sensitivity analysis can help you:
 
-   An example sensitivity report which shows the sensitivity of the Pi0.5 policy to displacements of the
-   wrist-camera. We will build this figure later in this section.
+* **Find a robust operating range.** See whether success is associated with a broad part of the
+  tested range or only a narrow region.
+* **Identify the most sensitive factors.** Compare the posteriors to see which conditions
+  constrain the policy most strongly.
+* **Target additional training data.** Collect or augment data across sensitive conditions to
+  improve the policy's robustness.
+* **Compare policies.** Repeat the same sweep for multiple policies and compare their sensitivity
+  alongside their overall success rates.
 
+This workflow continues from :doc:`Variations <../analysis/variations>`. It uses the saved episode
+results to estimate the posterior distribution over wrist-camera offsets conditioned on success.
+Arena models the selected factors together, then displays one marginal posterior for each camera
+axis. This is not a success-rate-versus-offset plot.
 
-How Arena generates sensitivity reports
----------------------------------------
-
-For an experiment run with Arena, the input to the sensitivity analysis pipeline is the
-episode-results file written during the variation sweep. See the :doc:`Sensitivity Analysis
-concept page <../../concepts/concept_sensitivity_analysis>` for details about this file.
-
-Arena considers all selected conditions together and estimates the distribution for the
-outcome you choose, such as success or failure, over the selected conditions.
-For example, a user may select to analyze the distribution of success over variations
-in the wrist-camera position offsets.
-
-Note that you may select to analyze the distribution of a single condition over multiple conditions.
-Considering the conditions together preserves patterns where two conditions matter in combination,
-and reduces the risk of crediting one condition for a pattern that is actually linked to another.
-
-Arena chooses an estimator automatically from the recorded conditions:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 20 50
-
-   * - Recorded conditions
-     - Estimator
-     - Example
-   * - All conditions are numeric
-     - NPE
-     - Light intensity and camera-position offsets
-   * - Mixed numeric conditions and named choices
-     - MNPE
-     - Light intensity together with background or material choices
-
-NPE stands for *neural posterior estimation*. MNPE is its mixed-data counterpart, used when
-the conditions include both numbers and named choices. Both produce a joint posterior: an
-estimated distribution of the recorded conditions and the selected outcome.
-You do not need to choose or configure the estimator yourself.
+The earlier sweep is deliberately small: it demonstrates the workflow, but it is not enough to
+judge the policy's robustness. For background on the method, see the :doc:`Sensitivity Analysis
+concept page <../../concepts/concept_sensitivity_analysis>`.
 
 
-Run the camera-sensitivity example
-----------------------------------
+Estimate the success-conditioned posterior
+------------------------------------------
 
-The :doc:`Getting Started variation example
-<../../quickstart/first_experiments/exploring_variations>` varied, among other factors, the wrist
-camera displacement. That example used a zero-action policy that kept the robot still.
-This example continues with the same Rubik's-cube pick-and-place task,
-but uses an OpenPI policy so that each episode has a meaningful success or failure outcome.
-Only the wrist-camera position varies; the object, destination, background, and lighting remain fixed.
+In the Base Docker container, set the paths used by the download and analysis commands:
 
-The camera offset is drawn independently along three axes between -10 mm and 10 mm. Because
-all three recorded conditions are numeric, Arena will use NPE for this analysis.
+.. code-block:: bash
 
-.. dropdown:: Configuration file (``droid_pnp_camera_sensitivity_openpi_experiment.yaml``)
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   RUN_OUTPUT_DIRECTORY="${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi"
+   EPISODE_RESULTS_PATH="${RUN_OUTPUT_DIRECTORY}/episode_results_rebuild0.jsonl"
+   POSTERIOR_FIGURE_PATH="${RUN_OUTPUT_DIRECTORY}/camera_sensitivity_posterior.png"
+
+To start here without running the Variations workflow, download the saved episode results:
+
+.. dropdown:: Download episode results (skip Variations workflow)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
-      :language: yaml
+   These commands download a small sample of episode results from the camera-sensitivity
+   experiment, so you can follow this workflow without first running the variation sweep.
 
-Start the OpenPI server in one terminal:
+   .. code-block:: bash
 
-.. code-block:: bash
+      mkdir -p "${RUN_OUTPUT_DIRECTORY}"
 
-   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
+      HF_DATASET_REPOSITORY="nvidia/Arena-DROID-Camera-Sensitivity-Workflow-Sample"
+      HF_DATASET_REVISION="arena_v0.2_lab_v3.0"
 
-Leave the server running. For installation, model variants, and server options, see
-:doc:`../../quickstart/first_experiments/running_a_real_policy/openpi`.
+      hf download \
+        "${HF_DATASET_REPOSITORY}" \
+        episode_results_rebuild0.jsonl \
+        --repo-type dataset \
+        --revision "${HF_DATASET_REVISION}" \
+        --local-dir "${RUN_OUTPUT_DIRECTORY}"
 
-In the Base Docker container, run the evaluation from the repository root:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --output_base_dir /eval/camera_sensitivity \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
-
-This places the results in the default output path ``/eval/camera_sensitivity/<timestamp>/droid_pnp_camera_sensitivity_openpi``.
-In particular, Arena stores one row per completed episode detailing the sampled variation values
-and the per-episode outcome.
-
-
-Generate the report
-^^^^^^^^^^^^^^^^^^^
-
-We now generate a sensitivity report from the results we just collected.
-
-Point the report command at that episode-results file.
-The flag ``--factors droid_abs_joint_pos.camera_extrinsics_wrist_camera`` selects the wrist-camera
-variation and keeps all three components of its recorded offset:
+Whether generated by the Variations workflow or downloaded above, the results are stored in the
+output directory configured on the Analysis page. Run:
 
 .. code-block:: bash
 
    python -m isaaclab_arena.analysis.sensitivity.generate_report \
+     --episode_results "${EPISODE_RESULTS_PATH}" \
      --outcome success \
      --factors droid_abs_joint_pos.camera_extrinsics_wrist_camera \
-     --output /eval/camera_sensitivity_report.png \
-     --episode_results /eval/camera_sensitivity/<timestamp>/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
+     --output "${POSTERIOR_FIGURE_PATH}"
 
-This places the report as a ``.png`` file at the requested output path ``/eval/camera_sensitivity_report.png``.
+This command trains a neural posterior estimator (NPE) on all episodes in the JSONL file and
+writes the resulting posterior-marginal plot to ``${POSTERIOR_FIGURE_PATH}``, which we inspect in
+the next step.
 
-.. figure:: ../../../images/sensitivity_report_5_trails.png
-   :width: 100%
-   :alt: Sensitivity report for three wrist-camera translation components
-   :align: center
+For the downloaded sample, the terminal output includes:
 
-   Example sensitivity report from the five-episode experiment. Horizontal axes show offsets in metres. The
-   blue curve is the estimated distribution for successful episodes, its shading marks the 5%
-   to 95% range, and the grey dashed line is the uniform sampling distribution. A blue curve
-   close to the dashed line suggests no clear relationship; concentration in one region
-   suggests a stronger association with success.
+.. code-block:: text
 
-Note that your report will look different due to randomness in the experiments.
+   [INFO] SensitivityAnalyzer: fitting NPE_C on 10 episodes (theta dim=3, x dim=1).
+   ...
+   [INFO] Wrote report → /eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png
 
+Read the posterior marginals
+----------------------------
 
-Read the report
-^^^^^^^^^^^^^^^
-
-This section explains how to read the report.
-
-.. note::
-
-   For this section we use data from an experiment generated from more episodes
-   than the command we ran above (here we use 200 episodes).
-   In general, you need a large number of episodes to generate consistent results.
-   The data file we use is included in the repository under
-   ``isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl``
-
-Generate the report using:
+From another terminal on the host, set the corresponding host path and open the generated image:
 
 .. code-block:: bash
 
-   python -m isaaclab_arena.analysis.sensitivity.generate_report \
-     --outcome success \
-     --factors droid_abs_joint_pos.camera_extrinsics_wrist_camera \
-     --output /eval/camera_sensitivity_report.png \
-     --episode_results isaaclab_arena_examples/sensitivity_analysis/example_results/episode_results_camera_displacement.jsonl
+   POSTERIOR_FIGURE_PATH="$HOME/eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png"
+   xdg-open "${POSTERIOR_FIGURE_PATH}"
 
-.. figure:: ../../../images/sensitivity_report_200_trails.png
+.. figure:: ../../../images/droid_camera_sensitivity_posterior.png
    :width: 100%
+   :alt: Posterior marginals for the three wrist-camera position offsets conditioned on success
    :align: center
 
-   The sensitivity report from a 200-episode experiment included in the Isaac Lab - Arena repo.
+   Posterior marginals generated from the small camera-position sweep in the Variations workflow.
 
-
-Each panel shows one axis/direction of the wrist-camera offset for the selected outcome. The report
-title shows the outcome used for the analysis; here, ``success=1`` means that the report focuses
-on successful episodes. In the camera's optical frame:
+Each panel shows the marginal posterior for one component of the wrist-camera offset, measured in
+metres. In the camera's optical frame:
 
 * ``[0]`` is horizontal displacement: negative moves left and positive moves right;
 * ``[1]`` is vertical displacement: negative moves up and positive moves down; and
 * ``[2]`` is depth displacement: negative moves backward and positive moves forward.
 
-Each of the plots shows the probability distribution over the varied quantity (i.e.
-the particular axis of the wrist-camera offset) for the selected outcome.
-A flat, i.e. uniform, distribution indicates that the outcome is insensitive to the varied quantity.
-In this case such a graph would suggest that the policy is insensitive to changes in the
-wrist-camera offset in that direction.
-A peaked distribution suggests that the outcome is sensitive to the varied quantity.
-
-Our generated report shows that:
-
-* **Horizontal (x) displacement:** Pi0.5 appears to be sensitive to horizontal displacement of the wrist-camera.
-  The proportion of successful episodes drops as horizontal distance from the nominal position increases.
-  At the extremum of our experiment (5cm displacement), there are significantly fewer successful episodes.
-* **Vertical displacement (y):** Pi0.5 appears relatively **more** sensitive to vertical displacement of the
-  camera. This is indicated by the posterior distribution being more peaked than the uniform reference, or
-  the posteriors from x and z. The success of the policy drops rapidly as the camera moves away from
-  the nominal position in y.
-
-Insights you can take from the report
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A sensitivity report can support several practical decisions:
-
-* **Find a robust operating range.** A broad, flat distribution associated with success,
-  suggests that changes of the varied quantity in that region do not affect the policy's success rate.
-* **Identify the most sensitive direction.** Compare the horizontal, vertical, and depth
-  panels. A strong concentration or a clear difference between the success and failure reports
-  points to a direction that deserves closer attention.
-* **Improve the training-data distribution.** Because the real-world is highly varied,
-  factors of high sensitivity are candidates for additional training examples, to improve
-  the policy's robustness, and therefore performance on the real-world.
-* **Compare policies.** One is able to compare the sensitivity of different policies to the same variation.
-  In general, policies that are less sensitive are more desirable.
+The blue curve is the estimated posterior density conditioned on success. The grey dashed line is
+a uniform reference over the recorded range. A curve close to the dashed line suggests no clear
+association in the recorded data. A curve concentrated in part of the range suggests that those
+values are more strongly associated with successful episodes.
 
 
-Running on OSMO
-^^^^^^^^^^^^^^^
+Turn the posterior into practical takeaways
+-------------------------------------------
 
-Running experiments for several environments and many episodes can be time-consuming.
-We use OSMO to orchestrate running experiments quickly on multi-node clusters.
+Because this walkthrough uses a small sweep, the interpretation below is hypothetical. If the
+same posterior shapes persisted in a larger experiment, they would support these takeaways:
 
-.. note::
+* **Horizontal offset ([0]):** The broad posterior suggests less sensitivity to left-right camera
+  offsets than to the other axes.
 
-  OSMO docs coming soon...
+* **Vertical offset ([1]):** The narrow posterior peaks at a small upward offset. Check the camera
+  calibration and mounting position before deployment.
+
+* **Depth offset ([2]):** The posterior peaks near nominal and declines for forward offsets. Keep
+  the camera standoff close to nominal and limit forward mounting error.
+
+Together, these results make vertical and depth alignment the priorities for camera mounting,
+calibration, and additional training data. Horizontal alignment can allow more variation over the
+tested range.
+
+Finally, each panel is a marginal of the joint posterior. The three individual peaks do not
+necessarily form the best combined camera position: one offset may compensate for another. Use a
+joint or pairwise posterior view before choosing a new three-dimensional mounting transform.
+
+
+Scale up with a multi-node experiment
+-------------------------------------
+
+The local sweep demonstrates how recorded episodes become posterior marginals. The upcoming
+**Multi-node Experiment** workflow will introduce Arena's distributed experiment runner and show
+how to collect more episode results across compute nodes.
+
+.. TODO(cvolk): Link to the Multi-node Experiment workflow when it is added.
