@@ -36,6 +36,8 @@ This distinction matters when planning an evaluation. To collect several values 
 build-time variation, the environment must be rebuilt several times. A run-time variation can
 produce a new value on each reset without rebuilding the scene.
 
+.. _discovering-available-variations:
+
 Discovering available variations
 ---------------------------------
 
