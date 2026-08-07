@@ -155,9 +155,9 @@ class ObjectReferenceSpec(BaseModel):
     object_type: ObjectType = Field(
         description=(
             "Physics type for the referenced prim. Use the first matching value:\n"
-            "- articulation: door or other articulated prim in open/close door tasks\n"
-            "- rigid: manipulable prim in pick-and-place tasks\n"
-            "- base: static anchor prim (e.g. table surface) in is_anchor or placement relations"
+            "- articulation: openable prim (door, drawer) used as openable_object in a open/close door task\n"
+            "- rigid: manipulable prim used as pick_up_object in a pick-and-place task\n"
+            "- base: default for everything else not mentioned above\n"
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
