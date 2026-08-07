@@ -5,6 +5,17 @@ An overall success rate tells you how often a policy completed the task, but not
 conditions were associated with success. Sensitivity analysis connects each episode's outcome to
 the conditions sampled during that episode.
 
+Sensitivity analysis can help you:
+
+* **Find a robust operating range.** See whether success is associated with a broad part of the
+  tested range or only a narrow region.
+* **Identify the most sensitive direction.** Compare each posterior with its sampling reference to
+  see which conditions constrain the policy most strongly.
+* **Target additional training data.** Collect or augment data across sensitive conditions to
+  improve the policy's robustness.
+* **Compare policies.** Repeat the same sweep for multiple policies and compare their sensitivity
+  alongside their overall success rates.
+
 This workflow continues from :doc:`Variations <../analysis/variations>`. It uses the saved episode
 results to estimate the posterior distribution over wrist-camera offsets conditioned on success.
 Arena models the selected factors together, then displays one marginal posterior for each camera
