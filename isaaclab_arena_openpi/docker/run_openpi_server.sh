@@ -4,6 +4,7 @@
 # Usage:
 #   ./run_openpi_server.sh                              # build if missing, then run pi05
 #   ./run_openpi_server.sh -r                           # force rebuild, then run
+#   ./run_openpi_server.sh -p 8001                      # run on a non-default port
 #   ./run_openpi_server.sh -v pi0                       # run the pi0 variant
 #   ./run_openpi_server.sh -h                           # help
 #
@@ -18,6 +19,7 @@ IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="openpi_server"
 
 VARIANT="pi05"
+PORT="8000"
 FORCE_REBUILD=false
 
 print_help() {
@@ -29,20 +31,71 @@ Usage:
 
 Options:
   -r              Force rebuilding of the server image.
+  -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
   -h              Show this help and exit.
 EOF
 }
 
-while getopts ":rv:h" opt; do
+while getopts ":rp:v:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
+        p) PORT="$OPTARG" ;;
         v) VARIANT="$OPTARG" ;;
         h) print_help; exit 0 ;;
         \?) echo "unknown option: -$OPTARG" >&2; print_help; exit 1 ;;
         :) echo "option -$OPTARG requires an argument" >&2; exit 1 ;;
     esac
 done
+
+validate_port() {
+    local port_number
+
+    if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+        echo "invalid -p port: $PORT (expected an integer from 1 to 65535)" >&2
+        exit 1
+    fi
+    port_number=$((10#$PORT))
+    if (( port_number < 1 || port_number > 65535 )); then
+        echo "invalid -p port: $PORT (expected an integer from 1 to 65535)" >&2
+        exit 1
+    fi
+    PORT="$port_number"
+}
+
+assert_port_available() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "python3 is required to check whether port ${PORT} is available" >&2
+        exit 1
+    fi
+
+    if ! python3 - "$PORT" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("0.0.0.0", port))
+except OSError:
+    sys.exit(1)
+finally:
+    sock.close()
+PY
+    then
+        cat >&2 <<EOF
+OpenPI server port ${PORT} is already in use.
+Stop the process that is listening on ${PORT}, or choose another port:
+  $(basename "$0") -p <free_port>
+
+When using a non-default port, pass the same value to Arena with --remote_port.
+EOF
+        exit 1
+    fi
+}
+
+validate_port
+assert_port_available
 
 case "$VARIANT" in
     pi05)
@@ -80,7 +133,7 @@ else
     echo "Image ${IMAGE_NAME}:${IMAGE_TAG} already exists. Not rebuilding (use -r to force)."
 fi
 
-echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT})"
+echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT})"
 
 mkdir -p "$OPENPI_CACHE_DIR"
 SERVER_RAN=true
@@ -90,6 +143,6 @@ docker run --rm -it --gpus all --network=host \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
     -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
-    uv run scripts/serve_policy.py policy:checkpoint \
+    uv run scripts/serve_policy.py --port="${PORT}" policy:checkpoint \
         --policy.config="${POLICY_CONFIG}" \
         --policy.dir="${POLICY_DIR}"
