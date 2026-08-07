@@ -31,11 +31,12 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
     from isaaclab_arena.utils.pose import Pose, PoseRange
-    from isaaclab_arena_environments.dexsuite_lift_environment import ProceduralCube, ProceduralTable
+    from isaaclab_arena_environments.dexsuite_lift_environment import procedural_asset_classes
 
-    lift = ProceduralCube()
+    procedural_table_cls, procedural_cube_cls = procedural_asset_classes()
+    lift = procedural_cube_cls()
     lift.set_initial_pose(PoseRange(position_xyz_min=(-0.75, -0.1, 0.35), position_xyz_max=(-0.35, 0.3, 0.75)))
-    table = ProceduralTable()
+    table = procedural_table_cls()
     table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
     task = DexsuiteLiftTask(lift_object=lift, background_scene=table)
     assert isinstance(task, LiftObjectTask)

@@ -149,7 +149,7 @@ def _build_parallel_layout_env(num_envs, expected_settled):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
-    from isaaclab_arena_environments.dexsuite_lift_environment import ProceduralTable
+    from isaaclab_arena_environments.dexsuite_lift_environment import procedural_asset_classes
 
     floor_top_z = 0.02  # ProceduralTable is 0.04 thick, centered at z=0.
     rest_z = floor_top_z + 0.1  # Sphere radius is 0.1, so this rests it on the floor.
@@ -162,7 +162,8 @@ def _build_parallel_layout_env(num_envs, expected_settled):
             poses.append(Pose(position_xyz=(x, 0.0, z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         return PosePerEnv(poses=poses)
 
-    floor = ProceduralTable(instance_name="floor")
+    procedural_table_cls, _ = procedural_asset_classes()
+    floor = procedural_table_cls(instance_name="floor")
     floor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     sphere_a = Sphere(instance_name="sphere_a")
