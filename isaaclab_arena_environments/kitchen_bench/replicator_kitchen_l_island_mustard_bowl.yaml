@@ -65,7 +65,7 @@ relations:
   params: {}
 task:
   composition: atomic
-  description: pick up the mustard bottle from the kitchen island and place it in the bowl
+  description: pick up the mustard bottle and place it in the red bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
