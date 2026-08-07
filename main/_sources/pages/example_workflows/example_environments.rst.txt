@@ -35,6 +35,16 @@ prompts and consumed with ``--env_graph_spec_yaml`` instead of the positional
 See :doc:`robolab_task_catalog` for the list of RoboLab tasks
 currently supported in Arena.
 
+Kitchen Benchmark
+-----------------
+
+Kitchen benchmark environment graph YAMLs live under
+``isaaclab_arena_environments/kitchen_bench/``. They define DROID manipulation
+tasks across Lightwheel RoboCasa and Replicator kitchen layouts.
+
+See :doc:`kitchen_bench_catalog` for all 17 environment specs and their Pi
+policy executions.
+
 
 Pick & Place
 ------------
@@ -635,3 +645,4 @@ See Also
    :hidden:
 
    robolab_task_catalog
+   kitchen_bench_catalog
