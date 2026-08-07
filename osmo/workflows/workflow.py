@@ -55,7 +55,7 @@ class WorkflowCfg:
     gpus: int = 1
     """Requested GPUs."""
 
-    memory: str = "128Gi"
+    memory: str = "120Gi"
     """Requested memory."""
 
     storage: str = "200Gi"
