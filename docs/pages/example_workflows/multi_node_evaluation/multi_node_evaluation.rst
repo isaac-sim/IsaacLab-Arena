@@ -72,6 +72,7 @@ Experiment YAML file. The command uses an experiment file included in the Arena 
      --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_2_tasks_pi0_and_cosmos.yaml \
      osmo.pool=isaac-dev-l40-03 \
      osmo.platform=ovx-l40 \
+     'osmo.output_url="swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/{{workflow_id}}"' \
      osmo.workflow_name=robolab_2tasks_pi_and_cosmos_100ep
 
 This submits the two robolab tasks, each evaluated with both the
@@ -83,7 +84,9 @@ nodes.
 
 For these commands to work, you need a cluster running OSMO.
 Replace ``osmo.pool=isaac-dev-l40-03`` with your cluster name,
-and ``osmo.platform=ovx-l40`` with the model of available compute nodes.
+``osmo.platform=ovx-l40`` with the model of available compute nodes,
+and ``osmo.output_url`` with the Swift path where the results are published to (keep
+``{{workflow_id}}`` for a unique path per submission).
 
 The submission script outputs:
 
@@ -156,6 +159,7 @@ To run ``pi0.5`` with the wrist camera extrinsics variations enabled run:
      --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0.yaml \
      osmo.pool=isaac-dev-l40-03 \
      osmo.platform=ovx-l40 \
+     'osmo.output_url="swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/{{workflow_id}}"' \
      osmo.workflow_name=robolab_20tasks_pi_extrinsics \
      experiment_cfg.shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
@@ -251,6 +255,10 @@ common ones are:
    * - ``osmo.storage``
      - ``200Gi``
      - Storage requested per Run.
+   * - ``osmo.output_url``
+     - ``swift://pdx.s8k.io/...``
+     - Swift path for collected results.
+       Use ``{{workflow_id}}`` for a unique path per workflow.
 
 
 Preview before submitting
