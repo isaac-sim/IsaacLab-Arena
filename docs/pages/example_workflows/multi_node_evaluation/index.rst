@@ -3,8 +3,8 @@ Multi-Node Evaluation
 
 A thorough evaluation requires many rollouts.
 For example, a moderately sized evaluation may have
-**20 tasks, 2 policies, 100 episodes per task, for a total of 4000 rollouts**
-Arena uses `OSMO <https://developer.nvidia.com/osmo>`_ to across a cluster,
+**20 tasks, 2 policies, 100 episodes per task, for a total of 4000 rollouts.**
+Arena uses `OSMO <https://developer.nvidia.com/osmo>`_ to distribute execution across a cluster,
 in order to reduce the time it takes to run the evaluations.
 
 
@@ -27,7 +27,7 @@ Once ``osmo`` is installed and you can log in, you are ready to submit an Experi
 covers deploying the OSMO service and connecting your own compute.
 
 
-Specifying an multi-node Experiment
+Specifying a multi-node Experiment
 -----------------------------------
 
 We use the same experiment files as for single-node evaluations to specify multi-node evaluations.
@@ -52,7 +52,7 @@ How Arena maps an Experiment onto the Cluster
 Arena takes a simple approach to scheduling experiments across a cluster.
 
 - **Parallel execution of Runs.** Each ``Run`` specifies a simulation environment and a policy, and is scheduled independently. Given enough resources, Runs execute in parallel; otherwise they are queued until resources are available.
-- **Policy servers.** Each Run starts its own policy server and an experiment runner that uses it. Running everything in parallel therefore requires ``2 × number of Runs`` GPUs.
+- **Policy servers.** Each Run using a server-backed remote policy starts its own policy server and an experiment runner that uses it. For these Runs, executing everything in parallel requires ``2 × number of Runs`` GPUs.
 - **One collected output.** A final task collects the per-Run results and uploads them to an output bucket.
 
 
@@ -83,7 +83,7 @@ The submission script outputs:
 
   Workflow submit successful.
   Workflow ID        - robolab_2tasks_pi_and_cosmos_100ep-1
-  Workflow Overview  - https://us-west-2-aws.osmo.nvidia.com/workflows/robolab_2tasks_pi_and_cosmos_100ep-2
+  Workflow Overview  - https://us-west-2-aws.osmo.nvidia.com/workflows/robolab_2tasks_pi_and_cosmos_100ep-1
   Workflow Dashboard - https://ovx-l40-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=92795d52950048e8
 
 .. note::
@@ -106,7 +106,7 @@ In the OSMO dashboard, you can view the workflow and its runs:
 Adjust the Experiment at submission time
 ----------------------------------------
 
-You can tweak a Run at submission time, without editing its YAML file. For example, to shorten a smoke test to four episodes:
+You can tweak a Run at submission time, without editing its YAML file.
 To view the available override-able values, use the ``--list_overrides`` flag.
 
 .. code-block:: bash
