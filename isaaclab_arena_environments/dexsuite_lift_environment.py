@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,79 @@ from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+
+@functools.lru_cache(maxsize=1)
+def procedural_asset_classes() -> tuple[type[Object], type[Object]]:
+    """Return ProceduralTable/ProceduralCube, defining them on first use.
+
+    Kept off the module import path so ``isaaclab_arena_environments`` package init
+    does not pull ``Object`` → ``pxr`` before ``SimulationApp`` starts.
+    """
+    import isaaclab.sim as sim_utils
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.utils.pose import Pose
+
+    class _ProceduralCuboid(Object):
+        """Rigid cuboid spawned from a CuboidCfg (no USD)."""
+
+        tags: list[str]
+        _default_name: str
+        _default_prim: str
+        _spawn_cfg: sim_utils.CuboidCfg
+
+        def __init__(
+            self,
+            instance_name: str | None = None,
+            prim_path: str | None = None,
+            initial_pose: Pose | None = None,
+        ):
+            super().__init__(
+                name=instance_name or self._default_name,
+                prim_path=prim_path or self._default_prim,
+                object_type=ObjectType.RIGID,
+                tags=self.tags,
+                initial_pose=initial_pose,
+                spawner_cfg=self._spawn_cfg,
+            )
+
+    class ProceduralTable(_ProceduralCuboid):
+        """Kinematic cuboid table (invisible collision surface). Newton-safe, single geometry."""
+
+        tags = ["background", "procedural"]
+        object_min_z: float = 0.0
+        _default_name = "table"
+        _default_prim = "{ENV_REGEX_NS}/table"
+        _spawn_cfg = sim_utils.CuboidCfg(
+            size=(0.8, 1.5, 0.04),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+            visible=False,
+        )
+
+    class ProceduralCube(_ProceduralCuboid):
+        """Rigid cuboid manipuland (0.2 kg, 5x10x10 cm). Newton-safe, single geometry."""
+
+        tags = ["object", "procedural"]
+        _default_name = "object"
+        _default_prim = "{ENV_REGEX_NS}/Object"
+        _spawn_cfg = sim_utils.CuboidCfg(
+            size=(0.05, 0.1, 0.1),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=0,
+                disable_gravity=False,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+        )
+
+    return ProceduralTable, ProceduralCube
 
 
 @dataclass
@@ -43,10 +116,12 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
-        dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+        procedural_table_cls, procedural_cube_cls = procedural_asset_classes()
+
+        dexsuite_table = procedural_table_cls()
         dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
 
-        manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+        manip_object = procedural_cube_cls()
         manip_object.set_initial_pose(
             PoseRange(
                 position_xyz_min=(-0.75, -0.1, 0.35),

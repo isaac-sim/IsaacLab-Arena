@@ -22,11 +22,12 @@ The environment is defined in
 
    .. code-block:: python
 
-      class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
+      @register_environment
+      class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg]):
 
           name: str = "dexsuite_lift"
 
-          def get_env(self, args_cli: argparse.Namespace):
+          def build(self, cfg: DexsuiteLiftEnvironmentCfg) -> IsaacLabArenaEnvironment:
               import math
 
               import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
@@ -36,10 +37,14 @@ The environment is defined in
               from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
               from isaaclab_arena.utils.pose import Pose, PoseRange
 
-              dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+              # Cuboids are env-local (not AssetRegistry entries); defined lazily so
+              # package import does not pull Object → pxr before SimulationApp starts.
+              procedural_table_cls, procedural_cube_cls = procedural_asset_classes()
+
+              dexsuite_table = procedural_table_cls()
               dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
 
-              manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+              manip_object = procedural_cube_cls()
               manip_object.set_initial_pose(
                   PoseRange(
                       position_xyz_min=(-0.75, -0.1, 0.35),
@@ -51,25 +56,23 @@ The environment is defined in
 
               ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
               light = self.asset_registry.get_asset_by_name("light")()
-
-              embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")()
+              embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")(
+                  enable_cameras=cfg.enable_cameras
+              )
 
               scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
               task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
-
-              dexsuite_rl_cfg_entry = (
-                  "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."
-                  "rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"
-              )
 
               return IsaacLabArenaEnvironment(
                   name=self.name,
                   embodiment=embodiment,
                   scene=scene,
                   task=task,
-                  teleop_device=None,
                   rl_framework_entry_point="rsl_rl_cfg_entry_point",
-                  rl_policy_cfg=dexsuite_rl_cfg_entry,
+                  rl_policy_cfg=(
+                      "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."
+                      "rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"
+                  ),
               )
 
 .. note::
