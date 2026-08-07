@@ -32,6 +32,14 @@ class PlacementResult:
     orientations: dict[PlaceableAsset, float] = field(default_factory=dict)
     """Sparse map of world yaw angles ``theta_z`` in radians; omitted assets retain marker orientation."""
 
+    rotations: dict[PlaceableAsset, tuple[float, float, float, float]] = field(default_factory=dict)
+    """Sparse map of full world rotations as ``(x, y, z, w)`` quaternions.
+
+    Takes precedence over ``orientations`` for any asset present in both. Yaw alone cannot
+    express the tilted resting poses that settled placements produce, so producers of
+    non-upright layouts populate this instead.
+    """
+
     @property
     def success(self) -> bool:
         """Whether all required validation checks passed."""

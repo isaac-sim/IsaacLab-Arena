@@ -86,6 +86,9 @@ def get_base_rotation_per_asset(
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
+    if asset in layout.rotations:
+        # A full rotation is already the final world orientation, so the marker yaw does not apply.
+        return Pose(position_xyz=layout.positions[asset], rotation_xyzw=layout.rotations[asset])
     base_rotation = get_rotation_xyzw(asset)
     marker_yaw = yaw_from_quat_xyzw(base_rotation)
     total_yaw = layout.orientations.get(asset, marker_yaw)
