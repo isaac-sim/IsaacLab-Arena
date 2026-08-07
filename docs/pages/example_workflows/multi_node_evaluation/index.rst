@@ -103,6 +103,57 @@ In the OSMO dashboard, you can view the workflow and its runs:
    runner and a policy server in parallel; a final collect task gathers the results.
 
 
+Viewing the Results
+-------------------
+
+To view the results download the output folder from the final collection task
+To do so:
+
+- use the GUI to navigate to the ``collect-experiment-outputs`` task
+- click on the task to view its details
+- click on the ``Logs`` button
+- scroll to the bottom of the logs and you will see the path to the upload bucket
+  e.g. ``Uploaded swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1``
+- download the experiment data with
+
+.. code-block:: bash
+
+   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1 <PATH_TO_DOWNLOAD_FOLDER>
+
+To view the experiment results, double click on the ``index.html`` file in the downloaded folder.
+This will open the results in your browser.
+
+The results of the evaluation can also be plotted:
+
+.. figure:: ../../../images/robolab_20tasks_pi_vs_cosmos_100ep.png
+   :width: 100%
+   :alt: OSMO workflow view of a multi-node Arena experiment with parallel arena-run groups
+   :align: center
+
+   The results of an evaluation of ``pi0.5`` and ``cosmos-action-edge`` policies on 20 robolab tasks.
+   The experiment was run on a cluster of L40 nodes using the Arena
+   experiment configuration file ``robolab_20_tasks_pi0_and_cosmos.yaml``.
+
+*Note that the results are subject to multiple sources of randomness, so your results will not be exactly the same.*
+
+.. todo:: Add the plotting command above when that plotting is available.
+
+
+
+Large-scale Sensitivity Analysis
+--------------------------------
+
+We covered sensitivity analysis in the ``sensitivity_analysis`` page.
+Sensitivity analysis typically requires many rollouts, so it is a good candidate for multi-node execution.
+Here we show how to run a sensitivity analysis on the robolab tasks.
+
+.. todo:: Add the link to the sensitivity analysis page here.
+
+Up to here.
+
+
+
+
 Adjust the Experiment at submission time
 ----------------------------------------
 
