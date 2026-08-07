@@ -72,7 +72,8 @@ yourself, point ``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent
       workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member.
       When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
-      .. todo:: add link to reachability concept page
+      See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
+      or disable it.
 
 .. figure:: ../../../../images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif
    :width: 100%

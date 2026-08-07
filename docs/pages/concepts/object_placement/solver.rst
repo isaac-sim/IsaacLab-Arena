@@ -17,8 +17,8 @@ The solver produces candidate layouts in four steps:
 3. ``RelationSolver`` optimizes those poses against the spatial relations and
    collision constraints.
 4. ``ObjectPlacer`` applies post-solve ``FaceTo`` headings and sends the
-   candidates to validators, which check geometric and task-specific conditions
-   at build time.
+   candidates to :doc:`validators <./validation>`, which check geometric and
+   task-specific conditions at build time.
 
 Example Walkthrough
 ~~~~~~~~~~~~~~~~~~~
@@ -58,7 +58,7 @@ The four solving steps apply to this example as follows:
    ``On`` relations while penalizing collisions. The table remains fixed.
 4. **Post-processing and validation:** this example has no ``FaceTo`` relation,
    so no relation-derived heading is applied. ``ObjectPlacer`` sends the
-   resulting candidates to the configured validators.
+   resulting candidates to the configured :doc:`validators <./validation>`.
 
 Orientation Handling
 --------------------
@@ -146,12 +146,11 @@ Run the example with:
        isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
 This example uses the Droid stand footprint for geometric placement.
-Reachability, when configured by a task, is checked separately during candidate
-validation.
+Reachability, when configured by a task, is checked separately during
+candidate validation — see the :ref:`ik-reachable-check` check.
 
 Next Steps
 ----------
 
-Continue to :doc:`./validation`, currently a placeholder for forthcoming
-documentation on build-time candidate validation and in-simulation physics
-validation.
+Continue to :doc:`./validation` to see how candidates from these four steps
+are checked and either kept or rejected before they enter the placement pool.
