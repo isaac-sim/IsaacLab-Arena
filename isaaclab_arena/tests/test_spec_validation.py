@@ -5,7 +5,7 @@
 
 """Unit tests for agent-generated spec validation."""
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+from isaaclab_arena.agentic_environment_generation.catalogues import (
     AssetCatalogue,
     RelationCatalogue,
     RelationCatalogueEntry,

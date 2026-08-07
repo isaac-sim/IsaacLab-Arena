@@ -23,7 +23,7 @@ import pytest
 # because of this modules appearance in pytest_plugins. This causes issues with the packaging
 # tests, which run in a bare venv with only pytest installed.
 if TYPE_CHECKING:
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    from isaaclab_arena.agentic_environment_generation.catalogues import (
         AssetCatalogue,
         RelationCatalogue,
         TaskCatalogue,
@@ -130,7 +130,7 @@ def chat_response(
 
 def catalog(text: str) -> AssetCatalogue:
     """Return an asset catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
+    from isaaclab_arena.agentic_environment_generation.catalogues import AssetCatalogue
 
     catalogue = AssetCatalogue(
         embodiments=[
@@ -154,10 +154,7 @@ def catalog(text: str) -> AssetCatalogue:
 
 def relation_catalog(text: str) -> RelationCatalogue:
     """Return a relation catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-        RelationCatalogue,
-        RelationCatalogueEntry,
-    )
+    from isaaclab_arena.agentic_environment_generation.catalogues import RelationCatalogue, RelationCatalogueEntry
 
     catalogue = RelationCatalogue(
         relations=[
@@ -171,10 +168,7 @@ def relation_catalog(text: str) -> RelationCatalogue:
 
 def task_catalog(text: str) -> TaskCatalogue:
     """Return a task catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-        TaskCatalogue,
-        TaskCatalogueEntry,
-    )
+    from isaaclab_arena.agentic_environment_generation.catalogues import TaskCatalogue, TaskCatalogueEntry
 
     catalogue = TaskCatalogue(
         tasks=[

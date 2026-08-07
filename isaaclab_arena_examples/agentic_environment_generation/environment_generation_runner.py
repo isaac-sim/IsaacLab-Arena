@@ -147,12 +147,12 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
 
 def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     """Resolve a prompt into an environment graph spec YAML, or None when the prompt cannot be met."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-        EnvironmentGenerationAgent,
+    from isaaclab_arena.agentic_environment_generation.catalogues import (
         build_asset_catalogue,
         build_relation_catalogue,
         build_task_catalogue,
     )
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import simready_search_config_from_cli
 
     # The generation passes log what they searched for and found; this is a console tool, so show
@@ -228,7 +228,7 @@ def print_schema() -> None:
 
 def print_catalog() -> None:
     """Print the asset, relation, and task catalogs sent to the agent."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    from isaaclab_arena.agentic_environment_generation.catalogues import (
         build_asset_catalogue,
         build_relation_catalogue,
         build_task_catalogue,

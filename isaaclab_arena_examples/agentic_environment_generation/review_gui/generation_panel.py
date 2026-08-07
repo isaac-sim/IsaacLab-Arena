@@ -12,15 +12,15 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+from isaaclab_arena.agentic_environment_generation.catalogues import (
     AssetCatalogue,
-    EnvironmentGenerationAgent,
     RelationCatalogue,
     TaskCatalogue,
     build_asset_catalogue,
     build_relation_catalogue,
     build_task_catalogue,
 )
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
 from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadySearchConfig,
