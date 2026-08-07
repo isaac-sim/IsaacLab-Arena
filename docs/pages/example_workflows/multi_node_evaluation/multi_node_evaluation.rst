@@ -4,6 +4,8 @@ Multi-Node Evaluation
 A thorough evaluation requires many rollouts.
 For example, a moderately sized evaluation may have
 **20 tasks, 2 policies, 100 episodes per task, for a total of 4000 rollouts.**
+Running this on a single machine is possible, but could longer than a day.
+We'd like answers more quickly.
 Arena uses `OSMO <https://developer.nvidia.com/osmo>`_ to distribute execution across a cluster,
 in order to reduce the time it takes to run the evaluations.
 
@@ -30,7 +32,7 @@ covers deploying the OSMO service and connecting your own compute.
 Specifying a multi-node Experiment
 -----------------------------------
 
-We use the same experiment files as for single-node evaluations to specify multi-node evaluations.
+We use the same experiment files as for :doc:`single-node evaluations <../analysis/variations>` to specify multi-node evaluations.
 Arena takes care of executing the evaluation described in an experiment file across a cluster.
 
 .. figure:: ../../../images/multinode_evaluation_highlevel.jpg
@@ -41,19 +43,21 @@ Arena takes care of executing the evaluation described in an experiment file acr
    An Experiment YAML is submitted for multi-node execution. Arena schedules each Run as
    a parallel OSMO process, then collates per-env results into a shared output.
 
-.. todo::
-
-   Add a link here to the single node evaluation page.
-
 
 How Arena maps an Experiment onto the Cluster
 ---------------------------------------------
 
 Arena takes a simple approach to scheduling experiments across a cluster.
 
-- **Parallel execution of Runs.** Each ``Run`` specifies a simulation environment and a policy, and is scheduled independently. Given enough resources, Runs execute in parallel; otherwise they are queued until resources are available.
-- **Policy servers.** Each Run using a server-backed remote policy starts its own policy server and an experiment runner that uses it. For these Runs, executing everything in parallel requires ``2 × number of Runs`` GPUs.
-- **One collected output.** A final task collects the per-Run results and uploads them to an output bucket.
+- **Parallel execution of Runs.** Each ``run`` (an entry under the ``runs:`` key in the
+  experiment YAML) specifies a simulation environment and a policy, and is scheduled
+  independently. Given enough resources, Runs execute in parallel; otherwise they are queued
+  until resources are available.
+- **Policy servers.** Each ``run`` using a server-backed remote policy starts its own policy
+  server and an experiment runner that uses it. For these ``run`` entries, executing everything
+  in parallel requires ``2 × number of Runs`` GPUs.
+- **One collected output.** A final task collects the per- ``run`` results and uploads them to
+  an output bucket.
 
 
 Submit an Experiment
@@ -77,6 +81,10 @@ The policies are executed on
 `L40 <https://www.nvidia.com/en-us/data-center/l40/>`_
 nodes.
 
+For these commands to work, you need a cluster running OSMO.
+Replace ``osmo.pool=isaac-dev-l40-03`` with your cluster name,
+and ``osmo.platform=ovx-l40`` with the model of available compute nodes.
+
 The submission script outputs:
 
 .. code-block:: text
@@ -85,12 +93,6 @@ The submission script outputs:
   Workflow ID        - robolab_2tasks_pi_and_cosmos_100ep-1
   Workflow Overview  - https://us-west-2-aws.osmo.nvidia.com/workflows/robolab_2tasks_pi_and_cosmos_100ep-1
   Workflow Dashboard - https://ovx-l40-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=92795d52950048e8
-
-.. note::
-
-  For these commands to work, you need a cluster running OSMO.
-  Replace ``osmo.pool=isaac-dev-l40-03`` with your cluster name,
-  and ``osmo.platform=ovx-l40`` with the model of available compute nodes.
 
 In the OSMO dashboard, you can view the workflow and its runs:
 
@@ -106,8 +108,7 @@ In the OSMO dashboard, you can view the workflow and its runs:
 Viewing the Results
 -------------------
 
-To view the results download the output folder from the final collection task
-To do so:
+To view the results, we first need to download the results.
 
 - use the GUI to navigate to the ``collect-experiment-outputs`` task
 - click on the task to view its details
@@ -143,8 +144,9 @@ The results of the evaluation can also be plotted:
 Large-scale Sensitivity Analysis
 --------------------------------
 
-We covered sensitivity analysis in the :doc:`Sensitivity Analysis <../sensitivity_analysis/index>` page.
-Sensitivity analysis typically requires many rollouts, so it is a good candidate for multi-node execution.
+In :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>` we covered how to run sensitivity analysis on a single-node evaluation.
+However, sensitivity analysis typically requires many rollouts to produce an accurate estimate, so it is a good candidate for multi-node execution.
+Here we show how to run sensitivity analysis using multiple compute nodes.
 
 To run ``pi0.5`` with the wrist camera extrinsics variations enabled run:
 
@@ -180,6 +182,15 @@ To analyze the results, for sensitivity to camera extrinsics variations, run:
 Each Run writes its own ``episode_results_rebuild0.jsonl`` under
 ``<PATH_TO_DOWNLOAD_FOLDER>/<run_name>/``. Replace ``banana_in_bowl_pi0`` with the Run
 you want to analyze.
+
+For our experiment, the sensitivity analysis report looks like this:
+
+.. figure:: ../../../images/multinode_sensitivty_results_pi0_100_episodes.png
+   :width: 100%
+   :alt: Sensitivity analysis report for camera extrinsics variations
+   :align: center
+
+   Sensitivity analysis report for camera extrinsics variations for the ``pi0.5`` policy on the ``banana_in_bowl`` task.
 
 .. note::
 
