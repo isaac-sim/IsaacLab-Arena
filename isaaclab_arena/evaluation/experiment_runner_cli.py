@@ -25,9 +25,9 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
         help=(
             "Path to a typed YAML Experiment or legacy JSON evaluation config. "
-            "For YAML, shared Run defaults use shared.<path>=<value> and must already be declared in the YAML; "
-            "Hydra's +, ++, and ~ operators are not supported for shared values. Other declared Run fields accept "
-            "Hydra KEY=VALUE overrides."
+            "For YAML, use shared.<path>=<value> to change a default for every Run, or "
+            "runs.<name>.<path>=<value> to change one Run. Shared values must already be declared in the YAML; "
+            "Hydra's +, ++, and ~ operators are not supported for them."
         ),
     )
     parser.add_argument(
