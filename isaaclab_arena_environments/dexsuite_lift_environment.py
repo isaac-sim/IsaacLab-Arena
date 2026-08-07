@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -16,109 +17,75 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-# Cached after first call to :func:`procedural_asset_classes` (Object/pxr stay unloaded until then).
-_procedural_table_cls: type[Object] | None = None
-_procedural_cube_cls: type[Object] | None = None
 
-
+@functools.lru_cache(maxsize=1)
 def procedural_asset_classes() -> tuple[type[Object], type[Object]]:
     """Return ProceduralTable/ProceduralCube, defining them on first use.
 
     Kept off the module import path so ``isaaclab_arena_environments`` package init
-    (which imports every ``*_environment`` module) does not pull ``Object`` → ``pxr``
-    before ``SimulationApp`` starts.
+    does not pull ``Object`` → ``pxr`` before ``SimulationApp`` starts.
     """
-    global _procedural_table_cls, _procedural_cube_cls
-    if _procedural_table_cls is not None and _procedural_cube_cls is not None:
-        return _procedural_table_cls, _procedural_cube_cls
-
     import isaaclab.sim as sim_utils
-    from isaaclab.assets import RigidObjectCfg
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.utils.pose import Pose
 
-    table_spawn_cfg = sim_utils.CuboidCfg(
-        size=(0.8, 1.5, 0.04),
-        rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
-        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
-        visible=False,
-    )
+    class _ProceduralCuboid(Object):
+        """Rigid cuboid spawned from a CuboidCfg (no USD)."""
 
-    class ProceduralTable(Object):
+        tags: list[str]
+        _default_name: str
+        _default_prim: str
+        _spawn_cfg: sim_utils.CuboidCfg
+
+        def __init__(
+            self,
+            instance_name: str | None = None,
+            prim_path: str | None = None,
+            initial_pose: Pose | None = None,
+        ):
+            super().__init__(
+                name=instance_name or self._default_name,
+                prim_path=prim_path or self._default_prim,
+                object_type=ObjectType.RIGID,
+                tags=self.tags,
+                initial_pose=initial_pose,
+                spawner_cfg=self._spawn_cfg,
+            )
+
+    class ProceduralTable(_ProceduralCuboid):
         """Kinematic cuboid table (invisible collision surface). Newton-safe, single geometry."""
 
         tags = ["background", "procedural"]
         object_min_z: float = 0.0
+        _default_name = "table"
+        _default_prim = "{ENV_REGEX_NS}/table"
+        _spawn_cfg = sim_utils.CuboidCfg(
+            size=(0.8, 1.5, 0.04),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+            visible=False,
+        )
 
-        def __init__(
-            self,
-            instance_name: str | None = None,
-            prim_path: str | None = None,
-            initial_pose: Pose | None = None,
-        ):
-            resolved_name = instance_name if instance_name is not None else "table"
-            resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/table"
-            super().__init__(
-                name=resolved_name,
-                prim_path=resolved_prim,
-                object_type=ObjectType.RIGID,
-                usd_path="",
-                initial_pose=initial_pose,
-            )
-
-        def _generate_rigid_cfg(self) -> RigidObjectCfg:
-            cfg = RigidObjectCfg(
-                prim_path=self.prim_path,
-                spawn=table_spawn_cfg,
-                **self.asset_cfg_addon,
-            )
-            return self._add_initial_pose_to_cfg(cfg)
-
-    cube_spawn_cfg = sim_utils.CuboidCfg(
-        size=(0.05, 0.1, 0.1),
-        physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
-        rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            solver_position_iteration_count=16,
-            solver_velocity_iteration_count=0,
-            disable_gravity=False,
-        ),
-        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
-        mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
-    )
-
-    class ProceduralCube(Object):
+    class ProceduralCube(_ProceduralCuboid):
         """Rigid cuboid manipuland (0.2 kg, 5x10x10 cm). Newton-safe, single geometry."""
 
         tags = ["object", "procedural"]
+        _default_name = "object"
+        _default_prim = "{ENV_REGEX_NS}/Object"
+        _spawn_cfg = sim_utils.CuboidCfg(
+            size=(0.05, 0.1, 0.1),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=0,
+                disable_gravity=False,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+        )
 
-        def __init__(
-            self,
-            instance_name: str | None = None,
-            prim_path: str | None = None,
-            initial_pose: Pose | None = None,
-        ):
-            resolved_name = instance_name if instance_name is not None else "object"
-            resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/Object"
-            super().__init__(
-                name=resolved_name,
-                prim_path=resolved_prim,
-                object_type=ObjectType.RIGID,
-                usd_path="",
-                initial_pose=initial_pose,
-            )
-
-        def _generate_rigid_cfg(self) -> RigidObjectCfg:
-            cfg = RigidObjectCfg(
-                prim_path=self.prim_path,
-                spawn=cube_spawn_cfg,
-                **self.asset_cfg_addon,
-            )
-            return self._add_initial_pose_to_cfg(cfg)
-
-    _procedural_table_cls = ProceduralTable
-    _procedural_cube_cls = ProceduralCube
     return ProceduralTable, ProceduralCube
 
 
