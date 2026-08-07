@@ -300,6 +300,12 @@ def _first_docstring_line(cls: type) -> str:
     return ""
 
 
+# Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
+# TaskSpec.params / SpatialRelationSpec.params). Keep them out of the agent catalogues.
+_TASK_CATALOGUE_EXCLUDED_PARAMS = frozenset({"task_description"})  # CompositeTaskSpec.description
+_RELATION_CATALOGUE_EXCLUDED_PARAMS = frozenset({"parent"})  # SpatialRelationSpec.reference
+
+
 @dataclass
 class RelationCatalogueEntry:
     """One registered spatial relation exposed to the agent."""
@@ -348,7 +354,7 @@ def build_relation_catalogue(
             continue
         required_params, optional_params, enum_options = _collect_init_params(
             relation_cls,
-            excluded_params={"parent"} if not relation_cls.is_unary() else set(),
+            excluded_params=set(_RELATION_CATALOGUE_EXCLUDED_PARAMS),
         )
         catalogue.relations.append(
             RelationCatalogueEntry(
@@ -465,7 +471,10 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):
         task_cls = registry.get_task_by_name(name)
-        required_params, optional_params, enum_options = _collect_init_params(task_cls, excluded_params=set())
+        required_params, optional_params, enum_options = _collect_init_params(
+            task_cls,
+            excluded_params=set(_TASK_CATALOGUE_EXCLUDED_PARAMS),
+        )
         catalogue.tasks.append(
             TaskCatalogueEntry(
                 name=name,

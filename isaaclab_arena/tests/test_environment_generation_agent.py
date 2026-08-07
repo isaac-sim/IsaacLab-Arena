@@ -12,6 +12,7 @@ from unittest.mock import patch
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    AssetCatalogue,
     EnvironmentGenerationAgent,
     build_asset_catalogue,
     build_relation_catalogue,
@@ -83,12 +84,21 @@ def test_task_catalogue_collects_required_optional_and_enum_params():
     )
 
 
+def test_task_catalogue_excludes_structural_graph_fields():
+    """Params already expressed on CompositeTaskSpec (e.g. description) stay out of TASKS."""
+    catalogue = build_task_catalogue()
+    entries = {entry.name: entry for entry in catalogue.tasks}
+
+    assert "PickAndPlaceTask" in entries
+    pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
+    assert "task_description" not in pick_params
+
+
 def test_relation_catalogue_collects_required_optional_and_enum_params():
     catalogue = build_relation_catalogue()
     entries = {entry.name: entry for entry in catalogue.relations}
 
     assert set(entries) == {
-        "face_to",
         "is_anchor",
         "next_to",
         "not_next_to",
@@ -103,7 +113,8 @@ def test_relation_catalogue_collects_required_optional_and_enum_params():
         "tolerance_m",
     ]
     assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
-    assert "parent" not in entries["next_to"].required_params + entries["next_to"].optional_params
+    for entry in entries.values():
+        assert "parent" not in entry.required_params + entry.optional_params
 
 
 # ---------------------------------------------------------------------------
@@ -446,14 +457,17 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
 def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     """End-to-end pass-1 + pass-2 prim resolution for Robocasa kitchen counter and fridge."""
     agent = EnvironmentGenerationAgent()
-    asset_catalog = catalog(
-        "EMBODIMENTS:\n- droid_abs_joint_pos  tags=[default]\n\n"
-        "BACKGROUNDS: lightwheel_robocasa_kitchen\n\n"
-        "OBJECTS:\n"
-        "- avocado01_fruits_veggies_robolab  tags=[]\n"
-        "- plate_large_vomp_robolab  tags=[]\n"
-        "- broccoli  tags=[]\n"
-        "- sweet_potato  tags=[]"
+    # Keep structured entries in sync with the prompt: catalog validation checks
+    # AssetCatalogue.objects, not a to_catalog_string override.
+    asset_catalog = AssetCatalogue(
+        embodiments=[{"name": "droid_abs_joint_pos", "tags": ["default"]}],
+        backgrounds=[{"name": "lightwheel_robocasa_kitchen", "tags": []}],
+        objects=[
+            {"name": "avocado01_fruits_veggies_robolab", "object_type": "rigid", "tags": []},
+            {"name": "plate_large_vomp_robolab", "object_type": "rigid", "tags": []},
+            {"name": "broccoli", "object_type": "rigid", "tags": []},
+            {"name": "sweet_potato", "object_type": "rigid", "tags": []},
+        ],
     )
     tasks = make_task_catalog(
         "TASKS (2):\n"

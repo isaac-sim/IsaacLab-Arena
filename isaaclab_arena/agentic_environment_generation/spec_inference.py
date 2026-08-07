@@ -18,7 +18,7 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     build_strict_schema,
 )
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
-    collect_agent_ready_task_validation_traces,
+    collect_agent_ready_validation_trace,
     format_validation_error,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -76,7 +76,12 @@ class SpecInference:
             )
             try:
                 spec = ArenaEnvGraphSpec.model_validate(data)
-                validation_traces = collect_agent_ready_task_validation_traces(spec)
+                validation_traces = collect_agent_ready_validation_trace(
+                    spec,
+                    asset_catalog=asset_catalog,
+                    task_catalog=task_catalog,
+                    relation_catalog=relation_catalog,
+                )
             except ValidationError as exc:
                 spec = None
                 validation_traces = format_validation_error(exc)

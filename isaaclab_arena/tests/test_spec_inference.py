@@ -141,6 +141,25 @@ def test_infer_feeds_validation_errors_back_and_recovers(spec_inference):
     assert "registry_name" in critic_message
 
 
+def test_infer_feeds_catalog_validation_errors_back_and_recovers(spec_inference):
+    inference, client = spec_inference
+    assets = make_catalog("ASSETS")
+    assets.embodiments = [{"name": "droid_abs_joint_pos", "tags": []}]
+    corrected = minimal_spec_dict()
+    corrected["embodiment"]["registry_name"] = "droid_abs_joint_pos"
+    client.chat.completions.create.side_effect = [
+        chat_response(content=json.dumps(minimal_spec_dict())),
+        chat_response(content=json.dumps(corrected)),
+    ]
+
+    spec, _ = _infer(inference, client, asset_catalog=assets)
+
+    assert isinstance(spec, ArenaEnvGraphSpec)
+    assert client.chat.completions.create.call_count == 2
+    critic_message = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "Embodiment registry_name 'franka_ik' is not in the EMBODIMENTS catalog" in critic_message
+
+
 def test_infer_retries_agent_ready_task_validation_errors(spec_inference):
     inference, client = spec_inference
     invalid = minimal_spec_dict()
