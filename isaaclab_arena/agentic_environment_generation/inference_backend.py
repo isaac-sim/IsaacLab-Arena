@@ -23,6 +23,7 @@ INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
 INTERNAL_MODEL = "azure/anthropic/claude-opus-4-8"
 PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
 PUBLIC_MODEL = "openai/gpt-oss-120b"
+# If you cannot access the model in your region, you can try the "nvidia/nemotron-3-super-120b-a12b" model.
 
 INFERENCE_ENDPOINT_ENV_VAR = "ARENA_INFERENCE_ENDPOINT"
 """Environment variable naming the inference endpoint every agentic command uses."""

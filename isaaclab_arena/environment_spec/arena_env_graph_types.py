@@ -214,7 +214,10 @@ class CompositeTaskSpec(BaseModel):
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
         if self.composition is TaskCompositionType.ATOMIC:
-            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
+            assert len(self.subtasks) == 1, (
+                f"composition 'atomic' requires exactly one atomic task, got {len(self.subtasks)}."
+                " Use parallel (order does not matter) or sequential (ordered) as composition instead."
+            )
         else:
             assert len(self.subtasks) >= 2, (
                 f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}."

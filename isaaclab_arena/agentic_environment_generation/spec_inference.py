@@ -156,13 +156,24 @@ GUIDANCE:
   suffixes in ``id``.
 - Use ``object_sets`` only when one object varies across environments; list its variants as ``members``.
   Every member must be an OBJECTS entry marked ``type=rigid``.
-- Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
-  inside the background; otherwise leave it unset.
+- An ``object_reference`` names a prim inside the background. Add one for every surface or appliance
+  the prompt names that the background merely contains — the floor the robot stands on, a counter top,
+  a sink, a fridge, a microwave. Name it after the appliance or surface itself, never after the moving
+  part the task acts on — a prompt opening "the fridge door" still names the reference ``fridge``.
+- REQUIRED: never add an ``object_reference`` for a surface that IS the background, such as "the table"
+  when ``registry_name`` names a table. Use the background id for it. Leave ``object_references`` unset
+  when the background itself is every surface the prompt names.
+- REQUIRED: a task or relation param naming part of the background must use that
+  ``object_reference`` id, never the background id.
 - For each ``object_reference``, leave ``prim_path`` empty.
+- REQUIRED: pick ``task.composition`` from the number of subtasks you emit. One subtask is
+  ``atomic``. Two or more is ``parallel`` when the prompt says the order does not matter, and
+  ``sequential`` when the prompt fixes an order. ``atomic`` never has more than one subtask.
 - Task parameters referring to an asest (object, background or object reference) must use the ID (NOT registry_name).
 - Relation subject and references must use the asset ID (NOT registry_name).
-- REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
-  ``object_reference`` within it).
+- REQUIRED: include an ``is_anchor`` relation on the resting surface. That is the
+  ``object_reference`` for the surface the prompt names inside the background; use the background id
+  only when the prompt names no surface inside it.
 - REQUIRED: every ``object_reference`` must have an ``is_anchor`` relation.
 - For every relation, include all parameters marked ``required`` in the RELATIONS catalog in
   that relation's ``params``.

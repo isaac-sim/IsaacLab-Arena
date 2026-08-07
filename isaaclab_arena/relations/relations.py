@@ -77,6 +77,7 @@ class Relation(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
+@register_object_relation
 class FaceTo(RelationBase):
     """Relates an object's local +X heading to a target object's world-XY direction.
 
