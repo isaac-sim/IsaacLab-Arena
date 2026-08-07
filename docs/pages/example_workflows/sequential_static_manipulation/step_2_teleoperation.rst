@@ -16,113 +16,55 @@ This workflow covers collecting demonstrations using Isaac Teleop with an XR dev
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
    is required before starting the steps below.
 
-Step 1: Start the CloudXR Runtime
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Before starting teleoperation, configure the host firewall to allow CloudXR traffic:
 
 .. tab-set::
 
    .. tab-item:: Meta Quest 3 / Pico 4 Ultra
       :selected:
 
-      #. On the host machine, configure the firewall to allow CloudXR traffic.
+      .. code-block:: bash
 
-         .. code-block:: bash
-
-            sudo ufw allow 49100/tcp   # Signaling
-            sudo ufw allow 47998/udp   # Media stream
-            sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
-
-      #. Start the CloudXR runtime from the Arena Docker container:
-
-         :docker_run_default:
-
-      #. Create a CloudXR config to enable hand tracking:
-
-         .. code-block:: bash
-
-            echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > handtracking.env
-
-      #. Start the CloudXR runtime with the customized config file:
-
-         .. code-block:: bash
-
-            python -m isaacteleop.cloudxr --cloudxr-env-config=handtracking.env
-
+         sudo ufw allow 49100/tcp   # Signaling
+         sudo ufw allow 47998/udp   # Media stream
+         sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
    .. tab-item:: Apple Vision Pro
 
-      #. On the host machine, configure the firewall to allow CloudXR traffic.
+      .. code-block:: bash
 
-         .. code-block:: bash
-
-            # Signaling (use one based on connection mode)
-            sudo ufw allow 48010/tcp   # Standard mode
-            sudo ufw allow 48322/tcp   # Secure mode
-            # Video
-            sudo ufw allow 47998/udp
-            sudo ufw allow 48005/udp
-            sudo ufw allow 48008/udp
-            sudo ufw allow 48012/udp
-            # Input
-            sudo ufw allow 47999/udp
-            # Audio
-            sudo ufw allow 48000/udp
-            sudo ufw allow 48002/udp
-
-      #. Start the CloudXR runtime from the Arena Docker container:
-
-         :docker_run_default:
-
-      #. Create a customized config file with the following content:
-
-         .. code-block:: bash
-
-            printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
-
-      #. Start the CloudXR runtime with the customized config file:
-
-         .. code-block:: bash
-
-            python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
-
-.. attention::
-
-   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
-   To accept the EULA, reply ``Yes`` when prompted with the below message:
-
-   .. code:: bash
-
-      NVIDIA CloudXR EULA must be accepted to run. View: https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
-
-      Accept NVIDIA CloudXR EULA? [y/N]: Yes
+         # Signaling (use one based on connection mode)
+         sudo ufw allow 48010/tcp   # Standard mode
+         sudo ufw allow 48322/tcp   # Secure mode
+         # Video
+         sudo ufw allow 47998/udp
+         sudo ufw allow 48005/udp
+         sudo ufw allow 48008/udp
+         sudo ufw allow 48012/udp
+         # Input
+         sudo ufw allow 47999/udp
+         # Audio
+         sudo ufw allow 48000/udp
+         sudo ufw allow 48002/udp
 
 
-Step 2: Start Recording
+Step 1: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-#. In another terminal, start the Arena Docker container:
+#. Start the Arena Docker container:
 
    :docker_run_default:
 
-#. Run the following command to activate IsaacTeleop CloudXR environment settings:
+#. Run the recording script. It launches the CloudXR runtime automatically:
 
    .. code-block:: bash
 
-      source ~/.cloudxr/run/cloudxr.env
-
-   .. important::
-      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
-      and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
-
-#. Run the recording script:
-
-   .. code-block:: bash
-
+      export CLOUDXR_ENV=cloudxrjs  # Use "avp" for Apple Vision Pro.
       python submodules/IsaacLab/scripts/tools/record_demos.py \
         --device cpu \
         --viz kit \
         --xr \
-        --no-auto_launch_cloudxr \
+        --cloudxr_env $CLOUDXR_ENV \
         --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 10 \
@@ -132,6 +74,16 @@ Step 2: Start Recording
         --embodiment gr1_pink \
         --arena_teleop_device openxr
 
+   .. warning::
+
+      If you exit Sim with Ctrl-C, you need to manually clean up the spawned CloudXR
+      process with::
+
+         pkill -KILL -f '[i]saacteleop.cloudxr.runtime'
+
+      Otherwise the next ``record_demos.py`` run will crash with an error looking like
+      ``XR_ERROR_INSTANCE_LOST in xrPollEvent: Call to "xrt_session_poll_events" failed``.
+
 #. In the running application, start the session from the **XR** tab in the application window.
 
    .. figure:: ../../../images/xr_start_button.png
@@ -140,7 +92,7 @@ Step 2: Start Recording
       :align: center
 
 
-Step 3: Connect XR Device and Record
+Step 2: Connect XR Device and Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detailed instructions, refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_.

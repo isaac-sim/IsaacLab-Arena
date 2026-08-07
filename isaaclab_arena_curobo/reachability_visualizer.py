@@ -5,7 +5,8 @@
 
 """The reachability check's layer of the placement Rerun debug view, sim-free (no SimApp).
 Adds to existing visualizer what only the IK check knows -- where the
-robot stands, the top-down grasps it solved, and whether each one was reachable.
+robot stands, the top-down grasps it solved, whether each one was reachable, and the collision
+spheres the robot holds at each solved grasp.
 """
 
 from __future__ import annotations
@@ -26,8 +27,17 @@ BASE_AXIS_LENGTH = 0.2
 GRASP_AXIS_LENGTH = 0.1
 """Length (m) of the drawn grasp frame axes."""
 
+MUTED_SPHERE_COLOR = (235, 180, 60)
+"""Color of a collision sphere muted for the solve, i.e. one allowed to touch the layout."""
+
+SPHERE_ALPHA = 110
+"""Opacity of the drawn collision spheres, so the layout stays visible through the robot."""
+
 BASE_ENTITY = f"{ROBOT_ENTITY}/base"
 """Entity path of the robot base frame; the grasps below it are logged in that frame."""
+
+SPHERES_ENTITY = f"{BASE_ENTITY}/collision_spheres"
+"""Entity path of the robot's collision spheres, one child per grasp the check solved."""
 
 
 class ReachabilityRerunLayer:
@@ -51,6 +61,8 @@ class ReachabilityRerunLayer:
         feasible: torch.Tensor,
         position_error: torch.Tensor,
         rotation_error: torch.Tensor,
+        robot_spheres: torch.Tensor | None = None,
+        muted_sphere_mask: torch.Tensor | None = None,
     ) -> None:
         """Log the robot's side of one evaluated layout.
 
@@ -63,6 +75,10 @@ class ReachabilityRerunLayer:
             feasible: ``(b,)`` per-grasp IK verdict.
             position_error: ``(b,)`` per-grasp IK position error (m).
             rotation_error: ``(b,)`` per-grasp IK rotation error (rad).
+            robot_spheres: ``(b, n, 4)`` collision spheres ``(x, y, z, radius)`` in the robot base frame,
+                one set per grasp; omitted when the check did not compute them.
+            muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, drawn
+                apart from the rest. None means none were.
         """
         import rerun as rr
 
@@ -76,9 +92,13 @@ class ReachabilityRerunLayer:
         rr.log(BASE_ENTITY, rr.TransformAxes3D(BASE_AXIS_LENGTH))
 
         grasps = grasp_poses_base_frame.detach().cpu()
+        spheres = None if robot_spheres is None else robot_spheres.detach().cpu()
+        muted = None if muted_sphere_mask is None else muted_sphere_mask.detach().cpu()
         for i, name in enumerate(target_names):
             reachable = bool(feasible[i].item())
             color = REACHABLE_COLOR if reachable else UNREACHABLE_COLOR
+            if spheres is not None:
+                self._log_robot_spheres(f"{SPHERES_ENTITY}/{name}", spheres[i], muted, color)
             entity = f"{BASE_ENTITY}/grasps/{name}"
             rr.log(entity, rr.Transform3D(translation=grasps[i, :3, 3], mat3x3=grasps[i, :3, :3]))
             rr.log(entity, rr.TransformAxes3D(GRASP_AXIS_LENGTH))
@@ -93,3 +113,37 @@ class ReachabilityRerunLayer:
             )
             rr.log(f"errors/{name}/position_m", rr.Scalars(float(position_error[i].item())))
             rr.log(f"errors/{name}/rotation_rad", rr.Scalars(float(rotation_error[i].item())))
+
+    @staticmethod
+    def _log_robot_spheres(
+        entity: str,
+        spheres: torch.Tensor,
+        muted_sphere_mask: torch.Tensor | None,
+        checked_color: tuple[int, int, int],
+    ) -> None:
+        """Draw the robot's collision spheres at one solved grasp.
+
+        Args:
+            entity: Entity path to draw under; a child of the base transform, as the spheres are in that frame.
+            spheres: ``(n, 4)`` spheres ``(x, y, z, radius)`` in the robot base frame.
+            muted_sphere_mask: ``(n,)`` mask of the spheres excluded from collision checking, or None for none.
+            checked_color: Color of the collision-checked spheres; the grasp's own verdict color.
+        """
+        import rerun as rr
+
+        radii = spheres[:, 3]
+        # cuRobo leaves spheres it does not use in the tensor with a negative radius, which Rerun would
+        # read as a radius in screen points rather than as metres.
+        kept = radii > 0.0
+        muted = torch.zeros_like(kept) if muted_sphere_mask is None else muted_sphere_mask
+        rr.log(
+            entity,
+            rr.Points3D(
+                spheres[kept][:, :3],
+                radii=radii[kept],
+                colors=[
+                    (*MUTED_SPHERE_COLOR, SPHERE_ALPHA) if is_muted else (*checked_color, SPHERE_ALPHA)
+                    for is_muted in muted[kept].tolist()
+                ],
+            ),
+        )

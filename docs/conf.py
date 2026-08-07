@@ -59,6 +59,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx_tabs.tabs",
     "sphinx_design",
+    "sphinxcontrib.video",
     "sphinx_copybutton",
     "sphinx_multiversion",
     "isaaclab_arena_doc_tools",

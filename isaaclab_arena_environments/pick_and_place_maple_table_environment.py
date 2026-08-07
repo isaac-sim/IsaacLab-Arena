@@ -121,5 +121,5 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
-        # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
+        # Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)
