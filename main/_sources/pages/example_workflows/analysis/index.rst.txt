@@ -1,14 +1,14 @@
-Analysis
-========
+Evaluation
+==========
 
-Which tested environment conditions are associated with a policy's success? Arena's analysis
+Which tested environment conditions are associated with a policy's success? Arena's evaluation
 workflows turn controlled evaluation sweeps into an answer. Vary factors such as camera pose,
 lighting, object mass, or table material, record the outcome of each episode, then estimate a joint
 posterior that highlights which factor values are associated with success or failure.
 
 This walkthrough uses an OpenPI policy and varies its wrist-camera position. The Variations
-workflow collects the episode results, and the Sensitivity Analysis workflow turns them into a
-posterior visualization.
+workflow collects the episode results, and the :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>`
+workflow turns them into a visual report.
 
 Start or enter the Base Docker container from the repository root:
 
@@ -40,3 +40,4 @@ workflow directory to be empty.
 
    variations
    Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>
+   Multi-Node Evaluation <../multi_node_evaluation/multi_node_evaluation>
