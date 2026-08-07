@@ -6,7 +6,7 @@ Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
 multiple jobs in one process. This section summarizes when to use each and how
 they work. Each section below links to the relevant concept docs:
 :doc:`Policy Design <index>`,
-:doc:`Environment Design <../concept_overview>`, and
+:doc:`Environment Design <../environment/index>`, and
 :doc:`Metrics Design <../task/concept_metrics_design>`.
 
 Both runners support a **server–client** setup, where simulation runs locally
@@ -150,7 +150,7 @@ configurations (e.g. many objects or tasks) without launching multiple processes
 by hand. Persistence of the simulation application is maintained between jobs.
 
 **Design context:** For how environments are composed and how metrics are
-defined and computed, see :doc:`Environment Design <../concept_overview>`
+defined and computed, see :doc:`Environment Design <../environment/index>`
 and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
 follow :doc:`Policy Design <index>`.
 

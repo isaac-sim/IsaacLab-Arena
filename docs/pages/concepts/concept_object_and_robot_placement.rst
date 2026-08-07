@@ -107,7 +107,7 @@ Use this table as a reading map:
    * - Environment compilation
      - How ``ArenaEnvBuilder`` turns an Arena environment definition into an
        Isaac Lab environment configuration
-     - :doc:`concept_environment_compilation`
+     - :doc:`environment/env_builder`
    * - Spatial relations and anchors
      - How to mark fixed references and describe intended positions and
        orientations

@@ -1,5 +1,5 @@
-Concept Overview
-================
+Environment
+===========
 
 Isaac Lab Arena aims to simplify the creation of task/environment libraries.
 The key to achieving that goal is the use of *composition*.
@@ -9,7 +9,7 @@ Arena environments are composed of three independent sub-pieces:
 * **Embodiment**: The robot embodiment, its physical description, observations, actions, sensors etc.
 * **Task**: A definition of what is to be accomplished in the environment.
 
-.. figure:: ../../images/isaac_lab_arena_arch_overview.png
+.. figure:: ../../../images/isaac_lab_arena_arch_overview.png
    :width: 90%
    :alt: Isaac Lab Arena Workflow
    :align: center
@@ -44,3 +44,18 @@ The same pick-and-place task works with any robot on any scene: swap the Franka
 for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment *parts*.
+
+The two pages below cover how you write an environment down, and how it is built:
+
+- :doc:`env_spec` — the two ways to specify an environment, Python or YAML.
+- :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
+  Isaac Lab ``ManagerBasedRLEnv``.
+
+The individual components are covered in :doc:`../scene/index`,
+:doc:`../embodiment/index`, and :doc:`../task/index`.
+
+.. toctree::
+   :maxdepth: 1
+
+   env_spec
+   env_builder
