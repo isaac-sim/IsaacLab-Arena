@@ -29,8 +29,15 @@ The experiment is defined by this configuration:
    .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
       :language: yaml
 
-With the OpenPI server running, run the evaluation from the repository root in the Base Docker
-container. The exact output directory keeps the results at the location set on the Analysis page:
+In the Base Docker container, set the output directory used by this workflow:
+
+.. code-block:: bash
+
+   export CAMERA_SENSITIVITY_OUTPUT_DIR="/eval/camera_sensitivity_workflow"
+   mkdir -p "${CAMERA_SENSITIVITY_OUTPUT_DIR}"
+
+Arena requires this directory to be empty. With the OpenPI server running, run the evaluation from
+the repository root:
 
 .. code-block:: bash
 
