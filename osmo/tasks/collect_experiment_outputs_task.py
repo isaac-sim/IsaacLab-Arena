@@ -43,6 +43,7 @@ class CollectExperimentOutputsTask(BaseTask):
         experiment_runner_task_names_by_run_name: Mapping[str, str],
         lead: bool | None = None,
         resource: str | None = None,
+        output_url: str = DATASET_SWIFT_URL,
         *,
         task_name: str,
     ) -> None:
@@ -50,6 +51,7 @@ class CollectExperimentOutputsTask(BaseTask):
         super().__init__(task_name=task_name, lead=lead, resource=resource)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
+        self.output_url = output_url
 
     def _get_image(self) -> str:
         return self.image
@@ -63,7 +65,7 @@ class CollectExperimentOutputsTask(BaseTask):
 
     def _get_outputs(self) -> list[dict[str, Any]]:
         """Publish the final Experiment directory, including all Runs and ``index.html``."""
-        return [{"url": DATASET_SWIFT_URL}]
+        return [{"url": self.output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
         """Embed the output-building script and its ``run-name -> Experiment Runner output`` JSON input."""

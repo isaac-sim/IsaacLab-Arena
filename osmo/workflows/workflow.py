@@ -26,6 +26,7 @@ from typing import Any
 
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
 
 
 class WorkflowPriority(str, Enum):
@@ -72,6 +73,10 @@ class WorkflowCfg:
 
     dry_run: bool = False
     """Render the workflow YAML and print it instead of submitting to OSMO."""
+
+    output_url: str = DATASET_SWIFT_URL
+    """Swift URL the collected Experiment output is published to. OSMO resolves the ``{{workflow_id}}`` token;
+    include it to give each workflow a unique path, or omit it to let later workflows overwrite the same path."""
 
 
 @dataclass(frozen=True)

@@ -292,6 +292,46 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
 
+def test_default_output_url_publishes_experiment_to_default_bucket():
+    """Without an override, the collected Experiment output goes to the default per-workflow bucket."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="default-output"),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
+
+
+def test_output_url_override_publishes_experiment_to_custom_bucket():
+    """A configured ``output_url`` sets where the collected Experiment output is published."""
+    custom_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project/{{workflow_id}}"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="custom-output", output_url=custom_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": custom_output_url}]
+
+
+def test_output_url_override_allows_fixed_bucket_that_workflows_overwrite():
+    """A fixed ``output_url`` without ``{{workflow_id}}`` is allowed, so later workflows overwrite the same path."""
+    fixed_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="fixed-output", output_url=fixed_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["outputs"] == [{"url": fixed_output_url}]
+
+
 def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
     """Each Run's dedicated pi0 server follows that Run's client policy_variant."""
     workflow = ArenaExperimentWorkflow(
