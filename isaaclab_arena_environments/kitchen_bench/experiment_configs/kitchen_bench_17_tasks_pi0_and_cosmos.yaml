@@ -3,9 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Runs every kitchen_bench task with both the OpenPI (pi0) and Cosmos policies (17 tasks x 2 policies
-# = 34 runs). On OSMO the inference server for each Run is derived from its policy type (pi0 servers
-# for *_pi0 Runs, Cosmos servers for *_cosmos Runs).
+# Runs every kitchen_bench task with both the OpenPI (pi0) and Cosmos policies (17 tasks x 2 policies = 34 runs).
 runs:
 
   droid_open_fridge_lightwheel_kitchen_pi0:
