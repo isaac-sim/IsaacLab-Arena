@@ -43,7 +43,7 @@ Composing tasks
 ---------------
 
 Pass ordinary ``TaskBase`` instances to the composition class. For example, use ``CompositeTaskBase`` to
-create to create an order-independent packing task for two objects:
+create an order-independent packing task for two objects:
 
 .. code-block:: python
 
