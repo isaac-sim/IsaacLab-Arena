@@ -159,6 +159,8 @@ GUIDANCE:
 - Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
   inside the background; otherwise leave it unset.
 - For each ``object_reference``, leave ``prim_path`` empty.
+- Task parameters referring to an asest (object, background or object reference) must use the ID (NOT registry_name).
+- Relation subject and references must use the asset ID (NOT registry_name).
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - REQUIRED: every ``object_reference`` must have an ``is_anchor`` relation.
