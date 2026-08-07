@@ -119,19 +119,14 @@ Turn the posterior into practical takeaways
 Because this walkthrough uses a small sweep, the interpretation below is hypothetical. If the
 same posterior shapes persisted in a larger experiment, they would support these takeaways:
 
-* **Horizontal offset ([0]):** The posterior remains comparatively broad and close to the
-  uniform reference through much of the tested range. The policy is therefore less sensitive to
-  left-right camera-position errors than to changes along the other two axes.
+* **Horizontal offset ([0]):** The broad posterior suggests less sensitivity to left-right camera
+  offsets than to the other axes.
 
-* **Vertical offset ([1]):** The posterior is concentrated in a narrower range and peaks at a
-  small negative offset, which moves the camera up in its optical frame. A repeatable peak away
-  from zero can indicate that the nominal extrinsics or physical mount do not reproduce the
-  viewpoint the policy handles best. Before deployment, check the camera calibration and run a
-  focused sweep around both the nominal position and the observed peak.
+* **Vertical offset ([1]):** The narrow posterior peaks at a small upward offset. Check the camera
+  calibration and mounting position before deployment.
 
-* **Depth offset ([2]):** The posterior peaks near the nominal position and falls more sharply
-  for positive offsets, which move the camera forward. Keep the camera standoff close to nominal
-  and use a tighter mounting tolerance for errors that move it forward.
+* **Depth offset ([2]):** The posterior peaks near nominal and declines for forward offsets. Keep
+  the camera standoff close to nominal and limit forward mounting error.
 
 Together, these results make vertical and depth alignment the priorities for camera mounting,
 calibration, and additional training data. Horizontal alignment can allow more variation over the
