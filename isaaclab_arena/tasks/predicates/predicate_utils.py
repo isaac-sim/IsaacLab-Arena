@@ -7,17 +7,10 @@ from __future__ import annotations
 
 import torch
 
-import warp as wp
 from isaaclab.assets import RigidObject
 
-
-def get_env(env):
-    """Resolve to the unwrapped manager-based env regardless of wrapper depth."""
-    seen = set()
-    while hasattr(env, "unwrapped") and env.unwrapped is not env and id(env) not in seen:
-        seen.add(id(env))
-        env = env.unwrapped
-    return env
+from isaaclab_arena.scene.object_geometry import object_geometry
+from isaaclab_arena.scene.object_state import get_env, object_state
 
 
 def get_rigid_object(env, name: str) -> RigidObject:
@@ -26,18 +19,29 @@ def get_rigid_object(env, name: str) -> RigidObject:
 
 
 def get_root_pos_w(env, name: str) -> torch.Tensor:
-    """Get the root position of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_pos_w)
+    """Get the root (or deformable centroid) position in the world frame.
+
+    This compatibility wrapper delegates to the shared object-state view.
+    """
+    return object_state(env, name).position_w()
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root linear velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
+    """Get the root (or deformable centroid) linear velocity in the world frame.
+
+    This compatibility wrapper delegates to the shared object-state view.
+    """
+    return object_state(env, name).linear_velocity_w()
 
 
-def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root angular velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+def get_root_ang_vel_w(env, name: str, required: bool = True) -> torch.Tensor:
+    """Get the root angular velocity of an object in the world frame when available."""
+    return object_state(env, name).angular_velocity_w(required=required)
+
+
+def get_max_point_speed_w(env, name: str) -> torch.Tensor:
+    """Get max representative point speed for an object in world frame."""
+    return object_geometry(env, name).max_point_speed()
 
 
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:

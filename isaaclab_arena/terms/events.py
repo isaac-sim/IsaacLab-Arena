@@ -13,6 +13,94 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
 
 
+def _deformable_nodal_state_for_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    nodal_state = asset.data.default_nodal_state_w.torch[env_ids].clone()
+    target_pos_w = torch.tensor(pose.position_xyz, device=env.device).repeat(len(env_ids), 1)
+    target_pos_w += env.scene.env_origins[env_ids]
+    default_pos_w = nodal_state[..., :3]
+    default_centroid_w = default_pos_w.mean(dim=1)
+    target_quat = torch.tensor(pose.rotation_xyzw, device=env.device).repeat(len(env_ids), 1)
+    default_quat = torch.tensor(asset.cfg.init_state.rot, device=env.device).repeat(len(env_ids), 1)
+    delta_quat = _quat_multiply_xyzw(target_quat, _quat_inverse_xyzw(default_quat))
+    nodal_state[..., :3] = target_pos_w.unsqueeze(1) + _quat_rotate_xyzw(
+        delta_quat, default_pos_w - default_centroid_w.unsqueeze(1)
+    )
+
+    if velocity is not None:
+        nodal_state[..., 3:] = torch.tensor(velocity.linear_xyz, device=env.device)
+    else:
+        nodal_state[..., 3:] = 0.0
+    return nodal_state
+
+
+def set_deformable_object_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> None:
+    """Reset a deformable object's nodal state so its centroid is at ``pose``."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    nodal_state = _deformable_nodal_state_for_pose(env, env_ids, asset_cfg, pose, velocity)
+    asset.write_nodal_state_to_sim_index(nodal_state, env_ids=env_ids)
+    asset.reset(env_ids=env_ids)
+
+
+def _quat_inverse_xyzw(quat: torch.Tensor) -> torch.Tensor:
+    quat = quat / quat.norm(dim=-1, keepdim=True).clamp_min(1.0e-8)
+    return torch.cat([-quat[:, :3], quat[:, 3:]], dim=-1)
+
+
+def _quat_multiply_xyzw(lhs: torch.Tensor, rhs: torch.Tensor) -> torch.Tensor:
+    lx, ly, lz, lw = lhs.unbind(dim=-1)
+    rx, ry, rz, rw = rhs.unbind(dim=-1)
+    return torch.stack(
+        [
+            lw * rx + lx * rw + ly * rz - lz * ry,
+            lw * ry - lx * rz + ly * rw + lz * rx,
+            lw * rz + lx * ry - ly * rx + lz * rw,
+            lw * rw - lx * rx - ly * ry - lz * rz,
+        ],
+        dim=-1,
+    )
+
+
+def _quat_rotate_xyzw(quat: torch.Tensor, points: torch.Tensor) -> torch.Tensor:
+    quat = quat / quat.norm(dim=-1, keepdim=True).clamp_min(1.0e-8)
+    q_vec = quat[:, :3].unsqueeze(1).expand_as(points)
+    q_w = quat[:, 3:].unsqueeze(1)
+    t = 2.0 * torch.cross(q_vec, points, dim=-1)
+    return points + q_w * t + torch.cross(q_vec, t, dim=-1)
+
+
+def set_deformable_object_pose_per_env(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose_list: list[Pose],
+) -> None:
+    """Reset a deformable object's nodal state from a per-environment pose list."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    assert env_ids.ndim == 1
+    for cur_env in env_ids.tolist():
+        cur_env_ids = torch.tensor([cur_env], device=env.device)
+        nodal_state = _deformable_nodal_state_for_pose(env, cur_env_ids, asset_cfg, pose_list[cur_env])
+        asset.write_nodal_state_to_sim_index(nodal_state, env_ids=cur_env_ids)
+    asset.reset(env_ids=env_ids)
+
+
 def set_object_pose(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,

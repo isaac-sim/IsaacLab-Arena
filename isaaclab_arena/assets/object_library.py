@@ -6,6 +6,7 @@
 
 import copy
 from abc import ABC
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -21,6 +22,15 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
+from isaaclab_arena.assets.deformable_object import DeformableObject
+from isaaclab_arena.assets.deformable_spawn import (
+    DeformableMaterial,
+    NewtonDeformableTuning,
+    NewtonSurfaceDeformableTuning,
+    PhysxDeformableTuning,
+    PhysxSurfaceDeformableTuning,
+    SurfaceDeformableMaterial,
+)
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
@@ -31,7 +41,16 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+# Pre-tetrahedralized deformable meshes live next to this module (see usd/generate_deformable_tet_meshes.py).
+# Spawning a deformable from these UsdGeom.TetMesh assets avoids the runtime pytetwild/pyvista dependency.
+_LOCAL_ASSET_DIR = Path(__file__).resolve().parent / "usd"
+_DEFORMABLE_SPHERE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_sphere_tet.usda")
+_DEFORMABLE_CUBE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cube_tet.usda")
+_DEFORMABLE_VOLUME_BLOCK_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_volume_block_tet.usda")
+_DEFORMABLE_CABLE_TET_USD = str(_LOCAL_ASSET_DIR / "procedural_deformable_cable_tet.usda")
 
 
 class LibraryObject(Object):
@@ -366,6 +385,218 @@ class Sphere(LibraryObject):
             initial_pose=initial_pose,
             scale=scale,
             spawner_cfg=spawner_cfg,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_SPHERE_RADIUS = 0.03
+
+# Young's modulus sets stiffness: the sphere is soft enough to visibly squash under the gripper; the
+# cube below is stiffer (2e5) so it holds its edges. Poisson's ratio 0.4 is near-incompressible rubber.
+# density ~ lightweight foam (Newton); particle_radius is the VBD collision radius, kept below the tet
+# edge length so neighboring particles collide against the gripper rather than tunnel through.
+_PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL = DeformableMaterial(
+    youngs_modulus=8.0e4,
+    poissons_ratio=0.4,
+    density=300.0,
+    physx=PhysxDeformableTuning(
+        rest_offset=0.0, contact_offset=0.002, solver_position_iteration_count=16, linear_damping=0.01
+    ),
+    newton=NewtonDeformableTuning(particle_radius=0.008),
+)
+
+
+@register_asset
+class ProceduralDeformableSphere(DeformableObject):
+    """Small FEM soft sphere for deformable-object smoke tests."""
+
+    name = "procedural_deformable_sphere"
+    tags = ["object", "procedural", "deformable", "volume"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        radius = _PROCEDURAL_DEFORMABLE_SPHERE_RADIUS
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_SPHERE_TET_USD,
+            material=_PROCEDURAL_DEFORMABLE_SPHERE_MATERIAL,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.9, 0.25, 0.2)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-radius, -radius, -radius),
+                max_point=(radius, radius, radius),
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_CUBE_SIZE = (0.06, 0.06, 0.06)
+_PROCEDURAL_DEFORMABLE_CUBE_MATERIAL = DeformableMaterial(
+    youngs_modulus=2.0e5,
+    poissons_ratio=0.4,
+    density=300.0,
+    physx=PhysxDeformableTuning(
+        rest_offset=0.0, contact_offset=0.001, solver_position_iteration_count=24, linear_damping=0.02
+    ),
+    newton=NewtonDeformableTuning(particle_radius=0.006),
+)
+
+
+@register_asset
+class ProceduralDeformableCube(DeformableObject):
+    """Small FEM soft cube for maple-table deformable pick-and-place tests."""
+
+    name = "procedural_deformable_cube"
+    tags = ["object", "procedural", "deformable", "volume"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_CUBE_SIZE)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_CUBE_TET_USD,
+            material=_PROCEDURAL_DEFORMABLE_CUBE_MATERIAL,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.12, 0.28, 0.85)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=tuple(-extent for extent in half_extents),
+                max_point=half_extents,
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE = (0.08, 0.04, 0.04)
+
+
+@register_asset
+class ProceduralDeformableVolumeBlock(DeformableObject):
+    """Pre-tetrahedralized Newton/PhysX volume deformable cuboid."""
+
+    name = "procedural_deformable_volume_block"
+    tags = ["object", "procedural", "deformable", "volume"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_extents = tuple(size * 0.5 for size in _PROCEDURAL_DEFORMABLE_VOLUME_BLOCK_SIZE)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_VOLUME_BLOCK_TET_USD,
+            material=DeformableMaterial(
+                youngs_modulus=1.2e5,
+                poissons_ratio=0.35,
+                density=250.0,
+                physx=PhysxDeformableTuning(contact_offset=0.0015, solver_position_iteration_count=20),
+                newton=NewtonDeformableTuning(particle_radius=0.006),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.75, 0.42, 0.16)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=tuple(-extent for extent in half_extents),
+                max_point=half_extents,
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+_PROCEDURAL_DEFORMABLE_CLOTH_SIZE = (0.22, 0.22)
+_PROCEDURAL_DEFORMABLE_CABLE_LENGTH = 0.4
+_PROCEDURAL_DEFORMABLE_CABLE_RADIUS = 0.012
+
+
+@register_asset
+class ProceduralDeformableCloth(DeformableObject):
+    """Mesh-spawned surface deformable cloth patch."""
+
+    name = "procedural_deformable_cloth"
+    tags = ["object", "procedural", "deformable", "surface", "cloth"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_x, half_y = (_PROCEDURAL_DEFORMABLE_CLOTH_SIZE[0] * 0.5, _PROCEDURAL_DEFORMABLE_CLOTH_SIZE[1] * 0.5)
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path,
+            spawner_cfg=sim_utils.MeshRectangleCfg(size=_PROCEDURAL_DEFORMABLE_CLOTH_SIZE, resolution=(24, 24)),
+            material=SurfaceDeformableMaterial(
+                physx=PhysxSurfaceDeformableTuning(
+                    density=80.0,
+                    surface_thickness=0.003,
+                    surface_stretch_stiffness=5.0e2,
+                    surface_shear_stiffness=5.0e2,
+                    surface_bend_stiffness=2.0,
+                ),
+                newton=NewtonSurfaceDeformableTuning(
+                    density=50.0,
+                    particle_radius=0.005,
+                    tri_ke=5.0e2,
+                    tri_ka=5.0e2,
+                    tri_kd=1.0e-3,
+                    edge_ke=2.0,
+                    edge_kd=1.0e-3,
+                ),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-half_x, -half_y, -0.001),
+                max_point=(half_x, half_y, 0.001),
+            ),
+            initial_pose=initial_pose,
+        )
+
+
+@register_asset
+class ProceduralDeformableCable(DeformableObject):
+    """Cable-shaped volume deformable using Isaac Lab's native tetrahedralized mesh path."""
+
+    name = "procedural_deformable_cable"
+    tags = ["object", "procedural", "deformable", "volume", "cable"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        half_length = _PROCEDURAL_DEFORMABLE_CABLE_LENGTH * 0.5
+        radius = _PROCEDURAL_DEFORMABLE_CABLE_RADIUS
+        super().__init__(
+            name=instance_name if instance_name is not None else self.name,
+            tags=self.tags,
+            prim_path=prim_path,
+            usd_path=_DEFORMABLE_CABLE_TET_USD,
+            material=DeformableMaterial(
+                youngs_modulus=3.0e4,
+                poissons_ratio=0.35,
+                density=120.0,
+                physx=PhysxDeformableTuning(contact_offset=0.0015, solver_position_iteration_count=20),
+                newton=NewtonDeformableTuning(particle_radius=0.004, k_damp=1.0e-3),
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.02, 0.02, 0.02)),
+            local_bounding_box=AxisAlignedBoundingBox(
+                min_point=(-half_length, -radius, -radius),
+                max_point=(half_length, radius, radius),
+            ),
+            initial_pose=initial_pose,
         )
 
 

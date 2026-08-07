@@ -22,6 +22,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.observations import observations
+from isaaclab_arena.tasks.predicates.spatial import object_is_below_height
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success
@@ -87,10 +88,10 @@ class LiftObjectTask(TaskBase):
             use_command_goal: If True, uses goal from command manager (for RL evaluation).
         """
         object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
+            func=object_is_below_height,
             params={
+                "object_name": self.lift_object.name,
                 "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.lift_object.name),
             },
         )
 
@@ -215,10 +216,10 @@ class LiftObjectTaskRL(LiftObjectTask):
     def make_rl_termination_cfg(self):
         """Create termination configuration for RL training mode."""
         object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
+            func=object_is_below_height,
             params={
+                "object_name": self.lift_object.name,
                 "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.lift_object.name),
             },
         )
 

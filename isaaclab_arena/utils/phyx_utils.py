@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pxr import PhysxSchema, Usd
+from pxr import Usd
 
 
 def add_contact_report(prim: Usd.Prim) -> None:
@@ -12,5 +12,7 @@ def add_contact_report(prim: Usd.Prim) -> None:
     Args:
         prim: The prim to add the contact report API to.
     """
+    from pxr import PhysxSchema
+
     cr_api = PhysxSchema.PhysxContactReportAPI.Apply(prim)
     cr_api.CreateThresholdAttr().Set(0)
