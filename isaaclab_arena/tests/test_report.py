@@ -424,6 +424,39 @@ def test_ungrouped_results_still_produce_a_report(tmp_path):
     assert not _VIDEO_ELEMENT_PATTERN.search(index)
 
 
+def test_overview_descends_to_a_task_page_when_runs_cannot_be_grouped(tmp_path):
+    # A single-policy Experiment has no policy axis to factorize on, so its Runs stay ungrouped.
+    # The overview must still descend to the task page: that is the level showing where episodes
+    # got to, and skipping it strands the reader in the videos with no funnel.
+    _write_run(tmp_path, "banana_in_bowl_pi0")
+    _write_run(tmp_path, "banana_on_plate_pi0")
+
+    build_report(tmp_path)
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'href="report/task_banana_in_bowl_pi0.html"' in index
+    assert 'href="report/task_banana_on_plate_pi0.html"' in index
+    # Never straight to the episodes.
+    assert "report/job_" not in index
+    # And the task page it lands on descends the rest of the way.
+    task_page = (tmp_path / "report" / "task_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert 'href="job_banana_in_bowl_pi0.html"' in task_page
+
+
+def test_every_written_page_is_reachable_from_the_overview(tmp_path):
+    for run in ("banana_in_bowl_pi0", "banana_in_bowl_cosmos", "solo_run_pi0"):
+        _write_run(tmp_path, run)
+
+    build_report(tmp_path)
+    pages = tmp_path / "report"
+    linked = (tmp_path / "index.html").read_text(encoding="utf-8") + "".join(
+        page.read_text(encoding="utf-8") for page in pages.glob("*.html")
+    )
+
+    orphans = [page.name for page in pages.glob("*.html") if page.name not in linked]
+    assert not orphans, f"pages written but unreachable: {orphans}"
+
+
 def test_malformed_jsonl_is_reported_without_crashing(tmp_path):
     run_dir = tmp_path / "banana_in_bowl_pi0"
     run_dir.mkdir()

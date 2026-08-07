@@ -155,9 +155,14 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
     )
 
 
-def _render_ungrouped_job_list(summary: ExperimentSummary, job_hrefs: dict[str, str]) -> str:
+def _render_ungrouped_job_list(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
+    """Render a flat list of Runs, used when no task and policy labels could be established.
+
+    Rows link to the Run's task page rather than straight to its episodes, so descending through the
+    report always passes the level that shows where episodes got to, however the Runs are grouped.
+    """
     rows = "\n".join(
-        f'<tr><th><a href="{_href(job_hrefs[job.name])}">{html.escape(job.name or "results")}</a></th>'
+        f'<tr><th><a href="{_href(task_hrefs[job.task])}">{html.escape(job.name or "results")}</a></th>'
         f'<td class="num">{job.num_episodes}</td>'
         f'<td class="num">{_percent(job.success_rate)}</td></tr>'
         for job in summary.jobs
@@ -169,8 +174,8 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, job_hrefs: dict[str, 
     )
 
 
-def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hrefs: dict[str, str]) -> str:
-    """Render the overview page."""
+def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
+    """Render the overview page, whose rows descend to a task page whether or not Runs are grouped."""
     tiles = [
         _tile("Tasks", str(len(summary.tasks))),
         _tile("Runs", str(len(summary.jobs))),
@@ -188,7 +193,9 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str], job_hre
             )
         )
 
-    body = _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, job_hrefs)
+    body = (
+        _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, task_hrefs)
+    )
     content = (
         f'<div class="tiles">{"".join(tiles)}</div>'
         f"{_render_failed_runs_section(summary.run_executions)}"

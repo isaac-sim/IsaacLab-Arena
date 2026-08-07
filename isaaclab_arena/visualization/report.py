@@ -125,13 +125,11 @@ def build_report(
     # points at can never disagree.
     task_hrefs = {name: f"task_{slug}.html" for name, slug in unique_slugs([t.name for t in summary.tasks]).items()}
     job_page_hrefs = _job_page_hrefs(summary, episodes_per_page)
-    job_hrefs = {name: pages[0] for name, pages in job_page_hrefs.items()}
     episode_hrefs = _episode_hrefs(summary, job_page_hrefs, episodes_per_page)
 
     index_html = render_index(
         summary,
         task_hrefs={name: f"{PAGES_DIRNAME}/{href}" for name, href in task_hrefs.items()},
-        job_hrefs={name: f"{PAGES_DIRNAME}/{href}" for name, href in job_hrefs.items()},
     )
     output = video_dir / "index.html"
     output.write_text(index_html, encoding="utf-8")

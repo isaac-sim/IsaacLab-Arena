@@ -17,7 +17,7 @@ runs:
       remote_port: 8000
       openpi_embodiment_adapter: droid
     rollout_limit:
-      num_episodes: 1
+      num_episodes: 5
 
   banana_in_bowl_pi0:
     environment:
@@ -25,4 +25,4 @@ runs:
       enable_cameras: true
     policy: *openpi_policy
     rollout_limit:
-      num_episodes: 1
+      num_episodes: 5
