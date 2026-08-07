@@ -55,7 +55,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="Multi-Node Evaluation" href="../multi_node_evaluation/multi_node_evaluation.html" />
-    <link rel="prev" title="Variations" href="../analysis/variations.html" />
+    <link rel="prev" title="Run an Evaluation" href="../analysis/variations.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -366,7 +366,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../analysis/index.html">Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Run an Evaluation</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
 </ul>
@@ -570,10 +570,10 @@ improve the policy’s robustness.</p></li>
 <li><p><strong>Compare policies.</strong> Repeat the same sweep for multiple policies and compare their sensitivity
 alongside their overall success rates.</p></li>
 </ul>
-<p>This workflow continues from <a class="reference internal" href="../analysis/variations.html"><span class="doc">Variations</span></a>. It uses the saved episode
-results to estimate the posterior distribution over wrist-camera offsets conditioned on success.
-Arena models the selected factors together, then displays one marginal posterior for each camera
-axis. This is not a success-rate-versus-offset plot.</p>
+<p>This workflow continues from <a class="reference internal" href="../analysis/variations.html"><span class="doc">Run an Evaluation</span></a>. It uses the saved
+episode results to estimate the posterior distribution over wrist-camera offsets conditioned on
+success. Arena models the selected factors together, then displays one marginal posterior for each
+camera axis. This is not a success-rate-versus-offset plot.</p>
 <p>The earlier sweep is deliberately small: it demonstrates the workflow, but it is not enough to
 judge the policy’s robustness. For background on the method, see the <a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html"><span class="doc">Sensitivity Analysis
 concept page</span></a>.</p>
@@ -586,10 +586,10 @@ concept page</span></a>.</p>
 <span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/camera_sensitivity_posterior.png&quot;</span>
 </pre></div>
 </div>
-<p>To start here without running the Variations workflow, download the saved episode results:</p>
+<p>To start here without running the evaluation workflow, download the saved episode results:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Download episode results (skip Variations workflow)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<span class="sd-summary-text">Download episode results (skip evaluation workflow)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <p class="sd-card-text">These commands download a small sample of episode results from the camera-sensitivity
 experiment, so you can follow this workflow without first running the variation sweep.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -606,8 +606,8 @@ hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</sp
 </pre></div>
 </div>
 </div>
-</details><p>Whether generated by the Variations workflow or downloaded above, the results are stored in the
-output directory configured on the Evaluation page. Run:</p>
+</details><p>Whether generated by the evaluation workflow or downloaded above, the results are stored in
+<code class="docutils literal notranslate"><span class="pre">${RUN_OUTPUT_DIRECTORY}</span></code>. Run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.analysis.sensitivity.generate_report<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--episode_results<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">EPISODE_RESULTS_PATH</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--outcome<span class="w"> </span>success<span class="w"> </span><span class="se">\</span>
@@ -636,7 +636,7 @@ xdg-open<span class="w"> </span><span class="s2">&quot;</span><span class="si">$
 <a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_posterior.png"><img alt="Posterior marginals for the three wrist-camera position offsets conditioned on success" src="../../../_images/droid_camera_sensitivity_posterior.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Posterior marginals generated from the small camera-position sweep in the Variations workflow.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">Posterior marginals generated from the small camera-position sweep in the evaluation workflow.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p>Each panel shows the marginal posterior for one component of the wrist-camera offset, measured in
@@ -670,11 +670,12 @@ tested range.</p>
 necessarily form the best combined camera position: one offset may compensate for another. Use a
 joint or pairwise posterior view before choosing a new three-dimensional mounting transform.</p>
 </section>
-<section id="scale-up-with-a-multi-node-experiment">
-<h2>Scale up with a multi-node experiment<a class="headerlink" href="#scale-up-with-a-multi-node-experiment" title="Link to this heading">#</a></h2>
-<p>The local sweep demonstrates how recorded episodes become posterior marginals. The upcoming
-<strong>Multi-node Experiment</strong> workflow will introduce Arena’s distributed experiment runner and show
-how to collect more episode results across compute nodes.</p>
+<section id="scale-up-with-a-multi-node-evaluation">
+<h2>Scale up with a multi-node evaluation<a class="headerlink" href="#scale-up-with-a-multi-node-evaluation" title="Link to this heading">#</a></h2>
+<p>The local sweep demonstrates how recorded episodes become posterior marginals. Sensitivity
+analysis typically needs many rollouts for a reliable estimate. Continue to <a class="reference internal" href="../multi_node_evaluation/multi_node_evaluation.html"><span class="doc">Multi-Node
+Evaluation</span></a> to distribute a larger sweep across
+a cluster and analyze its collected results.</p>
 </section>
 </section>
 
@@ -694,7 +695,7 @@ how to collect more episode results across compute nodes.</p>
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Variations</p>
+        <p class="prev-next-title">Run an Evaluation</p>
       </div>
     </a>
     <a class="right-next"
@@ -730,7 +731,7 @@ how to collect more episode results across compute nodes.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#estimate-the-success-conditioned-posterior">Estimate the success-conditioned posterior</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#read-the-posterior-marginals">Read the posterior marginals</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#turn-the-posterior-into-practical-takeaways">Turn the posterior into practical takeaways</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scale-up-with-a-multi-node-experiment">Scale up with a multi-node experiment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scale-up-with-a-multi-node-evaluation">Scale up with a multi-node evaluation</a></li>
 </ul>
   </nav></div>
 

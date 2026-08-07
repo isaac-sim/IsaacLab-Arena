@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Variations &#8212; isaaclab_arena</title>
+    <title>Run an Evaluation &#8212; isaaclab_arena</title>
   
   
   
@@ -366,7 +366,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Variations</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Run an Evaluation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
 </ul>
@@ -537,7 +537,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Evaluation</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Variations</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Run an Evaluation</span></li>
   </ul>
 </nav>
 </div>
@@ -554,11 +554,11 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="variations">
-<h1>Variations<a class="headerlink" href="#variations" title="Link to this heading">#</a></h1>
-<p>Sensitivity analysis starts with simulated data from a controlled variation sweep. An Arena
-experiment runs the same policy and task repeatedly, samples the selected environment conditions,
-and records both the sampled values and the outcome of each episode.</p>
+  <section id="run-an-evaluation">
+<h1>Run an Evaluation<a class="headerlink" href="#run-an-evaluation" title="Link to this heading">#</a></h1>
+<p>An Arena evaluation runs the same policy and task repeatedly and records the outcome of each
+episode. In this workflow, Arena also samples a controlled change to the environment: the
+wrist-camera position.</p>
 <section id="collect-data-with-a-controlled-variation-sweep">
 <h2>Collect data with a controlled variation sweep<a class="headerlink" href="#collect-data-with-a-controlled-variation-sweep" title="Link to this heading">#</a></h2>
 <p>To get started, this example runs a small 10-episode sweep with an OpenPI policy on the Rubik’s-cube
@@ -567,10 +567,11 @@ and lighting remain fixed. The camera offset is drawn independently along three 
 -30 mm and 30 mm. Larger sweeps are needed for reliable sensitivity conclusions, but 10 episodes
 are enough to walk through the workflow.</p>
 <figure class="align-center" id="id1">
-<a class="reference internal image-reference" href="../../../_images/droid_wrist_camera_position_variations.gif"><img alt="Wrist-camera views sampled from different camera positions" src="../../../_images/droid_wrist_camera_position_variations.gif" style="width: 100%;" />
+<a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_run_high_quality_cropped.gif"><img alt="Accelerated Kit viewport showing DROID OpenPI Rubik's-cube pick-and-place rollouts" src="../../../_images/droid_camera_sensitivity_run_high_quality_cropped.gif" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Wrist-camera views from different sampled camera positions.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">The DROID arm performs repeated Rubik’s-cube pick-and-place attempts while Arena resets the task
+and samples a new wrist-camera position for each episode.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p>The experiment is defined by this configuration:</p>
@@ -619,6 +620,9 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</
 the repository root:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--record_camera_video<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--serve_evaluation_report<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--evaluation_report_port<span class="w"> </span><span class="m">8001</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 </pre></div>
@@ -626,23 +630,54 @@ the repository root:</p>
 <p>At each episode reset, Arena samples a new wrist-camera position. OpenPI then uses observations from
 that shifted camera to control the arm through the pick-and-place attempt.</p>
 <figure class="align-center" id="id2">
-<a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_run_high_quality_cropped.gif"><img alt="Accelerated Kit viewport showing DROID OpenPI Rubik's-cube pick-and-place rollouts" src="../../../_images/droid_camera_sensitivity_run_high_quality_cropped.gif" style="width: 100%;" />
+<a class="reference internal image-reference" href="../../../_images/droid_wrist_camera_position_variations.gif"><img alt="Wrist-camera views sampled from different camera positions" src="../../../_images/droid_wrist_camera_position_variations.gif" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">The DROID arm performs repeated Rubik’s-cube pick-and-place attempts while Arena resets the task
-and samples a new wrist-camera position for each episode.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+<p><span class="caption-text">Wrist-camera views from different sampled camera positions.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>The runner writes the episode results to:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>${CAMERA_SENSITIVITY_OUTPUT_DIR}/droid_pnp_camera_sensitivity_openpi/episode_results_rebuild0.jsonl
+</section>
+<section id="review-the-evaluation-report">
+<h2>Review the evaluation report<a class="headerlink" href="#review-the-evaluation-report" title="Link to this heading">#</a></h2>
+<p>After the final episode, the runner prints the aggregate metrics and the address of the evaluation
+report. The run shown on this page produced:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
+METRICS SUMMARY
+======================================================================
+
+droid_pnp_camera_sensitivity_openpi:
+  num_episodes                           10
+  object_moved_rate                  0.9000
+  success_rate                       1.0000
+======================================================================
+
+Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: /eval/camera_sensitivity_workflow/index.html (+2 linked page(s))
+Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 </pre></div>
 </div>
-<p>The JSONL file contains one object per completed episode with its sampled variation values and
-outcome.</p>
+<p>Your metrics may differ. On the host, open
+<a class="reference external" href="http://localhost:8001/index.html">http://localhost:8001/index.html</a> in a browser. The landing
+page summarizes the runs in the experiment and their episode success rates. Select the task to
+open its run overview:</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../../_images/droid_camera_sensitivity_evaluation_report_overview.png"><img alt="Evaluation report showing success rate, task progress, and episode outcomes" src="../../../_images/droid_camera_sensitivity_evaluation_report_overview.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The run overview summarizes its success rate, progress through the task objectives, and the
+outcome of each episode.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Select <strong>Open droid_pnp_camera_sensitivity_openpi to watch the videos</strong> to inspect the individual
+episodes. The recording below shows the three DROID camera views for the first episode:</p>
+<figure  class="sphinx-contrib-video-container align-center"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/droid_camera_sensitivity_evaluation_report_episode.mp4" type="video/mp4">Evaluation report episode with external-camera and wrist-camera videos</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">Each episode includes its outcome, task progress, recorded camera views, and sampled variation values.</span></p></figcaption></figure><p>Press <kbd class="kbd docutils literal notranslate">Ctrl</kbd>+<kbd class="kbd docutils literal notranslate">C</kbd> in the Base Docker container when you finish reviewing the report. This stops
+the report server; the HTML pages, videos, and episode results remain in the output directory.</p>
+</section>
+<section id="look-beyond-the-success-rate">
+<h2>Look beyond the success rate<a class="headerlink" href="#look-beyond-the-success-rate" title="Link to this heading">#</a></h2>
+<p>The evaluation report shows how often the policy succeeded and lets you inspect what happened in
+each episode. It does not show how the outcome relates to the sampled wrist-camera positions.</p>
 <p>Continue to <a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html"><span class="doc">Sensitivity Analysis</span></a> to estimate
-and inspect the posterior distribution over camera offsets conditioned on success. The next
-workflow reuses this output directory directly. To continue without running this sweep, use the
-<strong>Download episode results</strong> dropdown there to download sample results instead.</p>
+and inspect the posterior distribution over camera offsets conditioned on success.</p>
 </section>
 </section>
 
@@ -696,6 +731,8 @@ workflow reuses this output directory directly. To continue without running this
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#collect-data-with-a-controlled-variation-sweep">Collect data with a controlled variation sweep</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#review-the-evaluation-report">Review the evaluation report</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#look-beyond-the-success-rate">Look beyond the success rate</a></li>
 </ul>
   </nav></div>
 

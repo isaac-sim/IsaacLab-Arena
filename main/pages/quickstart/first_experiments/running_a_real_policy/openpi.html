@@ -366,7 +366,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../example_workflows/analysis/variations.html">Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
 </ul>
@@ -574,16 +574,22 @@ upstream openpi at a pinned commit on first run) and starts the inference server
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh
 </pre></div>
 </div>
-<p>The first invocation builds <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_openpi-server:latest</span></code> (~3 min,
+<p>The first invocation builds <code class="docutils literal notranslate"><span class="pre">isaaclab_arena:openpi_server</span></code> (~3 min,
 ~19 GB) and then downloads the ~11 GB checkpoint into the container on startup;
 subsequent invocations reuse the cached image. Pass <code class="docutils literal notranslate"><span class="pre">-r</span></code> to force a rebuild,
-<code class="docutils literal notranslate"><span class="pre">-v</span> <span class="pre">pi0</span></code> to serve the pi0 variant instead of pi05, or <code class="docutils literal notranslate"><span class="pre">-s</span> <span class="pre">&lt;path&gt;</span></code> to build
-from a local openpi checkout.</p>
+<code class="docutils literal notranslate"><span class="pre">-v</span> <span class="pre">pi0</span></code> to serve the pi0 variant instead of pi05, or <code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">&lt;port&gt;</span></code> to bind
+the server to a non-default port.</p>
+<p>By default, the wrapper binds to port <code class="docutils literal notranslate"><span class="pre">8000</span></code>. If OpenPI reports that the
+address is already in use, stop the existing process or choose another port:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh<span class="w"> </span>-p<span class="w"> </span><span class="m">8001</span>
+</pre></div>
+</div>
 <p>When you see:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>INFO:websockets.server:server listening on 0.0.0.0:8000
 </pre></div>
 </div>
-<p>the server is ready. Leave the terminal running.</p>
+<p>the server is ready. Leave the terminal running. If you used <code class="docutils literal notranslate"><span class="pre">-p</span></code>, the log
+will show the selected port instead.</p>
 <p>The wrapper passes <code class="docutils literal notranslate"><span class="pre">--policy.config</span></code> (architecture + data transforms) and
 <code class="docutils literal notranslate"><span class="pre">--policy.dir</span></code> (params + normalization stats) for the selected variant; see
 the supported-variants table below for the exact values.</p>
@@ -608,7 +614,8 @@ point the arena policy runner at the server:</p>
 </div>
 <p>Defaults: <code class="docutils literal notranslate"><span class="pre">--openpi_embodiment_adapter</span> <span class="pre">droid</span></code>, <code class="docutils literal notranslate"><span class="pre">--policy_variant</span> <span class="pre">pi05</span></code>,
 <code class="docutils literal notranslate"><span class="pre">--remote_host</span> <span class="pre">localhost</span></code>, <code class="docutils literal notranslate"><span class="pre">--remote_port</span> <span class="pre">8000</span></code>. Pass <code class="docutils literal notranslate"><span class="pre">--remote_host</span></code> if the
-server is on a different machine.</p>
+server is on a different machine. If terminal 1 used a non-default port, pass
+the same value with <code class="docutils literal notranslate"><span class="pre">--remote_port</span></code>.</p>
 <p>The server terminal will start logging connection and inference events as the arena
 Kit window shows the droid arm reacting to pi0’s commanded joint positions.</p>
 <figure class="align-center" id="id2">
@@ -627,7 +634,10 @@ Rubik’s cube and destination bowl, with the home_office_robolab HDR.</span><a 
 </pre></div>
 </div>
 <p>This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
-Each evaluation is run without restarting Isaac Sim to save on the startup time.</p>
+Each evaluation is run without restarting Isaac Sim to save on the startup time.
+If the OpenPI server uses a non-default port, override each OpenPI run’s
+<code class="docutils literal notranslate"><span class="pre">policy.remote_port</span></code> to the same value, for example
+<code class="docutils literal notranslate"><span class="pre">runs.&lt;run_name&gt;.policy.remote_port=8001</span></code>.</p>
 <figure class="align-center" id="id3">
 <a class="reference internal image-reference" href="../../../../_images/openpi_droid_3x3_grid.gif"><img alt="3x3 grid of pi05 DROID runs across different objects, backgrounds, and destinations" src="../../../../_images/openpi_droid_3x3_grid.gif" style="width: 100%;" />
 </a>

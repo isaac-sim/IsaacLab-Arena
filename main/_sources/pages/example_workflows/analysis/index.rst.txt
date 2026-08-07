@@ -6,9 +6,10 @@ workflows turn controlled evaluation sweeps into an answer. Vary factors such as
 lighting, object mass, or table material, record the outcome of each episode, then estimate a joint
 posterior that highlights which factor values are associated with success or failure.
 
-This walkthrough uses an OpenPI policy and varies its wrist-camera position. The Variations
-workflow collects the episode results, and the :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>`
-workflow turns them into a visual report.
+This walkthrough uses an OpenPI policy and varies its wrist-camera position. The
+:doc:`Run an Evaluation <variations>` workflow records the episode results and presents them in an
+HTML report. The :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>`
+workflow then uses the same results to show which camera offsets were associated with success.
 
 Start or enter the Base Docker container from the repository root:
 
@@ -20,7 +21,7 @@ In another terminal on the host, start the OpenPI server from the repository roo
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-Leave the server running while you complete the Variations workflow. You can stop it before
+Leave the server running while you complete the evaluation workflow. You can stop it before
 starting Sensitivity Analysis, which reads the saved episode results directly. For installation,
 model variants, and server options, see
 :doc:`../../quickstart/first_experiments/running_a_real_policy/openpi`.
