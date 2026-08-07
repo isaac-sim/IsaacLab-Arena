@@ -503,9 +503,9 @@ position. Featured in the
    * - **Embodiment**
      - ``kuka_allegro`` (fixed)
    * - **Scene**
-     - ``procedural_table`` background, ``ground_plane``, ``light``
+     - Env-local procedural table (not in ``AssetRegistry``), ``ground_plane``, ``light``
    * - **Objects**
-     - ``procedural_cube`` (randomized initial pose with a wide ``PoseRange``)
+     - Env-local procedural cuboid (not in ``AssetRegistry``; wide ``PoseRange``)
    * - **Task Class**
      - ``DexsuiteLiftTask`` (object_pose command, position-only, resampled every 2–3 s)
    * - **Training Method**
