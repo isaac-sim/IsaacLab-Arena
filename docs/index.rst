@@ -314,12 +314,11 @@ TABLE OF CONTENTS
    :caption: Example Workflows
 
    pages/example_workflows/example_environments
+   pages/example_workflows/analysis/index
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
    pages/example_workflows/agentic_env_gen/index
-   pages/example_workflows/sensitivity_analysis/index
    pages/example_workflows/multi_node_evaluation/index
-   pages/example_workflows/analysis/index
 
 .. toctree::
    :maxdepth: 1

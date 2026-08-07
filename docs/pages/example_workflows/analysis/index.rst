@@ -7,8 +7,8 @@ pose, lighting, object mass, or table material, record the outcome of each episo
 posterior that highlights which factor values are associated with success or failure.
 
 This walkthrough uses an OpenPI policy and varies its wrist-camera position. The Variations
-workflow collects the episode results, and the Sensitivity Analysis workflow turns them into a
-visual report.
+workflow collects the episode results, and the :doc:`Sensitivity Analysis <../sensitivity_analysis/index>`
+workflow turns them into a visual report.
 
 Start or enter the Base Docker container from the repository root:
 

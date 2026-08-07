@@ -143,15 +143,49 @@ The results of the evaluation can also be plotted:
 Large-scale Sensitivity Analysis
 --------------------------------
 
-We covered sensitivity analysis in the ``sensitivity_analysis`` page.
+We covered sensitivity analysis in the :doc:`Sensitivity Analysis <../sensitivity_analysis/index>` page.
 Sensitivity analysis typically requires many rollouts, so it is a good candidate for multi-node execution.
-Here we show how to run a sensitivity analysis on the robolab tasks.
 
-.. todo:: Add the link to the sensitivity analysis page here.
+To run ``pi0.5`` with the wrist camera extrinsics variations enabled run:
 
-Up to here.
+.. code-block:: bash
 
+   python osmo/submit_arena_experiment.py \
+     --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0.yaml \
+     osmo.pool=isaac-dev-l40-03 \
+     osmo.platform=ovx-l40 \
+     osmo.workflow_name=robolab_20tasks_pi_extrinsics \
+     experiment_cfg.shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
+Note that you should replace ``isaac-dev-l40-03`` with your cluster name and ``ovx-l40`` with the model of available compute nodes.
+
+Download the results as described above with a command of the form:
+
+.. code-block:: bash
+
+   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_20tasks_pi_extrinsics-1 <PATH_TO_DOWNLOAD_FOLDER>
+
+Where ``robolab_20tasks_pi_extrinsics-1`` is the workflow name assigned by OSMO during submission.
+
+To analyze the results, for sensitivity to camera extrinsics variations, run:
+
+.. code-block:: bash
+
+   python -m isaaclab_arena.analysis.sensitivity.generate_report \
+     --outcome success \
+     --factors droid_abs_joint_pos.camera_extrinsics_wrist_camera \
+     --output <PATH_TO_DOWNLOAD_FOLDER>/camera_extrinsics_sensitivity_report.png \
+     --episode_results <PATH_TO_DOWNLOAD_FOLDER>/banana_in_bowl_pi0/episode_results_rebuild0.jsonl
+
+Each Run writes its own ``episode_results_rebuild0.jsonl`` under
+``<PATH_TO_DOWNLOAD_FOLDER>/<run_name>/``. Replace ``banana_in_bowl_pi0`` with the Run
+you want to analyze.
+
+.. note::
+
+  Running sensitivity analysis on multi-policy runs is not yet supported.
+  We're working on supporting this in the future on ``main``.
+  Reach out at `Isaac Lab Arena Issues <https://github.com/isaac-sim/IsaacLab-Arena/issues>`_ if you need this now.
 
 
 Adjust the Experiment at submission time
