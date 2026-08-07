@@ -439,6 +439,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../gui_runner.html">Agentic Environment Generation GUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../analysis/index.html">Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -554,8 +555,10 @@
                   
   <section id="edit-the-environment-graph-spec">
 <h1>Edit the Environment Graph Spec<a class="headerlink" href="#edit-the-environment-graph-spec" title="Link to this heading">#</a></h1>
-<p>You may want to review or edit the spec before building the environment. The agent infers the spec from the
-prompt using a LLM model, and may be mistaken in its choices.
+<p>Review the spec before building the environment. The agent infers it from the prompt with an
+LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
+the next run, and a spec that validates can still be mistaken in its choices. See
+<a class="reference internal" href="../model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a> for more details.
 For an object set, check that the members are the assets you expected as those are added based on semantic similarity by the agent.</p>
 <section id="understanding-the-yaml">
 <h2>Understanding the YAML<a class="headerlink" href="#understanding-the-yaml" title="Link to this heading">#</a></h2>

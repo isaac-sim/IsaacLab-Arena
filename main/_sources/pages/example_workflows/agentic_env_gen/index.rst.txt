@@ -36,14 +36,29 @@ Every workflow in this section shares the same setup.
 
 :docker_run_default:
 
-The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:
+The generation agent calls a remote LLM endpoint. Pick one and export its API key
+in the shell you launch the agentic environment generation runner from.
 
 .. code-block:: bash
 
-   export NV_API_KEY=<your-api-key>
+   # Publicly reachable build.nvidia.com endpoint (default)
+   export ARENA_INFERENCE_ENDPOINT=public
+   export NVIDIA_API_KEY=<your-ngc-api-key>
 
-.. todo:: add instructions for obtaining the NVIDIA-hosted service API key (internal and external)
+   # NVIDIA-internal endpoint
+   export ARENA_INFERENCE_ENDPOINT=internal
+   export NV_API_KEY=<your-internal-api-key>
+
+A single run can override the selection with ``--inference_endpoint {internal,public}``.
+
+Generate a key for the public endpoint at
+`build.nvidia.com API keys <https://build.nvidia.com/settings/api-keys>`_, and a key for the
+NVIDIA-internal endpoint at
+`inference.nvidia.com key management <https://inference.nvidia.com/key-management>`_
+(reachable from the NVIDIA network only).
+
+Each endpoint calls a different model, and the generated environment changes with it. See
+:doc:`model_selection` for what the model decides, what Arena validates, and how to select the model.
 
 Available Generated Environments
 --------------------------------
@@ -79,3 +94,4 @@ Warnings
    kitchen_pick_and_place/index
    kitchen_open_door/index
    gui_runner
+   model_selection

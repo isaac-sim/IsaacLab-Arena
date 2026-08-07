@@ -28,6 +28,7 @@ Prerequisites
 ^^^^^^^^^^^^^
 
 See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
+The spec shown here depends on the model behind that endpoint — see :doc:`../model_selection`.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

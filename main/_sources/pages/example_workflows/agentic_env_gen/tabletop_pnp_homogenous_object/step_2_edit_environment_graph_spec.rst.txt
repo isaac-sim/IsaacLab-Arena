@@ -1,8 +1,10 @@
 Edit the Environment Graph Spec
 -------------------------------
 
-You may want to review or edit the spec before building the environment. The agent infers the spec from the
-prompt using a LLM model, and could be mistaken in its choices.
+Review the spec before building the environment. The agent infers it from the prompt with an
+LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
+the next run, and a spec that validates can still be mistaken in its choices. See
+:doc:`../model_selection` for more details.
 You could add or remove objects or change the spatial relationships between objects.
 
 Understanding the YAML

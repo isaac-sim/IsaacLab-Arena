@@ -439,6 +439,7 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="gui_runner.html">Agentic Environment Generation GUI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../analysis/index.html">Analysis</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -583,15 +584,25 @@ The environment can be used for policy evaluation.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">NV_API_KEY</span><span class="o">=</span>&lt;your-api-key&gt;
+<p>The generation agent calls a remote LLM endpoint. Pick one and export its API key
+in the shell you launch the agentic environment generation runner from.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Publicly reachable build.nvidia.com endpoint (default)</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">ARENA_INFERENCE_ENDPOINT</span><span class="o">=</span>public
+<span class="nb">export</span><span class="w"> </span><span class="nv">NVIDIA_API_KEY</span><span class="o">=</span>&lt;your-ngc-api-key&gt;
+
+<span class="c1"># NVIDIA-internal endpoint</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">ARENA_INFERENCE_ENDPOINT</span><span class="o">=</span>internal
+<span class="nb">export</span><span class="w"> </span><span class="nv">NV_API_KEY</span><span class="o">=</span>&lt;your-internal-api-key&gt;
 </pre></div>
 </div>
-<div class="admonition-todo admonition" id="id2">
-<p class="admonition-title">Todo</p>
-<p>add instructions for obtaining the NVIDIA-hosted service API key (internal and external)</p>
-</div>
+<p>A single run can override the selection with <code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span> <span class="pre">{internal,public}</span></code>.</p>
+<p>Generate a key for the public endpoint at
+<a class="reference external" href="https://build.nvidia.com/settings/api-keys">build.nvidia.com API keys</a>, and a key for the
+NVIDIA-internal endpoint at
+<a class="reference external" href="https://inference.nvidia.com/key-management">inference.nvidia.com key management</a>
+(reachable from the NVIDIA network only).</p>
+<p>Each endpoint calls a different model, and the generated environment changes with it. See
+<a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a> for what the model decides, what Arena validates, and how to select the model.</p>
 </section>
 <section id="available-generated-environments">
 <h2>Available Generated Environments<a class="headerlink" href="#available-generated-environments" title="Link to this heading">#</a></h2>

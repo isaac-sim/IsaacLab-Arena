@@ -5,6 +5,10 @@ The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
 ``ArenaEnvGraphSpec`` YAML files.
 
+What comes back depends on the model behind the selected endpoint — see :doc:`model_selection`.
+Use ``--inference_endpoint`` to pick the endpoint the GUI generates with. Since the model is
+non-deterministic, it's important to review and correct what it returns.
+
 Run the GUI from inside the Isaac Lab-Arena development container:
 
 .. code-block:: bash
