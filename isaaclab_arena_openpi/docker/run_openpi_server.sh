@@ -48,55 +48,6 @@ while getopts ":rp:v:h" opt; do
     esac
 done
 
-validate_port() {
-    local port_number
-
-    if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
-        echo "invalid -p port: $PORT (expected an integer from 1 to 65535)" >&2
-        exit 1
-    fi
-    port_number=$((10#$PORT))
-    if (( port_number < 1 || port_number > 65535 )); then
-        echo "invalid -p port: $PORT (expected an integer from 1 to 65535)" >&2
-        exit 1
-    fi
-    PORT="$port_number"
-}
-
-assert_port_available() {
-    if ! command -v python3 >/dev/null 2>&1; then
-        echo "python3 is required to check whether port ${PORT} is available" >&2
-        exit 1
-    fi
-
-    if ! python3 - "$PORT" <<'PY'
-import socket
-import sys
-
-port = int(sys.argv[1])
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    sock.bind(("0.0.0.0", port))
-except OSError:
-    sys.exit(1)
-finally:
-    sock.close()
-PY
-    then
-        cat >&2 <<EOF
-OpenPI server port ${PORT} is already in use.
-Stop the process that is listening on ${PORT}, or choose another port:
-  $(basename "$0") -p <free_port>
-
-When using a non-default port, pass the same value to Arena with --remote_port.
-EOF
-        exit 1
-    fi
-}
-
-validate_port
-assert_port_available
-
 case "$VARIANT" in
     pi05)
         POLICY_CONFIG="pi05_droid_jointpos_polaris"

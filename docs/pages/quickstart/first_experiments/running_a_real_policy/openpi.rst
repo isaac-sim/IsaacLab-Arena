@@ -28,8 +28,8 @@ subsequent invocations reuse the cached image. Pass ``-r`` to force a rebuild,
 ``-v pi0`` to serve the pi0 variant instead of pi05, or ``-p <port>`` to bind
 the server to a non-default port.
 
-By default, the wrapper binds to port ``8000``. If that port is already in use,
-stop the existing process or choose another port:
+By default, the wrapper binds to port ``8000``. If OpenPI reports that the
+address is already in use, stop the existing process or choose another port:
 
 .. code-block:: bash
 
