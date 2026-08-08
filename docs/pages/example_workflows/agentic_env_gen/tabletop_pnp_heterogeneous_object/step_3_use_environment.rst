@@ -18,7 +18,7 @@ Open one terminal and run the following command outside the Arena docker contain
 In the other terminal, run the following command to launch the policy runner.
 Keep ``--num_envs`` above one so the policy is evaluated against a different fruit per environment.
 The commands below use the ready-made spec that ships with Arena; to evaluate a spec you generated
-yourself, point ``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 .. tab-set::
 
@@ -37,7 +37,7 @@ yourself, point ``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent
             --enable_cameras \
             --num_envs 12 \
             --num_episodes 12 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
@@ -59,7 +59,7 @@ yourself, point ``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent
             --enable_cameras \
             --num_envs 12 \
             --num_episodes 12 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
       check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:

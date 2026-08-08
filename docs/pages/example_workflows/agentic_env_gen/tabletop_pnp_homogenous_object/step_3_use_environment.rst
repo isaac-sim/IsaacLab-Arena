@@ -17,7 +17,7 @@ Open one terminal and run the following command outside the Arena docker contain
 
 In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 .. tab-set::
 
@@ -36,7 +36,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
@@ -58,7 +58,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
       check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:

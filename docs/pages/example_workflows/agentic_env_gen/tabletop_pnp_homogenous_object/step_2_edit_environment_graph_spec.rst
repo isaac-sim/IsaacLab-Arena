@@ -130,12 +130,12 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

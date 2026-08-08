@@ -8,24 +8,24 @@
 Usage::
 
     # Print the Pydantic ArenaEnvGraphSpec JSON schema (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode schema
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode schema
 
     # Print the catalog sent to the agent (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode catalog
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode catalog
 
     # Print the background prim tree of a graph spec (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \\
-        --mode prim_tree --env_graph_spec_yaml <env>_env_graph.yaml
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \\
+        --mode prim_tree --env_spec <env>_env_graph.yaml
 
     # Resolve a prompt into an environment graph spec YAML (no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode resolve --prompt ...
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode resolve --prompt ...
 
     # Build a gym env from a graph spec YAML and run the zero-action policy:
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode build --headless \\
-        --num_envs 1 --env_graph_spec_yaml <env>_env_graph.yaml
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode build --headless \\
+        --num_envs 1 --env_spec <env>_env_graph.yaml
 
     # Resolve and build in one process:
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode full --headless \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode full --headless \\
         --num_envs 1 --prompt ...
 """
 
@@ -67,9 +67,9 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help=(
             "Which phases to run: 'schema' (print the spec JSON schema and exit), "
             "'catalog' (print the agent catalog and exit), "
-            "'prim_tree' (print the background prim tree of --env_graph_spec_yaml and exit), "
+            "'prim_tree' (print the background prim tree of --env_spec and exit), "
             "'resolve' (prompt -> spec YAML, no Isaac Sim), "
-            "'build' (needs --env_graph_spec_yaml), or 'full' (resolve and build in one process; default). "
+            "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
             "'schema', 'catalog', and 'prim_tree' make no agent call."
         ),
     )
@@ -344,8 +344,8 @@ def build_env_and_run_policy(env_graph_spec_path: Path, args_cli: argparse.Names
 
 
 def _resolved_graph_spec_yaml(args_cli: argparse.Namespace) -> Path:
-    path_arg = args_cli.env_graph_spec_yaml
-    assert path_arg is not None, f"--mode {args_cli.mode} requires --env_graph_spec_yaml"
+    path_arg = args_cli.env_spec
+    assert path_arg is not None, f"--mode {args_cli.mode} requires --env_spec"
     path = Path(path_arg)
     assert path.is_file(), f"env graph spec YAML not found: {path}"
     return path

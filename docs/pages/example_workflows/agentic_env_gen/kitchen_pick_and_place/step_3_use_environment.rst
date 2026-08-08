@@ -15,7 +15,7 @@ Open one terminal and run the following command outside the Arena docker contain
 
 In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 
 **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
@@ -30,7 +30,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
       --enable_cameras \
       --num_envs 1 \
       --num_episodes 2 \
-      --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+      --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
 .. figure:: ../../../../images/droid_kitchen_pnp_pi.gif
    :width: 100%
