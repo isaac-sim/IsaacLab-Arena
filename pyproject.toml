@@ -112,8 +112,12 @@ openpi = [
 ]
 
 [tool.uv]
-# Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# Arena officially supports Linux x86_64; aarch64 (e.g. DGX Spark) is being
+# tried experimentally here since isaacsim now publishes aarch64 wheels.
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
 # Install the source-based sim stack (Isaac Lab editable from the submodule)
 # and the remote OpenPI client on a bare `uv sync`.
 default-groups = ["isaaclab-from-source", "openpi"]
@@ -192,10 +196,18 @@ name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
 [tool.uv.sources]
 # torch / torchvision / torchaudio are pulled transitively by the isaaclab
-# wheel; steer them to the CUDA 12.8 index (Linux x86_64 is the only supported
-# platform, see `environments` above).
+# wheel; steer them to a CUDA index matching the platform: cu128 on x86_64,
+# cu130 on aarch64 (e.g. DGX Spark / GB10 Blackwell) -- the cu128 build's
+# bundled nvrtc does not recognize Blackwell's compute capability and fails
+# JIT-compiling kernels with "nvrtc: error: invalid value for
+# --gpu-architecture (-arch)" at runtime.
 # mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
 # prereleases, so route it to PyPI.
 # isaacteleop (pulled by isaaclab-teleop in the isaaclab-from-source flavor): the
@@ -204,9 +216,18 @@ explicit = true
 # build installs).
 mujoco-usd-converter = { index = "pypi" }
 isaacteleop = { index = "pypi" }
-torch = { index = "pytorch-cu128" }
-torchvision = { index = "pytorch-cu128" }
-torchaudio = { index = "pytorch-cu128" }
+torch = [
+    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
+    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
+]
+torchvision = [
+    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
+    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
+]
+torchaudio = [
+    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
+    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
+]
 # In the isaaclab-from-source flavor the Isaac Lab packages come editable from the
 # submodule checkout (one entry per source/isaaclab* package, mirroring
 # submodules/IsaacLab/pyproject.toml). When the group is inactive these
