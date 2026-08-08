@@ -126,7 +126,7 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \

@@ -48,7 +48,7 @@ The agent runs in two modes:
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --prompt "Droid picks up the banana from the maple table and places it on the plate. There are two bagels and one bowl on the table."
 

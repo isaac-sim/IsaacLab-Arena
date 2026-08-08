@@ -71,7 +71,7 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --prompt "There is a center-right counter top and a floor in the lightwheel_robocasa_kitchen background. DROID picks up a mustard bottle on the counter top and places it in a bowl. DROID is next to the counter top and on the floor."
 

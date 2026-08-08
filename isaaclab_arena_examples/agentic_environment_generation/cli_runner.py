@@ -8,24 +8,24 @@
 Usage::
 
     # Print the Pydantic ArenaEnvGraphSpec JSON schema (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode schema
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode schema
 
     # Print the catalog sent to the agent (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode catalog
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode catalog
 
     # Print the background prim tree of a graph spec (no agent call, no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \\
         --mode prim_tree --env_spec <env>_env_graph.yaml
 
     # Resolve a prompt into an environment graph spec YAML (no Isaac Sim):
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode resolve --prompt ...
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode resolve --prompt ...
 
     # Build a gym env from a graph spec YAML and run the zero-action policy:
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode build --headless \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode build --headless \\
         --num_envs 1 --env_spec <env>_env_graph.yaml
 
     # Resolve and build in one process:
-    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode full --headless \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode full --headless \\
         --num_envs 1 --prompt ...
 """
 

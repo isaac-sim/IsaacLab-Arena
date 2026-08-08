@@ -115,7 +115,7 @@ surfaces. List them from the background prim tree — the set of prims the agent
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode prim_tree \
             --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml \
             | grep counter
@@ -190,7 +190,7 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \
