@@ -33,6 +33,11 @@ class SpecInference:
     def __init__(self, inference_backend: InferenceBackend):
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
+        self.last_infer_stats: dict[str, Any] = {
+            "num_calls": 0,
+            "num_retries": 0,
+            "retry_errors": [],
+        }
 
     def infer(
         self,
@@ -64,7 +69,10 @@ class SpecInference:
         )
         user_message = base_user_message
         data: dict[str, Any] = {}
+        retry_errors: list[str] = []
+        num_calls = 0
         for call_index in range(MAX_SPEC_INFERENCE_CALLS):
+            num_calls += 1
             data = self._inference_backend.run_json(
                 StructuredOutputRequest(
                     schema_name="ArenaEnvGraphSpec",
@@ -86,16 +94,28 @@ class SpecInference:
                 spec = None
                 validation_traces = format_validation_error(exc)
             if spec is not None and not validation_traces:
+                self.last_infer_stats = {
+                    "num_calls": num_calls,
+                    "num_retries": len(retry_errors),
+                    "retry_errors": list(retry_errors),
+                }
                 return spec, data
             if call_index + 1 < MAX_SPEC_INFERENCE_CALLS:
+                error_text = "; ".join(validation_traces)
+                retry_errors.append(error_text)
                 print(
                     f"[generate_spec] critic retry {call_index + 1}/{MAX_SPEC_INFERENCE_CALLS - 1} "
-                    f"after validation failed: {'; '.join(validation_traces)}",
+                    f"after validation failed: {error_text}",
                     flush=True,
                 )
                 user_message = self._critic_user_message(base_user_message, data, validation_traces)
                 continue
             traces.extend(validation_traces)
+        self.last_infer_stats = {
+            "num_calls": num_calls,
+            "num_retries": len(retry_errors),
+            "retry_errors": list(retry_errors),
+        }
         return None, data
 
     @staticmethod
