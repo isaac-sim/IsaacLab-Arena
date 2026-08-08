@@ -36,7 +36,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ax
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
-    panorama_cache_dir,
     pump_app,
     set_viewport_camera_eye_lookat,
     thumbnail_cache_dir,
@@ -47,7 +46,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 
 PANORAMA_CAMERA_PRIM_PATH = "/World/_ReviewPanoramaCamera"
-PANORAMA_EYE_HEIGHT_M = 1.35
+PANORAMA_EYE_HEIGHT_M = 1.55
 PANORAMA_ROTATION_XYZ_DEG = (90.0, 0.0, 0.0)
 # Extra pump frames after restoring the pinhole camera so the RTX renderer drops the
 # fisheyeSpherical projection before an object_reference is captured on the same stage.
@@ -85,7 +84,6 @@ def render_thumbnails_with_app(
     background_viewer_cfg = assets_by_node_id[spec.background.id].get_viewer_cfg()
 
     cache_dir = thumbnail_cache_dir()
-    panorama_dir = panorama_cache_dir()
 
     thumbnail_paths: dict[str, Path] = {}
     jobs_by_usd: dict[str, _UsdSnapshotJob] = {}
@@ -95,7 +93,7 @@ def render_thumbnails_with_app(
     for node_id, usd_path in asset_paths.items():
         use_panorama = background_panorama and node_id == spec.background.id
         if use_panorama:
-            cache_path = panorama_dir / f"{usd_cache_key(usd_path)}_panorama.png"
+            cache_path = cache_dir / f"{usd_cache_key(usd_path)}_panorama.png"
             if cache_path.exists() and cache_path.stat().st_size > 0:
                 thumbnail_paths[node_id] = cache_path
             else:

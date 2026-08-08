@@ -238,7 +238,7 @@ class ReplicatorKitchenBackground(LibraryBackground):
     object_min_z = -0.2
 
     def get_viewer_cfg(self) -> ViewerCfg:
-        return ViewerCfg(eye=(0.0, -1.0, 1.35), lookat=(0.0, 0.0, 1.35))
+        return ViewerCfg(eye=(0.0, -1.0, 1.65), lookat=(0.0, 0.0, 1.35))
 
 
 @register_asset

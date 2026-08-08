@@ -22,10 +22,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     SimAppError,
     simapp_socket_from_env,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
-    panorama_cache_dir,
-    thumbnail_cache_dir,
-)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import thumbnail_cache_dir
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     clear_simapp_client,
     ensure_simapp,
@@ -138,7 +135,7 @@ def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard]) -> None:
 
 def clear_snapshot_render_caches() -> int:
     """Delete cached review GUI snapshot PNGs and return how many files were removed."""
-    paths = [path for cache_dir in (thumbnail_cache_dir(), panorama_cache_dir()) for path in cache_dir.glob("*.png")]
+    paths = list(thumbnail_cache_dir().glob("*.png"))
     for path in paths:
         path.unlink()
     return len(paths)

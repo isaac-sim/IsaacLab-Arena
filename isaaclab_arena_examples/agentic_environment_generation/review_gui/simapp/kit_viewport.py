@@ -16,7 +16,6 @@ CAPTURE_DONE_TAIL_UPDATES = 3
 # Upper bound on number of frames to wait for the capture PNG to be written to disk.
 CAPTURE_WAIT_MAX_UPDATES = 60
 THUMBNAIL_CACHE_SUBDIR = "agentic_env_gen_thumbnails"
-PANORAMA_CACHE_SUBDIR = "agentic_env_gen_panorama_thumbnails"
 SIM_PREVIEW_CACHE_SUBDIR = "agentic_env_gen_sim_preview"
 
 
@@ -28,13 +27,8 @@ def review_gui_cache_dir(subdir: str) -> Path:
 
 
 def thumbnail_cache_dir() -> Path:
-    """Cache directory for per-node USD thumbnail PNGs."""
+    """Cache directory for per-node USD thumbnail and panorama PNGs."""
     return review_gui_cache_dir(THUMBNAIL_CACHE_SUBDIR)
-
-
-def panorama_cache_dir() -> Path:
-    """Cache directory for background 360 panorama PNGs."""
-    return review_gui_cache_dir(PANORAMA_CACHE_SUBDIR)
 
 
 def sim_preview_cache_dir() -> Path:
