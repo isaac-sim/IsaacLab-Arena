@@ -5,6 +5,8 @@
 
 """Debug drawing utilities for Isaac Sim visualization."""
 
+from __future__ import annotations
+
 # Default color for all bounding boxes (bright green)
 DEFAULT_COLOR = (0.0, 1.0, 0.0, 1.0)
 

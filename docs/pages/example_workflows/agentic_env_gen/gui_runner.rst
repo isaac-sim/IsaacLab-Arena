@@ -61,8 +61,8 @@ Sim preview
    Runs the full Arena environment construction from YAML, relation
    solving, and zero-action rollout in a SimulationApp side process.
    Controls let you set the number of parallel environments, zero-action steps,
-   and environment spacing. The result shows the viewport at the start and after
-   the requested rollout steps.
+   and environment spacing. The preview uses the task's default viewer
+   configuration and displays a viewport video of the rollout.
 
 Editing and Update Flow
 -----------------------
@@ -82,4 +82,4 @@ The main update flow is:
 #. Click ``Run relation solver preview`` to manually trigger the simulation
    preview. This action sends the current editor text to the SimApp preview
    service, builds the Arena environment, solves relations, runs the configured
-   zero-action rollout, and displays two viewport captures.
+   zero-action rollout, and displays the recorded viewport video.

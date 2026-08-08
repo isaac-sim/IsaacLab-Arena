@@ -12,11 +12,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 
 
 def render_sim_preview_panel(validation: SpecParseResult) -> None:
-    """Sim-preview controls and viewport frame display in the right column."""
+    """Sim-preview controls and viewport video display in the right column."""
     st.subheader("Sim preview")
     st.caption(
         "Runs to_arena_env → relation solver, then zero-action steps. "
-        "Viewport captures use a world-frame overview of the full env grid."
+        "The viewport recording uses the task's default viewer configuration."
     )
 
     preview_cols = st.columns(3)
@@ -32,7 +32,7 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
     with preview_cols[1]:
         num_steps = st.number_input(
             "Zero-action steps",
-            min_value=0,
+            min_value=1,
             max_value=1000,
             step=1,
             key="sim_preview_num_steps",
@@ -72,15 +72,9 @@ def render_sim_preview_panel(validation: SpecParseResult) -> None:
         else:
             st.error(f"Sim preview failed\n\n```\n{message}\n```", icon="🛑")
 
-    first_frame = st.session_state.get("sim_preview_first")
-    last_frame = st.session_state.get("sim_preview_last")
+    video = st.session_state.get("sim_preview_video")
     run_params = st.session_state.get("sim_preview_run_params") or {}
     displayed_steps = int(run_params.get("num_steps", num_steps))
-    if first_frame and last_frame:
-        frame_cols = st.columns(2)
-        with frame_cols[0]:
-            st.caption("Viewport — frame 1 (after reset)")
-            st.image(first_frame, width="stretch")
-        with frame_cols[1]:
-            st.caption(f"Viewport — frame 2 (after {displayed_steps} zero-action steps)")
-            st.image(last_frame, width="stretch")
+    if video:
+        st.caption(f"Viewport video — {displayed_steps} zero-action steps")
+        st.video(video, format="video/mp4")

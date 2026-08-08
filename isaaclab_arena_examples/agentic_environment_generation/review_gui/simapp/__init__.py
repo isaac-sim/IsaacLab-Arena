@@ -3,4 +3,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Review GUI SimApp subprocess (boot, client, server, asset USD, kit viewport, thumbnails, sim preview)."""
+"""Review GUI SimApp subprocess (boot, client, server, asset USD, kit viewport, axis overlay, thumbnails, sim preview)."""
