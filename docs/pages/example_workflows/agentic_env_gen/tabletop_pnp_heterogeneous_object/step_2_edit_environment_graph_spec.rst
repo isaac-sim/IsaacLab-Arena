@@ -138,7 +138,7 @@ Applying your edits
             --viz kit \
             --num_envs 4 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

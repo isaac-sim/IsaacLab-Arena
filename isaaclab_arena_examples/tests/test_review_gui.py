@@ -233,14 +233,14 @@ class TestParseArgs:
     def test_defaults_to_none_spec_path(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py"])
         args = parse_args()
-        assert args.env_graph_spec_yaml is None
+        assert args.env_spec is None
 
-    def test_parses_env_graph_spec_yaml(self, monkeypatch, tmp_path: Path):
+    def test_parses_env_spec(self, monkeypatch, tmp_path: Path):
         spec_path = tmp_path / "spec.yaml"
         spec_path.write_text("env_name: x\n", encoding="utf-8")
-        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_graph_spec_yaml", str(spec_path)])
+        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_spec", str(spec_path)])
         args = parse_args()
-        assert args.env_graph_spec_yaml == spec_path
+        assert args.env_spec == spec_path
 
     def test_parses_out_dir(self, monkeypatch, tmp_path: Path):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--out_dir", str(tmp_path / "generated")])

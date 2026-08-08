@@ -319,7 +319,7 @@ def test_graph_spec_yaml_environment_builds_legacy_cfg(tmp_path):
     run = experiment_cfg.runs["graph_run"]
 
     assert run.environment == LegacyGraphEnvironmentCfg(
-        env_graph_spec_yaml_path="robolab/tasks/banana_in_bowl.yaml",
+        env_spec_path="robolab/tasks/banana_in_bowl.yaml",
         per_run_overrides={"pick_up_object": "banana"},
     )
     assert run.policy == ZeroActionPolicyCfg()

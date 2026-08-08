@@ -90,7 +90,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
 
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
-    assert run.environment.env_graph_spec_yaml_path == str(graph_path)
+    assert run.environment.env_spec_path == str(graph_path)
     assert run.environment.per_run_overrides == {"enable_cameras": True, "object": "dex_cube"}
 
 
@@ -108,7 +108,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
         },
         device="cuda:1",
     )
-    parsed_args = SimpleNamespace(env_graph_spec_yaml=str(graph_path))
+    parsed_args = SimpleNamespace(env_spec=str(graph_path))
     expected_arena_env = object()
     expected_builder = object()
     captured = {}
@@ -120,8 +120,8 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
 
     monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
 
-    def get_arena_env(env_graph_spec_yaml, args_cli):
-        captured["env_graph_spec_yaml"] = env_graph_spec_yaml
+    def get_arena_env(env_spec, args_cli):
+        captured["env_spec"] = env_spec
         captured["args_cli"] = args_cli
         return expected_arena_env
 
@@ -145,10 +145,10 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
 
     assert builder is expected_builder
     assert captured["arguments"] == legacy_environment_args_to_cli_args(
-        {"environment": run.environment.env_graph_spec_yaml_path, **run.environment.per_run_overrides}
+        {"environment": run.environment.env_spec_path, **run.environment.per_run_overrides}
     )
     assert captured["args_cli"] is parsed_args
-    assert captured["env_graph_spec_yaml"] == str(graph_path)
+    assert captured["env_spec"] == str(graph_path)
     # The Run's typed builder config crosses the boundary directly, so device and
     # language_instruction never round-trip through the argparse namespace.
     assert captured["builder_cfg"] is run.environment_builder

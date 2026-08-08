@@ -16,7 +16,7 @@ Run inside the container (example with a registered example environment):
 Or against a graph spec:
 
     /isaac-sim/python.sh isaaclab_arena/scripts/run_placement_pool_validation.py --headless \\
-        --num_envs 4 --env_graph_spec_yaml path/to/spec.yaml
+        --num_envs 4 --env_spec path/to/spec.yaml
 """
 
 from __future__ import annotations
