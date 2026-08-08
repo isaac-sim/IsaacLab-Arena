@@ -571,8 +571,8 @@ embodiment, their relations, the anchors, and the fixed obstacles.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">RelationSolver</span></code> optimizes those poses against the spatial relations and
 collision constraints.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> applies post-solve <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings and sends the
-candidates to validators, which check geometric and task-specific conditions
-at build time.</p></li>
+candidates to <a class="reference internal" href="validation.html"><span class="doc">validators</span></a>, which check geometric and
+task-specific conditions at build time.</p></li>
 </ol>
 <section id="example-walkthrough">
 <h3>Example Walkthrough<a class="headerlink" href="#example-walkthrough" title="Link to this heading">#</a></h3>
@@ -609,7 +609,7 @@ poses for the objects.</p></li>
 <code class="docutils literal notranslate"><span class="pre">On</span></code> relations while penalizing collisions. The table remains fixed.</p></li>
 <li><p><strong>Post-processing and validation:</strong> this example has no <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> relation,
 so no relation-derived heading is applied. <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> sends the
-resulting candidates to the configured validators.</p></li>
+resulting candidates to the configured <a class="reference internal" href="validation.html"><span class="doc">validators</span></a>.</p></li>
 </ol>
 </section>
 </section>
@@ -687,15 +687,14 @@ footprint for placement; the robot arm is excluded from those bounds.</p>
 </pre></div>
 </div>
 <p>This example uses the Droid stand footprint for geometric placement.
-Reachability, when configured by a task, is checked separately during candidate
-validation.</p>
+Reachability, when configured by a task, is checked separately during
+candidate validation — see the <a class="reference internal" href="validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a> check.</p>
 </section>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
-<p>Continue to <a class="reference internal" href="validation.html"><span class="doc">Placement Validation</span></a>, currently a placeholder for forthcoming
-documentation on build-time candidate validation and in-simulation physics
-validation.</p>
+<p>Continue to <a class="reference internal" href="validation.html"><span class="doc">Placement Validation</span></a> to see how candidates from these four steps
+are checked and either kept or rejected before they enter the placement pool.</p>
 </section>
 </section>
 

@@ -617,18 +617,16 @@ check. <code class="docutils literal notranslate"><span class="pre">ik_reachable
 <p>A low <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> ratio means most sampled layouts put the fruit or the bowl outside the arm’s
 workspace, and the placer keeps resampling. Expect the rate to vary with the sampled set member.
 When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.</p>
-<div class="admonition-todo admonition" id="id2">
-<p class="admonition-title">Todo</p>
-<p>add link to reachability concept page</p>
+<p>See <a class="reference internal" href="../../../concepts/object_placement/validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a> for how this check is registered, what it requires, and how to tune
+or disable it.</p>
 </div>
 </div>
-</div>
-<figure class="align-center" id="id3">
+<figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../../../_images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif"><img alt="Policy evaluation of the generated environment using the OpenPI policy." src="../../../../_images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Policy evaluation of the generated environment using the OpenPI policy with reachability validation.
-The robot picks up the fruit and places it into the bowl in each parallel environment.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+The robot picks up the fruit and places it into the bowl in each parallel environment.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>

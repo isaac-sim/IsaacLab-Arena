@@ -71,7 +71,8 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
       workspace, and the placer keeps resampling.
       When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
 
-      .. todo:: add link to reachability concept page
+      See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
+      or disable it.
 
 .. figure:: ../../../../images/agentic_env_droid_pi_banana_plate_pnp_run1.gif
    :width: 100%
