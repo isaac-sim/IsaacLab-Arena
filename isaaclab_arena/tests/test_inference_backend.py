@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    EXTERNAL_ENDPOINT,
     INFERENCE_ENDPOINT_ENV_VAR,
     INTERNAL_ENDPOINT,
     PUBLIC_ENDPOINT,
@@ -50,6 +51,7 @@ def clean_endpoint_env(monkeypatch):
     monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
     monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
     monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
+    monkeypatch.delenv(EXTERNAL_ENDPOINT.api_key_env_var, raising=False)
 
 
 class TestResolveInferenceEndpoint:
@@ -108,6 +110,14 @@ class TestInit:
         monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
         with pytest.raises(AssertionError, match=f"set {INTERNAL_ENDPOINT.api_key_env_var}"):
             InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
+
+    def test_external_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
+        mock_cls, _ = stub_openai
+        monkeypatch.setenv(EXTERNAL_ENDPOINT.api_key_env_var, "external-key")
+        backend = InferenceBackend(endpoint=EXTERNAL_ENDPOINT.name)
+        assert backend.endpoint == EXTERNAL_ENDPOINT
+        assert backend.model == EXTERNAL_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="external-key", base_url=EXTERNAL_ENDPOINT.base_url)
 
     def test_custom_model_and_base_url(self, stub_openai):
         mock_cls, _ = stub_openai
