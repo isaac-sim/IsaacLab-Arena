@@ -10,14 +10,17 @@ from __future__ import annotations
 import copy
 import json
 import os
+import time
+from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
+EXTERNAL_RATE_LIMIT_FALLBACK_S = 20.0
 
 INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
 INTERNAL_MODEL = "azure/anthropic/claude-opus-4-8"
@@ -25,7 +28,7 @@ PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
 PUBLIC_MODEL = "openai/gpt-oss-120b"
 # If you cannot access the model in your region, you can try the "nvidia/nemotron-3-super-120b-a12b" model.
 EXTERNAL_BASE_URL = "https://api.openai.com/v1"
-EXTERNAL_MODEL = "gpt-5.5"
+EXTERNAL_MODEL = "gpt-5.6-terra"
 
 INFERENCE_ENDPOINT_ENV_VAR = "ARENA_INFERENCE_ENDPOINT"
 """Environment variable naming the inference endpoint every agentic command uses."""
@@ -39,6 +42,9 @@ class InferenceEndpoint:
     base_url: str
     model: str
     api_key_env_var: str
+    max_tokens_parameter: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
+    supports_temperature: bool = True
+    strict_json_schema: bool = True
 
 
 INTERNAL_ENDPOINT = InferenceEndpoint("internal", INTERNAL_BASE_URL, INTERNAL_MODEL, "NV_API_KEY")
@@ -47,7 +53,15 @@ INTERNAL_ENDPOINT = InferenceEndpoint("internal", INTERNAL_BASE_URL, INTERNAL_MO
 PUBLIC_ENDPOINT = InferenceEndpoint("public", PUBLIC_BASE_URL, PUBLIC_MODEL, "NVIDIA_API_KEY")
 """Publicly reachable build.nvidia.com endpoint, reached with an NGC API key."""
 
-EXTERNAL_ENDPOINT = InferenceEndpoint("external", EXTERNAL_BASE_URL, EXTERNAL_MODEL, "EXTERNAL_API_KEY")
+EXTERNAL_ENDPOINT = InferenceEndpoint(
+    "external",
+    EXTERNAL_BASE_URL,
+    EXTERNAL_MODEL,
+    "EXTERNAL_API_KEY",
+    max_tokens_parameter="max_completion_tokens",
+    supports_temperature=False,
+    strict_json_schema=False,
+)
 """Direct OpenAI API endpoint, reached with an OpenAI API key."""
 
 INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT, EXTERNAL_ENDPOINT)}
@@ -135,7 +149,7 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        _ping(client, resolved_model)
+        _ping(client, inference_endpoint, resolved_model, max_retries)
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -170,19 +184,21 @@ class InferenceBackend:
             if attempt > 0:
                 print(f"[{request.retry_label}] retry {attempt}/{self._max_retries} after: {last_exc}", flush=True)
             try:
-                resp = self._client.chat.completions.create(
+                resp = _create_chat_completion(
+                    self._client,
+                    self._endpoint,
+                    self._max_retries,
                     model=self._model,
                     messages=messages,
                     response_format={
                         "type": "json_schema",
                         "json_schema": {
                             "name": request.schema_name,
-                            "strict": True,
+                            "strict": self._endpoint.strict_json_schema,
                             "schema": request.schema,
                         },
                     },
-                    temperature=self._temperature,
-                    max_tokens=self._max_tokens,
+                    **_completion_options(self._endpoint, self._max_tokens, self._temperature),
                 )
                 choices = getattr(resp, "choices", None) or []
                 assert choices, (
@@ -201,6 +217,10 @@ class InferenceBackend:
                 # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
                 # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
                 return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
+            except RateLimitError as exc:
+                last_exc = exc
+                if self._endpoint == EXTERNAL_ENDPOINT:
+                    break
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
@@ -227,23 +247,70 @@ def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
     return schema
 
 
-def _ping(client: OpenAI, model: str) -> str:
+def _completion_options(endpoint: InferenceEndpoint, max_tokens: int, temperature: float) -> dict[str, int | float]:
+    """Return completion arguments supported by the selected endpoint."""
+    options: dict[str, int | float] = {endpoint.max_tokens_parameter: max_tokens}
+    if endpoint.supports_temperature:
+        options["temperature"] = temperature
+    return options
+
+
+def _create_chat_completion(
+    client: OpenAI,
+    endpoint: InferenceEndpoint,
+    max_retries: int,
+    **kwargs: Any,
+) -> Any:
+    """Create a completion, respecting external-endpoint Retry-After headers."""
+    for attempt in range(1 + max_retries):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except RateLimitError as exc:
+            if endpoint != EXTERNAL_ENDPOINT or attempt >= max_retries:
+                raise
+            delay_s = _rate_limit_retry_delay_s(exc)
+            print(
+                f"[inference] external rate limit; retry {attempt + 1}/{max_retries} after {delay_s:g}s",
+                flush=True,
+            )
+            time.sleep(delay_s)
+    raise AssertionError("unreachable")
+
+
+def _rate_limit_retry_delay_s(exc: RateLimitError) -> float:
+    """Return the provider-requested rate-limit delay, or a conservative fallback."""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", {})
+    for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
+        value = headers.get(name)
+        if value is None:
+            continue
+        with suppress(TypeError, ValueError):
+            return max(0.0, float(value) * scale)
+    return EXTERNAL_RATE_LIMIT_FALLBACK_S
+
+
+def _ping(client: OpenAI, endpoint: InferenceEndpoint, model: str, max_retries: int) -> str:
     """Smoke-test the endpoint + API key + model with a minimal request.
 
     Args:
         client: An OpenAI-compatible client (typically ``openai.OpenAI``).
+        endpoint: Endpoint capabilities used to construct the request.
         model: Model identifier forwarded to
             ``client.chat.completions.create(model=...)``.
+        max_retries: Additional attempts after an external rate-limit response.
 
     Returns:
         The model's response text.
     """
     # TODO(qianl): wrap with transient-error retry.
-    resp = client.chat.completions.create(
+    resp = _create_chat_completion(
+        client,
+        endpoint,
+        max_retries,
         model=model,
         messages=[{"role": "user", "content": "Respond with exactly: OK"}],
-        temperature=0,
-        max_tokens=8,
+        **_completion_options(endpoint, 32, 0),
     )
     choices = getattr(resp, "choices", None) or []
     assert choices, (

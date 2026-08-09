@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+from openai import RateLimitError
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
     EXTERNAL_ENDPOINT,
@@ -112,12 +113,16 @@ class TestInit:
             InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
 
     def test_external_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
-        mock_cls, _ = stub_openai
+        mock_cls, client = stub_openai
         monkeypatch.setenv(EXTERNAL_ENDPOINT.api_key_env_var, "external-key")
         backend = InferenceBackend(endpoint=EXTERNAL_ENDPOINT.name)
         assert backend.endpoint == EXTERNAL_ENDPOINT
         assert backend.model == EXTERNAL_ENDPOINT.model
         mock_cls.assert_called_once_with(api_key="external-key", base_url=EXTERNAL_ENDPOINT.base_url)
+        ping_kwargs = client.chat.completions.create.call_args.kwargs
+        assert ping_kwargs["max_completion_tokens"] == 32
+        assert "max_tokens" not in ping_kwargs
+        assert "temperature" not in ping_kwargs
 
     def test_custom_model_and_base_url(self, stub_openai):
         mock_cls, _ = stub_openai
@@ -127,6 +132,59 @@ class TestInit:
 
 
 class TestRunJson:
+    def test_public_endpoint_uses_legacy_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = inference_backend(stub_openai)
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_tokens"] == 4096
+        assert kwargs["temperature"] == 0.2
+        assert "max_completion_tokens" not in kwargs
+        assert kwargs["response_format"]["json_schema"]["strict"] is True
+
+    def test_external_endpoint_uses_openai_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = InferenceBackend(api_key="test-key", endpoint=EXTERNAL_ENDPOINT.name)
+        client.chat.completions.create.reset_mock()
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_completion_tokens"] == 4096
+        assert "max_tokens" not in kwargs
+        assert "temperature" not in kwargs
+        assert kwargs["response_format"]["json_schema"]["strict"] is False
+
+    def test_external_endpoint_honors_retry_after_ms(self, stub_openai):
+        _, client = stub_openai
+        backend = InferenceBackend(api_key="test-key", endpoint=EXTERNAL_ENDPOINT.name, max_retries=1)
+        client.chat.completions.create.reset_mock()
+        response = MagicMock()
+        response.headers = {"retry-after-ms": "250"}
+        rate_limit_error = RateLimitError("rate limited", response=response, body=None)
+        client.chat.completions.create.side_effect = [
+            rate_limit_error,
+            chat_response(content='{"ok": true}'),
+        ]
+        with patch("isaaclab_arena.agentic_environment_generation.inference_backend.time.sleep") as sleep:
+            assert backend.run_json(_request()) == {"ok": True}
+        sleep.assert_called_once_with(0.25)
+        assert client.chat.completions.create.call_count == 2
+
+    def test_external_ping_honors_retry_after_seconds(self, stub_openai):
+        _, client = stub_openai
+        response = MagicMock()
+        response.headers = {"retry-after": "2"}
+        rate_limit_error = RateLimitError("rate limited", response=response, body=None)
+        client.chat.completions.create.side_effect = [
+            rate_limit_error,
+            chat_response(content="OK"),
+        ]
+        with patch("isaaclab_arena.agentic_environment_generation.inference_backend.time.sleep") as sleep:
+            InferenceBackend(api_key="test-key", endpoint=EXTERNAL_ENDPOINT.name, max_retries=1)
+        sleep.assert_called_once_with(2.0)
+        assert client.chat.completions.create.call_count == 2
+
     def test_tolerates_unescaped_control_chars(self, stub_openai):
         _, client = stub_openai
         backend = inference_backend(stub_openai)
