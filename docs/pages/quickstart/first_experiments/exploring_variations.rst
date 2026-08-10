@@ -1,14 +1,14 @@
 Exploring Environment Variations
 ================================
 
-The earlier :ref:`environment examples <swapping-environment-components>` explicitly selected
-objects, embodiments, and lighting settings. An Arena variation instead samples a registered
-environment property automatically. Before connecting a trained policy, you can explore these
-variations with the ``zero_action`` policy. The robot stays still while the environment loads and
-renders, so no model weights are required.
+The earlier :ref:`environment examples <swapping-environment-components>` chose one fixed HDR
+background for each launch. An Arena variation instead samples a registered environment property
+automatically. In this guide, Arena varies the HDR background, light intensity, and wrist-camera
+position. Before connecting a trained policy, you can explore these variations with the
+``zero_action`` policy. The robot stays still while the environment loads and renders, so no model
+weights are required.
 
-Arena includes variations for lighting, cameras, backgrounds, and other environment properties.
-The gallery below previews several supported effects.
+The gallery below previews supported lighting, camera, and background effects.
 
 .. figure:: ../../../images/lighting_variations_2x2_grid.gif
    :width: 100%
