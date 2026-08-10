@@ -38,8 +38,9 @@ Keeping these parts separate makes the environment reusable. We can replace the 
 a mustard bottle, choose a different destination or background, or use another compatible robot
 without rewriting the task.
 
-The following examples reuse the same environment definition. First, we run the reference scene.
-Then we replace the objects, change the background, and scale to 64 parallel environments.
+The following examples reuse the same environment definition. First, we inspect the reference
+scene. Then we replace the objects and change the background. The final visual previews 64 copies
+of the scene running in parallel, which you will launch on the next page.
 
 
 .. _swapping-environment-components:
@@ -47,10 +48,10 @@ Then we replace the objects, change the background, and scale to 64 parallel env
 Run the Environment
 -------------------
 
-For this first look, the **Policy Runner** launches one environment directly from the command line.
-The zero-action policy keeps the robot still while you inspect the scene, so no model weights are
-required. On the next page, you will save these choices in an Experiment Definition for repeatable
-Runs.
+For this first look, the **Environment Runner** opens one environment in Kit and applies zero
+actions, so no policy or model weights are required. It keeps running until you close Kit or press
+``Ctrl-C``. While it runs, hold ``Shift`` and left-drag an object to move it and inspect its physical
+behavior.
 
 Start or enter the Base Docker container from the repository root:
 
@@ -64,15 +65,21 @@ Run the environment with a Rubik's cube, bowl, and home-office background:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab \
      --hdr home_office_robolab
+
+.. figure:: ../../images/default_srl_pnp.png
+   :width: 100%
+   :alt: Reference DROID pick-and-place environment with a Rubik's cube and bowl
+   :align: center
+
+   The reference scene opened in Kit.
+
+Close Kit before starting the next example.
 
 
 Swap the objects
@@ -82,10 +89,7 @@ Keep the same environment and task, but replace the pick-up object and destinati
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object mustard_bottle_hot3d_robolab \
@@ -107,10 +111,7 @@ Keep the original objects, but select a different background panorama and ambien
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
@@ -125,27 +126,12 @@ Keep the original objects, but select a different background panorama and ambien
    The same environment definition with a different background panorama.
 
 
-Scale to parallel environments
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Preview parallel environments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Keep the reference scene, but create 64 copies that step together on the GPU:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 100 \
-     --num_envs 64 \
-     --env_spacing 2.5 \
-     pick_and_place_maple_table \
-     --embodiment droid_rel_joint_pos \
-     --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_location bowl_ycb_robolab \
-     --hdr home_office_robolab
-
-All 64 copies use the same environment configuration. Arena simulates them in parallel rather
-than launching 64 separate processes.
+The Environment Runner is limited to one interactive environment. On the next page, the
+Experiment Runner creates 64 copies of the reference scene that step together on the GPU. This is
+what that setup looks like:
 
 .. figure:: ../../images/scale_up.gif
    :width: 100%
@@ -156,9 +142,9 @@ than launching 64 separate processes.
 
 .. note::
 
-   These four commands make explicit choices for each launch. On the next page, you will collect
-   the same choices as named Runs in one YAML file. Later, Arena *variations* will choose and
-   record values automatically when an environment is built or reset.
+   The three commands above make explicit choices for each launch. On the next page, those choices
+   and the parallel setup become four named Runs in one YAML file. Later, Arena *variations* will
+   choose and record values automatically when an environment is built or reset.
 
 
 How the Environment Is Assembled
