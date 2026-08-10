@@ -148,11 +148,6 @@ def _resolve_lookat_pose(lookat_object: Asset) -> Pose | None:
     """Return a single world-frame pose for viewer targeting."""
     initial_pose = lookat_object.get_initial_pose()
     if initial_pose is None:
-        object_cfg = getattr(lookat_object, "object_cfg", None)
-        if object_cfg is not None and hasattr(object_cfg, "init_state"):
-            pos = getattr(object_cfg.init_state, "pos", None)
-            if pos is not None:
-                return Pose(position_xyz=tuple(float(x) for x in pos))
         return None
     if isinstance(initial_pose, PosePerEnv):
         return initial_pose.poses[0] if initial_pose.poses else None
