@@ -70,11 +70,12 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
             st.caption("Rendering visualization…")
         else:
             with st.spinner("Rendering node snapshots…"):
-                asset_cards = build_asset_cards_with_thumbnails(
+                asset_cards, prim_tree = build_asset_cards_with_thumbnails(
                     validation.spec,
                     background_panorama=background_panorama,
                 )
             st.session_state["rendered_visualization"] = asset_cards
+            st.session_state["rendered_prim_tree"] = prim_tree
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
             st.session_state["last_rendered_panorama"] = background_panorama
             st.toast("Visualization updated.", icon="🔄")
@@ -85,6 +86,7 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
         render_visualization_widgets(
             validation.spec,
             asset_cards,
+            st.session_state.get("rendered_prim_tree", []),
         )
     elif not st.session_state.get("_defer_viz_render"):
         st.caption("Rendering visualization…")
