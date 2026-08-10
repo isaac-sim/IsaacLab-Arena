@@ -8,7 +8,7 @@ embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
-    stand_height_m: 0.8
+    stand_height_m: 1.1
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
@@ -42,7 +42,7 @@ relations:
   reference: microwave
   params:
     side: negative_y
-    distance_m: 0.1
+    distance_m: 0.3
 - kind: rotate_around_solution
   subject: droid
   params:

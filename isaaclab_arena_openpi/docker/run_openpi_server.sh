@@ -4,6 +4,7 @@
 # Usage:
 #   ./run_openpi_server.sh                              # build if missing, then run pi05
 #   ./run_openpi_server.sh -r                           # force rebuild, then run
+#   ./run_openpi_server.sh -p 8001                      # run on a non-default port
 #   ./run_openpi_server.sh -v pi0                       # run the pi0 variant
 #   ./run_openpi_server.sh -h                           # help
 #
@@ -18,6 +19,7 @@ IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="openpi_server"
 
 VARIANT="pi05"
+PORT="8000"
 FORCE_REBUILD=false
 
 print_help() {
@@ -29,14 +31,16 @@ Usage:
 
 Options:
   -r              Force rebuilding of the server image.
+  -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
   -h              Show this help and exit.
 EOF
 }
 
-while getopts ":rv:h" opt; do
+while getopts ":rp:v:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
+        p) PORT="$OPTARG" ;;
         v) VARIANT="$OPTARG" ;;
         h) print_help; exit 0 ;;
         \?) echo "unknown option: -$OPTARG" >&2; print_help; exit 1 ;;
@@ -80,7 +84,7 @@ else
     echo "Image ${IMAGE_NAME}:${IMAGE_TAG} already exists. Not rebuilding (use -r to force)."
 fi
 
-echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT})"
+echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT})"
 
 mkdir -p "$OPENPI_CACHE_DIR"
 SERVER_RAN=true
@@ -90,6 +94,6 @@ docker run --rm -it --gpus all --network=host \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
     -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
-    uv run scripts/serve_policy.py policy:checkpoint \
+    uv run scripts/serve_policy.py --port="${PORT}" policy:checkpoint \
         --policy.config="${POLICY_CONFIG}" \
         --policy.dir="${POLICY_DIR}"

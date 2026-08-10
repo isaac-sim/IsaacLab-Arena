@@ -235,7 +235,8 @@ class WarpMeshAndSphereCache:
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device
             )
-            self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
+            # Default lbvh mode leads to corrupt rendering with Fabric for kitchen_bench envs. Use SAH avoids it.
+            self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices, bvh_constructor="sah")
         return self._warp_mesh_cache[key]
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:

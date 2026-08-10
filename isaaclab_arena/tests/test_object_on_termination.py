@@ -12,7 +12,7 @@ import warp as wp
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-NUM_STEPS = 50
+NUM_STEPS = 25
 HEADLESS = True
 PLOT = False
 

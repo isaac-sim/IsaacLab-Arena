@@ -5,6 +5,10 @@ The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
 ``ArenaEnvGraphSpec`` YAML files.
 
+What comes back depends on the model behind the selected endpoint — see :doc:`model_selection`.
+Use ``--inference_endpoint`` to pick the endpoint the GUI generates with. Since the model is
+non-deterministic, it's important to review and correct what it returns.
+
 Run the GUI from inside the Isaac Lab-Arena development container:
 
 .. code-block:: bash
@@ -16,7 +20,7 @@ You can also open an existing environment graph spec:
 .. code-block:: bash
 
    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \
-      --env_graph_spec_yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
+      --env_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
 
 By default, generated YAML files are written under
 ``isaaclab_arena_environments/agent_generated``. Use ``--out_dir`` to choose a

@@ -22,11 +22,18 @@ upstream openpi at a pinned commit on first run) and starts the inference server
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-The first invocation builds ``isaaclab_arena_openpi-server:latest`` (~3 min,
+The first invocation builds ``isaaclab_arena:openpi_server`` (~3 min,
 ~19 GB) and then downloads the ~11 GB checkpoint into the container on startup;
 subsequent invocations reuse the cached image. Pass ``-r`` to force a rebuild,
-``-v pi0`` to serve the pi0 variant instead of pi05, or ``-s <path>`` to build
-from a local openpi checkout.
+``-v pi0`` to serve the pi0 variant instead of pi05, or ``-p <port>`` to bind
+the server to a non-default port.
+
+By default, the wrapper binds to port ``8000``. If OpenPI reports that the
+address is already in use, stop the existing process or choose another port:
+
+.. code-block:: bash
+
+   ./isaaclab_arena_openpi/docker/run_openpi_server.sh -p 8001
 
 When you see:
 
@@ -34,7 +41,8 @@ When you see:
 
    INFO:websockets.server:server listening on 0.0.0.0:8000
 
-the server is ready. Leave the terminal running.
+the server is ready. Leave the terminal running. If you used ``-p``, the log
+will show the selected port instead.
 
 The wrapper passes ``--policy.config`` (architecture + data transforms) and
 ``--policy.dir`` (params + normalization stats) for the selected variant; see
@@ -64,7 +72,8 @@ point the arena policy runner at the server:
 
 Defaults: ``--openpi_embodiment_adapter droid``, ``--policy_variant pi05``,
 ``--remote_host localhost``, ``--remote_port 8000``. Pass ``--remote_host`` if the
-server is on a different machine.
+server is on a different machine. If terminal 1 used a non-default port, pass
+the same value with ``--remote_port``.
 
 The server terminal will start logging connection and inference events as the arena
 Kit window shows the droid arm reacting to pi0's commanded joint positions.
@@ -89,6 +98,9 @@ To measure success rates across several variations of the environment in a singl
 
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
+If the OpenPI server uses a non-default port, override each OpenPI run's
+``policy.remote_port`` to the same value, for example
+``runs.<run_name>.policy.remote_port=8001``.
 
 .. figure:: ../../../../images/openpi_droid_3x3_grid.gif
    :width: 100%

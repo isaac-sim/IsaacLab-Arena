@@ -1,8 +1,10 @@
 Edit the Environment Graph Spec
 -------------------------------
 
-You may want to review or edit the spec before building the environment. The agent infers the spec from the
-prompt using a LLM model, and may be mistaken in its choices.
+Review the spec before building the environment. The agent infers it from the prompt with an
+LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
+the next run, and a spec that validates can still be mistaken in its choices. See
+:doc:`../model_selection` for more details.
 For a composite task, check that the subtask list covers every pick and place pair you asked for, and that the SimReady hits are the assets you expected.
 
 Understanding the YAML
@@ -153,14 +155,13 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
-      The command above uses the ready-made spec that ships with Arena, so it runs without an API key.
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` — named after ``env_name``, without the
       ``simready_`` prefix — so pass that path instead to build your own.

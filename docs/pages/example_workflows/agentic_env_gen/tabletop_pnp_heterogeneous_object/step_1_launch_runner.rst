@@ -51,7 +51,7 @@ say that it varies across environments. That is the cue for the agent to emit an
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --prompt "Droid picks up a fruit from the maple table and places it into the bowl on the table. Each environment should get a different fruit."
 

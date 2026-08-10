@@ -353,6 +353,16 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
+@pytest.mark.parametrize("empty_reference", ["", "   "])
+def test_graph_spec_normalizes_empty_unary_relation_reference(empty_reference):
+    data = _minimal_env_graph_data()
+    data["relations"][0]["reference"] = empty_reference
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.relations[0].reference is None
+
+
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",

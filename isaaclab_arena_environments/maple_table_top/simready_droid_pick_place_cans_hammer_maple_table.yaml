@@ -57,11 +57,13 @@ relations:
 - kind: next_to
   subject: bean_can
   reference: mini_plastic_basket
-  params: {}
+  params:
+    side: positive_x
 - kind: next_to
   subject: hammer
   reference: pepsi_can
-  params: {}
+  params:
+    side: positive_x
 task:
   composition: parallel
   description: Pick up the pepsi can and bean can from the maple table and place them

@@ -33,6 +33,7 @@ class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnviro
     def build(self, cfg: Gr1OpenMicrowaveEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.open_door_task import OpenDoorTask
         from isaaclab_arena.utils.pose import Pose
@@ -75,6 +76,8 @@ class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnviro
             scene=scene,
             task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=5.0),
             teleop_device=teleop_device,
+            # 50 Hz control for backwards compatibility with the recorded tutorial data.
+            env_cfg_callback=set_control_rate_50hz,
         )
 
         return isaaclab_arena_environment

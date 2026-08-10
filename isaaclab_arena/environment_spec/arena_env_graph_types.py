@@ -155,9 +155,9 @@ class ObjectReferenceSpec(BaseModel):
     object_type: ObjectType = Field(
         description=(
             "Physics type for the referenced prim. Use the first matching value:\n"
-            "- articulation: door or other articulated prim in open/close door tasks\n"
-            "- rigid: manipulable prim in pick-and-place tasks\n"
-            "- base: static anchor prim (e.g. table surface) in is_anchor or placement relations"
+            "- articulation: openable prim (door, drawer) used as openable_object in a open/close door task\n"
+            "- rigid: manipulable prim used as pick_up_object in a pick-and-place task\n"
+            "- base: default for everything else not mentioned above\n"
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
@@ -214,11 +214,15 @@ class CompositeTaskSpec(BaseModel):
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
         if self.composition is TaskCompositionType.ATOMIC:
-            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
+            assert len(self.subtasks) == 1, (
+                f"composition 'atomic' requires exactly one atomic task, got {len(self.subtasks)}."
+                " Use parallel (order does not matter) or sequential (ordered) as composition instead."
+            )
         else:
-            assert (
-                len(self.subtasks) >= 2
-            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
+            assert len(self.subtasks) >= 2, (
+                f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}."
+                " Use atomic as composition instead."
+            )
         return self
 
 
@@ -251,6 +255,14 @@ class SpatialRelationSpec(BaseModel):
         default_factory=dict,
         description="Optional kind-specific parameters; leave empty by default.",
     )
+
+    @field_validator("reference", mode="before")
+    @classmethod
+    def _none_if_empty_reference(cls, value: Any) -> Any:
+        """Normalize an empty optional reference to None before arity validation."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _validate_kind_and_arity(self) -> SpatialRelationSpec:

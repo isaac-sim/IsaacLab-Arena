@@ -23,7 +23,7 @@ import pytest
 # because of this modules appearance in pytest_plugins. This causes issues with the packaging
 # tests, which run in a bare venv with only pytest installed.
 if TYPE_CHECKING:
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    from isaaclab_arena.agentic_environment_generation.catalogues import (
         AssetCatalogue,
         RelationCatalogue,
         TaskCatalogue,
@@ -43,6 +43,19 @@ def stub_openai():
         client.chat.completions.create.return_value = chat_response(content="OK")
         mock_cls.return_value = client
         yield mock_cls, client
+
+
+def skip_without_live_endpoint_key() -> pytest.MarkDecorator:
+    """Return a skip marker for tests that call the selected inference endpoint for real."""
+    import os
+
+    from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
+
+    endpoint = resolve_inference_endpoint()
+    return pytest.mark.skipif(
+        not os.environ.get(endpoint.api_key_env_var),
+        reason=f"live endpoint test requires {endpoint.api_key_env_var} for the {endpoint.name!r} endpoint",
+    )
 
 
 def inference_backend(stub_openai, *, model: str = "test-model", max_retries: int = 3) -> InferenceBackend:
@@ -117,26 +130,70 @@ def chat_response(
 
 def catalog(text: str) -> AssetCatalogue:
     """Return an asset catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
+    from isaaclab_arena.agentic_environment_generation.catalogues import AssetCatalogue
 
-    catalogue = AssetCatalogue()
+    catalogue = AssetCatalogue(
+        embodiments=[
+            {"name": "franka_ik", "tags": []},
+            {"name": "droid_abs_joint_pos", "tags": []},
+        ],
+        backgrounds=[
+            {"name": "maple_table_robolab", "tags": []},
+            {"name": "lightwheel_robocasa_kitchen", "tags": []},
+        ],
+        objects=[
+            {"name": "rubiks_cube_hot3d_robolab", "object_type": "rigid", "tags": []},
+            {"name": "bowl_ycb_robolab", "object_type": "rigid", "tags": []},
+            {"name": "avocado01_fruits_veggies_robolab", "object_type": "rigid", "tags": []},
+            {"name": "plate_large_vomp_robolab", "object_type": "rigid", "tags": []},
+        ],
+    )
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
 
 
 def relation_catalog(text: str) -> RelationCatalogue:
     """Return a relation catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import RelationCatalogue
+    from isaaclab_arena.agentic_environment_generation.catalogues import RelationCatalogue, RelationCatalogueEntry
 
-    catalogue = RelationCatalogue()
+    catalogue = RelationCatalogue(
+        relations=[
+            RelationCatalogueEntry("is_anchor", True, [], [], {}, ""),
+            RelationCatalogueEntry("on", False, [], [], {}, ""),
+        ]
+    )
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
 
 
 def task_catalog(text: str) -> TaskCatalogue:
     """Return a task catalogue that renders ``text`` in the user message."""
-    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import TaskCatalogue
+    from isaaclab_arena.agentic_environment_generation.catalogues import TaskCatalogue, TaskCatalogueEntry
 
-    catalogue = TaskCatalogue()
+    catalogue = TaskCatalogue(
+        tasks=[
+            TaskCatalogueEntry(
+                "PickAndPlaceTask",
+                ["pick_up_object", "destination_location", "background_scene"],
+                [
+                    "destination_object",
+                    "episode_length_s",
+                    "force_threshold",
+                    "velocity_threshold",
+                    "max_separation",
+                    "mimic_env_cfg_factory",
+                ],
+                {},
+                "",
+            ),
+            TaskCatalogueEntry(
+                "OpenDoorTask",
+                ["openable_object"],
+                ["openness_threshold", "reset_openness", "episode_length_s"],
+                {},
+                "",
+            ),
+        ]
+    )
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue

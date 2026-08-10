@@ -59,6 +59,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.relations.relations import (
             AtPosition,
             IsAnchor,
@@ -213,5 +214,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
             scene=scene,
             task=sequential_task,
             teleop_device=teleop_device,
+            # 50 Hz control for backwards compatibility with the recorded tutorial data.
+            env_cfg_callback=set_control_rate_50hz,
         )
         return isaaclab_arena_environment

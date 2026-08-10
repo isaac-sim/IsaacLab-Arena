@@ -117,7 +117,8 @@ class CompositeTaskBase(TaskBase):
 
     Args:
         subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
-        episode_length_s: Maximum duration of a single episode in seconds. If None, no time limit is enforced.
+        episode_length_s: Maximum duration of a single episode in seconds. Defaults to the sum of the
+            subtasks' episode lengths, i.e. the budget for completing all of them end to end.
         task_description: (Optional) Natural-language summary of the overall composite task.
         desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
             Can be used to enforce a specific current state for each subtask at the end of the episode.
@@ -130,8 +131,11 @@ class CompositeTaskBase(TaskBase):
         task_description: str | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        super().__init__(episode_length_s, task_description)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
+        # Default task length is the summation of the lengths of the subtasks.
+        if episode_length_s is None:
+            episode_length_s = self._sum_subtask_episode_lengths_s(subtasks)
+        super().__init__(episode_length_s, task_description)
         self.subtasks = subtasks
 
         if desired_subtask_success_state is not None:
@@ -142,6 +146,11 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
+
+    @staticmethod
+    def _sum_subtask_episode_lengths_s(subtasks: list[TaskBase]) -> float:
+        """Return the total episode length of the subtasks, in seconds."""
+        return sum(subtask.get_episode_length_s() for subtask in subtasks)
 
     def get_viewer_cfg(self) -> ViewerCfg:
         """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""

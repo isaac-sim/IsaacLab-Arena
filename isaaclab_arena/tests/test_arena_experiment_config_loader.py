@@ -112,7 +112,7 @@ runs:
     assert isinstance(run.environment, LegacyGraphEnvironmentCfg)
     # Only environment values are stored (and later become CLI tokens at execution); the
     # environment_builder section stays typed and reaches the argparse path directly.
-    assert run.environment.env_graph_spec_yaml_path == "robolab/tasks/banana_in_bowl.yaml"
+    assert run.environment.env_spec_path == "robolab/tasks/banana_in_bowl.yaml"
     assert run.environment.per_run_overrides == {"enable_cameras": True, "pick_up_object": "banana"}
     assert run.environment_builder.num_envs == 2
     assert run.environment_builder.device == "cuda:1"
@@ -165,7 +165,7 @@ def test_typed_graph_camera_run_requires_prelaunch_camera_flag():
     run_cfg = ArenaRunCfg(
         name="graph_run",
         environment=LegacyGraphEnvironmentCfg(
-            env_graph_spec_yaml_path="robolab/tasks/banana_in_bowl.yaml",
+            env_spec_path="robolab/tasks/banana_in_bowl.yaml",
             enable_cameras=True,
         ),
         policy=ZeroActionPolicyCfg(),

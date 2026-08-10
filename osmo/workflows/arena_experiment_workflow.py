@@ -116,6 +116,7 @@ class ArenaExperimentWorkflow(Workflow):
             experiment_runner_task_names_by_run_name=experiment_runner_task_names_by_run_name,
             lead=True,
             resource=self.experiment_output_resource_name,
+            output_url=self.workflow_cfg.output_url,
         )
         return {
             "name": "arena-experiment-output",

@@ -36,6 +36,7 @@ class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
         """Build the environment from its typed configuration."""
         import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
         from isaaclab_arena.utils.pose import Pose
@@ -84,6 +85,8 @@ class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
             teleop_device=teleop_device,
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=f"{base_rsl_rl_policy.__name__}:RLPolicyCfg",
+            # 50 Hz control, the rate the RL policies for this task were trained at.
+            env_cfg_callback=set_control_rate_50hz,
         )
 
         return isaaclab_arena_environment

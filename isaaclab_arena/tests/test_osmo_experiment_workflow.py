@@ -292,6 +292,46 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
 
 
+def test_default_output_url_publishes_experiment_to_default_bucket():
+    """Without an override, the collected Experiment output goes to the default per-workflow bucket."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="default-output"),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
+
+
+def test_output_url_override_publishes_experiment_to_custom_bucket():
+    """A configured ``output_url`` sets where the collected Experiment output is published."""
+    custom_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project/{{workflow_id}}"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="custom-output", output_url=custom_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": custom_output_url}]
+
+
+def test_output_url_override_allows_fixed_bucket_that_workflows_overwrite():
+    """A fixed ``output_url`` without ``{{workflow_id}}`` is allowed, so later workflows overwrite the same path."""
+    fixed_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="fixed-output", output_url=fixed_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["outputs"] == [{"url": fixed_output_url}]
+
+
 def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
     """Each Run's dedicated pi0 server follows that Run's client policy_variant."""
     workflow = ArenaExperimentWorkflow(
@@ -494,6 +534,38 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert "--policy.dir=gs://openpi-assets-simeval/pi0_droid_jointpos" in server_command
 
 
+def test_submission_resolves_shared_override_before_run_override(tmp_path):
+    """Apply shared Run defaults before a direct Run override."""
+    experiment_path = tmp_path / "shared_experiment.yaml"
+    experiment_path.write_text(
+        """shared:
+  rollout_limit:
+    num_steps: 1
+
+runs:
+  first:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+
+  second:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+""",
+        encoding="utf-8",
+    )
+
+    submission_cfg = _compose_submission(
+        [
+            "experiment_cfg.shared.rollout_limit.num_steps=5",
+            "experiment_cfg.runs.second.rollout_limit.num_steps=7",
+        ],
+        experiment_path,
+    )
+
+    assert submission_cfg.experiment_cfg.runs["first"].rollout_limit.num_steps == 5
+    assert submission_cfg.experiment_cfg.runs["second"].rollout_limit.num_steps == 7
+
+
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()
@@ -560,8 +632,7 @@ def test_embedded_graph_environment_experiment_composes_through_experiment_runne
     run_cfg = experiment_cfg.runs["graph_run"]
     assert isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg)
     assert (
-        run_cfg.environment.env_graph_spec_yaml_path
-        == "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
+        run_cfg.environment.env_spec_path == "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
     )
     assert run_cfg.environment.per_run_overrides == {"enable_cameras": True}
     assert run_cfg.environment_builder.num_envs == 4

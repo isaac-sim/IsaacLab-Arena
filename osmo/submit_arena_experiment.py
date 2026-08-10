@@ -19,6 +19,7 @@ from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.hydra.typed_experiment_loader import split_shared_run_default_overrides
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
@@ -77,14 +78,22 @@ def build_arena_experiment_submission_cfg(
         ".yaml",
         ".yml",
     }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_cfg_path}'"
-    experiment_cfg = load_arena_experiment_from_config_file(experiment_cfg_path, device="cuda:0")
+    shared_default_overrides, submission_overrides = split_shared_run_default_overrides(
+        overrides or [],
+        experiment_config_prefix="experiment_cfg",
+    )
+    experiment_cfg = load_arena_experiment_from_config_file(
+        experiment_cfg_path,
+        device="cuda:0",
+        overrides=shared_default_overrides,
+    )
     base_submission = ArenaExperimentSubmissionCfg(experiment_cfg=experiment_cfg)
 
     # The Experiment file determines the concrete config types. Register that concrete root so
     # Hydra validates every trailing override against it.
     ConfigStore.instance().store(name=SUBMISSION_CONFIG_NAME, node=base_submission)
     with initialize(version_base=None, config_path=None):
-        composed = compose(config_name=SUBMISSION_CONFIG_NAME, overrides=overrides or [])
+        composed = compose(config_name=SUBMISSION_CONFIG_NAME, overrides=submission_overrides)
     submission_cfg = OmegaConf.to_object(composed)
     assert isinstance(submission_cfg, ArenaExperimentSubmissionCfg)
     return submission_cfg

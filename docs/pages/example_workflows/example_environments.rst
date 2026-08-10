@@ -5,14 +5,14 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
 ``isaaclab_arena_environments/``. Environments can be provided in two ways:
 
 * **Python registered environments**: small compositions of the building blocks
-  introduced in :doc:`../concepts/concept_overview` — **Scene**,
+  introduced in :doc:`../concepts/environment/index` — **Scene**,
   **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
   subclass and registered with the global ``EnvironmentRegistry``. The
   registered ``Task ID`` is passed as the positional ``example_environment``
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
 * **Environment graph YAML specs**: ``ArenaEnvGraphSpec`` files that describe the same
   scene, embodiment, task, objects, and relations declaratively. These are
-  passed with ``--env_graph_spec_yaml`` and can be generated from prompts by the
+  passed with ``--env_spec`` and can be generated from prompts by the
   :doc:`agentic_env_gen/index` workflow.
 
 The metadata below follows the same structure as the **Key Specifications**
@@ -29,11 +29,21 @@ Agentically Generated Graph Specs
 
 RoboLab environment graph YAMLs live under
 ``isaaclab_arena_environments/robolab/``. They are generated from natural-language
-prompts and consumed with ``--env_graph_spec_yaml`` instead of the positional
+prompts and consumed with ``--env_spec`` instead of the positional
 ``example_environment`` name.
 
 See :doc:`robolab_task_catalog` for the list of RoboLab tasks
 currently supported in Arena.
+
+Kitchen Benchmark
+-----------------
+
+Kitchen benchmark environment graph YAMLs live under
+``isaaclab_arena_environments/kitchen_bench/``. They define DROID manipulation
+tasks across Lightwheel RoboCasa and Replicator kitchen layouts.
+
+See :doc:`kitchen_bench_catalog` for all 17 environment specs and their Pi
+policy executions.
 
 
 Pick & Place
@@ -626,7 +636,7 @@ microwave, followed by closing the microwave door.
 See Also
 --------
 
-- :doc:`../concepts/concept_overview` — the Scene / Embodiment / Task building blocks used by every environment listed here.
+- :doc:`../concepts/environment/index` — the Scene / Embodiment / Task building blocks used by every environment listed here.
 - :doc:`../quickstart/first_arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
 - :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
 
@@ -635,3 +645,4 @@ See Also
    :hidden:
 
    robolab_task_catalog
+   kitchen_bench_catalog

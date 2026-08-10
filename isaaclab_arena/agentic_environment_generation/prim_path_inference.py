@@ -18,6 +18,7 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     build_strict_schema,
 )
 from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 
@@ -55,6 +56,7 @@ class PrimPathInference:
         # Defer pxr import until call time to avoid conflict with SimulationApp.
         from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
+        spec = _enforce_object_reference_types(spec)
         usd_path = spec.background.resolve_usd_path()
         prim_tree = load_usd_prim_tree(usd_path)
         data = self._inference_backend.run_json(
@@ -92,8 +94,10 @@ GUIDANCE:
 - Pick prim_path only from those full relative_path values.
 - prim_path must be a relative suffix under the parent background — never include
   {ENV_REGEX_NS} or the background registry name.
-- Respect each input object_reference object_type: pick a prim_path whose object_type in
-  BACKGROUND PRIM TREE matches the object_type from the input spec. Do not change object_type.
+- When the input object_type is articulation or rigid, pick a prim_path whose object_type in
+  BACKGROUND PRIM TREE matches it exactly. Do not change object_type.
+- When the input object_type is base, the prim tree object_type may be base, rigid, or articulation;
+  pick the prim that semantically represents the referenced static fixture or surface.
 - When the input object_type is articulation, pick the articulation root prim (the line that
   lists joint names), not a rigid child mesh or collision prim under it.
 - When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
@@ -169,11 +173,47 @@ class ResolvedObjectReferences(BaseModel):
     )
 
 
+def _enforce_object_reference_types(spec: ArenaEnvGraphSpec) -> ArenaEnvGraphSpec:
+    """Set object-reference types from their task roles.
+
+    Open/close-door targets are articulations, pick-and-place pick-up objects are rigid,
+    and every other reference is a static base.
+    """
+    if spec.object_references is None:
+        return spec
+    openable_ids = {
+        task.params.get("openable_object")
+        for task in spec.task.subtasks
+        if task.kind in {"OpenDoorTask", "CloseDoorTask"}
+    }
+    pick_up_ids = {task.params.get("pick_up_object") for task in spec.task.subtasks if task.kind == "PickAndPlaceTask"}
+    updated_references: list[ObjectReferenceSpec] = []
+    for reference in spec.object_references:
+        if reference.id in openable_ids:
+            required_type = ObjectType.ARTICULATION
+            reason = "openable_object in an open/close door task"
+        elif reference.id in pick_up_ids:
+            required_type = ObjectType.RIGID
+            reason = "pick_up_object in a pick-and-place task"
+        else:
+            required_type = ObjectType.BASE
+            reason = "not used as an openable_object or pick_up_object"
+        if reference.object_type != required_type:
+            print(
+                f"[resolve_usd_prim] enforced object reference {reference.id!r} type "
+                f"{reference.object_type.value!r} -> {required_type.value!r}: {reason}",
+                flush=True,
+            )
+            reference = reference.model_copy(update={"object_type": required_type})
+        updated_references.append(reference)
+    return spec.model_copy(update={"object_references": updated_references})
+
+
 def _validate_against_prim_tree(
     object_references: list[ObjectReferenceSpec],
     prim_tree: list[UsdPrimRecord],
 ) -> None:
-    """Validate resolved object references against the background USD prim tree."""
+    """Validate paths and reject type upcasts from rigid or articulation references."""
     records_by_path = {record.relative_path: record for record in prim_tree}
     for ref in object_references:
         assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
@@ -182,10 +222,11 @@ def _validate_against_prim_tree(
         assert (
             record is not None
         ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
-        assert ref.object_type == record.object_type, (
-            f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
-            f"object_type {record.object_type!r} for {prim_path!r}"
-        )
+        if ref.object_type != ObjectType.BASE:
+            assert ref.object_type == record.object_type, (
+                f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
+                f"object_type {record.object_type!r} for {prim_path!r}"
+            )
 
 
 def _merge_resolved_object_references(

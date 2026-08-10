@@ -3,317 +3,96 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and serve an HTML evaluation report of per-episode results and rollout videos."""
+"""Build and serve a hierarchical HTML evaluation report of per-episode results and rollout videos.
+
+The report has three levels: an overview of success rate by task and policy, a page per task showing
+where its episodes got to, and a page per Run holding the episode videos. Only the Run pages
+reference video, and they mount each player when it scrolls into view, so no page asks the browser
+for more than a screenful of video at a time.
+"""
 
 from __future__ import annotations
 
 import argparse
 import functools
-import html
 import http.server
-import json
 import pathlib
 import re
 import socketserver
-import string
-from dataclasses import dataclass, field
 
-from isaaclab_arena.evaluation.arena_run import RunStatus
-from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
-
-# Matches the per-episode results filename written by EpisodeRecorderManager.write. The Experiment Runner
-# writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
-# per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
-_RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")
-
-# Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
-# trailing metadata column to avoid duplication.
-_METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name"})
+from isaaclab_arena.visualization.report_data import (
+    DEFAULT_POLICY_SUFFIXES,
+    ExperimentSummary,
+    RunExecutionReport,
+    build_experiment_summary,
+)
+from isaaclab_arena.visualization.report_render import (
+    PAGES_DIRNAME,
+    episode_anchor,
+    render_index,
+    render_job_page,
+    render_task_page,
+    unique_slugs,
+)
 
 # Reverse-dated run directory written by ``timestamped_run_dir`` (e.g. ``2026-06-17_14-42-54``).
 _RUN_DIR_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
 
-_TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
-
 _DEFAULT_TITLE = "Evaluation Report"
 _DEFAULT_PORT = 8000
 
-
-@dataclass
-class EpisodeVideos:
-    """The recorded camera videos for a single (env, episode) of one job."""
-
-    env_index: int
-    """Index of the environment the episode ran in."""
-
-    episode_index: int
-    """Episode index within the (job, env)"""
-
-    video_by_camera: dict[str, str]
-    """Camera name -> mp4 path, relative to the scanned root (and so to the report's index.html)."""
-
-    record: dict = field(default_factory=dict)
-    """The matching per-episode results record (success, seed, timing, ...); empty when unavailable."""
+__all__ = ["RunExecutionReport", "build_report", "serve_until_ctrl_c"]
 
 
-@dataclass
-class JobReport:
-    """All recorded episode videos for a single eval job."""
+def _write_pages(
+    summary: ExperimentSummary,
+    video_dir: pathlib.Path,
+    task_hrefs: dict[str, str],
+    job_page_hrefs: dict[str, list[str]],
+    episode_hrefs: dict[tuple[str, int, int], str],
+    episodes_per_page: int,
+) -> int:
+    pages_dir = video_dir / PAGES_DIRNAME
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    # Drop pages from an earlier build so a re-run over changed results cannot leave stale, orphaned
+    # pages behind. Only the two filename shapes this module writes are removed.
+    for stale_page in [*pages_dir.glob("task_*.html"), *pages_dir.glob("job_*.html")]:
+        stale_page.unlink()
 
-    name: str
-    """The job name."""
-
-    cameras: list[str]
-    """Ordered camera names recorded for this job."""
-
-    episodes: list[EpisodeVideos]
-    """All recorded episode videos for this job."""
-
-
-@dataclass(frozen=True)
-class RunExecutionReport:
-    """Record whether one Run process completed and its process exit code."""
-
-    run_name: str
-    """Name of the Run that produced this execution result."""
-
-    status: RunStatus
-    """Whether the Run process completed or failed."""
-
-    process_exit_code: int
-    """Exit code returned by the Run process."""
-
-
-@dataclass
-class EvaluationReport:
-    """A whole evaluation run: one or more jobs, each with its own grid of episode videos."""
-
-    title: str
-    """Title displayed at the top of the report."""
-
-    jobs: list[JobReport]
-    """Episode results and videos grouped by job."""
-
-    run_executions: list[RunExecutionReport] = field(default_factory=list)
-    """Run process results, when provided by a parallel Experiment collector."""
-
-
-def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], dict]]:
-    """Scan ``root`` for the recorder's JSONL files, indexed per job by ``(env, rebuild, episode)``.
-
-    The key matches how ``_scan_jobs`` identifies a video: ``episode_in_env`` lines up with the video
-    filename's ``-episode-<E>`` number, and the rebuild comes from the results filename.
-
-    Args:
-        root: Directory of evaluation results to scan.
-    """
-    results: dict[str, dict[tuple[int, int, int], dict]] = {}
-    for path in sorted(root.rglob("*.jsonl")):
-        match = _RESULTS_FILENAME_PATTERN.match(path.name)
-        if match is None:
-            continue
-        relative = path.relative_to(root)
-        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
-        rebuild = int(match.group("rebuild")) if match.group("rebuild") is not None else 0
-        job_results = results.setdefault(job, {})
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            record = json.loads(line)
-            job_results[(int(record["env_id"]), rebuild, int(record["episode_in_env"]))] = record
-    return results
-
-
-def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
-    """Recursively scan ``root`` for episode results and recorder mp4s and group them by job.
-
-    Intended for use with two different output folder structures:
-    - The experiment_runner.py writes one per-job sub-directory under ``root``.
-    - The policy_runner.py writes directly under ``root``.
-
-    Files that do not match the recorder's naming pattern are ignored.
-
-    Args:
-        root: Directory of evaluation results to scan.
-    """
-    # job -> env -> {(rebuild, recorder_episode): {camera: relative_path}}
-    raw: dict[str, dict[int, dict[tuple[int, int], dict[str, str]]]] = {}
-    cameras_by_job: dict[str, list[str]] = {}
-    results = _scan_results(root)
-
-    for path in sorted(root.rglob("*.mp4")):
-        parsed = parse_episode_video_filename(path.name)
-        if parsed is None:
-            continue
-        relative = path.relative_to(root)
-        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
-        rebuild = parsed.rebuild_index if parsed.rebuild_index is not None else 0
-        env_index = parsed.env_index
-        recorder_episode = parsed.episode_index
-        camera = parsed.camera_name
-
-        envs = raw.setdefault(job, {})
-        recordings = envs.setdefault(env_index, {})
-        recordings.setdefault((rebuild, recorder_episode), {})[camera] = str(relative)
-
-        cameras = cameras_by_job.setdefault(job, [])
-        if camera not in cameras:
-            cameras.append(camera)
-
-    jobs = []
-    for job in sorted(set(raw) | set(results)):
-        episodes = []
-        result_keys_by_env: dict[int, set[tuple[int, int]]] = {}
-        for env_index, rebuild, recorder_episode in results.get(job, {}):
-            result_keys_by_env.setdefault(env_index, set()).add((rebuild, recorder_episode))
-
-        video_envs = raw.get(job, {})
-        for env_index in sorted(set(video_envs) | set(result_keys_by_env)):
-            # Renumber (rebuild, recorder_episode) pairs into a contiguous, rebuild-agnostic index.
-            video_recordings = video_envs.get(env_index, {})
-            recording_keys = set(video_recordings) | result_keys_by_env.get(env_index, set())
-            for episode_index, recording_key in enumerate(sorted(recording_keys)):
-                rebuild, recorder_episode = recording_key
-                record = results.get(job, {}).get((env_index, rebuild, recorder_episode), {})
-                episodes.append(
-                    EpisodeVideos(
-                        env_index=env_index,
-                        episode_index=episode_index,
-                        video_by_camera=video_recordings.get(recording_key, {}),
-                        record=record,
-                    )
-                )
-        jobs.append(JobReport(name=job, cameras=sorted(cameras_by_job.get(job, [])), episodes=episodes))
-    return jobs
-
-
-def _render_video_cell(src: str) -> str:
-    """Render a single grid cell containing an inline, controllable video."""
-    return (
-        "<td>"
-        '<video controls preload="metadata" muted playsinline>'
-        f'<source src="{html.escape(src)}" type="video/mp4">'
-        "</video>"
-        "</td>"
-    )
-
-
-def _render_row_label(episode: EpisodeVideos) -> str:
-    """Render the sticky first cell: env/episode label plus a success/failure status badge.
-
-    The cell is tinted green for success and red for failure (neutral when the task records no
-    ``success`` term or no record was found).
-    """
-    success = episode.record.get("success")
-    if success is True:
-        status_class, status_text = " success", "success"
-    elif success is False:
-        status_class, status_text = " failure", "failure"
-    else:
-        status_class, status_text = "", "n/a"
-    return (
-        f'<th class="rowlabel{status_class}">'
-        f"env {episode.env_index}<br>episode {episode.episode_index}"
-        f'<br><span class="status">{status_text}</span></th>'
-    )
-
-
-def _render_metadata_entry(key: str, value: object) -> str:
-    """Render one metadata field as a labelled block.
-
-    Dict values (e.g. the per-episode ``variations``) are split one indented sub-line per item so
-    they don't render as a single long line.
-    """
-    if isinstance(value, dict):
-        sub_rows = "".join(
-            f'<div class="subitem"><span class="k">{html.escape(str(sub_key))}</span>'
-            f" {html.escape(str(sub_value))}</div>"
-            for sub_key, sub_value in value.items()
+    for task in summary.tasks:
+        (pages_dir / task_hrefs[task.name]).write_text(
+            render_task_page(
+                summary,
+                task,
+                {job: pages[0] for job, pages in job_page_hrefs.items()},
+                episode_hrefs,
+                index_href="../index.html",
+            ),
+            encoding="utf-8",
         )
-        return f'<div><span class="k">{html.escape(key)}</span>{sub_rows}</div>'
-    return f'<div><span class="k">{html.escape(key)}</span> {html.escape(str(value))}</div>'
-
-
-def _render_metadata_cell(record: dict) -> str:
-    """Render the trailing cell holding the remaining per-episode metadata as a key/value list."""
-    rows = [
-        _render_metadata_entry(key, value)
-        for key, value in record.items()
-        if key not in _METADATA_EXCLUDED_FIELDS and value is not None
-    ]
-    return '<td class="meta missing">&mdash;</td>' if not rows else f'<td class="meta">{"".join(rows)}</td>'
-
-
-def _render_row(episode: EpisodeVideos, cameras: list[str]) -> str:
-    """Render one table row: status label, one cell per camera column, then a metadata cell."""
-    cells = [_render_row_label(episode)]
-    for camera in cameras:
-        src = episode.video_by_camera.get(camera)
-        cells.append('<td class="missing">&mdash;</td>' if src is None else _render_video_cell(src))
-    cells.append(_render_metadata_cell(episode.record))
-    return "<tr>" + "".join(cells) + "</tr>"
-
-
-def _render_job_section(job: JobReport) -> str:
-    """Render one job as a heading (when named) followed by its env x episode video grid."""
-    heading = f"<h2>{html.escape(job.name)}</h2>" if job.name else ""
-    header_cells = "".join(f"<th>{html.escape(camera)}</th>" for camera in job.cameras)
-    body_rows = "\n".join(_render_row(episode, job.cameras) for episode in job.episodes)
-    return (
-        f"<section>{heading}<table>"
-        f'<thead><tr><th class="rowlabel">env / episode</th>{header_cells}<th>details</th></tr></thead>'
-        f"<tbody>\n{body_rows}\n</tbody></table></section>"
-    )
-
-
-def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str:
-    """Render a compact table of Runs whose processes failed."""
-    failed_run_executions = [
-        run_execution for run_execution in run_executions if run_execution.status is RunStatus.FAILED
-    ]
-    if not failed_run_executions:
-        return ""
-
-    rows = "\n".join(
-        '<tr><th class="rowlabel failure">'
-        f"{html.escape(run_execution.run_name)}<br>"
-        '<span class="status">failed</span></th>'
-        f"<td><code>{html.escape(str(run_execution.process_exit_code))}</code></td></tr>"
-        for run_execution in failed_run_executions
-    )
-    return (
-        f"<section><h2>Failed runs ({len(failed_run_executions)})</h2>"
-        '<p class="summary">These runs did not complete and are excluded from episode results.</p>'
-        '<table><thead><tr><th class="rowlabel">run</th><th>process exit code</th></tr></thead>'
-        f"<tbody>\n{rows}\n</tbody></table></section>"
-    )
-
-
-def render_report(report: EvaluationReport) -> str:
-    """Render ``report`` into a self-contained HTML document using the report template."""
-    num_episodes = sum(len(job.episodes) for job in report.jobs)
-    if report.run_executions:
-        num_completed_runs = sum(run_execution.status is RunStatus.COMPLETED for run_execution in report.run_executions)
-        num_failed_runs = sum(run_execution.status is RunStatus.FAILED for run_execution in report.run_executions)
-        summary = (
-            f"{len(report.run_executions)} run(s) &middot; {num_completed_runs} completed &middot; "
-            f"{num_failed_runs} failed &middot; {num_episodes} episode(s)"
-        )
-    else:
-        summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
-
-    failed_run_names = {
-        run_execution.run_name for run_execution in report.run_executions if run_execution.status is RunStatus.FAILED
-    }
-    sections = "\n".join([
-        _render_failed_runs_section(report.run_executions),
-        *(_render_job_section(job) for job in report.jobs if job.name not in failed_run_names),
-    ]).strip()
-    if not sections:
-        sections = "<p>No results recorded yet.</p>"
-    template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
-    return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
+    num_pages = len(summary.tasks)
+    for job in summary.jobs:
+        pages = job_page_hrefs[job.name]
+        for page_index, page_href in enumerate(pages):
+            start = page_index * episodes_per_page
+            page_episodes = job.episodes[start : start + episodes_per_page]
+            (pages_dir / page_href).write_text(
+                render_job_page(
+                    summary,
+                    job,
+                    task_href=task_hrefs[job.task],
+                    index_href="../index.html",
+                    # Videos are recorded relative to the results root, one level above the pages.
+                    video_prefix="../",
+                    episodes=page_episodes,
+                    page_index=page_index,
+                    num_pages=len(pages),
+                    page_hrefs=pages,
+                ),
+                encoding="utf-8",
+            )
+            num_pages += 1
+    return num_pages
 
 
 def build_report(
@@ -321,45 +100,82 @@ def build_report(
     title: str = _DEFAULT_TITLE,
     *,
     run_executions: list[RunExecutionReport] | None = None,
+    policy_suffixes: tuple[str, ...] = DEFAULT_POLICY_SUFFIXES,
+    episodes_per_page: int = 100,
 ) -> pathlib.Path:
     """Scan ``video_dir`` for results and write the report ``index.html`` into it, returning its path.
 
-    The report is always written (the directory is created if missing); when no results are present the
-    report is simply empty. Writing is independent of serving — see ``serve_until_ctrl_c``.
+    The task and Run pages are written into a ``report`` sub-directory beside it. The report is always
+    written (the directory is created if missing); when no results are present the report is simply
+    empty. Writing is independent of serving — see ``serve_until_ctrl_c``.
 
     Args:
         video_dir: Directory of recorded results to scan (the report is written here).
         title: Title and heading for the generated page.
         run_executions: Optional Run process results supplied by a distributed collector.
+        policy_suffixes: Run-name suffixes that identify policies for task/policy grouping.
+        episodes_per_page: Maximum number of episode cards per generated run page.
     """
+    assert episodes_per_page > 0, "episodes_per_page must be greater than zero"
     video_dir = pathlib.Path(video_dir).resolve()
     video_dir.mkdir(parents=True, exist_ok=True)
 
-    report = EvaluationReport(
-        title=title,
-        jobs=_scan_jobs(video_dir),
-        run_executions=[] if run_executions is None else list(run_executions),
+    summary = build_experiment_summary(video_dir, title, run_executions, policy_suffixes=policy_suffixes)
+    # Page filenames are derived once and threaded through both levels, so a link and the file it
+    # points at can never disagree.
+    task_hrefs = {name: f"task_{slug}.html" for name, slug in unique_slugs([t.name for t in summary.tasks]).items()}
+    job_page_hrefs = _job_page_hrefs(summary, episodes_per_page)
+    episode_hrefs = _episode_hrefs(summary, job_page_hrefs, episodes_per_page)
+
+    index_html = render_index(
+        summary,
+        task_hrefs={name: f"{PAGES_DIRNAME}/{href}" for name, href in task_hrefs.items()},
     )
     output = video_dir / "index.html"
-    output.write_text(render_report(report), encoding="utf-8")
-    num_episodes = sum(len(job.episodes) for job in report.jobs)
-    if report.run_executions:
-        num_completed_runs = sum(run_execution.status is RunStatus.COMPLETED for run_execution in report.run_executions)
-        num_failed_runs = sum(run_execution.status is RunStatus.FAILED for run_execution in report.run_executions)
-        print(
-            f"Wrote evaluation report with {num_completed_runs} completed Run(s), {num_failed_runs} failed Run(s), "
-            f"and {num_episodes} episode(s) to: {output}"
-        )
-    else:
-        print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
-    num_videos = sum(len(episode.video_by_camera) for job in report.jobs for episode in job.episodes)
-    if not report.jobs and not report.run_executions:
+    output.write_text(index_html, encoding="utf-8")
+    num_pages = (
+        _write_pages(summary, video_dir, task_hrefs, job_page_hrefs, episode_hrefs, episodes_per_page)
+        if summary.tasks
+        else 0
+    )
+
+    print(
+        f"Wrote evaluation report with {len(summary.tasks)} task(s), {len(summary.jobs)} run(s) and "
+        f"{summary.num_episodes} episode(s) to: {output} (+{num_pages} linked page(s))"
+    )
+    if not summary.tasks and not summary.run_executions:
         print("[WARNING] No episode results or rollout videos were found; the report is empty.")
-    elif num_episodes == 0 and report.run_executions:
+    elif summary.num_episodes == 0 and summary.run_executions:
         print("[INFO] No episodes were recorded; the report contains Run execution results only.")
-    elif num_videos == 0:
+    elif summary.num_videos == 0:
         print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
+
+
+def _job_page_hrefs(summary: ExperimentSummary, episodes_per_page: int) -> dict[str, list[str]]:
+    slugs = unique_slugs([job.name for job in summary.jobs])
+    hrefs = {}
+    for job in summary.jobs:
+        num_pages = max(1, (len(job.episodes) + episodes_per_page - 1) // episodes_per_page)
+        if num_pages == 1:
+            hrefs[job.name] = [f"job_{slugs[job.name]}.html"]
+        else:
+            hrefs[job.name] = [f"job_{slugs[job.name]}_{index + 1}.html" for index in range(num_pages)]
+    return hrefs
+
+
+def _episode_hrefs(
+    summary: ExperimentSummary,
+    job_page_hrefs: dict[str, list[str]],
+    episodes_per_page: int,
+) -> dict[tuple[str, int, int], str]:
+    hrefs = {}
+    for job in summary.jobs:
+        pages = job_page_hrefs[job.name]
+        for index, episode in enumerate(job.episodes):
+            page_href = pages[index // episodes_per_page]
+            hrefs[(job.name, episode.env_index, episode.episode_index)] = f"{page_href}#{episode_anchor(episode)}"
+    return hrefs
 
 
 def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> None:
@@ -396,15 +212,6 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
 
 
 def _resolve_results_dir(video_dir: pathlib.Path) -> pathlib.Path:
-    """Return the directory to report on, descending into the most recent dated run dir when present.
-
-    When ``video_dir`` is a parent that holds reverse-dated run sub-directories (as written by
-    ``timestamped_run_dir``, e.g. ``isaaclab_arena/output``), the newest one is used so the user can
-    point at the output root and get the latest results. Otherwise ``video_dir`` is returned unchanged.
-
-    Args:
-        video_dir: Directory the user pointed at.
-    """
     if not video_dir.is_dir():
         return video_dir
     run_dirs = sorted(child for child in video_dir.iterdir() if child.is_dir() and _RUN_DIR_PATTERN.match(child.name))
@@ -419,7 +226,7 @@ def _resolve_results_dir(video_dir: pathlib.Path) -> pathlib.Path:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build and serve an HTML evaluation report of evaluation results."
+            "Build and serve a hierarchical HTML evaluation report of evaluation results."
             " The report (index.html) is written alongside the evaluation data into the folder and served over HTTP"
         )
     )
@@ -433,16 +240,38 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--title", type=str, default=_DEFAULT_TITLE, help=f"Title for the report. Defaults to '{_DEFAULT_TITLE}'."
+    )
+    parser.add_argument(
         "--port", type=int, default=_DEFAULT_PORT, help=f"Port to serve on. Defaults to {_DEFAULT_PORT}."
     )
+    parser.add_argument(
+        "--policy_suffix",
+        action="append",
+        default=None,
+        help="Run-name policy suffix used for grouping. May be supplied more than once.",
+    )
+    parser.add_argument(
+        "--episodes_per_page",
+        type=int,
+        default=100,
+        help="Maximum number of episode cards per run page. Defaults to 100.",
+    )
+    parser.add_argument("--no_serve", action="store_true", help="Write the report without serving it.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
     video_dir = _resolve_results_dir(pathlib.Path(args.video_dir))
-    output = build_report(video_dir)
-    serve_until_ctrl_c(output.parent, args.port, output.name)
+    output = build_report(
+        video_dir,
+        args.title,
+        policy_suffixes=tuple(args.policy_suffix or DEFAULT_POLICY_SUFFIXES),
+        episodes_per_page=args.episodes_per_page,
+    )
+    if not args.no_serve:
+        serve_until_ctrl_c(output.parent, args.port, output.name)
 
 
 if __name__ == "__main__":

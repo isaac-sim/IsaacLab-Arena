@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab.utils.math import euler_xyz_from_quat
 
-from isaaclab_arena.assets.register import register_object_relation
+from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.relations.clutter_drop_poses import DropOrder
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
@@ -128,6 +128,7 @@ class FaceTo(RelationBase):
             ), f"FaceTo parent '{self.parent.name}' cannot randomize XY."
 
 
+@agent_ready
 @register_object_relation
 class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
@@ -143,18 +144,18 @@ class NextTo(Relation):
     def __init__(
         self,
         parent: PlaceableAsset,
+        side: Side | str,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: Side | str = Side.POSITIVE_X,
         cross_position_ratio: float = 0.0,
         tolerance_m: float = 1e-2,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed next to.
+            side: Which axis direction to place the object.
             relation_loss_weight: Weight for the relationship loss function.
             distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            side: Which axis direction to place object (default: Side.POSITIVE_X).
             cross_position_ratio: Where to place the child along the parent's perpendicular
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
@@ -176,6 +177,7 @@ class NextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
+@agent_ready
 @register_object_relation
 class On(Relation):
     """Represents an 'on top of' relationship between objects.
@@ -215,6 +217,7 @@ class On(Relation):
         self.edge_margin_m = edge_margin_m
 
 
+@agent_ready
 @register_object_relation
 class NotNextTo(Relation):
     """Forbids placing the child next to the parent on the given side.
@@ -250,6 +253,7 @@ class NotNextTo(Relation):
         self.tolerance_m = tolerance_m
 
 
+@agent_ready
 @register_object_relation
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
@@ -266,7 +270,7 @@ class IsAnchor(RelationBase):
         chair.add_relation(IsAnchor())  # Another anchor
 
         mug.add_relation(On(table))
-        bin.add_relation(NextTo(chair))
+        bin.add_relation(NextTo(chair, side=Side.POSITIVE_X))
     """
 
     name = "is_anchor"
@@ -483,6 +487,7 @@ class RandomAroundSolution(RelationBase):
         )
 
 
+@agent_ready
 @register_object_relation
 class RotateAroundSolution(RelationBase):
     """Marker specifying an explicit rotation to apply on top of the solver solution.
