@@ -75,39 +75,6 @@ field. Arena uses this name in command-line overrides, output directories, and r
 Runs keep their YAML order. The local Experiment Runner executes them in that order.
 
 
-What a Run contains
--------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
-
-   * - Field
-     - Meaning
-   * - ``environment``
-     - Selects and configures the Environment Definition. ``type`` is a registered Python
-       environment name or the path to an environment graph YAML file.
-   * - ``policy``
-     - Selects and configures the policy. ``type`` is a registered policy name or a dotted Python
-       class path.
-   * - ``environment_builder``
-     - Controls how simulation is built, including ``num_envs``, environment spacing, and seeds.
-   * - ``rollout_limit``
-     - Stops the rollout after ``num_steps`` or ``num_episodes``. If neither is set, the policy
-       must provide its own length.
-   * - ``num_rebuilds``
-     - Builds a fresh environment several times and combines the resulting metrics.
-   * - ``variations``
-     - Configures registered environment variations for this Run.
-
-The selected environment and policy determine which fields are valid inside their mappings.
-Arena validates the definition against those typed configurations and reports unknown fields.
-
-``environment_builder.num_envs`` creates parallel simulated environments *inside one Run*. It
-does not make the Runs themselves concurrent. When ``num_rebuilds`` is greater than one, a step
-limit applies to every rebuild, while an episode limit is divided across the rebuilds.
-
-
 Reuse values with ``shared``
 ----------------------------
 
