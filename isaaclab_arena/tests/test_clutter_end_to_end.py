@@ -11,6 +11,8 @@ poses survive as spawn poses, and that the pile comes to rest on its support.
 
 from __future__ import annotations
 
+import math
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 SUPPORT_ASSET = "office_table_background"
@@ -358,12 +360,22 @@ def _test_capture_distinguishes_a_falling_pile_from_a_settled_one(simulation_app
     # Budgets in seconds rather than steps: a step count silently encodes the control rate, so
     # when Arena moved from 50 Hz to 15 Hz the "far too little time" case became three times
     # longer and the pile it was meant to catch mid-fall settled instead.
-    def env_steps(seconds: float) -> int:
+    #
+    # Rounded in the direction each budget needs rather than to nearest, since rounding a
+    # ceiling up or a floor down would quietly restore the same class of failure at some future
+    # rate: the falling budget must stay under its bound, the settling budget over its own.
+    def env_steps_at_most(seconds: float) -> int:
         per_step = env.unwrapped.sim.get_physics_dt() * env.unwrapped.cfg.decimation
-        return max(1, round(seconds / per_step))
+        steps = int(seconds // per_step)
+        assert steps >= 1, f"one env step is {per_step:.3f} s, longer than the {seconds} s budget"
+        return steps
 
-    def substeps(seconds: float) -> int:
-        return max(1, round(seconds / env.unwrapped.sim.get_physics_dt()))
+    def env_steps_at_least(seconds: float) -> int:
+        per_step = env.unwrapped.sim.get_physics_dt() * env.unwrapped.cfg.decimation
+        return max(1, math.ceil(seconds / per_step))
+
+    def substeps_at_least(seconds: float) -> int:
+        return max(1, math.ceil(seconds / env.unwrapped.sim.get_physics_dt()))
 
     def settle(num_steps: int, poll_every: int):
         return validate_pool_layouts(
@@ -377,12 +389,12 @@ def _test_capture_distinguishes_a_falling_pile_from_a_settled_one(simulation_app
 
     # Far too little time to land and come to rest, but enough polls that a settled pile would
     # be recognised, so the unsettled verdict is about the pile rather than the sampling.
-    assert settle(num_steps=env_steps(0.2), poll_every=substeps(0.05)) is not None
+    assert settle(num_steps=env_steps_at_most(0.2), poll_every=substeps_at_least(0.05)) is not None
     still_released = {member: layout.positions[member] for member in released}
     assert still_released == released, "a pile that never settled had its falling poses captured"
 
     # The same scene given room to settle must replace those poses.
-    assert settle(num_steps=env_steps(10.0), poll_every=substeps(0.25)) is not None
+    assert settle(num_steps=env_steps_at_least(10.0), poll_every=substeps_at_least(0.25)) is not None
     settled_poses = {member: layout.positions[member] for member in released}
     env.close()
 

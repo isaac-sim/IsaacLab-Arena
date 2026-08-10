@@ -28,11 +28,17 @@ from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPos
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 _MIN_CLUTTER_SETTLE_STEPS = 400
-"""Physics steps allowed for any clutter pile to settle, however small."""
+"""Physics steps allowed for any clutter pile to settle, however small.
+
+Counted in steps rather than seconds, so the time a pile is given moves with the simulation
+rate: 400 steps is two seconds at 200 Hz and three and a third at 120. A slower rate is
+generous and a faster one is not, so a large increase in rate would want this revisited.
+"""
 
 _CLUTTER_SETTLE_STEPS_PER_MEMBER = 30
 """Further physics steps allowed per pile member. Settling stops as soon as the poses go
-quiet, so this bounds the wait rather than being spent."""
+quiet, so this bounds the wait rather than being spent. Rate-dependent in the same way as the
+minimum above."""
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
