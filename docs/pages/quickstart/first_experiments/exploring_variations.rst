@@ -1,11 +1,11 @@
 Exploring Environment Variations
 ================================
 
-The :ref:`previous page <swapping-environment-components>` explicitly selected objects,
-embodiments, and lighting settings. An Arena variation instead samples a registered environment
-property automatically. Before connecting a trained policy, you can explore these variations with
-the ``zero_action`` policy. The robot stays still while the environment loads and renders, so no
-model weights are required.
+The earlier :ref:`environment examples <swapping-environment-components>` explicitly selected
+objects, embodiments, and lighting settings. An Arena variation instead samples a registered
+environment property automatically. Before connecting a trained policy, you can explore these
+variations with the ``zero_action`` policy. The robot stays still while the environment loads and
+renders, so no model weights are required.
 
 Arena includes variations for lighting, cameras, backgrounds, and other environment properties.
 The gallery below previews several supported effects.
@@ -88,8 +88,8 @@ Use ``--list_variations`` to see the variations available for an environment:
 See :doc:`../../concepts/variations/variations` for the available variations and their
 configuration options.
 
-See :doc:`Evaluation Types <../../concepts/policy/concept_evaluation_types>` for parallel and
-sequential batch evaluation.
+See :doc:`Arena Experiments and Runs <../../concepts/policy/concept_evaluation_types>` for the
+Experiment Definition and its local and OSMO execution paths.
 
 
 Next steps

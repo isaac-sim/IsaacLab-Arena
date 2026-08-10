@@ -1,247 +1,216 @@
-Evaluation Types
-=================
+.. _arena-experiments-and-runs:
 
-Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
-**policy runner** (single or multi-GPU) and an **Experiment Runner** for
-multiple jobs in one process. This section summarizes when to use each and how
-they work. Each section below links to the relevant concept docs:
-:doc:`Policy Design <index>`,
-:doc:`Environment Design <../environment/index>`, and
-:doc:`Metrics Design <../task/concept_metrics_design>`.
+Arena Experiments and Runs
+==========================
 
-Both runners support a **server–client** setup, where simulation runs locally
-(client) and policy inference runs in a separate process or machine (server).
-This is the deployment used by ``Gr00tRemoteClosedloopPolicy``: the simulation
-client ships observations to a `GR00T <https://github.com/NVIDIA/Isaac-GR00T>`_
-policy server over the network, receives action chunks, and applies them in the
-sim. The split lets a heavyweight model (e.g. GR00T N1.6) live on a dedicated
-GPU while the simulation client runs on its own GPU, and is orthogonal to the
-runner choice — pass the remote-policy class as ``--policy_type`` and add
-``--remote_host`` / ``--remote_port`` flags. End-to-end commands (including
-how to launch the GR00T server out of the
-``submodules/Isaac-GR00T`` submodule) live in
-:doc:`../../quickstart/first_experiments/running_a_real_policy/index` and the
-example workflows.
+An Arena Experiment groups one or more named Runs into one evaluation. Each Run brings together
+an environment, a policy, and the settings that control the rollout.
 
-Summary
--------
+The **Experiment Definition** is the YAML file that describes those Runs. It is the main interface
+for evaluation: run the same definition locally with the Experiment Runner, or submit it to OSMO
+for managed execution. An Experiment with a single Run is valid, so the interface also works for
+small evaluations.
+
+.. grid:: 1 1 3 3
+   :gutter: 2
+
+   .. grid-item-card:: Experiment Definition
+      :class-card: sd-shadow-sm
+
+      The typed YAML file. It holds shared values and one or more named Runs.
+
+   .. grid-item-card:: Run
+      :class-card: sd-shadow-sm
+
+      One environment-and-policy evaluation. A Run can contain many parallel simulated
+      environments.
+
+   .. grid-item-card:: Execution
+      :class-card: sd-shadow-sm
+
+      The Experiment Runner executes locally. OSMO schedules the same Runs on managed compute.
+
+
+The Experiment Definition
+-------------------------
+
+An Experiment Definition has two top-level mappings: ``shared`` and ``runs``. Values below
+``shared`` are reused by every Run. Each key below ``runs`` is a Run name:
+
+.. code-block:: yaml
+
+   shared:
+     environment:
+       type: pick_and_place_maple_table
+       embodiment: droid_rel_joint_pos
+       hdr: home_office_robolab
+     policy:
+       type: zero_action
+     rollout_limit:
+       num_steps: 50
+
+   runs:
+     baseline: {}
+
+     billiard_hall:
+       environment:
+         hdr: billiard_hall_robolab
+
+``baseline`` inherits all shared values. ``billiard_hall`` inherits them too, then replaces only
+the background. The Run name comes from its key below ``runs``; there is no separate ``name``
+field. Arena uses this name in command-line overrides, output directories, and reports.
+
+Runs keep their YAML order. The local Experiment Runner executes them in that order.
+
+
+What a Run contains
+-------------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 30 30 20
+   :widths: 25 75
 
-   * - Type
-     - Use case
-     - Entry point
-     - Multi-GPU
-   * - Policy runner
-     - Single job, one env config, one policy
-     - ``policy_runner.py``
-     - Yes (torchrun)
-   * - Experiment Runner
-     - Multiple jobs (env/policy combos) in sequence
-     - ``experiment_runner.py``
-     - No
+   * - Field
+     - Meaning
+   * - ``environment``
+     - Selects and configures the environment. ``type`` is a registered environment name or the
+       path to an environment graph YAML file.
+   * - ``policy``
+     - Selects and configures the policy. ``type`` is a registered policy name or a dotted Python
+       class path.
+   * - ``environment_builder``
+     - Controls how simulation is built, including ``num_envs``, environment spacing, and seeds.
+   * - ``rollout_limit``
+     - Stops the rollout after ``num_steps`` or ``num_episodes``. If neither is set, the policy
+       must provide its own length.
+   * - ``num_rebuilds``
+     - Builds a fresh environment several times and combines the resulting metrics.
+   * - ``variations``
+     - Configures registered environment variations for this Run.
 
-1. Policy runner — single job (single GPU and multi-GPU)
---------------------------------------------------------
+The selected environment and policy determine which fields are valid inside their mappings.
+Arena validates the definition against those typed configurations and reports unknown fields.
 
-The **policy runner** (``isaaclab_arena/evaluation/policy_runner.py``) runs one
-evaluation job: one environment configuration and one policy. It is the right
-choice for ad-hoc runs, debugging, or when you want to drive one scenario with
-full control over CLI arguments.
+``environment_builder.num_envs`` creates parallel simulated environments *inside one Run*. It
+does not make the Runs themselves concurrent. When ``num_rebuilds`` is greater than one, a step
+limit applies to every rebuild, while an episode limit is divided across the rebuilds.
 
-**Design context:** For how policies are defined and integrated with environments,
-see :doc:`Policy Design <index>`.
 
-**Features:**
+Reuse values with ``shared``
+----------------------------
 
-- Single environment configuration (scene, embodiment, task) and one policy.
-- **Heterogeneous objects:** When the environment supports it, you can pass
-  ``--object_set`` with a space-separated list of object names. Each parallel
-  environment is assigned a different object from the set (e.g. env 0 gets the
-  first object, env 1 the second, etc.). This allows evaluating one policy
-  across multiple object types in a single run without changing the scene or
-  task logic.
-- Run length by **steps** (``--num_steps``) or **episodes** (``--num_episodes``);
-  policies that define a length (e.g. ``policy.has_length()``) can override this.
-- **Single GPU**: one process, one Isaac Sim instance.
-- **Multi-GPU**: use ``torchrun`` with ``--distributed``; one process per GPU,
-  each with its own Isaac Sim instance and device (e.g. ``cuda:0``, ``cuda:1``).
-- Metrics are computed at the end if the environment registers metrics and are logged to the console.
+``shared`` removes repetition. Arena applies these values to every Run, then places each Run's
+own values on top. A Run only needs to declare what is different.
 
-**Single-GPU example**
+Values are applied in this order, from lowest to highest priority:
 
-.. code-block:: bash
+.. code-block:: text
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type <policy_type> \
-     --num_steps 2000 \
-     --num_envs 10 \
-     <arena_environment> \
-     --embodiment <embodiment> \
-     --object <object>
-     ...
+   typed configuration defaults
+                 ↓
+   shared values, including shared.* CLI overrides
+                 ↓
+   values written in an individual Run
+                 ↓
+   runs.<name>.* CLI overrides
 
-**Heterogeneous objects example (single or multi-GPU)**
+This order matters when a shared value is also set by a Run:
 
-Use ``--object_set`` so each of the ``--num_envs`` parallel environments gets a
-different object from the list. Object-to-environment mapping: with the default
-deterministic assignment, environment :math:`i` gets the object at index
-:math:`i \\mod n` in the list (where :math:`n` = ``len(object_set)``)—so when
-``num_envs`` > ``len(object_set)`` the assignment **cycles** (no truncation or
-error). If the object set is created with ``random_choice=True``, each environment
-gets a randomly chosen object from the set. Some environments may require
-``num_envs == len(object_set)``.
+.. list-table:: Effective ``num_steps`` values
+   :header-rows: 1
+   :widths: 60 20 20
 
-.. code-block:: bash
+   * - Configuration
+     - ``baseline``
+     - ``parallel_envs``
+   * - YAML has shared ``num_steps: 50``
+     - 50
+     - 50
+   * - ``parallel_envs`` declares ``num_steps: 100``
+     - 50
+     - 100
+   * - CLI sets ``shared.rollout_limit.num_steps=75``
+     - 75
+     - 100
+   * - CLI also sets ``runs.parallel_envs.rollout_limit.num_steps=125``
+     - 75
+     - 125
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type <policy_type> \
-     --num_steps 2000 \
-     --num_envs 4 \
-     --enable_cameras \
-     put_item_in_fridge_and_close_door \
-     --embodiment gr1_joint \
-     --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+A ``shared.<path>=...`` override changes the shared value before Runs are merged. A value written
+directly in a Run still wins. A ``runs.<name>.<path>=...`` override changes the final Run.
 
-**Multi-GPU example**
+.. dropdown:: Configuration rules
+   :animate: fade-in
 
-Use ``torch.distributed.run`` (or ``torchrun``) with ``--nproc_per_node=<num_gpus>``
-and pass ``--distributed`` so each process uses a different GPU (via ``LOCAL_RANK``):
+   * The only top-level fields are ``shared`` and ``runs``.
+   * ``runs`` must contain at least one Run.
+   * A Run name starts with a letter or underscore. It can then contain letters, numbers,
+     underscores, or hyphens.
+   * An override can change a field on a Run declared in the YAML, but it cannot add another Run.
+   * A ``shared.*`` override must point to a field already present below ``shared``. The Hydra
+     operators ``+``, ``++``, and ``~`` are not supported for shared values.
 
-.. code-block:: bash
-
-   python -m torch.distributed.run --nnode=1 --nproc_per_node=<num_gpus> \
-     isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type <policy_type> \
-     --num_steps 2000 \
-     --num_envs 10 \
-     --distributed \
-     --headless \
-     <arena_environment> \
-     ...
-
-**Policy runner CLI (relevant flags)**
-
-- ``--policy_type``: Registered policy name or dotted path to policy class
-  (e.g. ``module.submodule.ClassName``).
-- ``--num_steps``: Total simulation steps (mutually exclusive with
-  ``--num_episodes``).
-- ``--num_episodes``: Total episodes (mutually exclusive with ``--num_steps``).
-- ``--distributed``: Enable distributed mode; use with ``torchrun`` and set
-  device per rank (e.g. ``cuda:{local_rank}``).
-
-The remaining environment arguments come from the Arena environments CLI. For
-registered policies, policy-specific flags are generated from their ``PolicyCfg``.
 
 .. _sequential-batch-experiment-runner:
 
-2. Experiment Runner — batch jobs
---------------------------------------------
+One definition, two execution paths
+-----------------------------------
 
-The **Experiment Runner** (``isaaclab_arena/evaluation/experiment_runner.py``)
-runs a **batch** of evaluation jobs sequentially in a single process. Each job can have
-a different environment (scene/object/embodiment), policy type, policy config,
-and length (steps or episodes). This is suited for benchmarking many
-configurations (e.g. many objects or tasks) without launching multiple processes
-by hand. Persistence of the simulation application is maintained between jobs.
+.. grid:: 1 1 2 2
+   :gutter: 3
 
-**Design context:** For how environments are composed and how metrics are
-defined and computed, see :doc:`Environment Design <../environment/index>`
-and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
-follow :doc:`Policy Design <index>`.
+   .. grid-item-card:: Local — Experiment Runner
+      :class-card: sd-shadow-sm
 
-**Features:**
+      Loads the Experiment once and executes its Runs in YAML order in one process and one
+      SimulationApp. Every Run builds a fresh environment. The runner stops at the first failure
+      unless ``--continue_on_error`` is set.
 
-- One JSON config file (``--eval_jobs_config``) listing all jobs.
-- Jobs run one after another; each job builds its environment, creates the
-  policy from the job config, runs ``rollout_policy``, then tears down the env
-  before the next job.
-- If a job fails, the runner continues with the next job and marks the failed
-  job accordingly.
-- Metrics are aggregated and printed at the end (e.g. via ``MetricsLogger``).
-- **Distributed evaluation is not supported**: the Experiment Runner
-  runs in a single process. For multi-GPU, use multiple policy runner
-  invocations (e.g. with ``torchrun``) or split the batch across machines.
+   .. grid-item-card:: Managed — OSMO
+      :class-card: sd-shadow-sm
 
-.. todo::
+      Turns every Run into an independently scheduled group. Runs can execute at the same time
+      when resources are available. OSMO then collects their outputs into one Experiment result.
 
-    Experiment with distributed evaluation in the Experiment Runner.
+.. tab-set::
 
-**Jobs config format**
+   .. tab-item:: Run locally
 
-The config file must be a JSON object with a ``"jobs"`` array. Each job is an
-object with:
+      .. code-block:: bash
 
-- ``name``: Unique job name (for logging and metrics).
-- ``arena_env_args``: Environment arguments as a dict (e.g. ``environment``,
-  ``num_envs``, ``object``, ``embodiment``, ``enable_cameras``, etc.). Converted
-  internally to the same CLI-style list the policy runner uses.
-- ``policy_type``: Same as policy runner (registered name or dotted class path).
-- ``policy_config_dict``: Policy configuration (e.g. checkpoint path, model
-  options). Deserialized through the policy's registered config type; the
-  deprecated CLI conversion fallback remains for legacy policies without one.
-- ``num_steps`` or ``num_episodes`` (optional): Simulation length for this job.
-  If both are omitted, the runner uses the policy’s length if defined, or a CLI
-  default (e.g. ``--num_steps``).
+         python isaaclab_arena/evaluation/experiment_runner.py \
+           --experiment_config path/to/experiment.yaml
 
-**Example config structure**
+   .. tab-item:: Preview an OSMO workflow
 
-.. code-block:: json
+      .. code-block:: bash
 
-   {
-     "jobs": [
-       {
-         "name": "gr1_open_microwave_cracker_box",
-         "arena_env_args": {
-           "environment": "gr1_open_microwave",
-           "object": "cracker_box",
-           "embodiment": "gr1_joint",
-           "num_envs": 4
-         },
-         "num_steps": 500,
-         "policy_type": "zero_action",
-         "policy_config_dict": {}
-       },
-       {
-         "name": "gr1_sequential_static_manipulation_put_ranch_dressing_bottle_in_fridge_and_close_door",
-         "arena_env_args": {
-           "enable_cameras": true,
-           "environment": "gr1_sequential_static_manipulation",
-           "object": "ranch_dressing_hope_robolab",
-           "embodiment": "gr1_joint"
-         },
-         "num_steps": 100,
-         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
-         "policy_config_dict": {
-           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-           "policy_device": "cuda:0",
-           "remote_host": "127.0.0.1",
-           "remote_port": 5555
-          }
-       }
-     ]
-   }
+         python -m osmo.submit_arena_experiment \
+           --experiment_cfg path/to/experiment.yaml \
+           --dry_run
 
-**Running the Experiment Runner**
+For remote policies, configure the policy client inside its Run like any other policy. Start the
+policy server separately for local execution. OSMO can co-schedule a server for supported policy
+types.
 
-.. code-block:: bash
+Follow :doc:`Run an Arena Experiment
+<../../quickstart/first_experiments/running_an_arena_experiment>` for a complete local example.
+For OSMO setup and submission options, see :doc:`Multi-node Evaluation
+<../../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --viz kit \
-     --eval_jobs_config path/to/eval_jobs_config.json \
-     --num_steps 1000
 
-If any job needs cameras, set ``enable_cameras: true`` in that job’s
-``arena_env_args``; the Experiment Runner automatically enables camera support if any job requires it.
+When to use the Policy Runner
+-----------------------------
 
-Choosing an evaluation type
----------------------------
+For a normal evaluation, prefer an Experiment Definition even when it contains only one Run.
+``policy_runner.py`` remains available for specialized command-line workflows such as focused
+debugging, external Python environments, and ``torchrun`` multi-GPU execution.
 
-- **One-off run, one setup**: use the **policy runner** (single or multi-GPU);
-  use ``--object_set`` for heterogeneous objects in one run.
-- **Many env/policy combinations in one go**: use the **sequential batch eval
-  runner** with a jobs JSON; use ``--object_set`` for heterogeneous objects in one run.
+
+Related concepts
+----------------
+
+* :doc:`Environment Design <../environment/index>`
+* :doc:`Policy Design <index>`
+* :doc:`Metrics Design <../task/concept_metrics_design>`
+* :doc:`Environment Variations <../variations/index>`

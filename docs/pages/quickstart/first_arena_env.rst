@@ -124,9 +124,9 @@ Keep the original objects, but select a different background panorama and ambien
 
 .. note::
 
-   These commands make explicit choices for each run. Arena *variations*, introduced on the next
-   page, instead choose values automatically when an environment is built or reset and record
-   every sampled value.
+   These commands make explicit choices for each run. On the next page, you will collect the same
+   choices as named Runs in one Arena Experiment. Later, Arena *variations* will choose and record
+   values automatically when an environment is built or reset.
 
 
 How the Environment Is Assembled
@@ -165,8 +165,8 @@ For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 Next Steps
 ----------
 
-Continue to :doc:`first_experiments/exploring_variations` to let Arena sample controlled changes
-automatically.
+Continue to :doc:`first_experiments/running_an_arena_experiment` to execute several named Runs from
+one YAML file.
 
 
 Using IsaacLab-Arena in Your Own Repository
