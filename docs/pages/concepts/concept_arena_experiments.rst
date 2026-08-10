@@ -7,8 +7,7 @@ rollout.
 
 The **Experiment Definition** is the YAML file that describes those Runs. It is the main interface
 for evaluation: run the same definition locally with the Experiment Runner, or submit it to OSMO
-for managed execution. An Experiment with a single Run is valid, so the interface also works for
-small evaluations.
+for managed execution.
 
 .. note::
 
