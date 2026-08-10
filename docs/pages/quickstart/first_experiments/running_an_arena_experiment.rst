@@ -114,7 +114,3 @@ Next steps
 
 * Continue to :doc:`exploring_variations` to sample controlled environment changes.
 * Continue to :doc:`running_a_real_policy/index` to evaluate a trained policy.
-* Read :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for all Run
-  fields and execution choices.
-* To submit an Experiment to OSMO, follow :doc:`Multi-node Evaluation
-  <../../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
