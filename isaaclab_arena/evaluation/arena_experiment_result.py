@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
-ARENA_EXPERIMENT_RESULT_FORMAT_VERSION = 1
 _RUN_STATUSES = frozenset({"completed", "failed"})
 
 
@@ -119,10 +118,7 @@ class ArenaExperimentResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Return the collected JSON-compatible Experiment result."""
-        return {
-            "format_version": ARENA_EXPERIMENT_RESULT_FORMAT_VERSION,
-            "runs": self._runs,
-        }
+        return {"runs": self._runs}
 
     def write(self) -> Path:
         """Write the collected result to the canonical Experiment output path."""

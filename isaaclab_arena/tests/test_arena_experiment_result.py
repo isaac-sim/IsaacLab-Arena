@@ -17,7 +17,6 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environment_spec import arena_env_graph_yaml_loader
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    ARENA_EXPERIMENT_RESULT_FORMAT_VERSION,
     ArenaExperimentResult,
     build_arena_run_result_metadata,
 )
@@ -71,7 +70,6 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
     )
 
     assert result.to_dict() == {
-        "format_version": ARENA_EXPERIMENT_RESULT_FORMAT_VERSION,
         "runs": {
             "completed": {
                 "environment": {
