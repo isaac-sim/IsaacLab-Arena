@@ -10,17 +10,14 @@ from __future__ import annotations
 import copy
 import json
 import os
-import time
-from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from openai import OpenAI, RateLimitError
+from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
-EXTERNAL_RATE_LIMIT_FALLBACK_S = 20.0
 
 INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
 INTERNAL_MODEL = "openai/openai/gpt-5.6-terra"
@@ -157,7 +154,7 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        _ping(client, inference_endpoint, resolved_model, max_retries)
+        _ping(client, inference_endpoint, resolved_model)
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -192,10 +189,7 @@ class InferenceBackend:
             if attempt > 0:
                 print(f"[{request.retry_label}] retry {attempt}/{self._max_retries} after: {last_exc}", flush=True)
             try:
-                resp = _create_chat_completion(
-                    self._client,
-                    self._endpoint,
-                    self._max_retries,
+                resp = self._client.chat.completions.create(
                     model=self._model,
                     messages=messages,
                     response_format={
@@ -225,10 +219,6 @@ class InferenceBackend:
                 # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
                 # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
                 return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
-            except RateLimitError as exc:
-                last_exc = exc
-                if self._endpoint == EXTERNAL_ENDPOINT:
-                    break
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
@@ -263,42 +253,7 @@ def _completion_options(endpoint: InferenceEndpoint, max_tokens: int, temperatur
     return options
 
 
-def _create_chat_completion(
-    client: OpenAI,
-    endpoint: InferenceEndpoint,
-    max_retries: int,
-    **kwargs: Any,
-) -> Any:
-    """Create a completion, respecting external-endpoint Retry-After headers."""
-    for attempt in range(1 + max_retries):
-        try:
-            return client.chat.completions.create(**kwargs)
-        except RateLimitError as exc:
-            if endpoint != EXTERNAL_ENDPOINT or attempt >= max_retries:
-                raise
-            delay_s = _rate_limit_retry_delay_s(exc)
-            print(
-                f"[inference] external rate limit; retry {attempt + 1}/{max_retries} after {delay_s:g}s",
-                flush=True,
-            )
-            time.sleep(delay_s)
-    raise AssertionError("unreachable")
-
-
-def _rate_limit_retry_delay_s(exc: RateLimitError) -> float:
-    """Return the provider-requested rate-limit delay, or a conservative fallback."""
-    response = getattr(exc, "response", None)
-    headers = getattr(response, "headers", {})
-    for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
-        value = headers.get(name)
-        if value is None:
-            continue
-        with suppress(TypeError, ValueError):
-            return max(0.0, float(value) * scale)
-    return EXTERNAL_RATE_LIMIT_FALLBACK_S
-
-
-def _ping(client: OpenAI, endpoint: InferenceEndpoint, model: str, max_retries: int) -> str:
+def _ping(client: OpenAI, endpoint: InferenceEndpoint, model: str) -> str:
     """Smoke-test the endpoint + API key + model with a minimal request.
 
     Args:
@@ -306,16 +261,12 @@ def _ping(client: OpenAI, endpoint: InferenceEndpoint, model: str, max_retries: 
         endpoint: Endpoint capabilities used to construct the request.
         model: Model identifier forwarded to
             ``client.chat.completions.create(model=...)``.
-        max_retries: Additional attempts after an external rate-limit response.
 
     Returns:
         The model's response text.
     """
     # TODO(qianl): wrap with transient-error retry.
-    resp = _create_chat_completion(
-        client,
-        endpoint,
-        max_retries,
+    resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": "Respond with exactly: OK"}],
         **_completion_options(endpoint, 32, 0),
