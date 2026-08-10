@@ -45,8 +45,8 @@ for managed execution.
 The Experiment Definition
 -------------------------
 
-Every Experiment Definition has a required ``runs`` mapping. A ``shared`` mapping is optional.
-When present, its values are reused by every Run. Each key below ``runs`` is a Run name:
+The YAML has a required ``runs`` mapping. A ``shared`` mapping is optional. When present, its
+values are reused by every Run. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
@@ -71,7 +71,7 @@ When present, its values are reused by every Run. Each key below ``runs`` is a R
 the background. The Run name comes from its key below ``runs``; there is no separate ``name``
 field. Arena uses this name in command-line overrides, output directories, and reports.
 
-Runs keep their YAML order. The local Experiment Runner executes them in that order.
+Runs keep their YAML order and execute locally in that order.
 
 
 Reuse values with ``shared``
@@ -115,7 +115,7 @@ One definition, two execution paths
    .. grid-item-card:: Local — Experiment Runner
       :class-card: sd-shadow-sm
 
-      Loads the Experiment once and executes its Runs in YAML order in one process and one
+      Loads the YAML once and executes its Runs in order in one process and one
       SimulationApp. Every Run builds a fresh environment. The runner stops at the first failure
       unless ``--continue_on_error`` is set.
 
@@ -123,7 +123,7 @@ One definition, two execution paths
       :class-card: sd-shadow-sm
 
       Turns every Run into an independently scheduled group. Runs can execute at the same time
-      when resources are available. OSMO then collects their outputs into one Experiment result.
+      when resources are available. OSMO then collects their outputs into one combined result.
 
 .. tab-set::
 

@@ -8,8 +8,8 @@ environment, a policy, and a rollout limit. Its **Experiment Definition** is the
 records those Runs.
 
 The previous page launched four versions of the Maple-table scene with separate commands. Here,
-those choices become one Experiment. The zero-action policy keeps the example quick and needs no
-model weights.
+those choices become four named Runs in one YAML file. The zero-action policy keeps the example
+quick and needs no model weights.
 
 
 Define the Experiment
@@ -52,7 +52,7 @@ The four Runs collect the same choices that the earlier commands launched separa
 
       Shared scene · 64 parallel environments · 1 episode
 
-Arena includes this Experiment Definition for the four Runs:
+Arena includes this YAML for the four Runs:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
    :language: yaml
@@ -76,7 +76,7 @@ Start or enter the Base Docker container from the repository root:
 
 :docker_run_default:
 
-Then run the Experiment inside the container:
+Then run it inside the container:
 
 .. code-block:: bash
 

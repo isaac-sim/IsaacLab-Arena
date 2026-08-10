@@ -47,12 +47,12 @@ This produces ``nvcr.io/nvidian/dreamzero_inference_server:<tag>`` with the
 
 The job starts the WebSocket inference server on the requested port using a single H100
 GPU. Once the job is running, find its IP in the OSMO job logs. You will pass it to the
-Experiment Runner below.
+runner below.
 
-Terminal 2 — Arena Experiment
------------------------------
+Terminal 2 — Arena rollout
+--------------------------
 
-Arena includes a one-Run Experiment Definition. It selects the environment, the DreamZero policy,
+Arena includes a one-Run YAML configuration. It selects the environment, the DreamZero policy,
 the language instruction, and a three-episode rollout:
 
 .. dropdown:: Configuration file (``droid_pnp_dreamzero_experiment.yaml``)
@@ -67,7 +67,7 @@ is local or its port is forwarded to your machine.
 **Run DreamZero closed-loop**
 
 Open a second terminal and enter the Arena container with ``./docker/run_docker.sh``. Replace
-``OSMO_JOB_IP`` with the address from the server job, then run the Experiment:
+``OSMO_JOB_IP`` with the address from the server job, then start the rollout:
 
 .. code-block:: bash
 
@@ -76,6 +76,6 @@ Open a second terminal and enter the Arena container with ``./docker/run_docker.
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml \
      runs.droid_pnp_dreamzero.policy.remote_host=OSMO_JOB_IP
 
-The Experiment Runner reads the other values from YAML and records the Run under the name
-``droid_pnp_dreamzero``. Omit the final override when the server is available on
-``localhost``. Run headless by replacing ``--viz kit`` with ``--headless``.
+The runner reads the other values from YAML and records the Run under the name
+``droid_pnp_dreamzero``. Omit the final override when the server is available on ``localhost``.
+Run headless by replacing ``--viz kit`` with ``--headless``.

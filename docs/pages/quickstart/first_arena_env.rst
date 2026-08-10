@@ -157,8 +157,8 @@ than launching 64 separate processes.
 .. note::
 
    These four commands make explicit choices for each launch. On the next page, you will collect
-   the same choices as named Runs in one Arena Experiment. Later, Arena *variations* will choose
-   and record values automatically when an environment is built or reset.
+   the same choices as named Runs in one YAML file. Later, Arena *variations* will choose and
+   record values automatically when an environment is built or reset.
 
 
 How the Environment Is Assembled

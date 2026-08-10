@@ -40,10 +40,10 @@ GR00T N1.6-DROID provides its own modality configuration, so the command does no
 reuse the local cache. Leave this server running.
 
 
-Run GR00T with an Arena Experiment
-----------------------------------
+Run GR00T in Arena
+------------------
 
-Arena includes a one-Run Experiment Definition for the first rollout. It selects the
+Arena includes a one-Run YAML configuration for the first rollout. It selects the
 DROID environment, connects the GR00T policy to the server, and stops after three episodes.
 
 .. dropdown:: Configuration file (``droid_pnp_gr00t_experiment.yaml``)
@@ -57,7 +57,7 @@ GR00T N1.6-DROID uses absolute joint positions. The YAML therefore selects
 instruction belongs to the environment builder, while the server connection belongs to the
 policy.
 
-Open another shell, enter the Arena container, and run the Experiment:
+Open another shell, enter the Arena container, and start the rollout with the Experiment Runner:
 
 .. code-block:: bash
 
@@ -80,9 +80,9 @@ If the server runs on another host or port, override the declared policy value. 
 Evaluate several object variations
 ----------------------------------
 
-The multi-Run Experiment evaluates nine combinations of pick-up object, destination, HDR
-background, and language instruction. Its ``shared`` mapping keeps the GR00T policy and
-rollout settings in one place. Every Run lists only what changes.
+The multi-Run YAML evaluates nine combinations of pick-up object, destination, HDR background,
+and language instruction. Its ``shared`` mapping keeps the GR00T policy and rollout settings in
+one place. Every Run lists only what changes.
 
 .. dropdown:: Configuration file (``droid_pnp_srl_gr00t_experiment.yaml``)
    :animate: fade-in
@@ -90,7 +90,7 @@ rollout settings in one place. Every Run lists only what changes.
    .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
       :language: yaml
 
-Run the complete Experiment with one command:
+Start all nine Runs with one command:
 
 .. code-block:: bash
 
@@ -98,8 +98,8 @@ Run the complete Experiment with one command:
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
 
-The Experiment Runner executes the nine Runs in YAML order. It keeps one SimulationApp open,
-but builds a fresh environment for every Run.
+The runner executes the nine Runs in YAML order. It keeps one SimulationApp open, but builds a
+fresh environment for every Run.
 
 .. figure:: ../../../../images/gr00t_droid_3x3_grid.gif
    :width: 100%
@@ -109,7 +109,7 @@ but builds a fresh environment for every Run.
    Nine closed-loop Runs of GR00T N1.6 on the DROID embodiment. Each cell changes the
    pick-up object, HDR background, and destination.
 
-At the end of the Experiment, Arena prints a Run summary table followed by a metrics report:
+When all Runs finish, Arena prints a summary table followed by a metrics report:
 
 .. dropdown:: Example Run summary and metrics
    :animate: fade-in
@@ -168,8 +168,8 @@ results compare GR00T with other vision-language-action models.
 View rollouts as an HTML report
 -------------------------------
 
-The Experiment Runner builds an HTML report for every Experiment. Add
-``--record_camera_video`` to record one video per camera and episode, then use
+The runner builds an HTML report for the complete evaluation. Add ``--record_camera_video`` to
+record one video per camera and episode, then use
 ``--serve_evaluation_report`` to open the report through a local HTTP server:
 
 .. code-block:: bash
@@ -182,7 +182,7 @@ The Experiment Runner builds an HTML report for every Experiment. Add
      --serve_evaluation_report
 
 You can rebuild and serve a report later by pointing the standalone tool at the output
-directory. It selects the most recent Experiment:
+directory. It selects the most recent evaluation:
 
 .. code-block:: bash
 

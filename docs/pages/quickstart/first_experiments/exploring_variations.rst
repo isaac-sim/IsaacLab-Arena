@@ -76,8 +76,8 @@ variations. See :ref:`build-time-run-time-variations` for details.
 Explore other variations
 ------------------------
 
-Use the same Experiment Definition with ``--list_variations`` to see the variations available for
-its environment:
+Use the same YAML file with ``--list_variations`` to see the variations available for its
+environment:
 
 .. code-block:: bash
 
@@ -88,8 +88,8 @@ its environment:
 See :doc:`../../concepts/variations/variations` for the available variations and their
 configuration options.
 
-See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for the
-Experiment Definition and its local and OSMO execution paths.
+See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for configuration
+rules and local and OSMO execution.
 
 
 Next steps

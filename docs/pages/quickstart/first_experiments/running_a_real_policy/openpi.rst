@@ -48,13 +48,13 @@ The wrapper passes ``--policy.config`` (architecture + data transforms) and
 ``--policy.dir`` (params + normalization stats) for the selected variant; see
 the supported-variants table below for the exact values.
 
-Terminal 2 — Arena Experiment
------------------------------
+Terminal 2 — Arena rollout
+--------------------------
 
 **Run pi05 closed-loop**
 
 Open a second terminal and enter the Arena container with ``./docker/run_docker.sh``.
-Arena includes a one-Run Experiment Definition for this rollout:
+Arena includes a one-Run YAML configuration for this rollout:
 
 .. dropdown:: Configuration file (``droid_pnp_openpi_experiment.yaml``)
    :animate: fade-in
@@ -62,7 +62,7 @@ Arena includes a one-Run Experiment Definition for this rollout:
    .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
       :language: yaml
 
-Run the Experiment to connect to the server:
+Start the rollout to connect to the server:
 
 .. code-block:: bash
 
@@ -95,8 +95,8 @@ Kit window shows the droid arm reacting to pi0's commanded joint positions.
 Evaluate several variations
 ---------------------------
 
-Arena also includes an Experiment Definition with nine Runs. Each Run changes the object,
-background, and destination:
+Arena also includes a YAML configuration with nine Runs. Each Run changes the object, background,
+and destination:
 
 .. code-block:: bash
 
@@ -118,7 +118,7 @@ If the OpenPI server uses a non-default port, override each OpenPI run's
    Nine closed-loop evaluation Runs of pi05 on the DROID embodiment. Each cell varies the
    pick-up object, background HDR, and destination.
 
-At the end of the Experiment, you will see a Run summary table followed by a metrics report:
+When all Runs finish, you will see a summary table followed by a metrics report:
 
 .. code-block:: text
 
@@ -174,7 +174,7 @@ for a cross-model comparison.
 Viewing rollouts as an HTML report
 ----------------------------------
 
-The Experiment Runner collects the rollouts into a browsable HTML evaluation report. Add
+The runner collects the rollouts into a browsable HTML evaluation report. Add
 ``--record_camera_video`` to record one MP4 per camera and episode. The runner writes an
 ``index.html`` file and serves it over HTTP when ``--serve_evaluation_report`` is set.
 
