@@ -6,32 +6,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-
-if TYPE_CHECKING:
-    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-
-
-@dataclass
-class ReachabilityConfig:
-    """Declarative tuning for the optional build-time IK-reachability check.
-
-    Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
-    """
-
-    embodiment: EmbodimentBase | None = None
-    """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
-
-    grasp_z_offset_m: float = 0.02
-    """Height above each object's root for the top-down grasp pose the check tests."""
-
-    ik_position_threshold_m: float = 0.01
-    """Max IK position error (m) for a grasp to count as reachable."""
-
-    ik_rotation_threshold_rad: float = 0.1
-    """Max IK rotation error (rad) for a grasp to count as reachable."""
 
 
 @dataclass
@@ -84,3 +61,9 @@ class ObjectPlacerParams:
 
     reachability_config: ReachabilityConfig = field(default_factory=ReachabilityConfig)
     """Tuning for the optional ``ik_reachable`` build-time check. See ReachabilityConfig for more details."""
+
+    debug_visualize: bool = False
+    """If True, stream every validated candidate layout to a spawned Rerun viewer window. Off by default."""
+
+    debug_visualize_output_path: str | None = None
+    """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""

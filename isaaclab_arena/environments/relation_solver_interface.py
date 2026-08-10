@@ -26,16 +26,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_result import PlacementResult
 
 
-def _get_passive_collision_objects(
-    assets: Iterable[Asset | RigidObjectSet],
-    include_background: bool = False,
-) -> list[CollisionObject]:
-    """Load passive collision discovery only when relation placement needs it."""
-    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
-
-    return get_passive_collision_objects(assets, include_background=include_background)
-
-
 def solve_and_apply_relation_placement(
     assets: list[PlaceableAsset],
     num_envs: int,
@@ -77,12 +67,20 @@ def solve_and_apply_relation_placement(
     # mutating the caller.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
+        # Lazy import to avoid pxr import before SimulationApp is ready.
+        from isaaclab_arena.assets.object_reference import ObjectReference
+        from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
         scene_assets = list(scene_assets)
-        collision_objects = _get_passive_collision_objects(
+        background_mesh_exclusions = [
+            asset for asset in get_anchor_objects(assets) if isinstance(asset, ObjectReference)
+        ]
+        collision_objects = get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
                 assets, scene_assets, placer_params.solver_params.collision_mode
             ),
+            background_mesh_exclusions=background_mesh_exclusions,
         )
     placement_pool = PooledObjectPlacer(
         objects=assets,

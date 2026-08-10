@@ -8,7 +8,10 @@
 from dataclasses import dataclass
 from typing import Any
 
-from osmo.tasks.base_task import BaseTask, TaskCfg
+from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicy
+from osmo.tasks.base_task import TaskCfg
+from osmo.tasks.policy_server_task import PolicyServerTask
+from osmo.workflows.server_task_registry import register_server_task
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
@@ -26,8 +29,12 @@ class Gr00tServerTaskCfg(TaskCfg):
     """Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml)."""
 
 
-class Gr00tServerTask(BaseTask):
+@register_server_task
+class Gr00tServerTask(PolicyServerTask):
     """OSMO task that serves a GR00T policy for an eval/policy-runner task to connect to."""
+
+    policy_type = Gr00tRemoteClosedloopPolicy
+    task_cfg_type = Gr00tServerTaskCfg
 
     def __init__(
         self,
@@ -36,7 +43,7 @@ class Gr00tServerTask(BaseTask):
         *,
         task_name: str,
     ) -> None:
-        super().__init__(task_name=task_name, task_cfg=task_cfg or Gr00tServerTaskCfg(), lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg or self.task_cfg_type(), lead=lead)
 
     def _get_image(self) -> str:
         return self.task_cfg.image

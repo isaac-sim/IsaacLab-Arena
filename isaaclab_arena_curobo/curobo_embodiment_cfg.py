@@ -36,7 +36,8 @@ class CuroboEmbodimentCfg:
     """Gripper joint targets for the closed pose, merged over the robot config's locked joints."""
 
     hand_link_names: list[str]
-    """Links forming the hand, excluded from self-collision against the grasped object."""
+    """Links forming the hand, whose collision spheres are disabled while checking so that
+    contact with the grasped object does not read as a collision."""
 
     grasp_gripper_open_val: float = 10.0
     """cuRobo grasp-approach gripper opening value."""

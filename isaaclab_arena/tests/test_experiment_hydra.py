@@ -16,7 +16,11 @@ from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
-from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import (
+    load_arena_experiment_from_yaml,
+    load_experiment_run_definitions_from_yaml,
+    split_shared_run_default_overrides,
+)
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -26,6 +30,7 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
+ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "robolab" / "experiment_configs"
 
 
 def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[ZeroActionPolicyCfg]:
@@ -69,6 +74,7 @@ def test_getting_started_experiment_composes_typed_runs():
         hdr="home_office_robolab",
     )
     assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
+    assert runs["parallel_envs"].environment.hdr == "home_office_robolab"
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
     assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
@@ -176,6 +182,101 @@ runs:
     assert list(experiment_cfg.runs) == ["first", "second"]
     assert experiment_cfg.runs["first"].environment.light_intensity == 750.0
     assert experiment_cfg.runs["second"].environment.enable_cameras is True
+
+
+def test_shared_run_defaults_merge_before_run_overrides_without_resolving_local_interpolations(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  environment:
+    light_intensity: 600.0
+  environment_builder:
+    num_envs: 2
+  variations:
+    camera:
+      enabled: false
+  rollout_limit:
+    num_steps: ${environment_builder.num_envs}
+
+runs:
+  first:
+    environment:
+      type: pick_and_place_maple_table
+      destination_location: ${pick_up_object}
+    policy:
+      type: zero_action
+  second:
+    environment:
+      type: pick_and_place_maple_table
+      light_intensity: 650.0
+    policy:
+      type: zero_action
+""",
+    )
+
+    experiment_cfg = _load_experiment(
+        config_path,
+        overrides=[
+            "shared.environment.light_intensity=750.0",
+            "shared.variations.camera.enabled=true",
+            "runs.second.variations.camera.enabled=false",
+        ],
+    )
+
+    first_run = experiment_cfg.runs["first"]
+    second_run = experiment_cfg.runs["second"]
+    assert first_run.environment.light_intensity == 750.0
+    assert first_run.environment.destination_location == first_run.environment.pick_up_object
+    assert first_run.rollout_limit.num_steps == first_run.environment_builder.num_envs == 2
+    assert first_run.variations["camera"]["enabled"] is True
+    assert second_run.environment.light_intensity == 650.0
+    assert second_run.environment_builder.num_envs == 2
+    assert second_run.variations["camera"]["enabled"] is False
+    with pytest.raises(ValueError, match="missing"):
+        _load_experiment(config_path, overrides=["shared.missing=true"])
+
+
+@pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
+@pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
+def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
+    override_prefix = f"{experiment_config_prefix}." if experiment_config_prefix else ""
+    override = f"{operator}{override_prefix}shared.rollout_limit.num_steps{assignment}"
+
+    with pytest.raises(AssertionError, match="uses an unsupported Hydra operator"):
+        split_shared_run_default_overrides([override], experiment_config_prefix)
+
+
+@pytest.mark.parametrize(
+    ("config_name", "expected_run_count"),
+    [
+        ("robolab_18_tasks_pi0_and_cosmos.yaml", 36),
+        ("robolab_20_tasks_pi0_and_cosmos.yaml", 40),
+    ],
+)
+def test_robolab_experiments_apply_shared_run_defaults(config_name, expected_run_count):
+    config_path = ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY / config_name
+
+    default_run_values = load_experiment_run_definitions_from_yaml(config_path)
+    enabled_run_values = load_experiment_run_definitions_from_yaml(
+        config_path,
+        shared_default_overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
+    )
+
+    assert len(default_run_values) == expected_run_count
+    assert len(enabled_run_values) == expected_run_count
+    assert all(run["environment"]["enable_cameras"] for run in default_run_values.values())
+    assert all(run["environment_builder"]["num_envs"] == 20 for run in default_run_values.values())
+    assert all(run["rollout_limit"]["num_episodes"] == 100 for run in default_run_values.values())
+    assert all(run["variations"]["light"]["hdr_image"]["enabled"] for run in default_run_values.values())
+    assert not any(
+        run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
+        for run in default_run_values.values()
+    )
+    assert all(
+        run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
+        for run in enabled_run_values.values()
+    )
 
 
 def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
@@ -305,6 +406,13 @@ runs:
     )
 
     with pytest.raises(AssertionError, match="must be a mapping from Run names"):
+        _load_experiment(config_path)
+
+
+def test_shared_values_must_be_a_mapping(tmp_path):
+    config_path = _write_experiment(tmp_path, "shared: true\nruns:\n  maple_table: {}\n")
+
+    with pytest.raises(AssertionError, match="must be a mapping"):
         _load_experiment(config_path)
 
 

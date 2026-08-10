@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
@@ -24,6 +25,8 @@ EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
 DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 # Location where OSMO creates the effective Experiment YAML for the runner.
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
+# Result interpreted by the downstream Experiment output collector.
+EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
 
 
 @dataclass
@@ -32,6 +35,12 @@ class ExperimentRunnerTaskCfg(TaskCfg):
 
     image: str = DEFAULT_EXPERIMENT_RUNNER_IMAGE
     """Container image that runs the Arena Experiment."""
+
+    record_camera_video: bool = True
+    """Record one mp4 per (env, camera, episode) from each Run's camera observations."""
+
+    record_viewport_video: bool = False
+    """Record a viewport video for each Run."""
 
 
 class ExperimentRunnerTask(BaseTask):
@@ -70,7 +79,8 @@ class ExperimentRunnerTask(BaseTask):
         ]
 
     def _get_run_script(self) -> str:
-        command = [
+        """Build the shell entry point for the Experiment Runner task."""
+        experiment_runner_command_arguments = [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
@@ -81,4 +91,29 @@ class ExperimentRunnerTask(BaseTask):
             "none",
             "--enable_cameras",
         ]
-        return f"set -euo pipefail\n{shlex.join(command)}\n"
+        if self.task_cfg.record_camera_video:
+            experiment_runner_command_arguments.append("--record_camera_video")
+        if self.task_cfg.record_viewport_video:
+            experiment_runner_command_arguments.append("--record_viewport_video")
+        experiment_runner_command = shlex.join(experiment_runner_command_arguments)
+        experiment_runner_result_path = shlex.quote(f"{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}")
+        write_experiment_runner_result_command = (
+            'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '
+            '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            f"> {experiment_runner_result_path}"
+        )
+        return "\n".join([
+            "# Record the application result without failing the OSMO task.",
+            f"if {experiment_runner_command}; then",
+            "  experiment_runner_process_exit_code=0",
+            f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",
+            "else",
+            "  experiment_runner_process_exit_code=$?",
+            f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
+            "fi",
+            "",
+            "# Publish the result for the collector, then always report success to OSMO.",
+            write_experiment_runner_result_command,
+            "exit 0",
+            "",
+        ])

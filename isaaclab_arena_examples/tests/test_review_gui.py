@@ -319,6 +319,18 @@ class TestApplyGeneratedYaml:
         assert "_validation_result" not in session_state
 
 
+def _patch_generation_agent(agent: MagicMock):
+    """Stub the panel's agent accessor.
+
+    The real one caches the agent under a key built from the SimReady settings, so seeding a
+    session-state entry by name does not reach it.
+    """
+    return patch(
+        "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel._get_generation_agent",
+        return_value=agent,
+    )
+
+
 class TestRunGenerationPipeline:
     def test_rejects_empty_prompt(self, session_state):
         ok, message = run_generation_pipeline("   ")
@@ -332,10 +344,12 @@ class TestRunGenerationPipeline:
         assert "missing key" in message
 
     def test_fails_when_catalogue_build_raises(self, session_state):
-        session_state["generation_agent"] = MagicMock()
-        with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
-            side_effect=RuntimeError("registry unavailable"),
+        with (
+            _patch_generation_agent(MagicMock()),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
+                side_effect=RuntimeError("registry unavailable"),
+            ),
         ):
             ok, message = run_generation_pipeline("pick up a cube")
         assert not ok
@@ -347,33 +361,67 @@ class TestRunGenerationPipeline:
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
         mock_agent.generate_spec.return_value = (valid_spec, None)
-        session_state["generation_agent"] = mock_agent
+        # Explicit, because a MagicMock attribute is truthy and would read as a missing asset.
+        mock_agent.unavailable_objects = ()
 
-        mock_catalogues = MagicMock()
-
-        with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
-            return_value=mock_catalogues,
+        with (
+            _patch_generation_agent(mock_agent),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
+                return_value=MagicMock(),
+            ),
         ):
             ok, message = run_generation_pipeline("pick up a cube")
 
         assert ok
         assert "loaded into the YAML editor" in message
+        assert session_state["_generation_severity"] == "success"
         assert session_state["save_path"]
         assert Path(session_state["save_path"]).is_file()
+
+    def test_names_the_objects_no_asset_was_found_for(
+        self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path
+    ):
+        session_state["out_dir"] = str(tmp_path)
+        mock_agent = MagicMock()
+        # The spec is valid: the object nothing was found for was never offered to spec inference.
+        mock_agent.generate_spec.return_value = (valid_spec, None)
+        mock_agent.unavailable_objects = ("green trash can",)
+        # Deliberately non-empty, though a successful generation leaves it empty: a success banner
+        # must not dump traces at the user, because the GUI renders them as a warning.
+        mock_agent.traces = ("a line the banner has no business showing",)
+
+        with (
+            _patch_generation_agent(mock_agent),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
+                return_value=MagicMock(),
+            ),
+        ):
+            ok, message = run_generation_pipeline("pick up a cube")
+
+        assert ok
+        # The banner names what the prompt asked for and did not get, so the swap is not silent.
+        assert "No asset was found for: green trash can" in message
+        assert "built without them" in message
+        assert "a line the banner has no business showing" not in message
+        # A silently substituted object is not a clean success, so the banner must not be green.
+        assert session_state["_generation_severity"] == "warning"
+        assert session_state["edited_text"]
+        assert session_state["save_path"]
 
     def test_save_failure_still_reports_success(self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
         mock_agent.generate_spec.return_value = (valid_spec, None)
-        session_state["generation_agent"] = mock_agent
-
-        mock_catalogues = MagicMock()
+        # Explicit, because a MagicMock attribute is truthy and would read as a missing asset.
+        mock_agent.unavailable_objects = ()
 
         with (
+            _patch_generation_agent(mock_agent),
             patch(
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
-                return_value=mock_catalogues,
+                return_value=MagicMock(),
             ),
             patch(
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_env_graph_spec",
@@ -384,6 +432,7 @@ class TestRunGenerationPipeline:
 
         assert ok
         assert "save failed" in message.lower()
+        assert session_state["_generation_severity"] == "warning"
         assert session_state["edited_text"]
         assert "save_path" not in session_state
 

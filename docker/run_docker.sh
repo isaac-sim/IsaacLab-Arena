@@ -199,11 +199,13 @@ else
         fi
     fi
 
-    # pass through API keys used by the agentic env-gen prototype; values are
+    # pass through the agentic env-gen endpoint selection and its API keys; values are
     # inherited from the host shell so the key never lives in the repo.
-    if [ -n "$NV_API_KEY" ]; then
-        DOCKER_RUN_ARGS+=("--env" "NV_API_KEY")
-    fi
+    for AGENTIC_ENV_VAR in NV_API_KEY NVIDIA_API_KEY ARENA_INFERENCE_ENDPOINT; do
+        if [ -n "${!AGENTIC_ENV_VAR}" ]; then
+            DOCKER_RUN_ARGS+=("--env" "$AGENTIC_ENV_VAR")
+        fi
+    done
 
     # Allow X11 connections
     xhost +local:docker > /dev/null

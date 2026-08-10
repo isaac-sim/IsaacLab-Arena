@@ -22,9 +22,9 @@ runs:
       remote_port: 8000
       openpi_embodiment_adapter: droid
     rollout_limit:
-      num_episodes: 5
+      num_episodes: 10
     # The variations to enable for this run.
     variations:
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.01, -0.01, -0.01]
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.01, 0.01, 0.01]
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.03, -0.03, -0.03]
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.03, 0.03, 0.03]

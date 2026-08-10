@@ -99,7 +99,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,
-            episode_length_s=20.0,
+            episode_length_s=70.0,
         )
 
         # Set viewport camera to match the robolab droid view
@@ -121,5 +121,5 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
-        # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
+        # Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)

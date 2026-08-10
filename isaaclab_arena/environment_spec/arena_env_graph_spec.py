@@ -49,11 +49,11 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
+    task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     placement_validators: PlacementValidatorSpec | None = Field(
         default=None,
         description="Per-env placement validators; none runs all build-time checks.",
     )
-    task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
@@ -109,13 +109,15 @@ class ArenaEnvGraphSpec(BaseModel):
     def _assert_relation_references(relations: list[SpatialRelationSpec], known_ids: set[str]) -> None:
         """Ensure relation subject/reference endpoints name known asset ids."""
         for index, relation in enumerate(relations):
-            assert (
-                relation.subject in known_ids
-            ), f"Relation[{index}] kind '{relation.kind}' references unknown subject '{relation.subject}'"
+            assert relation.subject in known_ids, (
+                f"Relation[{index}] kind '{relation.kind}' references unknown subject"
+                f" '{relation.subject}'. Add it to 'objects' or 'object_references'."
+            )
             if relation.reference is not None:
-                assert (
-                    relation.reference in known_ids
-                ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
+                assert relation.reference in known_ids, (
+                    f"Relation[{index}] kind '{relation.kind}' references unknown reference"
+                    f" '{relation.reference}'. Add it to 'objects' or 'object_references'."
+                )
 
     @staticmethod
     def _assert_task_param_references(subtasks: list[TaskSpec], known_ids: set[str]) -> None:
@@ -123,9 +125,10 @@ class ArenaEnvGraphSpec(BaseModel):
         for task in subtasks:
             for param_name, param_value in task.params.items():
                 if isinstance(param_value, str):
-                    assert (
-                        param_value in known_ids
-                    ), f"Task '{task.kind}' param '{param_name}' references unknown node '{param_value}'"
+                    assert param_value in known_ids, (
+                        f"Task '{task.kind}' param '{param_name}' references unknown node"
+                        f" '{param_value}'. Add it to 'objects' or 'object_references'."
+                    )
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""

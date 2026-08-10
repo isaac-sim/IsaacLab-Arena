@@ -10,6 +10,7 @@ embodiment:
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
   registry_name: lightwheel_robocasa_kitchen
@@ -34,20 +35,12 @@ object_references:
   prim_path: floor_room/geometry
   object_type: base
   params: {}
-- id: paper_towel
-  parent_id: kitchen
-  prim_path: paper_towel_main_group
-  object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
   params: {}
 - kind: is_anchor
   subject: right_counter_top
-  params: {}
-- kind: is_anchor
-  subject: paper_towel
   params: {}
 - kind: 'on'
   subject: droid
@@ -58,7 +51,7 @@ relations:
   reference: right_counter_top
   params:
     side: negative_y
-    distance_m: 0.15
+    distance_m: 0.3
 - kind: rotate_around_solution
   subject: droid
   params:

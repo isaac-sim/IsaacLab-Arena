@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -73,6 +74,16 @@ class AssetSpec(BaseModel):
     def _validate_registry_name(cls, value: str) -> str:
         return _assert_registered_asset_name(value)
 
+    @field_validator("params")
+    @classmethod
+    def _drop_catalogue_tags(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # The asset catalogue prints 'tags=[...]', and a generated spec often copies them into params.
+        # Asset classes pass their own tags to Asset.__init__, so a copy here is a duplicate keyword argument.
+        if "tags" not in value:
+            return value
+        print("INFO: ignoring 'tags' in asset params; the asset class supplies its own tags.")
+        return {key: item for key, item in value.items() if key != "tags"}
+
     def resolve_usd_path(self) -> str:
         """Return the USD path or URL for this registered asset instance."""
         asset_cls = AssetRegistry().get_asset_by_name(self.registry_name)
@@ -110,9 +121,16 @@ class ObjectSetSpec(BaseModel):
         description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
     )
 
+    # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
     @field_validator("members")
     @classmethod
     def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
+        for registry_name in value:
+            # ObjectSet members are built with no arguments, but Simready assets need usd_path. Only an object's params can carry.
+            assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
+                f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
+                " carry the usd_path it needs. Use it as an object instead."
+            )
         return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
 
     @field_validator("params")
@@ -137,9 +155,9 @@ class ObjectReferenceSpec(BaseModel):
     object_type: ObjectType = Field(
         description=(
             "Physics type for the referenced prim. Use the first matching value:\n"
-            "- articulation: door or other articulated prim in open/close door tasks\n"
-            "- rigid: manipulable prim in pick-and-place tasks\n"
-            "- base: static anchor prim (e.g. table surface) in is_anchor or placement relations"
+            "- articulation: openable prim (door, drawer) used as openable_object in a open/close door task\n"
+            "- rigid: manipulable prim used as pick_up_object in a pick-and-place task\n"
+            "- base: default for everything else not mentioned above\n"
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
@@ -196,11 +214,15 @@ class CompositeTaskSpec(BaseModel):
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
         if self.composition is TaskCompositionType.ATOMIC:
-            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
+            assert len(self.subtasks) == 1, (
+                f"composition 'atomic' requires exactly one atomic task, got {len(self.subtasks)}."
+                " Use parallel (order does not matter) or sequential (ordered) as composition instead."
+            )
         else:
-            assert (
-                len(self.subtasks) >= 2
-            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
+            assert len(self.subtasks) >= 2, (
+                f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}."
+                " Use atomic as composition instead."
+            )
         return self
 
 
@@ -233,6 +255,14 @@ class SpatialRelationSpec(BaseModel):
         default_factory=dict,
         description="Optional kind-specific parameters; leave empty by default.",
     )
+
+    @field_validator("reference", mode="before")
+    @classmethod
+    def _none_if_empty_reference(cls, value: Any) -> Any:
+        """Normalize an empty optional reference to None before arity validation."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _validate_kind_and_arity(self) -> SpatialRelationSpec:
@@ -286,6 +316,22 @@ class PlacementValidatorSpec(BaseModel):
         description=(
             "Enabled checks that must pass for a layout to be valid; none requires every enabled check. "
             "Must be a subset of enabled_checks."
+        ),
+    )
+
+    debug_visualize: bool = Field(
+        default=False,
+        description=(
+            "Stream every candidate layout the checks evaluate to a spawned Rerun viewer window. Debug "
+            "aid, off by default; needs a reachable display. The viewer is its own process, so this "
+            "never starts Isaac Sim, and it closes with the run."
+        ),
+    )
+    debug_visualize_output_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Enables "
+            "the visualization on its own; combine with debug_visualize to both record and watch live."
         ),
     )
 

@@ -13,9 +13,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    DEFAULT_BASE_URL,
+    INFERENCE_ENDPOINT_ENV_VAR,
+    INTERNAL_ENDPOINT,
+    PUBLIC_ENDPOINT,
     InferenceBackend,
     StructuredOutputRequest,
+    resolve_inference_endpoint,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
 
@@ -41,23 +44,70 @@ def _spec_request() -> StructuredOutputRequest:
     )
 
 
+@pytest.fixture(autouse=True)
+def clean_endpoint_env(monkeypatch):
+    """Keep the developer's endpoint selection out of endpoint-resolution tests."""
+    monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
+    monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
+    monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
+
+
+class TestResolveInferenceEndpoint:
+    def test_defaults_to_the_public_endpoint(self):
+        assert resolve_inference_endpoint() == PUBLIC_ENDPOINT
+
+    def test_reads_the_environment_variable(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, INTERNAL_ENDPOINT.name)
+        assert resolve_inference_endpoint() == INTERNAL_ENDPOINT
+
+    def test_explicit_name_overrides_the_environment_variable(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, INTERNAL_ENDPOINT.name)
+        assert resolve_inference_endpoint(PUBLIC_ENDPOINT.name) == PUBLIC_ENDPOINT
+
+    def test_raises_on_an_unknown_name(self):
+        with pytest.raises(AssertionError, match="Unknown inference endpoint"):
+            resolve_inference_endpoint("staging")
+
+
 class TestInit:
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         mock_cls, _ = stub_openai
-        monkeypatch.setenv("NV_API_KEY", "env-key")
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "env-key")
         InferenceBackend(api_key="explicit-key")
-        mock_cls.assert_called_once_with(api_key="explicit-key", base_url=DEFAULT_BASE_URL)
+        mock_cls.assert_called_once_with(api_key="explicit-key", base_url=PUBLIC_ENDPOINT.base_url)
 
     def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
         mock_cls, _ = stub_openai
-        monkeypatch.setenv("NV_API_KEY", "env-key")
-        InferenceBackend()
-        mock_cls.assert_called_once_with(api_key="env-key", base_url=DEFAULT_BASE_URL)
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "env-key")
+        backend = InferenceBackend()
+        assert backend.model == PUBLIC_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="env-key", base_url=PUBLIC_ENDPOINT.base_url)
 
-    def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
-        monkeypatch.delenv("NV_API_KEY", raising=False)
-        with pytest.raises(AssertionError, match="API key required"):
+    def test_raises_when_no_key_anywhere(self, stub_openai):
+        with pytest.raises(AssertionError, match=f"set {PUBLIC_ENDPOINT.api_key_env_var}"):
             InferenceBackend()
+
+    def test_selected_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
+        mock_cls, _ = stub_openai
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, INTERNAL_ENDPOINT.name)
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        backend = InferenceBackend()
+        assert backend.endpoint == INTERNAL_ENDPOINT
+        assert backend.model == INTERNAL_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="internal-key", base_url=INTERNAL_ENDPOINT.base_url)
+
+    def test_endpoint_argument_overrides_env_var(self, monkeypatch, stub_openai):
+        mock_cls, _ = stub_openai
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, INTERNAL_ENDPOINT.name)
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        backend = InferenceBackend(endpoint=PUBLIC_ENDPOINT.name)
+        assert backend.model == PUBLIC_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="public-key", base_url=PUBLIC_ENDPOINT.base_url)
+
+    def test_key_of_the_other_endpoint_is_not_used(self, monkeypatch, stub_openai):
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        with pytest.raises(AssertionError, match=f"set {INTERNAL_ENDPOINT.api_key_env_var}"):
+            InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
 
     def test_custom_model_and_base_url(self, stub_openai):
         mock_cls, _ = stub_openai

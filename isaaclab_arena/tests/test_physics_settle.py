@@ -17,7 +17,10 @@ import traceback
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
-SETTLE_STEPS = 30
+# 15 physics steps is ~0.125 s at the 15 Hz sim dt (1/120 s). The window must stay short enough that the
+# head-on spheres in the colliding case are still mid-flight at the check: they meet at ~0.2 s and, being
+# perfectly inelastic (restitution 0), come to rest on contact, so a longer window would read as settled.
+SETTLE_STEPS = 15
 LIN_VEL_THRESH = 0.1
 ANG_VEL_THRESH = 0.1
 

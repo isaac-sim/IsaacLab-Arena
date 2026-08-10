@@ -32,11 +32,18 @@ def _test_episode_length_defaults(simulation_app) -> bool:
         def get_metrics(self):
             return []
 
-    # Regression: a bare ``episode_length_s: float = 20.0`` param default is bypassed by subclasses
+    # Regression: a bare ``episode_length_s: float = 70.0`` param default is bypassed by subclasses
     # forwarding None, which would leave episode_length_s = None and break episode-length setup.
-    assert _StubTask().get_episode_length_s() == 20.0
-    assert _StubTask(episode_length_s=None).get_episode_length_s() == 20.0
+    assert _StubTask().get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S
+    assert _StubTask(episode_length_s=None).get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S
     assert _StubTask(episode_length_s=5.0).get_episode_length_s() == 5.0
+
+    # A composite defaults to the sum of its subtasks; an explicit value still wins.
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+    subtasks = [_StubTask(episode_length_s=20.0), _StubTask(episode_length_s=30.0)]
+    assert CompositeTaskBase(subtasks=subtasks).get_episode_length_s() == 50.0
+    assert CompositeTaskBase(subtasks=subtasks, episode_length_s=12.0).get_episode_length_s() == 12.0
     return True
 
 

@@ -44,12 +44,17 @@ and scenes without any changes.
 Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTask``,
 ``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
 
+Individual tasks can be combined into order-independent or sequential composite tasks. Tasks can also
+define predicate-based progress objectives to report partial completion without changing their
+success termination.
+
 More details
 ------------
 
 .. toctree::
    :maxdepth: 1
 
-   concept_sequential_tasks_design
+   concept_composite_tasks_design
+   concept_progress_tracking_design
    concept_rl_tasks_design
    concept_metrics_design

@@ -11,7 +11,10 @@ import shlex
 from dataclasses import dataclass
 from typing import Any
 
-from osmo.tasks.base_task import BaseTask, TaskCfg
+from isaaclab_arena_cosmos.policy.cosmos_remote_policy import CosmosRemotePolicy
+from osmo.tasks.base_task import TaskCfg
+from osmo.tasks.policy_server_task import PolicyServerTask
+from osmo.workflows.server_task_registry import register_server_task
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
@@ -26,8 +29,12 @@ class CosmosServerTaskCfg(TaskCfg):
     """Checkpoint the server serves. Baked into the image at build time (see build_server_image.sh)."""
 
 
-class CosmosServerTask(BaseTask):
+@register_server_task
+class CosmosServerTask(PolicyServerTask):
     """OSMO task that serves a Cosmos policy for an eval/policy-runner task to connect to."""
+
+    policy_type = CosmosRemotePolicy
+    task_cfg_type = CosmosServerTaskCfg
 
     def __init__(
         self,
@@ -36,7 +43,7 @@ class CosmosServerTask(BaseTask):
         *,
         task_name: str,
     ) -> None:
-        super().__init__(task_name=task_name, task_cfg=task_cfg or CosmosServerTaskCfg(), lead=lead)
+        super().__init__(task_name=task_name, task_cfg=task_cfg or self.task_cfg_type(), lead=lead)
 
     def _get_image(self) -> str:
         return self.task_cfg.image
