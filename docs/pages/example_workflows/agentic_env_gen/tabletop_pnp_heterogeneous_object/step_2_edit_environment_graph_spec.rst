@@ -78,7 +78,9 @@ Editing the object set
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Widening or narrowing the variation is a one-block edit — ``members`` and
-``random_choice`` — that leaves the relations and the task untouched:
+``random_choice`` — that leaves the relations and the task untouched. For the
+asset concept behind object sets, see
+:doc:`../../../concepts/scene/concept_rigid_object_set`.
 
 #. Add or remove a member to change which assets the environments draw from.
    Members are registered rigid-object names from the Arena asset catalog:
