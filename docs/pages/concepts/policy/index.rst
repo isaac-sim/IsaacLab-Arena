@@ -75,7 +75,7 @@ Construct the policy by passing its typed configuration directly:
 The typed registration lets the Experiment Runner validate the ``policy``
 mapping in each Run. It also lets the Policy Runner generate CLI flags from
 ``MyPolicyCfg`` and reconstruct the same type. See
-:doc:`Arena Experiments and Runs <concept_evaluation_types>` for details.
+:ref:`arena-experiments-and-runs` for details.
 
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.
@@ -85,11 +85,3 @@ runner flags, so their defaults must match the runner defaults.
    ``policy_runner.py`` remains an argparse frontend, but policies do not
    implement argparse methods. The runner generates their flags from the
    registered config and reconstructs it before creating the policy.
-
-More details
-------------
-
-.. toctree::
-   :maxdepth: 1
-
-   concept_evaluation_types

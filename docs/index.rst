@@ -329,6 +329,7 @@ TABLE OF CONTENTS
    pages/concepts/embodiment/index
    pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
+   pages/concepts/concept_arena_experiments
    pages/concepts/variations/index
    pages/concepts/concept_sensitivity_analysis
 

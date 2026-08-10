@@ -88,8 +88,8 @@ Use ``--list_variations`` to see the variations available for an environment:
 See :doc:`../../concepts/variations/variations` for the available variations and their
 configuration options.
 
-See :doc:`Arena Experiments and Runs <../../concepts/policy/concept_evaluation_types>` for the
-Experiment Definition and its local and OSMO execution paths.
+See :ref:`arena-experiments-and-runs` for the Experiment Definition and its local and OSMO
+execution paths.
 
 
 Next steps
