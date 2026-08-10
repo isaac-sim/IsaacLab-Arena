@@ -1,4 +1,4 @@
-OpenPi
+OpenPI
 ======
 
 The `openpi <https://github.com/Physical-Intelligence/openpi>`_ project (Physical
@@ -6,12 +6,12 @@ Intelligence) publishes Pi0 / Pi05 checkpoints fine-tuned on DROID. Arena
 ships a thin WebSocket client (``Pi0RemotePolicy``) that talks to openpi's
 ``serve_policy.py`` running in a separate process / container.
 
-The setup uses two terminals: the **openpi server** (terminal 1, hosts the model)
-and the **arena policy runner** (terminal 2, runs the simulation and sends
-observations / receives actions over WebSocket).
+The setup uses two terminals: the **OpenPI server** (terminal 1, hosts the model)
+and the **Arena Experiment Runner** (terminal 2, runs the simulation and sends
+observations and actions over WebSocket).
 
-Terminal 1 — openpi server
----------------------------
+Terminal 1 — OpenPI server
+--------------------------
 
 **Build and run**
 
@@ -48,32 +48,38 @@ The wrapper passes ``--policy.config`` (architecture + data transforms) and
 ``--policy.dir`` (params + normalization stats) for the selected variant; see
 the supported-variants table below for the exact values.
 
-Terminal 2 — arena policy runner
----------------------------------
+Terminal 2 — Arena Experiment
+-----------------------------
 
 **Run pi05 closed-loop**
 
-Open a second terminal, enter the Arena container with ``./docker/run_docker.sh``, and
-point the arena policy runner at the server:
+Open a second terminal and enter the Arena container with ``./docker/run_docker.sh``.
+Arena includes a one-Run Experiment Definition for this rollout:
+
+.. dropdown:: Configuration file (``droid_pnp_openpi_experiment.yaml``)
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
+      :language: yaml
+
+Run the Experiment to connect to the server:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-     --num_episodes 3 \
-     --enable_cameras --num_envs 1 \
-     --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
-     pick_and_place_maple_table \
-       --embodiment droid_abs_joint_pos \
-       --pick_up_object rubiks_cube_hot3d_robolab \
-       --destination_location bowl_ycb_robolab \
-       --hdr home_office_robolab
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
 
-Defaults: ``--openpi_embodiment_adapter droid``, ``--policy_variant pi05``,
-``--remote_host localhost``, ``--remote_port 8000``. Pass ``--remote_host`` if the
-server is on a different machine. If terminal 1 used a non-default port, pass
-the same value with ``--remote_port``.
+The YAML selects the pi05 checkpoint, the DROID adapter, and port ``8000``. If the server is on
+another machine, change ``policy.remote_host``. If terminal 1 uses another port, change
+``policy.remote_port`` or override it for this Run:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml \
+     runs.droid_pnp_openpi.policy.remote_port=8001
 
 The server terminal will start logging connection and inference events as the arena
 Kit window shows the droid arm reacting to pi0's commanded joint positions.
@@ -86,9 +92,31 @@ Kit window shows the droid arm reacting to pi0's commanded joint positions.
    Arena Kit viewport during a pi05 rollout: the DROID arm above the maple table with the
    Rubik's cube and destination bowl, with the home_office_robolab HDR.
 
-**Sequential batch evaluation across object variations**
+.. dropdown:: Optional: check the connection with Policy Runner
+   :animate: fade-in
 
-To measure success rates across several variations of the environment in a single command:
+   The Policy Runner is useful for a quick connection check. Use the Experiment Definition above
+   for evaluations that you want to save, repeat, or submit to OSMO.
+
+   .. code-block:: bash
+
+      python isaaclab_arena/evaluation/policy_runner.py \
+        --viz kit \
+        --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+        --num_steps 20 \
+        --enable_cameras --num_envs 1 \
+        --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
+        pick_and_place_maple_table \
+          --embodiment droid_abs_joint_pos \
+          --pick_up_object rubiks_cube_hot3d_robolab \
+          --destination_location bowl_ycb_robolab \
+          --hdr home_office_robolab
+
+Evaluate several variations
+---------------------------
+
+Arena also includes an Experiment Definition with nine Runs. Each Run changes the object,
+background, and destination:
 
 .. code-block:: bash
 
@@ -96,8 +124,8 @@ To measure success rates across several variations of the environment in a singl
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
 
-This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
-Each evaluation is run without restarting Isaac Sim to save on the startup time.
+The Runs execute in YAML order and report a success rate for each Run. Arena builds a fresh
+environment for every Run without restarting Isaac Sim.
 If the OpenPI server uses a non-default port, override each OpenPI run's
 ``policy.remote_port`` to the same value, for example
 ``runs.<run_name>.policy.remote_port=8001``.
@@ -107,26 +135,26 @@ If the OpenPI server uses a non-default port, override each OpenPI run's
    :alt: 3x3 grid of pi05 DROID runs across different objects, backgrounds, and destinations
    :align: center
 
-   9 closed-loop evaluation runs of pi05 on the DROID embodiment — each cell varies the
+   Nine closed-loop evaluation Runs of pi05 on the DROID embodiment. Each cell varies the
    pick-up object, background HDR, and destination.
 
-At the end of the run you will see a job summary table followed by a metrics report:
+At the end of the Experiment, you will see a Run summary table followed by a metrics report:
 
 .. code-block:: text
 
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
-   |                   Job Name                   |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes |
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
-   |      droid_pnp_srl_openpi_billiard_hall      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   | droid_pnp_srl_openpi_rubiks_cube_home_office | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |    droid_pnp_srl_openpi_alphabet_soup_can    | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |         droid_pnp_srl_openpi_orange          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |          droid_pnp_srl_openpi_lemon          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |    droid_pnp_srl_openpi_tomato_sauce_can     | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |     droid_pnp_srl_openpi_mustard_bottle      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |        droid_pnp_srl_openpi_sugar_box        | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   |           droid_pnp_srl_openpi_mug           | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
-   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
+   |                   Run Name                   |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
+   |      droid_pnp_srl_openpi_billiard_hall      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   | droid_pnp_srl_openpi_rubiks_cube_home_office | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |    droid_pnp_srl_openpi_alphabet_soup_can    | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |         droid_pnp_srl_openpi_orange          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |          droid_pnp_srl_openpi_lemon          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |    droid_pnp_srl_openpi_tomato_sauce_can     | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |     droid_pnp_srl_openpi_mustard_bottle      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |        droid_pnp_srl_openpi_sugar_box        | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   |           droid_pnp_srl_openpi_mug           | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
 
    ======================================================================
    METRICS SUMMARY
@@ -155,7 +183,7 @@ At the end of the run you will see a job summary table followed by a metrics rep
    ...
 
 
-pi05 succeeds on most of these variations zero-shot — eight of the nine jobs hit a 1.0
+pi05 succeeds on most of these variations zero-shot — eight of the nine Runs hit a 1.0
 success rate over three episodes, with ``sugar_box`` as the lone outright failure
 despite the object being moved in every episode. Performance is strong but not
 uniform, consistent with the broader picture that VLA models are improving but
@@ -166,9 +194,9 @@ for a cross-model comparison.
 Viewing rollouts as an HTML report
 ----------------------------------
 
-Both ``policy_runner.py`` and ``experiment_runner.py`` can collect the rollouts into a browsable
-HTML evaluation report. For visualization add ``--record_camera_video`` to record one mp4 per camera, per
-episode; the runner writes an ``index.html`` which is then served over HTTP.
+The Experiment Runner collects the rollouts into a browsable HTML evaluation report. Add
+``--record_camera_video`` to record one MP4 per camera and episode. The runner writes an
+``index.html`` file and serves it over HTTP when ``--serve_evaluation_report`` is set.
 
 .. code-block:: bash
 
@@ -188,16 +216,16 @@ root — it picks the most recent run:
 Supported variants
 ------------------
 
-The ``Pi0DroidAdapter`` (selected via ``--openpi_embodiment_adapter droid``) supports
-three openpi checkpoint variants on DROID:
+The ``Pi0DroidAdapter`` (selected with ``openpi_embodiment_adapter: droid`` in the policy mapping)
+supports two OpenPI checkpoint variants on DROID:
 
 .. list-table::
    :header-rows: 1
 
-   * - ``--policy_variant``
+   * - ``policy_variant``
      - ``--policy.config``
      - ``--policy.dir``
-     - Pair with arena ``--embodiment``
+     - Pair with ``environment.embodiment``
      - ``open_loop_horizon``
    * - ``pi05`` (default)
      - ``pi05_droid_jointpos_polaris``
@@ -210,7 +238,6 @@ three openpi checkpoint variants on DROID:
      - ``droid_abs_joint_pos``
      - 10
 
-To add a new embodiment, subclass ``Pi0EmbodimentAdapter`` (in
-``isaaclab_arena_openpi/policy/pi0_remote_policy.py``), then add a branch in
-``_resolve_openpi_embodiment_adapter`` and an entry to the
-``--openpi_embodiment_adapter`` argparse ``choices`` list.
+To add a new embodiment, subclass ``Pi0EmbodimentAdapter`` in
+``isaaclab_arena_openpi/policy/pi0_remote_policy.py`` and register the adapter in
+``_resolve_openpi_embodiment_adapter``.

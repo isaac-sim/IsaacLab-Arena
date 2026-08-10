@@ -47,8 +47,10 @@ the reference scene. Then we replace the objects and change the background.
 Run the Environment
 -------------------
 
-The examples use the zero-action policy, which keeps the robot still while you inspect the scene.
-No model weights are required.
+For this first look, the **Policy Runner** launches one environment directly from the command line.
+The zero-action policy keeps the robot still while you inspect the scene, so no model weights are
+required. On the next page, you will save these choices in an Experiment Definition for repeatable
+Runs.
 
 Start or enter the Base Docker container from the repository root:
 

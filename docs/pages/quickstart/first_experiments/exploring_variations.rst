@@ -76,14 +76,14 @@ variations. See :ref:`build-time-run-time-variations` for details.
 Explore other variations
 ------------------------
 
-Use ``--list_variations`` to see the variations available for an environment:
+Use the same Experiment Definition with ``--list_variations`` to see the variations available for
+its environment:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     --list_variations \
-     pick_and_place_maple_table
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
+     --list_variations
 
 See :doc:`../../concepts/variations/variations` for the available variations and their
 configuration options.
