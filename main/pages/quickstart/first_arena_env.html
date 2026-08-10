@@ -729,6 +729,10 @@ that Isaac Lab can run.</p></li>
     <span class="n">pick_up_object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span>
     <span class="n">destination_location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bowl_ycb_robolab&quot;</span>
     <span class="n">additional_table_objects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">episode_length_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">70.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;episode_length_s must be greater than zero&quot;</span>
 
 
 <span class="nd">@register_environment</span>
@@ -802,7 +806,7 @@ that Isaac Lab can run.</p></li>
             <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_up_object</span><span class="p">,</span>
             <span class="n">destination_location</span><span class="o">=</span><span class="n">destination_location</span><span class="p">,</span>
             <span class="n">background_scene</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-            <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">70.0</span><span class="p">,</span>
+            <span class="n">episode_length_s</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">episode_length_s</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Set viewport camera to match the robolab droid view</span>
