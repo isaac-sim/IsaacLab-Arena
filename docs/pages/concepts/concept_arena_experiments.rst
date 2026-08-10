@@ -93,31 +93,6 @@ Values are applied in this order, from lowest to highest priority:
                  ↓
    runs.<name>.* CLI overrides
 
-This order matters when a shared value is also set by a Run:
-
-.. list-table:: Effective ``num_steps`` values
-   :header-rows: 1
-   :widths: 60 20 20
-
-   * - Configuration
-     - ``baseline``
-     - ``parallel_envs``
-   * - YAML has shared ``num_steps: 50``
-     - 50
-     - 50
-   * - ``parallel_envs`` declares ``num_steps: 100``
-     - 50
-     - 100
-   * - CLI sets ``shared.rollout_limit.num_steps=75``
-     - 75
-     - 100
-   * - CLI also sets ``runs.parallel_envs.rollout_limit.num_steps=125``
-     - 75
-     - 125
-
-A ``shared.<path>=...`` override changes the shared value before Runs are merged. A value written
-directly in a Run still wins. A ``runs.<name>.<path>=...`` override changes the final Run.
-
 .. dropdown:: Configuration rules
    :animate: fade-in
 
