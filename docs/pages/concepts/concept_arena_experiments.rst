@@ -3,13 +3,27 @@
 Arena Experiments and Runs
 ==========================
 
-An Arena Experiment groups one or more named Runs into one evaluation. Each Run brings together
-an environment, a policy, and the settings that control the rollout.
+An Arena Experiment groups one or more named Runs into one evaluation. Each Run selects an
+existing Environment Definition and combines it with a policy and the settings that control the
+rollout.
 
 The **Experiment Definition** is the YAML file that describes those Runs. It is the main interface
 for evaluation: run the same definition locally with the Experiment Runner, or submit it to OSMO
 for managed execution. An Experiment with a single Run is valid, so the interface also works for
 small evaluations.
+
+.. note::
+
+   A Run can reuse either form of :doc:`Environment Definition
+   <environment/environment_definition>`:
+
+   * a registered Python environment, selected by name in ``environment.type``; or
+   * an existing ``ArenaEnvGraphSpec`` YAML file, selected by its path in ``environment.type``.
+
+   Different Runs in the same Experiment can use different forms.
+
+   The Experiment Definition describes the evaluation. The Environment Definition describes the
+   scene, embodiment, and task. Each Run builds a fresh runtime environment from that definition.
 
 .. grid:: 1 1 3 3
    :gutter: 2
@@ -22,8 +36,8 @@ small evaluations.
    .. grid-item-card:: Run
       :class-card: sd-shadow-sm
 
-      One environment-and-policy evaluation. A Run can contain many parallel simulated
-      environments.
+      One Environment Definition combined with one policy and rollout settings. A Run can contain
+      many parallel simulated environments.
 
    .. grid-item-card:: Execution
       :class-card: sd-shadow-sm
@@ -73,8 +87,8 @@ What a Run contains
    * - Field
      - Meaning
    * - ``environment``
-     - Selects and configures the environment. ``type`` is a registered environment name or the
-       path to an environment graph YAML file.
+     - Selects and configures the Environment Definition. ``type`` is a registered Python
+       environment name or the path to an environment graph YAML file.
    * - ``policy``
      - Selects and configures the policy. ``type`` is a registered policy name or a dotted Python
        class path.
