@@ -565,7 +565,7 @@ what the environment contains. Arena only checks that the answer is admissible: 
 <code class="docutils literal notranslate"><span class="pre">registry_name</span></code> is registered, each relation kind exists, and each <code class="docutils literal notranslate"><span class="pre">prim_path</span></code> is in the
 background’s prim tree. A bad answer is rejected and saved as <code class="docutils literal notranslate"><span class="pre">invalid_&lt;name&gt;.yaml</span></code> with trace
 lines, but Arena cannot fix it. The model must support OpenAI-compatible structured outputs
-(<code class="docutils literal notranslate"><span class="pre">response_format={&quot;type&quot;:</span> <span class="pre">&quot;json_schema&quot;,</span> <span class="pre">&quot;strict&quot;:</span> <span class="pre">true}</span></code>).</p>
+(<code class="docutils literal notranslate"><span class="pre">response_format={&quot;type&quot;:</span> <span class="pre">&quot;json_schema&quot;,</span> <span class="pre">...}</span></code>).</p>
 </section>
 <section id="why-spec-quality-varies">
 <h2>Why Spec Quality Varies<a class="headerlink" href="#why-spec-quality-varies" title="Link to this heading">#</a></h2>
@@ -599,27 +599,53 @@ as it supports strict structured outputs — a larger context window buys more r
 resolution.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <colgroup>
-<col style="width: 20.0%" />
-<col style="width: 40.0%" />
-<col style="width: 40.0%" />
+<col style="width: 16.7%" />
+<col style="width: 14.8%" />
+<col style="width: 25.9%" />
+<col style="width: 16.7%" />
+<col style="width: 13.0%" />
+<col style="width: 13.0%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code></p></th>
+<th class="head"><p>Accessibility</p></th>
 <th class="head"><p>Default model</p></th>
 <th class="head"><p>API key variable</p></th>
+<th class="head"><p>Pass rate</p></th>
+<th class="head"><p>Mean runtime</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">public</span></code> (default)</p></td>
+<td><p>Public (free)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">openai/gpt-oss-120b</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">NVIDIA_API_KEY</span></code></p></td>
+<td><p>13/15 (86.7%)</p></td>
+<td><p>22.28 s</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">internal</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">azure/anthropic/claude-opus-4-8</span></code></p></td>
+<td><p>NVIDIA internal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-5.6-terra</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">NV_API_KEY</span></code></p></td>
+<td><p>15/15 (100%)</p></td>
+<td><p>12.57 s</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">openai</span></code></p></td>
+<td><p>Public (charged)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gpt-5.6-terra</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OPENAI_API_KEY</span></code></p></td>
+<td><p>15/15 (100%)</p></td>
+<td><p>10.15 s</p></td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
+generated specs that matched the expected structure; runtime is the mean end-to-end
+<code class="docutils literal notranslate"><span class="pre">generate_spec</span></code> runtime. These results are snapshots rather than guarantees: model output is
+non-deterministic, and service load affects runtime.</p>
 </div>
 </section>
 <section id="reviewing-the-generated-spec">

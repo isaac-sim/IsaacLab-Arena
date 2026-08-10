@@ -598,14 +598,31 @@ in the shell you launch the agentic environment generation runner from.</p>
 <span class="c1"># NVIDIA-internal endpoint</span>
 <span class="nb">export</span><span class="w"> </span><span class="nv">ARENA_INFERENCE_ENDPOINT</span><span class="o">=</span>internal
 <span class="nb">export</span><span class="w"> </span><span class="nv">NV_API_KEY</span><span class="o">=</span>&lt;your-internal-api-key&gt;
+
+<span class="c1"># OpenAI API</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">ARENA_INFERENCE_ENDPOINT</span><span class="o">=</span>openai
+<span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>&lt;your-openai-api-key&gt;
 </pre></div>
 </div>
-<p>A single run can override the selection with <code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span> <span class="pre">{internal,public}</span></code>.</p>
+<p>A single run can override the selection with
+<code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span> <span class="pre">{internal,public,openai}</span></code>.</p>
 <p>Generate a key for the public endpoint at
 <a class="reference external" href="https://build.nvidia.com/settings/api-keys">build.nvidia.com API keys</a>, and a key for the
 NVIDIA-internal endpoint at
 <a class="reference external" href="https://inference.nvidia.com/key-management">inference.nvidia.com key management</a>
 (reachable from the NVIDIA network only).</p>
+<p>To use the direct OpenAI endpoint, create an OpenAI account, generate a secret at
+<a class="reference external" href="https://platform.openai.com/api-keys">OpenAI API keys</a>, and configure payment or prepaid
+credits under
+<a class="reference external" href="https://platform.openai.com/settings/organization/billing/overview">OpenAI billing</a>.
+OpenAI charges the account associated with the key according to its current API pricing and usage.
+Store the key securely and do not commit it to the repository.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">openai</span></code> endpoint connects directly to a third-party service operated by OpenAI, not
+NVIDIA. Its availability, regional restrictions, data handling, pricing, and terms are
+controlled by OpenAI. Review those terms before sending prompts or other data.</p>
+</div>
 <p>Each endpoint calls a different model, and the generated environment changes with it. See
 <a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a> for what the model decides, what Arena validates, and how to select the model.</p>
 </section>
