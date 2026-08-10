@@ -92,6 +92,8 @@ environment for every Run, then closes that environment before starting the next
 Find the output
 ---------------
 
+.. TODO(cvolk): Update this section after the Experiment output format changes.
+
 A successful Experiment creates a timestamped directory below ``outputs``:
 
 .. code-block:: text
