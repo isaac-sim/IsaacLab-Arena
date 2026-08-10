@@ -1,5 +1,5 @@
-Environment Spec
-================
+Environment Definition
+======================
 
 An Arena environment is three parts — scene, embodiment, and task (see the
 :doc:`section overview <index>`). This page covers the two ways to define that
