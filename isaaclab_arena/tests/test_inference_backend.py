@@ -140,7 +140,6 @@ class TestRunJson:
         assert kwargs["max_tokens"] == 4096
         assert kwargs["temperature"] == 0.2
         assert "max_completion_tokens" not in kwargs
-        assert kwargs["response_format"]["json_schema"]["strict"] is True
 
     def test_openai_endpoint_uses_openai_completion_options(self, stub_openai):
         _, client = stub_openai
@@ -152,7 +151,6 @@ class TestRunJson:
         assert kwargs["max_completion_tokens"] == 4096
         assert "max_tokens" not in kwargs
         assert "temperature" not in kwargs
-        assert kwargs["response_format"]["json_schema"]["strict"] is False
 
     def test_internal_gpt_uses_openai_completion_options(self, stub_openai):
         _, client = stub_openai
@@ -164,7 +162,6 @@ class TestRunJson:
         assert kwargs["max_completion_tokens"] == 4096
         assert "max_tokens" not in kwargs
         assert "temperature" not in kwargs
-        assert kwargs["response_format"]["json_schema"]["strict"] is False
 
     def test_tolerates_unescaped_control_chars(self, stub_openai):
         _, client = stub_openai

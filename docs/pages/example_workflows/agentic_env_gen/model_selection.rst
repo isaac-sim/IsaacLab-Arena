@@ -49,7 +49,7 @@ resolution.
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 18 30 20 15 15
+   :widths: 18 16 28 18 14 14
 
    * - ``ARENA_INFERENCE_ENDPOINT``
      - Accessibility
@@ -61,20 +61,20 @@ resolution.
      - Public (free)
      - ``openai/gpt-oss-120b``
      - ``NVIDIA_API_KEY``
-     - 10/15 (66.7%)
-     - 18.61 s
+     - 13/15 (86.7%)
+     - 22.28 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
      - ``NV_API_KEY``
      - 15/15 (100%)
-     - 10.78 s
+     - 12.57 s
    * - ``openai``
      - Public (charged)
      - ``gpt-5.6-terra``
      - ``OPENAI_API_KEY``
      - 15/15 (100%)
-     - 7.94 s
+     - 10.15 s
 
 .. note::
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
