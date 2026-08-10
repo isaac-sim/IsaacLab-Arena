@@ -45,6 +45,8 @@ from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
+# Only the @requires_gr00t tests use these names (via _mixed_experiment_cfg), so
+# it is safe to skip the import when the gr00t submodule is not installed.
 try:
     from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
     from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
