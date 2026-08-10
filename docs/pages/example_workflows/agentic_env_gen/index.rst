@@ -49,13 +49,30 @@ in the shell you launch the agentic environment generation runner from.
    export ARENA_INFERENCE_ENDPOINT=internal
    export NV_API_KEY=<your-internal-api-key>
 
-A single run can override the selection with ``--inference_endpoint {internal,public}``.
+   # OpenAI API
+   export ARENA_INFERENCE_ENDPOINT=openai
+   export OPENAI_API_KEY=<your-openai-api-key>
+
+A single run can override the selection with
+``--inference_endpoint {internal,public,openai}``.
 
 Generate a key for the public endpoint at
 `build.nvidia.com API keys <https://build.nvidia.com/settings/api-keys>`_, and a key for the
 NVIDIA-internal endpoint at
 `inference.nvidia.com key management <https://inference.nvidia.com/key-management>`_
 (reachable from the NVIDIA network only).
+
+To use the direct OpenAI endpoint, create an OpenAI account, generate a secret at
+`OpenAI API keys <https://platform.openai.com/api-keys>`_, and configure payment or prepaid
+credits under
+`OpenAI billing <https://platform.openai.com/settings/organization/billing/overview>`_.
+OpenAI charges the account associated with the key according to its current API pricing and usage.
+Store the key securely and do not commit it to the repository.
+
+.. warning::
+   The ``openai`` endpoint connects directly to a third-party service operated by OpenAI, not
+   NVIDIA. Its availability, regional restrictions, data handling, pricing, and terms are
+   controlled by OpenAI. Review those terms before sending prompts or other data.
 
 Each endpoint calls a different model, and the generated environment changes with it. See
 :doc:`model_selection` for what the model decides, what Arena validates, and how to select the model.

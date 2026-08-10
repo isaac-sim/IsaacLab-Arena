@@ -1,5 +1,5 @@
-Environment Spec
-================
+Environment Definition
+======================
 
 An Arena environment is three parts — scene, embodiment, and task (see the
 :doc:`section overview <index>`). This page covers the two ways to define that
@@ -331,7 +331,7 @@ How to spawn an environment
    * - .. code-block:: bash
 
           python isaaclab_arena/scripts/environment_runner.py \
-            --env_graph_spec_yaml \
+            --env_spec \
             isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
 
      - .. code-block:: bash

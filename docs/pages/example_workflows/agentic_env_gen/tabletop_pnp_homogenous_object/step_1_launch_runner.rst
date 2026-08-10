@@ -34,7 +34,7 @@ The agent runs in two modes:
       You can see the thumbnails of each object in the scene and its spatial relationships with each other.
       You can also see the task description in the lower part of the editor.
 
-      .. figure:: ../../../../images/tabletop_agentic_env_banana_bagel_plate_gui.png
+      .. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_banana_bagel_plate_gui.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center
@@ -48,7 +48,7 @@ The agent runs in two modes:
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --prompt "Droid picks up the banana from the maple table and places it on the plate. There are two bagels and one bowl on the table."
 

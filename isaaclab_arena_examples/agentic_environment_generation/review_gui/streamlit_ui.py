@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     """Parse Streamlit CLI args forwarded after ``--`` by gui_runner."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--env_graph_spec_yaml",
+        "--env_spec",
         type=Path,
         default=None,
         help="Optional path to an ArenaEnvGraphSpec YAML to open in the editor.",
@@ -63,6 +63,8 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state.setdefault("sim_preview_num_envs", NUM_ENVS)
     st.session_state.setdefault("sim_preview_num_steps", NUM_STEPS)
     st.session_state.setdefault("sim_preview_env_spacing", ENV_SPACING_M)
+    st.session_state.setdefault("background_panorama", False)
+    st.session_state.setdefault("last_rendered_panorama", False)
     st.session_state["out_dir"] = str(out_dir.resolve())
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)
@@ -93,7 +95,7 @@ def main() -> None:
     )
 
     args = parse_args()
-    yaml_path = args.env_graph_spec_yaml.resolve() if args.env_graph_spec_yaml is not None else None
+    yaml_path = args.env_spec.resolve() if args.env_spec is not None else None
     if yaml_path is not None and not yaml_path.exists():
         st.error(f"YAML file not found: {yaml_path}", icon="🛑")
         st.stop()

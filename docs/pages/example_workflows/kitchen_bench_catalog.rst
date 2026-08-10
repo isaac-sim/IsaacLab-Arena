@@ -3,7 +3,7 @@ Kitchen Benchmark Catalog
 
 The kitchen benchmark contains 17 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
-to ``policy_runner.py`` with ``--env_graph_spec_yaml`` to run that environment.
+to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera.
 

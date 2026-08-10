@@ -59,7 +59,6 @@ def test_infer_sets_response_format_to_json_schema(spec_inference):
     kwargs = client.chat.completions.create.call_args.kwargs
     assert kwargs["response_format"]["type"] == "json_schema"
     assert kwargs["response_format"]["json_schema"]["name"] == "ArenaEnvGraphSpec"
-    assert kwargs["response_format"]["json_schema"]["strict"] is True
     assert kwargs["response_format"]["json_schema"]["schema"] is inference._schema
 
 

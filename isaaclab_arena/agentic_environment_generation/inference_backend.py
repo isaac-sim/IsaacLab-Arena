@@ -11,19 +11,15 @@ import copy
 import json
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
-MAX_RETRIES_LIMIT = 10
-
-INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
-INTERNAL_MODEL = "azure/anthropic/claude-opus-4-8"
-PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
-PUBLIC_MODEL = "openai/gpt-oss-120b"
-# If you cannot access the model in your region, you can try the "nvidia/nemotron-3-super-120b-a12b" model.
+# -----------------------------------------------------------------------------
+# Inference endpoints
+# -----------------------------------------------------------------------------
 
 INFERENCE_ENDPOINT_ENV_VAR = "ARENA_INFERENCE_ENDPOINT"
 """Environment variable naming the inference endpoint every agentic command uses."""
@@ -37,15 +33,40 @@ class InferenceEndpoint:
     base_url: str
     model: str
     api_key_env_var: str
+    max_tokens_parameter: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
+    supports_temperature: bool = True
 
 
-INTERNAL_ENDPOINT = InferenceEndpoint("internal", INTERNAL_BASE_URL, INTERNAL_MODEL, "NV_API_KEY")
+INTERNAL_ENDPOINT = InferenceEndpoint(
+    name="internal",
+    base_url="https://inference-api.nvidia.com",
+    model="openai/openai/gpt-5.6-terra",
+    api_key_env_var="NV_API_KEY",
+    max_tokens_parameter="max_completion_tokens",
+    supports_temperature=False,
+)
 """NVIDIA-internal inference endpoint, reached with an internal API key."""
 
-PUBLIC_ENDPOINT = InferenceEndpoint("public", PUBLIC_BASE_URL, PUBLIC_MODEL, "NVIDIA_API_KEY")
+PUBLIC_ENDPOINT = InferenceEndpoint(
+    name="public",
+    base_url="https://integrate.api.nvidia.com/v1",
+    # If you cannot access the model in your region, try "nvidia/nemotron-3-super-120b-a12b".
+    model="openai/gpt-oss-120b",
+    api_key_env_var="NVIDIA_API_KEY",
+)
 """Publicly reachable build.nvidia.com endpoint, reached with an NGC API key."""
 
-INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT)}
+OPENAI_ENDPOINT = InferenceEndpoint(
+    name="openai",
+    base_url="https://api.openai.com/v1",
+    model="gpt-5.6-terra",
+    api_key_env_var="OPENAI_API_KEY",
+    max_tokens_parameter="max_completion_tokens",
+    supports_temperature=False,
+)
+"""Direct OpenAI API endpoint, reached with an OpenAI API key."""
+
+INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT, OPENAI_ENDPOINT)}
 DEFAULT_ENDPOINT_NAME = PUBLIC_ENDPOINT.name
 
 
@@ -65,6 +86,13 @@ def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
         f"{sorted(INFERENCE_ENDPOINTS)}"
     )
     return INFERENCE_ENDPOINTS[resolved]
+
+
+# -----------------------------------------------------------------------------
+# Inference backend
+# -----------------------------------------------------------------------------
+
+MAX_RETRIES_LIMIT = 10
 
 
 @dataclass(frozen=True)
@@ -104,8 +132,8 @@ class InferenceBackend:
             max_tokens: Maximum tokens in each completion response.
             max_retries: Additional attempts after a recoverable failure; must be in
                 ``[0, MAX_RETRIES_LIMIT)``.
-            endpoint: Inference endpoint name, ``internal`` or ``public``. Falls back to
-                the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
+            endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
+                Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
         """
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
@@ -130,7 +158,7 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        _ping(client, resolved_model)
+        _ping(client, inference_endpoint, resolved_model)
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -172,12 +200,10 @@ class InferenceBackend:
                         "type": "json_schema",
                         "json_schema": {
                             "name": request.schema_name,
-                            "strict": True,
                             "schema": request.schema,
                         },
                     },
-                    temperature=self._temperature,
-                    max_tokens=self._max_tokens,
+                    **_completion_options(self._endpoint, self._max_tokens, self._temperature),
                 )
                 choices = getattr(resp, "choices", None) or []
                 assert choices, (
@@ -222,11 +248,20 @@ def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
     return schema
 
 
-def _ping(client: OpenAI, model: str) -> str:
+def _completion_options(endpoint: InferenceEndpoint, max_tokens: int, temperature: float) -> dict[str, int | float]:
+    """Return completion arguments supported by the selected endpoint."""
+    options: dict[str, int | float] = {endpoint.max_tokens_parameter: max_tokens}
+    if endpoint.supports_temperature:
+        options["temperature"] = temperature
+    return options
+
+
+def _ping(client: OpenAI, endpoint: InferenceEndpoint, model: str) -> str:
     """Smoke-test the endpoint + API key + model with a minimal request.
 
     Args:
         client: An OpenAI-compatible client (typically ``openai.OpenAI``).
+        endpoint: Endpoint capabilities used to construct the request.
         model: Model identifier forwarded to
             ``client.chat.completions.create(model=...)``.
 
@@ -237,8 +272,7 @@ def _ping(client: OpenAI, model: str) -> str:
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": "Respond with exactly: OK"}],
-        temperature=0,
-        max_tokens=8,
+        **_completion_options(endpoint, 32, 0),
     )
     choices = getattr(resp, "choices", None) or []
     assert choices, (

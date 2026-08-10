@@ -127,7 +127,7 @@ the env's embodiment into ``reachability_config`` automatically.
 It gates only objects marked ``RequiresReachability`` — a relation that tasks
 such as ``PickAndPlaceTask`` stamp automatically. With no such relation, the
 check passes trivially. Grasp offset and IK tolerances are configurable; see
-:doc:`../environment/env_spec`.
+:doc:`../environment/environment_definition`.
 
 .. figure:: ../../../images/reachability_rerun_viz.gif
    :width: 100%
@@ -152,7 +152,7 @@ running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.
 
 Both are set on ``ObjectPlacerParams`` in Python or the
-``placement_validators`` block in YAML; see :doc:`../environment/env_spec`
+``placement_validators`` block in YAML; see :doc:`../environment/environment_definition`
 for the field-level split.
 
 Next Steps

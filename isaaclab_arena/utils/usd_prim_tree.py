@@ -29,11 +29,16 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     records connected as a tree so the nested catalog can recover full paths.
 
     Args:
-        usd_path: Filesystem path to the USD.
+        usd_path: Local filesystem path or Nucleus/HTTPS URL for the USD. Remote
+            URLs are downloaded via :func:`retrieve_file_path` first — bare
+            ``Usd.Stage.Open(https://…)`` fails outside a Kit asset resolver
+            (e.g. Streamlit generation).
 
     Returns:
         Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
     """
+    from isaaclab.utils.assets import retrieve_file_path
+
     from isaaclab_arena.utils.usd_helpers import (
         articulation_joint_names,
         has_physics_or_collision,
@@ -42,8 +47,9 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
         relative_path_from_default_prim,
     )
 
+    local_usd_path = retrieve_file_path(usd_path)
     records: list[UsdPrimRecord] = []
-    with open_stage(usd_path) as stage:
+    with open_stage(local_usd_path) as stage:
         # Collect prims that directly participate in physics or collision, then add
         # every ancestor so a prim is kept whenever any descendant is kept.
         # TODO(qianl): Ancestor-only prims are labeled base; non-leaf refs are valid today.
