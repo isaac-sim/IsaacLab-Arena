@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Environment Spec &#8212; isaaclab_arena</title>
+    <title>Environment Definition &#8212; isaaclab_arena</title>
   
   
   
@@ -49,7 +49,7 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/environment/env_spec';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/environment/environment_definition';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -152,7 +152,7 @@
   </button>
   <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
     <a class="list-group-item list-group-item-action py-1 active"
-       href="env_spec.html" role="option" aria-current="true">main</a>
+       href="environment_definition.html" role="option" aria-current="true">main</a>
     <a class="list-group-item list-group-item-action py-1"
        href="../../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
     <a class="list-group-item list-group-item-action py-1"
@@ -452,7 +452,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Environment Spec</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
 </ul>
 </details></li>
@@ -538,7 +538,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Environment</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Environment Spec</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Environment Definition</span></li>
   </ul>
 </nav>
 </div>
@@ -555,8 +555,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="environment-spec">
-<h1>Environment Spec<a class="headerlink" href="#environment-spec" title="Link to this heading">#</a></h1>
+  <section id="environment-definition">
+<h1>Environment Definition<a class="headerlink" href="#environment-definition" title="Link to this heading">#</a></h1>
 <p>An Arena environment is three parts — scene, embodiment, and task (see the
 <a class="reference internal" href="index.html"><span class="doc">section overview</span></a>). This page covers the two ways to define that
 composition, and where they diverge.</p>
@@ -861,7 +861,7 @@ set members. Python <code class="docutils literal notranslate"><span class="pre"
 </thead>
 <tbody>
 <tr class="row-even"><td><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--env_graph_spec_yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env_spec<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
 </pre></div>
 </div>

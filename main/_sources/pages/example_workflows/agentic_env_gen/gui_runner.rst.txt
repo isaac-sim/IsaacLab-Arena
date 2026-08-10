@@ -20,7 +20,7 @@ You can also open an existing environment graph spec:
 .. code-block:: bash
 
    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \
-      --env_graph_spec_yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
+      --env_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
 
 By default, generated YAML files are written under
 ``isaaclab_arena_environments/agent_generated``. Use ``--out_dir`` to choose a

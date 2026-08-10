@@ -452,7 +452,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
 </ul>
 </details></li>
@@ -687,7 +687,7 @@ the env’s embodiment into <code class="docutils literal notranslate"><span cla
 <p>It gates only objects marked <code class="docutils literal notranslate"><span class="pre">RequiresReachability</span></code> — a relation that tasks
 such as <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> stamp automatically. With no such relation, the
 check passes trivially. Grasp offset and IK tolerances are configurable; see
-<a class="reference internal" href="../environment/env_spec.html"><span class="doc">Environment Spec</span></a>.</p>
+<a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 <figure class="align-center" id="id3">
 <a class="reference internal image-reference" href="../../../_images/reachability_rerun_viz.gif"><img alt="Rerun view of IK reachability with green and red robot collision spheres above target bounding boxes." src="../../../_images/reachability_rerun_viz.gif" style="width: 100%;" />
 </a>
@@ -708,7 +708,7 @@ automatically. Making a check optional (enabled but not required) keeps it
 running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.</p>
 <p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the
-<code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> block in YAML; see <a class="reference internal" href="../environment/env_spec.html"><span class="doc">Environment Spec</span></a>
+<code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> block in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>
 for the field-level split.</p>
 </section>
 <section id="next-steps">

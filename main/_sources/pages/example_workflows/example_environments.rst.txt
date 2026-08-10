@@ -12,7 +12,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
 * **Environment graph YAML specs**: ``ArenaEnvGraphSpec`` files that describe the same
   scene, embodiment, task, objects, and relations declaratively. These are
-  passed with ``--env_graph_spec_yaml`` and can be generated from prompts by the
+  passed with ``--env_spec`` and can be generated from prompts by the
   :doc:`agentic_env_gen/index` workflow.
 
 The metadata below follows the same structure as the **Key Specifications**
@@ -29,7 +29,7 @@ Agentically Generated Graph Specs
 
 RoboLab environment graph YAMLs live under
 ``isaaclab_arena_environments/robolab/``. They are generated from natural-language
-prompts and consumed with ``--env_graph_spec_yaml`` instead of the positional
+prompts and consumed with ``--env_spec`` instead of the positional
 ``example_environment`` name.
 
 See :doc:`robolab_task_catalog` for the list of RoboLab tasks

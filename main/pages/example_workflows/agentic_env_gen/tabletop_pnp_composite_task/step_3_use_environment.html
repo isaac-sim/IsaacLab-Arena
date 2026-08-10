@@ -448,7 +448,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_builder.html">Environment Builder</a></li>
 </ul>
 </details></li>
@@ -570,7 +570,7 @@ gates object placement on whether the robot can reach the target objects.</p>
 </div>
 <p>In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-<code class="docutils literal notranslate"><span class="pre">--env_graph_spec_yaml</span></code> at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml</span></code>.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
@@ -585,7 +585,7 @@ Policy evaluation (base)</label><div class="sd-tab-content docutils">
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_episodes<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 </pre></div>
 </div>
 </div>
@@ -606,7 +606,7 @@ reachability validation.</p>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_episodes<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 </pre></div>
 </div>
 <p>While the environment builds, every batch of candidate layouts reports how many of them passed each

@@ -452,7 +452,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_spec.html">Environment Spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_builder.html">Environment Builder</a></li>
 </ul>
 </details></li>
@@ -666,9 +666,9 @@ Lightwheel RoboCasa kitchen.</span><a class="headerlink" href="#id2" title="Link
 <label class="sd-tab-label" for="sd-tab-item-1">
 Print the prim tree (CLI)</label><div class="sd-tab-content docutils">
 <p>The prim tree can be read from the background USD with the runner in <code class="docutils literal notranslate"><span class="pre">prim_tree</span></code> mode:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/cli_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>prim_tree<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>counter
 </pre></div>
 </div>
@@ -735,12 +735,12 @@ Edit in the browser (GUI)</label><div class="sd-tab-content docutils">
 Edit outside the GUI (text editor)</label><div class="sd-tab-content docutils">
 <p>The YAML written by the CLI runner is locally stored so you can also edit it in
 any text editor and validate it by building and spawning a simulation environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/cli_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 </pre></div>
 </div>
 <p>A spec you generated yourself is written to
