@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
-_RUN_STATUSES = frozenset({"completed", "failed"})
 
 
 class ArenaEpisodeResultData(TypedDict):
@@ -60,7 +59,7 @@ class ArenaExperimentRunData(TypedDict):
 ArenaExperimentResultData = dict[Literal["runs"], dict[str, ArenaExperimentRunData]]
 
 
-def _validated_nonempty_string(value: object, field_name: str) -> str:
+def _require_nonempty_string(value: object, field_name: str) -> str:
     """Return a non-empty string used in Run metadata."""
     assert isinstance(value, str) and value.strip(), f"{field_name} must be a non-empty string"
     return value
@@ -128,9 +127,7 @@ class ArenaExperimentResult:
         self.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
         status = run_metadata["status"]
-        assert (
-            isinstance(status, str) and status in _RUN_STATUSES
-        ), f"status for Run {run_name!r} must be one of {sorted(_RUN_STATUSES)}"
+        assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
 
         run_output_directory = self.experiment_output_directory / run_name
         if status == "completed":
@@ -177,21 +174,22 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
     from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 
     environment_cfg = run_cfg.environment
+    # TODO(cvolk): Remove this structural check once graph-YAML environments use registered typed configurations.
     if hasattr(environment_cfg, "env_graph_spec_yaml_path"):
         from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 
-        environment_definition = _validated_nonempty_string(
+        environment_definition = _require_nonempty_string(
             environment_cfg.env_graph_spec_yaml_path,
             "graph environment definition",
         )
         environment_graph = load_env_graph_spec_dict(environment_definition)
-        environment_name = _validated_nonempty_string(
+        environment_name = _require_nonempty_string(
             environment_graph.get("env_name"),
             f"env_name in graph environment definition {environment_definition!r}",
         )
     else:
         environment_factory_type = EnvironmentRegistry().get_factory_type_for_cfg(environment_cfg)
-        environment_name = _validated_nonempty_string(
+        environment_name = _require_nonempty_string(
             environment_factory_type.name,
             f"registered environment name for {type(environment_cfg).__name__}",
         )
@@ -202,7 +200,7 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
         policy_variant = configured_policy_variant
     else:
         policy_type = PolicyRegistry().get_policy_type_for_cfg(run_cfg.policy)
-        policy_variant = _validated_nonempty_string(
+        policy_variant = _require_nonempty_string(
             policy_type.name,
             f"registered policy name for {type(run_cfg.policy).__name__}",
         )
