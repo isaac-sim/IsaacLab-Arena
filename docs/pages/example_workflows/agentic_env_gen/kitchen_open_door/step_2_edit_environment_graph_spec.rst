@@ -83,11 +83,24 @@ The generated relations identify the correct entities, but the initial layout ma
 wrong side of the fridge or facing the wrong direction, and the door may open further than the policy needs
 to. The three parameters to tune are:
 
+.. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_axis.png
+   :alt: Kitchen, floor, and fridge snapshots with local XYZ axis overlays
+
+   Use the axis overlays to interpret the fridge orientation in the kitchen.
+   Red is :math:`+X`, green is :math:`+Y`, and blue is :math:`+Z`.
+
 * ``side`` and ``distance_m`` under ``next_to`` — which side of the fridge the robot stands on and how far
   from it.
 * ``yaw_rad`` under ``rotate_around_solution`` — the rotation applied after the solver computes the robot position, so
   that it faces the door.
 * ``openness_threshold`` under ``OpenDoorTask`` — how far the door has to swing before the task succeeds.
+
+For this axis-aligned kitchen, the front of the fridge is its :math:`-Y` edge.
+Set ``next_to.side`` to ``negative_y`` to place the robot in front of that edge.
+From there, the robot must face :math:`+Y` toward the fridge. Its default heading
+is :math:`+X`, so set ``rotate_around_solution.yaw_rad`` to :math:`+\pi/2`
+(``1.57`` radians) to rotate its heading toward :math:`+Y` in the kitchen
+background frame.
 
 .. code-block:: yaml
 
