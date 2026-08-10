@@ -245,6 +245,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
+    assert '"runs":%s' in experiment_runner_command
+    assert '"policy_variant": "pi05"' in experiment_runner_command
+    assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command
     assert "always report success to OSMO" in experiment_runner_command
     assert experiment_runner_command.endswith("exit 0\n")
@@ -279,6 +282,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
     assert "localpath" not in experiment_output_script_file
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
+    assert (
+        "from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult"
+        in experiment_output_script_file["contents"]
+    )
     assert EXPERIMENT_RUNNER_RESULT_FILE_NAME in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
