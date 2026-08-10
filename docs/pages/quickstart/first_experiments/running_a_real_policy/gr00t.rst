@@ -125,8 +125,7 @@ Run the complete Experiment with one command:
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
 
 The Experiment Runner executes the nine Runs in YAML order. It keeps one SimulationApp open,
-but builds a fresh environment for every Run. At the end, Arena prints a Run summary and the
-available metrics for each Run.
+but builds a fresh environment for every Run.
 
 .. figure:: ../../../../images/gr00t_droid_3x3_grid.gif
    :width: 100%
@@ -136,20 +135,55 @@ available metrics for each Run.
    Nine closed-loop Runs of GR00T N1.6 on the DROID embodiment. Each cell changes the
    pick-up object, HDR background, and destination.
 
-For example, the metrics summary reports the episode count, object-moved rate, and success
-rate under each Run name:
+At the end of the Experiment, Arena prints a Run summary table followed by a metrics report:
 
-.. code-block:: text
+.. dropdown:: Example Run summary and metrics
+   :animate: fade-in
 
-   droid_pnp_srl_gr00t_lemon:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       0.6667
+   Metric values can vary between evaluations. This is example output:
 
-   droid_pnp_srl_gr00t_billiard_hall:
-     num_episodes                            3
-     object_moved_rate                  0.3333
-     success_rate                       0.0000
+   .. code-block:: text
+
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+      |               Run Name                |  Status   |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+      |   droid_pnp_srl_gr00t_billiard_hall   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |    droid_pnp_srl_gr00t_blue_block     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      | droid_pnp_srl_gr00t_alphabet_soup_can | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |      droid_pnp_srl_gr00t_orange       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |       droid_pnp_srl_gr00t_lemon       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      | droid_pnp_srl_gr00t_tomato_sauce_can  | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |  droid_pnp_srl_gr00t_mustard_bottle   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |     droid_pnp_srl_gr00t_sugar_box     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      |        droid_pnp_srl_gr00t_mug        | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
+      +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+
+      ======================================================================
+      METRICS SUMMARY
+      ======================================================================
+
+      droid_pnp_srl_gr00t_alphabet_soup_can:
+        num_episodes                            3
+        object_moved_rate                  0.0000
+        success_rate                       0.0000
+
+      droid_pnp_srl_gr00t_billiard_hall:
+        num_episodes                            3
+        object_moved_rate                  0.3333
+        success_rate                       0.0000
+
+      droid_pnp_srl_gr00t_blue_block:
+        num_episodes                            3
+        object_moved_rate                  0.0000
+        success_rate                       0.0000
+
+      droid_pnp_srl_gr00t_lemon:
+        num_episodes                            3
+        object_moved_rate                  1.0000
+        success_rate                       0.6667
+
+      ...
+      ======================================================================
 
 These results show that zero-shot deployment of robotic foundation models remains
 challenging. Recent
