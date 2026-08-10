@@ -7,18 +7,14 @@ the layouts are identical:
 - **Homogeneous placement** uses the same registered object for a role in every
   environment. Its solved pose can still differ between environments and
   resets.
-- **Heterogeneous placement** uses a ``RigidObjectSet`` for a role. Each
+- **Heterogeneous placement** uses a
+  :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` for a role. Each
   environment receives one member of the set, so object geometry can differ
   across environments.
 
 Both modes use the same relations, solver, validators, and layout-pool
 workflow. They differ in how Arena chooses objects and supplies their geometry
 to the solver.
-
-.. todo::
-
-   Add a general ``RigidObjectSet`` concept page under the asset-object
-   documentation and link it from this placement-specific comparison.
 
 Implementation Differences
 --------------------------
@@ -144,5 +140,6 @@ observe different members across parallel environments.
 Related References
 ------------------
 
-Refer back to :doc:`./pooled_placement` for reset behavior and object
+Refer to :doc:`../scene/concept_rigid_object_set` for the ``RigidObjectSet``
+asset concept, :doc:`./pooled_placement` for reset behavior and object
 assignment, or :doc:`./relations` for the available spatial relations.
