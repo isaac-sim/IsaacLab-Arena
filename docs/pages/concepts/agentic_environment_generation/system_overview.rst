@@ -72,6 +72,7 @@ How generation runs
    ``simready_usd_object`` entry, with the searched path stored in
    ``params["usd_path"]``. No model call. If nothing was searched, this step is
    a no-op.
+
 What ``generate_spec()`` returns
 --------------------------------
 
