@@ -72,6 +72,13 @@ Run the environment with a Rubik's cube, bowl, and home-office background:
      --destination_location bowl_ycb_robolab \
      --hdr home_office_robolab
 
+.. figure:: ../../images/default_srl_pnp.png
+   :width: 100%
+   :alt: Reference DROID pick-and-place environment with a Rubik's cube and bowl
+   :align: center
+
+   The reference scene opened in Kit.
+
 Close Kit before starting the next example.
 
 
