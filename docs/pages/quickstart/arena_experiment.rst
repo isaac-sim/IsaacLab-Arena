@@ -111,7 +111,7 @@ parallel environments in the ``parallel_envs`` Run:
 This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. All other values
 remain as written in the YAML.
 
-See :doc:`Arena Experiments and Runs <../concepts/concept_arena_experiments>` for the full
+See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for the full
 precedence order and configuration rules.
 
 

@@ -88,7 +88,7 @@ environment:
 See :doc:`../concepts/variations/variations` for the available variations and their
 configuration options.
 
-See :doc:`Arena Experiments and Runs <../concepts/concept_arena_experiments>` for configuration
+See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for configuration
 rules and local and OSMO execution.
 
 

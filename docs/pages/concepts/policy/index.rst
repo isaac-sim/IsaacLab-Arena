@@ -75,7 +75,7 @@ Construct the policy by passing its typed configuration directly:
 The typed registration lets the single-job runner generate CLI flags from
 ``MyPolicyCfg`` and lets the Experiment Runner convert the current
 ``Job.policy_config_dict`` representation into that same type. See
-:doc:`Arena Experiments and Runs <../concept_arena_experiments>` for details.
+:doc:`Arena Experiments <../concept_arena_experiments>` for details.
 
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.

@@ -1,5 +1,5 @@
-Arena Experiments and Runs
-==========================
+Arena Experiments
+=================
 
 An Arena Experiment groups one or more named Runs into one evaluation. Each Run selects an
 existing Environment Definition and combines it with a policy and the settings that control the
@@ -152,100 +152,16 @@ For OSMO setup and submission options, see :doc:`Multi-node Evaluation
 <../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
 
 
-.. _policy-runner-single-job:
+Choosing a runner
+-----------------
 
-Policy Runner — single job (single GPU and multi-GPU)
------------------------------------------------------
+.. note::
 
-For a saved or repeatable evaluation, use an Experiment Definition even when it contains only one
-Run. The **Policy Runner** (``isaaclab_arena/evaluation/policy_runner.py``) remains useful for an
-ad-hoc evaluation, focused debugging, external Python environments, and ``torchrun`` multi-GPU
-execution.
-
-The Policy Runner:
-
-* runs one environment configuration with one policy;
-* supports several parallel simulated environments with ``--num_envs``;
-* runs for ``--num_steps`` or ``--num_episodes``;
-* uses the policy's own length when the policy provides one;
-* records per-episode results, computes available metrics, and builds an evaluation report; and
-* can record viewport or policy-camera videos.
-
-.. tab-set::
-
-   .. tab-item:: Single GPU
-
-      This example runs one environment with the zero-action policy:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-           --viz kit \
-           --policy_type zero_action \
-           --num_steps 50 \
-           --num_envs 1 \
-           pick_and_place_maple_table \
-           --embodiment droid_rel_joint_pos \
-           --pick_up_object rubiks_cube_hot3d_robolab \
-           --destination_location bowl_ycb_robolab \
-           --hdr home_office_robolab
-
-      The environment name is the command's subcommand. Put general runner options before it and
-      environment-specific options after it.
-
-   .. tab-item:: Multi-GPU
-
-      Use ``torchrun`` with ``--distributed`` to start one Policy Runner process per GPU. Each
-      process starts its own Isaac Sim instance and uses its local GPU:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run \
-           --standalone \
-           --nproc-per-node=2 \
-           isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type zero_action \
-           --num_steps 200 \
-           --num_envs 10 \
-           --distributed \
-           --headless \
-           pick_and_place_maple_table \
-           --embodiment droid_rel_joint_pos \
-           --pick_up_object rubiks_cube_hot3d_robolab \
-           --destination_location bowl_ycb_robolab \
-           --hdr home_office_robolab
-
-      Here, ``--num_envs 10`` applies to every process, so two GPU processes simulate 20
-      environments in total.
-
-.. dropdown:: Use different objects in parallel environments
-   :animate: fade-in
-
-   Some environments accept ``--object_set``. This assigns different objects to parallel
-   simulated environments:
-
-   .. code-block:: bash
-
-      python isaaclab_arena/evaluation/policy_runner.py \
-        --viz kit \
-        --policy_type zero_action \
-        --num_steps 200 \
-        --num_envs 4 \
-        put_item_in_fridge_and_close_door \
-        --embodiment gr1_joint \
-        --object_set \
-          ketchup_bottle_hope_robolab \
-          ranch_dressing_hope_robolab \
-          bbq_sauce_bottle_hope_robolab \
-          mayonnaise_bottle_hope_robolab
-
-   See :doc:`Homogeneous and Heterogeneous Placement
-   <object_placement/homogeneous_and_heterogeneous_placement>` for how object sets are assigned.
-
-``--policy_type`` accepts a registered policy name or a dotted Python class path. Registered
-policies add their typed configuration fields as command-line flags. This includes connection
-settings for remote policies. See :doc:`Running a Real Policy
-<../quickstart/running_a_real_policy/index>` for complete examples.
+   Use the **Experiment Runner** for policy evaluations defined in YAML. Use the **Environment
+   Runner** (``isaaclab_arena/scripts/environment_runner.py``) to inspect and physically manipulate
+   an environment without a policy. The **Policy Runner** is currently needed only for ``torchrun``
+   multi-GPU execution or policy evaluation of an external environment loaded with
+   ``--external_environment_class_path``.
 
 
 Related concepts
