@@ -74,7 +74,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
       See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
       or disable it.
 
-.. figure:: ../../../../images/agentic_env_droid_pi_banana_plate_pnp_run1.gif
+.. figure:: ../../../../images/agentic_environment_generation/agentic_env_droid_pi_banana_plate_pnp_run1.gif
    :width: 100%
    :alt: Policy evaluation of the generated environment using the OpenPI policy.
    :align: center

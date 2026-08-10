@@ -32,7 +32,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
       --num_episodes 2 \
       --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
-.. figure:: ../../../../images/droid_kitchen_pnp_pi.gif
+.. figure:: ../../../../images/agentic_environment_generation/droid_kitchen_pnp_pi.gif
    :width: 100%
    :alt: PI policy controlling DROID for mustard-bottle pick and place in the kitchen
    :align: center

@@ -40,7 +40,7 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The task panel shows one row per subtask, so a composite task is visible as two
       ``PickAndPlaceTask`` rows under the root task.
 
-      .. figure:: ../../../../images/tabletop_agentic_env_cans_simready_gui.png
+      .. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_cans_simready_gui.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center

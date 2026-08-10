@@ -7,7 +7,7 @@ for **pick and place atomic task on a kitchen countertop** in the ``lightwheel_r
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/agentic_ui_kitchen_pnp_prompt_robot.png
+.. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prompt_robot.png
    :width: 100%
    :alt: Generated kitchen pick and place task shown in the agentic environment-generation GUI.
    :align: center

@@ -49,6 +49,7 @@
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/agentic_env_gen/kitchen_open_door/step_2_edit_environment_graph_spec';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../_static/favicon.png"/>
@@ -637,6 +638,13 @@ task params can name by <code class="docutils literal notranslate"><span class="
 <p>The generated relations identify the correct entities, but the initial layout may place the robot on the
 wrong side of the fridge or facing the wrong direction, and the door may open further than the policy needs
 to. The three parameters to tune are:</p>
+<figure class="align-default" id="id2">
+<img alt="Kitchen, floor, and fridge snapshots with local XYZ axis overlays" src="../../../../_images/agentic_ui_kitchen_pnp_axis.png" />
+<figcaption>
+<p><span class="caption-text">Use the axis overlays to interpret the fridge orientation in the kitchen.
+Red is <span class="math notranslate nohighlight">\(+X\)</span>, green is <span class="math notranslate nohighlight">\(+Y\)</span>, and blue is <span class="math notranslate nohighlight">\(+Z\)</span>.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">side</span></code> and <code class="docutils literal notranslate"><span class="pre">distance_m</span></code> under <code class="docutils literal notranslate"><span class="pre">next_to</span></code> — which side of the fridge the robot stands on and how far
 from it.</p></li>
@@ -644,6 +652,12 @@ from it.</p></li>
 that it faces the door.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">openness_threshold</span></code> under <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code> — how far the door has to swing before the task succeeds.</p></li>
 </ul>
+<p>For this axis-aligned kitchen, the front of the fridge is its <span class="math notranslate nohighlight">\(-Y\)</span> edge.
+Set <code class="docutils literal notranslate"><span class="pre">next_to.side</span></code> to <code class="docutils literal notranslate"><span class="pre">negative_y</span></code> to place the robot in front of that edge.
+From there, the robot must face <span class="math notranslate nohighlight">\(+Y\)</span> toward the fridge. Its default heading
+is <span class="math notranslate nohighlight">\(+X\)</span>, so set <code class="docutils literal notranslate"><span class="pre">rotate_around_solution.yaw_rad</span></code> to <span class="math notranslate nohighlight">\(+\pi/2\)</span>
+(<code class="docutils literal notranslate"><span class="pre">1.57</span></code> radians) to rotate its heading toward <span class="math notranslate nohighlight">\(+Y\)</span> in the kitchen
+background frame.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">next_to</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid</span>
 <span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fridge</span>

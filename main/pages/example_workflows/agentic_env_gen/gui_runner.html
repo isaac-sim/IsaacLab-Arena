@@ -49,6 +49,7 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/agentic_env_gen/gui_runner';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
@@ -576,11 +577,11 @@ non-deterministic, it’s important to review and correct what it returns.</p>
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated</span></code>. Use <code class="docutils literal notranslate"><span class="pre">--out_dir</span></code> to choose a
 different output directory, or <code class="docutils literal notranslate"><span class="pre">--port</span></code> to run Streamlit on a different port.</p>
 <figure class="align-default" id="id1">
-<img alt="Agentic environment generation GUI" src="../../../_images/agentic_env_gen_gui.gif" />
+<img alt="Running the full agentic environment-generation pipeline" src="../../../_images/agentic_env_gen_gui.gif" />
 <figcaption>
-<p><span class="caption-text">The GUI is intended as a human-in-the-loop review surface: generate a draft
-from a prompt, inspect the compiled graph, edit the YAML, and preview the
-result before using it in policy evaluation.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">Run the full pipeline from a natural-language prompt to generated YAML,
+automatically updated asset snapshots and graph visualization, and a
+simulation preview.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <section id="ui-panels">
@@ -596,18 +597,20 @@ traces are shown alongside it.</p>
 <dt>YAML editor</dt><dd><p>Edit the generated or loaded <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> directly. The editor
 validates the YAML as you work and shows either a valid-spec summary or the
 parse/validation error. The <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> button writes the spec to
-<code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the configured output directory.</p>
+<code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the configured output directory. A searchable
+background prim-tree panel helps identify prim paths while editing.</p>
 </dd>
 <dt>Visualization</dt><dd><p>Shows an automatically refreshed dashboard for valid YAML. The dashboard
 includes graph nodes, node thumbnails when available, the graph layout, task
-rows, and initial-state information. If the YAML is invalid, the panel waits
-until the error is fixed before rendering.</p>
+rows, and initial-state information. Snapshot axis overlays use red for
+<span class="math notranslate nohighlight">\(+X\)</span>, green for <span class="math notranslate nohighlight">\(+Y\)</span>, and blue for <span class="math notranslate nohighlight">\(+Z\)</span>. If the YAML is
+invalid, the panel waits until the error is fixed before rendering.</p>
 </dd>
 <dt>Sim preview</dt><dd><p>Runs the full Arena environment construction from YAML, relation
 solving, and zero-action rollout in a SimulationApp side process.
 Controls let you set the number of parallel environments, zero-action steps,
-and environment spacing. The result shows the viewport at the start and after
-the requested rollout steps.</p>
+and environment spacing. The preview uses the task’s default viewer
+configuration and displays a viewport video of the rollout.</p>
 </dd>
 </dl>
 </section>
@@ -628,8 +631,15 @@ changes.</p></li>
 <li><p>Click <code class="docutils literal notranslate"><span class="pre">Run</span> <span class="pre">relation</span> <span class="pre">solver</span> <span class="pre">preview</span></code> to manually trigger the simulation
 preview. This action sends the current editor text to the SimApp preview
 service, builds the Arena environment, solves relations, runs the configured
-zero-action rollout, and displays two viewport captures.</p></li>
+zero-action rollout, and displays the recorded viewport video.</p></li>
 </ol>
+<figure class="align-default" id="id2">
+<img alt="Editing and validating generated environment YAML" src="../../../_images/agentic_env_gen_gui_edit.gif" />
+<figcaption>
+<p><span class="caption-text">Edit the YAML with live validation, save it to a file, and review the asset
+snapshots and graph visualization as they update automatically.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 </section>
 </section>
 

@@ -7,7 +7,7 @@ for **an articulated open-door atomic task** in the ``lightwheel_robocasa_kitche
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/agentic_ui_kitchen_open_door.png
+.. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_open_door.png
    :width: 100%
    :alt: Generated kitchen fridge-opening task shown in the agentic environment-generation GUI.
    :align: center
