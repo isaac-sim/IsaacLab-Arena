@@ -7,9 +7,9 @@ An Arena Experiment groups one or more named Runs into one evaluation. Each Run 
 environment, a policy, and a rollout limit. Its **Experiment Definition** is a YAML file that you
 can use on one machine or submit to OSMO.
 
-The earlier environment examples launched several versions of the Maple-table scene with separate
-commands. Here, those choices become one Experiment. The zero-action policy keeps the example
-quick and needs no model weights.
+The previous page launched four versions of the Maple-table scene with separate commands. Here,
+those choices become one Experiment. The zero-action policy keeps the example quick and needs no
+model weights.
 
 
 Define the Experiment
@@ -27,7 +27,7 @@ There are three ideas to notice:
 * The keys below ``runs`` are the Run names.
 * ``baseline: {}`` uses the shared values as written. The other Runs list only what they change.
 
-The four Runs make the same changes that the earlier commands made, then add one scaled-up Run:
+The four Runs collect the same choices that the earlier commands launched separately:
 
 .. grid:: 1 1 2 2
    :gutter: 3

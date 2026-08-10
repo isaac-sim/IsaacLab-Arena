@@ -38,8 +38,8 @@ Keeping these parts separate makes the environment reusable. We can replace the 
 a mustard bottle, choose a different destination or background, or use another compatible robot
 without rewriting the task.
 
-The following examples run the same environment definition with different choices. First, we run
-the reference scene. Then we replace the objects and change the background.
+The following examples reuse the same environment definition. First, we run the reference scene.
+Then we replace the objects, change the background, and scale to 64 parallel environments.
 
 
 .. _swapping-environment-components:
@@ -124,11 +124,41 @@ Keep the original objects, but select a different background panorama and ambien
 
    The same environment definition with a different background panorama.
 
+
+Scale to parallel environments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Keep the reference scene, but create 64 copies that step together on the GPU:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
+     --policy_type zero_action \
+     --num_steps 100 \
+     --num_envs 64 \
+     --env_spacing 2.5 \
+     pick_and_place_maple_table \
+     --embodiment droid_rel_joint_pos \
+     --pick_up_object rubiks_cube_hot3d_robolab \
+     --destination_location bowl_ycb_robolab \
+     --hdr home_office_robolab
+
+All 64 copies use the same environment configuration. Arena simulates them in parallel rather
+than launching 64 separate processes.
+
+.. figure:: ../../images/scale_up.gif
+   :width: 100%
+   :alt: Running 64 copies of the pick-and-place environment in parallel
+   :align: center
+
+   The reference scene scaled from one environment to 64 parallel environments.
+
 .. note::
 
-   These commands make explicit choices for each run. On the next page, you will collect the same
-   choices as named Runs in one Arena Experiment. Later, Arena *variations* will choose and record
-   values automatically when an environment is built or reset.
+   These four commands make explicit choices for each launch. On the next page, you will collect
+   the same choices as named Runs in one Arena Experiment. Later, Arena *variations* will choose
+   and record values automatically when an environment is built or reset.
 
 
 How the Environment Is Assembled
