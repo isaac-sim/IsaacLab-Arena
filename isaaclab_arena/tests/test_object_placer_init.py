@@ -8,7 +8,7 @@
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -26,6 +26,21 @@ def _make_desk():
 
 def _env_bboxes(objects):
     return {obj: obj.get_bounding_box() for obj in objects}
+
+
+def test_at_position_init_uses_constrained_coordinates():
+    """AtPosition starts on the requested side of obstacles instead of optimizing through them."""
+    desk = _make_desk()
+    box = DummyObject(
+        name="box",
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
+    )
+    box.add_relation(AtPosition(x=0.25, z=0.8))
+
+    objects = [desk, box]
+    positions = ObjectPlacer()._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+
+    assert positions[box] == (0.25, 0.5, 0.8)
 
 
 def test_on_init_x_y_within_parent_footprint():

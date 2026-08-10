@@ -286,7 +286,14 @@ class PlacementRerunVisualizer:
         centers, half_sizes, quaternions = [], [], []
         for obj in objects:
             bbox = bboxes[obj]
-            rotation = rotations[obj] if obj in rotations else obj.get_initial_pose().rotation_xyzw
+            if obj in rotations:
+                rotation = rotations[obj]
+            elif obj in anchors:
+                initial_pose = obj.get_initial_pose()
+                assert initial_pose is not None, f"Anchor '{obj.name}' must have a fixed pose."
+                rotation = initial_pose.rotation_xyzw
+            else:
+                rotation = (0.0, 0.0, 0.0, 1.0)
             world_bbox = bbox.transformed(positions[obj], rotation)
             centers.append(world_bbox.center[0].tolist())
             half_sizes.append(world_bbox.half_extents[0].tolist())

@@ -18,6 +18,7 @@ from isaaclab_arena.relations.placement_validators import build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
+    AtPosition,
     FaceTo,
     On,
     RandomAroundSolution,
@@ -331,8 +332,8 @@ class ObjectPlacer:
         """Generate initial positions for all objects.
 
         Anchors keep their initial_pose. Objects with an On relation are initialized within
-        the parent's footprint at the correct Z height. All other objects start at the first
-        anchor's center; the solver handles their placement from there.
+        the parent's footprint at the correct Z height. Other objects start at the first
+        anchor's center. AtPosition coordinates override the corresponding initialized axes.
 
         Args:
             env_bboxes: Per-object bounding boxes for the current environment, each with N=1.
@@ -364,12 +365,23 @@ class ObjectPlacer:
                     f" {type(initial_pose).__name__}."
                 )
                 positions[obj] = initial_pose.position_xyz
-            elif any(isinstance(r, On) for r in obj.get_relations()):
-                positions[obj] = self._compute_on_guided_position(
+                continue
+
+            if get_relation(obj, On) is not None:
+                position = self._compute_on_guided_position(
                     obj, anchor_objects, anchor_bbox, candidate_bboxes, generator
                 )
             else:
-                positions[obj] = (cx, cy, cz)
+                position = (cx, cy, cz)
+
+            at_position = get_relation(obj, AtPosition)
+            if at_position is not None:
+                position = (
+                    at_position.x if at_position.x is not None else position[0],
+                    at_position.y if at_position.y is not None else position[1],
+                    at_position.z if at_position.z is not None else position[2],
+                )
+            positions[obj] = position
         return positions
 
     @staticmethod

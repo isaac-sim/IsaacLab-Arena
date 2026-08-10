@@ -5,8 +5,6 @@
 
 import numpy as np
 
-import pytest
-
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -48,8 +46,8 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
     return True
 
 
-def _test_get_prim_pose_rejects_scaled_reference(simulation_app):
-    """A referenced prim with local scale cannot be represented by Pose and OBB."""
+def _test_get_prim_pose_ignores_scale_component(simulation_app):
+    """A scaled prim still exposes its rigid pose components."""
     from pxr import Gf, Usd, UsdGeom
 
     from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
@@ -58,10 +56,11 @@ def _test_get_prim_pose_rejects_scaled_reference(simulation_app):
     root = UsdGeom.Xform.Define(stage, "/Root")
     stage.SetDefaultPrim(root.GetPrim())
     reference = UsdGeom.Xform.Define(stage, "/Root/Reference")
-    reference.AddScaleOp().Set(Gf.Vec3d(2.0, 2.0, 2.0))
+    reference.AddScaleOp().Set(Gf.Vec3d(2.0, 3.0, 4.0))
 
-    with pytest.raises(AssertionError, match="must have unit scale"):
-        get_prim_pose_in_default_prim_frame(reference.GetPrim(), stage)
+    pose = get_prim_pose_in_default_prim_frame(reference.GetPrim(), stage)
+    assert pose.position_xyz == (0.0, 0.0, 0.0)
+    assert pose.rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
     return True
 
 
@@ -74,9 +73,8 @@ def test_get_prim_pose_in_default_prim_frame():
     assert result, "Test failed"
 
 
-def test_get_prim_pose_rejects_scaled_reference():
-    """Scaled referenced prims fail before their local scale can be discarded."""
-    assert run_function_with_persistent_simulation_app(_test_get_prim_pose_rejects_scaled_reference, headless=HEADLESS)
+def test_get_prim_pose_ignores_scale_component():
+    assert run_function_with_persistent_simulation_app(_test_get_prim_pose_ignores_scale_component, headless=HEADLESS)
 
 
 if __name__ == "__main__":
