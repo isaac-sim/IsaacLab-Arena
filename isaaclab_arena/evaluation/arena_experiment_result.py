@@ -175,11 +175,11 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
 
     environment_cfg = run_cfg.environment
     # TODO(cvolk): Remove this structural check once graph-YAML environments use registered typed configurations.
-    if hasattr(environment_cfg, "env_graph_spec_yaml_path"):
+    if hasattr(environment_cfg, "env_spec_path"):
         from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 
         environment_definition = _require_nonempty_string(
-            environment_cfg.env_graph_spec_yaml_path,
+            environment_cfg.env_spec_path,
             "graph environment definition",
         )
         environment_graph = load_env_graph_spec_dict(environment_definition)

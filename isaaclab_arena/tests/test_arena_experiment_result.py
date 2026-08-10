@@ -149,7 +149,7 @@ class _EnvironmentCfg:
 
 @dataclass
 class _GraphEnvironmentCfg:
-    env_graph_spec_yaml_path: str
+    env_spec_path: str
 
 
 @dataclass
