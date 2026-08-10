@@ -75,7 +75,7 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
       See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
       or disable it.
 
-.. figure:: ../../../../images/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif
+.. figure:: ../../../../images/agentic_environment_generation/agentic_env_droid_pi_fruit_plate_objectset_pnp_run.gif
    :width: 100%
    :alt: Policy evaluation of the generated environment using the OpenPI policy.
    :align: center

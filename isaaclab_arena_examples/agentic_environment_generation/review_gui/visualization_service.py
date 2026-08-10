@@ -47,8 +47,8 @@ def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]
         return []
 
 
-def _spec_render_key(spec: ArenaEnvGraphSpec) -> str:
-    payload = json.dumps({"spec": spec.to_dict()}, sort_keys=True)
+def _spec_render_key(spec: ArenaEnvGraphSpec, *, background_panorama: bool) -> str:
+    payload = json.dumps({"spec": spec.to_dict(), "background_panorama": background_panorama}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -105,7 +105,11 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[AssetCard], list[UsdPrimRecord]]:
+def build_asset_cards_with_thumbnails(
+    spec: ArenaEnvGraphSpec,
+    *,
+    background_panorama: bool = False,
+) -> tuple[list[AssetCard], list[UsdPrimRecord]]:
     """Build per-node asset cards plus the background prim tree records.
 
     Loads the prim tree from the background USD directly and asks the SimApp
@@ -113,11 +117,16 @@ def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[Ass
 
     Args:
         spec: Environment graph spec to visualize.
+        background_panorama: When True, render the background as a 360° panorama.
     """
-    spec_key = _spec_render_key(spec)
+    spec_key = _spec_render_key(spec, background_panorama=background_panorama)
     cached = _cached_asset_cards(spec_key)
     if cached is not None:
         return cached
+
+    panorama_node_ids: set[str] = set()
+    if background_panorama and spec.background is not None:
+        panorama_node_ids.add(spec.background.id)
 
     thumbnails: dict[str, bytes] = {}
     aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
@@ -130,7 +139,7 @@ def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[Ass
             _warn_simapp_unavailable_once()
     else:
         try:
-            thumbnails, aabb_dimensions_m = client.render_spec(spec)
+            thumbnails, aabb_dimensions_m = client.render_spec(spec, background_panorama=background_panorama)
         except SimAppError as exc:
             _show_simapp_render_error_once(exc)
             thumbnails, aabb_dimensions_m = {}, {}
@@ -142,6 +151,7 @@ def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[Ass
         spec,
         thumbnails or None,
         aabb_dimensions_m or None,
+        panorama_node_ids or None,
     )
     _store_asset_cards(spec_key, asset_cards, prim_tree)
     return asset_cards, prim_tree

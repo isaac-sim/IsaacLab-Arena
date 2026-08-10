@@ -34,6 +34,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     wait_for_simapp_socket,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    _preview_cfg,
     parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
@@ -82,6 +83,11 @@ def session_state(monkeypatch):
 
 
 class TestSimPreviewParams:
+    def test_preview_cfg_uses_cpu_without_fabric(self):
+        cfg = _preview_cfg(num_envs=1, env_spacing=30.0)
+        assert cfg.device == "cpu"
+        assert cfg.disable_fabric
+
     def test_parse_sim_preview_params_requires_all_keys(self):
         with pytest.raises(ValueError, match="missing required sim preview params"):
             parse_sim_preview_params({})
@@ -92,6 +98,8 @@ class TestSimPreviewParams:
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
             parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
+        with pytest.raises(AssertionError):
+            parse_sim_preview_params({"num_envs": 1, "num_steps": 0, "env_spacing": 1.5})
 
 
 class TestBuildAssetCards:
@@ -526,17 +534,20 @@ class TestSimAppSimPreview:
             response = client.run_sim_preview(
                 yaml_text,
                 num_envs=1,
-                num_steps=0,
-                env_spacing=1.5,
+                num_steps=2,
+                env_spacing=ENV_SPACING_M,
             )
             assert response["ok"] is True
 
-            first_frame = Path(response["first_frame"])
-            last_frame = Path(response["last_frame"])
-            assert first_frame.is_file() and first_frame.stat().st_size > 0
-            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            video_path = Path(response["video_path"])
+            assert video_path.is_file() and video_path.stat().st_size > 0
             assert response["num_envs"] == 1
-            assert response["num_steps"] == 0
+            assert response["env_spacing"] == ENV_SPACING_M
+            assert response["num_steps"] == 2
+            assert client.ping()
+
+            video_path.unlink()
+            video_path.parent.rmdir()
 
             client.shutdown()
         finally:

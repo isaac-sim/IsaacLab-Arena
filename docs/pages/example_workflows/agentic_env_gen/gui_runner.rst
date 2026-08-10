@@ -26,12 +26,12 @@ By default, generated YAML files are written under
 ``isaaclab_arena_environments/agent_generated``. Use ``--out_dir`` to choose a
 different output directory, or ``--port`` to run Streamlit on a different port.
 
-.. figure:: ../../../images/agentic_env_gen_gui.gif
-   :alt: Agentic environment generation GUI
+.. figure:: ../../../images/agentic_environment_generation/agentic_env_gen_gui.gif
+   :alt: Running the full agentic environment-generation pipeline
 
-   The GUI is intended as a human-in-the-loop review surface: generate a draft
-   from a prompt, inspect the compiled graph, edit the YAML, and preview the
-   result before using it in policy evaluation.
+   Run the full pipeline from a natural-language prompt to generated YAML,
+   automatically updated asset snapshots and graph visualization, and a
+   simulation preview.
 
 UI Panels
 ---------
@@ -49,20 +49,22 @@ YAML editor
    Edit the generated or loaded ``ArenaEnvGraphSpec`` directly. The editor
    validates the YAML as you work and shows either a valid-spec summary or the
    parse/validation error. The ``Save YAML`` button writes the spec to
-   ``<env_name>.yaml`` in the configured output directory.
+   ``<env_name>.yaml`` in the configured output directory. A searchable
+   background prim-tree panel helps identify prim paths while editing.
 
 Visualization
    Shows an automatically refreshed dashboard for valid YAML. The dashboard
    includes graph nodes, node thumbnails when available, the graph layout, task
-   rows, and initial-state information. If the YAML is invalid, the panel waits
-   until the error is fixed before rendering.
+   rows, and initial-state information. Snapshot axis overlays use red for
+   :math:`+X`, green for :math:`+Y`, and blue for :math:`+Z`. If the YAML is
+   invalid, the panel waits until the error is fixed before rendering.
 
 Sim preview
    Runs the full Arena environment construction from YAML, relation
    solving, and zero-action rollout in a SimulationApp side process.
    Controls let you set the number of parallel environments, zero-action steps,
-   and environment spacing. The result shows the viewport at the start and after
-   the requested rollout steps.
+   and environment spacing. The preview uses the task's default viewer
+   configuration and displays a viewport video of the rollout.
 
 Editing and Update Flow
 -----------------------
@@ -82,4 +84,10 @@ The main update flow is:
 #. Click ``Run relation solver preview`` to manually trigger the simulation
    preview. This action sends the current editor text to the SimApp preview
    service, builds the Arena environment, solves relations, runs the configured
-   zero-action rollout, and displays two viewport captures.
+   zero-action rollout, and displays the recorded viewport video.
+
+.. figure:: ../../../images/agentic_environment_generation/agentic_env_gen_gui_edit.gif
+   :alt: Editing and validating generated environment YAML
+
+   Edit the YAML with live validation, save it to a file, and review the asset
+   snapshots and graph visualization as they update automatically.

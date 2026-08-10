@@ -7,10 +7,12 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import streamlit as st
 
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     validate_yaml_text,
@@ -21,8 +23,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     simapp_socket_from_env,
 )
 
-NUM_ENVS = 9
-ENV_SPACING_M = 1.5
+_DEFAULT_BUILDER_CFG = ArenaEnvBuilderCfg()
+NUM_ENVS = _DEFAULT_BUILDER_CFG.num_envs
+ENV_SPACING_M = _DEFAULT_BUILDER_CFG.env_spacing
 NUM_STEPS = 10
 
 _SIMAPP_CLIENT_SESSION_KEY = "_simapp_client"
@@ -98,25 +101,26 @@ def run_sim_preview_pipeline(
             env_spacing=env_spacing,
         )
     except SimAppError as exc:
-        st.session_state.pop("sim_preview_first", None)
-        st.session_state.pop("sim_preview_last", None)
+        st.session_state.pop("sim_preview_video", None)
         st.session_state.pop("sim_preview_run_params", None)
         return False, str(exc)
     finally:
         clear_simapp_client()
 
+    video_path: Path | None = None
     try:
-        first_path = Path(response["first_frame"])
-        last_path = Path(response["last_frame"])
-        st.session_state["sim_preview_first"] = first_path.read_bytes()
-        st.session_state["sim_preview_last"] = last_path.read_bytes()
+        video_path = Path(response["video_path"])
+        st.session_state["sim_preview_video"] = video_path.read_bytes()
         st.session_state["sim_preview_run_params"] = {
             "num_envs": response.get("num_envs", num_envs),
             "num_steps": response.get("num_steps", num_steps),
             "env_spacing": response.get("env_spacing", env_spacing),
         }
-    except OSError as exc:
-        return False, f"Failed to read preview frames: {exc}"
+    except (KeyError, OSError) as exc:
+        return False, f"Failed to read preview video: {exc}"
+    finally:
+        if video_path is not None:
+            shutil.rmtree(video_path.parent, ignore_errors=True)
 
     return (
         True,
