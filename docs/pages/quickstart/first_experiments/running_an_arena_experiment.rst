@@ -3,13 +3,11 @@
 Run an Arena Experiment
 =======================
 
-An Arena Experiment groups one or more named Runs into one evaluation. Each Run combines an
-environment, a policy, and a rollout limit. Its **Experiment Definition** is the YAML file that
-records those Runs.
-
 The previous page launched four versions of the Maple-table scene with separate commands. Here,
 those choices become four named Runs in one YAML file. The zero-action policy keeps the example
 quick and needs no model weights.
+
+Together, those Runs form an Arena Experiment. The YAML file is its **Experiment Definition**.
 
 
 Define the Experiment
