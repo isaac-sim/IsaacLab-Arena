@@ -79,26 +79,3 @@ Open a second terminal and enter the Arena container with ``./docker/run_docker.
 The Experiment Runner reads the other values from YAML and records the Run under the name
 ``droid_pnp_dreamzero``. Omit the final override when the server is available on
 ``localhost``. Run headless by replacing ``--viz kit`` with ``--headless``.
-
-.. dropdown:: Optional: one-off Policy Runner connection check
-   :animate: fade-in
-
-   Use the Policy Runner for a quick connection check. Use the Experiment Definition above for
-   evaluations that you want to save, repeat, or submit to OSMO. Replace ``OSMO_JOB_IP`` with the
-   server address:
-
-   .. code-block:: bash
-
-      python isaaclab_arena/evaluation/policy_runner.py \
-        --viz kit \
-        --policy_type isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy \
-        --remote_host OSMO_JOB_IP \
-        --remote_port 5000 \
-        --enable_cameras \
-        --num_episodes 1 \
-        --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
-        pick_and_place_maple_table \
-          --embodiment droid_abs_joint_pos \
-          --pick_up_object rubiks_cube_hot3d_robolab \
-          --destination_location bowl_ycb_robolab \
-          --hdr home_office_robolab

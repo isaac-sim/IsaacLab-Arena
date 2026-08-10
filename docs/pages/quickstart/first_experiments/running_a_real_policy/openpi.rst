@@ -92,26 +92,6 @@ Kit window shows the droid arm reacting to pi0's commanded joint positions.
    Arena Kit viewport during a pi05 rollout: the DROID arm above the maple table with the
    Rubik's cube and destination bowl, with the home_office_robolab HDR.
 
-.. dropdown:: Optional: check the connection with Policy Runner
-   :animate: fade-in
-
-   The Policy Runner is useful for a quick connection check. Use the Experiment Definition above
-   for evaluations that you want to save, repeat, or submit to OSMO.
-
-   .. code-block:: bash
-
-      python isaaclab_arena/evaluation/policy_runner.py \
-        --viz kit \
-        --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-        --num_steps 20 \
-        --enable_cameras --num_envs 1 \
-        --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
-        pick_and_place_maple_table \
-          --embodiment droid_abs_joint_pos \
-          --pick_up_object rubiks_cube_hot3d_robolab \
-          --destination_location bowl_ycb_robolab \
-          --hdr home_office_robolab
-
 Evaluate several variations
 ---------------------------
 

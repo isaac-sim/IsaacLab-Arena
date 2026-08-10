@@ -77,32 +77,6 @@ If the server runs on another host or port, override the declared policy value. 
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml \
      runs.droid_pnp_gr00t.policy.remote_port=5556
 
-.. dropdown:: One-off connection check with Policy Runner
-   :animate: fade-in
-
-   For a quick connection check without a saved Experiment Definition, run one policy
-   directly:
-
-   .. code-block:: bash
-
-      python isaaclab_arena/evaluation/policy_runner.py \
-        --viz kit \
-        --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-        --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
-        --remote_host 127.0.0.1 \
-        --remote_port 5555 \
-        --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
-        --enable_cameras \
-        --num_episodes 3 \
-        pick_and_place_maple_table \
-        --embodiment droid_abs_joint_pos \
-        --pick_up_object rubiks_cube_hot3d_robolab \
-        --destination_location bowl_ycb_robolab \
-        --hdr home_office_robolab
-
-   Use an Experiment Definition for evaluations that you want to repeat or submit to OSMO.
-
-
 Evaluate several object variations
 ----------------------------------
 
