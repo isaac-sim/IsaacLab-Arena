@@ -12,7 +12,7 @@ what the environment contains. Arena only checks that the answer is admissible: 
 ``registry_name`` is registered, each relation kind exists, and each ``prim_path`` is in the
 background's prim tree. A bad answer is rejected and saved as ``invalid_<name>.yaml`` with trace
 lines, but Arena cannot fix it. The model must support OpenAI-compatible structured outputs
-(``response_format={"type": "json_schema", "strict": true}``).
+(``response_format={"type": "json_schema", ...}``).
 
 Why Spec Quality Varies
 -------------------------
@@ -49,17 +49,38 @@ resolution.
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 40 40
+   :widths: 20 18 30 20 15 15
 
    * - ``ARENA_INFERENCE_ENDPOINT``
+     - Accessibility
      - Default model
      - API key variable
+     - Pass rate
+     - Mean runtime
    * - ``public`` (default)
+     - Public (free)
      - ``openai/gpt-oss-120b``
      - ``NVIDIA_API_KEY``
+     - 10/15 (66.7%)
+     - 18.61 s
    * - ``internal``
-     - ``azure/anthropic/claude-opus-4-8``
+     - NVIDIA internal
+     - ``openai/openai/gpt-5.6-terra``
      - ``NV_API_KEY``
+     - 15/15 (100%)
+     - 10.78 s
+   * - ``openai``
+     - Public (charged)
+     - ``gpt-5.6-terra``
+     - ``OPENAI_API_KEY``
+     - 15/15 (100%)
+     - 7.94 s
+
+.. note::
+   The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
+   generated specs that matched the expected structure; runtime is the mean end-to-end
+   ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
+   non-deterministic, and service load affects runtime.
 
 Reviewing the Generated Spec
 ----------------------------
