@@ -11,7 +11,7 @@ import json
 from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
@@ -26,15 +26,52 @@ ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 _RUN_STATUSES = frozenset({"completed", "failed"})
 
 
+class ArenaEpisodeResultData(TypedDict):
+    """Core data stored for one episode, with optional recorder data."""
+
+    job_name: str
+    env_id: int
+    episode_in_env: int
+    seed: int | None
+    success: bool | None
+    episode_length: int
+    language_instruction: str | None
+    timestamp: str
+    variations: NotRequired[dict[str, Any]]
+    progress: NotRequired[dict[str, Any]]
+
+
+class ArenaRebuildResultData(TypedDict):
+    """Episode results produced by one fresh environment construction."""
+
+    index: int
+    episodes: list[ArenaEpisodeResultData]
+
+
+class ArenaExperimentRunData(TypedDict):
+    """Data stored for one configured Run in an Arena Experiment result."""
+
+    environment: dict[str, str]
+    policy_variant: str
+    status: Literal["completed", "failed"]
+    rebuilds: list[ArenaRebuildResultData]
+
+
+ArenaExperimentResultData = dict[Literal["runs"], dict[str, ArenaExperimentRunData]]
+
+
 def _validated_nonempty_string(value: object, field_name: str) -> str:
     """Return a non-empty string used in Run metadata."""
     assert isinstance(value, str) and value.strip(), f"{field_name} must be a non-empty string"
     return value
 
 
-def _collect_rebuilds(run_output_directory: Path, experiment_output_directory: Path) -> list[dict[str, Any]]:
+def _collect_rebuilds(
+    run_output_directory: Path,
+    experiment_output_directory: Path,
+) -> list[ArenaRebuildResultData]:
     """Collect raw episode objects from one Run directory, grouped by rebuild."""
-    episodes_by_rebuild: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    episodes_by_rebuild: dict[int, list[ArenaEpisodeResultData]] = defaultdict(list)
     for episode_results_path in find_episode_results_files(run_output_directory):
         parsed_filename = parse_episode_results_filename(episode_results_path.name)
         assert parsed_filename is not None, f"episode results filename did not parse: {episode_results_path.name}"
@@ -53,7 +90,11 @@ def _collect_rebuilds(run_output_directory: Path, experiment_output_directory: P
 
 
 class ArenaExperimentResult:
-    """Collect the canonical result for one Arena Experiment."""
+    """Combine every Run's metadata and episode JSONLs into one Experiment result file.
+
+    The result contains each configured Run's environment, policy variant, execution status,
+    and raw episode records grouped by rebuild. It does not compute aggregate metrics or collect videos.
+    """
 
     @staticmethod
     def assert_run_name_is_safe_path_component(run_name: str) -> None:
@@ -77,12 +118,12 @@ class ArenaExperimentResult:
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
         self.experiment_output_directory = Path(experiment_output_directory)
-        self._runs = {
+        self._runs: dict[str, ArenaExperimentRunData] = {
             run_name: self._collect_run(run_name, run_metadata)
             for run_name, run_metadata in run_metadata_by_name.items()
         }
 
-    def _collect_run(self, run_name: str, run_metadata: Mapping[str, Any]) -> dict[str, Any]:
+    def _collect_run(self, run_name: str, run_metadata: Mapping[str, Any]) -> ArenaExperimentRunData:
         """Collect one declared Run's metadata and episode results."""
         self.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
@@ -116,12 +157,12 @@ class ArenaExperimentResult:
             "rebuilds": rebuilds,
         }
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> ArenaExperimentResultData:
         """Return the collected JSON-compatible Experiment result."""
         return {"runs": self._runs}
 
     def write(self) -> Path:
-        """Write the collected result to the canonical Experiment output path."""
+        """Write all collected Runs to ``arena_experiment_result.json`` in the Experiment output directory."""
         result_path = self.experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME
         result_path.write_text(
             json.dumps(self.to_dict(), allow_nan=False, indent=2) + "\n",
