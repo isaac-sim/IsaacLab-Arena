@@ -26,7 +26,7 @@ The four Runs collect the same choices that the earlier commands launched separa
       .. image:: ../../../images/default_srl_pnp.png
          :alt: Baseline DROID pick-and-place environment with a Rubik's cube and bowl
 
-      Shared scene · 1 environment · 50 steps
+      Shared scene · 1 environment · 1 episode
 
    .. grid-item-card:: ``swap_objects``
       :class-card: sd-shadow-sm
@@ -34,7 +34,7 @@ The four Runs collect the same choices that the earlier commands launched separa
       .. image:: ../../../images/swap_objects.gif
          :alt: DROID pick-and-place environment with a mustard bottle and wooden bowl
 
-      Mustard bottle and wooden bowl · 1 environment · 50 steps
+      Mustard bottle and wooden bowl · 1 environment · 1 episode
 
    .. grid-item-card:: ``change_background_hdr``
       :class-card: sd-shadow-sm
@@ -42,7 +42,7 @@ The four Runs collect the same choices that the earlier commands launched separa
       .. image:: ../../../images/swap_hdr.gif
          :alt: DROID pick-and-place environment with a billiard-hall background
 
-      Billiard-hall background · 1 environment · 50 steps
+      Billiard-hall background · 1 environment · 1 episode
 
    .. grid-item-card:: ``parallel_envs``
       :class-card: sd-shadow-sm
@@ -50,7 +50,7 @@ The four Runs collect the same choices that the earlier commands launched separa
       .. image:: ../../../images/scale_up.gif
          :alt: Many copies of the DROID pick-and-place environment running in parallel
 
-      Shared scene · 64 parallel environments · 100 steps
+      Shared scene · 64 parallel environments · 1 episode
 
 Arena includes this Experiment Definition for the four Runs:
 
@@ -63,6 +63,10 @@ There are three ideas to notice:
 * Values below ``shared`` are used by every Run.
 * The keys below ``runs`` are the Run names.
 * ``baseline: {}`` uses the shared values as written. The other Runs list only what they change.
+
+The shared ``episode_length_s: 1.5`` value is a short timeout in simulated time. Together with
+the one-episode rollout limit, it lets this zero-action example finish quickly and produce episode
+results.
 
 
 Run the Experiment locally
