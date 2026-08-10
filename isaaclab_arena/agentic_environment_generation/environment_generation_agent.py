@@ -65,7 +65,7 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
-            endpoint: Inference endpoint name, ``internal``, ``public``, or ``external``.
+            endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
                 Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
             enable_simready_search: When ``True``, search SimReady for objects the asset catalog
                 does not cover.

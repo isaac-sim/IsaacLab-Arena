@@ -13,9 +13,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    EXTERNAL_ENDPOINT,
     INFERENCE_ENDPOINT_ENV_VAR,
     INTERNAL_ENDPOINT,
+    OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
     InferenceBackend,
     StructuredOutputRequest,
@@ -51,7 +51,7 @@ def clean_endpoint_env(monkeypatch):
     monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
     monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
     monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
-    monkeypatch.delenv(EXTERNAL_ENDPOINT.api_key_env_var, raising=False)
+    monkeypatch.delenv(OPENAI_ENDPOINT.api_key_env_var, raising=False)
 
 
 class TestResolveInferenceEndpoint:
@@ -111,13 +111,13 @@ class TestInit:
         with pytest.raises(AssertionError, match=f"set {INTERNAL_ENDPOINT.api_key_env_var}"):
             InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
 
-    def test_external_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
+    def test_openai_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
         mock_cls, client = stub_openai
-        monkeypatch.setenv(EXTERNAL_ENDPOINT.api_key_env_var, "external-key")
-        backend = InferenceBackend(endpoint=EXTERNAL_ENDPOINT.name)
-        assert backend.endpoint == EXTERNAL_ENDPOINT
-        assert backend.model == EXTERNAL_ENDPOINT.model
-        mock_cls.assert_called_once_with(api_key="external-key", base_url=EXTERNAL_ENDPOINT.base_url)
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        backend = InferenceBackend(endpoint=OPENAI_ENDPOINT.name)
+        assert backend.endpoint == OPENAI_ENDPOINT
+        assert backend.model == OPENAI_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="openai-key", base_url=OPENAI_ENDPOINT.base_url)
         ping_kwargs = client.chat.completions.create.call_args.kwargs
         assert ping_kwargs["max_completion_tokens"] == 32
         assert "max_tokens" not in ping_kwargs
@@ -142,9 +142,9 @@ class TestRunJson:
         assert "max_completion_tokens" not in kwargs
         assert kwargs["response_format"]["json_schema"]["strict"] is True
 
-    def test_external_endpoint_uses_openai_completion_options(self, stub_openai):
+    def test_openai_endpoint_uses_openai_completion_options(self, stub_openai):
         _, client = stub_openai
-        backend = InferenceBackend(api_key="test-key", endpoint=EXTERNAL_ENDPOINT.name)
+        backend = InferenceBackend(api_key="test-key", endpoint=OPENAI_ENDPOINT.name)
         client.chat.completions.create.reset_mock()
         client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
         backend.run_json(_request())

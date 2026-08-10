@@ -24,8 +24,8 @@ INTERNAL_MODEL = "openai/openai/gpt-5.6-terra"
 PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
 PUBLIC_MODEL = "openai/gpt-oss-120b"
 # If you cannot access the model in your region, you can try the "nvidia/nemotron-3-super-120b-a12b" model.
-EXTERNAL_BASE_URL = "https://api.openai.com/v1"
-EXTERNAL_MODEL = "gpt-5.6-terra"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+OPENAI_MODEL = "gpt-5.6-terra"
 
 INFERENCE_ENDPOINT_ENV_VAR = "ARENA_INFERENCE_ENDPOINT"
 """Environment variable naming the inference endpoint every agentic command uses."""
@@ -58,18 +58,18 @@ INTERNAL_ENDPOINT = InferenceEndpoint(
 PUBLIC_ENDPOINT = InferenceEndpoint("public", PUBLIC_BASE_URL, PUBLIC_MODEL, "NVIDIA_API_KEY")
 """Publicly reachable build.nvidia.com endpoint, reached with an NGC API key."""
 
-EXTERNAL_ENDPOINT = InferenceEndpoint(
-    "external",
-    EXTERNAL_BASE_URL,
-    EXTERNAL_MODEL,
-    "EXTERNAL_API_KEY",
+OPENAI_ENDPOINT = InferenceEndpoint(
+    "openai",
+    OPENAI_BASE_URL,
+    OPENAI_MODEL,
+    "OPENAI_API_KEY",
     max_tokens_parameter="max_completion_tokens",
     supports_temperature=False,
     strict_json_schema=False,
 )
 """Direct OpenAI API endpoint, reached with an OpenAI API key."""
 
-INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT, EXTERNAL_ENDPOINT)}
+INFERENCE_ENDPOINTS = {endpoint.name: endpoint for endpoint in (INTERNAL_ENDPOINT, PUBLIC_ENDPOINT, OPENAI_ENDPOINT)}
 DEFAULT_ENDPOINT_NAME = PUBLIC_ENDPOINT.name
 
 
@@ -128,7 +128,7 @@ class InferenceBackend:
             max_tokens: Maximum tokens in each completion response.
             max_retries: Additional attempts after a recoverable failure; must be in
                 ``[0, MAX_RETRIES_LIMIT)``.
-            endpoint: Inference endpoint name, ``internal``, ``public``, or ``external``.
+            endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
                 Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
         """
         assert (
