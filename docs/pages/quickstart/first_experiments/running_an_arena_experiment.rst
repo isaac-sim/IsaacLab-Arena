@@ -116,21 +116,18 @@ files can be empty. Episode-based policy evaluations populate them with results 
 Change values from the command line
 -----------------------------------
 
-You can adjust declared values without editing the YAML. This command shortens the shared rollout
-and reduces the number of environments in one Run:
+You can adjust declared values without editing the YAML. This command reduces the number of
+parallel environments in the ``parallel_envs`` Run:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
-     shared.rollout_limit.num_steps=20 \
      runs.parallel_envs.environment_builder.num_envs=8
 
-The ``shared.*`` override changes ``baseline``, ``swap_objects``, and
-``change_background_hdr`` to 20 steps. ``parallel_envs`` remains at 100 steps because that Run has
-its own value in the YAML. The ``runs.parallel_envs.*`` override changes only its number of
-environments.
+This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. All other values
+remain as written in the YAML.
 
 See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for the full
 precedence order and configuration rules.
