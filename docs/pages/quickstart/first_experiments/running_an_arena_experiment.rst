@@ -89,32 +89,6 @@ environment for every Run, then closes that environment before starting the next
    ``parallel_envs`` are different: they are copies inside that one Run, and they step in parallel.
 
 
-Find the output
----------------
-
-.. TODO(cvolk): Update this section after the Experiment output format changes.
-
-A successful Experiment creates a timestamped directory below ``outputs``:
-
-.. code-block:: text
-
-   outputs/
-   └── YYYY-MM-DD_HH-MM-SS/
-       ├── index.html
-       ├── baseline/
-       │   └── episode_results_rebuild0.jsonl
-       ├── swap_objects/
-       │   └── episode_results_rebuild0.jsonl
-       ├── change_background_hdr/
-       │   └── episode_results_rebuild0.jsonl
-       └── parallel_envs/
-           └── episode_results_rebuild0.jsonl
-
-Open ``index.html`` to view the Experiment report. Run names become directory names and labels in
-the report. This short, step-limited example may end before a full episode finishes, so its JSONL
-files can be empty. Episode-based policy evaluations populate them with results and metrics.
-
-
 Change values from the command line
 -----------------------------------
 
