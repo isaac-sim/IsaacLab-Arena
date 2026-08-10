@@ -155,6 +155,18 @@ class TestRunJson:
         assert "temperature" not in kwargs
         assert kwargs["response_format"]["json_schema"]["strict"] is False
 
+    def test_internal_gpt_uses_openai_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = InferenceBackend(api_key="test-key", endpoint=INTERNAL_ENDPOINT.name)
+        client.chat.completions.create.reset_mock()
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_completion_tokens"] == 4096
+        assert "max_tokens" not in kwargs
+        assert "temperature" not in kwargs
+        assert kwargs["response_format"]["json_schema"]["strict"] is False
+
     def test_external_endpoint_honors_retry_after_ms(self, stub_openai):
         _, client = stub_openai
         backend = InferenceBackend(api_key="test-key", endpoint=EXTERNAL_ENDPOINT.name, max_retries=1)

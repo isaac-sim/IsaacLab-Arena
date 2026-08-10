@@ -23,7 +23,7 @@ MAX_RETRIES_LIMIT = 10
 EXTERNAL_RATE_LIMIT_FALLBACK_S = 20.0
 
 INTERNAL_BASE_URL = "https://inference-api.nvidia.com"
-INTERNAL_MODEL = "azure/anthropic/claude-opus-4-8"
+INTERNAL_MODEL = "openai/openai/gpt-5.6-terra"
 PUBLIC_BASE_URL = "https://integrate.api.nvidia.com/v1"
 PUBLIC_MODEL = "openai/gpt-oss-120b"
 # If you cannot access the model in your region, you can try the "nvidia/nemotron-3-super-120b-a12b" model.
@@ -47,7 +47,15 @@ class InferenceEndpoint:
     strict_json_schema: bool = True
 
 
-INTERNAL_ENDPOINT = InferenceEndpoint("internal", INTERNAL_BASE_URL, INTERNAL_MODEL, "NV_API_KEY")
+INTERNAL_ENDPOINT = InferenceEndpoint(
+    "internal",
+    INTERNAL_BASE_URL,
+    INTERNAL_MODEL,
+    "NV_API_KEY",
+    max_tokens_parameter="max_completion_tokens",
+    supports_temperature=False,
+    strict_json_schema=False,
+)
 """NVIDIA-internal inference endpoint, reached with an internal API key."""
 
 PUBLIC_ENDPOINT = InferenceEndpoint("public", PUBLIC_BASE_URL, PUBLIC_MODEL, "NVIDIA_API_KEY")
