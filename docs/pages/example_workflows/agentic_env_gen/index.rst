@@ -6,7 +6,8 @@ prompts. It resolves the prompt into ``ArenaEnvGraphSpec`` by the agent, which s
 This spec is then used to compose the scene and build the environment.
 The environment can be used for policy evaluation.
 
-.. todo:: add concept overview page
+For the concept overview, see
+:doc:`Agentic Environment Generation <../../concepts/agentic_environment_generation/index>`.
 
 
 In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.

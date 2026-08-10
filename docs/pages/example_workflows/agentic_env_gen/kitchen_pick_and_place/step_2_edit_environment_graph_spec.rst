@@ -83,9 +83,8 @@ An ``object_references`` entry is a prim that the background already contains, a
 ``prim_path`` under ``parent_id``. Nothing is spawned for it — it only becomes a target that relations and
 task params can name by ``id``, exactly like a spawned object.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Resolving the countertop ambiguity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

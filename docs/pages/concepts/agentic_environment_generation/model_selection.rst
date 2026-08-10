@@ -7,7 +7,8 @@ How Arena Uses the Model
 -------------------------
 
 Arena does not reason about the scene. It builds a prompt from the catalogs, asks the model for a
-JSON object matching the ``ArenaEnvGraphSpec`` schema, and validates the result. The model decides
+JSON object matching the :doc:`ArenaEnvGraphSpec <../environment/environment_definition>` schema,
+and validates the result. The model decides
 what the environment contains. Arena only checks that the answer is admissible: each
 ``registry_name`` is registered, each relation kind exists, and each ``prim_path`` is in the
 background's prim tree. A bad answer is rejected and saved as ``invalid_<name>.yaml`` with trace

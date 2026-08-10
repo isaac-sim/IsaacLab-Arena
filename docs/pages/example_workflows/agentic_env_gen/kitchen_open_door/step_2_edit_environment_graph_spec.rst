@@ -72,9 +72,8 @@ An ``object_references`` entry is a prim that the background already contains, a
 task params can name by ``id``. The fridge uses ``object_type: articulation`` and names
 ``fridge_door_joint`` as its openable joint, which is the joint ``OpenDoorTask`` resets and monitors.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Refining the robot placement and the task
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

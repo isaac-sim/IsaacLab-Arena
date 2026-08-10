@@ -79,9 +79,8 @@ the destination. ``registry_name`` is the Arena asset the id resolves to, so
 swapping an asset is a one-line change that leaves the rest of the graph
 untouched.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Editing for background object
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

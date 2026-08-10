@@ -70,9 +70,8 @@ An object set is referenced by its ``id`` exactly like an object — in the
 rest of the graph is written once and stays valid whichever member an
 environment spawns.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Editing the object set
 ^^^^^^^^^^^^^^^^^^^^^^

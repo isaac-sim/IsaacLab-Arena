@@ -3,6 +3,8 @@ System Overview
 
 ``EnvironmentGenerationAgent`` turns a natural-language task description and
 Arena's live registries into a validated ``ArenaEnvGraphSpec``.
+For more details on the Env Spec, see
+:doc:`Environment Definition <../environment/environment_definition>`.
 
 .. figure:: ../../../images/agentic_environment_generation/inference_call_flow.png
    :width: 100%
@@ -46,8 +48,9 @@ How generation runs
 
 #. **Spec inference with critic retries.** ``SpecInference`` takes the prompt
    plus the asset, relation, and task catalog strings. The model returns JSON
-   under the ``ArenaEnvGraphSpec`` schema. Arena validates that JSON with
-   Pydantic and cross-checks it against the catalogs.
+   under the :doc:`ArenaEnvGraphSpec <../environment/environment_definition>`
+   schema. Arena validates that JSON with Pydantic and cross-checks it against
+   the catalogs.
 
    On failure, the rejected response and validation errors go back as critic
    feedback, and the model regenerates the full spec (at most three inference
@@ -102,16 +105,18 @@ Orchestration in ``generate_spec()``:
 What ``generate_spec()`` returns
 --------------------------------
 
-* **Success:** ``(ArenaEnvGraphSpec, None)``. Review it in the
-  :doc:`GUI runner <gui_runner>`, or save it as YAML and reuse it without
-  another model call.
+* **Success:** ``(ArenaEnvGraphSpec, None)``. See
+  :doc:`Environment Definition <../environment/environment_definition>` for the
+  spec. Review it in the :doc:`GUI runner <gui_runner>`, or save it as YAML and
+  reuse it without another model call.
 * **Failure:** ``(None, data)``, where ``data`` is the rejected JSON or
   unresolved spec dict. ``agent.traces`` holds schema, catalog, prim-path, or
   rewrite errors. ``agent.unavailable_objects`` lists SimReady search phrases
   that found no candidate.
 
-After a successful return, ``ArenaEnvGraphSpec.to_arena_env()`` turns the spec
-into Arena scene, embodiment, and task objects. ``ArenaEnvBuilder`` then runs
-the :doc:`relation solver <../object_placement/solver>`, placement validation,
-and environment compilation. See :doc:`../environment/env_builder` for that
+After a successful return, ``ArenaEnvGraphSpec.to_arena_env()`` turns the
+:doc:`Env Spec <../environment/environment_definition>` into Arena scene,
+embodiment, and task objects. ``ArenaEnvBuilder`` then runs the
+:doc:`relation solver <../object_placement/solver>`, placement validation, and
+environment compilation. See :doc:`../environment/env_builder` for that
 post-agent pipeline.
