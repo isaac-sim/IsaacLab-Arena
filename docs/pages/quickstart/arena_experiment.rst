@@ -3,9 +3,9 @@
 First Arena Experiment
 ======================
 
-The previous page launched four versions of the Maple-table scene with separate commands. Here,
-those choices become four named Runs in one YAML file. The zero-action policy keeps the example
-quick and needs no model weights.
+The previous page launched three versions of the Maple-table scene and previewed 64 parallel
+copies. Here, those four setups become four named Runs in one YAML file. The zero-action policy
+keeps the example quick and needs no model weights.
 
 Together, those Runs form an Arena Experiment. The YAML file is its **Experiment Definition**.
 
@@ -13,7 +13,7 @@ Together, those Runs form an Arena Experiment. The YAML file is its **Experiment
 Define the Experiment
 ---------------------
 
-The four Runs collect the same choices that the earlier commands launched separately:
+The four Runs collect the three setups you launched and the parallel setup you previewed:
 
 .. grid:: 1 1 2 2
    :gutter: 3
