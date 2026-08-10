@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsTask
@@ -48,6 +49,7 @@ class ArenaExperimentWorkflow(Workflow):
         run_group_dicts: list[dict[str, Any]] = []
         experiment_runner_task_names_by_run_name: dict[str, str] = {}
         for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
+            ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
             run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
                 run_index,
                 run_name,
