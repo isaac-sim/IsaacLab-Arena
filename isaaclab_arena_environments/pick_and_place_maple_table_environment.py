@@ -26,6 +26,13 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
+    episode_length_s: float | None = None
+    """Override the maximum episode duration; use the task default when unset."""
+
+    def __post_init__(self) -> None:
+        assert (
+            self.episode_length_s is None or self.episode_length_s > 0.0
+        ), "episode_length_s must be greater than zero"
 
 
 @register_environment
@@ -99,7 +106,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,
-            episode_length_s=70.0,
+            episode_length_s=cfg.episode_length_s,
         )
 
         # Set viewport camera to match the robolab droid view
