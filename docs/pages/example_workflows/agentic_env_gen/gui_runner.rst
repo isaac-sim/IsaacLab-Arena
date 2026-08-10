@@ -26,7 +26,7 @@ By default, generated YAML files are written under
 ``isaaclab_arena_environments/agent_generated``. Use ``--out_dir`` to choose a
 different output directory, or ``--port`` to run Streamlit on a different port.
 
-.. figure:: ../../../images/agentic_env_gen_gui.gif
+.. figure:: ../../../images/agentic_environment_generation/agentic_env_gen_gui.gif
    :alt: Agentic environment generation GUI
 
    The GUI is intended as a human-in-the-loop review surface: generate a draft

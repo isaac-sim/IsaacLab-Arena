@@ -35,7 +35,7 @@ That is, the task is to open the fridge door to the 0.2 openness threshold in th
          DROID is on the floor, next to the fridge with 0.1 meter distance and facing
          it. DROID opens the fridge door to the 0.2 openness threshold.
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_open_door.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_open_door.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center

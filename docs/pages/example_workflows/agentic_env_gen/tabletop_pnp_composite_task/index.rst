@@ -7,7 +7,7 @@ for **pick and place composite task with SimReady assets** on a table-top scene.
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/tabletop_agentic_env_cans_simready.png
+.. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_cans_simready.png
    :width: 100%
    :alt: Generated table-top pick and place composite task shown in the agentic environment-generation GUI.
    :align: center

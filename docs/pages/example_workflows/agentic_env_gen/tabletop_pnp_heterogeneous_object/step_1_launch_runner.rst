@@ -37,7 +37,7 @@ say that it varies across environments. That is the cue for the agent to emit an
       An object set is drawn as a single node, with a thumbnail per member, so you can
       check the whole set at a glance.
 
-      .. figure:: ../../../../images/tabletop_agentic_env_fruits_gui.png
+      .. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_fruits_gui.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center

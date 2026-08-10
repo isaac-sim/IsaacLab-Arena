@@ -101,7 +101,7 @@ surfaces. List them from the background prim tree — the set of prims the agent
 
       Expand the GUI's ``Background prim tree`` and search for ``counter``:
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prim_tree.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prim_tree.png
          :width: 40%
          :alt: Background prim tree showing five candidate kitchen counter surfaces
          :align: center

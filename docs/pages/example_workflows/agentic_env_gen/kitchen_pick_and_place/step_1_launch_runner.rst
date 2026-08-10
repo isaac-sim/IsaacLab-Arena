@@ -42,7 +42,7 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
       The generated environment graph contains the kitchen, the mustard bottle, the bowl, and a reference to
       a counter surface, but no placement for the robot itself.
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prompt_counter.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prompt_counter.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec generated from the first prompt.
          :align: center
@@ -58,7 +58,7 @@ kitchen the robot is placed in the scene rather than mounted on the task surface
          the counter top and places it in a bowl. DROID is next to the counter top
          and on the floor.
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prompt_robot.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prompt_robot.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec with DROID placement relations.
          :align: center
