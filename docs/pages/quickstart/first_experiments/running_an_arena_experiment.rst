@@ -4,8 +4,8 @@ Run an Arena Experiment
 =======================
 
 An Arena Experiment groups one or more named Runs into one evaluation. Each Run combines an
-environment, a policy, and a rollout limit. Its **Experiment Definition** is a YAML file that you
-can use on one machine or submit to OSMO.
+environment, a policy, and a rollout limit. Its **Experiment Definition** is the YAML file that
+records those Runs.
 
 The previous page launched four versions of the Maple-table scene with separate commands. Here,
 those choices become one Experiment. The zero-action policy keeps the example quick and needs no
@@ -109,46 +109,6 @@ See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>`
 precedence order and configuration rules.
 
 
-Use the same YAML with OSMO
----------------------------
-
-The Experiment Definition says *what* to evaluate. The executor decides *where* it runs:
-
-.. grid:: 1 1 2 2
-   :gutter: 3
-
-   .. grid-item-card:: Local
-      :class-card: sd-shadow-sm
-
-      The Experiment Runner executes Runs in order in one SimulationApp.
-
-   .. grid-item-card:: OSMO
-      :class-card: sd-shadow-sm
-
-      OSMO schedules every Run independently, then collects them into one Experiment output.
-
-Preview the OSMO workflow without submitting it:
-
-.. code-block:: bash
-
-   python -m osmo.submit_arena_experiment \
-     --experiment_cfg isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
-     --dry_run \
-     osmo.workflow_name=getting-started
-
-OSMO uses the same override paths with an ``experiment_cfg.`` prefix. For example:
-
-.. code-block:: text
-
-   local:  runs.parallel_envs.environment_builder.num_envs=8
-   OSMO:   experiment_cfg.runs.parallel_envs.environment_builder.num_envs=8
-
-Before an actual submission, install and authenticate the OSMO client and choose a compute pool,
-platform, and output location for your cluster. Follow :doc:`Multi-node Evaluation
-<../../example_workflows/multi_node_evaluation/multi_node_evaluation>` to configure and submit the
-workflow.
-
-
 Next steps
 ----------
 
@@ -156,3 +116,5 @@ Next steps
 * Continue to :doc:`running_a_real_policy/index` to evaluate a trained policy.
 * Read :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for all Run
   fields and execution choices.
+* To submit an Experiment to OSMO, follow :doc:`Multi-node Evaluation
+  <../../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
