@@ -12,18 +12,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_factory import (
-    ArenaEnvironmentCfg,
-    ArenaEnvironmentFactory,
-)
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.isaaclab_arena_environment import (
-        IsaacLabArenaEnvironment,
-    )
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
-        IsaacLabArenaManagerBasedRLEnvCfg,
-    )
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
 _DEFAULT_ASSET_DIRECTORY = Path(__file__).resolve().parents[1] / "local_stuff" / "connector_insertion" / "assets"
@@ -90,9 +83,7 @@ class ConnectorInsertionEnvironment(ArenaEnvironmentFactory[ConnectorInsertionEn
 
         from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_type import ObjectType
-        from isaaclab_arena.environments.isaaclab_arena_environment import (
-            IsaacLabArenaEnvironment,
-        )
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.goal_pose_task import GoalPoseTask
         from isaaclab_arena.utils.pose import Pose

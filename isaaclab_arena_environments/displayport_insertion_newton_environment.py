@@ -228,14 +228,12 @@ def _configure_newton_displayport_physics(
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Apply the upstream Newton solver settings."""
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonCollisionPipelineCfg
-    from isaaclab_physx.sim.spawners.materials import PhysxRigidBodyMaterialCfg
+    from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
 
     # Run collision at 200 Hz and the solver at 2 kHz.
     env_cfg.sim.dt = 1.0 / 200.0
     env_cfg.sim.render_interval = 7
-    env_cfg.sim.physics_material = PhysxRigidBodyMaterialCfg(
-        friction_combine_mode="multiply",
-        restitution_combine_mode="multiply",
+    env_cfg.sim.physics_material = NewtonMaterialPropertiesCfg(
         static_friction=1.0,
         dynamic_friction=1.0,
         restitution=0.0,
@@ -276,7 +274,7 @@ def _configure_newton_displayport_physics(
     return env_cfg
 
 
-def _make_rizon_embodiment():
+def _make_rizon_embodiment(enable_cameras: bool = False):
     """Build the upstream Rizon robot and an IK action."""
     import math
     import torch
@@ -296,18 +294,44 @@ def _make_rizon_embodiment():
     from isaaclab.managers import ObservationGroupCfg as ObsGroup
     from isaaclab.managers import ObservationTermCfg as ObsTerm
     from isaaclab.managers import SceneEntityCfg
+    from isaaclab.sensors import CameraCfg
     from isaaclab.utils.configclass import configclass
     from isaaclab_assets import FLEXIV_RIZON4S_GRAV_GRIPPER_CFG
     from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, PhysxCollisionPropertiesCfg
 
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.utils.cameras import ArenaCameraCfg
 
     @configclass
     class RizonSceneCfg:
         """Rizon scene configuration."""
 
         robot: ArticulationCfg | None = None
+
+    @configclass
+    class RizonCameraCfg(ArenaCameraCfg):
+        """Fixed RGB camera overlooking the DisplayPort insertion workspace."""
+
+        workspace_camera: CameraCfg = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/workspace_camera",
+            update_period=0.0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=24.0,
+                focus_distance=0.66,
+                horizontal_aperture=20.955,
+                vertical_aperture=15.2908,
+                clipping_range=(0.01, 10.0),
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.7, -0.45, 0.2975),
+                rot=(0.56060, 0.10578, 0.15228, 0.80706),
+                convention="opengl",
+            ),
+        )
 
     class PersistentTargetDifferentialIKAction(DifferentialInverseKinematicsAction):
         """Accumulate relative commands from the last target so zero input holds position."""
@@ -410,8 +434,9 @@ def _make_rizon_embodiment():
         default_arm_mode = ArmMode.SINGLE_ARM
 
         def __init__(self):
-            super().__init__(enable_cameras=False)
+            super().__init__(enable_cameras=enable_cameras)
             self.scene_config = RizonSceneCfg()
+            self.camera_config = RizonCameraCfg()
             self.action_config = RizonActionsCfg()
             self.observation_config = RizonObservationsCfg()
 
@@ -804,7 +829,7 @@ class DisplayportInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayportI
             spawner_cfg=sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=2500.0)
         )
 
-        embodiment = _make_rizon_embodiment()
+        embodiment = _make_rizon_embodiment(enable_cameras=cfg.enable_cameras)
 
         class InitiallyClosedKeyboard(Se3Keyboard):
             """Keyboard whose gripper toggle starts closed to preserve the reset grasp."""
