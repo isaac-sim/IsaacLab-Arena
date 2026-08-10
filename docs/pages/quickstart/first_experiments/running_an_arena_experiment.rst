@@ -132,7 +132,8 @@ The ``shared.*`` override changes ``baseline``, ``swap_objects``, and
 its own value in the YAML. The ``runs.parallel_envs.*`` override changes only its number of
 environments.
 
-See :ref:`arena-experiments-and-runs` for the full precedence order and configuration rules.
+See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for the full
+precedence order and configuration rules.
 
 
 Use the same YAML with OSMO
@@ -180,4 +181,5 @@ Next steps
 
 * Continue to :doc:`exploring_variations` to sample controlled environment changes.
 * Continue to :doc:`running_a_real_policy/index` to evaluate a trained policy.
-* Read :ref:`arena-experiments-and-runs` for all Run fields and execution choices.
+* Read :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for all Run
+  fields and execution choices.

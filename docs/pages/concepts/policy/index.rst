@@ -3,10 +3,10 @@ Policy
 
 A policy in Arena is a standard interface between your model and the evaluation
 pipeline. You implement one method — ``get_action(env, obs)`` — and the policy
-plugs into every Arena Run. The same typed policy configuration works in an
-Experiment Definition and in the lower-level Policy Runner. In bare IsaacLab
-you would write an ad-hoc inference loop for each model; Arena's ``PolicyBase``
-provides one consistent contract.
+plugs into both the single-job runner and the Experiment Runner without any
+changes to either. In bare IsaacLab you would write an ad-hoc inference loop
+for each model; Arena's ``PolicyBase`` gives a consistent contract that all
+runners depend on.
 
 .. code-block:: python
 
@@ -72,10 +72,10 @@ Construct the policy by passing its typed configuration directly:
    policy_cfg = MyPolicyCfg(device="cuda:0")
    policy = MyPolicy(policy_cfg)
 
-The typed registration lets the Experiment Runner validate the ``policy``
-mapping in each Run. It also lets the Policy Runner generate CLI flags from
-``MyPolicyCfg`` and reconstruct the same type. See
-:ref:`arena-experiments-and-runs` for details.
+The typed registration lets the single-job runner generate CLI flags from
+``MyPolicyCfg`` and lets the Experiment Runner convert the current
+``Job.policy_config_dict`` representation into that same type. See
+:doc:`Arena Experiments and Runs <../concept_arena_experiments>` for details.
 
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.

@@ -1,5 +1,3 @@
-.. _arena-experiments-and-runs:
-
 Arena Experiments and Runs
 ==========================
 
