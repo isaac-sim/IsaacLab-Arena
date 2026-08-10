@@ -28,3 +28,12 @@ runs:
     environment:
       pick_up_object: mustard_bottle_hot3d_robolab
       destination_location: wooden_bowl_hot3d_robolab
+
+  change_background_hdr:
+    environment:
+      hdr: billiard_hall_robolab
+
+  parallel_envs:
+    environment_builder:
+      num_envs: 64
+      env_spacing: 2.5

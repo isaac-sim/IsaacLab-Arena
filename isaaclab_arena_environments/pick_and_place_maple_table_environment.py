@@ -26,13 +26,10 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
-    episode_length_s: float | None = None
-    """Override the maximum episode duration; use the task default when unset."""
+    episode_length_s: float = 70.0
 
     def __post_init__(self) -> None:
-        assert (
-            self.episode_length_s is None or self.episode_length_s > 0.0
-        ), "episode_length_s must be greater than zero"
+        assert self.episode_length_s > 0.0, "episode_length_s must be greater than zero"
 
 
 @register_environment

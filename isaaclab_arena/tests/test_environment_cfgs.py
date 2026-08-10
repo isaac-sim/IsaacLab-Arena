@@ -87,7 +87,7 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
 
 def test_generated_cli_arguments_and_cfg_validation():
     """Keep list, boolean, and scalar parsing while configs validate domain values."""
-    assert PickAndPlaceMapleTableEnvironmentCfg().episode_length_s is None
+    assert PickAndPlaceMapleTableEnvironmentCfg().episode_length_s == 70.0
 
     test_cases = [
         (

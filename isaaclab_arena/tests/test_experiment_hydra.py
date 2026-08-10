@@ -60,6 +60,8 @@ def test_getting_started_experiment_composes_typed_runs():
     assert list(runs) == [
         "baseline",
         "swap_objects",
+        "change_background_hdr",
+        "parallel_envs",
     ]
     assert runs["baseline"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
@@ -73,8 +75,12 @@ def test_getting_started_experiment_composes_typed_runs():
         hdr="home_office_robolab",
         episode_length_s=1.5,
     )
+    assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
+    assert runs["parallel_envs"].environment.hdr == "home_office_robolab"
+    assert all(run.environment.episode_length_s == 1.5 for run in runs.values())
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
-    assert all(run.environment_builder.num_envs == 1 for run in runs.values())
+    assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
+    assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
     assert all(run.rollout_limit.num_steps is None for run in runs.values())
     assert all(run.rollout_limit.num_episodes == 1 for run in runs.values())
 
