@@ -355,6 +355,16 @@ def _test_capture_distinguishes_a_falling_pile_from_a_settled_one(simulation_app
         pose[2] > region.floor_z for pose in released.values()
     ), "build-time settle should be off, so the cached poses are still release poses"
 
+    # Budgets in seconds rather than steps: a step count silently encodes the control rate, so
+    # when Arena moved from 50 Hz to 15 Hz the "far too little time" case became three times
+    # longer and the pile it was meant to catch mid-fall settled instead.
+    def env_steps(seconds: float) -> int:
+        per_step = env.unwrapped.sim.get_physics_dt() * env.unwrapped.cfg.decimation
+        return max(1, round(seconds / per_step))
+
+    def substeps(seconds: float) -> int:
+        return max(1, round(seconds / env.unwrapped.sim.get_physics_dt()))
+
     def settle(num_steps: int, poll_every: int):
         return validate_pool_layouts(
             env,
@@ -367,12 +377,12 @@ def _test_capture_distinguishes_a_falling_pile_from_a_settled_one(simulation_app
 
     # Far too little time to land and come to rest, but enough polls that a settled pile would
     # be recognised, so the unsettled verdict is about the pile rather than the sampling.
-    assert settle(num_steps=10, poll_every=10) is not None
+    assert settle(num_steps=env_steps(0.2), poll_every=substeps(0.05)) is not None
     still_released = {member: layout.positions[member] for member in released}
     assert still_released == released, "a pile that never settled had its falling poses captured"
 
     # The same scene given room to settle must replace those poses.
-    assert settle(num_steps=500, poll_every=50) is not None
+    assert settle(num_steps=env_steps(10.0), poll_every=substeps(0.25)) is not None
     settled_poses = {member: layout.positions[member] for member in released}
     env.close()
 
