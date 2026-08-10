@@ -49,8 +49,8 @@ The job starts the WebSocket inference server on the requested port using a sing
 GPU. Once the job is running, find its IP in the OSMO job logs. You will pass it to the
 runner below.
 
-Terminal 2 — Arena rollout
---------------------------
+Terminal 2 — Experiment Runner
+------------------------------
 
 Arena includes a one-Run YAML configuration. It selects the environment, the DreamZero policy,
 the language instruction, and a three-episode rollout:
@@ -58,7 +58,7 @@ the language instruction, and a three-episode rollout:
 .. dropdown:: Configuration file (``droid_pnp_dreamzero_experiment.yaml``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
       :language: yaml
 
 The policy configuration uses ``localhost:5000`` by default. This works when the DreamZero server

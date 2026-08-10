@@ -146,8 +146,8 @@ For remote policies, configure the policy client inside its Run like any other p
 policy server separately for local execution. OSMO can co-schedule a server for supported policy
 types.
 
-Follow :doc:`Run an Arena Experiment
-<../quickstart/first_experiments/running_an_arena_experiment>` for a complete local example.
+Follow :doc:`First Arena Experiment <../quickstart/arena_experiment>` for a complete local
+example.
 For OSMO setup and submission options, see :doc:`Multi-node Evaluation
 <../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
 
@@ -245,7 +245,7 @@ The Policy Runner:
 ``--policy_type`` accepts a registered policy name or a dotted Python class path. Registered
 policies add their typed configuration fields as command-line flags. This includes connection
 settings for remote policies. See :doc:`Running a Real Policy
-<../quickstart/first_experiments/running_a_real_policy/index>` for complete examples.
+<../quickstart/running_a_real_policy/index>` for complete examples.
 
 
 Related concepts

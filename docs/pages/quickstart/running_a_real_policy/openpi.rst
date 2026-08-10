@@ -48,8 +48,8 @@ The wrapper passes ``--policy.config`` (architecture + data transforms) and
 ``--policy.dir`` (params + normalization stats) for the selected variant; see
 the supported-variants table below for the exact values.
 
-Terminal 2 — Arena rollout
---------------------------
+Terminal 2 — Experiment Runner
+------------------------------
 
 **Run pi05 closed-loop**
 
@@ -59,7 +59,7 @@ Arena includes a one-Run YAML configuration for this rollout:
 .. dropdown:: Configuration file (``droid_pnp_openpi_experiment.yaml``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
       :language: yaml
 
 Start the rollout to connect to the server:
@@ -84,7 +84,7 @@ another machine, change ``policy.remote_host``. If terminal 1 uses another port,
 The server terminal will start logging connection and inference events as the arena
 Kit window shows the droid arm reacting to pi0's commanded joint positions.
 
-.. figure:: ../../../../images/openpi_droid_get_started.png
+.. figure:: ../../../images/openpi_droid_get_started.png
    :width: 100%
    :alt: Arena Kit viewport showing the DROID arm above the maple table with the Rubik's cube and bowl
    :align: center
@@ -110,7 +110,7 @@ If the OpenPI server uses a non-default port, override each OpenPI run's
 ``policy.remote_port`` to the same value, for example
 ``runs.<run_name>.policy.remote_port=8001``.
 
-.. figure:: ../../../../images/openpi_droid_3x3_grid.gif
+.. figure:: ../../../images/openpi_droid_3x3_grid.gif
    :width: 100%
    :alt: 3x3 grid of pi05 DROID runs across different objects, backgrounds, and destinations
    :align: center

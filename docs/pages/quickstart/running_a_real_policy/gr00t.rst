@@ -40,8 +40,8 @@ GR00T N1.6-DROID provides its own modality configuration, so the command does no
 reuse the local cache. Leave this server running.
 
 
-Run GR00T in Arena
-------------------
+Run GR00T with the Experiment Runner
+------------------------------------
 
 Arena includes a one-Run YAML configuration for the first rollout. It selects the
 DROID environment, connects the GR00T policy to the server, and stops after three episodes.
@@ -49,7 +49,7 @@ DROID environment, connects the GR00T policy to the server, and stops after thre
 .. dropdown:: Configuration file (``droid_pnp_gr00t_experiment.yaml``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml
       :language: yaml
 
 GR00T N1.6-DROID uses absolute joint positions. The YAML therefore selects
@@ -87,7 +87,7 @@ one place. Every Run lists only what changes.
 .. dropdown:: Configuration file (``droid_pnp_srl_gr00t_experiment.yaml``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_srl_gr00t_experiment.yaml
       :language: yaml
 
 Start all nine Runs with one command:
@@ -101,7 +101,7 @@ Start all nine Runs with one command:
 The runner executes the nine Runs in YAML order. It keeps one SimulationApp open, but builds a
 fresh environment for every Run.
 
-.. figure:: ../../../../images/gr00t_droid_3x3_grid.gif
+.. figure:: ../../../images/gr00t_droid_3x3_grid.gif
    :width: 100%
    :alt: 3x3 grid of GR00T N1.6 DROID Runs across different objects, backgrounds, and destinations
    :align: center

@@ -1,7 +1,7 @@
-.. _run-an-arena-experiment:
+.. _first-arena-experiment:
 
-Run an Arena Experiment
-=======================
+First Arena Experiment
+======================
 
 The previous page launched four versions of the Maple-table scene with separate commands. Here,
 those choices become four named Runs in one YAML file. The zero-action policy keeps the example
@@ -21,38 +21,38 @@ The four Runs collect the same choices that the earlier commands launched separa
    .. grid-item-card:: ``baseline``
       :class-card: sd-shadow-sm
 
-      .. image:: ../../../images/default_srl_pnp.png
+      .. image:: ../../images/default_srl_pnp.png
          :alt: Baseline DROID pick-and-place environment with a Rubik's cube and bowl
 
-      Shared scene · 1 environment · 1 episode
+      Uses the shared environment settings without changes.
 
    .. grid-item-card:: ``swap_objects``
       :class-card: sd-shadow-sm
 
-      .. image:: ../../../images/swap_objects.gif
+      .. image:: ../../images/swap_objects.gif
          :alt: DROID pick-and-place environment with a mustard bottle and wooden bowl
 
-      Mustard bottle and wooden bowl · 1 environment · 1 episode
+      Replaces the Rubik's cube and bowl with a mustard bottle and wooden bowl.
 
    .. grid-item-card:: ``change_background_hdr``
       :class-card: sd-shadow-sm
 
-      .. image:: ../../../images/swap_hdr.gif
+      .. image:: ../../images/swap_hdr.gif
          :alt: DROID pick-and-place environment with a billiard-hall background
 
-      Billiard-hall background · 1 environment · 1 episode
+      Replaces the home-office background with a billiard hall.
 
    .. grid-item-card:: ``parallel_envs``
       :class-card: sd-shadow-sm
 
-      .. image:: ../../../images/scale_up.gif
+      .. image:: ../../images/scale_up.gif
          :alt: Many copies of the DROID pick-and-place environment running in parallel
 
-      Shared scene · 64 parallel environments · 1 episode
+      Runs 64 copies of the baseline environment in parallel.
 
-Arena includes this YAML for the four Runs:
+The four setups above are defined together in one YAML file:
 
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+.. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
    :language: yaml
    :start-at: shared:
 
@@ -107,12 +107,12 @@ parallel environments in the ``parallel_envs`` Run:
 This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. All other values
 remain as written in the YAML.
 
-See :doc:`Arena Experiments and Runs <../../concepts/concept_arena_experiments>` for the full
+See :doc:`Arena Experiments and Runs <../concepts/concept_arena_experiments>` for the full
 precedence order and configuration rules.
 
 
 Next steps
 ----------
 
-* Continue to :doc:`exploring_variations` to sample controlled environment changes.
+* Continue to :doc:`environment_variations` to sample controlled environment changes.
 * Continue to :doc:`running_a_real_policy/index` to evaluate a trained policy.

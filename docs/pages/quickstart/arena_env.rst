@@ -197,8 +197,7 @@ For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 Next Steps
 ----------
 
-Continue to :doc:`first_experiments/running_an_arena_experiment` to execute several named Runs from
-one YAML file.
+Continue to :doc:`arena_experiment` to execute several named Runs from one YAML file.
 
 
 Using IsaacLab-Arena in Your Own Repository
