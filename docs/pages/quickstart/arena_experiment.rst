@@ -90,6 +90,10 @@ environment for every Run, then closes that environment before starting the next
    The four Runs execute one after another on your machine. The 64 environments in
    ``parallel_envs`` are different: they are copies inside that one Run, and they step in parallel.
 
+By default, Arena saves the result as
+``outputs/YYYY-MM-DD_HH-MM-SS/arena_experiment_result.json`` and prints the exact path. The file
+records every Run, its status, and its episode results.
+
 
 Change values from the command line
 -----------------------------------
