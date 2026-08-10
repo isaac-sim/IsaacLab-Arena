@@ -15,18 +15,6 @@ model weights.
 Define the Experiment
 ---------------------
 
-Arena includes this Experiment Definition:
-
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
-   :language: yaml
-   :start-at: shared:
-
-There are three ideas to notice:
-
-* Values below ``shared`` are used by every Run.
-* The keys below ``runs`` are the Run names.
-* ``baseline: {}`` uses the shared values as written. The other Runs list only what they change.
-
 The four Runs collect the same choices that the earlier commands launched separately:
 
 .. grid:: 1 1 2 2
@@ -63,6 +51,18 @@ The four Runs collect the same choices that the earlier commands launched separa
          :alt: Many copies of the DROID pick-and-place environment running in parallel
 
       Shared scene · 64 parallel environments · 100 steps
+
+Arena includes this Experiment Definition for the four Runs:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
+   :language: yaml
+   :start-at: shared:
+
+There are three ideas to notice:
+
+* Values below ``shared`` are used by every Run.
+* The keys below ``runs`` are the Run names.
+* ``baseline: {}`` uses the shared values as written. The other Runs list only what they change.
 
 
 Run the Experiment locally
