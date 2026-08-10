@@ -52,56 +52,26 @@ How generation runs
    schema. Arena validates that JSON with Pydantic and cross-checks it against
    the catalogs.
 
-   On failure, the rejected response and validation errors go back as critic
-   feedback, and the model regenerates the full spec (at most three inference
-   calls). On success, the spec may still carry object references without
-   ``prim_path`` values.
+   On validation failure, the rejected response and errors go back as critic
+   feedback and the model regenerates the full spec—at most three critic-loop
+   iterations (``MAX_SPEC_INFERENCE_CALLS``). Each of those iterations still
+   goes through the inference backend's transport retries (default
+   ``max_retries=3``, so up to four attempts per iteration for network,
+   empty-response, or malformed-JSON failures). On success, the spec may still
+   carry object references without ``prim_path`` values.
 
 #. **Optional prim-path resolution.** If the spec has ``object_references``,
    ``PrimPathInference`` loads the background USD prim tree, resolves those
-   references in one structured-output call, checks every path against the
-   tree, and merges the result into the spec. Specs without object references
-   skip this stage. There is no critic loop here.
+   references in one structured-output call (with the same transport retries),
+   checks every path against the tree, and merges the result into the spec.
+   Specs without object references skip this stage. There is no critic loop
+   here.
 
 #. **SimReady USD rewrite (when needed).** If any objects came from SimReady
    search, their temporary registry names are rewritten to the portable
    ``simready_usd_object`` entry, with the searched path stored in
    ``params["usd_path"]``. No model call. If nothing was searched, this step is
    a no-op.
-
-Orchestration in ``generate_spec()``:
-
-.. code-block:: python
-
-   asset_catalog = asset_catalog or build_asset_catalogue()
-   relation_catalog = relation_catalog or build_relation_catalogue()
-   task_catalog = task_catalog or build_task_catalogue()
-
-   if self.enable_simready_search:
-       asset_catalog = self._extend_catalogue_with_simready(prompt, asset_catalog)
-
-   spec, data = self.spec_inference.infer(
-       prompt,
-       self._traces,
-       asset_catalog=asset_catalog,
-       relation_catalog=relation_catalog,
-       task_catalog=task_catalog,
-   )
-   if spec is None:
-       return None, data
-
-   if spec.object_references:
-       resolved = self.prim_path_inference.infer(spec, self._traces)
-       if resolved is None:
-           return None, spec.to_dict()
-       spec = resolved
-
-   unusable = self._add_simready_usd_path_to_searched_objects(spec)
-   if unusable is not None:
-       self._traces.append(unusable)
-       return None, spec.to_dict()
-   return spec, None
-
 What ``generate_spec()`` returns
 --------------------------------
 

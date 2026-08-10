@@ -87,8 +87,9 @@ These options are defined by the environment generation runner:
    * - ``--model MODEL_ID``
      - Overrides the generation agent's default model.
      - Agent
-   * - ``--inference_endpoint {internal,public}``
-     - Selects the configured inference endpoint.
+   * - ``--inference_endpoint {internal,public,openai}``
+     - Selects the configured inference endpoint. See
+       :doc:`model_selection` for endpoint defaults and API keys.
      - Agent
    * - ``--temperature FLOAT``
      - Sets model sampling temperature. Default: ``0.2``.
