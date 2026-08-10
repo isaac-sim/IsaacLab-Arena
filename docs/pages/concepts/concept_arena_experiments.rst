@@ -45,8 +45,8 @@ for managed execution.
 The Experiment Definition
 -------------------------
 
-An Experiment Definition has two top-level mappings: ``shared`` and ``runs``. Values below
-``shared`` are reused by every Run. Each key below ``runs`` is a Run name:
+Every Experiment Definition has a required ``runs`` mapping. A ``shared`` mapping is optional.
+When present, its values are reused by every Run. Each key below ``runs`` is a Run name:
 
 .. code-block:: yaml
 
