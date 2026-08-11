@@ -83,9 +83,8 @@ An ``object_references`` entry is a prim that the background already contains, a
 ``prim_path`` under ``parent_id``. Nothing is spawned for it — it only becomes a target that relations and
 task params can name by ``id``, exactly like a spawned object.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Resolving the countertop ambiguity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -181,7 +180,7 @@ Applying your edits
       #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 

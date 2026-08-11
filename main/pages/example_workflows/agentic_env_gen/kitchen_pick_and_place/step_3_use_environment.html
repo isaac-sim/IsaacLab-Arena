@@ -438,8 +438,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 </ul>
@@ -448,6 +446,13 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -554,11 +559,9 @@
   <section id="use-the-generated-environment">
 <h1>Use the Generated Environment<a class="headerlink" href="#use-the-generated-environment" title="Link to this heading">#</a></h1>
 <p>Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.</p>
-<p>For example, you can use the policy runner to evaluate PI policy on the environment. For other policy types, please refer to the evaluation workflow page.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>add link to policy evaluation workflow page</p>
-</div>
+<p>For example, you can use the policy runner to evaluate a PI policy on the
+environment. For other policy types, see
+<a class="reference internal" href="../../../quickstart/running_a_real_policy/index.html"><span class="doc">Running a Real Policy</span></a>.</p>
 <p>Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_openpi/docker/run_openpi_server.sh
 </pre></div>
@@ -579,12 +582,12 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 <span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 </pre></div>
 </div>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../../_images/droid_kitchen_pnp_pi.gif"><img alt="PI policy controlling DROID for mustard-bottle pick and place in the kitchen" src="../../../../_images/droid_kitchen_pnp_pi.gif" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">PI controls DROID to pick up the mustard bottle and place it in the bowl in
-the agentically generated kitchen environment.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+the agentically generated kitchen environment.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>

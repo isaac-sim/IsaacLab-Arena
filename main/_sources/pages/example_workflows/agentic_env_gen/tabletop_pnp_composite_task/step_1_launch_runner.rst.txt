@@ -62,4 +62,5 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
 
-.. todo:: add link to concept page covering simready search
+To learn more about SimReady, see the
+`SimReady Overview <https://docs.omniverse.nvidia.com/simready/latest/overview.html>`_.

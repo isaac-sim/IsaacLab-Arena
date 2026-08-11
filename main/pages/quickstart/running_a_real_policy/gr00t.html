@@ -442,8 +442,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/agentic_env_gen/gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/agentic_env_gen/model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 </ul>
@@ -452,6 +450,13 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -558,6 +563,16 @@
 foundation model. No fine-tuning or separate model download is required. The weights
 are fetched from <a class="reference external" href="https://huggingface.co/nvidia/GR00T-N1.6-DROID">HuggingFace</a>
 when the policy server starts for the first time.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>uv environment:</strong> the <code class="docutils literal notranslate"><span class="pre">gr00t</span></code> package is not pulled in by <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> because
+its declared Python constraint differs from the Arena environment. Install it once
+before running GR00T policies or tests:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--no-deps<span class="w"> </span>--ignore-requires-python<span class="w"> </span>-e<span class="w"> </span>submodules/Isaac-GR00T/
+</pre></div>
+</div>
+<p>Docker users can skip this step — the package is already installed in the container.</p>
+</div>
 <section id="start-a-gr00t-policy-server">
 <h2>Start a GR00T policy server<a class="headerlink" href="#start-a-gr00t-policy-server" title="Link to this heading">#</a></h2>
 <p>The closed-loop policy connects to a GR00T policy server in a separate process. The

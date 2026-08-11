@@ -443,8 +443,6 @@
 <li class="toctree-l3"><a class="reference internal" href="step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 </ul>
@@ -453,6 +451,13 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -624,22 +629,19 @@ which way it faces, and how far the door has to open.</p>
 <code class="docutils literal notranslate"><span class="pre">prim_path</span></code> under <code class="docutils literal notranslate"><span class="pre">parent_id</span></code>. Nothing is spawned for it — it only becomes a target that relations and
 task params can name by <code class="docutils literal notranslate"><span class="pre">id</span></code>. The fridge uses <code class="docutils literal notranslate"><span class="pre">object_type:</span> <span class="pre">articulation</span></code> and names
 <code class="docutils literal notranslate"><span class="pre">fridge_door_joint</span></code> as its openable joint, which is the joint <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code> resets and monitors.</p>
-<p>For more details on the env graph spec, see more in concept.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>add link to concept page</p>
-</div>
+<p>For more details on the Env Spec, see
+<a class="reference internal" href="../../../concepts/environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
 <section id="refining-the-robot-placement-and-the-task">
 <h2>Refining the robot placement and the task<a class="headerlink" href="#refining-the-robot-placement-and-the-task" title="Link to this heading">#</a></h2>
 <p>The generated relations identify the correct entities, but the initial layout may place the robot on the
 wrong side of the fridge or facing the wrong direction, and the door may open further than the policy needs
 to. The three parameters to tune are:</p>
-<figure class="align-default" id="id2">
+<figure class="align-default" id="id1">
 <img alt="Kitchen, floor, and fridge snapshots with local XYZ axis overlays" src="../../../../_images/agentic_ui_kitchen_pnp_axis.png" />
 <figcaption>
 <p><span class="caption-text">Use the axis overlays to interpret the fridge orientation in the kitchen.
-Red is <span class="math notranslate nohighlight">\(+X\)</span>, green is <span class="math notranslate nohighlight">\(+Y\)</span>, and blue is <span class="math notranslate nohighlight">\(+Z\)</span>.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+Red is <span class="math notranslate nohighlight">\(+X\)</span>, green is <span class="math notranslate nohighlight">\(+Y\)</span>, and blue is <span class="math notranslate nohighlight">\(+Z\)</span>.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <ul class="simple">
@@ -681,7 +683,7 @@ Edit in the browser (GUI)</label><div class="sd-tab-content docutils">
 <li><p>Click <strong>Run relation solver preview</strong> to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.</p></li>
 <li><p>Click <strong>Save to &lt;env_name&gt;.yaml</strong> to write the spec to <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the output directory.</p></li>
 </ol>
-<p>See <a class="reference internal" href="../gui_runner.html"><span class="doc">Agentic Environment Generation GUI</span></a> for the full UI walkthrough.</p>
+<p>See <a class="reference internal" href="../../../concepts/agentic_environment_generation/gui_runner.html"><span class="doc">GUI Runner</span></a> for the full UI walkthrough.</p>
 </div>
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Agentic Environment Generation GUI &#8212; isaaclab_arena</title>
+    <title>GUI Runner &#8212; isaaclab_arena</title>
   
   
   
@@ -50,13 +50,13 @@
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/agentic_env_gen/gui_runner';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/agentic_environment_generation/gui_runner';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Inference Model and Spec Quality" href="model_selection.html" />
-    <link rel="prev" title="Use the Generated Environment" href="kitchen_open_door/step_3_use_environment.html" />
+    <link rel="next" title="CLI Runner" href="cli_runner.html" />
+    <link rel="prev" title="Inference Model and Spec Quality" href="model_selection.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -155,7 +155,7 @@
     <a class="list-group-item list-group-item-action py-1 active"
        href="gui_runner.html" role="option" aria-current="true">main</a>
     <a class="list-group-item list-group-item-action py-1"
-       href="../../../../release/0.3.0-prerelease/pages/example_workflows/agentic_env_gen/gui_runner.html" role="option">0.3.0-prerelease</a>
+       href="../../../../release/0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
     <a class="list-group-item list-group-item-action py-1"
        href="../../../../release/0.2.1/index.html" role="option">0.2.1</a>
     <a class="list-group-item list-group-item-action py-1"
@@ -358,136 +358,141 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../robolab_task_catalog.html">RoboLab Task Catalog</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../analysis/variations.html">Run an Evaluation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Environment Generation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_homogenous_object/index.html">Pick and Place atomic task with homogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_homogenous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/index.html">Pick and Place atomic task with heterogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_heterogeneous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="tabletop_pnp_composite_task/index.html">Pick and Place composite task with SimReady assets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tabletop_pnp_composite_task/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="kitchen_pick_and_place/index.html">Pick and Place on a Kitchen Countertop</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_pick_and_place/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_pick_and_place/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_pick_and_place/step_3_use_environment.html">Use the Generated Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/index.html">Pick and Place atomic task with homogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="kitchen_open_door/index.html">Open a Kitchen Fridge Door</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_open_door/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_open_door/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
-<li class="toctree-l3"><a class="reference internal" href="kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/index.html">Pick and Place atomic task with heterogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/index.html">Pick and Place composite task with SimReady assets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/index.html">Pick and Place on a Kitchen Countertop</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/index.html">Open a Kitchen Fridge Door</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
 </ul>
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_assets_design.html">Assets</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Agentic Environment Generation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/pooled_placement.html">Pooled Placement</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_arena_experiments.html">Arena Experiments</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/variations/variations.html">Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../policy/index.html">Policy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_arena_experiments.html">Arena Experiments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -536,7 +541,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Agentic Environment Generation</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Agentic Environment Generation GUI</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">GUI Runner</span></li>
   </ul>
 </nav>
 </div>
@@ -553,16 +558,19 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="agentic-environment-generation-gui">
-<h1>Agentic Environment Generation GUI<a class="headerlink" href="#agentic-environment-generation-gui" title="Link to this heading">#</a></h1>
+  <section id="gui-runner">
+<h1>GUI Runner<a class="headerlink" href="#gui-runner" title="Link to this heading">#</a></h1>
 <p>The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> YAML files.</p>
-<p>What comes back depends on the model behind the selected endpoint — see <a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a>.
-Use <code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span></code> to pick the endpoint the GUI generates with. Since the model is
-non-deterministic, it’s important to review and correct what it returns.</p>
+<p>What comes back depends on the model behind the selected endpoint — see
+<a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a>. Use <code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span> <span class="pre">{internal,public,openai}</span></code>
+to pick the endpoint the GUI generates with, or set
+<code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code>. Since the model is non-deterministic, review and
+correct what it returns.</p>
 <p>Run the GUI from inside the Isaac Lab-Arena development container:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--inference_endpoint<span class="w"> </span>public
 </pre></div>
 </div>
 <p>You can also open an existing environment graph spec:</p>
@@ -651,20 +659,20 @@ snapshots and graph visualization as they update automatically.</span><a class="
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="kitchen_open_door/step_3_use_environment.html"
+       href="model_selection.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Use the Generated Environment</p>
+        <p class="prev-next-title">Inference Model and Spec Quality</p>
       </div>
     </a>
     <a class="right-next"
-       href="model_selection.html"
+       href="cli_runner.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Inference Model and Spec Quality</p>
+        <p class="prev-next-title">CLI Runner</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

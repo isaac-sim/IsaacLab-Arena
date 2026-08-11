@@ -6,7 +6,8 @@ prompts. It resolves the prompt into ``ArenaEnvGraphSpec`` by the agent, which s
 This spec is then used to compose the scene and build the environment.
 The environment can be used for policy evaluation.
 
-.. todo:: add concept overview page
+For the concept overview, see
+:doc:`Agentic Environment Generation <../../concepts/agentic_environment_generation/index>`.
 
 
 In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.
@@ -35,6 +36,9 @@ Every workflow in this section shares the same setup.
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
+
+See :doc:`../../concepts/agentic_environment_generation/index` for the system
+architecture and runner reference.
 
 The generation agent calls a remote LLM endpoint. Pick one and export its API key
 in the shell you launch the agentic environment generation runner from.
@@ -75,7 +79,8 @@ Store the key securely and do not commit it to the repository.
    controlled by OpenAI. Review those terms before sending prompts or other data.
 
 Each endpoint calls a different model, and the generated environment changes with it. See
-:doc:`model_selection` for what the model decides, what Arena validates, and how to select the model.
+:doc:`../../concepts/agentic_environment_generation/model_selection` for what the model decides,
+what Arena validates, and how to select the model.
 
 Available Generated Environments
 --------------------------------
@@ -85,8 +90,6 @@ RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
 Each environment is generated from a natural-language prompt and can be used for policy evaluation.
-
-
 
 Warnings
 --------
@@ -110,5 +113,3 @@ Warnings
    tabletop_pnp_composite_task/index
    kitchen_pick_and_place/index
    kitchen_open_door/index
-   gui_runner
-   model_selection

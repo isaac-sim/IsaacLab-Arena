@@ -1,19 +1,22 @@
-Agentic Environment Generation GUI
-==================================
+GUI Runner
+==========
 
 The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
 ``ArenaEnvGraphSpec`` YAML files.
 
-What comes back depends on the model behind the selected endpoint — see :doc:`model_selection`.
-Use ``--inference_endpoint`` to pick the endpoint the GUI generates with. Since the model is
-non-deterministic, it's important to review and correct what it returns.
+What comes back depends on the model behind the selected endpoint — see
+:doc:`model_selection`. Use ``--inference_endpoint {internal,public,openai}``
+to pick the endpoint the GUI generates with, or set
+``ARENA_INFERENCE_ENDPOINT``. Since the model is non-deterministic, review and
+correct what it returns.
 
 Run the GUI from inside the Isaac Lab-Arena development container:
 
 .. code-block:: bash
 
-   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \
+      --inference_endpoint public
 
 You can also open an existing environment graph spec:
 

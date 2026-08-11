@@ -326,6 +326,7 @@ TABLE OF CONTENTS
    :caption: Concepts
 
    pages/concepts/environment/index
+   pages/concepts/agentic_environment_generation/index
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index

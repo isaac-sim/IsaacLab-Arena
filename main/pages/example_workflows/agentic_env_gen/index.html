@@ -442,8 +442,6 @@
 <li class="toctree-l3"><a class="reference internal" href="kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 </ul>
@@ -452,6 +450,13 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -555,10 +560,8 @@
 prompts. It resolves the prompt into <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> by the agent, which specifies the scene layout, tasks, and spatial relations.
 This spec is then used to compose the scene and build the environment.
 The environment can be used for policy evaluation.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>add concept overview page</p>
-</div>
+<p>For the concept overview, see
+<a class="reference internal" href="../../concepts/agentic_environment_generation/index.html"><span class="doc">Agentic Environment Generation</span></a>.</p>
 <p>In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.</p>
 <ul class="simple">
 <li><p>Table-top Pick and Place task</p>
@@ -586,6 +589,8 @@ The environment can be used for policy evaluation.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
+<p>See <a class="reference internal" href="../../concepts/agentic_environment_generation/index.html"><span class="doc">Agentic Environment Generation</span></a> for the system
+architecture and runner reference.</p>
 <p>The generation agent calls a remote LLM endpoint. Pick one and export its API key
 in the shell you launch the agentic environment generation runner from.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Publicly reachable build.nvidia.com endpoint (default)</span>
@@ -621,7 +626,8 @@ NVIDIA. Its availability, regional restrictions, data handling, pricing, and ter
 controlled by OpenAI. Review those terms before sending prompts or other data.</p>
 </div>
 <p>Each endpoint calls a different model, and the generated environment changes with it. See
-<a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a> for what the model decides, what Arena validates, and how to select the model.</p>
+<a class="reference internal" href="../../concepts/agentic_environment_generation/model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a> for what the model decides,
+what Arena validates, and how to select the model.</p>
 </section>
 <section id="available-generated-environments">
 <h2>Available Generated Environments<a class="headerlink" href="#available-generated-environments" title="Link to this heading">#</a></h2>

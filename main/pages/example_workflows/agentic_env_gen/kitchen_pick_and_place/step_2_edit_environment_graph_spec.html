@@ -442,8 +442,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../gui_runner.html">Agentic Environment Generation GUI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../model_selection.html">Inference Model and Spec Quality</a></li>
 </ul>
 </details></li>
 </ul>
@@ -452,6 +450,13 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../concepts/environment/env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../concepts/agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -634,11 +639,8 @@ matter most are which countertop prim the task uses and where the robot stands.<
 <p>An <code class="docutils literal notranslate"><span class="pre">object_references</span></code> entry is a prim that the background already contains, addressed by its
 <code class="docutils literal notranslate"><span class="pre">prim_path</span></code> under <code class="docutils literal notranslate"><span class="pre">parent_id</span></code>. Nothing is spawned for it — it only becomes a target that relations and
 task params can name by <code class="docutils literal notranslate"><span class="pre">id</span></code>, exactly like a spawned object.</p>
-<p>For more details on the env graph spec, see more in concept.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>add link to concept page</p>
-</div>
+<p>For more details on the Env Spec, see
+<a class="reference internal" href="../../../concepts/environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
 <section id="resolving-the-countertop-ambiguity">
 <h2>Resolving the countertop ambiguity<a class="headerlink" href="#resolving-the-countertop-ambiguity" title="Link to this heading">#</a></h2>
@@ -650,12 +652,12 @@ surfaces. List them from the background prim tree — the set of prims the agent
 <label class="sd-tab-label" for="sd-tab-item-0">
 Browse the prim tree (GUI)</label><div class="sd-tab-content docutils">
 <p>Expand the GUI’s <code class="docutils literal notranslate"><span class="pre">Background</span> <span class="pre">prim</span> <span class="pre">tree</span></code> and search for <code class="docutils literal notranslate"><span class="pre">counter</span></code>:</p>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../../_images/agentic_ui_kitchen_pnp_prim_tree.png"><img alt="Background prim tree showing five candidate kitchen counter surfaces" src="../../../../_images/agentic_ui_kitchen_pnp_prim_tree.png" style="width: 40%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">The background prim tree disambiguates the counter surfaces available in the
-Lightwheel RoboCasa kitchen.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+Lightwheel RoboCasa kitchen.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </div>
@@ -725,7 +727,7 @@ Edit in the browser (GUI)</label><div class="sd-tab-content docutils">
 <li><p>Click <strong>Run relation solver preview</strong> to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.</p></li>
 <li><p>Click <strong>Save to &lt;env_name&gt;.yaml</strong> to write the spec to <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the output directory.</p></li>
 </ol>
-<p>See <a class="reference internal" href="../gui_runner.html"><span class="doc">Agentic Environment Generation GUI</span></a> for the full UI walkthrough.</p>
+<p>See <a class="reference internal" href="../../../concepts/agentic_environment_generation/gui_runner.html"><span class="doc">GUI Runner</span></a> for the full UI walkthrough.</p>
 </div>
 <input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-3">

@@ -4,7 +4,7 @@ Edit the Environment Graph Spec
 Review the spec before building the environment. The agent infers it from the prompt with an
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
-:doc:`../model_selection` for more details.
+:doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
 You could add or remove objects or change the spatial relationships between objects.
 
 Understanding the YAML
@@ -79,9 +79,8 @@ the destination. ``registry_name`` is the Arena asset the id resolves to, so
 swapping an asset is a one-line change that leaves the rest of the graph
 untouched.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Editing for background object
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -121,7 +120,7 @@ Applying your edits
       #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 
