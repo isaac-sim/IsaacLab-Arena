@@ -12,10 +12,16 @@ import pytest
 from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
+from osmo.tasks.gr00t_policy_runner_task import DEFAULT_POLICY_CONFIG, Gr00tPolicyRunnerTaskCfg
+from osmo.tasks.gr00t_server_task import Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
 from osmo.workflows.dreamzero_split_workflows import DreamZeroPolicyRunnerWorkflow
-from osmo.workflows.server_plus_policy_runner_workflow import CosmosPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
+from osmo.workflows.server_plus_policy_runner_workflow import (
+    CosmosPolicyRunnerWorkflow,
+    Gr00tPolicyRunnerWorkflow,
+    Pi0PlusPolicyRunnerWorkflow,
+)
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
@@ -64,6 +70,29 @@ def test_cosmos_workflow_renders_policy_runner_and_server():
     assert "--remote_host {{host:cosmos_server}}" in policy_runner_command
     assert f"--remote_port {POLICY_SERVER_PORT}" in policy_runner_command
     assert "action_policy_server_robolab" in tasks[1]["files"][0]["contents"]
+
+
+def test_gr00t_workflow_renders_policy_runner_and_server():
+    """Pair the GR00T policy-runner with the GR00T server it connects to."""
+    workflow = Gr00tPolicyRunnerWorkflow(
+        workflow_cfg=WorkflowCfg(),
+        task_cfg=Gr00tPolicyRunnerTaskCfg(arena_env="example_environment"),
+    )
+
+    tasks = workflow.generate_workflow()["workflow"]["groups"][0]["tasks"]
+    policy_runner_command = tasks[0]["files"][0]["contents"]
+    server_command = tasks[1]["files"][0]["contents"]
+
+    assert [task["name"] for task in tasks] == ["policy_runner", "gr00t_server"]
+    assert tasks[1]["image"] == Gr00tServerTaskCfg().image
+    assert (
+        "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
+        in policy_runner_command
+    )
+    assert f"--policy_config_yaml_path {DEFAULT_POLICY_CONFIG}" in policy_runner_command
+    assert "--remote_host {{host:gr00t_server}}" in policy_runner_command
+    assert f"--remote_port {POLICY_SERVER_PORT}" in policy_runner_command
+    assert "gr00t/eval/run_gr00t_server.py" in server_command
 
 
 def test_static_workflow_threads_declared_task_names_into_host_token():

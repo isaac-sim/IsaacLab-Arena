@@ -12,6 +12,8 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, TypeVar, Union
 
+from isaaclab_arena_gr00t.utils.groot_path import ensure_gr00t_importable
+
 # Generic type variable for configuration classes
 ConfigType = TypeVar("ConfigType")
 
@@ -194,7 +196,7 @@ def create_config_from_yaml(yaml_path: str | Path, config_class: type[ConfigType
     return config
 
 
-def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embodiment_tag: str):
+def load_gr00t_modality_config_from_file(modality_config_path: str | Path | None, embodiment_tag: str):
     """Load the modality configs using GR00T's pattern.
     1. Import the config module (registers it globally)
     2. Retrieve from the global registry using embodiment_tag
@@ -204,6 +206,8 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
     Returns:
         modality_configs: Modality configurations
     """
+    ensure_gr00t_importable()
+
     from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
     from gr00t.data.embodiment_tags import EmbodimentTag
 
