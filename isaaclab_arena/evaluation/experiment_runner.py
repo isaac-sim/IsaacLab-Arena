@@ -10,7 +10,10 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ArenaExperimentResult,
+    run_environment_and_policy_variant_from_config,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult, build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
@@ -74,7 +77,7 @@ def _write_arena_experiment_result(
     run_results: list[ArenaRunResult],
     experiment_output_directory: Path,
 ) -> Path:
-    """Combine every Run's metadata and episode results into one Experiment JSON file."""
+    """Combine every Run's environment, policy, status, and episodes into one Experiment JSON file."""
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
     assert set(run_results_by_name) == set(
@@ -82,7 +85,7 @@ def _write_arena_experiment_result(
     ), "Experiment results must contain exactly the configured Runs"
     run_metadata_by_name = {
         run_name: {
-            **build_arena_run_result_metadata(run_cfg),
+            **run_environment_and_policy_variant_from_config(run_cfg),
             "status": run_results_by_name[run_name].status.value,
         }
         for run_name, run_cfg in experiment_cfg.runs.items()
