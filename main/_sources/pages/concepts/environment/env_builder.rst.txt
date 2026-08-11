@@ -65,11 +65,62 @@ supported robot embodiments. Set
 Arena command-line runners expose the equivalent ``--no_solve_relations``
 option.
 
-.. todo:: xyao-nv
+Seeds during compilation
+------------------------
 
-   Document how the simulation seed controls random state during environment
-   compilation and how it differs from placement-specific seeding.
+Environment compilation and rollout use more than one random stream, so locking
+a single global seed is not enough when you need layouts, object-set picks, or
+run-time variation draws to be reproducible independently.
 
+What it is
+~~~~~~~~~~
+
+``ArenaEnvBuilder`` exposes two seeds. They are independent — locking one does
+not fix the other.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 28 12 42
+
+   * - Control
+     - CLI / config
+     - Default
+     - Locking it reproduces
+   * - Environment seed
+     - ``--seed`` / ``ArenaEnvBuilderCfg.seed``
+     - ``42``
+     - Simulation RNG after the Isaac Lab env is created: reset noise and
+       :doc:`run-time variation <../variations/variations>` draws.
+   * - Placement seed
+     - ``--placement_seed`` / ``ArenaEnvBuilderCfg.placement_seed``
+     - ``None`` (unlocked)
+     - Relation-solver layouts and random
+       :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` member
+       assignment. With ``None``, placement stays non-reproducible across runs.
+
+There is no variation seed. Run-time variations follow ``--seed``; build-time
+variations are drawn once at compile time and are not locked by either seed.
+See :doc:`../variations/variations` and
+:doc:`../object_placement/pooled_placement`.
+
+How to set it
+~~~~~~~~~~~~~
+
+Pass the seed you want to lock on the runner CLI (or set the matching field on
+``ArenaEnvBuilderCfg`` / ``placer_params``):
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --seed 42 \
+     --placement_seed 7 \
+     --num_steps 100 \
+     pick_and_place_maple_table
+
+- Set ``--seed`` to fix simulation and run-time variation draws.
+- Set ``--placement_seed`` to fix layouts and random object-set picks.
+- Omit ``--placement_seed`` when placement should vary across runs.
 
 The compiled config is then registered with the gym registry under the
 environment's name, and ``gym.make()`` returns the gym environment.

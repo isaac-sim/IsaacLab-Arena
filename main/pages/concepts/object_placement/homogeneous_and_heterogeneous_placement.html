@@ -458,6 +458,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
 </ul>
 </details></li>
@@ -563,18 +564,14 @@ the layouts are identical:</p>
 <li><p><strong>Homogeneous placement</strong> uses the same registered object for a role in every
 environment. Its solved pose can still differ between environments and
 resets.</p></li>
-<li><p><strong>Heterogeneous placement</strong> uses a <code class="docutils literal notranslate"><span class="pre">RigidObjectSet</span></code> for a role. Each
+<li><p><strong>Heterogeneous placement</strong> uses a
+<a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">RigidObjectSet</span></a> for a role. Each
 environment receives one member of the set, so object geometry can differ
 across environments.</p></li>
 </ul>
 <p>Both modes use the same relations, solver, validators, and layout-pool
 workflow. They differ in how Arena chooses objects and supplies their geometry
 to the solver.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>Add a general <code class="docutils literal notranslate"><span class="pre">RigidObjectSet</span></code> concept page under the asset-object
-documentation and link it from this placement-specific comparison.</p>
-</div>
 <section id="implementation-differences">
 <h2>Implementation Differences<a class="headerlink" href="#implementation-differences" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
@@ -698,7 +695,8 @@ Anchors remain fixed and therefore still need a known pose.</p>
 </section>
 <section id="related-references">
 <h2>Related References<a class="headerlink" href="#related-references" title="Link to this heading">#</a></h2>
-<p>Refer back to <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a> for reset behavior and object
+<p>Refer to <a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">Rigid Object Sets</span></a> for the <code class="docutils literal notranslate"><span class="pre">RigidObjectSet</span></code>
+asset concept, <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a> for reset behavior and object
 assignment, or <a class="reference internal" href="relations.html"><span class="doc">Relations and Strategies</span></a> for the available spatial relations.</p>
 </section>
 </section>

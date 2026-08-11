@@ -458,6 +458,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
 </ul>
 </details></li>
@@ -562,11 +563,11 @@ scene, embodiment, and task — into a runnable Isaac Lab environment.
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> does this by collecting the partial configuration each
 component contributes and merging them into a single
 <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>.</p>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/arena_env_builder.png"><img alt="ArenaEnvBuilder merges Scene, Embodiment, and Task into a ManagerBasedRLEnv" src="../../../_images/arena_env_builder.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> merges the Scene, Embodiment, and Task into a runnable <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+<p><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> merges the Scene, Embodiment, and Task into a runnable <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
@@ -644,14 +645,72 @@ supported robot embodiments. Set
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(solve_relations=False)</span></code> in Python to disable this step.
 Arena command-line runners expose the equivalent <code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code>
 option.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>xyao-nv</p>
-<p>Document how the simulation seed controls random state during environment
-compilation and how it differs from placement-specific seeding.</p>
+</section>
+<section id="seeds-during-compilation">
+<h2>Seeds during compilation<a class="headerlink" href="#seeds-during-compilation" title="Link to this heading">#</a></h2>
+<p>Environment compilation and rollout use more than one random stream, so locking
+a single global seed is not enough when you need layouts, object-set picks, or
+run-time variation draws to be reproducible independently.</p>
+<section id="what-it-is">
+<h3>What it is<a class="headerlink" href="#what-it-is" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> exposes two seeds. They are independent — locking one does
+not fix the other.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 28.0%" />
+<col style="width: 12.0%" />
+<col style="width: 42.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Control</p></th>
+<th class="head"><p>CLI / config</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Locking it reproduces</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Environment seed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--seed</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">42</span></code></p></td>
+<td><p>Simulation RNG after the Isaac Lab env is created: reset noise and
+<a class="reference internal" href="../variations/variations.html"><span class="doc">run-time variation</span></a> draws.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Placement seed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.placement_seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code> (unlocked)</p></td>
+<td><p>Relation-solver layouts and random
+<a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">RigidObjectSet</span></a> member
+assignment. With <code class="docutils literal notranslate"><span class="pre">None</span></code>, placement stays non-reproducible across runs.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
+<p>There is no variation seed. Run-time variations follow <code class="docutils literal notranslate"><span class="pre">--seed</span></code>; build-time
+variations are drawn once at compile time and are not locked by either seed.
+See <a class="reference internal" href="../variations/variations.html"><span class="doc">Variations</span></a> and
+<a class="reference internal" href="../object_placement/pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p>
+</section>
+<section id="how-to-set-it">
+<h3>How to set it<a class="headerlink" href="#how-to-set-it" title="Link to this heading">#</a></h3>
+<p>Pass the seed you want to lock on the runner CLI (or set the matching field on
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg</span></code> / <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">--seed</span></code> to fix simulation and run-time variation draws.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> to fix layouts and random object-set picks.</p></li>
+<li><p>Omit <code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> when placement should vary across runs.</p></li>
+</ul>
 <p>The compiled config is then registered with the gym registry under the
 environment’s name, and <code class="docutils literal notranslate"><span class="pre">gym.make()</span></code> returns the gym environment.</p>
+</section>
 </section>
 <section id="mimic-mode">
 <h2>Mimic mode<a class="headerlink" href="#mimic-mode" title="Link to this heading">#</a></h2>
@@ -723,6 +782,11 @@ relations describe a placement layout.</p>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How it works</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#seeds-during-compilation">Seeds during compilation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-it-is">What it is</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-set-it">How to set it</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mimic-mode">Mimic mode</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
