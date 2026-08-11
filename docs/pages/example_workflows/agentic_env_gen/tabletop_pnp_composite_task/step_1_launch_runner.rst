@@ -40,7 +40,7 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The task panel shows one row per subtask, so a composite task is visible as two
       ``PickAndPlaceTask`` rows under the root task.
 
-      .. figure:: ../../../../images/tabletop_agentic_env_cans_simready_gui.png
+      .. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_cans_simready_gui.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center
@@ -54,7 +54,7 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --enable_simready_search \
             --prompt "Droid picks up the pepsi can and the bean can from the maple table and places them into the mini plastic basket. There is a hammer next to the pepsi can and a tuna can on the table, and the bean can sits next to the basket."
@@ -62,4 +62,5 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
       The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
 
-.. todo:: add link to concept page covering simready search
+To learn more about SimReady, see the
+`SimReady Overview <https://docs.omniverse.nvidia.com/simready/latest/overview.html>`_.

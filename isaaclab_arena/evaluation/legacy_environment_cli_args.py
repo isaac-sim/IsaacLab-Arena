@@ -28,7 +28,7 @@ def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
 
     environment = str(args["environment"])
     if environment.endswith((".yaml", ".yml")):
-        cli_args.extend(("--env_graph_spec_yaml", environment))
+        cli_args.extend(("--env_spec", environment))
     else:
         cli_args.append(environment)
 

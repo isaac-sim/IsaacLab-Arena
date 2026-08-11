@@ -32,9 +32,9 @@ class CollectExperimentOutputsTask(BaseTask):
 
     For each Run, OSMO exposes its Experiment Runner task output at ``{{input:<runner-task>}}``. The embedded script
     copies completed Run outputs to ``{{output}}/<run-name>/...``, preserves failed runner results without partial Run
-    artifacts, and writes ``{{output}}/index.html``. The report lists failed Run executions but excludes their partial
-    episode artifacts. Only this final task output is published to Swift; the Experiment Runner task outputs remain
-    workflow-local.
+    artifacts, and writes ``{{output}}/arena_experiment_result.json`` plus ``{{output}}/index.html``. Both list failed
+    Run executions but exclude their partial episode artifacts. Only this final task output is published to Swift;
+    the Experiment Runner task outputs remain workflow-local.
     """
 
     def __init__(
@@ -43,6 +43,7 @@ class CollectExperimentOutputsTask(BaseTask):
         experiment_runner_task_names_by_run_name: Mapping[str, str],
         lead: bool | None = None,
         resource: str | None = None,
+        output_url: str = DATASET_SWIFT_URL,
         *,
         task_name: str,
     ) -> None:
@@ -50,6 +51,7 @@ class CollectExperimentOutputsTask(BaseTask):
         super().__init__(task_name=task_name, lead=lead, resource=resource)
         self.image = image
         self.experiment_runner_task_names_by_run_name = dict(experiment_runner_task_names_by_run_name)
+        self.output_url = output_url
 
     def _get_image(self) -> str:
         return self.image
@@ -62,11 +64,11 @@ class CollectExperimentOutputsTask(BaseTask):
         ]
 
     def _get_outputs(self) -> list[dict[str, Any]]:
-        """Publish the final Experiment directory, including all Runs and ``index.html``."""
-        return [{"url": DATASET_SWIFT_URL}]
+        """Publish the final Experiment directory, including its canonical result and report."""
+        return [{"url": self.output_url}]
 
     def _get_files_to_create(self) -> list[dict[str, Any]]:
-        """Embed the output-building script and its ``run-name -> Experiment Runner output`` JSON input."""
+        """Embed the output builder and its JSON inputs."""
         experiment_runner_output_directory_tokens_by_run_name = {
             run_name: experiment_runner_output_directory_input_token(experiment_runner_task_name)
             for run_name, experiment_runner_task_name in self.experiment_runner_task_names_by_run_name.items()

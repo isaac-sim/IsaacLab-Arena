@@ -57,6 +57,23 @@ def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
     assert result
 
 
+def _test_composite_task_episode_length_sums_subtasks(simulation_app):
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "two_subtask_episode_length_env_graph.yaml")
+    arena_env = spec.to_arena_env()
+
+    assert [subtask.get_episode_length_s() for subtask in arena_env.task.subtasks] == [20.0, 30.0]
+    assert arena_env.task.get_episode_length_s() == 50.0
+
+    return True
+
+
+def test_composite_task_episode_length_sums_subtasks():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    result = run_function_with_persistent_simulation_app(_test_composite_task_episode_length_sums_subtasks)
+    assert result
+
+
 def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     import argparse
     import sys
@@ -65,9 +82,9 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
     yaml_path = str(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
 
-    # --env_graph_spec_yaml with no example-environment subcommand: parses (subcommand is
+    # --env_spec with no example-environment subcommand: parses (subcommand is
     # optional) and the runner builds the env from the graph spec instead of the registry.
-    sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path]
+    sys.argv = ["policy_runner.py", "--env_spec", yaml_path]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
 
     builder = get_arena_builder_from_cli(args)
@@ -76,7 +93,7 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     # The flags the YAML declares under `cli_override_specs` are registered dynamically by the
     # environments parser (not hardcoded). Confirm --object parses through that real parser
     # path and that apply_cli_override_args swaps the declared target asset's registry_name.
-    sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path, "--object", "dex_cube"]
+    sys.argv = ["policy_runner.py", "--env_spec", yaml_path, "--object", "dex_cube"]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
     assert args.object == "dex_cube"
     spec = ArenaEnvGraphSpec.from_yaml(yaml_path)
@@ -84,17 +101,17 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     cube = next(obj for obj in spec.objects if obj.id == "rubiks_cube_hot3d_robolab")
     assert cube.registry_name == "dex_cube"
 
-    # A non-existent --env_graph_spec_yaml fails with a clear "not found" assertion from the YAML
+    # A non-existent --env_spec fails with a clear "not found" assertion from the YAML
     # loader, not an opaque FileNotFoundError. The parser hits it while building, when it reads the
     # graph's declared override flags.
-    sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", "/no/such/env_graph.yaml"]
+    sys.argv = ["policy_runner.py", "--env_spec", "/no/such/env_graph.yaml"]
     with pytest.raises(AssertionError, match="not found"):
         get_isaaclab_arena_environments_cli_parser()
 
     # Neither source, or both at once, is rejected by the exactly-one-source assert.
     for bad in (
-        argparse.Namespace(env_graph_spec_yaml=None, example_environment=None),
-        argparse.Namespace(env_graph_spec_yaml=yaml_path, example_environment="lift_object"),
+        argparse.Namespace(env_spec=None, example_environment=None),
+        argparse.Namespace(env_spec=yaml_path, example_environment="lift_object"),
     ):
         with pytest.raises(AssertionError):
             get_arena_builder_from_cli(bad)

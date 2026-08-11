@@ -6,15 +6,18 @@
 from __future__ import annotations
 
 import json
-import os
+from enum import Enum
 from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-    EnvironmentGenerationAgent,
+from isaaclab_arena.agentic_environment_generation.catalogues import (
+    AssetCatalogue,
     build_asset_catalogue,
+    build_relation_catalogue,
+    build_task_catalogue,
 )
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
@@ -31,12 +34,36 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_resolve_response,
     minimal_spec_dict,
     relation_catalog,
+    skip_without_live_endpoint_key,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import task_catalog as make_task_catalog
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+class _TestTaskMode(Enum):
+    FAST = "fast"
+    PRECISE = "precise"
+
+
+class _TestTask:
+    """Test task."""
+
+    agent_ready = True
+
+    def __init__(self, target, mode: _TestTaskMode = _TestTaskMode.FAST, retries: int = 1):
+        pass
+
+
+class _TestTaskRegistry:
+    def get_all_keys(self):
+        return ["TestTask"]
+
+    def get_task_by_name(self, name):
+        assert name == "TestTask"
+        return _TestTask
 
 
 @pytest.fixture
@@ -46,6 +73,48 @@ def agent(stub_openai):
     a = EnvironmentGenerationAgent(api_key="test-key")
     client.chat.completions.create.reset_mock()
     return a, client
+
+
+def test_task_catalogue_collects_required_optional_and_enum_params():
+    catalogue = build_task_catalogue(_TestTaskRegistry())
+
+    assert (
+        catalogue.to_catalog_string()
+        == "TASKS (1):\n- TestTask (required: target; optional: mode={fast, precise}, retries): Test task."
+    )
+
+
+def test_task_catalogue_excludes_structural_graph_fields():
+    """Params already expressed on CompositeTaskSpec (e.g. description) stay out of TASKS."""
+    catalogue = build_task_catalogue()
+    entries = {entry.name: entry for entry in catalogue.tasks}
+
+    assert "PickAndPlaceTask" in entries
+    pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
+    assert "task_description" not in pick_params
+
+
+def test_relation_catalogue_collects_required_optional_and_enum_params():
+    catalogue = build_relation_catalogue()
+    entries = {entry.name: entry for entry in catalogue.relations}
+
+    assert set(entries) == {
+        "is_anchor",
+        "next_to",
+        "not_next_to",
+        "on",
+        "rotate_around_solution",
+    }
+    assert entries["next_to"].required_params == ["side"]
+    assert entries["next_to"].optional_params == [
+        "relation_loss_weight",
+        "distance_m",
+        "cross_position_ratio",
+        "tolerance_m",
+    ]
+    assert entries["next_to"].enum_options == {"side": ["positive_x", "negative_x", "positive_y", "negative_y"]}
+    for entry in entries.values():
+        assert "parent" not in entry.required_params + entry.optional_params
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +430,7 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
 
 # Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
 # TODO(qianl): drop the flaky marker once production-side retry is implemented.
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@skip_without_live_endpoint_key()
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     """Live test: avocado into bowl yields an atomic pick-and-place task."""
@@ -372,7 +441,7 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     _assert_atomic_pick_and_place_spec(spec)
 
 
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@skip_without_live_endpoint_key()
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
     """Live test: five bananas into one bin yields a parallel composite task."""
@@ -383,19 +452,22 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
 
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@skip_without_live_endpoint_key()
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     """End-to-end pass-1 + pass-2 prim resolution for Robocasa kitchen counter and fridge."""
     agent = EnvironmentGenerationAgent()
-    asset_catalog = catalog(
-        "EMBODIMENTS:\n- droid_abs_joint_pos  tags=[default]\n\n"
-        "BACKGROUNDS: lightwheel_robocasa_kitchen\n\n"
-        "OBJECTS:\n"
-        "- avocado01_fruits_veggies_robolab  tags=[]\n"
-        "- plate_large_vomp_robolab  tags=[]\n"
-        "- broccoli  tags=[]\n"
-        "- sweet_potato  tags=[]"
+    # Keep structured entries in sync with the prompt: catalog validation checks
+    # AssetCatalogue.objects, not a to_catalog_string override.
+    asset_catalog = AssetCatalogue(
+        embodiments=[{"name": "droid_abs_joint_pos", "tags": ["default"]}],
+        backgrounds=[{"name": "lightwheel_robocasa_kitchen", "tags": []}],
+        objects=[
+            {"name": "avocado01_fruits_veggies_robolab", "object_type": "rigid", "tags": []},
+            {"name": "plate_large_vomp_robolab", "object_type": "rigid", "tags": []},
+            {"name": "broccoli", "object_type": "rigid", "tags": []},
+            {"name": "sweet_potato", "object_type": "rigid", "tags": []},
+        ],
     )
     tasks = make_task_catalog(
         "TASKS (2):\n"

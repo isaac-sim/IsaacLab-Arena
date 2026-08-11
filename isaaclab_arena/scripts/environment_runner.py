@@ -18,7 +18,7 @@ Run a registered environment:
 Run an environment graph spec:
 
     python isaaclab_arena/scripts/environment_runner.py \
-        --env_graph_spec_yaml isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+        --env_spec isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
 """
 
 from __future__ import annotations

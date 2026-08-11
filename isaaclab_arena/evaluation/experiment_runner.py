@@ -10,7 +10,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
+from isaaclab_arena.evaluation.arena_run import ArenaRunResult, build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
@@ -66,6 +67,27 @@ def _assert_exact_experiment_output_directory_is_available(experiment_output_dir
             f"Experiment output directory '{experiment_output_directory}' is not empty. Choose another directory,"
             " clear it, or use --output_base_dir to create a timestamped Experiment directory."
         )
+
+
+def _write_arena_experiment_result(
+    experiment_cfg: ArenaExperimentCfg,
+    run_results: list[ArenaRunResult],
+    experiment_output_directory: Path,
+) -> Path:
+    """Combine every Run's metadata and episode results into one Experiment JSON file."""
+    run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
+    assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
+    assert set(run_results_by_name) == set(
+        experiment_cfg.runs
+    ), "Experiment results must contain exactly the configured Runs"
+    run_metadata_by_name = {
+        run_name: {
+            **build_arena_run_result_metadata(run_cfg),
+            "status": run_results_by_name[run_name].status.value,
+        }
+        for run_name, run_cfg in experiment_cfg.runs.items()
+    }
+    return ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
 
 
 def main():
@@ -124,6 +146,8 @@ def main():
             device=args_cli.device,
             overrides=experiment_overrides,
         )
+        for run_name in experiment_cfg.runs:
+            ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
         metrics_logger = MetricsLogger()
 
@@ -132,19 +156,21 @@ def main():
         if args_cli.record_viewport_video:
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
 
-        results = execute_experiment(
+        run_results = execute_experiment(
             experiment_cfg,
             output_dir=experiment_output_directory,
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
         )
-        for result in results:
-            if result.metrics is not None:
-                metrics_logger.append_job_metrics(result.run_name, result.metrics)
+        for run_result in run_results:
+            if run_result.metrics is not None:
+                metrics_logger.append_job_metrics(run_result.run_name, run_result.metrics)
 
-        print(build_runs_info_table(experiment_cfg.runs.values(), results))
+        print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
         metrics_logger.print_metrics()
+
+        _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)

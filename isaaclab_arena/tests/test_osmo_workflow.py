@@ -7,6 +7,10 @@
 
 import pytest
 
+# submit_evaluation_workflow → server_plus_policy_runner_workflow → gr00t_server_task → gr00t;
+# the chain fails at collection time when gr00t is absent, so the whole module must be skipped.
+pytest.importorskip("gr00t")
+
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg

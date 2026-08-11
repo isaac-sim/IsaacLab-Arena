@@ -18,8 +18,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+from isaaclab_arena.tests.utils.markers import requires_gr00t
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
-from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.submit_arena_experiment import (
@@ -40,11 +40,18 @@ from osmo.tasks.experiment_runner_task import (
     ExperimentRunnerTask,
     ExperimentRunnerTaskCfg,
 )
-from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
+
+# Only the @requires_gr00t tests use these names (via _mixed_experiment_cfg), so
+# it is safe to skip the import when the gr00t submodule is not installed.
+try:
+    from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
+    from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
+except ImportError:
+    pass
 
 # Composing complete Arena Experiments loads Isaac runtime modules, so these tests
 # must not share a pytest process with the persistent SimulationApp tests.
@@ -245,6 +252,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
+    assert '"runs":%s' in experiment_runner_command
+    assert '"policy_variant": "pi05"' in experiment_runner_command
+    assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command
     assert "always report success to OSMO" in experiment_runner_command
     assert experiment_runner_command.endswith("exit 0\n")
@@ -279,6 +289,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
     assert "localpath" not in experiment_output_script_file
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
+    assert (
+        "from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult"
+        in experiment_output_script_file["contents"]
+    )
     assert EXPERIMENT_RUNNER_RESULT_FILE_NAME in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
@@ -290,6 +304,46 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "--experiment-output-directory" in experiment_output_command
     assert OSMO_TASK_OUTPUT_DIR in experiment_output_command
     assert rendered_workflow["workflow"]["resources"]["experiment-output"]["gpu"] == 0
+
+
+def test_default_output_url_publishes_experiment_to_default_bucket():
+    """Without an override, the collected Experiment output goes to the default per-workflow bucket."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="default-output"),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": DATASET_SWIFT_URL}]
+
+
+def test_output_url_override_publishes_experiment_to_custom_bucket():
+    """A configured ``output_url`` sets where the collected Experiment output is published."""
+    custom_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project/{{workflow_id}}"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="custom-output", output_url=custom_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["name"] == "collect-experiment-outputs"
+    assert experiment_output_task["outputs"] == [{"url": custom_output_url}]
+
+
+def test_output_url_override_allows_fixed_bucket_that_workflows_overwrite():
+    """A fixed ``output_url`` without ``{{workflow_id}}`` is allowed, so later workflows overwrite the same path."""
+    fixed_output_url = "swift://pdx.s8k.io/AUTH_team-isaac/custom_project"
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="fixed-output", output_url=fixed_output_url),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    experiment_output_task = groups[-1]["tasks"][0]
+    assert experiment_output_task["outputs"] == [{"url": fixed_output_url}]
 
 
 def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
@@ -308,6 +362,7 @@ def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
     assert "--policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos" in second_server_command
 
 
+@requires_gr00t
 def test_mixed_pi0_and_gr00t_experiment_fans_out_per_run_servers():
     """Derive one pi0 server and one GR00T server from a mixed Experiment; leave the local Run server-free."""
     workflow = ArenaExperimentWorkflow(
@@ -340,6 +395,7 @@ def test_mixed_pi0_and_gr00t_experiment_fans_out_per_run_servers():
     assert "remote_host" not in _embedded_experiment(local_tasks[0])["runs"]["local"]["policy"]
 
 
+@requires_gr00t
 def test_gr00t_cli_dry_run_renders_workflow(tmp_path, capsys):
     """Compose and render a derived GR00T Experiment submission through the real CLI parser."""
     experiment_path = tmp_path / "gr00t_experiment.yaml"
@@ -494,6 +550,38 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert "--policy.dir=gs://openpi-assets-simeval/pi0_droid_jointpos" in server_command
 
 
+def test_submission_resolves_shared_override_before_run_override(tmp_path):
+    """Apply shared Run defaults before a direct Run override."""
+    experiment_path = tmp_path / "shared_experiment.yaml"
+    experiment_path.write_text(
+        """shared:
+  rollout_limit:
+    num_steps: 1
+
+runs:
+  first:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+
+  second:
+    environment: {type: pick_and_place_maple_table}
+    policy: {type: zero_action}
+""",
+        encoding="utf-8",
+    )
+
+    submission_cfg = _compose_submission(
+        [
+            "experiment_cfg.shared.rollout_limit.num_steps=5",
+            "experiment_cfg.runs.second.rollout_limit.num_steps=7",
+        ],
+        experiment_path,
+    )
+
+    assert submission_cfg.experiment_cfg.runs["first"].rollout_limit.num_steps == 5
+    assert submission_cfg.experiment_cfg.runs["second"].rollout_limit.num_steps == 7
+
+
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep every single-Run OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = _compose_submission()
@@ -560,8 +648,7 @@ def test_embedded_graph_environment_experiment_composes_through_experiment_runne
     run_cfg = experiment_cfg.runs["graph_run"]
     assert isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg)
     assert (
-        run_cfg.environment.env_graph_spec_yaml_path
-        == "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
+        run_cfg.environment.env_spec_path == "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
     )
     assert run_cfg.environment.per_run_overrides == {"enable_cameras": True}
     assert run_cfg.environment_builder.num_envs == 4

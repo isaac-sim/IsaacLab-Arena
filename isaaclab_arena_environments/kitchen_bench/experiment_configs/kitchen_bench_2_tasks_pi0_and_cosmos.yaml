@@ -1,0 +1,52 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Runs two kitchen_bench tasks with both the OpenPI (pi0) and Cosmos policies (4 runs).
+runs:
+
+  droid_pick_and_place_lightwheel_kitchen_pi0:
+    environment: &droid_pick_and_place_lightwheel_kitchen_env
+      type: isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+      enable_cameras: true
+    policy: &openpi_policy
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+    environment_builder: &pi0_builder
+      num_envs: 25
+    rollout_limit:
+      num_episodes: 100
+
+  droid_pick_and_place_lightwheel_kitchen_cosmos:
+    environment: *droid_pick_and_place_lightwheel_kitchen_env
+    policy: &cosmos_policy
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+    environment_builder: &cosmos_builder
+      num_envs: 25
+    rollout_limit:
+      num_episodes: 100
+
+  replicator_kitchen_l_shape_banana_bowl_pi0:
+    environment: &replicator_kitchen_l_shape_banana_bowl_env
+      type: isaaclab_arena_environments/kitchen_bench/replicator_kitchen_l_shape_banana_bowl.yaml
+      enable_cameras: true
+    policy: *openpi_policy
+    environment_builder: *pi0_builder
+    rollout_limit:
+      num_episodes: 100
+
+  replicator_kitchen_l_shape_banana_bowl_cosmos:
+    environment: *replicator_kitchen_l_shape_banana_bowl_env
+    policy: *cosmos_policy
+    environment_builder: *cosmos_builder
+    rollout_limit:
+      num_episodes: 100

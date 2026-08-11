@@ -20,7 +20,7 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 class TaskBase(ABC):
 
-    DEFAULT_EPISODE_LENGTH_S: float = 20.0
+    DEFAULT_EPISODE_LENGTH_S: float = 70.0
 
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
         self.episode_length_s = episode_length_s if episode_length_s is not None else self.DEFAULT_EPISODE_LENGTH_S

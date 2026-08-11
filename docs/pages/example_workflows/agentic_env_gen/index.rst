@@ -6,7 +6,8 @@ prompts. It resolves the prompt into ``ArenaEnvGraphSpec`` by the agent, which s
 This spec is then used to compose the scene and build the environment.
 The environment can be used for policy evaluation.
 
-.. todo:: add concept overview page
+For the concept overview, see
+:doc:`Agentic Environment Generation <../../concepts/agentic_environment_generation/index>`.
 
 
 In this section, we will walk through the following example environment generation workflows to explain how to use this tool for your own tasks.
@@ -19,11 +20,11 @@ In this section, we will walk through the following example environment generati
 
 - Kitchen Pick and Place task
 
-  - :doc:`kitchen_pick_and_place`
+  - :doc:`kitchen_pick_and_place/index`
 
 - Kitchen Open/Close Door task
 
-  - :doc:`kitchen_open_door`
+  - :doc:`kitchen_open_door/index`
 
 .. _agentic-env-gen-prerequisites:
 
@@ -36,14 +37,50 @@ Every workflow in this section shares the same setup.
 
 :docker_run_default:
 
-The generation agent calls a remote LLM endpoint, so export your API key inside
-the container before launching the runner:
+See :doc:`../../concepts/agentic_environment_generation/index` for the system
+architecture and runner reference.
+
+The generation agent calls a remote LLM endpoint. Pick one and export its API key
+in the shell you launch the agentic environment generation runner from.
 
 .. code-block:: bash
 
-   export NV_API_KEY=<your-api-key>
+   # Publicly reachable build.nvidia.com endpoint (default)
+   export ARENA_INFERENCE_ENDPOINT=public
+   export NVIDIA_API_KEY=<your-ngc-api-key>
 
-.. todo:: add instructions for obtaining the NVIDIA-hosted service API key (internal and external)
+   # NVIDIA-internal endpoint
+   export ARENA_INFERENCE_ENDPOINT=internal
+   export NV_API_KEY=<your-internal-api-key>
+
+   # OpenAI API
+   export ARENA_INFERENCE_ENDPOINT=openai
+   export OPENAI_API_KEY=<your-openai-api-key>
+
+A single run can override the selection with
+``--inference_endpoint {internal,public,openai}``.
+
+Generate a key for the public endpoint at
+`build.nvidia.com API keys <https://build.nvidia.com/settings/api-keys>`_, and a key for the
+NVIDIA-internal endpoint at
+`inference.nvidia.com key management <https://inference.nvidia.com/key-management>`_
+(reachable from the NVIDIA network only).
+
+To use the direct OpenAI endpoint, create an OpenAI account, generate a secret at
+`OpenAI API keys <https://platform.openai.com/api-keys>`_, and configure payment or prepaid
+credits under
+`OpenAI billing <https://platform.openai.com/settings/organization/billing/overview>`_.
+OpenAI charges the account associated with the key according to its current API pricing and usage.
+Store the key securely and do not commit it to the repository.
+
+.. warning::
+   The ``openai`` endpoint connects directly to a third-party service operated by OpenAI, not
+   NVIDIA. Its availability, regional restrictions, data handling, pricing, and terms are
+   controlled by OpenAI. Review those terms before sending prompts or other data.
+
+Each endpoint calls a different model, and the generated environment changes with it. See
+:doc:`../../concepts/agentic_environment_generation/model_selection` for what the model decides,
+what Arena validates, and how to select the model.
 
 Available Generated Environments
 --------------------------------
@@ -53,8 +90,6 @@ RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
 ``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
 Each environment is generated from a natural-language prompt and can be used for policy evaluation.
-
-
 
 Warnings
 --------
@@ -76,6 +111,5 @@ Warnings
    tabletop_pnp_homogenous_object/index
    tabletop_pnp_heterogeneous_object/index
    tabletop_pnp_composite_task/index
-   kitchen_pick_and_place
-   kitchen_open_door
-   gui_runner
+   kitchen_pick_and_place/index
+   kitchen_open_door/index

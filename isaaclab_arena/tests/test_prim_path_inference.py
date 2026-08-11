@@ -12,9 +12,15 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference, _prim_tree_catalog
+from isaaclab_arena.agentic_environment_generation.prim_path_inference import (
+    PrimPathInference,
+    _enforce_object_reference_types,
+    _prim_tree_catalog,
+    _validate_against_prim_tree,
+)
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,
     inference_backend,
@@ -35,6 +41,69 @@ def test_prim_tree_catalog_nested_format():
         _prim_tree_catalog(tree)
         == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n  corpus (rigid)\n    back (base)"
     )
+
+
+@pytest.mark.parametrize("prim_type", list(ObjectType))
+def test_validate_against_prim_tree_allows_base_reference_to_any_prim_type(prim_type):
+    reference = ObjectReferenceSpec(
+        id="target",
+        parent_id="background",
+        prim_path="target",
+        object_type=ObjectType.BASE,
+    )
+    _validate_against_prim_tree([reference], [UsdPrimRecord("target", prim_type)])
+
+
+@pytest.mark.parametrize(
+    ("reference_type", "prim_type"),
+    [
+        (ObjectType.RIGID, ObjectType.BASE),
+        (ObjectType.RIGID, ObjectType.ARTICULATION),
+        (ObjectType.ARTICULATION, ObjectType.BASE),
+        (ObjectType.ARTICULATION, ObjectType.RIGID),
+    ],
+)
+def test_validate_against_prim_tree_rejects_non_base_type_mismatch(reference_type, prim_type):
+    reference = ObjectReferenceSpec(
+        id="target",
+        parent_id="background",
+        prim_path="target",
+        object_type=reference_type,
+    )
+    with pytest.raises(AssertionError, match="does not match prim tree"):
+        _validate_against_prim_tree([reference], [UsdPrimRecord("target", prim_type)])
+
+
+def test_enforce_object_reference_types_uses_task_roles(capsys):
+    data = kitchen_pass1_dict()
+    references = {reference["id"]: reference for reference in data["object_references"]}
+    references["counter_top"]["object_type"] = "articulation"
+    references["fridge"]["object_type"] = "rigid"
+    data["object_references"].append({
+        "id": "floor",
+        "parent_id": "lightwheel_robocasa_kitchen",
+        "object_type": "rigid",
+    })
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "counter_top"
+    spec = ArenaEnvGraphSpec.model_validate(data)
+
+    updated = _enforce_object_reference_types(spec)
+
+    types = {reference.id: reference.object_type for reference in updated.object_references}
+    assert types == {
+        "counter_top": ObjectType.RIGID,
+        "fridge": ObjectType.ARTICULATION,
+        "floor": ObjectType.BASE,
+    }
+    assert {reference.id: reference.object_type for reference in spec.object_references} == {
+        "counter_top": ObjectType.ARTICULATION,
+        "fridge": ObjectType.RIGID,
+        "floor": ObjectType.RIGID,
+    }
+    output = capsys.readouterr().out
+    assert "'counter_top' type 'articulation' -> 'rigid'" in output
+    assert "'fridge' type 'rigid' -> 'articulation'" in output
+    assert "'floor' type 'rigid' -> 'base'" in output
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")

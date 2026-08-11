@@ -26,6 +26,10 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
+    episode_length_s: float = 70.0
+
+    def __post_init__(self) -> None:
+        assert self.episode_length_s > 0.0, "episode_length_s must be greater than zero"
 
 
 @register_environment
@@ -99,7 +103,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,
-            episode_length_s=20.0,
+            episode_length_s=cfg.episode_length_s,
         )
 
         # Set viewport camera to match the robolab droid view
@@ -121,5 +125,5 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
-        # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
+        # Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)

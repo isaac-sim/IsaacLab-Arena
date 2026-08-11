@@ -300,8 +300,10 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Getting Started
 
-   pages/quickstart/first_arena_env
-   pages/quickstart/first_experiments/index
+   pages/quickstart/arena_env
+   pages/quickstart/arena_experiment
+   pages/quickstart/environment_variations
+   pages/quickstart/running_a_real_policy/index
 
 .. toctree::
    :maxdepth: 2
@@ -314,22 +316,23 @@ TABLE OF CONTENTS
    :caption: Example Workflows
 
    pages/example_workflows/example_environments
+   pages/example_workflows/analysis/index
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
    pages/example_workflows/agentic_env_gen/index
-   pages/example_workflows/sensitivity_analysis/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Concepts
 
-   pages/concepts/concept_overview
-   pages/concepts/concept_environment_compilation
+   pages/concepts/environment/index
+   pages/concepts/agentic_environment_generation/index
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index
    pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
+   pages/concepts/concept_arena_experiments
    pages/concepts/variations/index
    pages/concepts/concept_sensitivity_analysis
 

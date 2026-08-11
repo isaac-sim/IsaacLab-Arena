@@ -14,4 +14,4 @@ task:
       pick_up_object: marker
       destination_location: ceramic_mug
       background_scene: maple_table_robolab
-      episode_length_s: 20.0
+      episode_length_s: 70.0

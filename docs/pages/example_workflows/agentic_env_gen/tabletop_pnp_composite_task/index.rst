@@ -7,7 +7,7 @@ for **pick and place composite task with SimReady assets** on a table-top scene.
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/tabletop_agentic_env_cans_simready.png
+.. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_cans_simready.png
    :width: 100%
    :alt: Generated table-top pick and place composite task shown in the agentic environment-generation GUI.
    :align: center
@@ -33,8 +33,9 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup shared by
-every agentic environment-generation workflow.
+See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
+The spec shown here depends on the model behind that endpoint — see
+:doc:`../../../concepts/agentic_environment_generation/model_selection`.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

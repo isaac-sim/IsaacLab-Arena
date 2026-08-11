@@ -8,9 +8,17 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from typing import Any
 
+from isaaclab_arena.agentic_environment_generation.catalogues import (
+    AssetCatalogue,
+    RelationCatalogue,
+    TaskCatalogue,
+    build_asset_catalogue,
+    build_relation_catalogue,
+    build_task_catalogue,
+)
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
@@ -19,17 +27,10 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     search_simready_objects,
 )
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
-from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.relations.relations import RelationBase
 
 _logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Environment generation agent
-# ---------------------------------------------------------------------------
 
 
 class EnvironmentGenerationAgent:
@@ -43,6 +44,7 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        endpoint: str | None = None,
         *,
         enable_simready_search: bool = False,
         simready_config: SimReadySearchConfig | None = None,
@@ -50,8 +52,8 @@ class EnvironmentGenerationAgent:
         """Configure the OpenAI-compatible client and validate the model.
 
         Args:
-            api_key: API token for the inference endpoint. Falls back
-                to the ``NV_API_KEY`` environment variable.
+            api_key: API token for the inference endpoint. Falls back to the environment
+                variable the selected endpoint reads.
             model: Model identifier at the inference endpoint.
                 Must support OpenAI-compatible structured outputs.
             base_url: OpenAI-compatible inference endpoint.
@@ -63,6 +65,8 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
+            endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
+                Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
             enable_simready_search: When ``True``, search SimReady for objects the asset catalog
                 does not cover.
             simready_config: Optional SimReady search configuration.
@@ -74,6 +78,7 @@ class EnvironmentGenerationAgent:
             temperature=temperature,
             max_tokens=max_tokens,
             max_retries=max_retries,
+            endpoint=endpoint,
         )
         self.spec_inference = SpecInference(inference_backend)
         self.missing_object_inference = MissingObjectInference(inference_backend)
@@ -216,175 +221,3 @@ class EnvironmentGenerationAgent:
             self._simready_usd_paths[asset_cls.name] = candidate.usd_path
             _logger.info("catalogued %r for %r: %s", asset_cls.name, candidate.search_phrase, candidate.usd_path)
         return extended
-
-
-# ---------------------------------------------------------------------------
-# Asset catalogue (AssetRegistry → user-prompt blocks)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class AssetCatalogue:
-    """Registered asset vocabulary grouped for the agent prompt."""
-
-    # A list of embodiment names and their tags for agent to choose from.
-    embodiments: list[dict[str, Any]] = field(default_factory=list)
-    # A list of background names and their tags for agent to choose from.
-    backgrounds: list[dict[str, Any]] = field(default_factory=list)
-    # A list of object names, object types, and tags for agent to choose from.
-    objects: list[dict[str, Any]] = field(default_factory=list)
-
-    def to_catalog_string(self) -> str:
-        """Format this catalogue as the user-message vocabulary block."""
-        embodiment_lines = "\n".join(
-            f"- {e['name']}  tags={e['tags']}" for e in sorted(self.embodiments, key=lambda e: e["name"])
-        )
-        background_lines = "\n".join(
-            f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
-        )
-        object_lines = "\n".join(
-            f"- {o['name']}  type={o['object_type']}  tags={o['tags']}"
-            for o in sorted(self.objects, key=lambda o: o["name"])
-        )
-        return (
-            f"EMBODIMENTS ({len(self.embodiments)}):\n{embodiment_lines}\n\n"
-            f"BACKGROUNDS ({len(self.backgrounds)}):\n{background_lines}\n\n"
-            f"OBJECTS ({len(self.objects)}):\n{object_lines}"
-        )
-
-
-def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalogue:
-    """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
-    registry = registry or AssetRegistry()
-    catalogue = AssetCatalogue()
-    # TODO(qianl): handle optional lights and hdr images.
-    # TODO(qianl): add tag to filter out validated/agent-ready assets only.
-    # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
-    # types pulls in pxr before SimulationApp and breaks unit tests.
-    for name in registry.get_all_keys():
-        cls = registry.get_asset_by_name(name)
-        tags = getattr(cls, "tags", None) or []
-        if "embodiment" in tags:
-            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
-        elif "background" in tags:
-            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
-        # Only assets existed in the catalogue are exposed.
-        elif "object" in tags:
-            # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
-            object_type = getattr(cls, "object_type", None)
-            catalogue.objects.append({
-                "name": name,
-                "tags": [t for t in tags if t != "object"],
-                "object_type": object_type.value if object_type else "unknown",
-            })
-    return catalogue
-
-
-# ---------------------------------------------------------------------------
-# Relation catalogue (ObjectRelationLibraryRegistry → user-prompt blocks)
-# ---------------------------------------------------------------------------
-
-
-def _first_docstring_line(cls: type) -> str:
-    doc = cls.__doc__ or ""
-    for line in doc.splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""
-
-
-@dataclass
-class RelationCatalogueEntry:
-    """One registered spatial relation exposed to the agent."""
-
-    name: str
-    unary: bool
-    summary: str
-
-
-@dataclass
-class RelationCatalogue:
-    """Registered object-relation vocabulary for the agent prompt."""
-
-    relations: list[RelationCatalogueEntry] = field(default_factory=list)
-
-    def to_catalog_string(self) -> str:
-        """Format this catalogue as the user-message RELATIONS block."""
-        lines = []
-        for entry in sorted(self.relations, key=lambda r: r.name):
-            arity = "unary" if entry.unary else "binary"
-            lines.append(f"- {entry.name} ({arity}): {entry.summary}")
-        return f"RELATIONS ({len(self.relations)}):\n" + "\n".join(lines)
-
-
-def build_relation_catalogue(
-    registry: ObjectRelationLibraryRegistry | None = None,
-) -> RelationCatalogue:
-    """Collect registered object relations from ``ObjectRelationLibraryRegistry``."""
-    registry = registry or ObjectRelationLibraryRegistry()
-    catalogue = RelationCatalogue()
-    for name in registry.get_all_keys():
-        relation_cls = registry.get_object_relation_by_name(name)
-        assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
-        catalogue.relations.append(
-            RelationCatalogueEntry(
-                name=name,
-                unary=relation_cls.is_unary(),
-                summary=_first_docstring_line(relation_cls),
-            )
-        )
-    return catalogue
-
-
-# ---------------------------------------------------------------------------
-# Task catalogue (TaskRegistry → user-prompt blocks)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class TaskCatalogueEntry:
-    """One agent_ready task exposed to the agent."""
-
-    name: str
-    required_params: list[str]
-    summary: str
-
-
-@dataclass
-class TaskCatalogue:
-    """Agent-ready task vocabulary for the agent prompt."""
-
-    tasks: list[TaskCatalogueEntry] = field(default_factory=list)
-
-    def to_catalog_string(self) -> str:
-        """Format this catalogue as the user-message TASKS block."""
-        lines = []
-        for entry in sorted(self.tasks, key=lambda t: t.name):
-            params = ", ".join(entry.required_params)
-            lines.append(f"- {entry.name} ({params}): {entry.summary}")
-        return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
-
-
-def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[str]:
-    """Return ``TaskRegistry`` keys for tasks marked with ``@agent_ready``."""
-    registry = registry or TaskRegistry()
-    return frozenset(
-        name for name in registry.get_all_keys() if getattr(registry.get_task_by_name(name), "agent_ready", False)
-    )
-
-
-def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect agent_ready tasks from ``TaskRegistry``."""
-    registry = registry or TaskRegistry()
-    catalogue = TaskCatalogue()
-    for name in sorted(agent_ready_task_names(registry)):
-        task_cls = registry.get_task_by_name(name)
-        catalogue.tasks.append(
-            TaskCatalogueEntry(
-                name=name,
-                required_params=required_task_init_param_names(task_cls),
-                summary=_first_docstring_line(task_cls),
-            )
-        )
-    return catalogue

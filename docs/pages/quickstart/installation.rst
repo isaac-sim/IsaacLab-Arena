@@ -95,6 +95,13 @@ pinned by the committed lockfile.
    the activated environment rather than through ``uv run`` — a bare
    ``uv run`` re-syncs the environment back to the source flavor.
 
+.. note::
+   Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
+   package, so :doc:`cuRobo-based reachability validation
+   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
+   is not available. Use the Docker workflow with ``./docker/run_docker.sh -c``
+   instead.
+
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
 .. code-block:: bash
@@ -127,7 +134,7 @@ the Docker workflow runs below):
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
-see :doc:`first_arena_env`.
+see :doc:`arena_env`.
 
 
 Installation via Docker
@@ -153,6 +160,12 @@ installation options.
 
 The container will build (if needed) and drop you into an interactive shell.
 
+For :doc:`cuRobo-based reachability validation
+</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
+instead (native ``uv`` installs do not support this check):
+
+:docker_run_curobo:
+
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:
 
@@ -174,4 +187,4 @@ The container will build (if needed) and drop you into an interactive shell.
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your
-first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
+first IsaacLab-Arena Environment. See :doc:`arena_env` to get started.

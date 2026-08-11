@@ -72,7 +72,7 @@ relations:
     distance_m: 0.1
 task:
   composition: atomic
-  description: pick up the bowl from the sink counter and place it in the sink
+  description: pick up the bowl and place it in the sink
   subtasks:
   - kind: PickAndPlaceTask
     params:
