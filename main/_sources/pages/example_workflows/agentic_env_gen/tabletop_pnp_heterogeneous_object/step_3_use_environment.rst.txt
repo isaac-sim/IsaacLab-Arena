@@ -42,6 +42,12 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
 
    .. tab-item:: Policy evaluation with reachability validation (cuRobo)
 
+      .. note::
+         Reachability validation runs only in the cuRobo-installed Docker container
+         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
+         install — see :doc:`../../../quickstart/installation` and
+         :ref:`ik-reachable-check`.
+
       If you want to ensure the robot can reach the target objects (i.e. fruit and bowl), you can use this
       environment in the cuRobo-installed docker container to activate the reachability validation.
 

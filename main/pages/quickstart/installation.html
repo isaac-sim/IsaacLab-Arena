@@ -652,6 +652,13 @@ one replaces the other. In the wheel flavor, run <code class="docutils literal n
 the activated environment rather than through <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> — a bare
 <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> re-syncs the environment back to the source flavor.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Native <code class="docutils literal notranslate"><span class="pre">uv</span></code> installs do not include the optional <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_curobo</span></code>
+package, so <a class="reference internal" href="../concepts/object_placement/validation.html"><span class="doc">cuRobo-based reachability validation</span></a> (the <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> check)
+is not available. Use the Docker workflow with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span> <span class="pre">-c</span></code>
+instead.</p>
+</div>
 <p>Accept the Isaac Sim EULA so the first launch is non-interactive:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
 </pre></div>
@@ -699,6 +706,11 @@ installation options.</p>
 </pre></div>
 </div>
 <p>The container will build (if needed) and drop you into an interactive shell.</p>
+<p>For <a class="reference internal" href="../concepts/object_placement/validation.html"><span class="doc">cuRobo-based reachability validation</span></a>, launch with the <code class="docutils literal notranslate"><span class="pre">-c</span></code> flag
+instead (native <code class="docutils literal notranslate"><span class="pre">uv</span></code> installs do not support this check):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-c
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The run docker script mounts the following directories from the host machine if they exist:</p>

@@ -593,6 +593,13 @@ Policy evaluation (base)</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Policy evaluation with reachability validation (cuRobo)</label><div class="sd-tab-content docutils">
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Reachability validation runs only in the cuRobo-installed Docker container
+(<code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span> <span class="pre">-c</span></code>). It is not available with a native <code class="docutils literal notranslate"><span class="pre">uv</span></code>
+install — see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> and
+<a class="reference internal" href="../../../concepts/object_placement/validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a>.</p>
+</div>
 <p>If you want to ensure the robot can reach the target objects (i.e. fruit and bowl), you can use this
 environment in the cuRobo-installed docker container to activate the reachability validation.</p>
 <p><strong>Docker Container</strong>: Curobo-installed Base (see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
