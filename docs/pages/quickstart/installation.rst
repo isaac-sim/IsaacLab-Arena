@@ -11,7 +11,9 @@ or from source inside a Docker container.
      - Evaluation
      - Imitation learning
      - Reinforcement learning
+     - Agentic environment generation
    * - Docker
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -19,10 +21,12 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
+     - ✓
    * - uv (Isaac Lab from wheel)
      - ✓
      - ✗
      - ✗
+     - ✓
 
 Supported Systems
 -----------------
@@ -65,14 +69,14 @@ workflow:
 
       .. code-block:: bash
 
-          uv sync
+          uv sync --extra dev
           source .venv/bin/activate
 
    .. tab-item:: Wheel
 
       .. code-block:: bash
 
-          uv sync --no-default-groups --group isaaclab-from-wheel
+          uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
           source .venv/bin/activate
 
       .. note::
@@ -87,7 +91,10 @@ workflow:
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
 ``submodules/IsaacLab`` in the source flavor, or from the published wheel),
 and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
-pinned by the committed lockfile.
+pinned by the committed lockfile. The ``dev`` extra installs the Streamlit and
+SimReady search dependencies used by the
+:doc:`agentic environment generation workflow
+</pages/concepts/agentic_environment_generation/index>`.
 
 .. note::
    The two flavors are mutually exclusive within the single ``.venv``: syncing
