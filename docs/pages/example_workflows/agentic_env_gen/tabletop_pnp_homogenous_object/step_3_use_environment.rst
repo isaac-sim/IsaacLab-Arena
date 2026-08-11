@@ -7,7 +7,7 @@ gates object placement on whether the robot can reach the target objects.
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
-:doc:`Running a Real Policy <../../../quickstart/first_experiments/running_a_real_policy/index>`.
+:doc:`Running a Real Policy <../../../quickstart/running_a_real_policy/index>`.
 
 Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:
 
