@@ -63,7 +63,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
-      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
+      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:
 
       .. code-block:: text
 
