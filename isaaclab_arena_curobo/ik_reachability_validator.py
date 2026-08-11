@@ -151,7 +151,7 @@ class ReachabilityValidator(PlacementValidator):
         }
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
-        robot_base_pose_w = self._resolve_robot_base_pose(world_poses)
+        robot_base_pose_w = world_poses.get(self._embodiment, self._configured_robot_base_pose_w)
         # The robot's own body is not an obstacle: cuRobo already carries it as collision spheres.
         cuboid_per_object = {
             obj: get_aabb_collision_cuboid_for_object(
@@ -238,14 +238,6 @@ class ReachabilityValidator(PlacementValidator):
             rotation_error=torch.cat([ik.rotation_error for ik in per_target]),
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
-
-    def _resolve_robot_base_pose(self, world_poses: dict[ObjectBase, Pose]) -> Pose:
-        """World pose of the robot base under one layout.
-
-        The robot is a placement asset like any other when it carries relations, so a layout that moves it
-        must be checked from where it stands there; otherwise it keeps its configured pose.
-        """
-        return world_poses.get(self._embodiment, self._configured_robot_base_pose_w)
 
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
