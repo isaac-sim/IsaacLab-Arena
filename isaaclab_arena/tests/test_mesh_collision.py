@@ -828,7 +828,7 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
 
     losses = solver.last_loss_per_env
     assert losses[1].item() > losses[0].item()
-    assert solver._last_no_overlap_pair_count > 0
+    assert solver.last_no_overlap_pair_count > 0
 
 
 @requires_warp
@@ -1187,7 +1187,8 @@ def test_mesh_mode_queries_aabb_subject_against_mesh_background():
         for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
     )
     assert solver.last_loss_per_env[0].item() > 0.0
-    assert solver._last_no_overlap_pair_count == 0
+    assert solver.last_aabb_no_overlap_pair_count == 0
+    assert solver.last_mesh_no_overlap_pair_count > 0
 
 
 @requires_warp
@@ -1244,7 +1245,8 @@ def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
         subject is aabb_box and obstacle is mesh_box
         for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
     )
-    assert solver._last_no_overlap_pair_count == 0
+    assert solver.last_aabb_no_overlap_pair_count == 0
+    assert solver.last_mesh_no_overlap_pair_count > 0
 
 
 @requires_warp

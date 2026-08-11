@@ -53,7 +53,8 @@ class RelationSolver:
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
-        self._last_no_overlap_pair_count: int = 0
+        self._last_aabb_no_overlap_pair_count = 0
+        self._last_mesh_no_overlap_pair_count = 0
         self._mesh_orientations: list[dict[PlaceableAsset, float]] | None = None
         self._warned_no_mesh: set[str] = set()
         self._mesh_manager: WarpMeshAndSphereCache | None = None
@@ -150,6 +151,7 @@ class RelationSolver:
         """
         if self._mesh_collision_enabled:
             assert self._mesh_manager is not None, "MESH collision requires a mesh manager."
+            self._last_mesh_no_overlap_pair_count = self._mesh_cache.num_pairs if self._mesh_cache is not None else 0
             mesh_loss = compute_no_overlap_loss_mesh(
                 state,
                 self._mesh_cache,
@@ -168,8 +170,9 @@ class RelationSolver:
                 skip_mesh_pairs=True,
                 debug=debug,
             )
-            self._last_no_overlap_pair_count = n
+            self._last_aabb_no_overlap_pair_count = n
             return mesh_loss + aabb_loss
+        self._last_mesh_no_overlap_pair_count = 0
         loss, n = compute_no_overlap_loss_aabb(
             state,
             self._no_collision_strategy,
@@ -178,7 +181,7 @@ class RelationSolver:
             self.params.collision_mode,
             debug=debug,
         )
-        self._last_no_overlap_pair_count = n
+        self._last_aabb_no_overlap_pair_count = n
         return loss
 
     def solve(
@@ -214,6 +217,8 @@ class RelationSolver:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
+        self._last_aabb_no_overlap_pair_count = 0
+        self._last_mesh_no_overlap_pair_count = 0
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
@@ -291,6 +296,12 @@ class RelationSolver:
             loss = self._compute_total_loss(state)
             loss_history.append(loss.item())
 
+            assert self._last_loss_per_env is not None
+            if self._last_loss_per_env.max().item() < self.params.convergence_threshold:
+                if self.params.verbose:
+                    print(f"Converged at iteration {iter}")
+                break
+
             # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
@@ -299,11 +310,9 @@ class RelationSolver:
             if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
 
-            # Check convergence
-            if loss.item() < self.params.convergence_threshold:
-                if self.params.verbose:
-                    print(f"Converged at iteration {iter}")
-                break
+        # The loop records loss before optimizer.step(); refresh per-env loss for the returned positions.
+        with torch.no_grad():
+            self._compute_total_loss(state)
 
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -313,7 +322,8 @@ class RelationSolver:
             position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose and loss_history:
-            print(f"\nFinal loss: {loss_history[-1]:.6f}")
+            assert self._last_loss_per_env is not None
+            print(f"\nFinal loss: {self._last_loss_per_env.mean().item():.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
         if self.params.profile and loss_history:
@@ -322,7 +332,7 @@ class RelationSolver:
                 f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
                 f" | batch={state.batch_size}"
                 f" | objects={len(state.optimizable_objects)} optimizable + {len(state.anchor_objects)} anchors"
-                f" | no-overlap pairs={self._last_no_overlap_pair_count}"
+                f" | no-overlap pairs={self.last_no_overlap_pair_count}"
                 f" | iters={iters_run} ({solve_elapsed_ms / iters_run:.2f} ms/iter)"
             )
 
@@ -355,8 +365,18 @@ class RelationSolver:
 
     @property
     def last_no_overlap_pair_count(self) -> int:
-        """Directed no-overlap pair count from the most recent solve() call."""
-        return self._last_no_overlap_pair_count
+        """Total directed AABB and mesh pairs from the most recent solve."""
+        return self._last_aabb_no_overlap_pair_count + self._last_mesh_no_overlap_pair_count
+
+    @property
+    def last_aabb_no_overlap_pair_count(self) -> int:
+        """Directed AABB pairs from the most recent solve."""
+        return self._last_aabb_no_overlap_pair_count
+
+    @property
+    def last_mesh_no_overlap_pair_count(self) -> int:
+        """Directed sphere-to-mesh pairs from the most recent solve."""
+        return self._last_mesh_no_overlap_pair_count
 
     def debug_losses(self, objects: list[PlaceableAsset]) -> None:
         """Print detailed loss breakdown for all relations using final positions.

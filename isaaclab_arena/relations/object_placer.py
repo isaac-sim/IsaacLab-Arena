@@ -765,5 +765,15 @@ class ObjectPlacer:
 
     @property
     def last_no_overlap_pair_count(self) -> int:
-        """Directed no-overlap pair count from the most recent place() call."""
+        """Total directed AABB and mesh pairs from the most recent placement."""
         return self._solver.last_no_overlap_pair_count
+
+    @property
+    def last_aabb_no_overlap_pair_count(self) -> int:
+        """Directed AABB pairs from the most recent placement."""
+        return self._solver.last_aabb_no_overlap_pair_count
+
+    @property
+    def last_mesh_no_overlap_pair_count(self) -> int:
+        """Directed sphere-to-mesh pairs from the most recent placement."""
+        return self._solver.last_mesh_no_overlap_pair_count
