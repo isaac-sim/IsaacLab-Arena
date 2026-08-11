@@ -81,5 +81,6 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
    :alt: PI policy controlling DROID for mustard-bottle pick and place in the kitchen
    :align: center
 
-   PI controls DROID to pick up the mustard bottle and place it in the bowl in
-   the agentically generated kitchen environment.
+   Policy evaluation of the generated kitchen environment using the OpenPI
+   policy with reachability validation. The robot picks up the mustard bottle
+   and places it into the bowl.
