@@ -127,7 +127,7 @@ the Docker workflow runs below):
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
-see :doc:`first_arena_env`.
+see :doc:`arena_env`.
 
 
 Installation via Docker
@@ -174,4 +174,4 @@ The container will build (if needed) and drop you into an interactive shell.
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your
-first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
+first IsaacLab-Arena Environment. See :doc:`arena_env` to get started.

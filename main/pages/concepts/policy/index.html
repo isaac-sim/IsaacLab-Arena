@@ -54,7 +54,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Evaluation Types" href="concept_evaluation_types.html" />
+    <link rel="next" title="Arena Experiments" href="../concept_arena_experiments.html" />
     <link rel="prev" title="Homogeneous and Heterogeneous Object Placement" href="../object_placement/homogeneous_and_heterogeneous_placement.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -337,15 +337,13 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/openpi.html">OpenPi</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/gr00t.html">GR00T</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/dreamzero.html">DreamZero</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/dreamzero.html">DreamZero</a></li>
 </ul>
 </details></li>
 </ul>
@@ -482,10 +480,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Policy</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="concept_evaluation_types.html">Evaluation Types</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Policy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_arena_experiments.html">Arena Experiments</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../variations/variations.html">Variations</a></li>
 </ul>
@@ -619,7 +615,7 @@ its accompanying <code class="docutils literal notranslate"><span class="pre">pa
 <p>The typed registration lets the single-job runner generate CLI flags from
 <code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code> and lets the Experiment Runner convert the current
 <code class="docutils literal notranslate"><span class="pre">Job.policy_config_dict</span></code> representation into that same type. See
-<a class="reference internal" href="concept_evaluation_types.html"><span class="doc">Evaluation Types</span></a> for details.</p>
+<a class="reference internal" href="../concept_arena_experiments.html"><span class="doc">Arena Experiments</span></a> for details.</p>
 <p>Config fields named <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.</p>
 <div class="admonition note">
@@ -627,14 +623,6 @@ runner flags, so their defaults must match the runner defaults.</p>
 <p><code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> remains an argparse frontend, but policies do not
 implement argparse methods. The runner generates their flags from the
 registered config and reconstructs it before creating the policy.</p>
-</div>
-</section>
-<section id="more-details">
-<h2>More details<a class="headerlink" href="#more-details" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="concept_evaluation_types.html">Evaluation Types</a></li>
-</ul>
 </div>
 </section>
 </section>
@@ -659,11 +647,11 @@ registered config and reconstructs it before creating the policy.</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_evaluation_types.html"
+       href="../concept_arena_experiments.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Evaluation Types</p>
+        <p class="prev-next-title">Arena Experiments</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -690,7 +678,6 @@ registered config and reconstructs it before creating the policy.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-policies">Built-in policies</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#writing-a-custom-policy">Writing a custom policy</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#more-details">More details</a></li>
 </ul>
   </nav></div>
 

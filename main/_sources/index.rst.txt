@@ -300,8 +300,10 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Getting Started
 
-   pages/quickstart/first_arena_env
-   pages/quickstart/first_experiments/index
+   pages/quickstart/arena_env
+   pages/quickstart/arena_experiment
+   pages/quickstart/environment_variations
+   pages/quickstart/running_a_real_policy/index
 
 .. toctree::
    :maxdepth: 2
@@ -329,6 +331,7 @@ TABLE OF CONTENTS
    pages/concepts/embodiment/index
    pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
+   pages/concepts/concept_arena_experiments
    pages/concepts/variations/index
    pages/concepts/concept_sensitivity_analysis
 

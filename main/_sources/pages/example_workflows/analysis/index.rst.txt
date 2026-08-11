@@ -24,7 +24,7 @@ In another terminal on the host, start the OpenPI server from the repository roo
 Leave the server running while you complete the evaluation workflow. You can stop it before
 starting Sensitivity Analysis, which reads the saved episode results directly. For installation,
 model variants, and server options, see
-:doc:`../../quickstart/first_experiments/running_a_real_policy/openpi`.
+:doc:`../../quickstart/running_a_real_policy/openpi`.
 
 In the Base Docker container, create the output directory used throughout this walkthrough:
 

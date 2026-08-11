@@ -637,7 +637,7 @@ See Also
 --------
 
 - :doc:`../concepts/environment/index` — the Scene / Embodiment / Task building blocks used by every environment listed here.
-- :doc:`../quickstart/first_arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
+- :doc:`../quickstart/arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
 - :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
 
 .. toctree::

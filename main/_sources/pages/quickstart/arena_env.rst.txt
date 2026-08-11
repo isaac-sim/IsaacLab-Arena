@@ -38,8 +38,9 @@ Keeping these parts separate makes the environment reusable. We can replace the 
 a mustard bottle, choose a different destination or background, or use another compatible robot
 without rewriting the task.
 
-The following examples run the same environment definition with different choices. First, we run
-the reference scene. Then we replace the objects and change the background.
+The following examples reuse the same environment definition. First, we inspect the reference
+scene. Then we replace the objects and change the background. The final visual previews 64 copies
+of the scene running in parallel, which you will launch on the next page.
 
 
 .. _swapping-environment-components:
@@ -47,8 +48,10 @@ the reference scene. Then we replace the objects and change the background.
 Run the Environment
 -------------------
 
-The examples use the zero-action policy, which keeps the robot still while you inspect the scene.
-No model weights are required.
+For this first look, the **Environment Runner** opens one environment in Kit and applies zero
+actions, so no policy or model weights are required. It keeps running until you close Kit or press
+``Ctrl-C``. While it runs, hold ``Shift`` and left-drag an object to move it and inspect its physical
+behavior.
 
 Start or enter the Base Docker container from the repository root:
 
@@ -62,15 +65,21 @@ Run the environment with a Rubik's cube, bowl, and home-office background:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab \
      --hdr home_office_robolab
+
+.. figure:: ../../images/default_srl_pnp.png
+   :width: 100%
+   :alt: Reference DROID pick-and-place environment with a Rubik's cube and bowl
+   :align: center
+
+   The reference scene opened in Kit.
+
+Close Kit before starting the next example.
 
 
 Swap the objects
@@ -80,10 +89,7 @@ Keep the same environment and task, but replace the pick-up object and destinati
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object mustard_bottle_hot3d_robolab \
@@ -105,10 +111,7 @@ Keep the original objects, but select a different background panorama and ambien
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type zero_action \
-     --num_steps 50 \
+   python isaaclab_arena/scripts/environment_runner.py \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
@@ -122,11 +125,26 @@ Keep the original objects, but select a different background panorama and ambien
 
    The same environment definition with a different background panorama.
 
+
+Preview parallel environments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Environment Runner is limited to one interactive environment. On the next page, the
+Experiment Runner creates 64 copies of the reference scene that step together on the GPU. This is
+what that setup looks like:
+
+.. figure:: ../../images/scale_up.gif
+   :width: 100%
+   :alt: Running 64 copies of the pick-and-place environment in parallel
+   :align: center
+
+   The reference scene scaled from one environment to 64 parallel environments.
+
 .. note::
 
-   These commands make explicit choices for each run. Arena *variations*, introduced on the next
-   page, instead choose values automatically when an environment is built or reset and record
-   every sampled value.
+   The three commands above make explicit choices for each launch. On the next page, those choices
+   and the parallel setup become four named Runs in one YAML file. Later, Arena *variations* will
+   choose and record values automatically when an environment is built or reset.
 
 
 How the Environment Is Assembled
@@ -165,8 +183,7 @@ For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 Next Steps
 ----------
 
-Continue to :doc:`first_experiments/exploring_variations` to let Arena sample controlled changes
-automatically.
+Continue to :doc:`arena_experiment` to execute several named Runs from one YAML file.
 
 
 Using IsaacLab-Arena in Your Own Repository

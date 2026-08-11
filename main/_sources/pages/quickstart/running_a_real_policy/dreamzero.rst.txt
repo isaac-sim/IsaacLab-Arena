@@ -9,8 +9,8 @@ DreamZero is a World Action Model with a checkpoint fine-tuned on DROID
   DreamZero requires quite a large amount of GPU memory and therefore we provide tools to run this model remotely using OSMO.
 
 The setup uses two terminals: the **DreamZero server** (terminal 1, hosts the model remotely on OSMO)
-and the **arena policy runner** (terminal 2, runs the simulation and sends
-observations / receives actions over WebSocket + MessagePack).
+and the **Arena Experiment Runner** (terminal 2, runs the simulation and exchanges observations
+and actions with the server).
 
 Terminal 1 — DreamZero server
 ------------------------------
@@ -46,36 +46,36 @@ This produces ``nvcr.io/nvidian/dreamzero_inference_server:<tag>`` with the
        --set port=5000
 
 The job starts the WebSocket inference server on the requested port using a single H100
-GPU. Once the job is running, find its IP from the OSMO job logs; you will pass it to the
-policy as ``--dreamzero_host`` below.
+GPU. Once the job is running, find its IP in the OSMO job logs. You will pass it to the
+runner below.
 
-Terminal 2 — arena policy runner
-----------------------------------
+Terminal 2 — Experiment Runner
+------------------------------
+
+Arena includes a one-Run YAML configuration. It selects the environment, the DreamZero policy,
+the language instruction, and a three-episode rollout:
+
+.. dropdown:: Configuration file (``droid_pnp_dreamzero_experiment.yaml``)
+   :animate: fade-in
+
+   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
+      :language: yaml
+
+The policy configuration uses ``localhost:5000`` by default. This works when the DreamZero server
+is local or its port is forwarded to your machine.
 
 **Run DreamZero closed-loop**
 
-Open a second terminal, enter the Arena container with ``./docker/run_docker.sh``, and
-point the arena policy runner at the server. All global and policy-specific flags must
-appear **before** the environment name (subcommand); flags like ``--embodiment`` that are
-specific to the environment go after it.
+Open a second terminal and enter the Arena container with ``./docker/run_docker.sh``. Replace
+``OSMO_JOB_IP`` with the address from the server job, then start the rollout:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy \
-     --dreamzero_host <OSMO_JOB_IP> \
-     --dreamzero_port 5000 \
-     --enable_cameras \
-     --num_episodes 3 \
-     --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
-     pick_and_place_maple_table \
-       --embodiment droid_abs_joint_pos \
-       --pick_up_object rubiks_cube_hot3d_robolab \
-       --destination_location bowl_ycb_robolab \
-       --hdr home_office_robolab
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml \
+     runs.droid_pnp_dreamzero.policy.remote_host=OSMO_JOB_IP
 
-Defaults: ``--dreamzero_host localhost``, ``--dreamzero_port 5000``,
-``--dreamzero_embodiment_adapter droid`` (the only embodiment adapter the checkpoint
-currently supports), ``--dreamzero_cam2_source right``. Run headless by swapping
-``--viz kit`` for ``--headless``.
+The runner reads the other values from YAML and records the Run under the name
+``droid_pnp_dreamzero``. Omit the final override when the server is available on ``localhost``.
+Run headless by replacing ``--viz kit`` with ``--headless``.
