@@ -563,16 +563,6 @@
 foundation model. No fine-tuning or separate model download is required. The weights
 are fetched from <a class="reference external" href="https://huggingface.co/nvidia/GR00T-N1.6-DROID">HuggingFace</a>
 when the policy server starts for the first time.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><strong>uv environment:</strong> the <code class="docutils literal notranslate"><span class="pre">gr00t</span></code> package is not pulled in by <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> because
-its declared Python constraint differs from the Arena environment. Install it once
-before running GR00T policies or tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--no-deps<span class="w"> </span>--ignore-requires-python<span class="w"> </span>-e<span class="w"> </span>submodules/Isaac-GR00T/
-</pre></div>
-</div>
-<p>Docker users can skip this step — the package is already installed in the container.</p>
-</div>
 <section id="start-a-gr00t-policy-server">
 <h2>Start a GR00T policy server<a class="headerlink" href="#start-a-gr00t-policy-server" title="Link to this heading">#</a></h2>
 <p>The closed-loop policy connects to a GR00T policy server in a separate process. The
