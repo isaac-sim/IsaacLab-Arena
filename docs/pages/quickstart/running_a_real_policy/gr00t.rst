@@ -8,16 +8,13 @@ when the policy server starts for the first time.
 
 .. note::
 
-   **uv environment:** the ``gr00t`` package is not pulled in by ``uv sync`` because
-   its declared Python constraint differs from the Arena environment. Install it once
-   before running GR00T policies or tests:
-
-   .. code-block:: bash
-
-      uv pip install --no-deps --ignore-requires-python -e submodules/Isaac-GR00T/
-
-   Docker users can skip this step — the package is already installed in the container.
-
+   Arena's native ``uv`` environment does not install the GR00T distribution. The
+   pinned distribution declares Python 3.10 and includes model and training
+   dependencies that conflict with Arena's Python 3.12 environment. Use the Arena
+   container for GR00T policies; it installs the pinned GR00T checkout without its
+   full dependency set and explicitly supplies the client prerequisites validated by
+   Arena. Building OSMO workflows and running tests that do not instantiate a GR00T
+   policy do not require the client.
 
 Start a GR00T policy server
 ---------------------------

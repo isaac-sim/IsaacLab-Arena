@@ -17,8 +17,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
-
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
@@ -73,6 +71,13 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Action scheduler used to consume inference chunks."""
 
 
+def _load_gr00t_policy_client_type() -> type[Any]:
+    """Load the optional native GR00T client type for policy construction."""
+    from gr00t.policy.server_client import PolicyClient
+
+    return PolicyClient
+
+
 @register_policy
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
@@ -84,6 +89,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     name = "gr00t_remote_closedloop"
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
+        gr00t_policy_client_type = _load_gr00t_policy_client_type()
         super().__init__(config)
 
         action_scheduler_cls = ActionSchedulerType(config.scheduler).get_scheduler_cls()
@@ -123,13 +129,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
 
         # Connect to GR00T's native PolicyClient
-        client = Gr00tPolicyClient(
+        client = gr00t_policy_client_type(
             host=config.remote_host,
             port=config.remote_port,
             api_token=config.remote_api_token,
             strict=False,
         )
-        self._client: Gr00tPolicyClient | None = client
+        self._client: Any | None = client
         if not client.ping():
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 

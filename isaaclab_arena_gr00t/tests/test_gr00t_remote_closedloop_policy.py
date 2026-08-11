@@ -5,8 +5,8 @@
 
 """Unit test for Gr00tRemoteClosedloopPolicy.
 
-Exercises the real obs/action translation pipeline and mocks only ``Gr00tPolicyClient`` -- the wire
-boundary to a remote GR00T server -- so no server is required.
+Exercises the real obs/action translation pipeline and mocks only the native client loader -- the
+wire boundary to a remote GR00T server -- so no server is required.
 
 Verifies:
 - the obs dict sent to the server has the expected language/video/state structure;
@@ -109,8 +109,7 @@ class _FakePolicyClient:
 
 @pytest.fixture
 def fake_client_factory(monkeypatch):
-    """Patch ``Gr00tPolicyClient`` in the policy module's namespace and return
-    a factory that gives access to the most recently constructed fake."""
+    """Patch the native client loader and expose each constructed fake."""
     created: list[_FakePolicyClient] = []
 
     def factory(ping_ok: bool = True):
@@ -119,7 +118,7 @@ def fake_client_factory(monkeypatch):
             created.append(client)
             return client
 
-        monkeypatch.setattr(gr00t_policy, "Gr00tPolicyClient", _ctor)
+        monkeypatch.setattr(gr00t_policy, "_load_gr00t_policy_client_type", lambda: _ctor)
         return created
 
     return factory

@@ -5,12 +5,11 @@
 
 """Verify typed OSMO workflow construction and its compatibility CLI."""
 
+import subprocess
+
 import pytest
 
-# submit_evaluation_workflow → server_plus_policy_runner_workflow → gr00t_server_task → gr00t;
-# the chain fails at collection time when gr00t is absent, so the whole module must be skipped.
-pytest.importorskip("gr00t")
-
+from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -19,6 +18,65 @@ from osmo.workflows.dreamzero_split_workflows import DreamZeroPolicyRunnerWorkfl
 from osmo.workflows.server_plus_policy_runner_workflow import CosmosPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+
+_MISSING_GR00T_CHILD_SCRIPT = """
+import importlib.abc
+import sys
+
+class MissingGr00tFinder(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "gr00t" or fullname.startswith("gr00t."):
+            raise ModuleNotFoundError(f"No module named {fullname!r}", name=fullname)
+        return None
+
+sys.meta_path.insert(0, MissingGr00tFinder())
+
+from osmo.submit_evaluation_workflow import main
+from osmo.workflows.server_task_registry import ServerTaskRegistry
+
+server_type_names = {server_type.__name__ for server_type in ServerTaskRegistry().get_all_server_types()}
+assert {"CosmosServerTask", "Gr00tServerTask", "Pi0ServerTask"} <= server_type_names
+assert main(["--policy", "gr00t", "--arena_env", "example_environment", "--dry_run"]) == 0
+assert not any(module_name == "gr00t" or module_name.startswith("gr00t.") for module_name in sys.modules)
+"""
+
+_SERVER_TASK_REGISTRY_RETRY_CHILD_SCRIPT = """
+import importlib.abc
+import sys
+
+class FailGr00tServerTaskOnce(importlib.abc.MetaPathFinder):
+    failed_once = False
+
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "osmo.tasks.gr00t_server_task" and not self.failed_once:
+            self.failed_once = True
+            raise ModuleNotFoundError(f"No module named {fullname!r}", name=fullname)
+        return None
+
+sys.meta_path.insert(0, FailGr00tServerTaskOnce())
+
+from osmo.workflows.server_task_registry import ServerTaskRegistry, ensure_server_tasks_registered
+
+try:
+    ensure_server_tasks_registered()
+except ModuleNotFoundError as error:
+    assert error.name == "osmo.tasks.gr00t_server_task"
+else:
+    raise AssertionError("The first registration attempt should fail")
+
+server_type_names = {server_type.__name__ for server_type in ServerTaskRegistry().get_all_server_types()}
+assert {"CosmosServerTask", "Gr00tServerTask", "Pi0ServerTask"} <= server_type_names
+"""
+
+
+def _run_child_script(child_script: str) -> None:
+    result = subprocess.run(
+        [TestConstants.python_path, "-c", child_script],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, f"child process failed:\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
 
 
 def test_task_name_is_a_required_keyword_argument():
@@ -114,3 +172,13 @@ def test_compatibility_cli_builds_typed_config(capsys):
     assert "[dry-run] Rendered workflow YAML" in rendered
     assert "name: policy_runner" in rendered
     assert "example_environment" in rendered
+
+
+def test_gr00t_workflow_renders_without_native_gr00t_package():
+    """Render GR00T workflows without loading the client-only runtime dependency."""
+    _run_child_script(_MISSING_GR00T_CHILD_SCRIPT)
+
+
+def test_server_task_registration_retries_after_an_import_failure():
+    """Retry task registration instead of retaining a partially loaded registry."""
+    _run_child_script(_SERVER_TASK_REGISTRY_RETRY_CHILD_SCRIPT)

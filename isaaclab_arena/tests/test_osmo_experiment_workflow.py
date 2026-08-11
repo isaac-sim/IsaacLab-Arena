@@ -18,8 +18,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
-from isaaclab_arena.tests.utils.markers import requires_gr00t
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
+from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.submit_arena_experiment import (
@@ -40,18 +40,11 @@ from osmo.tasks.experiment_runner_task import (
     ExperimentRunnerTask,
     ExperimentRunnerTaskCfg,
 )
+from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
-
-# Only the @requires_gr00t tests use these names (via _mixed_experiment_cfg), so
-# it is safe to skip the import when the gr00t submodule is not installed.
-try:
-    from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
-    from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
-except ImportError:
-    pass
 
 # Composing complete Arena Experiments loads Isaac runtime modules, so these tests
 # must not share a pytest process with the persistent SimulationApp tests.
@@ -362,7 +355,6 @@ def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
     assert "--policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos" in second_server_command
 
 
-@requires_gr00t
 def test_mixed_pi0_and_gr00t_experiment_fans_out_per_run_servers():
     """Derive one pi0 server and one GR00T server from a mixed Experiment; leave the local Run server-free."""
     workflow = ArenaExperimentWorkflow(
@@ -395,7 +387,6 @@ def test_mixed_pi0_and_gr00t_experiment_fans_out_per_run_servers():
     assert "remote_host" not in _embedded_experiment(local_tasks[0])["runs"]["local"]["policy"]
 
 
-@requires_gr00t
 def test_gr00t_cli_dry_run_renders_workflow(tmp_path, capsys):
     """Compose and render a derived GR00T Experiment submission through the real CLI parser."""
     experiment_path = tmp_path / "gr00t_experiment.yaml"
