@@ -57,8 +57,7 @@ def ensure_server_tasks_registered() -> None:
     global _SERVER_TASKS_LOADED
     if _SERVER_TASKS_LOADED:
         return
+    _SERVER_TASKS_LOADED = True
     import osmo.tasks.cosmos_server_task  # noqa: F401
     import osmo.tasks.gr00t_server_task  # noqa: F401
     import osmo.tasks.pi0_server_task  # noqa: F401
-
-    _SERVER_TASKS_LOADED = True

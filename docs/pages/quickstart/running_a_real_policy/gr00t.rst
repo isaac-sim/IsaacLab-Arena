@@ -6,16 +6,6 @@ foundation model. No fine-tuning or separate model download is required. The wei
 are fetched from `HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_
 when the policy server starts for the first time.
 
-.. note::
-
-   Arena's native ``uv`` environment does not install the GR00T distribution. The
-   pinned distribution declares Python 3.10 and includes model and training
-   dependencies that conflict with Arena's Python 3.12 environment. Use the Arena
-   container for GR00T policies; it installs the pinned GR00T checkout without its
-   full dependency set and explicitly supplies the client prerequisites validated by
-   Arena. Building OSMO workflows and running tests that do not instantiate a GR00T
-   policy do not require the client.
-
 Start a GR00T policy server
 ---------------------------
 
