@@ -115,9 +115,14 @@ def test_compatibility_cli_builds_typed_config(capsys):
     assert "example_environment" in rendered
 
 
-def test_osmo_workflow_import_does_not_require_gr00t():
-    """Import the shared workflow without the optional GR00T client."""
-    child_script = 'import sys; sys.modules["gr00t"] = None; import osmo.submit_evaluation_workflow'
+def test_zero_action_workflow_does_not_require_gr00t():
+    """Prevent the native-uv regression that broke zero-action workflows without GR00T."""
+    child_script = (
+        'import sys; sys.modules["gr00t"] = None; '
+        "from osmo.submit_evaluation_workflow import main; "
+        'raise SystemExit(main(["--policy", "zero_action", '
+        '"--arena_env", "example_environment", "--dry_run"]))'
+    )
     subprocess.run(
         [TestConstants.python_path, "-c", child_script],
         check=True,

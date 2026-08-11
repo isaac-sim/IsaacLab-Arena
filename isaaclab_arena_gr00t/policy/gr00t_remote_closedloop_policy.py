@@ -71,13 +71,6 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Action scheduler used to consume inference chunks."""
 
 
-def _load_gr00t_policy_client_type() -> type[Any]:
-    """Load the optional native GR00T client type for policy construction."""
-    from gr00t.policy.server_client import PolicyClient
-
-    return PolicyClient
-
-
 @register_policy
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
@@ -89,7 +82,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     name = "gr00t_remote_closedloop"
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
-        gr00t_policy_client_type = _load_gr00t_policy_client_type()
         super().__init__(config)
 
         action_scheduler_cls = ActionSchedulerType(config.scheduler).get_scheduler_cls()
@@ -129,7 +121,9 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
 
         # Connect to GR00T's native PolicyClient
-        client = gr00t_policy_client_type(
+        from gr00t.policy.server_client import PolicyClient
+
+        client = PolicyClient(
             host=config.remote_host,
             port=config.remote_port,
             api_token=config.remote_api_token,
