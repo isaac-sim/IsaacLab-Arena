@@ -772,10 +772,14 @@ def run_placer_benchmark(
         valid_rate = min(valid_rates)
         finite_loss = all(math.isfinite(loss) for loss in final_losses)
         final_loss = max(final_losses) if finite_loss else None
-        status: BenchmarkStatus = "ok" if finite_loss and valid_rate >= scenario.min_valid_layout_rate else "failed"
+        loss_ok = final_loss is not None and final_loss <= scenario.final_loss_threshold
+        status: BenchmarkStatus = "ok" if loss_ok and valid_rate >= scenario.min_valid_layout_rate else "failed"
         error = None
         if not finite_loss:
             error = "final loss is not finite"
+        elif not loss_ok:
+            assert final_loss is not None
+            error = f"final loss {final_loss:.6g} exceeds threshold {scenario.final_loss_threshold:.6g}"
         elif status == "failed":
             error = f"valid layout rate {valid_rate:.3f} is below {scenario.min_valid_layout_rate:.3f}"
         return BenchmarkMeasurement(

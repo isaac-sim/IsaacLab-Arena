@@ -25,6 +25,7 @@ from isaaclab_arena.relations.relation_solver_benchmark import (
     requested_scenario_ids,
     run_benchmarks,
     run_environment_benchmark,
+    run_placer_benchmark,
     run_solver_benchmark,
     scenarios_for_modes,
     search_capacity,
@@ -94,6 +95,16 @@ def test_build_clutter_scene_uses_placeable_assets():
     assert all(obj.get_bounding_box() is not None for obj in objects)
 
 
+def test_build_clutter_scene_rejects_too_few_objects():
+    with pytest.raises(AssertionError, match="at least anchor"):
+        build_clutter_scene(1)
+
+
+def test_mesh_clutter_scene_attaches_collision_meshes():
+    objects = build_clutter_scene(3, collision_mode="mesh")
+    assert all(obj.get_collision_mesh() is not None for obj in objects)
+
+
 def test_build_solve_inputs_batch_shape():
     objects = build_clutter_scene(4)
     initial_positions, bboxes = build_solve_inputs(objects, num_envs=3, seed=7)
@@ -152,6 +163,23 @@ def test_custom_environment_requires_explicit_collision_mode():
     ])
     with pytest.raises(ValueError, match="requires --collision-mode"):
         benchmark_cli._environment_scenarios(args)
+
+
+def test_environment_cli_expands_mode_robot_matrix():
+    args = benchmark_cli._parse_args([
+        "--targets",
+        "environment",
+        "--compare-modes",
+        "--robot-mode",
+        "both",
+        "--num-envs",
+        "1",
+    ])
+    benchmark_cli._validate_args(args)
+    scenarios = benchmark_cli._environment_scenarios(args)
+    assert len(scenarios) == 8
+    assert {scenario.collision_mode for scenario in scenarios} == {"bbox", "mesh"}
+    assert {scenario.include_robot for scenario in scenarios} == {True, False}
 
 
 def test_object_suite_keeps_object_sweep_with_num_envs_override():
@@ -245,6 +273,14 @@ def test_failed_solver_uses_none_for_unmeasured_fields():
     assert result.error is not None
     assert result.place_ms is None
     assert result.valid_layout_rate is None
+
+
+def test_placer_enforces_final_loss_threshold():
+    scenario = _tiny_scenario(num_objects=10, final_loss_threshold=0.0, min_valid_layout_rate=0.0)
+    result = run_placer_benchmark(scenario)
+    assert result.status == "failed"
+    assert result.error is not None
+    assert "final loss" in result.error
 
 
 def test_build_run_records_missing_results_and_failed_workers():
