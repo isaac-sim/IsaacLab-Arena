@@ -11,12 +11,13 @@ import torch
 import traceback
 from contextlib import nullcontext, suppress
 
-import omni.kit.app
 from isaaclab.app import AppLauncher
 
 
 def get_isaac_sim_version() -> str:
     """Get the version of Isaac Sim."""
+    import omni.kit.app
+
     return omni.kit.app.get_app().get_app_version()
 
 
