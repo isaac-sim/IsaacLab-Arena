@@ -21,7 +21,11 @@ def _clear_gr00t_modules(monkeypatch):
 def test_ensure_gr00t_importable_adds_submodule_root(monkeypatch):
     _clear_gr00t_modules(monkeypatch)
     monkeypatch.setattr(sys, "path", [path for path in sys.path if "submodules/Isaac-GR00T" not in path])
-    monkeypatch.setattr(gr00t_path.importlib.util, "find_spec", lambda name: None if name == "gr00t" else None)
+
+    def _missing_spec(_name):
+        return None
+
+    monkeypatch.setattr(gr00t_path.importlib.util, "find_spec", _missing_spec)
 
     gr00t_source_root = gr00t_path.ensure_gr00t_importable()
 
