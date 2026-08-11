@@ -12,13 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relation_solver_benchmark import (
+from isaaclab_arena.relations.benchmark import (
     BenchmarkScenario,
-    _sample_child_origin,
-    build_clutter_scene,
     build_run,
-    build_solve_inputs,
     default_scenarios,
     env_count_sweep,
     object_count_sweep,
@@ -32,6 +28,8 @@ from isaaclab_arena.relations.relation_solver_benchmark import (
     write_results_csv,
     write_results_json,
 )
+from isaaclab_arena.relations.benchmark.solver import _sample_child_origin, build_clutter_scene, build_solve_inputs
+from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -275,12 +273,11 @@ def test_failed_solver_uses_none_for_unmeasured_fields():
     assert result.valid_layout_rate is None
 
 
-def test_placer_enforces_final_loss_threshold():
+def test_placer_uses_layout_validity_instead_of_loss_threshold():
     scenario = _tiny_scenario(num_objects=10, final_loss_threshold=0.0, min_valid_layout_rate=0.0)
     result = run_placer_benchmark(scenario)
-    assert result.status == "failed"
-    assert result.error is not None
-    assert "final loss" in result.error
+    assert result.status == "ok"
+    assert result.final_loss is not None and result.final_loss > 0.0
 
 
 def test_build_run_records_missing_results_and_failed_workers():
@@ -301,7 +298,7 @@ def test_build_run_records_missing_results_and_failed_workers():
     assert failed_worker.worker_errors == {"gpu-0": "worker exited with code 137"}
 
 
-def test_json_and_csv_reports_share_validated_results(tmp_path):
+def test_json_and_csv_reports_share_run_results(tmp_path):
     scenario = _tiny_scenario()
     result = run_solver_benchmark(scenario)
     run = build_run((scenario,), ("solver",), [result])

@@ -3,7 +3,30 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run relation-solver benchmarks locally or with one worker per GPU."""
+"""Run relation-solver benchmarks locally or with one worker per GPU.
+
+Examples:
+  Fixed bbox/mesh sweep:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite envs --targets solver,placer --compare-modes \\
+      --num-envs 1 --num-envs 8 --num-envs 32
+
+  Environment build/reset with and without a robot:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --targets environment --compare-modes --robot-mode both --num-envs 1
+
+  Replicate the full matrix on two GPUs:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite envs --targets solver --compare-modes --num-envs 1 --num-envs 8 --gpus 0,1
+
+  Tune maximum batch size independently on each GPU:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite envs --targets solver --compare-modes --num-envs 1 --gpus 0,1 \\
+      --capacity-search --capacity-max-envs 4096 --memory-headroom-gib 2
+
+Results print to the terminal. Pass --output-dir PATH to also write JSON and CSV.
+Solver status uses the final-loss threshold; placer status uses geometric layout validity.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +42,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import cast
 
-from isaaclab_arena.relations.relation_solver_benchmark import (
+from isaaclab_arena.relations.benchmark import (
     BenchmarkMeasurement,
     BenchmarkRun,
     BenchmarkScenario,
@@ -44,7 +67,7 @@ DEFAULT_MESH_SPEC = "isaaclab_arena_environments/kitchen_bench/replicator_kitche
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--suite", choices=("presets", "objects", "envs"), default="presets")
     parser.add_argument(
         "--collision-mode",
@@ -67,9 +90,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--final-loss-threshold", type=float, default=1e-4)
     parser.add_argument("--min-valid-layout-rate", type=float, default=1.0)
     parser.add_argument("--gpus", help="Comma-separated GPUs; each runs the full matrix for aggregate throughput.")
-    parser.add_argument("--capacity-search", action="store_true")
-    parser.add_argument("--capacity-max-envs", type=int, default=4096)
-    parser.add_argument("--memory-headroom-gib", type=float, default=2.0)
+    parser.add_argument(
+        "--capacity-search",
+        action="store_true",
+        help="Find the largest viable num_envs independently on each selected GPU.",
+    )
+    parser.add_argument("--capacity-max-envs", type=int, default=4096, help="Upper bound for capacity search.")
+    parser.add_argument(
+        "--memory-headroom-gib",
+        type=float,
+        default=2.0,
+        help="Required free GPU memory after each capacity probe.",
+    )
     parser.add_argument("--output-dir", type=Path, help="Write JSON and CSV reports to this directory.")
     parser.add_argument("--worker-input", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--worker-output", type=Path, help=argparse.SUPPRESS)

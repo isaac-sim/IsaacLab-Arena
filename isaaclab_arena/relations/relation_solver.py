@@ -350,7 +350,7 @@ class RelationSolver:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Loss values from the most recent solve() call."""
+        """Optimization losses evaluated before each step in the most recent solve."""
         return self._last_loss_history
 
     @property
@@ -365,7 +365,7 @@ class RelationSolver:
 
     @property
     def last_no_overlap_pair_count(self) -> int:
-        """Total directed AABB and mesh pairs from the most recent solve."""
+        """Sum of scored AABB pairs and cached mesh object pairs from the most recent solve."""
         return self._last_aabb_no_overlap_pair_count + self._last_mesh_no_overlap_pair_count
 
     @property
@@ -375,7 +375,7 @@ class RelationSolver:
 
     @property
     def last_mesh_no_overlap_pair_count(self) -> int:
-        """Directed sphere-to-mesh pairs from the most recent solve."""
+        """Cached directed mesh object pairs from the most recent solve."""
         return self._last_mesh_no_overlap_pair_count
 
     def debug_losses(self, objects: list[PlaceableAsset]) -> None:

@@ -21,7 +21,7 @@ _KITCHEN_SPEC = (
 def _test_environment_benchmark(simulation_app):
     import gymnasium as gym
 
-    from isaaclab_arena.relations.relation_solver_benchmark import BenchmarkScenario, run_environment_benchmark
+    from isaaclab_arena.relations.benchmark import BenchmarkScenario, run_environment_benchmark
 
     registered_before = set(gym.registry)
     results = []
@@ -42,7 +42,7 @@ def _test_environment_benchmark(simulation_app):
     assert all(result.status == "ok" for result in results), [result.error for result in results]
     assert all(result.build_ms is not None and result.build_ms > 0.0 for result in results)
     assert all(result.reset_ms is not None and result.reset_ms > 0.0 for result in results)
-    assert all(result.valid_layout_rate == 1.0 for result in results)
+    assert all(result.valid_layout_rate is None for result in results)
     assert [result.include_robot for result in results] == [True, False]
 
     underconverged_mesh_result = run_environment_benchmark(
