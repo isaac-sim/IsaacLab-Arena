@@ -565,10 +565,12 @@ or from source inside a Docker container.</p>
 <th class="head"><p>Evaluation</p></th>
 <th class="head"><p>Imitation learning</p></th>
 <th class="head"><p>Reinforcement learning</p></th>
+<th class="head"><p>Agentic environment generation</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Docker</p></td>
+<td><p>✓</p></td>
 <td><p>✓</p></td>
 <td><p>✓</p></td>
 <td><p>✓</p></td>
@@ -577,11 +579,13 @@ or from source inside a Docker container.</p>
 <td><p>✓</p></td>
 <td><p>✓</p></td>
 <td><p>✓</p></td>
+<td><p>✓</p></td>
 </tr>
 <tr class="row-even"><td><p>uv (Isaac Lab from wheel)</p></td>
 <td><p>✓</p></td>
 <td><p>✗</p></td>
 <td><p>✗</p></td>
+<td><p>✓</p></td>
 </tr>
 </tbody>
 </table>
@@ -617,7 +621,7 @@ workflow:</p>
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Source (recommended)</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
 <span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </pre></div>
 </div>
@@ -625,7 +629,7 @@ Source (recommended)</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Wheel</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel<span class="w"> </span>--extra<span class="w"> </span>dev
 <span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </pre></div>
 </div>
@@ -644,7 +648,9 @@ they rely on. Use the source flavor for those workflows.</p>
 <code class="docutils literal notranslate"><span class="pre">.python-version</span></code>), installs Isaac Lab Arena and Isaac Lab (editable from
 <code class="docutils literal notranslate"><span class="pre">submodules/IsaacLab</span></code> in the source flavor, or from the published wheel),
 and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
-pinned by the committed lockfile.</p>
+pinned by the committed lockfile. The <code class="docutils literal notranslate"><span class="pre">dev</span></code> extra installs the Streamlit and
+SimReady search dependencies used by the
+<a class="reference internal" href="../concepts/agentic_environment_generation/index.html"><span class="doc">agentic environment generation workflow</span></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The two flavors are mutually exclusive within the single <code class="docutils literal notranslate"><span class="pre">.venv</span></code>: syncing
