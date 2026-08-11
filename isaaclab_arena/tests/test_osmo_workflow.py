@@ -7,18 +7,25 @@
 
 import pytest
 
-# submit_evaluation_workflow → server_plus_policy_runner_workflow → gr00t_server_task → gr00t;
-# the chain fails at collection time when gr00t is absent, so the whole module must be skipped.
-pytest.importorskip("gr00t")
+from isaaclab_arena.tests.utils.markers import requires_gr00t
 
-from osmo.submit_evaluation_workflow import main
-from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
-from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
-from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
-from osmo.workflows.dreamzero_split_workflows import DreamZeroPolicyRunnerWorkflow
-from osmo.workflows.server_plus_policy_runner_workflow import CosmosPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
-from osmo.workflows.workflow import WorkflowCfg
-from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+# gr00t is a transitive import of submit_evaluation_workflow; skip all tests when it is absent.
+pytestmark = requires_gr00t
+
+try:
+    from osmo.submit_evaluation_workflow import main
+    from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
+    from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
+    from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
+    from osmo.workflows.dreamzero_split_workflows import DreamZeroPolicyRunnerWorkflow
+    from osmo.workflows.server_plus_policy_runner_workflow import (
+        CosmosPolicyRunnerWorkflow,
+        Pi0PlusPolicyRunnerWorkflow,
+    )
+    from osmo.workflows.workflow import WorkflowCfg
+    from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+except ImportError:
+    pass
 
 
 def test_task_name_is_a_required_keyword_argument():
