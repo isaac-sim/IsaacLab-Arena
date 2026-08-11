@@ -12,7 +12,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, TypeVar, Union
 
-from isaaclab_arena_gr00t.utils.groot_path import ensure_gr00t_importable
+from isaaclab_arena_gr00t.utils.gr00t_path import ensure_gr00t_importable
 
 # Generic type variable for configuration classes
 ConfigType = TypeVar("ConfigType")

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sys
 
-from isaaclab_arena_gr00t.utils import groot_path
+from isaaclab_arena_gr00t.utils import gr00t_path
 from isaaclab_arena_gr00t.utils.io_utils import load_gr00t_modality_config_from_file
 
 
@@ -21,9 +21,9 @@ def _clear_gr00t_modules(monkeypatch):
 def test_ensure_gr00t_importable_adds_submodule_root(monkeypatch):
     _clear_gr00t_modules(monkeypatch)
     monkeypatch.setattr(sys, "path", [path for path in sys.path if "submodules/Isaac-GR00T" not in path])
-    monkeypatch.setattr(groot_path.importlib.util, "find_spec", lambda name: None if name == "gr00t" else None)
+    monkeypatch.setattr(gr00t_path.importlib.util, "find_spec", lambda name: None if name == "gr00t" else None)
 
-    gr00t_source_root = groot_path.ensure_gr00t_importable()
+    gr00t_source_root = gr00t_path.ensure_gr00t_importable()
 
     assert gr00t_source_root is not None
     assert sys.path[0] == str(gr00t_source_root)

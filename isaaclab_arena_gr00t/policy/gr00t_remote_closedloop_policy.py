@@ -29,7 +29,7 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
-from isaaclab_arena_gr00t.utils.groot_path import ensure_gr00t_importable
+from isaaclab_arena_gr00t.utils.gr00t_path import ensure_gr00t_importable
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
 
 
