@@ -34,7 +34,7 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
+See :ref:`agentic-env-gen-prerequisites` for the environment and API key setup.
 The spec shown here depends on the model behind that endpoint — see
 :doc:`../../../concepts/agentic_environment_generation/model_selection`.
 

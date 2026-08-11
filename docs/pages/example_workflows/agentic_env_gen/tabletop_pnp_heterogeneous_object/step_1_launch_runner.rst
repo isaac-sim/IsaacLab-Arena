@@ -1,7 +1,7 @@
 Run Agentic Environment Generation
 ----------------------------------
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
+Complete the shared :ref:`agentic-env-gen-prerequisites` before running this workflow.
 
 The Arena environment generation agent infers an ``ArenaEnvGraphSpec`` YAML from a user prompt.
 The agent runs in two modes:
