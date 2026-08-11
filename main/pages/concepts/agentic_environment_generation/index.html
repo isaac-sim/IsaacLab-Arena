@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=e2b6e10d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=81f91760" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
@@ -558,31 +558,52 @@
 <h1>Agentic Environment Generation<a class="headerlink" href="#agentic-environment-generation" title="Link to this heading">#</a></h1>
 <section id="motivation">
 <h2>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">#</a></h2>
+<section id="scalability-of-environment-generation">
+<h3>Scalability of Environment Generation<a class="headerlink" href="#scalability-of-environment-generation" title="Link to this heading">#</a></h3>
 <p>Building evaluation environments manually does not scale. Traditionally,
 creating an Arena evaluation environment meant writing Python to pick assets,
 place objects and the robot (by explicit poses or user-specified relations),
 configure the task and variations, and then run simulation to check that the
 setup was stable and reachable.</p>
-<figure class="align-center" id="id1">
+<p>Agentic environment generation turns a natural-language task into an editable
+Env Spec that Arena can build, validate, and evaluate. The agent automatically
+selects assets, configures the task, and describes object placement from the
+user’s prompt. The relation solver then computes and validates robot and object
+placement against the spatial and task constraints. Optional manual review and
+revision are limited to the validated Env Spec, reducing the risk of semantic
+errors and allowing users to focus on the core task-evaluation logic.</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<div class="nv-green-grid-header docutils container">
+<p>Manual environment authoring workflow</p>
+</div>
 <a class="reference internal image-reference" href="../../../_images/manual_env_user_journey.png"><img alt="Manual Arena environment authoring workflow" src="../../../_images/manual_env_user_journey.png" style="width: 100%;" />
 </a>
-<figcaption>
-<p><span class="caption-text">Manual authoring: select assets robot and objects, compose the scene, configure the task,
-then run simulation and revise until the environment can be used to complete the task.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<p>Agentic environment generation turns a natural-language task into an editable
-Env Spec that Arena can build, validate, and evaluate.</p>
-<figure class="align-center" id="id2">
+<p><strong>Diagram key:</strong> Green boxes indicate manual authoring or editing; blue
+shapes indicate environment descriptions, either on disk or as online
+environment representations; orange boxes indicate Arena core library
+components.</p>
+<p>Manual authoring selects the robot and objects, composes the scene,
+configures the task, then runs simulation and revises the environment
+until it can complete the task.</p>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<div class="nv-green-grid-header docutils container">
+<p>Agentic environment generation pipeline</p>
+</div>
 <a class="reference internal image-reference" href="../../../_images/agentic_env_gen_v03_user_journey.png"><img alt="Agentic environment generation pipeline" src="../../../_images/agentic_env_gen_v03_user_journey.png" style="width: 100%;" />
 </a>
-<figcaption>
-<p><span class="caption-text">Arena’s agentic environment generation pipeline generates an Env Spec, describing the scene, robot and task.
-Placement of the robot and objects are solved from the spec during the environment build step, and multiple
-initial scene layouts are produced for runtime evaluation.
-The Env Spec can be saved, reviewed, and edited before an Arena environment is built.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
+<p>Agentic pipeline generates an editable Env Spec describing the
+scene, robot, and task. Arena solves robot and object placement during
+the environment build and produces multiple initial layouts for runtime
+evaluation.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="task-ready-diversification">
+<h3>Task-Ready Diversification<a class="headerlink" href="#task-ready-diversification" title="Link to this heading">#</a></h3>
 <p>A typical one-off agentic scene-generation workflow takes a natural-language
 prompt, curates assets, and has the agent infer relative object poses from
 geometric understanding, writing each scene layout into a single USD. At
@@ -627,7 +648,7 @@ evaluation experiments run under controlled conditions.</p></td>
 </tbody>
 </table>
 </div>
-<figure class="align-center" id="id3">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/tabletop_agentic_env_banana_bagel_plate.png"><img alt="Many initial scene layouts from an environment specification" src="../../../_images/tabletop_agentic_env_banana_bagel_plate.png" style="width: 100%;" />
 </a>
 <figcaption>
@@ -635,9 +656,10 @@ evaluation experiments run under controlled conditions.</p></td>
 <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml">YAML specification</a>
 resolves into the many initial scene layouts shown here for the prompt:
 “Droid picks up the banana from the maple table and places it on the plate.
-There are two bagels and one bowl on the table.”</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+There are two bagels and one bowl on the table.”</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
+</section>
 </section>
 <section id="supported-tasks">
 <h2>Supported Tasks<a class="headerlink" href="#supported-tasks" title="Link to this heading">#</a></h2>
@@ -729,7 +751,11 @@ reviewed and validated before they are used for policy evaluation.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#motivation">Motivation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#motivation">Motivation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scalability-of-environment-generation">Scalability of Environment Generation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-ready-diversification">Task-Ready Diversification</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-tasks">Supported Tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#non-goals">Non-goals</a></li>
 </ul>

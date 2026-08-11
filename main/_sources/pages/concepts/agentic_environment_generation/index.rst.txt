@@ -4,32 +4,62 @@ Agentic Environment Generation
 Motivation
 ----------
 
+Scalability of Environment Generation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Building evaluation environments manually does not scale. Traditionally,
 creating an Arena evaluation environment meant writing Python to pick assets,
 place objects and the robot (by explicit poses or user-specified relations),
 configure the task and variations, and then run simulation to check that the
 setup was stable and reachable.
 
-.. figure:: ../../../images/manual_env_user_journey.png
-   :width: 100%
-   :alt: Manual Arena environment authoring workflow
-   :align: center
-
-   Manual authoring: select assets robot and objects, compose the scene, configure the task,
-   then run simulation and revise until the environment can be used to complete the task.
-
 Agentic environment generation turns a natural-language task into an editable
-Env Spec that Arena can build, validate, and evaluate.
+Env Spec that Arena can build, validate, and evaluate. The agent automatically
+selects assets, configures the task, and describes object placement from the
+user's prompt. The relation solver then computes and validates robot and object
+placement against the spatial and task constraints. Optional manual review and
+revision are limited to the validated Env Spec, reducing the risk of semantic
+errors and allowing users to focus on the core task-evaluation logic.
 
-.. figure:: ../../../images/agentic_environment_generation/agentic_env_gen_v03_user_journey.png
-   :width: 100%
-   :alt: Agentic environment generation pipeline
-   :align: center
+.. grid:: 1 1 2 2
+   :gutter: 2
 
-   Arena's agentic environment generation pipeline generates an Env Spec, describing the scene, robot and task.
-   Placement of the robot and objects are solved from the spec during the environment build step, and multiple
-   initial scene layouts are produced for runtime evaluation.
-   The Env Spec can be saved, reviewed, and edited before an Arena environment is built.
+   .. grid-item::
+
+      .. container:: nv-green-grid-header
+
+         Manual environment authoring workflow
+
+      .. image:: ../../../images/manual_env_user_journey.png
+         :width: 100%
+         :alt: Manual Arena environment authoring workflow
+
+      **Diagram key:** Green boxes indicate manual authoring or editing; blue
+      shapes indicate environment descriptions, either on disk or as online
+      environment representations; orange boxes indicate Arena core library
+      components.
+
+      Manual authoring selects the robot and objects, composes the scene,
+      configures the task, then runs simulation and revises the environment
+      until it can complete the task.
+
+   .. grid-item::
+
+      .. container:: nv-green-grid-header
+
+         Agentic environment generation pipeline
+
+      .. image:: ../../../images/agentic_environment_generation/agentic_env_gen_v03_user_journey.png
+         :width: 100%
+         :alt: Agentic environment generation pipeline
+
+      Agentic pipeline generates an editable Env Spec describing the
+      scene, robot, and task. Arena solves robot and object placement during
+      the environment build and produces multiple initial layouts for runtime
+      evaluation.
+
+Task-Ready Diversification
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A typical one-off agentic scene-generation workflow takes a natural-language
 prompt, curates assets, and has the agent infer relative object poses from
