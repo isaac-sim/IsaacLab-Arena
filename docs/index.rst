@@ -226,7 +226,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Multi-node Evaluation**
-| Submit Arena experiment YAML files to OSMO so independent runs, policy servers, and result collection can execute across a cluster. The same experiment definitions used locally can scale to many tasks, policies, and episodes, with outputs collected for reports and analysis.
+| Submit Arena experiments to OSMO so independent runs, policy servers, and result collection can execute across a cluster. The same experiment definitions used locally can scale to many tasks, policies, and episodes, with outputs collected for reports and analysis.
 
 .. figure:: images/teaser_page/multinode_evaluation/multinode_evaluation.png
    :width: 80%
