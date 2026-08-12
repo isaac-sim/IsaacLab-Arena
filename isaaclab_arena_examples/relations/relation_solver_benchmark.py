@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run relation-solver benchmarks locally or with one worker per GPU.
+"""Run relation-solver benchmarks locally or with one independent worker per GPU.
+
+Each selected GPU runs a full copy of the benchmark matrix. A solver batch is
+never split across GPUs; aggregate throughput is the sum of replicated workers.
 
 Examples:
   Fixed bbox/mesh sweep:
@@ -53,6 +56,7 @@ from isaaclab_arena.relations.benchmark import (
     default_scenarios,
     env_count_sweep,
     format_results_table,
+    format_scaling_summary,
     object_count_sweep,
     requested_scenario_ids,
     run_benchmarks,
@@ -89,7 +93,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--final-loss-threshold", type=float, default=1e-4)
     parser.add_argument("--min-valid-layout-rate", type=float, default=1.0)
-    parser.add_argument("--gpus", help="Comma-separated GPUs; each runs the full matrix for aggregate throughput.")
+    parser.add_argument(
+        "--gpus",
+        help=(
+            "Comma-separated GPUs. Each runs an independent full matrix; solver batches are not split across GPUs, "
+            "and aggregate throughput sums the replicated workers."
+        ),
+    )
     parser.add_argument(
         "--capacity-search",
         action="store_true",
@@ -481,7 +491,7 @@ def main(argv: list[str] | None = None) -> int:
             for scenario in scenarios
             for target in targets
         ]
-        capacity_report = json.dumps({"schema_version": 1, "results": capacity_results}, indent=2, allow_nan=False)
+        capacity_report = json.dumps({"results": capacity_results}, indent=2, allow_nan=False)
         print("\n=== Capacity Search Results ===")
         print(capacity_report)
         if args.output_dir is not None:
@@ -501,6 +511,10 @@ def main(argv: list[str] | None = None) -> int:
         run = build_run(scenarios, targets, rows, assignments, exit_codes)
     print("\n=== Relation Solver Benchmark Results ===")
     print(format_results_table(rows))
+    scaling_summary = format_scaling_summary(rows)
+    if scaling_summary:
+        print("\n=== Scaling Summary ===")
+        print(scaling_summary)
     for worker_id, error in run.worker_errors.items():
         print(f"  worker {worker_id}: {error}")
     if run.missing_scenario_ids:

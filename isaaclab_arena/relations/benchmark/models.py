@@ -11,16 +11,16 @@ import math
 import platform
 import socket
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Literal
+
+from isaaclab_arena.relations.benchmark.metadata import SoftwareMetadata
 
 BenchmarkStatus = Literal["ok", "failed"]
 BenchmarkTarget = Literal["solver", "placer", "environment"]
 CollisionModeName = Literal["bbox", "mesh"]
 Clock = Callable[[], float]
-
-RUN_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -170,6 +170,9 @@ class BenchmarkMeasurement:
     convergence_threshold: float
     """Per-environment solver stopping threshold."""
 
+    num_spheres: int
+    """Bounding spheres per subject in mesh mode."""
+
     placement_seed: int
     """Initial-layout seed."""
 
@@ -181,6 +184,15 @@ class BenchmarkMeasurement:
 
     timed_runs: int
     """Recorded runs."""
+
+    final_loss_threshold: float
+    """Largest acceptable final solver loss."""
+
+    min_valid_layout_rate: float
+    """Smallest acceptable valid-layout fraction."""
+
+    graph_spec_path: str | None
+    """Graph spec used by environment targets."""
 
     worker_id: str = "local"
     """Worker that produced the measurement."""
@@ -274,10 +286,14 @@ class BenchmarkMeasurement:
             device=device,
             max_iters=scenario.max_iters,
             convergence_threshold=scenario.convergence_threshold,
+            num_spheres=scenario.num_spheres,
             placement_seed=scenario.placement_seed,
             max_placement_attempts=scenario.max_placement_attempts,
             warmup_runs=scenario.warmup_runs,
             timed_runs=scenario.timed_runs,
+            final_loss_threshold=scenario.final_loss_threshold,
+            min_valid_layout_rate=scenario.min_valid_layout_rate,
+            graph_spec_path=scenario.graph_spec_path,
             include_robot=include_robot,
             **measurement_values,
         )
@@ -290,6 +306,19 @@ class BenchmarkMeasurement:
     def from_dict(cls, data: dict) -> BenchmarkMeasurement:
         """Deserialize a measurement."""
         values = dict(data)
+        measurement_fields = fields(cls)
+        field_names = {measurement_field.name for measurement_field in measurement_fields}
+        required_field_names = {
+            measurement_field.name
+            for measurement_field in measurement_fields
+            if measurement_field.default is MISSING and measurement_field.default_factory is MISSING
+        }
+        missing = sorted(required_field_names - values.keys())
+        unexpected = sorted(values.keys() - field_names)
+        if missing:
+            raise ValueError(f"measurement is missing required fields: {', '.join(missing)}")
+        if unexpected:
+            raise ValueError(f"measurement contains unknown fields: {', '.join(unexpected)}")
         values["device"] = DeviceMetadata(**values["device"])
         sample_fields = (
             "solve_ms_samples",
@@ -313,13 +342,12 @@ class BenchmarkRun:
     results: tuple[BenchmarkMeasurement, ...]
     worker_assignments: dict[str, tuple[str, ...]]
     worker_exit_codes: dict[str, int]
+    software: SoftwareMetadata
     worker_errors: dict[str, str] = field(default_factory=dict)
-    schema_version: int = RUN_SCHEMA_VERSION
     hostname: str = field(default_factory=socket.gethostname)
     platform: str = field(default_factory=platform.platform)
 
     def __post_init__(self) -> None:
-        assert self.schema_version == RUN_SCHEMA_VERSION
         observed = [result.scenario_id for result in self.results]
         assigned = [scenario_id for ids in self.worker_assignments.values() for scenario_id in ids]
         assert len(observed) == len(set(observed)), "benchmark results contain duplicate scenario IDs"

@@ -7,6 +7,7 @@
 
 from isaaclab_arena.relations.benchmark.environment import run_environment_benchmark
 from isaaclab_arena.relations.benchmark.execution import run_benchmarks
+from isaaclab_arena.relations.benchmark.metadata import SoftwareMetadata, collect_software_metadata
 from isaaclab_arena.relations.benchmark.models import (
     BenchmarkMeasurement,
     BenchmarkRun,
@@ -21,6 +22,7 @@ from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
     format_results_table,
+    format_scaling_summary,
     requested_scenario_ids,
     search_capacity,
     write_results_csv,
@@ -44,11 +46,14 @@ __all__ = [
     "Clock",
     "CollisionModeName",
     "DeviceMetadata",
+    "SoftwareMetadata",
     "build_distributed_run",
     "build_run",
+    "collect_software_metadata",
     "default_scenarios",
     "env_count_sweep",
     "format_results_table",
+    "format_scaling_summary",
     "object_count_sweep",
     "requested_scenario_ids",
     "run_benchmarks",

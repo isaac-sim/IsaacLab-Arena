@@ -11,14 +11,64 @@ import csv
 import json
 import statistics
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
+from isaaclab_arena.relations.benchmark.metadata import collect_software_metadata
 from isaaclab_arena.relations.benchmark.models import (
     BenchmarkMeasurement,
     BenchmarkRun,
     BenchmarkScenario,
     BenchmarkTarget,
+    CollisionModeName,
 )
+
+
+@dataclass(frozen=True)
+class _ScalingWorkload:
+    """Parameters that must match before comparing batch sizes."""
+
+    target: BenchmarkTarget
+    worker_id: str
+    collision_mode: CollisionModeName
+    num_objects: int
+    graph_spec_path: str | None
+    include_robot: bool | None
+    max_iters: int
+    convergence_threshold: float
+    num_spheres: int
+    placement_seed: int
+    max_placement_attempts: int
+    warmup_runs: int
+    timed_runs: int
+    final_loss_threshold: float
+    min_valid_layout_rate: float
+
+    @classmethod
+    def from_measurement(cls, measurement: BenchmarkMeasurement) -> _ScalingWorkload:
+        """Build the workload identity for a measurement."""
+        return cls(
+            target=measurement.target,
+            worker_id=measurement.worker_id,
+            collision_mode=measurement.collision_mode,
+            num_objects=measurement.num_objects,
+            graph_spec_path=measurement.graph_spec_path,
+            include_robot=measurement.include_robot,
+            max_iters=measurement.max_iters,
+            convergence_threshold=measurement.convergence_threshold,
+            num_spheres=measurement.num_spheres,
+            placement_seed=measurement.placement_seed,
+            max_placement_attempts=measurement.max_placement_attempts,
+            warmup_runs=measurement.warmup_runs,
+            timed_runs=measurement.timed_runs,
+            final_loss_threshold=measurement.final_loss_threshold,
+            min_valid_layout_rate=measurement.min_valid_layout_rate,
+        )
+
+
+def _throughput_sort_key(measurement: BenchmarkMeasurement) -> tuple[float, int]:
+    assert measurement.throughput_envs_per_second is not None
+    return measurement.throughput_envs_per_second, measurement.num_envs
 
 
 def requested_scenario_ids(
@@ -46,7 +96,14 @@ def build_run(
     if worker_assignments is None:
         worker_id = next(iter(exit_codes)) if len(exit_codes) == 1 else "local"
         worker_assignments = {worker_id: expected}
-    return BenchmarkRun(expected, tuple(results), worker_assignments, exit_codes, worker_errors or {})
+    return BenchmarkRun(
+        requested_scenario_ids=expected,
+        results=tuple(results),
+        worker_assignments=worker_assignments,
+        worker_exit_codes=exit_codes,
+        software=collect_software_metadata(),
+        worker_errors=worker_errors or {},
+    )
 
 
 def build_distributed_run(
@@ -57,7 +114,14 @@ def build_distributed_run(
 ) -> BenchmarkRun:
     """Build a run whose requested IDs are already worker-qualified."""
     expected = tuple(scenario_id for ids in worker_assignments.values() for scenario_id in ids)
-    return BenchmarkRun(expected, tuple(results), worker_assignments, worker_exit_codes, worker_errors or {})
+    return BenchmarkRun(
+        requested_scenario_ids=expected,
+        results=tuple(results),
+        worker_assignments=worker_assignments,
+        worker_exit_codes=worker_exit_codes,
+        software=collect_software_metadata(),
+        worker_errors=worker_errors or {},
+    )
 
 
 def search_capacity(
@@ -113,6 +177,49 @@ def format_results_table(results: list[BenchmarkMeasurement]) -> str:
         )
         if result.error:
             lines.append(f"  error: {result.error}")
+    return "\n".join(lines)
+
+
+def format_scaling_summary(results: list[BenchmarkMeasurement]) -> str:
+    """Summarize comparable workloads measured at multiple batch sizes."""
+    groups: dict[_ScalingWorkload, list[BenchmarkMeasurement]] = {}
+    for result in results:
+        groups.setdefault(_ScalingWorkload.from_measurement(result), []).append(result)
+
+    lines = []
+    for workload, measurements in groups.items():
+        if len({measurement.num_envs for measurement in measurements}) <= 1:
+            continue
+        successful = [measurement for measurement in measurements if measurement.status == "ok"]
+        throughput_results = [
+            measurement for measurement in successful if measurement.throughput_envs_per_second is not None
+        ]
+        highest = max((measurement.num_envs for measurement in successful), default=None)
+        best = max(
+            throughput_results,
+            key=_throughput_sort_key,
+            default=None,
+        )
+        failures = sorted(
+            (
+                measurement.num_envs,
+                measurement.error or "unknown failure",
+            )
+            for measurement in measurements
+            if measurement.status == "failed"
+        )
+        workload_description = f"objects={workload.num_objects}"
+        if workload.graph_spec_path is not None:
+            robot = "yes" if workload.include_robot else "no"
+            workload_description += f", graph={workload.graph_spec_path}, robot={robot}"
+        highest_text = "-" if highest is None else str(highest)
+        best_text = "-" if best is None else f"{best.num_envs} ({best.throughput_envs_per_second:.3f} env/s)"
+        failure_text = "; ".join(f"{num_envs}: {reason}" for num_envs, reason in failures) or "-"
+        lines.append(
+            f"{workload.target}/{workload.worker_id} [{workload.collision_mode}, {workload_description}]: "
+            f"highest successful={highest_text}, "
+            f"best throughput={best_text}, failures={failure_text}"
+        )
     return "\n".join(lines)
 
 

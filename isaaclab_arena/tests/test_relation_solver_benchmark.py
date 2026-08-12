@@ -7,16 +7,22 @@ import csv
 import json
 import subprocess
 import torch
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
 
+import isaaclab_arena.relations.benchmark.metadata as benchmark_metadata
+import isaaclab_arena.relations.benchmark.reporting as benchmark_reporting
 from isaaclab_arena.relations.benchmark import (
     BenchmarkScenario,
+    SoftwareMetadata,
+    build_distributed_run,
     build_run,
+    collect_software_metadata,
     default_scenarios,
     env_count_sweep,
+    format_scaling_summary,
     object_count_sweep,
     requested_scenario_ids,
     run_benchmarks,
@@ -298,6 +304,62 @@ def test_build_run_records_missing_results_and_failed_workers():
     assert failed_worker.worker_errors == {"gpu-0": "worker exited with code 137"}
 
 
+def test_run_builders_collect_software_for_each_run(monkeypatch):
+    software = SoftwareMetadata("abc123", True, "3.11", "2.8", "12.8")
+    calls = []
+
+    def collect():
+        calls.append(None)
+        return software
+
+    monkeypatch.setattr(benchmark_reporting, "collect_software_metadata", collect)
+    scenario = _tiny_scenario()
+    result = run_solver_benchmark(scenario)
+    local = build_run((scenario,), ("solver",), [result])
+    distributed = build_distributed_run(
+        [result],
+        {"local": (result.scenario_id,)},
+        {"local": 0},
+    )
+
+    assert local.software == distributed.software == software
+    assert len(calls) == 2
+
+
+def test_software_metadata_tolerates_unavailable_git(monkeypatch, tmp_path):
+    calls = []
+
+    def unavailable_git(*args, **kwargs):
+        calls.append(kwargs)
+        raise FileNotFoundError
+
+    monkeypatch.setattr(benchmark_metadata.subprocess, "run", unavailable_git)
+    metadata = collect_software_metadata(tmp_path)
+
+    assert metadata.git_commit is None
+    assert metadata.git_dirty is None
+    assert calls[0]["cwd"] == tmp_path
+    assert calls[0]["timeout"] == benchmark_metadata.GIT_TIMEOUT_SECONDS
+
+
+def test_software_metadata_rejects_an_unrelated_git_root(monkeypatch, tmp_path):
+    monkeypatch.setattr(benchmark_metadata, "_git_output", lambda *_args: str(tmp_path.parent))
+
+    metadata = collect_software_metadata(tmp_path)
+
+    assert metadata.git_commit is None
+    assert metadata.git_dirty is None
+
+
+def test_measurement_from_dict_reports_missing_fields():
+    result = run_solver_benchmark(_tiny_scenario())
+    payload = result.to_dict()
+    del payload["num_spheres"]
+
+    with pytest.raises(ValueError, match="missing required fields: num_spheres"):
+        type(result).from_dict(payload)
+
+
 def test_json_and_csv_reports_share_run_results(tmp_path):
     scenario = _tiny_scenario()
     result = run_solver_benchmark(scenario)
@@ -310,10 +372,59 @@ def test_json_and_csv_reports_share_run_results(tmp_path):
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     with csv_path.open(encoding="utf-8") as csv_file:
         rows = list(csv.DictReader(csv_file))
-    assert payload["schema_version"] == 1
+    assert payload["software"]["python_version"]
+    assert "git_dirty" in payload["software"]
     assert payload["requested_scenario_ids"] == [result.scenario_id]
     assert rows[0]["scenario_id"] == result.scenario_id
     assert rows[0]["status"] == result.status
+
+
+def test_scaling_summary_reports_successes_throughput_and_failures():
+    base = run_solver_benchmark(_tiny_scenario())
+    results = [
+        replace(base, num_envs=1, throughput_envs_per_second=10.0),
+        replace(base, num_envs=4, throughput_envs_per_second=25.0),
+        replace(
+            base,
+            num_envs=8,
+            status="failed",
+            throughput_envs_per_second=None,
+            error="out of memory",
+        ),
+    ]
+
+    summary = format_scaling_summary(results)
+
+    assert "highest successful=4" in summary
+    assert "best throughput=4 (25.000 env/s)" in summary
+    assert "failures=8: out of memory" in summary
+
+
+def test_scaling_summary_does_not_merge_non_comparable_workloads():
+    base = run_solver_benchmark(_tiny_scenario())
+    object_results = [
+        replace(base, num_envs=1, num_objects=3),
+        replace(base, num_envs=8, num_objects=4),
+    ]
+    graph_results = [
+        replace(
+            base,
+            target="environment",
+            num_envs=1,
+            graph_spec_path="one.yaml",
+            include_robot=True,
+        ),
+        replace(
+            base,
+            target="environment",
+            num_envs=8,
+            graph_spec_path="two.yaml",
+            include_robot=True,
+        ),
+    ]
+
+    assert format_scaling_summary(object_results) == ""
+    assert format_scaling_summary(graph_results) == ""
 
 
 def test_capacity_search_uses_exponential_then_binary_probes():
