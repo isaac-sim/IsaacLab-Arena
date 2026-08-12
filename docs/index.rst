@@ -5,11 +5,11 @@ Isaac Lab Arena extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/in
 with composable tools for creating robotics simulation environments and running them efficiently at scale.
 
 .. note::
-   This is the development version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
+   This is the development version of Isaac Lab Arena. It contains the newest features but may not be fully tested yet.
    For the tested version, please refer to the `release/0.2.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html>`_.
 
 | **Modular Environments**
-| Compose environments from reusable parts.
+| Compose scenes, embodiments, and tasks as reusable building blocks instead of duplicating full environment definitions.
 
 .. figure:: images/variation_axis_web.webp
    :width: 80%
@@ -17,7 +17,8 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Swappable assets**
-| Easily switch the assets in an environment without rewriting the environment code.
+| Swap registered objects, backgrounds, robots, and targets through configuration or graph YAML overrides while task logic continues to address the same scene roles.
+| Object sets can assign different variants across parallel environments, so one evaluation can cover many assets without rewriting the task.
 
 .. container:: image-gallery gallery-3col
 
@@ -86,7 +87,8 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Automatic Object Placement**
-| Objects are placed automatically at run-time based on semantic spatial relationships.
+| Define layouts with semantic spatial relations rather than hand-coded poses.
+| Arena solves and validates candidate placements against object geometry, collisions, and task constraints.
 
 
 .. grid:: 1 1 2 2
@@ -119,7 +121,8 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Parallel Evaluation**
-| Evaluate policies in multiple parallel environments *fast*.
+| Evaluate a policy across many parallel environments, aggregating metrics over completed rollouts.
+| Arena can record per-episode results and camera videos, then produce an HTML report for reviewing success, progress, and rollout media.
 
 .. container:: image-gallery
 
@@ -153,7 +156,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Agentic environment creation**
-| Work with an agent to create environments with randomization.
+| Turn a natural-language task request into an editable specification, then review it in the GUI or run it end-to-end from the CLI.
 
 .. container:: image-gallery
 
@@ -168,7 +171,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Built-in Evaluation Environments**
-| Test policies out of the box with a set of pre-defined environments.
+| Run policies against built-in registered environments.
 
 .. container:: image-gallery gallery-3col
 
@@ -192,7 +195,8 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Environmental Variations**
-| Inject controlled sources of randomness into the environment at run-time.
+| Enable build-time and run-time variations to sample controlled changes such as HDR backgrounds, light properties, camera intrinsic and extrinsic parameters, and object mass.
+| Variation samples are recorded per episode so evaluation results stay tied to the conditions that produced them.
 
 .. container:: image-gallery
 
@@ -226,7 +230,8 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Multi-node Evaluation**
-| Scale-out evaluation across multiple compute nodes.
+| Submit Arena experiment YAML files to OSMO so independent runs, policy servers, and result collection can execute across a cluster.
+| The same experiment definitions used locally can scale to many tasks, policies, and episodes, with outputs collected for reports and analysis.
 
 .. figure:: images/teaser_page/multinode_evaluation/multinode_evaluation.png
    :width: 80%
@@ -234,7 +239,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Sensitivity Analysis**
-| Analyze the impact of variations on policy performance.
+| Convert variation sweeps into reports that show which environment factors are associated with policy success or failure.
 
 .. figure:: images/sensitivity_report_200_trails.png
    :width: 100%
