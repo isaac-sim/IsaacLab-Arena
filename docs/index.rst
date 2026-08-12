@@ -17,8 +17,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Swappable assets**
-| Swap registered objects, backgrounds, robots, and targets through configuration or graph YAML overrides while task logic continues to address the same scene roles.
-| Object sets can assign different variants across parallel environments, so one evaluation can cover many assets without rewriting the task.
+| Swap registered objects, backgrounds, robots, and targets through configuration or graph YAML overrides while task logic continues to address the same scene roles. Object sets can assign different variants across parallel environments, so one evaluation can cover many assets without rewriting the task.
 
 .. container:: image-gallery gallery-3col
 
@@ -87,8 +86,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Automatic Object Placement**
-| Define layouts with semantic spatial relations rather than hand-coded poses.
-| Arena solves and validates candidate placements against object geometry, collisions, and task constraints.
+| Define layouts with semantic spatial relations rather than hand-coded poses. Arena solves and validates candidate placements against object geometry, collisions, and task constraints.
 
 
 .. grid:: 1 1 2 2
@@ -121,8 +119,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Parallel Evaluation**
-| Evaluate a policy across many parallel environments, aggregating metrics over completed rollouts.
-| Arena can record per-episode results and camera videos, then produce an HTML report for reviewing success, progress, and rollout media.
+| Evaluate a policy across many parallel environments, aggregating metrics over completed rollouts. Arena can record per-episode results and camera videos, then produce an HTML report for reviewing success, progress, and rollout media.
 
 .. container:: image-gallery
 
@@ -195,8 +192,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Environmental Variations**
-| Enable build-time and run-time variations to sample controlled changes such as HDR backgrounds, light properties, camera intrinsic and extrinsic parameters, and object mass.
-| Variation samples are recorded per episode so evaluation results stay tied to the conditions that produced them.
+| Enable build-time and run-time variations to sample controlled changes such as HDR backgrounds, light properties, camera intrinsic and extrinsic parameters, and object mass. Variation samples are recorded per episode so evaluation results stay tied to the conditions that produced them.
 
 .. container:: image-gallery
 
@@ -230,8 +226,7 @@ with composable tools for creating robotics simulation environments and running 
 
 
 | **Multi-node Evaluation**
-| Submit Arena experiment YAML files to OSMO so independent runs, policy servers, and result collection can execute across a cluster.
-| The same experiment definitions used locally can scale to many tasks, policies, and episodes, with outputs collected for reports and analysis.
+| Submit Arena experiment YAML files to OSMO so independent runs, policy servers, and result collection can execute across a cluster. The same experiment definitions used locally can scale to many tasks, policies, and episodes, with outputs collected for reports and analysis.
 
 .. figure:: images/teaser_page/multinode_evaluation/multinode_evaluation.png
    :width: 80%
