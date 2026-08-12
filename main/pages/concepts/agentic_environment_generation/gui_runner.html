@@ -564,13 +564,12 @@
 reviewing, editing, saving, visualizing, and simulation-previewing
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> YAML files.</p>
 <p>What comes back depends on the model behind the selected endpoint — see
-<a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a>. Use <code class="docutils literal notranslate"><span class="pre">--inference_endpoint</span> <span class="pre">{internal,public,openai}</span></code>
-to pick the endpoint the GUI generates with, or set
-<code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code>. Since the model is non-deterministic, review and
-correct what it returns.</p>
+<a class="reference internal" href="model_selection.html"><span class="doc">Inference Model and Spec Quality</span></a>. Pick the endpoint in the GUI generation panel
+(only endpoints whose API key is set are listed), or set
+<code class="docutils literal notranslate"><span class="pre">ARENA_INFERENCE_ENDPOINT</span></code> as the default. Since the model is
+non-deterministic, review and correct what it returns.</p>
 <p>Run the GUI from inside the Isaac Lab-Arena development container:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--inference_endpoint<span class="w"> </span>public
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 </pre></div>
 </div>
 <p>You can also open an existing environment graph spec:</p>
@@ -592,30 +591,59 @@ simulation preview.</span><a class="headerlink" href="#id1" title="Link to this 
 <section id="ui-panels">
 <h2>UI Panels<a class="headerlink" href="#ui-panels" title="Link to this heading">#</a></h2>
 <p>The page is split into a left editing column and a right preview column.</p>
-<dl class="simple">
-<dt>Generate from prompt</dt><dd><p>Enter a natural-language task and scene description, then click
+<dl>
+<dt>Generate from prompt</dt><dd><p>Choose an inference endpoint (only endpoints whose API key is set are
+listed), enter a natural-language task and scene description, then click
 <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">spec</span></code>. The GUI calls the environment-generation agent and loads
 the returned <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> YAML into the editor. When validation
 fails, the invalid YAML is still loaded into the editor and the validation
 traces are shown alongside it.</p>
+<a class="reference internal image-reference" href="../../../_images/agentic_env_gen_gui_panel_generate.png"><img alt="Generate-from-prompt panel with inference endpoint selection" src="../../../_images/agentic_env_gen_gui_panel_generate.png" style="width: 50%;" />
+</a>
 </dd>
 <dt>YAML editor</dt><dd><p>Edit the generated or loaded <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> directly. The editor
 validates the YAML as you work and shows either a valid-spec summary or the
 parse/validation error. The <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> button writes the spec to
 <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the configured output directory. A searchable
 background prim-tree panel helps identify prim paths while editing.</p>
+<a class="reference internal image-reference" href="../../../_images/agentic_env_gen_gui_panel_edit.png"><img alt="ArenaEnvGraphSpec YAML editor panel" src="../../../_images/agentic_env_gen_gui_panel_edit.png" style="width: 50%;" />
+</a>
 </dd>
 <dt>Visualization</dt><dd><p>Shows an automatically refreshed dashboard for valid YAML. The dashboard
 includes graph nodes, node thumbnails when available, the graph layout, task
 rows, and initial-state information. Snapshot axis overlays use red for
 <span class="math notranslate nohighlight">\(+X\)</span>, green for <span class="math notranslate nohighlight">\(+Y\)</span>, and blue for <span class="math notranslate nohighlight">\(+Z\)</span>. If the YAML is
 invalid, the panel waits until the error is fixed before rendering.</p>
+<p>When the spec contains an entry under <code class="docutils literal notranslate"><span class="pre">object_references</span></code>, expand
+<strong>Background prim tree</strong> to search the background USD for the referenced
+prim. The searchable, collapsible tree helps verify or correct the
+reference’s <code class="docutils literal notranslate"><span class="pre">prim_path</span></code>.</p>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-column docutils">
+<a class="reference internal image-reference" href="../../../_images/agentic_env_gen_gui_panel_visualize.png"><img alt="Environment graph visualization panel" src="../../../_images/agentic_env_gen_gui_panel_visualize.png" style="width: 100%;" />
+</a>
+</div>
+<div class="sd-col sd-d-flex-column docutils">
+<a class="reference internal image-reference" href="../../../_images/agentic_env_gen_gui_panel_visualize_kitchen.png"><img alt="Kitchen environment graph visualization panel" src="../../../_images/agentic_env_gen_gui_panel_visualize_kitchen.png" style="width: 100%;" />
+</a>
+</div>
+</div>
+</div>
 </dd>
-<dt>Sim preview</dt><dd><p>Runs the full Arena environment construction from YAML, relation
-solving, and zero-action rollout in a SimulationApp side process.
-Controls let you set the number of parallel environments, zero-action steps,
-and environment spacing. The preview uses the task’s default viewer
-configuration and displays a viewport video of the rollout.</p>
+<dt>Sim preview</dt><dd><p>Runs the full Arena environment construction from YAML, relation solving,
+and zero-action rollout in a SimulationApp side process. Controls let you
+set the number of parallel environments, zero-action steps, and environment
+spacing.</p>
+<a class="reference internal image-reference" href="../../../_images/agentic_env_gen_gui_panel_sim_preview.png"><img alt="Simulation preview controls and viewport recording" src="../../../_images/agentic_env_gen_gui_panel_sim_preview.png" style="width: 50%;" />
+</a>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The preview uses the task’s default viewer configuration and records the
+Kit viewport camera. Increase <strong>Zero-action steps</strong> (<code class="docutils literal notranslate"><span class="pre">num_steps</span></code>) to
+extend the rollout, and move the viewport camera in the Kit window to
+change the recorded view.</p>
+</div>
 </dd>
 </dl>
 </section>
@@ -623,7 +651,7 @@ configuration and displays a viewport video of the rollout.</p>
 <h2>Editing and Update Flow<a class="headerlink" href="#editing-and-update-flow" title="Link to this heading">#</a></h2>
 <p>The main update flow is:</p>
 <ol class="arabic simple">
-<li><p>Type a prompt and click <code class="docutils literal notranslate"><span class="pre">Generate</span></code>.</p></li>
+<li><p>Type a prompt and click <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">spec</span></code>.</p></li>
 <li><p>The agent receives the prompt and returns an <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code>. The
 generated YAML is loaded into the editor and saved as <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code>.</p></li>
 <li><p>The user can manually edit the YAML in the editor. Once the edited YAML

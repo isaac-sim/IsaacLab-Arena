@@ -595,8 +595,8 @@ Print the current catalog with <code class="docutils literal notranslate"><span 
 <h2>Selecting the Model<a class="headerlink" href="#selecting-the-model" title="Link to this heading">#</a></h2>
 <p>Each endpoint preset has its own default model, so switching endpoints switches models (see
 <a class="reference internal" href="../../example_workflows/agentic_env_gen/index.html#agentic-env-gen-prerequisites"><span class="std std-ref">Prerequisites</span></a>). The CLI runner overrides it per run with <code class="docutils literal notranslate"><span class="pre">--model</span></code> and
-<code class="docutils literal notranslate"><span class="pre">--temperature</span></code>; the GUI runner only selects the endpoint, and uses that endpoint’s default
-model. For the public endpoint, any model in the
+<code class="docutils literal notranslate"><span class="pre">--temperature</span></code>; the GUI runner selects the endpoint in the generation panel and uses that
+endpoint’s default model. For the public endpoint, any model in the
 <a class="reference external" href="https://docs.api.nvidia.com/nim/reference/llm-apis">NVIDIA NIM LLM API reference</a> works, as long
 as it supports strict structured outputs — a larger context window buys more reliable prim path
 resolution.</p>
