@@ -48,12 +48,20 @@ Generate from prompt
    fails, the invalid YAML is still loaded into the editor and the validation
    traces are shown alongside it.
 
+   .. image:: ../../../images/agentic_env_gen_gui_panel_generate.png
+      :alt: Generate-from-prompt panel with inference endpoint selection
+      :width: 50%
+
 YAML editor
    Edit the generated or loaded ``ArenaEnvGraphSpec`` directly. The editor
    validates the YAML as you work and shows either a valid-spec summary or the
    parse/validation error. The ``Save YAML`` button writes the spec to
    ``<env_name>.yaml`` in the configured output directory. A searchable
    background prim-tree panel helps identify prim paths while editing.
+
+   .. image:: ../../../images/agentic_env_gen_gui_panel_edit.png
+      :alt: ArenaEnvGraphSpec YAML editor panel
+      :width: 50%
 
 Visualization
    Shows an automatically refreshed dashboard for valid YAML. The dashboard
@@ -62,19 +70,49 @@ Visualization
    :math:`+X`, green for :math:`+Y`, and blue for :math:`+Z`. If the YAML is
    invalid, the panel waits until the error is fixed before rendering.
 
+   When the spec contains an entry under ``object_references``, expand
+   **Background prim tree** to search the background USD for the referenced
+   prim. The searchable, collapsible tree helps verify or correct the
+   reference's ``prim_path``.
+
+   .. grid:: 2
+      :gutter: 2
+
+      .. grid-item::
+
+         .. image:: ../../../images/agentic_env_gen_gui_panel_visualize.png
+            :alt: Environment graph visualization panel
+            :width: 100%
+
+      .. grid-item::
+
+         .. image:: ../../../images/agentic_env_gen_gui_panel_visualize_kitchen.png
+            :alt: Kitchen environment graph visualization panel
+            :width: 100%
+
 Sim preview
-   Runs the full Arena environment construction from YAML, relation
-   solving, and zero-action rollout in a SimulationApp side process.
-   Controls let you set the number of parallel environments, zero-action steps,
-   and environment spacing. The preview uses the task's default viewer
-   configuration and displays a viewport video of the rollout.
+   Runs the full Arena environment construction from YAML, relation solving,
+   and zero-action rollout in a SimulationApp side process. Controls let you
+   set the number of parallel environments, zero-action steps, and environment
+   spacing.
+
+   .. image:: ../../../images/agentic_env_gen_gui_panel_sim_preview.png
+      :alt: Simulation preview controls and viewport recording
+      :width: 50%
+
+   .. note::
+
+      The preview uses the task's default viewer configuration and records the
+      Kit viewport camera. Increase **Zero-action steps** (``num_steps``) to
+      extend the rollout, and move the viewport camera in the Kit window to
+      change the recorded view.
 
 Editing and Update Flow
 -----------------------
 
 The main update flow is:
 
-#. Type a prompt and click ``Generate``.
+#. Type a prompt and click ``Generate spec``.
 #. The agent receives the prompt and returns an ``ArenaEnvGraphSpec``. The
    generated YAML is loaded into the editor and saved as ``<env_name>.yaml``.
 #. The user can manually edit the YAML in the editor. Once the edited YAML
