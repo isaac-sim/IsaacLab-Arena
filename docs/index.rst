@@ -2,7 +2,7 @@ Welcome to Isaac Lab Arena!
 ===========================
 
 Isaac Lab Arena extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
-to simplify the creation of simulation environments, and for running them *fast*.
+with composable tools for creating robotics simulation environments and running them efficiently at scale.
 
 .. note::
    This is the development version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
