@@ -242,7 +242,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Teleoperation**
-| Teleoperate robots in Arena-defined environments.
+| Teleoperate robots using IsaacTeleop in Arena-defined environments.
 
 .. container:: image-gallery
 
@@ -285,16 +285,20 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: Set Up
 
-   pages/quickstart/installation
-
+   Home <self>
 
 .. toctree::
    :maxdepth: 1
-   :caption: Why is Isaac Lab Arena needed?
+   :caption: Isaac Lab Arena Overview
 
    pages/motivation/motivation
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Set Up
+
+   pages/quickstart/installation
 
 .. toctree::
    :maxdepth: 1
