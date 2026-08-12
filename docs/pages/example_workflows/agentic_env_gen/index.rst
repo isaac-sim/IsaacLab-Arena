@@ -75,8 +75,9 @@ in the shell you launch the agentic environment generation runner from.
    export ARENA_INFERENCE_ENDPOINT=openai
    export OPENAI_API_KEY=<your-openai-api-key>
 
-A single run can override the selection with
-``--inference_endpoint {internal,public,openai}``.
+The CLI runner can override the selection per run with
+``--inference_endpoint {internal,public,openai}``. The GUI runner selects the
+endpoint in the generation panel instead.
 
 Generate a key for the public endpoint at
 `build.nvidia.com API keys <https://build.nvidia.com/settings/api-keys>`_, and a key for the

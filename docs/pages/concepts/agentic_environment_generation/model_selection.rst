@@ -42,8 +42,8 @@ Selecting the Model
 
 Each endpoint preset has its own default model, so switching endpoints switches models (see
 :ref:`agentic-env-gen-prerequisites`). The CLI runner overrides it per run with ``--model`` and
-``--temperature``; the GUI runner only selects the endpoint, and uses that endpoint's default
-model. For the public endpoint, any model in the
+``--temperature``; the GUI runner selects the endpoint in the generation panel and uses that
+endpoint's default model. For the public endpoint, any model in the
 `NVIDIA NIM LLM API reference <https://docs.api.nvidia.com/nim/reference/llm-apis>`_ works, as long
 as it supports strict structured outputs — a larger context window buys more reliable prim path
 resolution.

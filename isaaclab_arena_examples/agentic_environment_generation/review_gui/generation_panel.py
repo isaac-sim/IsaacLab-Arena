@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import traceback
 import yaml
 from dataclasses import dataclass
@@ -21,7 +22,12 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    DEFAULT_ENDPOINT_NAME,
+    INFERENCE_ENDPOINT_ENV_VAR,
+    INFERENCE_ENDPOINTS,
+    resolve_inference_endpoint,
+)
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadySearchConfig,
     SimReadySourceKind,
@@ -70,14 +76,49 @@ def _simready_config_from_session() -> SimReadySearchConfig:
     )
 
 
+def available_inference_endpoints() -> list[str]:
+    """Return endpoint names whose API-key environment variable is set."""
+    return [name for name, endpoint in INFERENCE_ENDPOINTS.items() if os.getenv(endpoint.api_key_env_var)]
+
+
+def _default_inference_endpoint(available: list[str]) -> str:
+    """Pick the CLI/default endpoint when it is among the available options."""
+    preferred = os.getenv(INFERENCE_ENDPOINT_ENV_VAR) or DEFAULT_ENDPOINT_NAME
+    if preferred in available:
+        return preferred
+    return available[0]
+
+
+def _selected_inference_endpoint() -> str | None:
+    """Return the endpoint currently selected in the generation panel, if any key is set."""
+    available = available_inference_endpoints()
+    if not available:
+        return None
+    current = st.session_state.get("inference_endpoint")
+    if current in available:
+        return current
+    return _default_inference_endpoint(available)
+
+
+def _on_inference_endpoint_change() -> None:
+    """Drop a stale agent error when the user switches endpoints."""
+    st.session_state.pop("generation_agent_error", None)
+
+
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     """Lazy-init the LLM agent when the selected inference endpoint's API key is available."""
     if st.session_state.get("generation_agent_error"):
+        return None
+    endpoint_name = _selected_inference_endpoint()
+    if endpoint_name is None:
+        key_vars = ", ".join(sorted({endpoint.api_key_env_var for endpoint in INFERENCE_ENDPOINTS.values()}))
+        st.session_state["generation_agent_error"] = f"No inference API key is set. Export one of: {key_vars}."
         return None
     simready_enabled = bool(st.session_state.get("enable_simready_search", False))
     simready_config = _simready_config_from_session()
     agent_key = (
         "generation_agent",
+        endpoint_name,
         simready_enabled,
         simready_config.source.value,
         simready_config.s3_url,
@@ -89,6 +130,7 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
         return agent
     try:
         agent = EnvironmentGenerationAgent(
+            endpoint=endpoint_name,
             enable_simready_search=simready_enabled,
             simready_config=simready_config,
         )
@@ -149,9 +191,15 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     agent = _get_generation_agent()
     if agent is None:
+        endpoint_name = _selected_inference_endpoint()
+        key_env = (
+            INFERENCE_ENDPOINTS[endpoint_name].api_key_env_var
+            if endpoint_name is not None
+            else resolve_inference_endpoint().api_key_env_var
+        )
         err = st.session_state.get(
             "generation_agent_error",
-            f"Set {resolve_inference_endpoint().api_key_env_var} in the environment before generating specs.",
+            f"Set {key_env} in the environment before generating specs.",
         )
         return False, err
 
@@ -215,6 +263,32 @@ def render_generation_panel() -> None:
     st.subheader("Generate from prompt")
     st.caption("Calls the env-generation agent (LLM) and loads the returned environment graph spec.")
 
+    available = available_inference_endpoints()
+    if not available:
+        key_vars = ", ".join(sorted({endpoint.api_key_env_var for endpoint in INFERENCE_ENDPOINTS.values()}))
+        st.warning(
+            f"No inference endpoint is available. Export one of: {key_vars}.",
+            icon="⚠️",
+        )
+        st.session_state.pop("inference_endpoint", None)
+    else:
+        if st.session_state.get("inference_endpoint") not in available:
+            st.session_state["inference_endpoint"] = _default_inference_endpoint(available)
+        st.radio(
+            "Inference endpoint",
+            options=available,
+            horizontal=True,
+            key="inference_endpoint",
+            on_change=_on_inference_endpoint_change,
+            format_func=lambda name: f"{name} ({INFERENCE_ENDPOINTS[name].api_key_env_var})",
+            help=(
+                "Only endpoints with their API key set in the environment are listed. "
+                f"Default comes from {INFERENCE_ENDPOINT_ENV_VAR} when that endpoint is available."
+            ),
+        )
+        endpoint = INFERENCE_ENDPOINTS[st.session_state["inference_endpoint"]]
+        st.caption(f"Model: `{endpoint.model}` at `{endpoint.base_url}`")
+
     prompt = st.text_area(
         "Prompt",
         value=st.session_state.get("generation_prompt", DEFAULT_GENERATION_PROMPT),
@@ -263,7 +337,8 @@ def render_generation_panel() -> None:
         else:
             st.caption("Searches the Isaac Sim 6.0 GA SimReady library — no further configuration needed.")
 
-    if st.button("Generate spec", type="primary", width="stretch"):
+    generate_disabled = not available
+    if st.button("Generate spec", type="primary", width="stretch", disabled=generate_disabled):
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:

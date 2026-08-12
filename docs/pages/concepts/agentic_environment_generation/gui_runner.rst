@@ -6,17 +6,16 @@ reviewing, editing, saving, visualizing, and simulation-previewing
 ``ArenaEnvGraphSpec`` YAML files.
 
 What comes back depends on the model behind the selected endpoint — see
-:doc:`model_selection`. Use ``--inference_endpoint {internal,public,openai}``
-to pick the endpoint the GUI generates with, or set
-``ARENA_INFERENCE_ENDPOINT``. Since the model is non-deterministic, review and
-correct what it returns.
+:doc:`model_selection`. Pick the endpoint in the GUI generation panel
+(only endpoints whose API key is set are listed), or set
+``ARENA_INFERENCE_ENDPOINT`` as the default. Since the model is
+non-deterministic, review and correct what it returns.
 
 Run the GUI from inside the Isaac Lab-Arena development container:
 
 .. code-block:: bash
 
-   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \
-      --inference_endpoint public
+   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
 You can also open an existing environment graph spec:
 
