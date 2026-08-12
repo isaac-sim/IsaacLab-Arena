@@ -15,6 +15,7 @@ import pytest
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
     INFERENCE_ENDPOINT_ENV_VAR,
+    INFERENCE_ENDPOINTS,
     INTERNAL_ENDPOINT,
     OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
@@ -355,9 +356,8 @@ class TestInferenceEndpointSelection:
     @pytest.fixture(autouse=True)
     def clean_endpoint_env(self, monkeypatch):
         monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
-        monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
-        monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
-        monkeypatch.delenv(OPENAI_ENDPOINT.api_key_env_var, raising=False)
+        for endpoint in INFERENCE_ENDPOINTS.values():
+            monkeypatch.delenv(endpoint.api_key_env_var, raising=False)
 
     def test_available_endpoints_omit_unset_keys(self, monkeypatch):
         monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
@@ -392,12 +392,13 @@ class TestInferenceEndpointSelection:
         public_key = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
         internal_key = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
         assert public_key != internal_key
-        assert public_key[1] == PUBLIC_ENDPOINT.name
-        assert internal_key[1] == INTERNAL_ENDPOINT.name
+        assert PUBLIC_ENDPOINT.name in public_key
+        assert INTERNAL_ENDPOINT.name in internal_key
 
     def test_clear_orphaned_generation_agents_keeps_requested_key(self, session_state):
-        keep = ("generation_agent", PUBLIC_ENDPOINT.name, False, "isaac-sim-ga", None, None, 1)
-        other = ("generation_agent", INTERNAL_ENDPOINT.name, False, "isaac-sim-ga", None, None, 1)
+        cfg = SimReadySearchConfig()
+        keep = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        other = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
         session_state[keep] = object()
         session_state[other] = object()
         session_state["unrelated"] = "keep-me"
