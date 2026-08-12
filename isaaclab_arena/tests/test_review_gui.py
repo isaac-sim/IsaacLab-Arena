@@ -527,7 +527,8 @@ class TestSimAppSimPreview:
     def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
         yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
         socket_path = tmp_path / "sim_preview.sock"
-        proc = spawn_simapp_process(str(socket_path))
+        # Headless + cameras: Kit UI fails to boot under native uv CI; GUI runner still defaults to Kit.
+        proc = spawn_simapp_process(str(socket_path), enable_visualizer=False)
         try:
             wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
             client = SimAppClient.connect(str(socket_path))
