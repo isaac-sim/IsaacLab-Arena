@@ -43,7 +43,7 @@ container. This step is required only once per host environment.
 
 .. tab-set::
 
-   .. tab-item:: Public NVIDIA API
+   .. tab-item:: NVIDIA Public Endpoint
       :selected:
 
       Generate an NGC API key at
@@ -54,7 +54,7 @@ container. This step is required only once per host environment.
 
          export NVIDIA_API_KEY=<your-ngc-api-key>
 
-   .. tab-item:: NVIDIA-internal API
+   .. tab-item:: NVIDIA Internal Endpoint
 
       From the NVIDIA network, generate an internal API key at
       `inference.nvidia.com key management <https://inference.nvidia.com/key-management>`_,
@@ -68,7 +68,7 @@ container. This step is required only once per host environment.
 
          This endpoint is accessible by NVIDIA employees only and counts into your Inference Hub token usage.
 
-   .. tab-item:: OpenAI API
+   .. tab-item:: OpenAI Endpoint
 
       Create an OpenAI account, generate a secret at
       `OpenAI API keys <https://platform.openai.com/api-keys>`_, and configure
@@ -131,11 +131,15 @@ the Docker container with ``-c`` if you need
 Available Generated Environments
 --------------------------------
 
-The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environments for
-RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
-``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
-:doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
-Each environment is generated from a natural-language prompt and can be used for policy evaluation.
+The generated environment catalogs cover tabletop and room-scale manipulation
+and can be used directly for policy evaluation:
+
+* **RoboLab-style tabletop manipulation** — diverse tabletop scenes, objects,
+  and manipulation tasks. See the :doc:`RoboLab Task Catalog
+  <../robolab_task_catalog>`.
+* **Room-scale kitchen benchmark** — object manipulation and articulated
+  appliance tasks across room-scale kitchen scenes. See the :doc:`Kitchen
+  Benchmark Catalog <../kitchen_bench_catalog>`.
 
 .. warning::
    Agentic environment generation is experimental and changing quickly. The
