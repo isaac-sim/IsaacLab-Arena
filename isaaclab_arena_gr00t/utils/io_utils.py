@@ -12,8 +12,6 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, TypeVar, Union
 
-from isaaclab_arena_gr00t.utils.gr00t_path import ensure_gr00t_importable
-
 # Generic type variable for configuration classes
 ConfigType = TypeVar("ConfigType")
 
@@ -206,8 +204,6 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path | None
     Returns:
         modality_configs: Modality configurations
     """
-    ensure_gr00t_importable()
-
     from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
     from gr00t.data.embodiment_tags import EmbodimentTag
 

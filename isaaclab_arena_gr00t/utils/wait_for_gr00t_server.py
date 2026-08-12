@@ -12,12 +12,7 @@ import socket
 import time
 
 import zmq
-
-from isaaclab_arena_gr00t.utils.gr00t_path import ensure_gr00t_importable
-
-ensure_gr00t_importable()
-
-from gr00t.policy.server_client import MsgSerializer  # noqa: E402
+from gr00t.policy.server_client import MsgSerializer
 
 
 def _diagnostics(host: str, port: int, tcp_timeout_sec: float) -> str:

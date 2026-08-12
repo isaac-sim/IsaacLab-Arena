@@ -88,8 +88,10 @@ RUN (type -p wget >/dev/null || (apt update && apt install wget -y)) \
     apt install -y gh
 
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
-# Runtime dependencies for the lightweight GR00T remote PolicyClient.
-RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1
+# Make the `gr00t` package importable so the lightweight remote
+# PolicyClient (gr00t.policy.server_client) works in the base container.
+RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
+    /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
 RUN /isaac-sim/python.sh -m pip install av
 
 # openpi remote-client. The pinned commit is read from
