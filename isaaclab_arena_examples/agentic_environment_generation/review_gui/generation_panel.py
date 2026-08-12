@@ -82,7 +82,7 @@ def available_inference_endpoints() -> list[str]:
 
 
 def _default_inference_endpoint(available: list[str]) -> str:
-    """Pick the CLI/default endpoint when it is among the available options."""
+    """Pick ``ARENA_INFERENCE_ENDPOINT`` / the public default when that option is available."""
     preferred = os.getenv(INFERENCE_ENDPOINT_ENV_VAR) or DEFAULT_ENDPOINT_NAME
     if preferred in available:
         return preferred
@@ -100,23 +100,14 @@ def _selected_inference_endpoint() -> str | None:
     return _default_inference_endpoint(available)
 
 
-def _on_inference_endpoint_change() -> None:
-    """Drop a stale agent error when the user switches endpoints."""
-    st.session_state.pop("generation_agent_error", None)
-
-
-def _get_generation_agent() -> EnvironmentGenerationAgent | None:
-    """Lazy-init the LLM agent when the selected inference endpoint's API key is available."""
-    if st.session_state.get("generation_agent_error"):
-        return None
-    endpoint_name = _selected_inference_endpoint()
-    if endpoint_name is None:
-        key_vars = ", ".join(sorted({endpoint.api_key_env_var for endpoint in INFERENCE_ENDPOINTS.values()}))
-        st.session_state["generation_agent_error"] = f"No inference API key is set. Export one of: {key_vars}."
-        return None
-    simready_enabled = bool(st.session_state.get("enable_simready_search", False))
-    simready_config = _simready_config_from_session()
-    agent_key = (
+def _generation_agent_cache_key(
+    endpoint_name: str,
+    *,
+    simready_enabled: bool,
+    simready_config: SimReadySearchConfig,
+) -> tuple:
+    """Session-state key for a generation agent bound to one endpoint and SimReady settings."""
+    return (
         "generation_agent",
         endpoint_name,
         simready_enabled,
@@ -125,8 +116,42 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
         simready_config.service_url,
         simready_config.max_results_per_object,
     )
+
+
+def _clear_orphaned_generation_agents(*, keep: tuple | None = None) -> None:
+    """Drop cached generation agents other than ``keep`` from session state."""
+    for key in list(st.session_state.keys()):
+        if isinstance(key, tuple) and key and key[0] == "generation_agent" and key != keep:
+            st.session_state.pop(key, None)
+
+
+def _on_inference_endpoint_change() -> None:
+    """Drop a stale agent error and cached agents when the user switches endpoints."""
+    st.session_state.pop("generation_agent_error", None)
+    _clear_orphaned_generation_agents()
+
+
+def _get_generation_agent() -> EnvironmentGenerationAgent | None:
+    """Lazy-init the LLM agent when the selected inference endpoint's API key is available.
+
+    Failed inits are recorded for the UI banner, but each call retries so a fixed key or
+    transient outage does not require changing the endpoint radio.
+    """
+    endpoint_name = _selected_inference_endpoint()
+    if endpoint_name is None:
+        key_vars = ", ".join(sorted({endpoint.api_key_env_var for endpoint in INFERENCE_ENDPOINTS.values()}))
+        st.session_state["generation_agent_error"] = f"No inference API key is set. Export one of: {key_vars}."
+        return None
+    simready_enabled = bool(st.session_state.get("enable_simready_search", False))
+    simready_config = _simready_config_from_session()
+    agent_key = _generation_agent_cache_key(
+        endpoint_name,
+        simready_enabled=simready_enabled,
+        simready_config=simready_config,
+    )
     agent = st.session_state.get(agent_key)
     if agent is not None:
+        st.session_state.pop("generation_agent_error", None)
         return agent
     try:
         agent = EnvironmentGenerationAgent(
@@ -140,6 +165,7 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     except Exception as exc:
         st.session_state["generation_agent_error"] = f"{type(exc).__name__}: {exc}"
         return None
+    _clear_orphaned_generation_agents(keep=agent_key)
     st.session_state[agent_key] = agent
     st.session_state.pop("generation_agent_error", None)
     return agent

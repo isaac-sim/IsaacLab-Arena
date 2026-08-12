@@ -41,7 +41,8 @@ UI Panels
 The page is split into a left editing column and a right preview column.
 
 Generate from prompt
-   Enter a natural-language task and scene description, then click
+   Choose an inference endpoint (only endpoints whose API key is set are
+   listed), enter a natural-language task and scene description, then click
    ``Generate spec``. The GUI calls the environment-generation agent and loads
    the returned ``ArenaEnvGraphSpec`` YAML into the editor. When validation
    fails, the invalid YAML is still loaded into the editor and the validation
