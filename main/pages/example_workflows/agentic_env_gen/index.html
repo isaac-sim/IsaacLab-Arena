@@ -585,10 +585,38 @@ The environment can be used for policy evaluation.</p>
 <section id="prerequisites">
 <span id="agentic-env-gen-prerequisites"></span><h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
 <p>Every workflow in this section shares the same setup.</p>
-<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<p>Use either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the base Docker container (see
+<a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details).</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv source</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Native uv wheel</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
+</div>
+</div>
+<p>For either native <code class="docutils literal notranslate"><span class="pre">uv</span></code> flavor, <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_curobo</span></code> is not installed; use
+the Docker container with <code class="docutils literal notranslate"><span class="pre">-c</span></code> if you need
+<a class="reference internal" href="../../concepts/object_placement/validation.html"><span class="doc">cuRobo-based reachability validation</span></a>.</p>
 <p>See <a class="reference internal" href="../../concepts/agentic_environment_generation/index.html"><span class="doc">Agentic Environment Generation</span></a> for the system
 architecture and runner reference.</p>
 <p>The generation agent calls a remote LLM endpoint. Pick one and export its API key

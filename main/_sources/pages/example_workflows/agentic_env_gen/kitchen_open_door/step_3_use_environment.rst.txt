@@ -18,9 +18,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
-
-:docker_run_default:
+Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
 
 .. code-block:: bash
 

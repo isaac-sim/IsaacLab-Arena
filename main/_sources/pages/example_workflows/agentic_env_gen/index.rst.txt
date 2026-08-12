@@ -33,9 +33,27 @@ Prerequisites
 
 Every workflow in this section shares the same setup.
 
-**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+Use either a native ``uv`` environment or the base Docker container (see
+:doc:`../../quickstart/installation` for more details).
 
-:docker_run_default:
+.. tab-set::
+
+   .. tab-item:: Native uv source
+      :selected:
+
+      :uv_run_source:
+
+   .. tab-item:: Native uv wheel
+
+      :uv_run_wheel:
+
+   .. tab-item:: Docker Container
+
+      :docker_run_default:
+
+For either native ``uv`` flavor, ``isaaclab_arena_curobo`` is not installed; use
+the Docker container with ``-c`` if you need
+:doc:`cuRobo-based reachability validation </pages/concepts/object_placement/validation>`.
 
 See :doc:`../../concepts/agentic_environment_generation/index` for the system
 architecture and runner reference.

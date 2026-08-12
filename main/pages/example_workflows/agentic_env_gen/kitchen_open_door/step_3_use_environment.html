@@ -569,10 +569,7 @@ environment. For other policy types, see
 <p>In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
 <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml</span></code>.</p>
-<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
-</pre></div>
-</div>
+<p>Complete the shared <a class="reference internal" href="../index.html#agentic-env-gen-prerequisites"><span class="std std-ref">Prerequisites</span></a> before running this command.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy<span class="w"> </span><span class="se">\</span>

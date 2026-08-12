@@ -2,6 +2,8 @@ Use the Generated Environment
 -----------------------------
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
+The base container runs the environment as it was generated. The cuRobo-installed container additionally
+gates object placement on whether the robot can reach the target objects.
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
@@ -17,25 +19,68 @@ In the other terminal, run the following command to launch the policy runner. Th
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
 ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
+.. tab-set::
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
+   .. tab-item:: Policy evaluation (without reachability validation)
+      :selected:
 
-:docker_run_default:
+      .. code-block:: bash
 
-.. code-block:: bash
+         python isaaclab_arena/evaluation/policy_runner.py \
+            --viz kit \
+            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+            --enable_cameras \
+            --num_envs 1 \
+            --num_episodes 2 \
+            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-      --viz kit \
-      --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-      --enable_cameras \
-      --num_envs 1 \
-      --num_episodes 2 \
-      --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+
+   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
+
+      .. note::
+         Reachability validation runs only in the cuRobo-installed Docker container
+         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
+         install — see :doc:`../../../quickstart/installation` and
+         :ref:`ik-reachable-check`.
+
+      If you want to ensure the robot can reach the target objects (i.e. mustard bottle and bowl), you can
+      use this environment in the cuRobo-installed docker container to activate the reachability validation.
+
+      **Docker Container**: Curobo-installed Base (see :doc:`../../../quickstart/installation` for more details)
+
+      :docker_run_curobo:
+
+      Now only the layouts the robot can reach are used:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+            --viz kit \
+            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+            --enable_cameras \
+            --num_envs 1 \
+            --num_episodes 2 \
+            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+
+      While the environment builds, every batch of candidate layouts reports how many of them passed each
+      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:
+
+      .. code-block:: text
+
+         [placement] Validated 50 candidate layout(s); passed per check: on_relation=49/50, next_to=45/50, not_next_to=50/50, face_to=50/50, no_overlap=50/50, ik_reachable=15/44
+
+      A low ``ik_reachable`` ratio means most sampled layouts put the mustard bottle or the bowl outside the
+      arm's workspace, and the placer keeps resampling.
+      When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.
+
+      See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
+      or disable it.
 
 .. figure:: ../../../../images/agentic_environment_generation/droid_kitchen_pnp_pi.gif
    :width: 100%
    :alt: PI policy controlling DROID for mustard-bottle pick and place in the kitchen
    :align: center
 
-   PI controls DROID to pick up the mustard bottle and place it in the bowl in
-   the agentically generated kitchen environment.
+   Policy evaluation of the generated kitchen environment using the OpenPI
+   policy with reachability validation. The robot picks up the mustard bottle
+   and places it into the bowl.
