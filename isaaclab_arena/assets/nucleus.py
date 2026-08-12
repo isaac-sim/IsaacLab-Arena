@@ -8,7 +8,9 @@
 Points to staging bucket before release and to production bucket after
 """
 
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 # TODO(2026.07.14, Point Arena assets to the production bucket before release)
 ARENA_NUCLEUS_DIR: str = ISAACLAB_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")
+# Replicator kitchens need to fill a request to be synced to the production bucket
+ISAAC_STAGING_NUCLEUS_DIR: str = ISAAC_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")

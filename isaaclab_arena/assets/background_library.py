@@ -11,7 +11,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -227,8 +227,6 @@ class TableOakRobolab(LibraryBackground):
 # Replicator kitchen backgrounds
 # -----------------------------------------------------------------------------
 
-_REPLICATOR_KITCHEN_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/background_library/replicator_kitchen"
-
 
 class ReplicatorKitchenBackground(LibraryBackground):
     """Base class for Replicator-generated kitchen floorplans."""
@@ -246,7 +244,7 @@ class ReplicatorKitchenGShape(ReplicatorKitchenBackground):
     """Replicator G-shaped kitchen."""
 
     name = "replicator_kitchen_g_shape"
-    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_g_shape.usda"
+    usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_g_shape.usda"
 
 
 @register_asset
@@ -254,7 +252,7 @@ class ReplicatorKitchenLIsland(ReplicatorKitchenBackground):
     """Replicator L-shaped kitchen with an island."""
 
     name = "replicator_kitchen_l_island"
-    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_l_island.usda"
+    usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_l_island.usda"
 
 
 @register_asset
@@ -262,7 +260,7 @@ class ReplicatorKitchenLShape(ReplicatorKitchenBackground):
     """Replicator L-shaped kitchen."""
 
     name = "replicator_kitchen_l_shape"
-    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_l_shape.usda"
+    usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_l_shape.usda"
 
 
 @register_asset
@@ -270,7 +268,7 @@ class ReplicatorKitchenPeninsula(ReplicatorKitchenBackground):
     """Replicator kitchen with a peninsula."""
 
     name = "replicator_kitchen_peninsula"
-    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_peninsula.usda"
+    usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_peninsula.usda"
 
 
 @register_asset
@@ -278,4 +276,4 @@ class ReplicatorKitchenUShape(ReplicatorKitchenBackground):
     """Replicator U-shaped kitchen."""
 
     name = "replicator_kitchen_u_shape"
-    usd_path = f"{_REPLICATOR_KITCHEN_ROOT}/kitchen_u_shape.usda"
+    usd_path = f"{ISAAC_STAGING_NUCLEUS_DIR}/Environments/replicator_kitchen/kitchen_u_shape.usda"
