@@ -31,7 +31,7 @@ class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
 
     object: str = "ranch_dressing_hope_robolab"
     object_set: list[str] | None = None
-    kitchen_style: int = 2
+    kitchen_background: str = "lightwheel_kitchen_one_wall_farmhouse1"
     teleop_device: str | None = None
     embodiment: str = "gr1_pink"
 
@@ -129,13 +129,12 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
             rot=camera_offset.rotation_xyzw,
             convention="opengl",
         )
-        kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
-            style_id=cfg.kitchen_style
-        )
+        kitchen_background = self.asset_registry.get_asset_by_name(cfg.kitchen_background)()
+        kitchen_prim_path = f"{{ENV_REGEX_NS}}/{kitchen_background.name}"
 
         kitchen_counter_top = ObjectReference(
             name="kitchen_counter_top",
-            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+            prim_path=f"{kitchen_prim_path}/counter_right_main_group/top_geometry",
             parent_asset=kitchen_background,
         )
         kitchen_counter_top.add_relation(IsAnchor())
@@ -158,7 +157,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         # Create refrigerator reference (OpenableObjectReference)
         refrigerator = OpenableObjectReference(
             name="refrigerator",
-            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group",
+            prim_path=f"{kitchen_prim_path}/fridge_main_group",
             parent_asset=kitchen_background,
             openable_joint_name="fridge_door_joint",
             openable_threshold=0.5,
@@ -167,7 +166,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         # Create refrigerator shelf reference (destination for pick and place)
         refrigerator_shelf = ObjectReference(
             name="refrigerator_shelf",
-            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group/Refrigerator034",
+            prim_path=f"{kitchen_prim_path}/fridge_main_group/Refrigerator034",
             parent_asset=kitchen_background,
         )
 

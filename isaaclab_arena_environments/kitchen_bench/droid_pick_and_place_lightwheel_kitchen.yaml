@@ -13,7 +13,7 @@ embodiment:
     collision_mode: mesh
 background:
   id: kitchen
-  registry_name: lightwheel_robocasa_kitchen
+  registry_name: lightwheel_kitchen_one_wall_coastal
   params:
     collision_mode: mesh
     repair_collision_mesh_non_watertight: false

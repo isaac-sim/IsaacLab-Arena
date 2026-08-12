@@ -21,7 +21,7 @@ The generated spec has one block per part of the environment graph:
        stand_height_m: 0.8           # the stand that lifts DROID to door-handle height
    background:                       # the kitchen the task happens in
      id: kitchen
-     registry_name: lightwheel_robocasa_kitchen
+     registry_name: lightwheel_kitchen_one_wall_coastal
      params: {}
    objects: []
    object_references:                # prims that already exist inside the background
