@@ -2,7 +2,7 @@ Pick and Place on a Kitchen Countertop
 =======================================
 
 This example uses the agentic environment-generation system to infer an environment graph spec from a prompt
-for **pick and place atomic task on a kitchen countertop** in the ``lightwheel_robocasa_kitchen`` background.
+for **pick and place atomic task on a kitchen countertop** in the ``lightwheel_kitchen_one_wall_coastal`` background.
 
 Environment Description
 -----------------------

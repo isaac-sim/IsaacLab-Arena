@@ -590,7 +590,7 @@ the refrigerator shelf, then closes the refrigerator door. Featured in the
    * - **Embodiment**
      - ``gr1_pink`` (default) via ``--embodiment``
    * - **Scene**
-     - ``lightwheel_robocasa_kitchen`` background (``--kitchen_style`` selectable), ``light``, kitchen counter anchor
+     - ``lightwheel_kitchen_one_wall_farmhouse1`` background, ``light``, kitchen counter anchor
    * - **Objects**
      - Pick: ``ranch_dressing_hope_robolab`` (default), or ``--object_set`` for heterogeneous spawning; Destination: refrigerator shelf reference; Container: ``refrigerator`` (articulated)
    * - **Task Class**
@@ -598,7 +598,7 @@ the refrigerator shelf, then closes the refrigerator door. Featured in the
    * - **Interop**
      - Isaac Lab Mimic (``put_and_close_door_task_D0`` datagen)
    * - **CLI Args**
-     - ``--object``, ``--object_set``, ``--kitchen_style``, ``--embodiment``, ``--teleop_device``
+     - ``--object``, ``--object_set``, ``--embodiment``, ``--teleop_device``
 
 
 franka_put_and_close_door

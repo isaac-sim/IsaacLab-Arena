@@ -585,7 +585,7 @@ GUI runner (live editing)</label><div class="sd-tab-content docutils">
 </div>
 <p>In the <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">from</span> <span class="pre">prompt</span></code> panel, enter the prompt and click
 <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">spec</span></code>:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>There is a counter top in the lightwheel_robocasa_kitchen background.
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>There is a counter top in the lightwheel_kitchen_one_wall_coastal background.
 DROID picks up a mustard bottle on the counter top and places it in a bowl.
 </pre></div>
 </div>
@@ -600,7 +600,7 @@ a counter surface, but no placement for the robot itself.</p>
 </figure>
 <p>Replace the prompt with one that also describes the robot placement and regenerate:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>There is a center-right counter top and a floor in the
-lightwheel_robocasa_kitchen background. DROID picks up a mustard bottle on
+lightwheel_kitchen_one_wall_coastal background. DROID picks up a mustard bottle on
 the counter top and places it in a bowl. DROID is next to the counter top
 and on the floor.
 </pre></div>
@@ -619,7 +619,7 @@ CLI runner (no editing)</label><div class="sd-tab-content docutils">
 <p>Run the runner in <code class="docutils literal notranslate"><span class="pre">resolve</span></code> mode:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/cli_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>resolve<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;There is a center-right counter top and a floor in the lightwheel_robocasa_kitchen background. DROID picks up a mustard bottle on the counter top and places it in a bowl. DROID is next to the counter top and on the floor.&quot;</span>
+<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;There is a center-right counter top and a floor in the lightwheel_kitchen_one_wall_coastal background. DROID picks up a mustard bottle on the counter top and places it in a bowl. DROID is next to the counter top and on the floor.&quot;</span>
 </pre></div>
 </div>
 <p>The runner prints the generated graph and writes <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> under

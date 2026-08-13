@@ -20,7 +20,7 @@ The generated spec has one block per part of the environment graph:
        stand_height_m: 0.8           # the stand that lifts DROID to counter height
    background:                       # the kitchen the task happens in
      id: kitchen
-     registry_name: lightwheel_robocasa_kitchen
+     registry_name: lightwheel_kitchen_one_wall_coastal
      params: {}
    objects:                          # assets spawned into the scene
    - id: mustard_bottle              # the pick target

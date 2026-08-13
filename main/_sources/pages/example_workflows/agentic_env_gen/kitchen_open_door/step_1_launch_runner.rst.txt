@@ -31,7 +31,7 @@ That is, the task is to open the fridge door to the 0.2 openness threshold in th
 
       .. code-block:: text
 
-         There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen.
+         There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal kitchen.
          DROID is on the floor, next to the fridge with 0.1 meter distance and facing
          it. DROID opens the fridge door to the 0.2 openness threshold.
 
@@ -51,7 +51,7 @@ That is, the task is to open the fridge door to the 0.2 openness threshold in th
 
          python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
-            --prompt "There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen. DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. DROID opens the fridge door to the 0.2 openness threshold."
+            --prompt "There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal kitchen. DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. DROID opens the fridge door to the 0.2 openness threshold."
 
       The runner prints the resolved graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.
