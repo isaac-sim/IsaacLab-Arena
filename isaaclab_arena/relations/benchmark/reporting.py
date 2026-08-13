@@ -3,18 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run construction, capacity search, and report writers for relation benchmarks."""
+"""Run construction, summaries, and report writers for relation benchmarks."""
 
 from __future__ import annotations
 
 import csv
 import json
 import statistics
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
-from isaaclab_arena.relations.benchmark.metadata import collect_software_metadata
 from isaaclab_arena.relations.benchmark.models import (
     BenchmarkMeasurement,
     BenchmarkRun,
@@ -22,16 +21,18 @@ from isaaclab_arena.relations.benchmark.models import (
     BenchmarkTarget,
     CollisionModeName,
 )
+from isaaclab_arena.relations.benchmark.provenance import collect_software_metadata
 
 
 @dataclass(frozen=True)
 class _ScalingWorkload:
-    """Parameters that must match before comparing batch sizes."""
+    """Parameters that must match before comparing one scaling axis."""
 
     target: BenchmarkTarget
     worker_id: str
     collision_mode: CollisionModeName
-    num_objects: int
+    num_objects: int | None
+    num_envs: int | None
     graph_spec_path: str | None
     include_robot: bool | None
     max_iters: int
@@ -45,13 +46,18 @@ class _ScalingWorkload:
     min_valid_layout_rate: float
 
     @classmethod
-    def from_measurement(cls, measurement: BenchmarkMeasurement) -> _ScalingWorkload:
+    def from_measurement(
+        cls,
+        measurement: BenchmarkMeasurement,
+        scaling_axis: Literal["batch", "objects"],
+    ) -> _ScalingWorkload:
         """Build the workload identity for a measurement."""
         return cls(
             target=measurement.target,
             worker_id=measurement.worker_id,
             collision_mode=measurement.collision_mode,
-            num_objects=measurement.num_objects,
+            num_objects=None if scaling_axis == "objects" else measurement.num_objects,
+            num_envs=None if scaling_axis == "batch" else measurement.num_envs,
             graph_spec_path=measurement.graph_spec_path,
             include_robot=measurement.include_robot,
             max_iters=measurement.max_iters,
@@ -66,9 +72,12 @@ class _ScalingWorkload:
         )
 
 
-def _throughput_sort_key(measurement: BenchmarkMeasurement) -> tuple[float, int]:
-    assert measurement.throughput_envs_per_second is not None
-    return measurement.throughput_envs_per_second, measurement.num_envs
+def _batch_ms(measurement: BenchmarkMeasurement) -> float | None:
+    return {
+        "solver": measurement.solve_ms,
+        "placer": measurement.place_ms,
+        "environment": measurement.bring_up_ms,
+    }[measurement.target]
 
 
 def requested_scenario_ids(
@@ -124,55 +133,22 @@ def build_distributed_run(
     )
 
 
-def search_capacity(
-    probe: Callable[[int], bool],
-    *,
-    start_num_envs: int = 1,
-    max_num_envs: int = 4096,
-) -> int | None:
-    """Find the largest viable batch by exponential growth and binary search."""
-    assert 0 < start_num_envs <= max_num_envs
-    if not probe(start_num_envs):
-        return None
-    if start_num_envs == max_num_envs:
-        return start_num_envs
-    low = start_num_envs
-    high = min(start_num_envs * 2, max_num_envs)
-    while probe(high):
-        low = high
-        if high == max_num_envs:
-            return high
-        high = min(high * 2, max_num_envs)
-    while low + 1 < high:
-        middle = (low + high) // 2
-        if probe(middle):
-            low = middle
-        else:
-            high = middle
-    return low
-
-
 def format_results_table(results: list[BenchmarkMeasurement]) -> str:
     """Render a compact text report."""
     header = (
-        f"{'scenario':<28} {'worker':<10} {'target':<11} {'status':<7} {'mode':<5} {'envs':>5} "
-        f"{'median_ms':>10} {'step_ms':>9} {'iters':>7} {'env/s':>10} {'agg env/s':>10} "
+        f"{'scenario':<28} {'worker':<10} {'target':<11} {'status':<7} {'mode':<5} {'objects':>7} "
+        f"{'batch':>5} {'batch_ms':>10} {'step_ms':>9} {'iters':>7} {'layouts/s':>10} {'agg layouts/s':>13} "
         f"{'loss':>10} {'valid':>7}"
     )
     lines = [header, "-" * len(header)]
     for result in results:
-        median_ms = {
-            "solver": result.solve_ms,
-            "placer": result.place_ms,
-            "environment": result.build_ms,
-        }[result.target]
         lines.append(
             f"{result.scenario_name:<28} {result.worker_id:<10} {result.target:<11} {result.status:<7} "
-            f"{result.collision_mode:<5} {result.num_envs:>5} "
-            f"{_format_number(median_ms):>10} {_format_number(result.solve_step_ms):>9} "
+            f"{result.collision_mode:<5} {result.num_objects:>7} {result.num_envs:>5} "
+            f"{_format_number(_batch_ms(result)):>10} {_format_number(result.solve_step_ms):>9} "
             f"{_format_iterations(result.iterations):>7} "
             f"{_format_number(result.throughput_envs_per_second):>10} "
-            f"{_format_number(result.aggregate_throughput_envs_per_second):>10} "
+            f"{_format_number(result.aggregate_throughput_envs_per_second):>13} "
             f"{_format_number(result.final_loss):>10} {_format_number(result.valid_layout_rate):>7}"
         )
         if result.error:
@@ -181,25 +157,29 @@ def format_results_table(results: list[BenchmarkMeasurement]) -> str:
 
 
 def format_scaling_summary(results: list[BenchmarkMeasurement]) -> str:
-    """Summarize comparable workloads measured at multiple batch sizes."""
+    """Summarize independent batch-size and object-count sweeps."""
+    sections = [
+        _format_batch_scaling(results),
+        _format_object_scaling(results),
+    ]
+    return "\n\n".join(section for section in sections if section)
+
+
+def _format_batch_scaling(results: list[BenchmarkMeasurement]) -> str:
+    """Summarize batch-size scaling with object count held fixed."""
     groups: dict[_ScalingWorkload, list[BenchmarkMeasurement]] = {}
     for result in results:
-        groups.setdefault(_ScalingWorkload.from_measurement(result), []).append(result)
+        groups.setdefault(_ScalingWorkload.from_measurement(result, "batch"), []).append(result)
 
     lines = []
     for workload, measurements in groups.items():
         if len({measurement.num_envs for measurement in measurements}) <= 1:
             continue
         successful = [measurement for measurement in measurements if measurement.status == "ok"]
-        throughput_results = [
-            measurement for measurement in successful if measurement.throughput_envs_per_second is not None
-        ]
+        ordered = sorted(measurements, key=lambda measurement: measurement.num_envs)
+        baseline = ordered[0]
+        baseline_throughput = baseline.throughput_envs_per_second
         highest = max((measurement.num_envs for measurement in successful), default=None)
-        best = max(
-            throughput_results,
-            key=_throughput_sort_key,
-            default=None,
-        )
         failures = sorted(
             (
                 measurement.num_envs,
@@ -208,19 +188,57 @@ def format_scaling_summary(results: list[BenchmarkMeasurement]) -> str:
             for measurement in measurements
             if measurement.status == "failed"
         )
+        assert workload.num_objects is not None
         workload_description = f"objects={workload.num_objects}"
         if workload.graph_spec_path is not None:
             robot = "yes" if workload.include_robot else "no"
             workload_description += f", graph={workload.graph_spec_path}, robot={robot}"
         highest_text = "-" if highest is None else str(highest)
-        best_text = "-" if best is None else f"{best.num_envs} ({best.throughput_envs_per_second:.3f} env/s)"
+        points = []
+        for measurement in ordered:
+            throughput = measurement.throughput_envs_per_second
+            scale = (
+                throughput / baseline_throughput if throughput is not None and baseline_throughput is not None else None
+            )
+            throughput_text = "-" if throughput is None else f"{throughput:.3f} layouts/s"
+            scale_text = "" if scale is None else f", {scale:.2f}x"
+            points.append(f"{measurement.num_envs}={throughput_text}{scale_text}, {measurement.status}")
         failure_text = "; ".join(f"{num_envs}: {reason}" for num_envs, reason in failures) or "-"
         lines.append(
             f"{workload.target}/{workload.worker_id} [{workload.collision_mode}, {workload_description}]: "
-            f"highest successful={highest_text}, "
-            f"best throughput={best_text}, failures={failure_text}"
+            f"throughput_vs_batch_{baseline.num_envs}: "
+            + "; ".join(points)
+            + f"; highest successful batch={highest_text}; failures={failure_text}"
         )
-    return "\n".join(lines)
+    return "\n".join(["Batch-size scaling (fixed object count)", *lines]) if lines else ""
+
+
+def _format_object_scaling(results: list[BenchmarkMeasurement]) -> str:
+    """Summarize object-count scaling with batch size held fixed."""
+    groups: dict[_ScalingWorkload, list[BenchmarkMeasurement]] = {}
+    for result in results:
+        groups.setdefault(_ScalingWorkload.from_measurement(result, "objects"), []).append(result)
+
+    lines = []
+    for workload, measurements in groups.items():
+        if len({measurement.num_objects for measurement in measurements}) <= 1:
+            continue
+        ordered = sorted(measurements, key=lambda measurement: measurement.num_objects)
+        baseline_ms = _batch_ms(ordered[0])
+        points = []
+        for measurement in ordered:
+            batch_ms = _batch_ms(measurement)
+            scale = batch_ms / baseline_ms if batch_ms is not None and baseline_ms is not None else None
+            timing = "-" if batch_ms is None else f"{batch_ms:.3f} ms"
+            scale_text = "" if scale is None else f", {scale:.2f}x"
+            points.append(f"{measurement.num_objects}={timing}{scale_text}, {measurement.status}")
+        assert workload.num_envs is not None
+        lines.append(
+            f"{workload.target}/{workload.worker_id} [{workload.collision_mode}, batch={workload.num_envs}]: "
+            f"latency_vs_objects_{ordered[0].num_objects}: "
+            + "; ".join(points)
+        )
+    return "\n".join(["Object-count scaling (fixed batch size)", *lines]) if lines else ""
 
 
 def _format_number(value: float | None) -> str:

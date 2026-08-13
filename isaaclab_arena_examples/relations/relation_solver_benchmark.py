@@ -14,9 +14,15 @@ Examples:
       --suite envs --targets solver,placer --compare-modes \\
       --num-envs 1 --num-envs 8 --num-envs 32
 
-  Environment build/reset with and without a robot:
+  Exactly one environment bring-up case:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
-      --targets environment --compare-modes --robot-mode both --num-envs 1
+      --targets environment \\
+      --environment-spec isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml \\
+      --collision-mode bbox --robot-mode with --num-envs 1 --warmup 0 --repeat 1
+
+  Comprehensive synthetic and environment benchmark on one GPU:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite comprehensive
 
   Replicate the full matrix on two GPUs:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
@@ -29,6 +35,9 @@ Examples:
 
 Results print to the terminal. Pass --output-dir PATH to also write JSON and CSV.
 Solver status uses the final-loss threshold; placer status uses geometric layout validity.
+Environment-spec generation by an LLM is not measured. Environment bring-up measures
+make_registered() plus the first reset; graph-spec parsing, builder setup, and teardown
+are outside the timed boundary.
 """
 
 from __future__ import annotations
@@ -36,12 +45,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
-import subprocess
 import sys
-import tempfile
 import torch
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -60,8 +66,11 @@ from isaaclab_arena.relations.benchmark import (
     object_count_sweep,
     requested_scenario_ids,
     run_benchmarks,
+    run_capacity_search,
+    run_multi_gpu,
+    run_worker,
     scenarios_for_modes,
-    search_capacity,
+    validate_gpu_selectors,
     write_results_csv,
     write_results_json,
 )
@@ -72,7 +81,12 @@ DEFAULT_MESH_SPEC = "isaaclab_arena_environments/kitchen_bench/replicator_kitche
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--suite", choices=("presets", "objects", "envs"), default="presets")
+    parser.add_argument(
+        "--suite",
+        choices=("presets", "objects", "envs", "comprehensive"),
+        default="presets",
+        help="Benchmark matrix; comprehensive runs a fixed single-GPU synthetic and environment plan.",
+    )
     parser.add_argument(
         "--collision-mode",
         choices=("auto", "bbox", "mesh"),
@@ -80,7 +94,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Collision mode; auto uses bbox for synthetic scenes and each environment's natural mode.",
     )
     parser.add_argument("--compare-modes", action="store_true", help="Run both bbox and mesh scenarios.")
-    parser.add_argument("--targets", default="solver,placer", help="Comma-separated solver, placer, or environment.")
+    parser.add_argument(
+        "--targets",
+        default=None,
+        help="Comma-separated solver, placer, or environment (default: solver,placer; fixed by comprehensive).",
+    )
     parser.add_argument("--environment-spec", action="append", help="Graph spec for an environment target.")
     parser.add_argument("--robot-mode", choices=("with", "without", "both"), default="both")
     parser.add_argument("--num-envs", type=int, action="append", help="Override suite environment counts.")
@@ -128,56 +146,32 @@ def _targets(value: str) -> tuple[BenchmarkTarget, ...]:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
+    if args.suite == "comprehensive":
+        incompatible = (
+            ("--gpus", args.gpus is not None),
+            ("--capacity-search", args.capacity_search),
+            ("--targets", args.targets is not None),
+            ("--environment-spec", args.environment_spec is not None),
+            ("--collision-mode", args.collision_mode != "auto"),
+            ("--compare-modes", args.compare_modes),
+            ("--robot-mode", args.robot_mode != "both"),
+            ("--num-envs", args.num_envs is not None),
+            ("--capacity-max-envs", args.capacity_max_envs != 4096),
+            ("--memory-headroom-gib", args.memory_headroom_gib != 2.0),
+        )
+        rejected = [option for option, supplied in incompatible if supplied]
+        if rejected:
+            raise ValueError(
+                f"--suite comprehensive owns its execution matrix; cannot combine with {', '.join(rejected)}"
+            )
     if args.compare_modes and args.collision_mode != "auto":
         raise ValueError("--compare-modes cannot be combined with --collision-mode")
     if args.num_envs and (any(value <= 0 for value in args.num_envs) or len(args.num_envs) != len(set(args.num_envs))):
         raise ValueError("--num-envs values must be positive and unique")
-    if args.max_iters <= 0:
-        raise ValueError("--max-iters must be positive")
-    if not math.isfinite(args.convergence_threshold) or args.convergence_threshold < 0.0:
-        raise ValueError("--convergence-threshold must be finite and non-negative")
-    if args.num_spheres <= 0:
-        raise ValueError("--num-spheres must be positive")
-    if args.max_placement_attempts <= 0:
-        raise ValueError("--max-placement-attempts must be positive")
-    if args.warmup < 0:
-        raise ValueError("--warmup must be non-negative")
-    if args.repeat <= 0:
-        raise ValueError("--repeat must be positive")
-    if not math.isfinite(args.final_loss_threshold) or args.final_loss_threshold < 0.0:
-        raise ValueError("--final-loss-threshold must be finite and non-negative")
-    if not math.isfinite(args.min_valid_layout_rate) or not 0.0 <= args.min_valid_layout_rate <= 1.0:
-        raise ValueError("--min-valid-layout-rate must be in [0, 1]")
     if args.capacity_max_envs <= 0:
         raise ValueError("--capacity-max-envs must be positive")
     if not math.isfinite(args.memory_headroom_gib) or args.memory_headroom_gib < 0.0:
         raise ValueError("--memory-headroom-gib must be finite and non-negative")
-
-
-def _validate_gpu_selectors(gpus: tuple[str, ...]) -> None:
-    if not gpus:
-        return
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=index,uuid", "--format=csv,noheader,nounits"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError) as error:
-        raise ValueError(f"could not query available GPUs: {error}") from error
-    selectors_to_uuid = {}
-    for line in result.stdout.splitlines():
-        index, uuid = (value.strip() for value in line.split(",", maxsplit=1))
-        selectors_to_uuid[index] = uuid
-        selectors_to_uuid[uuid] = uuid
-    unknown = tuple(gpu for gpu in gpus if gpu not in selectors_to_uuid)
-    if unknown:
-        available = ", ".join(sorted(selectors_to_uuid))
-        raise ValueError(f"unknown GPU selector(s): {', '.join(unknown)}; available: {available}")
-    canonical_gpus = tuple(selectors_to_uuid[gpu] for gpu in gpus)
-    if len(canonical_gpus) != len(set(canonical_gpus)):
-        raise ValueError("--gpus selectors must refer to different physical devices")
 
 
 def _collision_modes(args: argparse.Namespace) -> tuple[CollisionModeName, ...]:
@@ -186,18 +180,11 @@ def _collision_modes(args: argparse.Namespace) -> tuple[CollisionModeName, ...]:
     return (cast(CollisionModeName, "bbox" if args.collision_mode == "auto" else args.collision_mode),)
 
 
-def _base_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
-    if args.suite == "objects":
-        scenarios = object_count_sweep(max_iters=args.max_iters)
-    elif args.suite == "envs":
-        scenarios = env_count_sweep(
-            env_counts=tuple(args.num_envs) if args.num_envs else (1, 8, 32),
-            max_iters=args.max_iters,
-        )
-    else:
-        scenarios = default_scenarios()
-    if args.num_envs and args.suite != "envs":
-        scenarios = tuple(replace(scenario, num_envs=num_envs) for scenario in scenarios for num_envs in args.num_envs)
+def _apply_scenario_options(
+    scenarios: tuple[BenchmarkScenario, ...],
+    args: argparse.Namespace,
+) -> tuple[BenchmarkScenario, ...]:
+    """Apply shared command-line options to benchmark scenarios."""
     return tuple(
         replace(
             scenario,
@@ -215,22 +202,27 @@ def _base_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
     )
 
 
-def _environment_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
-    if args.environment_spec:
-        if args.collision_mode == "auto" and not args.compare_modes:
-            raise ValueError("custom --environment-spec requires --collision-mode or --compare-modes")
-        specs: tuple[tuple[str, CollisionModeName | None], ...] = tuple((spec, None) for spec in args.environment_spec)
+def _base_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
+    if args.suite == "objects":
+        scenarios = object_count_sweep()
+    elif args.suite == "envs":
+        scenarios = env_count_sweep(env_counts=tuple(args.num_envs) if args.num_envs else (1, 8, 32, 128))
     else:
-        specs = ((DEFAULT_BBOX_SPEC, "bbox"), (DEFAULT_MESH_SPEC, "mesh"))
-    robot_modes = (True, False) if args.robot_mode == "both" else (args.robot_mode == "with",)
-    env_counts = tuple(args.num_envs or [1, 8, 32])
+        scenarios = default_scenarios()
+    if args.num_envs and args.suite != "envs":
+        scenarios = tuple(replace(scenario, num_envs=num_envs) for scenario in scenarios for num_envs in args.num_envs)
+    return _apply_scenario_options(scenarios, args)
+
+
+def _build_environment_scenarios(
+    args: argparse.Namespace,
+    spec_modes: tuple[tuple[str, tuple[CollisionModeName, ...]], ...],
+    robot_modes: tuple[bool, ...],
+    env_counts: tuple[int, ...],
+) -> tuple[BenchmarkScenario, ...]:
+    """Build environment scenarios from an explicit execution matrix."""
     scenarios = []
-    for spec, natural_mode in specs:
-        modes = (
-            (natural_mode,)
-            if natural_mode is not None and args.collision_mode == "auto" and not args.compare_modes
-            else _collision_modes(args)
-        )
+    for spec, modes in spec_modes:
         for mode in modes:
             for include_robot in robot_modes:
                 for num_envs in env_counts:
@@ -239,21 +231,59 @@ def _environment_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario,
                             name=f"{Path(spec).stem}-{'robot' if include_robot else 'no-robot'}",
                             num_objects=0,
                             num_envs=num_envs,
-                            max_iters=args.max_iters,
-                            convergence_threshold=args.convergence_threshold,
                             collision_mode=mode,
-                            num_spheres=args.num_spheres,
-                            max_placement_attempts=args.max_placement_attempts,
-                            placement_seed=args.seed,
-                            warmup_runs=args.warmup,
-                            timed_runs=args.repeat,
-                            final_loss_threshold=args.final_loss_threshold,
-                            min_valid_layout_rate=args.min_valid_layout_rate,
                             graph_spec_path=spec,
                             include_robot=include_robot,
                         )
                     )
-    return tuple(scenarios)
+    return _apply_scenario_options(tuple(scenarios), args)
+
+
+def _environment_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
+    spec_modes: tuple[tuple[str, tuple[CollisionModeName, ...]], ...]
+    if args.environment_spec:
+        if args.collision_mode == "auto" and not args.compare_modes:
+            raise ValueError("custom --environment-spec requires --collision-mode or --compare-modes")
+        modes = _collision_modes(args)
+        spec_modes = tuple((spec, modes) for spec in args.environment_spec)
+    elif args.collision_mode == "auto" and not args.compare_modes:
+        spec_modes = (
+            (DEFAULT_BBOX_SPEC, ("bbox",)),
+            (DEFAULT_MESH_SPEC, ("mesh",)),
+        )
+    else:
+        modes = _collision_modes(args)
+        spec_modes = (
+            (DEFAULT_BBOX_SPEC, modes),
+            (DEFAULT_MESH_SPEC, modes),
+        )
+    robot_modes = (True, False) if args.robot_mode == "both" else (args.robot_mode == "with",)
+    env_counts = tuple(args.num_envs or [1, 8, 32])
+    return _build_environment_scenarios(args, spec_modes, robot_modes, env_counts)
+
+
+def _comprehensive_scenario_groups(
+    args: argparse.Namespace,
+) -> tuple[tuple[BenchmarkScenario, ...], tuple[BenchmarkScenario, ...]]:
+    """Build the fixed synthetic and environment scenario groups."""
+    synthetic_base = object_count_sweep(num_envs=1, counts=(3, 5, 10)) + env_count_sweep(
+        num_objects=3,
+        env_counts=(8, 32, 128),
+    )
+    synthetic = scenarios_for_modes(
+        _apply_scenario_options(synthetic_base, args),
+        ("bbox", "mesh"),
+    )
+    environment = _build_environment_scenarios(
+        args,
+        (
+            (DEFAULT_BBOX_SPEC, ("bbox", "mesh")),
+            (DEFAULT_MESH_SPEC, ("bbox", "mesh")),
+        ),
+        (True, False),
+        (1,),
+    )
+    return synthetic, environment
 
 
 def _scenarios(args: argparse.Namespace, targets: tuple[BenchmarkTarget, ...]) -> tuple[BenchmarkScenario, ...]:
@@ -264,252 +294,19 @@ def _scenarios(args: argparse.Namespace, targets: tuple[BenchmarkTarget, ...]) -
     return scenarios_for_modes(_base_scenarios(args), _collision_modes(args))
 
 
-def _run_rows(
-    scenarios: tuple[BenchmarkScenario, ...],
-    targets: tuple[BenchmarkTarget, ...],
-) -> list[BenchmarkMeasurement]:
-    if "environment" not in targets:
-        return run_benchmarks(scenarios, targets=targets)
-    from isaaclab.app import AppLauncher
-
-    app = AppLauncher(headless=True).app
-    try:
-        return run_benchmarks(scenarios, targets=targets)
-    finally:
-        app.close()
-
-
-def _worker_main(args: argparse.Namespace, targets: tuple[BenchmarkTarget, ...]) -> int:
-    assert args.worker_input is not None and args.worker_output is not None
-    if args.physical_gpu is not None and not torch.cuda.is_available():
-        raise RuntimeError(f"GPU {args.physical_gpu} is not available inside the benchmark worker")
-    payload = json.loads(args.worker_input.read_text(encoding="utf-8"))
-    scenarios = tuple(BenchmarkScenario(**scenario) for scenario in payload["scenarios"])
-    os.environ["ARENA_BENCHMARK_PHYSICAL_GPU"] = args.physical_gpu or ""
-    rows = _run_rows(scenarios, targets)
-    args.worker_output.write_text(
-        json.dumps([row.to_dict() for row in rows], indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    return 0
-
-
-def _launch_worker(
-    scenarios: tuple[BenchmarkScenario, ...],
-    targets: tuple[BenchmarkTarget, ...],
-    physical_gpu: str,
-    directory: Path,
-    worker_id: str,
-) -> tuple[subprocess.Popen, Path]:
-    input_path = directory / f"{worker_id}-input.json"
-    output_path = directory / f"{worker_id}-output.json"
-    input_path.write_text(
-        json.dumps({"scenarios": [asdict(scenario) for scenario in scenarios]}, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = physical_gpu
-    command = [
-        sys.executable,
-        str(Path(__file__).resolve()),
-        "--targets",
-        ",".join(targets),
-        "--worker-input",
-        str(input_path),
-        "--worker-output",
-        str(output_path),
-        "--physical-gpu",
-        physical_gpu,
-    ]
-    return subprocess.Popen(command, env=env), output_path
-
-
-def _worker_process_error(exit_code: int, output_path: Path) -> str | None:
-    if exit_code != 0:
-        return f"worker exited with code {exit_code}"
-    if not output_path.is_file():
-        return "worker exited successfully without writing its result file"
-    return None
-
-
-def _read_worker_results(output_path: Path) -> list[BenchmarkMeasurement]:
-    payload = json.loads(output_path.read_text(encoding="utf-8"))
-    return [BenchmarkMeasurement.from_dict(row) for row in payload]
-
-
-def _run_multi_gpu(
-    scenarios: tuple[BenchmarkScenario, ...],
-    targets: tuple[BenchmarkTarget, ...],
-    gpus: tuple[str, ...],
-) -> tuple[list[BenchmarkMeasurement], dict[str, tuple[str, ...]], dict[str, int], dict[str, str]]:
-    worker_ids = tuple(f"gpu-{gpu}" for gpu in gpus)
-    base_scenario_ids = requested_scenario_ids(scenarios, targets)
-    assignments = {
-        worker_id: tuple(f"{scenario_id}__{worker_id}" for scenario_id in base_scenario_ids) for worker_id in worker_ids
-    }
-    worker_rows: list[tuple[str, BenchmarkMeasurement]] = []
-    exit_codes: dict[str, int] = {}
-    worker_errors: dict[str, str] = {}
-    with tempfile.TemporaryDirectory(prefix="arena-solver-benchmark-") as temp_dir:
-        directory = Path(temp_dir)
-        workers = {}
-        for worker_id, gpu in zip(worker_ids, gpus, strict=True):
-            workers[worker_id] = _launch_worker(scenarios, targets, gpu, directory, worker_id)
-        for worker_id, (process, output_path) in workers.items():
-            exit_code = process.wait()
-            exit_codes[worker_id] = exit_code
-            if process_error := _worker_process_error(exit_code, output_path):
-                worker_errors[worker_id] = process_error
-                continue
-            try:
-                worker_results = _read_worker_results(output_path)
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-                worker_errors[worker_id] = f"invalid worker result: {type(error).__name__}: {error}"
-                continue
-            result_ids = [row.scenario_id for row in worker_results]
-            if len(result_ids) != len(set(result_ids)) or set(result_ids) != set(base_scenario_ids):
-                worker_errors[worker_id] = f"worker result IDs do not match its {len(base_scenario_ids)} assigned cases"
-                continue
-            worker_rows.extend((worker_id, row) for row in worker_results)
-    aggregate_throughput: dict[str, float] = {}
-    for scenario_id in base_scenario_ids:
-        replicas = [row for _, row in worker_rows if row.scenario_id == scenario_id]
-        if len(replicas) == len(worker_ids) and all(
-            row.status == "ok" and row.throughput_envs_per_second is not None for row in replicas
-        ):
-            aggregate_throughput[scenario_id] = sum(
-                row.throughput_envs_per_second for row in replicas if row.throughput_envs_per_second is not None
-            )
-    rows = [
-        replace(
-            row,
-            scenario_id=f"{row.scenario_id}__{worker_id}",
-            worker_id=worker_id,
-            aggregate_throughput_envs_per_second=aggregate_throughput.get(row.scenario_id),
-        )
-        for worker_id, row in worker_rows
-    ]
-    return rows, assignments, exit_codes, worker_errors
-
-
-def _run_capacity_search(
-    scenario: BenchmarkScenario,
-    target: BenchmarkTarget,
-    gpu: str,
-    args: argparse.Namespace,
-) -> dict[str, object]:
-    probes: list[dict[str, object]] = []
-
-    def probe(num_envs: int) -> bool:
-        probe_scenario = replace(scenario, num_envs=num_envs)
-        with tempfile.TemporaryDirectory(prefix="arena-solver-capacity-") as temp_dir:
-            process, output_path = _launch_worker(
-                (probe_scenario,),
-                (target,),
-                gpu,
-                Path(temp_dir),
-                f"gpu-{gpu}-envs-{num_envs}",
-            )
-            exit_code = process.wait()
-            if process_error := _worker_process_error(exit_code, output_path):
-                probes.append({
-                    "num_envs": num_envs,
-                    "viable": False,
-                    "exit_code": exit_code,
-                    "error": process_error,
-                })
-                return False
-            try:
-                [measurement] = _read_worker_results(output_path)
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-                probes.append({
-                    "num_envs": num_envs,
-                    "viable": False,
-                    "exit_code": exit_code,
-                    "error": f"invalid worker result: {type(error).__name__}: {error}",
-                })
-                return False
-            minimum_free = measurement.device.minimum_free_memory_bytes
-            free_after = measurement.device.free_memory_after_bytes
-            headroom = int(args.memory_headroom_gib * 1024**3)
-            observed_free = minimum_free if minimum_free is not None else free_after
-            memory_ok = observed_free is not None and observed_free >= headroom
-            viable = measurement.status == "ok" and measurement.device.name is not None and memory_ok
-            probes.append({
-                "num_envs": num_envs,
-                "viable": viable,
-                "status": measurement.status,
-                "error": measurement.error,
-                "free_memory_before_bytes": measurement.device.free_memory_before_bytes,
-                "free_memory_after_bytes": free_after,
-                "minimum_free_memory_bytes": minimum_free,
-                "peak_reserved_bytes": measurement.peak_reserved_bytes,
-            })
-            return viable
-
-    maximum = search_capacity(probe, max_num_envs=args.capacity_max_envs)
-    return {
-        "gpu": gpu,
-        "scenario": scenario.name,
-        "target": target,
-        "collision_mode": scenario.collision_mode,
-        "max_num_envs": maximum,
-        "probes": probes,
-    }
-
-
 def _write_report(output_dir: Path, run: BenchmarkRun) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     write_results_json(output_dir / "benchmark.json", run)
     write_results_csv(output_dir / "benchmark.csv", run)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(argv)
-    try:
-        _validate_args(args)
-        targets = _targets(args.targets)
-        if args.worker_input is not None:
-            return _worker_main(args, targets)
-        scenarios = _scenarios(args, targets)
-        requested_scenario_ids(scenarios, targets)
-        gpus = tuple(gpu.strip() for gpu in args.gpus.split(",")) if args.gpus else ()
-        if any(not gpu for gpu in gpus) or len(gpus) != len(set(gpus)):
-            raise ValueError("--gpus must contain unique, non-empty device selectors")
-        _validate_gpu_selectors(gpus)
-    except ValueError as error:
-        print(error, file=sys.stderr)
-        return 2
-
-    if args.capacity_search:
-        if not gpus:
-            print("--capacity-search requires --gpus", file=sys.stderr)
-            return 2
-        capacity_results = [
-            _run_capacity_search(scenario, target, gpu, args)
-            for gpu in gpus
-            for scenario in scenarios
-            for target in targets
-        ]
-        capacity_report = json.dumps({"results": capacity_results}, indent=2, allow_nan=False)
-        print("\n=== Capacity Search Results ===")
-        print(capacity_report)
-        if args.output_dir is not None:
-            args.output_dir.mkdir(parents=True, exist_ok=True)
-            capacity_path = args.output_dir / "capacity.json"
-            capacity_path.write_text(capacity_report + "\n", encoding="utf-8")
-            print(f"\nReport written to: {capacity_path.resolve()}")
-        return 0 if all(result["max_num_envs"] is not None for result in capacity_results) else 1
-
-    if gpus:
-        rows, assignments, exit_codes, worker_errors = _run_multi_gpu(scenarios, targets, gpus)
-        run = build_distributed_run(rows, assignments, exit_codes, worker_errors)
-    else:
-        rows = _run_rows(scenarios, targets)
-        assignments = {"local": requested_scenario_ids(scenarios, targets)}
-        exit_codes = {"local": 0}
-        run = build_run(scenarios, targets, rows, assignments, exit_codes)
+def _finish_run(args: argparse.Namespace, rows: list[BenchmarkMeasurement], run: BenchmarkRun) -> int:
+    """Print benchmark results and write requested reports."""
     print("\n=== Relation Solver Benchmark Results ===")
+    if any(row.target != "environment" for row in rows):
+        print("solver: one seeded RelationSolver.solve call; status uses the worst layout's final loss.")
+        print("placer: end-to-end ObjectPlacer.place with candidate generation, retries, and layout validation.")
+        print("bbox/mesh: collision backends. Compare modes within the same target and workload.")
     print(format_results_table(rows))
     scaling_summary = format_scaling_summary(rows)
     if scaling_summary:
@@ -525,6 +322,96 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\nReports were not written. Pass --output-dir PATH to save JSON and CSV.")
     return 0 if run.succeeded else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    try:
+        _validate_args(args)
+        targets = _targets(args.targets or "solver,placer")
+        if args.worker_input is not None:
+            assert args.worker_output is not None
+            return run_worker(args.worker_input, args.worker_output, args.physical_gpu, targets)
+        if args.suite == "comprehensive":
+            if not torch.cuda.is_available():
+                raise ValueError("--suite comprehensive requires a CUDA GPU")
+            synthetic_scenarios, environment_scenarios = _comprehensive_scenario_groups(args)
+            synthetic_targets: tuple[BenchmarkTarget, ...] = ("solver", "placer")
+            environment_targets: tuple[BenchmarkTarget, ...] = ("environment",)
+            expected = requested_scenario_ids(synthetic_scenarios, synthetic_targets) + requested_scenario_ids(
+                environment_scenarios,
+                environment_targets,
+            )
+            if len(expected) != len(set(expected)):
+                raise ValueError("comprehensive benchmark scenario IDs must be unique")
+            gpus = ()
+        else:
+            scenarios = _scenarios(args, targets)
+            requested_scenario_ids(scenarios, targets)
+            gpus = tuple(gpu.strip() for gpu in args.gpus.split(",")) if args.gpus else ()
+        if any(not gpu for gpu in gpus) or len(gpus) != len(set(gpus)):
+            raise ValueError("--gpus must contain unique, non-empty device selectors")
+        validate_gpu_selectors(gpus)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 2
+
+    if args.capacity_search:
+        if not gpus:
+            print("--capacity-search requires --gpus", file=sys.stderr)
+            return 2
+        capacity_results = [
+            run_capacity_search(
+                scenario,
+                target,
+                gpu,
+                Path(__file__).resolve(),
+                max_num_envs=args.capacity_max_envs,
+                memory_headroom_gib=args.memory_headroom_gib,
+            )
+            for gpu in gpus
+            for scenario in scenarios
+            for target in targets
+        ]
+        capacity_report = json.dumps({"results": capacity_results}, indent=2, allow_nan=False)
+        print("\n=== Capacity Search Results ===")
+        print(capacity_report)
+        if args.output_dir is not None:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            capacity_path = args.output_dir / "capacity.json"
+            capacity_path.write_text(capacity_report + "\n", encoding="utf-8")
+            print(f"\nReport written to: {capacity_path.resolve()}")
+        return 0 if all(result["max_num_envs"] is not None for result in capacity_results) else 1
+
+    if args.suite == "comprehensive":
+        from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+        with SimulationAppContext(argparse.Namespace(headless=True)):
+            rows = run_benchmarks(synthetic_scenarios, targets=synthetic_targets)
+            rows.extend(run_benchmarks(environment_scenarios, targets=environment_targets))
+            run = build_distributed_run(rows, {"local": expected}, {"local": 0})
+            return _finish_run(args, rows, run)
+    elif gpus:
+        rows, assignments, exit_codes, worker_errors = run_multi_gpu(
+            scenarios,
+            targets,
+            gpus,
+            Path(__file__).resolve(),
+        )
+        run = build_distributed_run(rows, assignments, exit_codes, worker_errors)
+    elif "environment" in targets:
+        from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+        with SimulationAppContext(argparse.Namespace(headless=True)):
+            rows = run_benchmarks(scenarios, targets=targets)
+            assignments = {"local": requested_scenario_ids(scenarios, targets)}
+            run = build_run(scenarios, targets, rows, assignments, {"local": 0})
+            return _finish_run(args, rows, run)
+    else:
+        rows = run_benchmarks(scenarios, targets=targets)
+        assignments = {"local": requested_scenario_ids(scenarios, targets)}
+        run = build_run(scenarios, targets, rows, assignments, {"local": 0})
+    return _finish_run(args, rows, run)
 
 
 if __name__ == "__main__":

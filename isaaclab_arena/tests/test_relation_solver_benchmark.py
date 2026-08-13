@@ -5,41 +5,43 @@
 
 import csv
 import json
-import subprocess
 import torch
 from dataclasses import asdict, replace
-from pathlib import Path
 
 import pytest
 
-import isaaclab_arena.relations.benchmark.metadata as benchmark_metadata
+import isaaclab_arena.relations.benchmark.environment_benchmark as benchmark_environment
+import isaaclab_arena.relations.benchmark.multi_gpu as benchmark_multi_gpu
+import isaaclab_arena.relations.benchmark.provenance as benchmark_provenance
 import isaaclab_arena.relations.benchmark.reporting as benchmark_reporting
-from isaaclab_arena.relations.benchmark import (
-    BenchmarkScenario,
-    SoftwareMetadata,
+from isaaclab_arena.relations.benchmark.environment_benchmark import run_environment_benchmark
+from isaaclab_arena.relations.benchmark.models import BenchmarkScenario, DeviceMetadata
+from isaaclab_arena.relations.benchmark.multi_gpu import search_capacity
+from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata, collect_software_metadata
+from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
-    collect_software_metadata,
-    default_scenarios,
-    env_count_sweep,
+    format_results_table,
     format_scaling_summary,
-    object_count_sweep,
     requested_scenario_ids,
-    run_benchmarks,
-    run_environment_benchmark,
-    run_placer_benchmark,
-    run_solver_benchmark,
-    scenarios_for_modes,
-    search_capacity,
     write_results_csv,
     write_results_json,
 )
-from isaaclab_arena.relations.benchmark.solver import _sample_child_origin, build_clutter_scene, build_solve_inputs
+from isaaclab_arena.relations.benchmark.synthetic_benchmark import (
+    _sample_child_origin,
+    build_clutter_scene,
+    build_solve_inputs,
+    default_scenarios,
+    env_count_sweep,
+    object_count_sweep,
+    run_benchmarks,
+    run_placer_benchmark,
+    run_solver_benchmark,
+    scenarios_for_modes,
+)
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena_examples.relations import relation_solver_benchmark as benchmark_cli
 
 
 class _InspectableRelationSolver(RelationSolver):
@@ -60,15 +62,6 @@ def _tiny_scenario(**overrides) -> BenchmarkScenario:
     }
     values.update(overrides)
     return BenchmarkScenario(**values)
-
-
-class _SuccessfulProcess:
-    def wait(self):
-        return 0
-
-
-def test_cli_does_not_write_reports_by_default():
-    assert benchmark_cli._parse_args([]).output_dir is None
 
 
 @pytest.mark.parametrize(
@@ -130,8 +123,9 @@ def test_sample_child_origin_centers_oversized_child():
 
 def test_default_scenarios_and_sweeps():
     assert [scenario.name for scenario in default_scenarios()] == ["small", "medium", "large"]
-    assert {scenario.num_envs for scenario in object_count_sweep()} == {8}
-    assert {scenario.num_objects for scenario in env_count_sweep()} == {6}
+    assert {scenario.num_envs for scenario in object_count_sweep()} == {1}
+    assert {scenario.num_objects for scenario in env_count_sweep()} == {3}
+    assert {scenario.num_envs for scenario in env_count_sweep()} == {1, 8, 32, 128}
 
 
 def test_scenarios_for_modes_builds_unique_ids():
@@ -141,56 +135,6 @@ def test_scenarios_for_modes_builds_unique_ids():
     )
     ids = requested_scenario_ids(scenarios, ("solver", "placer"))
     assert len(ids) == len(set(ids)) == 4
-
-
-def test_environment_cli_honors_explicit_collision_mode():
-    args = benchmark_cli._parse_args([
-        "--targets",
-        "environment",
-        "--collision-mode",
-        "bbox",
-        "--environment-spec",
-        benchmark_cli.DEFAULT_MESH_SPEC,
-        "--num-envs",
-        "1",
-    ])
-    scenarios = benchmark_cli._environment_scenarios(args)
-    assert {scenario.collision_mode for scenario in scenarios} == {"bbox"}
-
-
-def test_custom_environment_requires_explicit_collision_mode():
-    args = benchmark_cli._parse_args([
-        "--targets",
-        "environment",
-        "--environment-spec",
-        "custom.yaml",
-    ])
-    with pytest.raises(ValueError, match="requires --collision-mode"):
-        benchmark_cli._environment_scenarios(args)
-
-
-def test_environment_cli_expands_mode_robot_matrix():
-    args = benchmark_cli._parse_args([
-        "--targets",
-        "environment",
-        "--compare-modes",
-        "--robot-mode",
-        "both",
-        "--num-envs",
-        "1",
-    ])
-    benchmark_cli._validate_args(args)
-    scenarios = benchmark_cli._environment_scenarios(args)
-    assert len(scenarios) == 8
-    assert {scenario.collision_mode for scenario in scenarios} == {"bbox", "mesh"}
-    assert {scenario.include_robot for scenario in scenarios} == {True, False}
-
-
-def test_object_suite_keeps_object_sweep_with_num_envs_override():
-    args = benchmark_cli._parse_args(["--suite", "objects", "--num-envs", "4"])
-    scenarios = benchmark_cli._base_scenarios(args)
-    assert {scenario.num_objects for scenario in scenarios} == {3, 5, 6, 10}
-    assert {scenario.num_envs for scenario in scenarios} == {4}
 
 
 def test_solver_timing_uses_injected_clock():
@@ -260,6 +204,37 @@ def test_environment_failure_has_a_stable_result_id():
     assert result.status == "failed"
     assert "missing-spec" in result.scenario_id
     assert result.error == "AssertionError: environment benchmarks require graph_spec_path"
+
+
+def test_environment_bring_up_uses_paired_samples_and_table_median(monkeypatch):
+    samples = iter([
+        benchmark_environment._EnvironmentSample(1.0, 100.0, 3, True, None),
+        benchmark_environment._EnvironmentSample(2.0, 2.0, 3, True, None),
+        benchmark_environment._EnvironmentSample(100.0, 1.0, 3, True, None),
+    ])
+    device = DeviceMetadata(None, None, None, None, None, None, None)
+    monkeypatch.setattr(benchmark_environment, "_build_and_reset_environment", lambda *_args: next(samples))
+    monkeypatch.setattr(benchmark_environment, "get_device_metadata", lambda: device)
+    monkeypatch.setattr(benchmark_environment, "record_free_memory_after", lambda value: value)
+    monkeypatch.setattr(benchmark_environment, "get_peak_memory", lambda: (None, None))
+    monkeypatch.setattr(benchmark_environment, "reset_peak_memory", lambda: None)
+
+    result = run_environment_benchmark(
+        _tiny_scenario(graph_spec_path="existing.yaml", timed_runs=3),
+    )
+
+    assert result.status == "ok"
+    assert result.build_ms == pytest.approx(2.0)
+    assert result.reset_ms == pytest.approx(2.0)
+    assert result.bring_up_ms_samples == pytest.approx((101.0, 4.0, 101.0))
+    assert result.bring_up_ms == pytest.approx(101.0)
+    assert result.throughput_envs_per_second == pytest.approx(1000.0 / 101.0)
+    table = format_results_table([result]).splitlines()
+    assert "objects" in table[0]
+    assert "batch_ms" in table[0]
+    assert "layouts/s" in table[0]
+    row = table[2]
+    assert "101.000" in row
 
 
 def test_run_benchmarks_returns_separate_targets():
@@ -333,17 +308,17 @@ def test_software_metadata_tolerates_unavailable_git(monkeypatch, tmp_path):
         calls.append(kwargs)
         raise FileNotFoundError
 
-    monkeypatch.setattr(benchmark_metadata.subprocess, "run", unavailable_git)
+    monkeypatch.setattr(benchmark_provenance.subprocess, "run", unavailable_git)
     metadata = collect_software_metadata(tmp_path)
 
     assert metadata.git_commit is None
     assert metadata.git_dirty is None
     assert calls[0]["cwd"] == tmp_path
-    assert calls[0]["timeout"] == benchmark_metadata.GIT_TIMEOUT_SECONDS
+    assert calls[0]["timeout"] == benchmark_provenance.GIT_TIMEOUT_SECONDS
 
 
 def test_software_metadata_rejects_an_unrelated_git_root(monkeypatch, tmp_path):
-    monkeypatch.setattr(benchmark_metadata, "_git_output", lambda *_args: str(tmp_path.parent))
+    monkeypatch.setattr(benchmark_provenance, "_git_output", lambda *_args: str(tmp_path.parent))
 
     metadata = collect_software_metadata(tmp_path)
 
@@ -377,6 +352,15 @@ def test_json_and_csv_reports_share_run_results(tmp_path):
     assert payload["requested_scenario_ids"] == [result.scenario_id]
     assert rows[0]["scenario_id"] == result.scenario_id
     assert rows[0]["status"] == result.status
+    assert "bring_up_ms_samples" in payload["results"][0]
+    assert "bring_up_ms" in rows[0]
+    restored = type(result).from_dict({
+        **result.to_dict(),
+        "bring_up_ms_samples": [3.0, 5.0],
+        "bring_up_ms": 4.0,
+    })
+    assert restored.bring_up_ms_samples == (3.0, 5.0)
+    assert restored.bring_up_ms == 4.0
 
 
 def test_scaling_summary_reports_successes_throughput_and_failures():
@@ -395,9 +379,28 @@ def test_scaling_summary_reports_successes_throughput_and_failures():
 
     summary = format_scaling_summary(results)
 
-    assert "highest successful=4" in summary
-    assert "best throughput=4 (25.000 env/s)" in summary
+    assert "Batch-size scaling (fixed object count)" in summary
+    assert "throughput_vs_batch_1" in summary
+    assert "4=25.000 layouts/s, 2.50x, ok" in summary
+    assert "highest successful batch=4" in summary
     assert "failures=8: out of memory" in summary
+
+
+def test_scaling_summary_reports_object_count_slowdown():
+    base = run_solver_benchmark(_tiny_scenario())
+    results = [
+        replace(base, num_objects=3, solve_ms=10.0),
+        replace(base, num_objects=5, solve_ms=15.0),
+        replace(base, num_objects=10, solve_ms=30.0, status="failed"),
+    ]
+
+    summary = format_scaling_summary(results)
+
+    assert "Object-count scaling (fixed batch size)" in summary
+    assert "[bbox, batch=1]" in summary
+    assert "latency_vs_objects_3" in summary
+    assert "3=10.000 ms, 1.00x, ok" in summary
+    assert "10=30.000 ms, 3.00x, failed" in summary
 
 
 def test_scaling_summary_does_not_merge_non_comparable_workloads():
@@ -439,142 +442,26 @@ def test_capacity_search_uses_exponential_then_binary_probes():
     assert probes[5:] == [12, 10, 11]
 
 
-def test_multi_gpu_results_are_complete_and_aggregated(monkeypatch, tmp_path):
-    scenario = _tiny_scenario()
-    base_result = run_solver_benchmark(scenario)
+def test_environment_worker_writes_before_simulation_teardown(monkeypatch, tmp_path):
+    import isaaclab_arena.utils.isaaclab_utils.simulation_app as simulation_app
 
-    def launch_worker(scenarios, targets, physical_gpu, directory, worker_id):
-        output_path = tmp_path / f"{worker_id}.json"
-        result = base_result.to_dict()
-        result["throughput_envs_per_second"] = 10.0 + int(physical_gpu)
-        output_path.write_text(json.dumps([result]), encoding="utf-8")
-        return _SuccessfulProcess(), output_path
-
-    monkeypatch.setattr(benchmark_cli, "_launch_worker", launch_worker)
-    rows, assignments, exit_codes, worker_errors = benchmark_cli._run_multi_gpu(
-        (scenario,),
-        ("solver",),
-        ("0", "1"),
-    )
-
-    assert len(rows) == 2
-    assert len({row.scenario_id for row in rows}) == 2
-    assert {row.worker_id for row in rows} == {"gpu-0", "gpu-1"}
-    assert {row.aggregate_throughput_envs_per_second for row in rows} == {21.0}
-    assert all(len(ids) == 1 for ids in assignments.values())
-    assert exit_codes == {"gpu-0": 0, "gpu-1": 0}
-    assert worker_errors == {}
-
-
-def test_multi_gpu_records_worker_that_writes_no_output(monkeypatch):
-    scenario = _tiny_scenario()
-
-    def launch_worker(scenarios, targets, physical_gpu, directory, worker_id):
-        return _SuccessfulProcess(), directory / "missing.json"
-
-    monkeypatch.setattr(benchmark_cli, "_launch_worker", launch_worker)
-    rows, assignments, exit_codes, worker_errors = benchmark_cli._run_multi_gpu(
-        (scenario,),
-        ("solver",),
-        ("0",),
-    )
-    run = benchmark_cli.build_distributed_run(rows, assignments, exit_codes, worker_errors)
-
-    assert rows == []
-    assert not run.succeeded
-    assert run.missing_scenario_ids == tuple(assignments["gpu-0"])
-    assert "without writing" in worker_errors["gpu-0"]
-
-
-def test_multi_gpu_omits_partial_aggregate_throughput(monkeypatch):
-    scenario = _tiny_scenario()
-    base_result = run_solver_benchmark(scenario)
-
-    def launch_worker(scenarios, targets, physical_gpu, directory, worker_id):
-        output_path = directory / f"{worker_id}.json"
-        if physical_gpu == "0":
-            output_path.write_text(json.dumps([base_result.to_dict()]), encoding="utf-8")
-        return _SuccessfulProcess(), output_path
-
-    monkeypatch.setattr(benchmark_cli, "_launch_worker", launch_worker)
-    rows, _, _, worker_errors = benchmark_cli._run_multi_gpu(
-        (scenario,),
-        ("solver",),
-        ("0", "1"),
-    )
-    assert len(rows) == 1
-    assert rows[0].aggregate_throughput_envs_per_second is None
-    assert "gpu-1" in worker_errors
-
-
-@pytest.mark.with_subprocess
-def test_worker_cli_writes_result_file(tmp_path):
+    scenario = _tiny_scenario(num_objects=0, graph_spec_path="unused.yaml")
+    result = run_solver_benchmark(_tiny_scenario())
     input_path = tmp_path / "input.json"
     output_path = tmp_path / "output.json"
-    input_path.write_text(json.dumps({"scenarios": [asdict(_tiny_scenario())]}), encoding="utf-8")
-    result = subprocess.run(
-        [
-            TestConstants.python_path,
-            str(Path(benchmark_cli.__file__).resolve()),
-            "--targets",
-            "solver",
-            "--worker-input",
-            str(input_path),
-            "--worker-output",
-            str(output_path),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    assert result.returncode == 0, result.stderr
-    [measurement] = json.loads(output_path.read_text(encoding="utf-8"))
-    assert measurement["status"] == "ok"
+    input_path.write_text(json.dumps({"scenarios": [asdict(scenario)]}), encoding="utf-8")
+    monkeypatch.setattr(benchmark_multi_gpu, "run_benchmarks", lambda *_args, **_kwargs: [result])
 
+    class _SimulationContext:
+        def __init__(self, args):
+            pass
 
-def test_gpu_selector_validation_rejects_unknown_device(monkeypatch):
-    class QueryResult:
-        stdout = "0, GPU-aaaa\n1, GPU-bbbb\n"
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr(benchmark_cli.subprocess, "run", lambda *args, **kwargs: QueryResult())
-    benchmark_cli._validate_gpu_selectors(("0", "GPU-bbbb"))
-    with pytest.raises(ValueError, match="different physical devices"):
-        benchmark_cli._validate_gpu_selectors(("0", "GPU-aaaa"))
-    with pytest.raises(ValueError, match="unknown GPU selector"):
-        benchmark_cli._validate_gpu_selectors(("9",))
+        def __exit__(self, *args):
+            assert output_path.is_file()
 
+    monkeypatch.setattr(simulation_app, "SimulationAppContext", _SimulationContext)
 
-@pytest.mark.parametrize(
-    "argv",
-    [
-        ["--convergence-threshold", "nan"],
-        ["--final-loss-threshold", "inf"],
-        ["--memory-headroom-gib", "nan"],
-    ],
-)
-def test_cli_rejects_non_finite_values(argv):
-    args = benchmark_cli._parse_args(argv)
-    with pytest.raises(ValueError, match="finite"):
-        benchmark_cli._validate_args(args)
-
-
-def test_cli_writes_reports_and_returns_success(tmp_path):
-    exit_code = benchmark_cli.main([
-        "--targets",
-        "solver",
-        "--num-envs",
-        "1",
-        "--max-iters",
-        "1",
-        "--warmup",
-        "0",
-        "--repeat",
-        "1",
-        "--final-loss-threshold",
-        "1e9",
-        "--output-dir",
-        str(tmp_path),
-    ])
-    assert exit_code == 0
-    assert (tmp_path / "benchmark.json").is_file()
-    assert (tmp_path / "benchmark.csv").is_file()
+    assert benchmark_multi_gpu.run_worker(input_path, output_path, None, ("environment",)) == 0

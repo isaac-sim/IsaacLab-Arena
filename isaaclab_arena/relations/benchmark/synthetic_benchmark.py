@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Synthetic scenes, scenario sweeps, and solver and placer benchmark runners."""
+"""Synthetic relation benchmark scenes and runners."""
 
 from __future__ import annotations
 
@@ -14,14 +14,16 @@ import torch
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.benchmark.environment_benchmark import run_environment_benchmark
 from isaaclab_arena.relations.benchmark.models import (
     BenchmarkMeasurement,
     BenchmarkScenario,
     BenchmarkStatus,
+    BenchmarkTarget,
     Clock,
     CollisionModeName,
 )
-from isaaclab_arena.relations.benchmark.runtime import (
+from isaaclab_arena.relations.benchmark.timing import (
     failed_measurement,
     get_device_metadata,
     get_peak_memory,
@@ -93,7 +95,7 @@ def default_scenarios() -> tuple[BenchmarkScenario, ...]:
 
 def object_count_sweep(
     *,
-    num_envs: int = 8,
+    num_envs: int = 1,
     counts: tuple[int, ...] = (3, 5, 6, 10),
     collision_mode: CollisionModeName = "bbox",
     max_iters: int = 600,
@@ -113,8 +115,8 @@ def object_count_sweep(
 
 def env_count_sweep(
     *,
-    num_objects: int = 6,
-    env_counts: tuple[int, ...] = (1, 8, 32),
+    num_objects: int = 3,
+    env_counts: tuple[int, ...] = (1, 8, 32, 128),
     collision_mode: CollisionModeName = "bbox",
     max_iters: int = 600,
 ) -> tuple[BenchmarkScenario, ...]:
@@ -403,3 +405,18 @@ def run_placer_benchmark(
         )
     except Exception as error:
         return failed_measurement(scenario, "placer", device, error)
+
+
+def run_benchmarks(
+    scenarios: tuple[BenchmarkScenario, ...],
+    *,
+    targets: tuple[BenchmarkTarget, ...] = ("solver", "placer"),
+    clock: Clock = time.perf_counter,
+) -> list[BenchmarkMeasurement]:
+    """Run each requested target for every scenario."""
+    runners = {
+        "solver": run_solver_benchmark,
+        "placer": run_placer_benchmark,
+        "environment": run_environment_benchmark,
+    }
+    return [runners[target](scenario, clock=clock) for scenario in scenarios for target in targets]

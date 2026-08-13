@@ -15,7 +15,7 @@ from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
-from isaaclab_arena.relations.benchmark.metadata import SoftwareMetadata
+from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata
 
 BenchmarkStatus = Literal["ok", "failed"]
 BenchmarkTarget = Literal["solver", "placer", "environment"]
@@ -239,6 +239,12 @@ class BenchmarkMeasurement:
     reset_ms: float | None = None
     """Median first-reset latency."""
 
+    bring_up_ms_samples: tuple[float, ...] | None = None
+    """Paired environment construction plus first-reset latency samples."""
+
+    bring_up_ms: float | None = None
+    """Median paired environment bring-up latency."""
+
     iterations: tuple[int, ...] | None = None
     """Solver iterations for each timed run."""
 
@@ -326,6 +332,7 @@ class BenchmarkMeasurement:
             "place_ms_samples",
             "build_ms_samples",
             "reset_ms_samples",
+            "bring_up_ms_samples",
             "iterations",
         )
         for name in sample_fields:

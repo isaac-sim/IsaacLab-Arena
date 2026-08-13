@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Software metadata collection for relation benchmark runs."""
+"""Software provenance collection for relation benchmark runs."""
 
 from __future__ import annotations
 

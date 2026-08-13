@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Environment construction and first-reset benchmark runner."""
+"""Environment benchmark construction and first-reset runner."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, replace
 
 from isaaclab_arena.relations.benchmark.models import BenchmarkMeasurement, BenchmarkScenario, Clock
-from isaaclab_arena.relations.benchmark.runtime import (
+from isaaclab_arena.relations.benchmark.timing import (
     failed_measurement,
     get_device_metadata,
     get_peak_memory,
@@ -128,6 +128,7 @@ def run_environment_benchmark(
         assert all(sample.include_robot == first_sample.include_robot for sample in samples)
         build_samples = [sample.build_ms for sample in samples]
         reset_samples = [sample.reset_ms for sample in samples]
+        bring_up_samples = [sample.build_ms + sample.reset_ms for sample in samples]
         minimum_free_memory = min(
             (sample.free_memory_bytes for sample in samples if sample.free_memory_bytes is not None),
             default=None,
@@ -135,6 +136,7 @@ def run_environment_benchmark(
         peak_allocated, peak_reserved = get_peak_memory()
         build_ms = median(build_samples)
         reset_ms = median(reset_samples)
+        bring_up_ms = median(bring_up_samples)
         measured_device = replace(
             record_free_memory_after(device),
             minimum_free_memory_bytes=minimum_free_memory,
@@ -150,7 +152,9 @@ def run_environment_benchmark(
             build_ms=build_ms,
             reset_ms_samples=tuple(reset_samples),
             reset_ms=reset_ms,
-            throughput_envs_per_second=throughput(scenario.num_envs, build_ms + reset_ms),
+            bring_up_ms_samples=tuple(bring_up_samples),
+            bring_up_ms=bring_up_ms,
+            throughput_envs_per_second=throughput(scenario.num_envs, bring_up_ms),
             peak_allocated_bytes=peak_allocated,
             peak_reserved_bytes=peak_reserved,
         )
