@@ -22,16 +22,11 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
-   * - uv (Isaac Lab from wheel)
-     - ✓
-     - ✗
-     - ✗
-     - ✓
 
 Supported Systems
 -----------------
 
-Isaac Lab Arena runs on Isaac Sim ``6.0.0`` and Isaac Lab ``3.0.0``.
+Isaac Lab Arena runs on Isaac Sim ``6.0.1`` and Isaac Lab ``3.0.0``.
 The dependencies are installed automatically by either workflow below.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
 `Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html>`_.
@@ -41,16 +36,8 @@ Native uv developer setup
 -------------------------
 
 Isaac Lab Arena can be installed natively with `uv <https://docs.astral.sh/uv/>`_;
-the committed lockfile pins the complete environment. Two flavors are
-available, differing only in where Isaac Lab comes from:
-
-- **Source flavor (recommended):** Isaac Lab is installed editable from the
-  ``submodules/IsaacLab`` checkout.
-- **Wheel flavor:** Isaac Lab is installed from the published wheel, which
-  does not include Isaac Lab's RL/IL scripts.
-
-Both flavors follow the same workflow — clone, sync, activate, run; only the
-``uv sync`` line differs.
+the committed lockfile pins the complete environment and installs Isaac Lab
+editable from the ``submodules/IsaacLab`` checkout.
 
 Clone the repository:
 
@@ -59,48 +46,20 @@ Clone the repository:
     git clone --recurse-submodules https://github.com/isaac-sim/IsaacLab-Arena.git
     cd IsaacLab-Arena
 
-Sync the environment and activate it, picking the flavor that matches your
-workflow:
+Sync the environment and activate it:
 
-.. tab-set::
+.. code-block:: bash
 
-   .. tab-item:: Source (recommended)
-      :selected:
-
-      .. code-block:: bash
-
-          uv sync --extra dev
-          source .venv/bin/activate
-
-   .. tab-item:: Wheel
-
-      .. code-block:: bash
-
-          uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
-          source .venv/bin/activate
-
-      .. note::
-         The wheel flavor does not support the
-         :doc:`imitation learning </pages/example_workflows/imitation_learning/index>`
-         and
-         :doc:`reinforcement learning </pages/example_workflows/reinforcement_learning_workflows/index>`
-         workflows: the published Isaac Lab wheel does not include the scripts
-         they rely on. Use the source flavor for those workflows.
+    uv sync --extra dev
+    source .venv/bin/activate
 
 ``uv sync`` creates a Python virtual environment in ``.venv/`` (pinned by
-``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
-``submodules/IsaacLab`` in the source flavor, or from the published wheel),
-and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
-pinned by the committed lockfile. The ``dev`` extra installs the Streamlit and
-SimReady search dependencies used by the
+``.python-version``), installs Isaac Lab Arena and the Isaac Lab source checkout,
+and pulls the matching Isaac Sim, PyTorch, and Newton dependencies at the
+versions pinned by the committed lockfile. The ``dev`` extra installs the
+Streamlit and SimReady search dependencies used by the
 :doc:`agentic environment generation workflow
 </pages/concepts/agentic_environment_generation/index>`.
-
-.. note::
-   The two flavors are mutually exclusive within the single ``.venv``: syncing
-   one replaces the other. In the wheel flavor, run ``python``/``pytest`` in
-   the activated environment rather than through ``uv run`` — a bare
-   ``uv run`` re-syncs the environment back to the source flavor.
 
 .. note::
    Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``

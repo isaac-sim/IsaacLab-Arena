@@ -9,7 +9,10 @@ from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
 
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+    IsaacLabArenaManagerBasedRLEnvCfg,
+    apply_arena_global_settings,
+)
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
@@ -29,6 +32,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
+        apply_arena_global_settings()
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )

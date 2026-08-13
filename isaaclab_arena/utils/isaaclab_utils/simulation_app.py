@@ -29,7 +29,9 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     import time
 
     t0 = time.monotonic()
-    app_launcher = AppLauncher(args)
+    # AppLauncher consumes recognized entries from its input mapping. Pass a copy so
+    # Arena can continue using its parsed arguments after the application launches.
+    app_launcher = AppLauncher(vars(args).copy())
     elapsed = time.monotonic() - t0
     sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
     sys.__stderr__.flush()

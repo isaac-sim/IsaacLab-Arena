@@ -70,6 +70,21 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
 
+    # Isaac Lab no longer exposes this programmatic AppLauncher option through argparse,
+    # but Arena still accepts it for its existing scripts, docs, and external integrations.
+    arena_group.add_argument(
+        "--headless",
+        action="store_true",
+        default=False,
+        help="Run without a local GUI. This is also the default when no visualizer is selected.",
+    )
+    arena_group.add_argument(
+        "--enable_cameras",
+        action="store_true",
+        default=False,
+        help="Add the environment's camera sensors and observations.",
+    )
+
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Delete these manual builder flags after runner scripts
     # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
     # with ArenaEnvBuilderCfg during the transition.
@@ -91,8 +106,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         help=(
-            "Physics backend preset: 'physx' or 'newton'. "
-            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
+            "Arena physics backend preset: 'physx' or 'newton'. "
             "When not set, each environment uses its own default."
         ),
     )

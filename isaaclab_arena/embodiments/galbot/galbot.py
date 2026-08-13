@@ -16,8 +16,8 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots.galbot import GALBOT_ONE_CHARLIE_CFG
-from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_joint_state
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame, franka_stack_events
+from isaaclab_tasks.contrib.pick_place.mdp import get_robot_joint_state
+from isaaclab_tasks.contrib.stack.mdp import ee_frame_pose_in_base_frame, franka_stack_events
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode

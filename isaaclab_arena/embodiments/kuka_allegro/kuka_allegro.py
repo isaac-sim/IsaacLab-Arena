@@ -20,28 +20,26 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots import KUKA_ALLEGRO_CFG
-from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
-from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp
-from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro import (
-    dexsuite_kuka_allegro_env_cfg as kuka_dexsuite_cfg,
-)
+from isaaclab_tasks.core.lift import lift_env_cfg as lift
+from isaaclab_tasks.core.lift import mdp as lift_mdp
+from isaaclab_tasks.core.lift.config.kuka_allegro import kuka_allegro_env_cfg
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
 
-FINGERTIP_LIST = kuka_dexsuite_cfg.FINGERTIP_LIST
+FINGERTIP_LIST = kuka_allegro_env_cfg.FINGERTIP_LIST
 
 
 @configclass
-class KukaAllegroStateObservationCfg(dexsuite.ObservationsCfg):
+class KukaAllegroStateObservationCfg(lift.ObservationsCfg):
     """State observations with fingertip contact; merge-safe ``__post_init__``."""
 
     def __post_init__(self) -> None:
-        dexsuite.ObservationsCfg.__post_init__(self)
+        lift.ObservationsCfg.__post_init__(self)
         self.proprio.contact = ObsTerm(
-            func=dexsuite_mdp.fingers_contact_force_b,
+            func=lift_mdp.fingers_contact_force_b,
             params={"contact_sensor_names": [f"{link}_object_s" for link in FINGERTIP_LIST]},
             clip=(-20.0, 20.0),
         )
@@ -103,7 +101,7 @@ class KukaAllegroEmbodiment(EmbodimentBase):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
 
         self.scene_config = KukaAllegroSceneCfg()
-        self.action_config = kuka_dexsuite_cfg.KukaAllegroRelJointPosActionCfg()
+        self.action_config = kuka_allegro_env_cfg.KukaAllegroRelJointPosActionCfg()
         self.observation_config = KukaAllegroStateObservationCfg()
         self.event_config = KukaAllegroEventCfg()
 

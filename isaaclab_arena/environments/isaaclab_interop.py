@@ -15,6 +15,43 @@ from isaaclab_arena_environments.cli import (
 )
 
 
+_RL_DISCOVERY_PLACEHOLDER_KEY = "_arena_rl_discovery_placeholder"
+
+
+def register_rl_discovery_placeholder(environment_name: str) -> None:
+    """Register enough metadata for Isaac Lab's RL CLI to discover an Arena task.
+
+    Isaac Lab enumerates a task's agent configuration before invoking its external
+    registration callback. The callback replaces this placeholder with the fully
+    composed Arena environment before Isaac Lab resolves either configuration.
+
+    Args:
+        environment_name: Arena environment name passed through ``--task``.
+    """
+    import gymnasium as gym
+
+    if environment_name in gym.registry:
+        return
+    gym.register(
+        id=environment_name,
+        entry_point="isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv",
+        kwargs={
+            _RL_DISCOVERY_PLACEHOLDER_KEY: True,
+            "rsl_rl_cfg_entry_point": "isaaclab_arena_examples.policy.base_rsl_rl_policy:RLPolicyCfg",
+        },
+        disable_env_checker=True,
+    )
+
+
+def _remove_rl_discovery_placeholder(environment_name: str) -> None:
+    """Remove Arena's temporary RL discovery registration, if present."""
+    import gymnasium as gym
+
+    spec = gym.registry.get(environment_name)
+    if spec is not None and spec.kwargs.get(_RL_DISCOVERY_PLACEHOLDER_KEY, False):
+        del gym.registry[environment_name]
+
+
 def is_simulation_app_running() -> bool:
     """Checks if the simulation app is running."""
     import omni.kit.app
@@ -31,7 +68,8 @@ def environment_registration_callback() -> list[str]:
 
     This function is passed to an Isaac Lab script as an external callback function. Example:
 
-    python IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py
+    python isaaclab_arena/scripts/train.py
+        --rl_library rsl_rl
         --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback
         --task lift_object
         --num_envs 512
@@ -78,6 +116,7 @@ def environment_registration_callback() -> list[str]:
     add_external_environments_cli_args(parser)
     initial_args = parser.parse_known_args()[0]
     environment_name = initial_args.task
+    _remove_rl_discovery_placeholder(environment_name)
     ensure_environments_registered()
     environment_registry = EnvironmentRegistry()
     if initial_args.external_environment_class_path is not None:

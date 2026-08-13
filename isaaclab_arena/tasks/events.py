@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Literal
 
 import isaaclab.utils.math as math_utils
 from isaaclab.managers import SceneEntityCfg
-from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import sample_object_poses
+from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import sample_object_poses
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
