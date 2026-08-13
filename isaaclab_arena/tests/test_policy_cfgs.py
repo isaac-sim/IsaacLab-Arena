@@ -16,6 +16,7 @@ from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_cli_args, build_policy_from_cli, policy_cfg_from_cli
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+from isaaclab_arena.policy.random_action_policy import RandomActionPolicy, RandomActionPolicyCfg
 from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy, ReplayActionPolicyCfg
 from isaaclab_arena.policy.rsl_rl_action_policy import RslRlActionPolicy, RslRlActionPolicyCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
@@ -28,6 +29,7 @@ from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActio
     ("policy_type", "cfg_type"),
     [
         (ZeroActionPolicy, ZeroActionPolicyCfg),
+        (RandomActionPolicy, RandomActionPolicyCfg),
         (ReplayActionPolicy, ReplayActionPolicyCfg),
         (RslRlActionPolicy, RslRlActionPolicyCfg),
     ],
@@ -74,6 +76,11 @@ def test_policy_runtime_contract_accepts_typed_config():
     ("policy_type", "cli_args", "expected_cfg"),
     [
         (ZeroActionPolicy, [], ZeroActionPolicyCfg()),
+        (
+            RandomActionPolicy,
+            ["--random_seed", "7", "--eef_position_noise", "0.02", "--hand_joint_noise", "0.1"],
+            RandomActionPolicyCfg(random_seed=7, eef_position_noise=0.02, hand_joint_noise=0.1),
+        ),
         (
             ReplayActionPolicy,
             ["--replay_file_path", "episode.hdf5", "--device", "cpu", "--episode_name", "episode_1"],
@@ -122,7 +129,7 @@ def test_shared_policy_cli_default_must_match_cfg():
 
 def test_registered_policies_do_not_own_argparse_adapters():
     """Keep argparse generation outside typed policy implementations."""
-    for policy_type in (ZeroActionPolicy, ReplayActionPolicy, RslRlActionPolicy):
+    for policy_type in (ZeroActionPolicy, RandomActionPolicy, ReplayActionPolicy, RslRlActionPolicy):
         assert "add_args_to_parser" not in policy_type.__dict__
         assert "from_args" not in policy_type.__dict__
 

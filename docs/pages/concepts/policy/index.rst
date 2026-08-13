@@ -23,6 +23,11 @@ Arena ships with four policies:
    Returns a zero-filled action tensor. Useful for validating an environment
    without a trained model.
 
+**RandomActionPolicy** (``"random_action"``)
+   Returns reproducible, bounded random actions. For the GR1 Pink embodiment,
+   it perturbs the current end-effector positions and hand joints while keeping
+   the observed wrist quaternions valid.
+
 **ReplayActionPolicy** (``"replay"``)
    Replays actions from a recorded episode stored in an HDF5 file.
 
