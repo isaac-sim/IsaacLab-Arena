@@ -132,15 +132,15 @@ def _assert_linear_velocity_matches_finite_difference(end_effector, step_dt: flo
         ),
     )
     peak_recorded_speed = np.linalg.norm(linear_velocity, axis=-1).max()
-    assert peak_recorded_speed > MIN_EE_LINEAR_SPEED_FOR_VELOCITY_CHECK_M_S, (
-        f"EE barely moved (peak speed {peak_recorded_speed:.4f} m/s); finite-difference check is vacuous"
-    )
+    assert (
+        peak_recorded_speed > MIN_EE_LINEAR_SPEED_FOR_VELOCITY_CHECK_M_S
+    ), f"EE barely moved (peak speed {peak_recorded_speed:.4f} m/s); finite-difference check is vacuous"
     assert error.max() < MAX_LINEAR_VELOCITY_FINITE_DIFF_ERROR_M_S, (
-        f"EE linear_velocity disagrees with finite-difference of position: "
+        "EE linear_velocity disagrees with finite-difference of position: "
         f"max |v_rec - v_fd|={error.max():.4f} m/s (limit {MAX_LINEAR_VELOCITY_FINITE_DIFF_ERROR_M_S})"
     )
     assert float(np.median(error)) < MAX_LINEAR_VELOCITY_FINITE_DIFF_MEDIAN_ERROR_M_S, (
-        f"EE linear_velocity median finite-difference error too high: "
+        "EE linear_velocity median finite-difference error too high: "
         f"{float(np.median(error)):.4f} m/s (limit {MAX_LINEAR_VELOCITY_FINITE_DIFF_MEDIAN_ERROR_M_S})"
     )
 

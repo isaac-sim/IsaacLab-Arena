@@ -133,10 +133,9 @@ class EndEffectorPosesRecorder(RecorderTerm):
             # Leaf of the USD prim path is the articulation link name (e.g. panda_hand).
             body_name = frame_cfg.prim_path.rstrip("/").rsplit("/", 1)[-1]
             body_ids, matched_names = robot.find_bodies(body_name)
-            assert len(body_ids) == 1, (
-                f"Expected exactly one robot body matching '{body_name}' for frame '{frame_name}',"
-                f" got {matched_names}"
-            )
+            assert (
+                len(body_ids) == 1
+            ), f"Expected exactly one robot body matching '{body_name}' for frame '{frame_name}', got {matched_names}"
             body_ids_by_frame[frame_name] = body_ids[0]
         self._body_ids_by_frame = body_ids_by_frame
         return body_ids_by_frame
