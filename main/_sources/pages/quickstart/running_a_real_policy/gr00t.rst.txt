@@ -18,6 +18,24 @@ submodule pinned at commit ``e29d8fc``. Populate it if needed:
 
    git submodule update --init submodules/Isaac-GR00T
 
+If you run Arena from its native ``uv`` environment, install the GR00T client
+package:
+
+.. tab-set::
+
+   .. tab-item:: Source
+      :selected:
+
+      .. code-block:: bash
+
+         uv sync --group gr00t-client
+
+   .. tab-item:: Wheel
+
+      .. code-block:: bash
+
+         uv sync --no-default-groups --group isaaclab-from-wheel --group gr00t-client
+
 Then start the server from the repository root in a separate shell:
 
 .. todo::
