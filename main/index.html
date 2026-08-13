@@ -54,7 +54,7 @@
     <link rel="icon" href="_static/favicon.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Installation" href="pages/quickstart/installation.html" />
+    <link rel="next" title="Isaac Lab Arena Overview" href="pages/motivation/motivation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -323,16 +323,17 @@
 <nav class="bd-docs-nav bd-links"
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
-  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Home</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab Arena Overview</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Isaac Lab Arena Overview</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Why is Isaac Lab Arena needed?</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Why is Isaac Lab Arena needed?</a></li>
-
-
-
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
@@ -532,15 +533,15 @@
   <section id="welcome-to-isaac-lab-arena">
 <h1>Welcome to Isaac Lab Arena!<a class="headerlink" href="#welcome-to-isaac-lab-arena" title="Link to this heading">#</a></h1>
 <p>Isaac Lab Arena extends <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a>
-to simplify the creation of simulation environments, and for running them <em>fast</em>.</p>
+with composable tools for creating robotics simulation environments and running them efficiently at scale.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This is the development version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
+<p>This is the development version of Isaac Lab Arena. It contains the newest features but may not be fully tested yet.
 For the tested version, please refer to the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html">release/0.2.1 branch</a>.</p>
 </div>
 <div class="line-block">
 <div class="line"><strong>Modular Environments</strong></div>
-<div class="line">Compose environments from reusable parts.</div>
+<div class="line">Compose scenes, embodiments, and tasks as reusable building blocks instead of duplicating full environment definitions.</div>
 </div>
 <figure class="align-center">
 <a class="reference internal image-reference" href="_images/variation_axis_web.webp"><img alt="_images/variation_axis_web.webp" src="_images/variation_axis_web.webp" style="width: 80%;" />
@@ -548,13 +549,13 @@ For the tested version, please refer to the <a class="reference external" href="
 </figure>
 <div class="line-block">
 <div class="line"><strong>Swappable assets</strong></div>
-<div class="line">Easily switch the assets in an environment without rewriting the environment code.</div>
+<div class="line">Run-time swapping of building blocks such as target objects and backgrounds allows parallel evaluation covering many variations of one task without code changes.</div>
 </div>
 <div class="image-gallery gallery-3col docutils container">
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/alphabet_soup_can_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/lemon_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mug_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mustard_bottle_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/orange_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/rubiks_cube_home_office_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/sugar_box_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/tomato_sauce_can_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/billiard_hall_web.mp4" type="video/mp4"></video></div></div>
 <div class="line-block">
 <div class="line"><strong>Automatic Object Placement</strong></div>
-<div class="line">Objects are placed automatically at run-time based on semantic spatial relationships.</div>
+<div class="line">Define layouts with semantic spatial relations rather than hand-coded poses. Arena solves and validates candidate placements against object geometry, collisions, and task constraints.</div>
 </div>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
 <div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
@@ -575,20 +576,20 @@ For the tested version, please refer to the <a class="reference external" href="
 </div>
 <div class="line-block">
 <div class="line"><strong>Parallel Evaluation</strong></div>
-<div class="line">Evaluate policies in multiple parallel environments <em>fast</em>.</div>
+<div class="line">Evaluate a policy across many parallel environments with aggregated metrics for high-level summary as well as per-episode recording for detailed analysis.</div>
 </div>
 <div class="image-gallery docutils container">
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/big_pumpkin_in_bin_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mouse_on_keyboard_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/small_pumpkin_in_bin_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/mustard_in_left_bin_web.mp4" type="video/mp4"></video></div></div>
 <div class="line-block">
 <div class="line"><strong>Agentic environment creation</strong></div>
-<div class="line">Work with an agent to create environments with randomization.</div>
+<div class="line">Turn a natural-language task request into a runnable Arena environment. Edit the environment specification and review the randomized layouts in a GUI interactively.</div>
 </div>
 <div class="image-gallery docutils container">
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/penisula_mustard_mesh_web.mp4" type="video/mp4"></video></div><img alt="_images/object-ref-replicator-counter_web.webp" src="_images/object-ref-replicator-counter_web.webp" />
 </div>
 <div class="line-block">
 <div class="line"><strong>Built-in Evaluation Environments</strong></div>
-<div class="line">Test policies out of the box with a set of pre-defined environments.</div>
+<div class="line">Run policies against built-in registered environments.</div>
 </div>
 <div class="image-gallery gallery-3col docutils container">
 <img alt="_images/big_pumpkin_in_bin_web.webp" src="_images/big_pumpkin_in_bin_web.webp" />
@@ -603,7 +604,7 @@ For the tested version, please refer to the <a class="reference external" href="
 </div>
 <div class="line-block">
 <div class="line"><strong>Environmental Variations</strong></div>
-<div class="line">Inject controlled sources of randomness into the environment at run-time.</div>
+<div class="line">Enable build-time and run-time variations to sample controlled changes such as but not limited to HDR backgrounds, light properties, camera intrinsic and extrinsic parameters, and object mass.</div>
 </div>
 <div class="image-gallery docutils container">
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/color_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/hdr_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/shadows_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/temperature_web.mp4" type="video/mp4"></video></div></div>
@@ -617,7 +618,7 @@ For the tested version, please refer to the <a class="reference external" href="
 </figure>
 <div class="line-block">
 <div class="line"><strong>Sensitivity Analysis</strong></div>
-<div class="line">Analyze the impact of variations on policy performance.</div>
+<div class="line">Analyze which environment factors are associated with policy success or failure.</div>
 </div>
 <figure class="align-center">
 <a class="reference internal image-reference" href="_images/sensitivity_report_200_trails.png"><img alt="_images/sensitivity_report_200_trails.png" src="_images/sensitivity_report_200_trails.png" style="width: 100%;" />
@@ -625,7 +626,7 @@ For the tested version, please refer to the <a class="reference external" href="
 </figure>
 <div class="line-block">
 <div class="line"><strong>Teleoperation</strong></div>
-<div class="line">Teleoperate robots in Arena-defined environments.</div>
+<div class="line">Teleoperate robots using IsaacTeleop in Arena-defined environments.</div>
 </div>
 <div class="image-gallery docutils container">
 <div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/g1_galileo_arena_box_pnp_locomanip_trimmed_web.mp4" type="video/mp4"></video></div><div  class="sphinx-contrib-video-container align-left"><video autoplay="True" loop="True" muted="True" preload="auto" playsinline="True"><source src="_images/gr1_sequential_static_manipulation_env_web.mp4" type="video/mp4"></video></div></div>
@@ -650,18 +651,21 @@ in close collaboration with <a class="reference external" href="https://lightwhe
 <section id="table-of-contents">
 <h1>TABLE OF CONTENTS<a class="headerlink" href="#table-of-contents" title="Link to this heading">#</a></h1>
 <div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Why is Isaac Lab Arena needed?</span></p>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab Arena Overview</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Why is Isaac Lab Arena needed?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#the-problem">The Problem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#can-we-simplify-environment-creation">Can we simplify environment creation?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#isaac-lab-arena">Isaac Lab Arena</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html">Isaac Lab Arena Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/motivation/motivation.html#variational-approach-to-robot-policy-evaluation">Variational Approach to Robot Policy Evaluation</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
@@ -737,11 +741,11 @@ in close collaboration with <a class="reference external" href="https://lightwhe
                   
 <div class="prev-next-area">
     <a class="right-next"
-       href="pages/quickstart/installation.html"
+       href="pages/motivation/motivation.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Isaac Lab Arena Overview</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

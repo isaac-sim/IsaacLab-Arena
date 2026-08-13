@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Why is Isaac Lab Arena needed? &#8212; isaaclab_arena</title>
+    <title>Isaac Lab Arena Overview &#8212; isaaclab_arena</title>
   
   
   
@@ -54,8 +54,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="First Arena Environment" href="../quickstart/arena_env.html" />
-    <link rel="prev" title="Installation" href="../quickstart/installation.html" />
+    <link rel="next" title="Installation" href="../quickstart/installation.html" />
+    <link rel="prev" title="Welcome to Isaac Lab Arena!" href="../../index.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -324,16 +324,17 @@
 <nav class="bd-docs-nav bd-links"
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
-  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab Arena Overview</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Isaac Lab Arena Overview</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Why is Isaac Lab Arena needed?</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Why is Isaac Lab Arena needed?</a></li>
-
-
-
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
@@ -537,7 +538,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Why is Isaac Lab Arena needed?</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Isaac Lab Arena Overview</span></li>
   </ul>
 </nav>
 </div>
@@ -554,19 +555,17 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="why-is-isaac-lab-arena-needed">
-<h1>Why is Isaac Lab Arena needed?<a class="headerlink" href="#why-is-isaac-lab-arena-needed" title="Link to this heading">#</a></h1>
-<p>Do we need a framework for building and running task libraries?</p>
-</section>
-<section id="the-problem">
-<h1>The Problem<a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h1>
-<p>With the advent of <em>generalist</em> robot policies, such as <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>
-and <a class="reference external" href="https://github.com/Physical-Intelligence/openpi">Pi_0</a>,
-there is a growing need to evaluate these policies in a variety of tasks/environments.</p>
-<p>Traditional approaches to building task libraries suffer from significant limitations.
-Each new environment variation—whether testing a different robot embodiment or swapping objects—requires tedious manual creation of a new task configuration.
-This leads to redundant, unscalable tasks where most of the environment setup, scene configuration, and task logic is duplicated across variations.
-As the number of robot types and objects grows, maintaining and extending such task libraries becomes increasingly impractical.</p>
+  <section id="isaac-lab-arena-overview">
+<h1>Isaac Lab Arena Overview<a class="headerlink" href="#isaac-lab-arena-overview" title="Link to this heading">#</a></h1>
+<p>Generalist robot policies such as <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>
+and <a class="reference external" href="https://github.com/Physical-Intelligence/openpi">Pi_0</a> aim to solve many tasks across many scenes,
+objects, embodiments, and deployment conditions.
+Evaluating that claim requires more than a fixed benchmark suite. Lighting changes, clutter, object
+substitutions, and robot morphology can all change policy behavior, and limited coverage can reward policies
+tuned to benchmark-specific conditions rather than policies that generalize.
+To address this, the evaluation set needed to test generalization grows combinatorially with tasks, scenes,
+embodiments, objects, and environment variations, making manual environment authoring a central bottleneck.
+Isaac Lab Arena provides a composable robotics simulation evaluation approach.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../_images/task_duplications.png"><img alt="Task duplications in a task library" src="../../_images/task_duplications.png" style="width: 100%;" />
 </a>
@@ -576,50 +575,47 @@ When evaluating policies across different robot embodiments and objects, most of
 </figcaption>
 </figure>
 </section>
-<section id="can-we-simplify-environment-creation">
-<h1>Can we simplify environment creation?<a class="headerlink" href="#can-we-simplify-environment-creation" title="Link to this heading">#</a></h1>
+<section id="variational-approach-to-robot-policy-evaluation">
+<h1>Variational Approach to Robot Policy Evaluation<a class="headerlink" href="#variational-approach-to-robot-policy-evaluation" title="Link to this heading">#</a></h1>
 <figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../_images/variation_axis.png"><img alt="Axis of variation for the pick and place task" src="../../_images/variation_axis.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Axis of variation of a pick and place task.
-Each environment differs along two axis, the robot embodiment and the object to be manipulated.
+Each environment differs along two axes: the robot embodiment and the object to be manipulated.
 All other aspects of the environment and the task remain the same.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>Tasks in a task library are typically highly redundant.
-For example, you may want to test how well a policy performs on a pick and place task,
-on many different objects.
-In this example, each environment differs in the object-to-be-manipulated,
-but all other aspects remain the same.
-For example, the scene layout, the robot, the observations, actions, rewards, etc are all
-conserved across the environments.
-Isaac Lab’s manager-based environment API is convenient for expressing one such task,
-but does not naturally support expressing this type of variation.</p>
-<p>Isaac Lab Arena extends the manager-based interface to provide
-a convenient way of expressing task variation, while benefiting from
-the modularity, performance, and accuracy of Isaac Lab.</p>
-</section>
-<section id="isaac-lab-arena">
-<h1>Isaac Lab Arena<a class="headerlink" href="#isaac-lab-arena" title="Link to this heading">#</a></h1>
-<p>Isaac Lab Arena is a framework that simplifies the creation and maintenance of such task/environment libraries.
-To simplify the expression of task/environment variation in Isaac Lab Arena,
-we <em>compose</em> the environment on-the-fly from independent sub-pieces.
-Because the sub-pieces are independent, they can be reused and independently varied.
-Furthermore, because the environment is built on the fly, we never need to write and maintain
-duplicate code.</p>
+<p>Task libraries often encode the same scenario repeatedly. A pick-and-place
+benchmark, for example, may need to evaluate the same task across many target
+objects, robot embodiments, object placements, or scene conditions. In these
+cases, the core task definition does not change: the scene layout, observation
+space, action space, rewards, and success criteria are mostly shared. Only one
+or two dimensions vary.</p>
+<p>Isaac Lab’s manager-based environment API is convenient for expressing each
+individual task, but representing a full family of related variations can lead
+to many near-duplicate configurations. Isaac Lab Arena makes those differences
+explicit as variation axes. It extends the manager-based interface so related
+environments can be composed from reusable parts, while retaining the
+modularity, performance, and accuracy of Isaac Lab.</p>
+<p>Concretely, Isaac Lab Arena treats an environment as a composition of reusable
+pieces instead of a standalone configuration for every variation. The shared
+parts stay in one place, while the axes that should vary, such as the scene,
+robot embodiment, or task, can be swapped independently. The environment is
+assembled on the fly, which avoids maintaining duplicate task code for each new
+combination.</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../../_images/isaac_lab_arena_arch_overview.png"><img alt="Isaac Lab Arena Architecture Overview" src="../../_images/isaac_lab_arena_arch_overview.png" style="width: 100%;" />
 </a>
 </figure>
-<p>Isaac Lab Arena decomposes the environment into three independent sub-pieces:</p>
+<p>Isaac Lab Arena decomposes each environment into three independent pieces:</p>
 <ul class="simple">
-<li><p><strong>Scene</strong>: The physical environment layout. The scene is a collection of objects.</p></li>
-<li><p><strong>Embodiment</strong>: The robot embodiment, its observations, actions, sensors etc.</p></li>
-<li><p><strong>Task</strong>: A definition of what is to be accomplished in the environment.</p></li>
+<li><p><strong>Scene</strong>: The physical layout and objects in the environment.</p></li>
+<li><p><strong>Embodiment</strong>: The robot, its observations, actions, and sensors.</p></li>
+<li><p><strong>Task</strong>: The objective, rewards, success criteria, and task-specific logic.</p></li>
 </ul>
-<p>The <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> composes the environment from these sub-pieces,
-into a <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code> which can be run in Isaac Lab.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> composes these pieces into a <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>
+that can be run in Isaac Lab.</p>
 </section>
 
 
@@ -633,20 +629,20 @@ into a <code class="docutils literal notranslate"><span class="pre">ManagerBased
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../quickstart/installation.html"
+       href="../../index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Welcome to Isaac Lab Arena!</p>
       </div>
     </a>
     <a class="right-next"
-       href="../quickstart/arena_env.html"
+       href="../quickstart/installation.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">First Arena Environment</p>
+        <p class="prev-next-title">Installation</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -671,10 +667,8 @@ into a <code class="docutils literal notranslate"><span class="pre">ManagerBased
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Why is Isaac Lab Arena needed?</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem">The Problem</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#can-we-simplify-environment-creation">Can we simplify environment creation?</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-arena">Isaac Lab Arena</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Isaac Lab Arena Overview</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#variational-approach-to-robot-policy-evaluation">Variational Approach to Robot Policy Evaluation</a></li>
 </ul>
 
   </nav></div>
