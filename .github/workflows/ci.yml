@@ -171,7 +171,7 @@ jobs:
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run GR00T policy/data tests (lightweight gr00t deps only)
+      - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
             isaaclab_arena_gr00t/tests/
@@ -351,6 +351,8 @@ jobs:
               - 'uv.lock'
               - 'submodules/IsaacLab'
               - 'submodules/IsaacLab/**'
+              - 'submodules/Isaac-GR00T'
+              - 'submodules/Isaac-GR00T/**'
 
   uv_test:
     name: Run tests (native uv, ${{ matrix.variant }})
@@ -375,9 +377,9 @@ jobs:
       matrix:
         include:
           - variant: wheel
-            uv_flags: "--no-default-groups --group isaaclab-from-wheel"
+            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
           - variant: source
-            uv_flags: ""
+            uv_flags: "--group gr00t-client"
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -469,6 +471,13 @@ jobs:
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
+
+      - name: Run GR00T remote closed-loop policy tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 \
+            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy.py
 
 
   build_and_push_image_post_merge:
