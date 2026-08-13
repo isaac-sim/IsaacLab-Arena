@@ -472,7 +472,7 @@ jobs:
           pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
-      - name: Run GR00T remote closed-loop policy tests
+      - name: Run GR00T remote policy client tests
         shell: bash
         run: |
           source .venv/bin/activate
