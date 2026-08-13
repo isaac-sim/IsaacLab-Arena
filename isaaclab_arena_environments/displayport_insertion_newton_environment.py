@@ -255,7 +255,7 @@ def _configure_newton_displayport_physics(
             reduce_contacts=True,
             max_triangle_pairs=2**25,
         ),
-        num_substeps=10,
+        num_substeps=4,
         debug_mode=False,
     )
     env_cfg.decimation = 7
