@@ -7,6 +7,7 @@
 
 from isaaclab_arena.relations.benchmark.environment_benchmark import run_environment_benchmark
 from isaaclab_arena.relations.benchmark.models import (
+    BackgroundTreatment,
     BenchmarkMeasurement,
     BenchmarkRun,
     BenchmarkScenario,
@@ -15,6 +16,7 @@ from isaaclab_arena.relations.benchmark.models import (
     Clock,
     CollisionModeName,
     DeviceMetadata,
+    DiagnosticTopic,
 )
 from isaaclab_arena.relations.benchmark.multi_gpu import (
     run_capacity_search,
@@ -27,11 +29,18 @@ from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata, coll
 from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
+    format_diagnostic_markdown,
     format_results_table,
     format_scaling_summary,
     requested_scenario_ids,
+    write_batch_scaling_svg,
+    write_droid_kitchen_snapshot,
+    write_droid_scene_snapshot,
+    write_lightwheel_kitchen_snapshot,
+    write_object_scaling_svg,
     write_results_csv,
     write_results_json,
+    write_robot_scaling_svg,
 )
 from isaaclab_arena.relations.benchmark.synthetic_benchmark import (
     default_scenarios,
@@ -44,6 +53,7 @@ from isaaclab_arena.relations.benchmark.synthetic_benchmark import (
 )
 
 __all__ = [
+    "BackgroundTreatment",
     "BenchmarkMeasurement",
     "BenchmarkRun",
     "BenchmarkScenario",
@@ -52,12 +62,14 @@ __all__ = [
     "Clock",
     "CollisionModeName",
     "DeviceMetadata",
+    "DiagnosticTopic",
     "SoftwareMetadata",
     "build_distributed_run",
     "build_run",
     "collect_software_metadata",
     "default_scenarios",
     "env_count_sweep",
+    "format_diagnostic_markdown",
     "format_results_table",
     "format_scaling_summary",
     "object_count_sweep",
@@ -72,6 +84,12 @@ __all__ = [
     "scenarios_for_modes",
     "search_capacity",
     "validate_gpu_selectors",
+    "write_batch_scaling_svg",
+    "write_droid_kitchen_snapshot",
+    "write_droid_scene_snapshot",
+    "write_lightwheel_kitchen_snapshot",
+    "write_object_scaling_svg",
+    "write_robot_scaling_svg",
     "write_results_csv",
     "write_results_json",
 ]

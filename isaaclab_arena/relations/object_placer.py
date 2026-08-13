@@ -759,6 +759,11 @@ class ObjectPlacer:
         return self._solver.last_loss_history
 
     @property
+    def last_optimization_elapsed_ms(self) -> float:
+        """Optimization-loop wall time from the most recent placement solve."""
+        return self._solver.last_optimization_elapsed_ms
+
+    @property
     def last_position_history(self) -> list:
         """Position snapshots from the most recent place() call."""
         return self._solver.last_position_history

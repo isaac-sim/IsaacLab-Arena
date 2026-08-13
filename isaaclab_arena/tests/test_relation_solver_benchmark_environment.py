@@ -69,3 +69,38 @@ def _test_environment_benchmark(simulation_app):
 
 def test_environment_benchmark_builds_robot_variants_sequentially():
     assert run_function_with_persistent_simulation_app(_test_environment_benchmark, headless=True)
+
+
+def _test_scene_placement_diagnostic(simulation_app):
+    from isaaclab_arena.relations.benchmark.models import BenchmarkScenario
+    from isaaclab_arena.relations.benchmark.scene_diagnostic import run_scene_placement_diagnostic
+
+    result = run_scene_placement_diagnostic(
+        BenchmarkScenario(
+            name="banana-placement-diagnostic",
+            num_objects=0,
+            num_envs=1,
+            max_iters=10,
+            max_placement_attempts=1,
+            warmup_runs=0,
+            timed_runs=1,
+            final_loss_threshold=1e9,
+            min_valid_layout_rate=0.0,
+            graph_spec_path=str(_ROBO_LAB_SPEC),
+            include_robot=False,
+            diagnostic_topic="scene-difficulty",
+            background_treatment="scene-default",
+            scene_label="simple banana",
+        )
+    )
+    assert result.status == "ok", result.error
+    assert result.num_objects > 0
+    assert result.relation_count is not None and result.relation_count > 0
+    assert result.background_object_count is not None
+    assert result.solver_iterations_per_second is not None
+    assert result.place_ms is not None
+    return True
+
+
+def test_scene_placement_diagnostic_uses_graph_assets():
+    assert run_function_with_persistent_simulation_app(_test_scene_placement_diagnostic, headless=True)

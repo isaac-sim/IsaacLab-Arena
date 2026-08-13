@@ -20,6 +20,14 @@ from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata
 BenchmarkStatus = Literal["ok", "failed"]
 BenchmarkTarget = Literal["solver", "placer", "environment"]
 CollisionModeName = Literal["bbox", "mesh"]
+DiagnosticTopic = Literal[
+    "batchification",
+    "object-complexity",
+    "background-collision",
+    "robot-impact",
+    "scene-difficulty",
+]
+BackgroundTreatment = Literal["none", "aabb", "mesh", "scene-default"]
 Clock = Callable[[], float]
 
 
@@ -67,10 +75,22 @@ class BenchmarkScenario:
     """Smallest acceptable valid-layout fraction for a placer run."""
 
     graph_spec_path: str | None = None
-    """Graph spec used by environment-target measurements."""
+    """Graph spec used by graph-backed measurements."""
 
     include_robot: bool = True
-    """Whether environment-target measurements include the embodiment."""
+    """Whether graph-backed measurements include the embodiment."""
+
+    diagnostic_topic: DiagnosticTopic | None = None
+    """Question answered by this scenario in a diagnostic report."""
+
+    background_treatment: BackgroundTreatment = "none"
+    """Fixed collision geometry included outside optimized objects."""
+
+    scene_label: str | None = None
+    """Short scene name used in diagnostic reports."""
+
+    asset_set_name: str | None = None
+    """Registered asset set used by a synthetic-target measurement."""
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -100,11 +120,17 @@ class BenchmarkScenario:
             raise ValueError("final_loss_threshold must be finite and non-negative")
         if not math.isfinite(self.min_valid_layout_rate) or not 0.0 <= self.min_valid_layout_rate <= 1.0:
             raise ValueError("min_valid_layout_rate must be in [0, 1]")
+        if self.background_treatment not in ("none", "aabb", "mesh", "scene-default"):
+            raise ValueError("background_treatment must be none, aabb, mesh, or scene-default")
 
     def scenario_id(self, target: BenchmarkTarget) -> str:
         """Return a stable identifier for one target measurement."""
         parts = [self.name, target, self.collision_mode, f"envs-{self.num_envs}"]
-        if target == "environment":
+        if self.diagnostic_topic is not None:
+            parts.extend([self.diagnostic_topic, self.background_treatment])
+        if self.asset_set_name is not None:
+            parts.append(self.asset_set_name)
+        if target == "environment" or self.graph_spec_path is not None:
             spec_name = Path(self.graph_spec_path).stem if self.graph_spec_path is not None else "missing-spec"
             parts.extend([spec_name, "robot" if self.include_robot else "no-robot"])
         return "__".join(parts)
@@ -192,7 +218,7 @@ class BenchmarkMeasurement:
     """Smallest acceptable valid-layout fraction."""
 
     graph_spec_path: str | None
-    """Graph spec used by environment targets."""
+    """Graph spec used by graph-backed targets."""
 
     worker_id: str = "local"
     """Worker that produced the measurement."""
@@ -204,7 +230,25 @@ class BenchmarkMeasurement:
     """Sum of replicated worker throughput."""
 
     include_robot: bool | None = None
-    """Robot inclusion for environment targets."""
+    """Robot inclusion for graph-backed targets."""
+
+    diagnostic_topic: DiagnosticTopic | None = None
+    """Question answered by this measurement."""
+
+    background_treatment: BackgroundTreatment = "none"
+    """Fixed collision geometry included outside optimized objects."""
+
+    scene_label: str | None = None
+    """Short scene name used in diagnostic reports."""
+
+    asset_set_name: str | None = None
+    """Registered asset set used by the measured workload."""
+
+    relation_count: int | None = None
+    """Spatial relation count in the measured scene."""
+
+    background_object_count: int | None = None
+    """Fixed collision objects included in optimization."""
 
     error: str | None = None
     """Failure reason."""
@@ -220,6 +264,12 @@ class BenchmarkMeasurement:
 
     solve_step_ms: float | None = None
     """Median solver iteration latency."""
+
+    solver_iterations_per_second_samples: tuple[float, ...] | None = None
+    """Optimization-loop iteration rates for each timed solver run."""
+
+    solver_iterations_per_second: float | None = None
+    """Median optimization-loop iterations completed per second."""
 
     place_ms_samples: tuple[float, ...] | None = None
     """ObjectPlacer latency samples."""
@@ -252,7 +302,7 @@ class BenchmarkMeasurement:
     """Largest final loss across timed runs and environments."""
 
     valid_layout_rate: float | None = None
-    """Smallest placer valid-layout fraction across timed runs; None for other targets."""
+    """Aggregate placer valid-layout fraction; None for other targets."""
 
     aabb_pair_count: int | None = None
     """Directed AABB pairs in the final timed run."""
@@ -279,7 +329,7 @@ class BenchmarkMeasurement:
         **measurement_values,
     ) -> BenchmarkMeasurement:
         """Build a measurement with scenario metadata."""
-        if target == "environment" and include_robot is None:
+        if scenario.graph_spec_path is not None and include_robot is None:
             include_robot = scenario.include_robot
         return cls(
             scenario_id=scenario.scenario_id(target),
@@ -301,6 +351,10 @@ class BenchmarkMeasurement:
             min_valid_layout_rate=scenario.min_valid_layout_rate,
             graph_spec_path=scenario.graph_spec_path,
             include_robot=include_robot,
+            diagnostic_topic=scenario.diagnostic_topic,
+            background_treatment=scenario.background_treatment,
+            scene_label=scenario.scene_label,
+            asset_set_name=scenario.asset_set_name,
             **measurement_values,
         )
 
@@ -329,6 +383,7 @@ class BenchmarkMeasurement:
         sample_fields = (
             "solve_ms_samples",
             "solve_step_ms_samples",
+            "solver_iterations_per_second_samples",
             "place_ms_samples",
             "build_ms_samples",
             "reset_ms_samples",

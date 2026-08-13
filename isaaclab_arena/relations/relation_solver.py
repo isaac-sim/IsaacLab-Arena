@@ -53,6 +53,8 @@ class RelationSolver:
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
+        self._last_optimization_elapsed_ms = 0.0
+        self._last_optimization_cuda_events: tuple[torch.cuda.Event, torch.cuda.Event] | None = None
         self._last_aabb_no_overlap_pair_count = 0
         self._last_mesh_no_overlap_pair_count = 0
         self._mesh_orientations: list[dict[PlaceableAsset, float]] | None = None
@@ -286,6 +288,13 @@ class RelationSolver:
         # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
+        if state.device.type == "cuda":
+            optimization_start_event = torch.cuda.Event(enable_timing=True)
+            optimization_end_event = torch.cuda.Event(enable_timing=True)
+            optimization_start_event.record()
+            optimization_start = None
+        else:
+            optimization_start = time.perf_counter()
 
         for iter in range(self.params.max_iters):
             optimizer.zero_grad()
@@ -309,6 +318,11 @@ class RelationSolver:
 
             if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
+        if optimization_start is None:
+            optimization_end_event.record()
+            self._last_optimization_cuda_events = (optimization_start_event, optimization_end_event)
+        else:
+            self._last_optimization_elapsed_ms = (time.perf_counter() - optimization_start) * 1e3
 
         # The loop records loss before optimizer.step(); refresh per-env loss for the returned positions.
         with torch.no_grad():
@@ -357,6 +371,15 @@ class RelationSolver:
     def last_loss_per_env(self) -> torch.Tensor | None:
         """Per-candidate loss tensor of shape (batch_size,) from the last solve() call."""
         return self._last_loss_per_env
+
+    @property
+    def last_optimization_elapsed_ms(self) -> float:
+        """Wall time spent in the optimization loop during the most recent solve."""
+        if self._last_optimization_cuda_events is not None:
+            start, end = self._last_optimization_cuda_events
+            end.synchronize()
+            return start.elapsed_time(end)
+        return self._last_optimization_elapsed_ms
 
     @property
     def last_position_history(self) -> list:

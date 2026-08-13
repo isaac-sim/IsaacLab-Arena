@@ -15,12 +15,19 @@ import isaaclab_arena.relations.benchmark.multi_gpu as benchmark_multi_gpu
 import isaaclab_arena.relations.benchmark.provenance as benchmark_provenance
 import isaaclab_arena.relations.benchmark.reporting as benchmark_reporting
 from isaaclab_arena.relations.benchmark.environment_benchmark import run_environment_benchmark
-from isaaclab_arena.relations.benchmark.models import BenchmarkScenario, DeviceMetadata
+from isaaclab_arena.relations.benchmark.models import (
+    BenchmarkMeasurement,
+    BenchmarkRun,
+    BenchmarkScenario,
+    BenchmarkTarget,
+    DeviceMetadata,
+)
 from isaaclab_arena.relations.benchmark.multi_gpu import search_capacity
 from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata, collect_software_metadata
 from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
+    format_diagnostic_markdown,
     format_results_table,
     format_scaling_summary,
     requested_scenario_ids,
@@ -64,6 +71,34 @@ def _tiny_scenario(**overrides) -> BenchmarkScenario:
     return BenchmarkScenario(**values)
 
 
+def _diagnostic_measurement(
+    scenario: BenchmarkScenario,
+    target: BenchmarkTarget = "solver",
+    **values,
+) -> BenchmarkMeasurement:
+    defaults = {
+        "solver_iterations_per_second": 100.0,
+        "solve_ms": 10.0,
+        "place_ms": 12.0,
+        "throughput_envs_per_second": 100.0,
+        "iterations": (10,),
+        "final_loss": 0.0,
+        "valid_layout_rate": 1.0 if target == "placer" else None,
+        "aabb_pair_count": 2,
+        "mesh_pair_count": 0,
+        "relation_count": 1,
+        "background_object_count": 0,
+    }
+    defaults.update(values)
+    return BenchmarkMeasurement.from_scenario(
+        scenario,
+        target,
+        status="ok",
+        device=DeviceMetadata(None, "Test GPU", 8 * 2**30, None, None, None, "8.9"),
+        **defaults,
+    )
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
@@ -90,6 +125,77 @@ def test_build_clutter_scene_uses_placeable_assets():
     assert len(objects) == 6
     assert objects[0].name == "table"
     assert all(obj.get_bounding_box() is not None for obj in objects)
+
+
+def test_diagnostic_metadata_round_trips():
+    scenario = _tiny_scenario(
+        diagnostic_topic="background-collision",
+        background_treatment="aabb",
+        scene_label="toy",
+    )
+    measurement = _diagnostic_measurement(scenario, background_object_count=1)
+    restored = BenchmarkMeasurement.from_dict(measurement.to_dict())
+    assert restored.diagnostic_topic == "background-collision"
+    assert restored.background_treatment == "aabb"
+    assert restored.scene_label == "toy"
+    assert restored.background_object_count == 1
+
+
+def test_diagnostic_markdown_organizes_results_by_solver_question():
+    scenarios = (
+        _tiny_scenario(name="batch-1", diagnostic_topic="batchification"),
+        _tiny_scenario(name="batch-8", num_envs=8, diagnostic_topic="batchification"),
+        _tiny_scenario(name="objects", num_objects=5, diagnostic_topic="object-complexity"),
+        _tiny_scenario(
+            name="background",
+            diagnostic_topic="background-collision",
+            background_treatment="aabb",
+        ),
+        _tiny_scenario(
+            name="robot-without",
+            diagnostic_topic="robot-impact",
+            background_treatment="scene-default",
+            scene_label="robot scene",
+            include_robot=False,
+        ),
+        _tiny_scenario(
+            name="robot-with",
+            diagnostic_topic="robot-impact",
+            background_treatment="scene-default",
+            scene_label="robot scene",
+            include_robot=True,
+        ),
+        _tiny_scenario(
+            name="difficulty",
+            num_objects=0,
+            graph_spec_path="scene.yaml",
+            diagnostic_topic="scene-difficulty",
+            background_treatment="scene-default",
+            scene_label="difficult scene",
+        ),
+    )
+    measurements = tuple(
+        _diagnostic_measurement(scenario, "placer" if scenario.graph_spec_path else "solver") for scenario in scenarios
+    )
+    ids = tuple(measurement.scenario_id for measurement in measurements)
+    run = BenchmarkRun(
+        requested_scenario_ids=ids,
+        results=measurements,
+        worker_assignments={"local": ids},
+        worker_exit_codes={"local": 0},
+        software=SoftwareMetadata("a" * 40, True, "3.11", "2.7", "12.8"),
+    )
+
+    report = format_diagnostic_markdown(run)
+    assert "## Performance Changes for BBox/Mesh with Batch Size on a Real Table-Top Scene" in report
+    assert "## Performance Changes for BBox/Mesh with Object Count" in report
+    assert "## Background collision impact" in report
+    assert "## Performance Changes with a Robot in the Lightwheel RoboCasa Kitchen" in report
+    assert "## Valid-Layout Setup Time Across the Kitchen Benchmark Catalog" in report
+    assert "| Environment YAML | Median solver time (s) | Valid layouts | Median iterations |" in report
+    assert "| Mode | Batch | iterations/s |" in report
+    assert "**Question:** Does batching improve" in report
+    assert "**Answer:** BBox: batch 1→8" in report
 
 
 def test_build_clutter_scene_rejects_too_few_objects():
@@ -144,7 +250,9 @@ def test_solver_timing_uses_injected_clock():
     assert result.status == "ok"
     assert result.solve_ms_samples == pytest.approx((25.0,))
     assert result.solve_ms == pytest.approx(25.0)
-    assert result.solve_step_ms == pytest.approx(25.0)
+    assert result.solve_step_ms is not None and result.solve_step_ms > 0.0
+    assert result.solver_iterations_per_second is not None
+    assert result.solver_iterations_per_second == pytest.approx(1000.0 / result.solve_step_ms)
     assert result.place_ms is None
     assert result.aabb_pair_count is not None
     assert result.mesh_pair_count == 0
@@ -232,6 +340,7 @@ def test_environment_bring_up_uses_paired_samples_and_table_median(monkeypatch):
     table = format_results_table([result]).splitlines()
     assert "objects" in table[0]
     assert "batch_ms" in table[0]
+    assert "iter/s" in table[0]
     assert "layouts/s" in table[0]
     row = table[2]
     assert "101.000" in row
@@ -364,7 +473,7 @@ def test_json_and_csv_reports_share_run_results(tmp_path):
 
 
 def test_scaling_summary_reports_successes_throughput_and_failures():
-    base = run_solver_benchmark(_tiny_scenario())
+    base = run_placer_benchmark(_tiny_scenario(min_valid_layout_rate=0.0))
     results = [
         replace(base, num_envs=1, throughput_envs_per_second=10.0),
         replace(base, num_envs=4, throughput_envs_per_second=25.0),
@@ -381,26 +490,42 @@ def test_scaling_summary_reports_successes_throughput_and_failures():
 
     assert "Batch-size scaling (fixed object count)" in summary
     assert "throughput_vs_batch_1" in summary
-    assert "4=25.000 layouts/s, 2.50x, ok" in summary
+    assert "4=25.000 layouts/s" in summary
+    assert "2.50x, ok" in summary
     assert "highest successful batch=4" in summary
     assert "failures=8: out of memory" in summary
 
 
-def test_scaling_summary_reports_object_count_slowdown():
+def test_scaling_summary_reports_solver_iteration_rate():
     base = run_solver_benchmark(_tiny_scenario())
     results = [
-        replace(base, num_objects=3, solve_ms=10.0),
-        replace(base, num_objects=5, solve_ms=15.0),
-        replace(base, num_objects=10, solve_ms=30.0, status="failed"),
+        replace(base, num_envs=1, solver_iterations_per_second=10.0, solve_ms=100.0),
+        replace(base, num_envs=4, solver_iterations_per_second=25.0, solve_ms=160.0),
+    ]
+
+    summary = format_scaling_summary(results)
+
+    assert "iteration_rate_vs_batch_1" in summary
+    assert "1=10.000 iterations/s, 100.000 ms" in summary
+    assert "4=25.000 iterations/s, 160.000 ms" in summary
+    assert "layouts/s, 2.50x, ok" in summary
+
+
+def test_scaling_summary_reports_object_count_iteration_rate():
+    base = run_solver_benchmark(_tiny_scenario())
+    results = [
+        replace(base, num_objects=3, solve_ms=10.0, solver_iterations_per_second=500.0),
+        replace(base, num_objects=5, solve_ms=15.0, solver_iterations_per_second=250.0),
+        replace(base, num_objects=10, solve_ms=30.0, solver_iterations_per_second=125.0, status="failed"),
     ]
 
     summary = format_scaling_summary(results)
 
     assert "Object-count scaling (fixed batch size)" in summary
     assert "[bbox, batch=1]" in summary
-    assert "latency_vs_objects_3" in summary
-    assert "3=10.000 ms, 1.00x, ok" in summary
-    assert "10=30.000 ms, 3.00x, failed" in summary
+    assert "iteration_rate_vs_objects_3" in summary
+    assert "3=500.000 iterations/s, 10.000 ms, 1.00x, ok" in summary
+    assert "10=125.000 iterations/s, 30.000 ms, 0.25x, failed" in summary
 
 
 def test_scaling_summary_does_not_merge_non_comparable_workloads():

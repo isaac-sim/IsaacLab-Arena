@@ -35,6 +35,7 @@ from isaaclab_arena.relations.benchmark.timing import (
 )
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.collision_object import CollisionObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -181,6 +182,147 @@ def build_clutter_scene(
     return [table, *boxes]
 
 
+def build_droid_homogeneous_scene() -> list[PlaceableAsset]:
+    """Build the maintained Maple-table homogeneous placement workload."""
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena_environments.droid_table_multi_object_placement_environment import HOMOGENEOUS_OBJECTS
+
+    registry = AssetRegistry()
+    background = registry.get_asset_by_name("maple_table_robolab")()
+    table = ObjectReference(
+        name="table",
+        prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
+        parent_asset=background,
+        object_type=ObjectType.RIGID,
+    )
+    table.add_relation(IsAnchor())
+    objects = [registry.get_asset_by_name(name)() for name in HOMOGENEOUS_OBJECTS]
+    for obj in objects:
+        obj.add_relation(On(table))
+    return [table, *objects]
+
+
+def build_lightwheel_kitchen_workload(
+    num_objects: int,
+    collision_mode: CollisionModeName,
+    include_robot: bool = False,
+) -> tuple[list[PlaceableAsset], list[CollisionObject]]:
+    """Build a nested object-count workload on the Lightwheel kitchen counter."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
+    registry = AssetRegistry()
+    background = registry.get_asset_by_name("lightwheel_robocasa_kitchen")()
+    counter = ObjectReference(
+        name="counter",
+        prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+        parent_asset=background,
+    )
+    counter.add_relation(IsAnchor())
+    object_names = (
+        "cracker_box",
+        "sugar_box",
+        "tomato_soup_can",
+        "dex_cube",
+        "power_drill",
+        "red_container",
+        "mustard_bottle_hope_robolab",
+        "milk_carton_hope_robolab",
+        "orange_juice_carton_hope_robolab",
+        "parmesan_cheese_canister_hope_robolab",
+        "alphabet_soup_can_hope_robolab",
+        "corn_can_hope_robolab",
+        "spoon_handal_robolab",
+        "spoon_1_handal_robolab",
+        "spoon_2_handal_robolab",
+        "measuring_spoon_handal_robolab",
+        "avocado01_fruits_veggies_robolab",
+        "lemon_01_fruits_veggies_robolab",
+        "orange_01_fruits_veggies_robolab",
+        "pomegranate01_fruits_veggies_robolab",
+    )
+    assert num_objects - 1 <= len(object_names), "kitchen workload requests too many movable objects"
+    objects = [registry.get_asset_by_name(name)() for name in object_names[: num_objects - 1]]
+    for obj in objects:
+        obj.add_relation(On(counter, clearance_m=0.02))
+    optimized_assets: list[PlaceableAsset] = [counter, *objects]
+    background_mesh_exclusions = [counter]
+    if include_robot:
+        from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.relations.relations import NextTo, Side
+
+        floor = ObjectReference(
+            name="floor",
+            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/floor_room/geometry",
+            parent_asset=background,
+            object_type=ObjectType.RIGID,
+        )
+        floor.add_relation(IsAnchor())
+        robot = registry.get_asset_by_name("droid_abs_joint_pos")(
+            enable_cameras=False,
+            stand_height_m=0.8,
+            placement_bbox_stand_only=True,
+        )
+        robot.add_relation(On(floor))
+        robot.add_relation(NextTo(counter, side=Side.NEGATIVE_Y, distance_m=0.3))
+        optimized_assets.extend([floor, robot])
+        background_mesh_exclusions.append(floor)
+    collision_objects = get_passive_collision_objects(
+        [background],
+        include_background=collision_mode == "mesh",
+        background_mesh_exclusions=background_mesh_exclusions,
+    )
+    return optimized_assets, collision_objects
+
+
+def build_benchmark_scene(scenario: BenchmarkScenario) -> list[PlaceableAsset]:
+    """Build the objects configured for a synthetic-target benchmark."""
+    if scenario.asset_set_name == "droid-homogeneous":
+        return build_droid_homogeneous_scene()
+    return build_clutter_scene(scenario.num_objects, scenario.collision_mode)
+
+
+def build_benchmark_workload(
+    scenario: BenchmarkScenario,
+) -> tuple[list[PlaceableAsset], list[CollisionObject]]:
+    """Build optimized objects and fixed collision geometry for a scenario."""
+    if scenario.asset_set_name == "lightwheel-kitchen-counter":
+        return build_lightwheel_kitchen_workload(
+            scenario.num_objects,
+            scenario.collision_mode,
+            include_robot=scenario.include_robot,
+        )
+    return build_benchmark_scene(scenario), build_background_collision_objects(scenario)
+
+
+def build_background_collision_objects(scenario: BenchmarkScenario) -> list[BenchmarkAsset]:
+    """Build the fixed obstacle requested by a synthetic diagnostic scenario."""
+    if scenario.background_treatment in ("none", "scene-default"):
+        return []
+    obstacle_mesh = None
+    if scenario.background_treatment == "mesh":
+        require_mesh_collision()
+        import trimesh
+
+        obstacle_mesh = trimesh.creation.box(extents=(0.24, 0.24, 0.2))
+    obstacle = BenchmarkAsset(
+        "background-obstacle",
+        AxisAlignedBoundingBox(min_point=(-0.12, -0.12, -0.1), max_point=(0.12, 0.12, 0.1)),
+        obstacle_mesh,
+    )
+    obstacle.collision_mode = CollisionMode.BBOX if scenario.background_treatment == "aabb" else CollisionMode.MESH
+    center = (0.0, 0.0, 0.16) if scenario.collision_mode == "mesh" else (0.5, 0.5, 0.16)
+    obstacle.set_initial_pose(Pose(position_xyz=center, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    return [obstacle]
+
+
+def _relation_count(objects: list[PlaceableAsset]) -> int:
+    return sum(len(obj.get_spatial_relations()) for obj in objects)
+
+
 def make_solver_params(scenario: BenchmarkScenario) -> RelationSolverParams:
     """Build solver parameters for a scenario."""
     if scenario.collision_mode == "mesh":
@@ -227,18 +369,21 @@ def _initial_positions_for_env(
     env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     generator: torch.Generator,
 ) -> dict[PlaceableAsset, tuple[float, float, float]]:
-    anchor = next(iter(anchor_objects))
-    anchor_pose = anchor.get_initial_pose()
-    assert isinstance(anchor_pose, Pose)
-    anchor_bbox = env_bboxes[anchor].translated(anchor_pose.position_xyz)
     positions: dict[PlaceableAsset, tuple[float, float, float]] = {}
+    anchor_bboxes = {}
+    for anchor in anchor_objects:
+        anchor_pose = anchor.get_initial_pose()
+        assert isinstance(anchor_pose, Pose)
+        positions[anchor] = anchor_pose.position_xyz
+        anchor_bboxes[anchor] = env_bboxes[anchor].translated(anchor_pose.position_xyz)
     for obj in objects:
         if obj in anchor_objects:
-            positions[obj] = anchor_pose.position_xyz
             continue
         on_relation = next(relation for relation in obj.get_relations() if isinstance(relation, On))
         parent = on_relation.parent
-        parent_bbox = anchor_bbox if parent in anchor_objects else env_bboxes[parent].translated(positions[parent])
+        parent_bbox = (
+            anchor_bboxes[parent] if parent in anchor_objects else env_bboxes[parent].translated(positions[parent])
+        )
         child_bbox = env_bboxes[obj]
         positions[obj] = (
             _sample_child_origin(
@@ -270,7 +415,7 @@ def build_solve_inputs(
 ]:
     """Build deterministic positions and per-environment bounds."""
     anchor_objects = set(get_anchor_objects(objects))
-    assert len(anchor_objects) == 1
+    assert anchor_objects
     assign_variants_for_envs(objects, num_envs, placement_seed=seed)
     env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
     per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
@@ -291,30 +436,36 @@ def run_solver_benchmark(
     """Benchmark RelationSolver.solve, including state construction."""
     device = get_device_metadata()
     try:
-        objects = build_clutter_scene(scenario.num_objects, scenario.collision_mode)
+        objects, collision_objects = build_benchmark_workload(scenario)
         solver = RelationSolver(make_solver_params(scenario))
         positions, bboxes = build_solve_inputs(objects, scenario.num_envs, scenario.placement_seed)
 
         def solve() -> None:
-            solver.solve(objects, positions, env_bboxes=bboxes)
+            solver.solve(objects, positions, env_bboxes=bboxes, collision_objects=collision_objects)
 
         for _ in range(scenario.warmup_runs):
             time_call(solve, clock)
         reset_peak_memory()
         samples: list[float] = []
         iterations: list[int] = []
+        optimization_ms_samples: list[float] = []
         final_losses: list[float] = []
         for _ in range(scenario.timed_runs):
             elapsed_ms, _ = time_call(solve, clock)
             samples.append(elapsed_ms)
             iterations.append(len(solver.last_loss_history))
+            optimization_ms_samples.append(solver.last_optimization_elapsed_ms)
             assert solver.last_loss_per_env is not None
             final_losses.append(float(solver.last_loss_per_env.max().item()))
         peak_allocated, peak_reserved = get_peak_memory()
         solve_ms = median(samples)
+        assert all(iteration_count > 0 for iteration_count in iterations)
+        assert all(optimization_ms > 0.0 for optimization_ms in optimization_ms_samples)
         solve_step_samples = [
-            sample / iteration_count for sample, iteration_count in zip(samples, iterations, strict=True)
+            optimization_ms / iteration_count
+            for optimization_ms, iteration_count in zip(optimization_ms_samples, iterations, strict=True)
         ]
+        iteration_rate_samples = [1000.0 / solve_step_ms for solve_step_ms in solve_step_samples]
         finite_loss = all(math.isfinite(loss) for loss in final_losses)
         final_loss = max(final_losses) if finite_loss else None
         status: BenchmarkStatus = (
@@ -331,16 +482,22 @@ def run_solver_benchmark(
             "solver",
             status=status,
             device=record_free_memory_after(device),
+            num_objects=len(objects),
+            include_robot=scenario.include_robot if scenario.diagnostic_topic == "robot-impact" else None,
             error=error,
             solve_ms_samples=tuple(samples),
             solve_ms=solve_ms,
             solve_step_ms_samples=tuple(solve_step_samples),
             solve_step_ms=median(solve_step_samples),
+            solver_iterations_per_second_samples=tuple(iteration_rate_samples),
+            solver_iterations_per_second=median(iteration_rate_samples),
             throughput_envs_per_second=throughput(scenario.num_envs, solve_ms),
             iterations=tuple(iterations),
             final_loss=final_loss,
             aabb_pair_count=solver.last_aabb_no_overlap_pair_count,
             mesh_pair_count=solver.last_mesh_no_overlap_pair_count,
+            relation_count=_relation_count(objects),
+            background_object_count=len(collision_objects),
             peak_allocated_bytes=peak_allocated,
             peak_reserved_bytes=peak_reserved,
         )
@@ -356,11 +513,11 @@ def run_placer_benchmark(
     """Benchmark ObjectPlacer.place end to end."""
     device = get_device_metadata()
     try:
-        objects = build_clutter_scene(scenario.num_objects, scenario.collision_mode)
+        objects, collision_objects = build_benchmark_workload(scenario)
         placer = ObjectPlacer(make_placer_params(scenario))
 
         def place():
-            return placer.place(objects, num_envs=scenario.num_envs)
+            return placer.place(objects, num_envs=scenario.num_envs, collision_objects=collision_objects)
 
         for _ in range(scenario.warmup_runs):
             time_call(place, clock)
@@ -391,6 +548,8 @@ def run_placer_benchmark(
             "placer",
             status=status,
             device=record_free_memory_after(device),
+            num_objects=len(objects),
+            include_robot=scenario.include_robot if scenario.diagnostic_topic == "robot-impact" else None,
             error=error,
             place_ms_samples=tuple(samples),
             place_ms=place_ms,
@@ -400,6 +559,8 @@ def run_placer_benchmark(
             valid_layout_rate=valid_rate,
             aabb_pair_count=placer.last_aabb_no_overlap_pair_count,
             mesh_pair_count=placer.last_mesh_no_overlap_pair_count,
+            relation_count=_relation_count(objects),
+            background_object_count=len(collision_objects),
             peak_allocated_bytes=peak_allocated,
             peak_reserved_bytes=peak_reserved,
         )
@@ -414,9 +575,18 @@ def run_benchmarks(
     clock: Clock = time.perf_counter,
 ) -> list[BenchmarkMeasurement]:
     """Run each requested target for every scenario."""
+    from isaaclab_arena.relations.benchmark.scene_diagnostic import run_scene_placement_diagnostic
+
     runners = {
         "solver": run_solver_benchmark,
         "placer": run_placer_benchmark,
         "environment": run_environment_benchmark,
     }
-    return [runners[target](scenario, clock=clock) for scenario in scenarios for target in targets]
+    results: list[BenchmarkMeasurement] = []
+    for scenario in scenarios:
+        for target in targets:
+            if target == "placer" and scenario.graph_spec_path is not None:
+                results.append(run_scene_placement_diagnostic(scenario, clock=clock))
+            else:
+                results.append(runners[target](scenario, clock=clock))
+    return results

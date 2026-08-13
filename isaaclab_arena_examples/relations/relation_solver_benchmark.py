@@ -24,6 +24,10 @@ Examples:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite comprehensive
 
+  Question-driven solver diagnostic page for an MR:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite diagnostic
+
   Replicate the full matrix on two GPUs:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite envs --targets solver --compare-modes --num-envs 1 --num-envs 8 --gpus 0,1
@@ -61,6 +65,7 @@ from isaaclab_arena.relations.benchmark import (
     build_run,
     default_scenarios,
     env_count_sweep,
+    format_diagnostic_markdown,
     format_results_table,
     format_scaling_summary,
     object_count_sweep,
@@ -71,21 +76,47 @@ from isaaclab_arena.relations.benchmark import (
     run_worker,
     scenarios_for_modes,
     validate_gpu_selectors,
+    write_batch_scaling_svg,
+    write_droid_kitchen_snapshot,
+    write_droid_scene_snapshot,
+    write_lightwheel_kitchen_snapshot,
+    write_object_scaling_svg,
     write_results_csv,
     write_results_json,
+    write_robot_scaling_svg,
 )
 
 DEFAULT_BBOX_SPEC = "isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml"
 DEFAULT_MESH_SPEC = "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_l_shape_banana_bowl.yaml"
+KITCHEN_BENCH_DIR = Path("isaaclab_arena_environments/kitchen_bench")
+KITCHEN_BENCH_SPEC_COUNT = 17
+KITCHEN_BENCH_SEED_COUNT = 3
+KITCHEN_BENCH_BBOX_SPECS = {
+    "droid_open_fridge_lightwheel_kitchen.yaml",
+    "droid_open_microwave_lightwheel_kitchen.yaml",
+}
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--suite",
-        choices=("presets", "objects", "envs", "comprehensive"),
+        choices=("presets", "objects", "envs", "comprehensive", "diagnostic"),
         default="presets",
-        help="Benchmark matrix; comprehensive runs a fixed single-GPU synthetic and environment plan.",
+        help="Benchmark matrix; diagnostic prints a question-driven Markdown report.",
+    )
+    parser.add_argument(
+        "--diagnostic-topic",
+        choices=(
+            "all",
+            "batchification",
+            "object-complexity",
+            "background-collision",
+            "robot-impact",
+            "scene-difficulty",
+        ),
+        default="all",
+        help="Run one diagnostic question instead of the complete diagnostic report.",
     )
     parser.add_argument(
         "--collision-mode",
@@ -146,7 +177,7 @@ def _targets(value: str) -> tuple[BenchmarkTarget, ...]:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
-    if args.suite == "comprehensive":
+    if args.suite in ("comprehensive", "diagnostic"):
         incompatible = (
             ("--gpus", args.gpus is not None),
             ("--capacity-search", args.capacity_search),
@@ -158,12 +189,15 @@ def _validate_args(args: argparse.Namespace) -> None:
             ("--num-envs", args.num_envs is not None),
             ("--capacity-max-envs", args.capacity_max_envs != 4096),
             ("--memory-headroom-gib", args.memory_headroom_gib != 2.0),
+            ("--diagnostic-topic", args.suite == "comprehensive" and args.diagnostic_topic != "all"),
         )
         rejected = [option for option, supplied in incompatible if supplied]
         if rejected:
             raise ValueError(
-                f"--suite comprehensive owns its execution matrix; cannot combine with {', '.join(rejected)}"
+                f"--suite {args.suite} owns its execution matrix; cannot combine with {', '.join(rejected)}"
             )
+    elif args.diagnostic_topic != "all":
+        raise ValueError("--diagnostic-topic requires --suite diagnostic")
     if args.compare_modes and args.collision_mode != "auto":
         raise ValueError("--compare-modes cannot be combined with --collision-mode")
     if args.num_envs and (any(value <= 0 for value in args.num_envs) or len(args.num_envs) != len(set(args.num_envs))):
@@ -286,6 +320,96 @@ def _comprehensive_scenario_groups(
     return synthetic, environment
 
 
+def _diagnostic_scenario_groups(
+    args: argparse.Namespace,
+) -> tuple[tuple[BenchmarkScenario, ...], tuple[BenchmarkScenario, ...]]:
+    """Build synthetic and graph-placement diagnostic matrices."""
+    synthetic = []
+    for mode in ("bbox", "mesh"):
+        synthetic.extend(
+            replace(
+                scenario,
+                diagnostic_topic="batchification",
+                scene_label="DROID homogeneous table",
+                asset_set_name="droid-homogeneous",
+            )
+            for scenario in env_count_sweep(
+                num_objects=6,
+                env_counts=(1, 8, 32, 128, 256),
+                collision_mode=mode,
+            )
+        )
+        synthetic.extend(
+            BenchmarkScenario(
+                name=f"robot-impact-{count - 1}-objects-{'with' if include_robot else 'without'}",
+                num_objects=count,
+                num_envs=1,
+                collision_mode=mode,
+                include_robot=include_robot,
+                diagnostic_topic="robot-impact",
+                background_treatment="scene-default",
+                scene_label="Lightwheel RoboCasa kitchen",
+                asset_set_name="lightwheel-kitchen-counter",
+            )
+            for count in (2, 3, 4, 6, 11, 16, 21)
+            for include_robot in (False, True)
+        )
+        synthetic.extend(
+            replace(
+                scenario,
+                diagnostic_topic="object-complexity",
+                background_treatment="scene-default",
+                scene_label="Lightwheel RoboCasa kitchen",
+                asset_set_name="lightwheel-kitchen-counter",
+                include_robot=False,
+            )
+            for scenario in object_count_sweep(
+                num_envs=1,
+                counts=(2, 3, 4, 6, 11, 16, 21),
+                collision_mode=mode,
+            )
+        )
+        backgrounds = ("none", "aabb") if mode == "bbox" else ("none", "mesh")
+        synthetic.extend(
+            BenchmarkScenario(
+                name=f"background-{background}",
+                num_objects=3,
+                num_envs=1,
+                collision_mode=mode,
+                diagnostic_topic="background-collision",
+                background_treatment=background,
+                scene_label="toy",
+            )
+            for background in backgrounds
+        )
+    kitchen_specs = tuple(sorted(KITCHEN_BENCH_DIR.glob("*.yaml")))
+    spec_count = len(kitchen_specs)
+    spec_count_error = f"expected {KITCHEN_BENCH_SPEC_COUNT} kitchen benchmark specs, found {spec_count}"
+    assert spec_count == KITCHEN_BENCH_SPEC_COUNT, spec_count_error
+    graph = [
+        BenchmarkScenario(
+            name=f"scene-difficulty-{spec.stem}",
+            num_objects=0,
+            num_envs=1,
+            collision_mode="bbox" if spec.name in KITCHEN_BENCH_BBOX_SPECS else "mesh",
+            graph_spec_path=str(spec),
+            include_robot=True,
+            diagnostic_topic="scene-difficulty",
+            background_treatment="scene-default",
+            scene_label=spec.name,
+        )
+        for spec in kitchen_specs
+    ]
+    if args.diagnostic_topic != "all":
+        synthetic = [scenario for scenario in synthetic if scenario.diagnostic_topic == args.diagnostic_topic]
+        graph = [scenario for scenario in graph if scenario.diagnostic_topic == args.diagnostic_topic]
+    configured_graph = tuple(
+        replace(scenario, timed_runs=KITCHEN_BENCH_SEED_COUNT)
+        for scenario in _apply_scenario_options(tuple(graph), args)
+    )
+    return _apply_scenario_options(tuple(synthetic), args), configured_graph
+
+
 def _scenarios(args: argparse.Namespace, targets: tuple[BenchmarkTarget, ...]) -> tuple[BenchmarkScenario, ...]:
     if "environment" in targets:
         if targets != ("environment",):
@@ -302,6 +426,23 @@ def _write_report(output_dir: Path, run: BenchmarkRun) -> None:
 
 def _finish_run(args: argparse.Namespace, rows: list[BenchmarkMeasurement], run: BenchmarkRun) -> int:
     """Print benchmark results and write requested reports."""
+    if args.suite == "diagnostic":
+        markdown = format_diagnostic_markdown(run)
+        print(markdown)
+        if args.output_dir is not None:
+            _write_report(args.output_dir, run)
+            if any(row.diagnostic_topic == "batchification" for row in rows):
+                write_batch_scaling_svg(args.output_dir / "batch_scaling.svg", rows)
+                write_droid_scene_snapshot(args.output_dir / "table_scene.png")
+            if any(row.diagnostic_topic == "object-complexity" for row in rows):
+                write_object_scaling_svg(args.output_dir / "object_scaling.svg", rows)
+                write_lightwheel_kitchen_snapshot(args.output_dir / "kitchen_scene.png")
+            if any(row.diagnostic_topic == "robot-impact" for row in rows):
+                write_robot_scaling_svg(args.output_dir / "robot_scaling.svg", rows)
+                write_droid_kitchen_snapshot(args.output_dir / "robot_scene.png")
+            (args.output_dir / "diagnostic.md").write_text(markdown + "\n", encoding="utf-8")
+            print(f"\nReports written to: {args.output_dir.resolve()}")
+        return 0 if run.succeeded else 1
     print("\n=== Relation Solver Benchmark Results ===")
     if any(row.target != "environment" for row in rows):
         print("solver: one seeded RelationSolver.solve call; status uses the worst layout's final loss.")
@@ -332,18 +473,21 @@ def main(argv: list[str] | None = None) -> int:
         if args.worker_input is not None:
             assert args.worker_output is not None
             return run_worker(args.worker_input, args.worker_output, args.physical_gpu, targets)
-        if args.suite == "comprehensive":
+        if args.suite in ("comprehensive", "diagnostic"):
             if not torch.cuda.is_available():
-                raise ValueError("--suite comprehensive requires a CUDA GPU")
-            synthetic_scenarios, environment_scenarios = _comprehensive_scenario_groups(args)
-            synthetic_targets: tuple[BenchmarkTarget, ...] = ("solver", "placer")
-            environment_targets: tuple[BenchmarkTarget, ...] = ("environment",)
-            expected = requested_scenario_ids(synthetic_scenarios, synthetic_targets) + requested_scenario_ids(
-                environment_scenarios,
-                environment_targets,
-            )
+                raise ValueError(f"--suite {args.suite} requires a CUDA GPU")
+            if args.suite == "comprehensive":
+                synthetic_scenarios, environment_scenarios = _comprehensive_scenario_groups(args)
+                synthetic_targets: tuple[BenchmarkTarget, ...] = ("solver", "placer")
+                environment_targets: tuple[BenchmarkTarget, ...] = ("environment",)
+            else:
+                synthetic_scenarios, environment_scenarios = _diagnostic_scenario_groups(args)
+                synthetic_targets = ("solver",)
+                environment_targets = ("placer",)
+            expected = requested_scenario_ids(synthetic_scenarios, synthetic_targets)
+            expected += requested_scenario_ids(environment_scenarios, environment_targets)
             if len(expected) != len(set(expected)):
-                raise ValueError("comprehensive benchmark scenario IDs must be unique")
+                raise ValueError(f"{args.suite} benchmark scenario IDs must be unique")
             gpus = ()
         else:
             scenarios = _scenarios(args, targets)
@@ -383,7 +527,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nReport written to: {capacity_path.resolve()}")
         return 0 if all(result["max_num_envs"] is not None for result in capacity_results) else 1
 
-    if args.suite == "comprehensive":
+    if args.suite in ("comprehensive", "diagnostic"):
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
         with SimulationAppContext(argparse.Namespace(headless=True)):

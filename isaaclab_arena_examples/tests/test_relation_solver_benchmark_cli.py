@@ -192,6 +192,70 @@ def test_comprehensive_plan_has_separate_unique_matrices_and_honors_knobs():
     assert len(expected) == len(set(expected)) == 32
 
 
+def test_diagnostic_plan_is_question_driven_and_isolates_axes():
+    args = benchmark_cli._parse_args([
+        "--suite",
+        "diagnostic",
+        "--max-iters",
+        "17",
+        "--warmup",
+        "0",
+        "--repeat",
+        "2",
+    ])
+    benchmark_cli._validate_args(args)
+    synthetic, graph = benchmark_cli._diagnostic_scenario_groups(args)
+
+    assert len(synthetic) == 56
+    assert len(graph) == 17
+    assert all(scenario.include_robot and scenario.num_envs == 1 for scenario in graph)
+    assert {Path(scenario.graph_spec_path).name for scenario in graph} == {
+        path.name for path in benchmark_cli.KITCHEN_BENCH_DIR.glob("*.yaml")
+    }
+    assert {Path(scenario.graph_spec_path).name: scenario.collision_mode for scenario in graph}[
+        "droid_pick_and_place_lightwheel_kitchen.yaml"
+    ] == "mesh"
+    assert {
+        (scenario.num_objects, scenario.num_envs)
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "batchification"
+    } == {(6, 1), (6, 8), (6, 32), (6, 128), (6, 256)}
+    assert all(
+        scenario.asset_set_name == "droid-homogeneous"
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "batchification"
+    )
+    assert {
+        (scenario.num_objects, scenario.num_envs)
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "object-complexity"
+    } == {(2, 1), (3, 1), (4, 1), (6, 1), (11, 1), (16, 1), (21, 1)}
+    assert all(
+        scenario.asset_set_name == "lightwheel-kitchen-counter"
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "object-complexity"
+    )
+    assert {
+        (scenario.collision_mode, scenario.background_treatment)
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "background-collision"
+    } == {("bbox", "none"), ("bbox", "aabb"), ("mesh", "none"), ("mesh", "mesh")}
+    assert {
+        (scenario.num_objects - 1, scenario.collision_mode, scenario.include_robot)
+        for scenario in synthetic
+        if scenario.diagnostic_topic == "robot-impact"
+    } == {
+        (count, mode, include_robot)
+        for count in (1, 2, 3, 5, 10, 15, 20)
+        for mode in ("bbox", "mesh")
+        for include_robot in (False, True)
+    }
+    assert all(scenario.max_iters == 17 and scenario.timed_runs == 2 for scenario in synthetic)
+    assert all(scenario.max_iters == 17 and scenario.timed_runs == 3 for scenario in graph)
+    expected = requested_scenario_ids(synthetic, ("solver",)) + requested_scenario_ids(graph, ("placer",))
+    assert len(expected) == len(set(expected))
+
+
 @pytest.mark.parametrize(
     "option",
     [
