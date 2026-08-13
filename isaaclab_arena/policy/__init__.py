@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from .random_action_policy import *
 from .replay_action_policy import *
 from .rsl_rl_action_policy import *
 from .zero_action_policy import *
