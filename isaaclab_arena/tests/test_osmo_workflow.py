@@ -5,12 +5,11 @@
 
 """Verify typed OSMO workflow construction and its compatibility CLI."""
 
+import subprocess
+
 import pytest
 
-# submit_evaluation_workflow → server_plus_policy_runner_workflow → gr00t_server_task → gr00t;
-# the chain fails at collection time when gr00t is absent, so the whole module must be skipped.
-pytest.importorskip("gr00t")
-
+from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -114,3 +113,18 @@ def test_compatibility_cli_builds_typed_config(capsys):
     assert "[dry-run] Rendered workflow YAML" in rendered
     assert "name: policy_runner" in rendered
     assert "example_environment" in rendered
+
+
+def test_zero_action_workflow_does_not_require_gr00t():
+    """Prevent the native-uv regression that broke zero-action workflows without GR00T."""
+    child_script = (
+        'import sys; sys.modules["gr00t"] = None; '
+        "from osmo.submit_evaluation_workflow import main; "
+        'raise SystemExit(main(["--policy", "zero_action", '
+        '"--arena_env", "example_environment", "--dry_run"]))'
+    )
+    subprocess.run(
+        [TestConstants.python_path, "-c", child_script],
+        check=True,
+        timeout=60,
+    )

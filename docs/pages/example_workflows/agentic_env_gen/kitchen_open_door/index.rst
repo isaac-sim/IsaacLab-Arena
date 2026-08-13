@@ -2,7 +2,7 @@ Open a Kitchen Fridge Door
 ==========================
 
 This example uses the agentic environment-generation system to infer an environment graph spec from a prompt
-for **an articulated open-door atomic task** in the ``lightwheel_robocasa_kitchen`` background.
+for **an articulated open-door atomic task** in the ``lightwheel_kitchen_one_wall_coastal`` background.
 
 Environment Description
 -----------------------
@@ -28,7 +28,7 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
+See :ref:`agentic-env-gen-prerequisites` for the environment and API key setup.
 The spec shown here depends on the model behind that endpoint — see
 :doc:`../../../concepts/agentic_environment_generation/model_selection`.
 

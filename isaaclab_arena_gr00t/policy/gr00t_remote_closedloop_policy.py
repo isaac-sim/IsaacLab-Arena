@@ -17,8 +17,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
-
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
@@ -123,13 +121,15 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
 
         # Connect to GR00T's native PolicyClient
-        client = Gr00tPolicyClient(
+        from gr00t.policy.server_client import PolicyClient
+
+        client = PolicyClient(
             host=config.remote_host,
             port=config.remote_port,
             api_token=config.remote_api_token,
             strict=False,
         )
-        self._client: Gr00tPolicyClient | None = client
+        self._client: Any | None = client
         if not client.ping():
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 

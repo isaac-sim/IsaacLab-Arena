@@ -13,6 +13,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    INFERENCE_ENDPOINT_ENV_VAR,
+    INFERENCE_ENDPOINTS,
+    INTERNAL_ENDPOINT,
+    OPENAI_ENDPOINT,
+    PUBLIC_ENDPOINT,
+)
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySearchConfig
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -25,6 +33,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_pa
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel import (
     DEFAULT_GENERATION_PROMPT,
     _apply_generated_yaml,
+    _clear_orphaned_generation_agents,
+    _default_inference_endpoint,
+    _generation_agent_cache_key,
+    _get_generation_agent,
+    available_inference_endpoints,
     run_generation_pipeline,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
@@ -327,7 +340,7 @@ class TestApplyGeneratedYaml:
         assert "_validation_result" not in session_state
 
 
-def _patch_generation_agent(agent: MagicMock):
+def _patch_generation_agent(agent: MagicMock | None):
     """Stub the panel's agent accessor.
 
     The real one caches the agent under a key built from the SimReady settings, so seeding a
@@ -339,6 +352,78 @@ def _patch_generation_agent(agent: MagicMock):
     )
 
 
+class TestInferenceEndpointSelection:
+    @pytest.fixture(autouse=True)
+    def clean_endpoint_env(self, monkeypatch):
+        monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
+        for endpoint in INFERENCE_ENDPOINTS.values():
+            monkeypatch.delenv(endpoint.api_key_env_var, raising=False)
+
+    def test_available_endpoints_omit_unset_keys(self, monkeypatch):
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        assert available_inference_endpoints() == [INTERNAL_ENDPOINT.name]
+
+    def test_available_endpoints_include_every_set_key(self, monkeypatch):
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        assert available_inference_endpoints() == [
+            INTERNAL_ENDPOINT.name,
+            PUBLIC_ENDPOINT.name,
+            OPENAI_ENDPOINT.name,
+        ]
+
+    def test_default_falls_back_when_preferred_key_missing(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, PUBLIC_ENDPOINT.name)
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        available = available_inference_endpoints()
+        assert PUBLIC_ENDPOINT.name not in available
+        assert _default_inference_endpoint(available) == INTERNAL_ENDPOINT.name
+
+    def test_default_prefers_arena_inference_endpoint_when_available(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, OPENAI_ENDPOINT.name)
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        available = available_inference_endpoints()
+        assert _default_inference_endpoint(available) == OPENAI_ENDPOINT.name
+
+    def test_cache_key_includes_endpoint(self):
+        cfg = SimReadySearchConfig()
+        public_key = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        internal_key = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        assert public_key != internal_key
+        assert PUBLIC_ENDPOINT.name in public_key
+        assert INTERNAL_ENDPOINT.name in internal_key
+
+    def test_clear_orphaned_generation_agents_keeps_requested_key(self, session_state):
+        cfg = SimReadySearchConfig()
+        keep = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        other = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        session_state[keep] = object()
+        session_state[other] = object()
+        session_state["unrelated"] = "keep-me"
+        _clear_orphaned_generation_agents(keep=keep)
+        assert keep in session_state
+        assert other not in session_state
+        assert session_state["unrelated"] == "keep-me"
+
+    def test_get_generation_agent_retries_after_failed_init(self, session_state, monkeypatch):
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        session_state["inference_endpoint"] = PUBLIC_ENDPOINT.name
+        session_state["generation_agent_error"] = "previous failure"
+        mock_agent = MagicMock(name="generation-agent")
+        with patch(
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.EnvironmentGenerationAgent",
+            side_effect=[AssertionError("transient"), mock_agent],
+        ) as mock_cls:
+            assert _get_generation_agent() is None
+            assert session_state["generation_agent_error"] == "transient"
+            assert _get_generation_agent() is mock_agent
+        assert mock_cls.call_count == 2
+        assert "generation_agent_error" not in session_state
+        assert mock_cls.call_args.kwargs["endpoint"] == PUBLIC_ENDPOINT.name
+
+
 class TestRunGenerationPipeline:
     def test_rejects_empty_prompt(self, session_state):
         ok, message = run_generation_pipeline("   ")
@@ -347,7 +432,8 @@ class TestRunGenerationPipeline:
 
     def test_fails_when_agent_unavailable(self, session_state):
         session_state["generation_agent_error"] = "missing key"
-        ok, message = run_generation_pipeline("pick up a cube")
+        with _patch_generation_agent(None):
+            ok, message = run_generation_pipeline("pick up a cube")
         assert not ok
         assert "missing key" in message
 

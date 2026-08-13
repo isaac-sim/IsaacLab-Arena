@@ -439,7 +439,7 @@ jobs:
         run: |
           # Fix dubious ownership issues in cache
           git config --global --add safe.directory '*'
-          uv sync ${{ matrix.uv_flags }}
+          uv sync ${{ matrix.uv_flags }} --extra dev
 
       - name: Run in-process Newton tests
         shell: bash

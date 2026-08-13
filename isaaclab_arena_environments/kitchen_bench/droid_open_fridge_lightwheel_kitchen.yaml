@@ -11,7 +11,7 @@ embodiment:
     stand_height_m: 0.8
 background:
   id: kitchen
-  registry_name: lightwheel_robocasa_kitchen
+  registry_name: lightwheel_kitchen_one_wall_coastal
   params: {}
 objects: []
 object_references:

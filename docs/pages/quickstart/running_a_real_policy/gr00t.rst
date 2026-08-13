@@ -6,19 +6,6 @@ foundation model. No fine-tuning or separate model download is required. The wei
 are fetched from `HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_
 when the policy server starts for the first time.
 
-.. note::
-
-   **uv environment:** the ``gr00t`` package is not pulled in by ``uv sync`` because
-   its declared Python constraint differs from the Arena environment. Install it once
-   before running GR00T policies or tests:
-
-   .. code-block:: bash
-
-      uv pip install --no-deps --ignore-requires-python -e submodules/Isaac-GR00T/
-
-   Docker users can skip this step — the package is already installed in the container.
-
-
 Start a GR00T policy server
 ---------------------------
 

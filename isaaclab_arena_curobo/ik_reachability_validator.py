@@ -84,9 +84,9 @@ class ReachabilityValidator(PlacementValidator):
             position_threshold=self._ik_pos_threshold,
             rotation_threshold=self._ik_rot_threshold,
         )
-        robot_base_pose_w = config.embodiment.get_initial_pose()
-        self._robot_base_pos_w = robot_base_pose_w.position_xyz
-        self._robot_base_quat_w_xyzw = robot_base_pose_w.rotation_xyzw
+        self._embodiment = config.embodiment
+        # Used only when the robot is not itself relation-placed, in which case it never appears in a layout.
+        self._configured_robot_base_pose_w = config.embodiment.get_initial_pose()
         # Guards the zero-target warning so it fires once per validator, not once per candidate layout.
         self._warned_no_targets = False
         self._rerun_layer = self._make_rerun_layer()
@@ -134,7 +134,8 @@ class ReachabilityValidator(PlacementValidator):
         Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
         grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
         holding every other object. A layout with nothing to grasp (anchor-only, or no target present) is
-        trivially reachable.
+        trivially reachable. The robot stands where this layout puts it when it is relation-placed too,
+        so the grasps are solved from the base pose the layout would actually spawn.
 
         Args:
             positions: Solved (x, y, z) per object.
@@ -150,11 +151,14 @@ class ReachabilityValidator(PlacementValidator):
         }
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
+        robot_base_pose_w = world_poses.get(self._embodiment, self._configured_robot_base_pose_w)
+        # The robot's own body is not an obstacle: cuRobo already carries it as collision spheres.
         cuboid_per_object = {
             obj: get_aabb_collision_cuboid_for_object(
                 obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw
             )
             for obj in objects
+            if obj is not self._embodiment
         }
 
         if not targets:
@@ -172,20 +176,20 @@ class ReachabilityValidator(PlacementValidator):
             top_down_grasp_pose_from_world_poses(
                 world_poses[obj].position_xyz,
                 world_poses[obj].rotation_xyzw,
-                self._robot_base_pos_w,
-                self._robot_base_quat_w_xyzw,
+                robot_base_pose_w.position_xyz,
+                robot_base_pose_w.rotation_xyzw,
                 self._grasp_z_offset,
                 device=self._solver.device,
             )
             for obj in targets
         ])
-        ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object)
+        ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
             self._rerun_layer.log_layout(
                 layout_index_across_batch=layout_index_across_batch,
-                robot_base_pos_w=self._robot_base_pos_w,
-                robot_base_quat_w_xyzw=self._robot_base_quat_w_xyzw,
+                robot_base_pos_w=robot_base_pose_w.position_xyz,
+                robot_base_quat_w_xyzw=robot_base_pose_w.rotation_xyzw,
                 target_names=[obj.name for obj in targets],
                 grasp_poses_base_frame=grasp_poses,
                 feasible=ik.feasible,
@@ -202,6 +206,7 @@ class ReachabilityValidator(PlacementValidator):
         targets: list[ObjectBase],
         grasp_poses: torch.Tensor,
         cuboid_per_object: dict[ObjectBase, AABBCollisionCuboid],
+        robot_base_pose_w: Pose,
     ) -> IKFeasibility:
         """IK-solve each target's grasp against a world holding every object but that target, and stack the results.
 
@@ -209,6 +214,7 @@ class ReachabilityValidator(PlacementValidator):
             targets: The objects whose grasps are checked, in the order they appear in ``grasp_poses``.
             grasp_poses: ``(len(targets), 4, 4)`` top-down grasp transforms in the robot base frame.
             cuboid_per_object: Collision cuboid at the layout pose, for every object in the layout.
+            robot_base_pose_w: World pose of the robot base the obstacles are re-expressed relative to.
 
         Returns:
             One ``IKFeasibility`` whose per-target entries are ordered like ``targets``.
@@ -216,7 +222,7 @@ class ReachabilityValidator(PlacementValidator):
         per_target = []
         for target_index, target in enumerate(targets):
             obstacles = [cuboid for obj, cuboid in cuboid_per_object.items() if obj is not target]
-            self._solver.update_world(obstacles, self._robot_base_pos_w, self._robot_base_quat_w_xyzw)
+            self._solver.update_world(obstacles, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
             per_target.append(
                 solve_ik_feasibility(
                     self._solver,

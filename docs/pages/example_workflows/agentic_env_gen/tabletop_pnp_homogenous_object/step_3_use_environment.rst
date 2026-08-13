@@ -21,12 +21,10 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 
 .. tab-set::
 
-   .. tab-item:: Policy evaluation (base)
+   .. tab-item:: Policy evaluation (without reachability validation)
       :selected:
 
-      **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
-
-      :docker_run_default:
+      Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
 
       .. code-block:: bash
 
@@ -39,7 +37,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
 
-   .. tab-item:: Policy evaluation with reachability validation (cuRobo)
+   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
 
       .. note::
          Reachability validation runs only in the cuRobo-installed Docker container
