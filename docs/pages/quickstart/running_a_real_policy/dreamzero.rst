@@ -6,7 +6,11 @@ DreamZero is a World Action Model with a checkpoint fine-tuned on DROID
 (``DreamZeroRemotePolicy``) that talks to a DreamZero inference server running remotely.
 
 .. note::
-  DreamZero requires quite a large amount of GPU memory and therefore we provide tools to run this model remotely using OSMO.
+
+   DreamZero inference requires an H100-class GPU. This guide starts the server
+   on an OSMO cluster and runs Arena locally. Before continuing, follow the
+   :ref:`OSMO setup instructions <osmo-setup>` and identify an H100-capable
+   pool. Replace ``isaac-dev-h100-01`` below with the name of that pool.
 
 The setup uses two terminals: the **DreamZero server** (terminal 1, hosts the model remotely on OSMO)
 and the **Arena Experiment Runner** (terminal 2, runs the simulation and exchanges observations

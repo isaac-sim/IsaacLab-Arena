@@ -9,6 +9,7 @@ We'd like answers more quickly.
 Arena uses `OSMO <https://developer.nvidia.com/osmo>`_ to distribute execution across a cluster,
 in order to reduce the time it takes to run the evaluations.
 
+.. _osmo-setup:
 
 Setting up OSMO
 ---------------
