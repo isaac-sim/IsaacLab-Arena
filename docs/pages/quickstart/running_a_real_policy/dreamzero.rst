@@ -18,12 +18,7 @@ Terminal 1 — DreamZero server
 **Start the prebuilt server on OSMO**
 
 Arena provides a prebuilt server image with the DreamZero code and public
-``GEAR-Dreams/DreamZero-DROID`` checkpoint. The checked-in OSMO workflow uses:
-
-``nvcr.io/nvstaging/isaac-amr/isaaclab_arena:dreamzero-server-commit-checkpoints-20260709-130610``
-
-No local image build, NGC login, or registry write permission is needed. Submit the
-server workflow to the H100 pool:
+``GEAR-Dreams/DreamZero-DROID`` checkpoint. Submit the server workflow to the H100 pool:
 
 .. code-block:: bash
 

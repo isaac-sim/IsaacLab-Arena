@@ -129,23 +129,13 @@ def test_dreamzero_runner_quotes_explicit_server_task_name():
 
 
 def test_dreamzero_server_image_references_stay_aligned():
-    """Keep the standalone workflow and build helper on the typed task's server image."""
+    """Keep the standalone workflow on the typed task's server image."""
     repository_root = Path(__file__).parents[2]
     workflow_path = repository_root / "isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml"
-    build_helper_path = repository_root / "isaaclab_arena_dreamzero/docker/push_to_ngc.sh"
     expected_image = DreamZeroServerTaskCfg().image
 
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
     assert workflow["workflow"]["tasks"][0]["image"] == expected_image
-
-    helper_result = subprocess.run(
-        ["bash", str(build_helper_path), "-h"],
-        capture_output=True,
-        check=True,
-        text=True,
-        timeout=10,
-    )
-    assert f"Default NGC image: {expected_image}" in helper_result.stdout
 
 
 def test_compatibility_cli_builds_typed_config(capsys):
