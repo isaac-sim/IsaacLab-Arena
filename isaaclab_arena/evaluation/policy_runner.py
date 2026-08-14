@@ -57,6 +57,18 @@ def get_policy_cls(policy_type: str) -> type[PolicyBase]:
         return policy_cls
 
 
+def preload_external_policy_module(policy_type: str | None) -> None:
+    """Import a requested dotted policy module before Isaac Sim starts.
+
+    Importing some native policy clients after Kit initialization can corrupt native allocator state.
+    Registered policy names are discovered normally after startup and are not preloaded.
+    """
+    if policy_type is None or "." not in policy_type:
+        return
+    module_path, _ = policy_type.rsplit(".", 1)
+    import_module(module_path)
+
+
 def is_distributed(args_cli: argparse.Namespace) -> bool:
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
@@ -150,8 +162,10 @@ def main():
     Use --distributed with torchrun command for one process per GPU on multi-GPU machines. AppLauncher uses LOCAL_RANK for device.
     """
     args_parser = get_isaaclab_arena_cli_parser()
-    # We do this as the parser is shared between the example environment and policy runner
-    args_cli, unknown = args_parser.parse_known_args()
+    # Parse the requested policy before starting Kit so a dotted external policy module can be
+    # imported first. Some native clients are unsafe to import after SimulationApp initialization.
+    add_policy_runner_arguments(args_parser)
+    args_cli, _ = args_parser.parse_known_args()
 
     local_rank = get_local_rank()
     world_size = get_world_size()
@@ -161,14 +175,12 @@ def main():
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
     # --record_camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
-    if "--record_camera_video" in unknown:
+    if args_cli.record_camera_video:
         args_cli.enable_cameras = True
 
-    with SimulationAppContext(args_cli):
+    preload_external_policy_module(args_cli.policy_type)
 
-        # Get the policy-type flag before proceeding to other arguments
-        add_policy_runner_arguments(args_parser)
-        args_cli, _ = args_parser.parse_known_args()
+    with SimulationAppContext(args_cli):
 
         # --list_variations only inspects the environment, so short-circuit reading other args.
         if args_cli.list_variations:
