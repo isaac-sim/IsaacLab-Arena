@@ -13,7 +13,7 @@ import socket
 from collections.abc import Callable
 from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata
 
@@ -29,6 +29,37 @@ DiagnosticTopic = Literal[
 ]
 BackgroundTreatment = Literal["none", "aabb", "mesh", "scene-default"]
 Clock = Callable[[], float]
+
+
+class CapacityProbe(TypedDict, total=False):
+    """One isolated GPU-capacity probe."""
+
+    num_envs: int
+    viable: bool
+    exit_code: int
+    attempts: int
+    status: BenchmarkStatus
+    error: str | None
+    total_memory_bytes: int | None
+    free_memory_before_bytes: int | None
+    free_memory_after_bytes: int | None
+    minimum_free_memory_bytes: int | None
+    peak_allocated_bytes: int | None
+    peak_reserved_bytes: int | None
+    measurement: dict[str, object]
+
+
+class CapacitySearchResult(TypedDict):
+    """Capacity-search summary for one workload."""
+
+    gpu: str
+    scenario: str
+    target: BenchmarkTarget
+    collision_mode: CollisionModeName
+    capacity_max_num_envs: int
+    memory_headroom_gib: float
+    max_num_envs: int | None
+    probes: list[CapacityProbe]
 
 
 @dataclass(frozen=True)
@@ -249,6 +280,24 @@ class BenchmarkMeasurement:
 
     background_object_count: int | None = None
     """Fixed collision objects included in optimization."""
+
+    optimized_collision_mesh_vertex_count: int | None = None
+    """Raw extracted vertices for non-anchor objects configured for mesh collision."""
+
+    optimized_collision_mesh_triangle_count: int | None = None
+    """Raw extracted triangles for non-anchor objects configured for mesh collision."""
+
+    anchor_collision_mesh_vertex_count: int | None = None
+    """Raw extracted vertices for anchors configured for mesh collision."""
+
+    anchor_collision_mesh_triangle_count: int | None = None
+    """Raw extracted triangles for anchors configured for mesh collision."""
+
+    passive_background_collision_mesh_vertex_count: int | None = None
+    """Raw extracted vertices for passive background configured for mesh collision."""
+
+    passive_background_collision_mesh_triangle_count: int | None = None
+    """Raw extracted triangles for passive background configured for mesh collision."""
 
     error: str | None = None
     """Failure reason."""

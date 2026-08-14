@@ -28,6 +28,10 @@ Examples:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite diagnostic
 
+  Mesh-complexity and GPU memory-capacity experiment:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite memory --output-dir ~/solver-benchmark-results/memory
+
   Replicate the full matrix on two GPUs:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite envs --targets solver --compare-modes --num-envs 1 --num-envs 8 --gpus 0,1
@@ -35,7 +39,7 @@ Examples:
   Tune maximum batch size independently on each GPU:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite envs --targets solver --compare-modes --num-envs 1 --gpus 0,1 \\
-      --capacity-search --capacity-max-envs 4096 --memory-headroom-gib 2
+      --capacity-search --capacity-max-envs 8192 --memory-headroom-gib 2
 
 Results print to the terminal. Pass --output-dir PATH to also write JSON and CSV.
 Solver status uses the final-loss threshold; placer status uses geometric layout validity.
@@ -66,6 +70,7 @@ from isaaclab_arena.relations.benchmark import (
     default_scenarios,
     env_count_sweep,
     format_diagnostic_markdown,
+    format_memory_capacity_markdown,
     format_results_table,
     format_scaling_summary,
     object_count_sweep,
@@ -80,6 +85,8 @@ from isaaclab_arena.relations.benchmark import (
     write_droid_kitchen_snapshot,
     write_droid_scene_snapshot,
     write_lightwheel_kitchen_snapshot,
+    write_memory_capacity_csv,
+    write_memory_scaling_svg,
     write_object_scaling_svg,
     write_results_csv,
     write_results_json,
@@ -101,7 +108,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--suite",
-        choices=("presets", "objects", "envs", "comprehensive", "diagnostic"),
+        choices=("presets", "objects", "envs", "comprehensive", "diagnostic", "memory"),
         default="presets",
         help="Benchmark matrix; diagnostic prints a question-driven Markdown report.",
     )
@@ -154,7 +161,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Find the largest viable num_envs independently on each selected GPU.",
     )
-    parser.add_argument("--capacity-max-envs", type=int, default=4096, help="Upper bound for capacity search.")
+    parser.add_argument("--capacity-max-envs", type=int, default=8192, help="Upper bound for capacity search.")
     parser.add_argument(
         "--memory-headroom-gib",
         type=float,
@@ -177,6 +184,22 @@ def _targets(value: str) -> tuple[BenchmarkTarget, ...]:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
+    if args.suite == "memory":
+        incompatible = (
+            ("--capacity-search", args.capacity_search),
+            ("--targets", args.targets is not None),
+            ("--environment-spec", args.environment_spec is not None),
+            ("--collision-mode", args.collision_mode != "auto"),
+            ("--compare-modes", args.compare_modes),
+            ("--robot-mode", args.robot_mode != "both"),
+            ("--num-envs", args.num_envs is not None),
+            ("--diagnostic-topic", args.diagnostic_topic != "all"),
+        )
+        rejected = [option for option, supplied in incompatible if supplied]
+        if rejected:
+            raise ValueError(f"--suite memory owns its execution matrix; cannot combine with {', '.join(rejected)}")
+        if args.gpus is not None and "," in args.gpus:
+            raise ValueError("--suite memory accepts exactly one GPU")
     if args.suite in ("comprehensive", "diagnostic"):
         incompatible = (
             ("--gpus", args.gpus is not None),
@@ -187,7 +210,7 @@ def _validate_args(args: argparse.Namespace) -> None:
             ("--compare-modes", args.compare_modes),
             ("--robot-mode", args.robot_mode != "both"),
             ("--num-envs", args.num_envs is not None),
-            ("--capacity-max-envs", args.capacity_max_envs != 4096),
+            ("--capacity-max-envs", args.capacity_max_envs != 8192),
             ("--memory-headroom-gib", args.memory_headroom_gib != 2.0),
             ("--diagnostic-topic", args.suite == "comprehensive" and args.diagnostic_topic != "all"),
         )
@@ -318,6 +341,31 @@ def _comprehensive_scenario_groups(
         (1,),
     )
     return synthetic, environment
+
+
+def _memory_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
+    """Build matched table and kitchen workloads for isolated capacity probes."""
+    return tuple(
+        BenchmarkScenario(
+            name=f"memory-{scene}",
+            num_objects=6,
+            num_envs=1,
+            collision_mode=mode,
+            max_iters=2,
+            convergence_threshold=0.0,
+            num_spheres=args.num_spheres,
+            placement_seed=args.seed,
+            max_placement_attempts=1,
+            warmup_runs=0,
+            timed_runs=1,
+            final_loss_threshold=1e9,
+            background_treatment="mesh" if scene == "kitchen" and mode == "mesh" else "none",
+            scene_label="DROID Maple table" if scene == "table" else "Lightwheel RoboCasa kitchen",
+            asset_set_name=f"memory-{scene}",
+        )
+        for scene in ("table", "kitchen")
+        for mode in ("bbox", "mesh")
+    )
 
 
 def _diagnostic_scenario_groups(
@@ -465,6 +513,39 @@ def _finish_run(args: argparse.Namespace, rows: list[BenchmarkMeasurement], run:
     return 0 if run.succeeded else 1
 
 
+def _run_memory_suite(
+    args: argparse.Namespace,
+    scenarios: tuple[BenchmarkScenario, ...],
+    gpu: str,
+) -> int:
+    """Run isolated capacity probes and write the memory diagnostic."""
+    results = [
+        run_capacity_search(
+            scenario,
+            "solver",
+            gpu,
+            Path(__file__).resolve(),
+            max_num_envs=args.capacity_max_envs,
+            memory_headroom_gib=args.memory_headroom_gib,
+            require_success_status=False,
+        )
+        for scenario in scenarios
+    ]
+    markdown = format_memory_capacity_markdown(results)
+    print(markdown)
+    if args.output_dir is not None:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        (args.output_dir / "capacity.json").write_text(
+            json.dumps({"results": results}, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        (args.output_dir / "memory.md").write_text(markdown + "\n", encoding="utf-8")
+        write_memory_capacity_csv(args.output_dir / "memory.csv", results)
+        write_memory_scaling_svg(args.output_dir / "memory_scaling.svg", results)
+        print(f"\nReports written to: {args.output_dir.resolve()}")
+    return 0 if all(result["max_num_envs"] is not None for result in results) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
@@ -473,7 +554,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.worker_input is not None:
             assert args.worker_output is not None
             return run_worker(args.worker_input, args.worker_output, args.physical_gpu, targets)
-        if args.suite in ("comprehensive", "diagnostic"):
+        if args.suite == "memory":
+            targets = ("solver",)
+            scenarios = _memory_scenarios(args)
+            gpus = (args.gpus or "0",)
+        elif args.suite in ("comprehensive", "diagnostic"):
             if not torch.cuda.is_available():
                 raise ValueError(f"--suite {args.suite} requires a CUDA GPU")
             if args.suite == "comprehensive":
@@ -499,6 +584,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         print(error, file=sys.stderr)
         return 2
+
+    if args.suite == "memory":
+        return _run_memory_suite(args, scenarios, gpus[0])
 
     if args.capacity_search:
         if not gpus:

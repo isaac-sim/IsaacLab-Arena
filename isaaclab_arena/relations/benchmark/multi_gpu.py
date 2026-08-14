@@ -16,7 +16,13 @@ from collections.abc import Callable, Iterable
 from dataclasses import asdict, replace
 from pathlib import Path
 
-from isaaclab_arena.relations.benchmark.models import BenchmarkMeasurement, BenchmarkScenario, BenchmarkTarget
+from isaaclab_arena.relations.benchmark.models import (
+    BenchmarkMeasurement,
+    BenchmarkScenario,
+    BenchmarkTarget,
+    CapacityProbe,
+    CapacitySearchResult,
+)
 from isaaclab_arena.relations.benchmark.reporting import requested_scenario_ids
 from isaaclab_arena.relations.benchmark.synthetic_benchmark import run_benchmarks
 
@@ -98,7 +104,10 @@ def run_worker(
             encoding="utf-8",
         )
 
-    if "environment" in targets:
+    requires_simulation_app = "environment" in targets or any(
+        scenario.asset_set_name in ("memory-table", "memory-kitchen") for scenario in scenarios
+    )
+    if requires_simulation_app:
         import argparse
 
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -126,6 +135,13 @@ def _launch_worker(
     )
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = physical_gpu
+    config_directory = directory / f"{worker_id}-config"
+    matplotlib_directory = directory / f"{worker_id}-matplotlib"
+    config_directory.mkdir()
+    matplotlib_directory.mkdir()
+    env["XDG_CONFIG_HOME"] = str(config_directory)
+    env["MPLCONFIGDIR"] = str(matplotlib_directory)
+    env["OMNICLIENT_HUB_MODE"] = "disabled"
     command = [
         sys.executable,
         str(script_path),
@@ -152,6 +168,35 @@ def _worker_process_error(exit_code: int, output_path: Path) -> str | None:
 def _read_worker_results(output_path: Path) -> list[BenchmarkMeasurement]:
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     return [BenchmarkMeasurement.from_dict(row) for row in payload]
+
+
+def _run_capacity_worker(
+    scenario: BenchmarkScenario,
+    target: BenchmarkTarget,
+    gpu: str,
+    script_path: Path,
+) -> tuple[BenchmarkMeasurement | None, int, str | None]:
+    """Run one isolated capacity worker and read its single result."""
+    with tempfile.TemporaryDirectory(prefix="arena-solver-capacity-") as temp_dir:
+        process, output_path = _launch_worker(
+            (scenario,),
+            (target,),
+            gpu,
+            Path(temp_dir),
+            f"gpu-{gpu}-envs-{scenario.num_envs}",
+            script_path,
+        )
+        try:
+            exit_code = process.wait()
+        finally:
+            _terminate_running_workers((process,))
+        if worker_error := _worker_process_error(exit_code, output_path):
+            return None, exit_code, worker_error
+        try:
+            [measurement] = _read_worker_results(output_path)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            return None, exit_code, f"invalid worker result: {type(error).__name__}: {error}"
+        return measurement, exit_code, None
 
 
 def _terminate_running_workers(processes: Iterable[subprocess.Popen]) -> None:
@@ -235,60 +280,51 @@ def run_capacity_search(
     *,
     max_num_envs: int,
     memory_headroom_gib: float,
-) -> dict[str, object]:
+    require_success_status: bool = True,
+) -> CapacitySearchResult:
     """Probe one workload's maximum viable environment batch on one GPU."""
-    probes: list[dict[str, object]] = []
+    probes: list[CapacityProbe] = []
     memory_headroom_bytes = int(memory_headroom_gib * 1024**3)
 
     def probe(num_envs: int) -> bool:
         probe_scenario = replace(scenario, num_envs=num_envs)
-        with tempfile.TemporaryDirectory(prefix="arena-solver-capacity-") as temp_dir:
-            process, output_path = _launch_worker(
-                (probe_scenario,),
-                (target,),
-                gpu,
-                Path(temp_dir),
-                f"gpu-{gpu}-envs-{num_envs}",
-                script_path,
-            )
-            try:
-                exit_code = process.wait()
-            finally:
-                _terminate_running_workers((process,))
-            if process_error := _worker_process_error(exit_code, output_path):
-                probes.append({
-                    "num_envs": num_envs,
-                    "viable": False,
-                    "exit_code": exit_code,
-                    "error": process_error,
-                })
-                return False
-            try:
-                [measurement] = _read_worker_results(output_path)
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-                probes.append({
-                    "num_envs": num_envs,
-                    "viable": False,
-                    "exit_code": exit_code,
-                    "error": f"invalid worker result: {type(error).__name__}: {error}",
-                })
-                return False
-            minimum_free = measurement.device.minimum_free_memory_bytes
-            free_after = measurement.device.free_memory_after_bytes
-            observed_free = minimum_free if minimum_free is not None else free_after
-            memory_ok = observed_free is not None and observed_free >= memory_headroom_bytes
-            viable = measurement.status == "ok" and measurement.device.name is not None and memory_ok
+        for attempt in range(2):
+            measurement, exit_code, worker_error = _run_capacity_worker(probe_scenario, target, gpu, script_path)
+            if worker_error is None:
+                break
+            if exit_code not in (-11, 139):
+                break
+        if worker_error is not None:
             probes.append({
                 "num_envs": num_envs,
-                "viable": viable,
-                "status": measurement.status,
-                "error": measurement.error,
-                "free_memory_before_bytes": measurement.device.free_memory_before_bytes,
-                "free_memory_after_bytes": free_after,
-                "minimum_free_memory_bytes": minimum_free,
-                "peak_reserved_bytes": measurement.peak_reserved_bytes,
+                "viable": False,
+                "exit_code": exit_code,
+                "attempts": attempt + 1,
+                "error": worker_error,
             })
-            return viable
+            return False
+        assert measurement is not None
+        minimum_free = measurement.device.minimum_free_memory_bytes
+        free_after = measurement.device.free_memory_after_bytes
+        observed_free = minimum_free if minimum_free is not None else free_after
+        memory_ok = observed_free is not None and observed_free >= memory_headroom_bytes
+        status_ok = measurement.status == "ok" or not require_success_status
+        viable = status_ok and measurement.device.name is not None and memory_ok
+        probes.append({
+            "num_envs": num_envs,
+            "viable": viable,
+            "status": measurement.status,
+            "error": measurement.error,
+            "total_memory_bytes": measurement.device.total_memory_bytes,
+            "free_memory_before_bytes": measurement.device.free_memory_before_bytes,
+            "free_memory_after_bytes": free_after,
+            "minimum_free_memory_bytes": minimum_free,
+            "peak_allocated_bytes": measurement.peak_allocated_bytes,
+            "peak_reserved_bytes": measurement.peak_reserved_bytes,
+            "attempts": attempt + 1,
+            "measurement": measurement.to_dict(),
+        })
+        return viable
 
     maximum = search_capacity(probe, max_num_envs=max_num_envs)
     return {
@@ -296,6 +332,8 @@ def run_capacity_search(
         "scenario": scenario.name,
         "target": target,
         "collision_mode": scenario.collision_mode,
+        "capacity_max_num_envs": max_num_envs,
+        "memory_headroom_gib": memory_headroom_gib,
         "max_num_envs": maximum,
         "probes": probes,
     }

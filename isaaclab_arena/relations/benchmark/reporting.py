@@ -13,13 +13,15 @@ import statistics
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from isaaclab_arena.relations.benchmark.models import (
     BenchmarkMeasurement,
     BenchmarkRun,
     BenchmarkScenario,
     BenchmarkTarget,
+    CapacityProbe,
+    CapacitySearchResult,
     CollisionModeName,
     DiagnosticTopic,
 )
@@ -216,6 +218,24 @@ def write_object_scaling_svg(path: str | Path, results: list[BenchmarkMeasuremen
 
 def write_robot_scaling_svg(path: str | Path, results: list[BenchmarkMeasurement]) -> None:
     """Plot robot impact over movable object count."""
+    measurements = _diagnostic_results(results, "robot-impact")
+    no_robot_rates = {
+        (result.collision_mode, _movable_object_count(result)): result.solver_iterations_per_second
+        for result in measurements
+        if not result.include_robot and result.solver_iterations_per_second is not None
+    }
+
+    def robot_cost_label(result: BenchmarkMeasurement) -> str | None:
+        if not result.include_robot or result.solver_iterations_per_second is None:
+            return None
+        baseline = no_robot_rates.get((result.collision_mode, _movable_object_count(result)))
+        if baseline is None or baseline <= 0.0:
+            return None
+        cost_percent = 100.0 * (baseline - result.solver_iterations_per_second) / baseline
+        if abs(cost_percent) < 0.5:
+            return "0% change"
+        return f"{cost_percent:.0f}% slower" if cost_percent >= 0.0 else f"{-cost_percent:.0f}% faster"
+
     series = (
         (
             "BBox / No Robot",
@@ -244,12 +264,207 @@ def write_robot_scaling_svg(path: str | Path, results: list[BenchmarkMeasurement
     )
     _write_scaling_svg(
         path,
-        _diagnostic_results(results, "robot-impact"),
+        measurements,
         x_value=_movable_object_count,
         title="Robot Impact on Solver Iteration Rate",
         x_label="Number of Movable Objects",
         series=series,
+        point_label=robot_cost_label,
     )
+
+
+def format_memory_capacity_markdown(results: list[CapacitySearchResult]) -> str:
+    """Render mesh-complexity and GPU-capacity probe results."""
+    assert results
+    capacity_limit = results[0].get("capacity_max_num_envs", 8192)
+    memory_headroom = results[0].get("memory_headroom_gib", 2.0)
+    mesh_rows: list[tuple[str, ...]] = []
+    capacity_rows: list[tuple[str, ...]] = []
+    for result in results:
+        scene = result["scenario"]
+        mode = _collision_mode_label(result["collision_mode"])
+        measurement = _first_capacity_measurement(result)
+        if result["collision_mode"] == "mesh":
+            mesh_rows.append((
+                scene,
+                _count_pair(
+                    measurement,
+                    "optimized_collision_mesh_vertex_count",
+                    "optimized_collision_mesh_triangle_count",
+                ),
+                _count_pair(
+                    measurement,
+                    "anchor_collision_mesh_vertex_count",
+                    "anchor_collision_mesh_triangle_count",
+                ),
+                _count_pair(
+                    measurement,
+                    "passive_background_collision_mesh_vertex_count",
+                    "passive_background_collision_mesh_triangle_count",
+                ),
+            ))
+        maximum = result.get("max_num_envs")
+        if maximum is None:
+            capacity = "No viable batch"
+        elif maximum == capacity_limit:
+            capacity = f"≥{maximum} (search ceiling)"
+        else:
+            capacity = str(maximum)
+        capacity_rows.append((scene, mode, capacity))
+    return (
+        "# Mesh Complexity and GPU Memory Scaling\n\n## Set Up\n- Same five movable objects on the DROID Maple table"
+        " and Lightwheel RoboCasa kitchen counter\n- BBox and Mesh collision modes\n- One isolated worker per capacity"
+        " probe; failed/OOM probes do not affect later points\n- The kitchen Mesh case includes its passive background"
+        " mesh; the kitchen BBox case does not\n- Batch sizes grow by powers of two through"
+        f" {capacity_limit} with {memory_headroom:g} GiB free-memory headroom\n- Two Adam steps initialize optimizer"
+        " and collision buffers; this measures memory capacity, not convergence\n\nAdditional device memory is"
+        " baseline-subtracted from each isolated worker after headless SimulationApp startup; allocator peaks are"
+        " retained in JSON/CSV.\n\n## Extracted"
+        " Collision Meshes\nCounts are raw extracted vertices/triangles. On-linked support pairs are skipped by"
+        " no-overlap collision, so anchor geometry is not necessarily queried each Adam step.\n\n"
+        + _markdown_table(
+            ("Scene", "Objects V/T", "Anchors V/T", "Background V/T"),
+            mesh_rows,
+        )
+        + "\n\n## Highest Tested Viable Batch\n"
+        + _markdown_table(("Scene", "Mode", "Highest viable num_envs"), capacity_rows)
+        + "\n\n![GPU memory scaling](memory_scaling.svg)"
+    )
+
+
+def write_memory_scaling_svg(path: str | Path, results: list[CapacitySearchResult]) -> None:
+    """Plot observed device memory against batch size for capacity probes."""
+    series: list[tuple[str, str, str | None, list[tuple[int, float]]]] = []
+    colors = {"memory-table": "#0072B2", "memory-kitchen": "#D55E00"}
+    for result in results:
+        scene = result["scenario"]
+        mode = result["collision_mode"]
+        points: list[tuple[int, float]] = []
+        for probe in _capacity_probes(result):
+            baseline_free = probe.get("free_memory_before_bytes")
+            free = probe.get("minimum_free_memory_bytes") or probe.get("free_memory_after_bytes")
+            if isinstance(baseline_free, int) and isinstance(free, int):
+                points.append((probe["num_envs"], max(baseline_free - free, 0) / 2**30))
+        if points:
+            series.append((
+                f"{scene.removeprefix('memory-').title()} / {_collision_mode_label(mode)}",
+                colors.get(scene, "#555555"),
+                None if mode == "mesh" else "9 6",
+                sorted(points),
+            ))
+    if not series:
+        Path(path).write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="820" height="240" viewBox="0 0 820 240">\n'
+            '<rect width="100%" height="100%" fill="white"/>\n'
+            '<text x="410" y="100" text-anchor="middle" font-family="sans-serif" font-size="18">'
+            "Additional GPU Memory vs. Batch Size</text>\n"
+            '<text x="410" y="140" text-anchor="middle" font-family="sans-serif" font-size="14">'
+            "No successful device-memory probes</text>\n"
+            "</svg>\n",
+            encoding="utf-8",
+        )
+        return
+    x_values = sorted({batch for _label, _color, _dash, points in series for batch, _memory in points})
+    y_max = max(memory for _label, _color, _dash, points in series for _batch, memory in points) * 1.1
+    width, height = 820, 460
+    left, right, top, bottom = 85, 30, 90, 75
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+
+    def x_position(value: int) -> float:
+        return left + x_values.index(value) * plot_width / max(len(x_values) - 1, 1)
+
+    def y_position(value: float) -> float:
+        return top + plot_height * (1.0 - value / y_max)
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="white"/>',
+        (
+            "<style>text{font-family:sans-serif;fill:#222}.axis{stroke:#555;stroke-width:1}"
+            ".grid{stroke:#ddd;stroke-width:1}.series{fill:none;stroke-width:3}</style>"
+        ),
+        f'<text x="{width / 2}" y="25" text-anchor="middle" font-size="18">Additional GPU Memory vs. Batch Size</text>',
+    ]
+    for tick in range(6):
+        value = y_max * tick / 5
+        y = y_position(value)
+        lines.extend([
+            f'<line class="grid" x1="{left}" y1="{y:.1f}" x2="{width - right}" y2="{y:.1f}"/>',
+            f'<text x="{left - 10}" y="{y + 5:.1f}" text-anchor="end" font-size="12">{value:.1f}</text>',
+        ])
+    lines.extend([
+        f'<line class="axis" x1="{left}" y1="{top}" x2="{left}" y2="{height - bottom}"/>',
+        f'<line class="axis" x1="{left}" y1="{height - bottom}" x2="{width - right}" y2="{height - bottom}"/>',
+    ])
+    for value in x_values:
+        x = x_position(value)
+        lines.append(f'<text x="{x:.1f}" y="{height - bottom + 24}" text-anchor="middle" font-size="11">{value}</text>')
+    for label, color, dash, points in series:
+        point_text = " ".join(f"{x_position(batch):.1f},{y_position(memory):.1f}" for batch, memory in points)
+        dash_attribute = "" if dash is None else f' stroke-dasharray="{dash}"'
+        lines.append(f'<polyline class="series" stroke="{color}"{dash_attribute} points="{point_text}"/>')
+        for batch, memory in points:
+            lines.append(f'<circle cx="{x_position(batch):.1f}" cy="{y_position(memory):.1f}" r="4" fill="{color}"/>')
+    for index, (label, color, dash, _points) in enumerate(series):
+        legend_x = 350 + (index % 2) * 225
+        legend_y = 47 + (index // 2) * 22
+        dash_attribute = "" if dash is None else f' stroke-dasharray="{dash}"'
+        lines.extend([
+            (
+                f'<line x1="{legend_x}" y1="{legend_y}" x2="{legend_x + 28}" y2="{legend_y}"'
+                f' stroke="{color}" stroke-width="3"{dash_attribute}/>'
+            ),
+            f'<text x="{legend_x + 36}" y="{legend_y + 5}" font-size="12">{label}</text>',
+        ])
+    lines.extend([
+        f'<text x="{width / 2}" y="{height - 15}" text-anchor="middle" font-size="14">Batch Size (num_envs)</text>',
+        (
+            f'<text x="18" y="{height / 2}" text-anchor="middle" font-size="14"'
+            f' transform="rotate(-90 18 {height / 2})">Additional Device Memory (GiB)</text>'
+        ),
+        "</svg>",
+    ])
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_memory_capacity_csv(path: str | Path, results: list[CapacitySearchResult]) -> None:
+    """Write one flat row per GPU-capacity probe."""
+    rows: list[dict[str, object]] = []
+    for result in results:
+        for probe in _capacity_probes(result):
+            rows.append({
+                "scene": result["scenario"],
+                "collision_mode": result["collision_mode"],
+                **probe,
+            })
+    field_names = sorted({field for row in rows for field in row if field != "measurement"})
+    with Path(path).open("w", encoding="utf-8", newline="") as output:
+        writer = csv.DictWriter(output, fieldnames=field_names)
+        writer.writeheader()
+        writer.writerows({field: row.get(field) for field in field_names} for row in rows)
+
+
+def _capacity_probes(result: CapacitySearchResult) -> list[CapacityProbe]:
+    """Return well-formed probe mappings from a capacity result."""
+    probes = result["probes"]
+    return [cast(CapacityProbe, probe) for probe in probes if isinstance(probe, dict)]
+
+
+def _first_capacity_measurement(result: CapacitySearchResult) -> dict[str, object]:
+    for probe in _capacity_probes(result):
+        measurement = probe.get("measurement")
+        if isinstance(measurement, dict):
+            return measurement
+    return {}
+
+
+def _count_pair(measurement: dict[str, object], vertex_field: str, face_field: str) -> str:
+    vertices = measurement.get(vertex_field)
+    faces = measurement.get(face_field)
+    if not isinstance(vertices, int) or not isinstance(faces, int):
+        return "unavailable"
+    return f"{vertices:,}/{faces:,}"
 
 
 def _write_scaling_svg(
@@ -260,6 +475,7 @@ def _write_scaling_svg(
     title: str,
     x_label: str,
     series: tuple[tuple[str, str, str | None, Callable[[BenchmarkMeasurement], bool]], ...] | None = None,
+    point_label: Callable[[BenchmarkMeasurement], str | None] | None = None,
 ) -> None:
     """Plot BBox and mesh iteration rates over one integer-valued axis."""
     x_values = sorted({x_value(result) for result in measurements})
@@ -328,6 +544,12 @@ def _write_scaling_svg(
             x = x_position(x_value(result))
             y = y_position(result.solver_iterations_per_second)
             lines.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{color}"/>')
+            if point_label is not None and (label_text := point_label(result)) is not None:
+                label_y = y - 9 if y >= top + 18 else y + 18
+                lines.append(
+                    f'<text x="{x:.1f}" y="{label_y:.1f}" text-anchor="middle" font-size="10"'
+                    f' fill="{color}">{label_text}</text>'
+                )
     for index, (label, color, dash, _predicate) in enumerate(series):
         legend_x = width - 360 + (index % 2) * 180
         legend_y = 47 + (index // 2) * 22

@@ -28,14 +28,21 @@ from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
     format_diagnostic_markdown,
+    format_memory_capacity_markdown,
     format_results_table,
     format_scaling_summary,
     requested_scenario_ids,
+    write_memory_capacity_csv,
+    write_memory_scaling_svg,
     write_results_csv,
     write_results_json,
+    write_robot_scaling_svg,
 )
 from isaaclab_arena.relations.benchmark.synthetic_benchmark import (
+    CONTROLLED_MOVABLE_OBJECT_NAMES,
+    _collision_mesh_metadata,
     _sample_child_origin,
+    build_background_collision_objects,
     build_clutter_scene,
     build_solve_inputs,
     default_scenarios,
@@ -133,12 +140,59 @@ def test_diagnostic_metadata_round_trips():
         background_treatment="aabb",
         scene_label="toy",
     )
-    measurement = _diagnostic_measurement(scenario, background_object_count=1)
+    measurement = _diagnostic_measurement(
+        scenario,
+        background_object_count=1,
+        optimized_collision_mesh_vertex_count=123,
+        passive_background_collision_mesh_triangle_count=456,
+    )
     restored = BenchmarkMeasurement.from_dict(measurement.to_dict())
     assert restored.diagnostic_topic == "background-collision"
     assert restored.background_treatment == "aabb"
     assert restored.scene_label == "toy"
     assert restored.background_object_count == 1
+    assert restored.optimized_collision_mesh_vertex_count == 123
+    assert restored.passive_background_collision_mesh_triangle_count == 456
+    legacy_payload = measurement.to_dict()
+    for name in (
+        "optimized_collision_mesh_vertex_count",
+        "optimized_collision_mesh_triangle_count",
+        "anchor_collision_mesh_vertex_count",
+        "anchor_collision_mesh_triangle_count",
+        "passive_background_collision_mesh_vertex_count",
+        "passive_background_collision_mesh_triangle_count",
+    ):
+        del legacy_payload[name]
+    legacy_restored = BenchmarkMeasurement.from_dict(legacy_payload)
+    assert legacy_restored.optimized_collision_mesh_vertex_count is None
+    assert legacy_restored.passive_background_collision_mesh_triangle_count is None
+
+
+def test_controlled_workload_uses_droid_registered_objects():
+    assert CONTROLLED_MOVABLE_OBJECT_NAMES == (
+        "orange_01_fruits_veggies_robolab",
+        "ketchup_bottle_hope_robolab",
+        "alphabet_soup_can_hope_robolab",
+        "spoon_handal_robolab",
+        "sugar_box_ycb_robolab",
+    )
+
+
+def test_collision_mesh_metadata_separates_solver_roles():
+    scenario = _tiny_scenario(collision_mode="mesh", background_treatment="mesh")
+    objects = build_clutter_scene(3, collision_mode="mesh")
+    collision_objects = build_background_collision_objects(scenario)
+
+    metadata = _collision_mesh_metadata(objects, collision_objects, scenario.collision_mode)
+
+    assert metadata == {
+        "optimized_collision_mesh_vertex_count": 16,
+        "optimized_collision_mesh_triangle_count": 24,
+        "anchor_collision_mesh_vertex_count": 8,
+        "anchor_collision_mesh_triangle_count": 12,
+        "passive_background_collision_mesh_vertex_count": 8,
+        "passive_background_collision_mesh_triangle_count": 12,
+    }
 
 
 def test_diagnostic_markdown_organizes_results_by_solver_question():
@@ -196,6 +250,91 @@ def test_diagnostic_markdown_organizes_results_by_solver_question():
     assert "| Mode | Batch | iterations/s |" in report
     assert "**Question:** Does batching improve" in report
     assert "**Answer:** BBox: batch 1→8" in report
+
+
+def test_memory_capacity_report_includes_mesh_counts_and_memory_plot(tmp_path):
+    scenario = _tiny_scenario(
+        name="memory-kitchen",
+        collision_mode="mesh",
+        asset_set_name="memory-kitchen",
+    )
+    measurement = _diagnostic_measurement(
+        scenario,
+        optimized_collision_mesh_vertex_count=100,
+        optimized_collision_mesh_triangle_count=200,
+        anchor_collision_mesh_vertex_count=10,
+        anchor_collision_mesh_triangle_count=20,
+        passive_background_collision_mesh_vertex_count=1000,
+        passive_background_collision_mesh_triangle_count=2000,
+    ).to_dict()
+    results = [{
+        "scenario": "memory-kitchen",
+        "collision_mode": "mesh",
+        "max_num_envs": 1024,
+        "probes": [
+            {
+                "num_envs": 1,
+                "viable": True,
+                "total_memory_bytes": 16 * 2**30,
+                "free_memory_before_bytes": 15 * 2**30,
+                "free_memory_after_bytes": 12 * 2**30,
+                "minimum_free_memory_bytes": None,
+                "measurement": measurement,
+            },
+            {
+                "num_envs": 1024,
+                "viable": True,
+                "total_memory_bytes": 16 * 2**30,
+                "free_memory_before_bytes": 15 * 2**30,
+                "free_memory_after_bytes": 4 * 2**30,
+                "minimum_free_memory_bytes": None,
+                "measurement": measurement,
+            },
+        ],
+    }]
+
+    report = format_memory_capacity_markdown(results)
+    assert "| memory-kitchen | 100/200 | 10/20 | 1,000/2,000 |" in report
+    assert "| memory-kitchen | Mesh | 1024 |" in report
+
+    svg_path = tmp_path / "memory.svg"
+    csv_path = tmp_path / "memory.csv"
+    write_memory_scaling_svg(svg_path, results)
+    write_memory_capacity_csv(csv_path, results)
+    assert "Additional Device Memory (GiB)" in svg_path.read_text(encoding="utf-8")
+    assert "num_envs" in csv_path.read_text(encoding="utf-8")
+
+
+def test_robot_plot_uses_solid_robot_and_dashed_no_robot_lines(tmp_path):
+    measurements = []
+    for mode in ("bbox", "mesh"):
+        for include_robot in (False, True):
+            scenario = _tiny_scenario(
+                name=f"{mode}-{'robot' if include_robot else 'no-robot'}",
+                collision_mode=mode,
+                include_robot=include_robot,
+                diagnostic_topic="robot-impact",
+            )
+            rate = 100.0
+            if include_robot:
+                rate = 80.0 if mode == "bbox" else 70.0
+            measurements.append(
+                _diagnostic_measurement(
+                    scenario,
+                    include_robot=include_robot,
+                    solver_iterations_per_second=rate,
+                )
+            )
+
+    path = tmp_path / "robot.svg"
+    write_robot_scaling_svg(path, measurements)
+    svg = path.read_text(encoding="utf-8")
+    assert 'stroke="#0072B2" stroke-dasharray="9 6"' in svg
+    assert 'stroke="#D55E00" stroke-dasharray="9 6"' in svg
+    assert '<polyline class="series" stroke="#0072B2" points=' in svg
+    assert '<polyline class="series" stroke="#D55E00" points=' in svg
+    assert "20% slower" in svg
+    assert "30% slower" in svg
 
 
 def test_build_clutter_scene_rejects_too_few_objects():

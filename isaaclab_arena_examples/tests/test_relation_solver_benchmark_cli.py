@@ -8,13 +8,13 @@
 import json
 import subprocess
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
 
 import isaaclab_arena.relations.benchmark.multi_gpu as benchmark_multi_gpu
-from isaaclab_arena.relations.benchmark.models import BenchmarkScenario
+from isaaclab_arena.relations.benchmark.models import BenchmarkScenario, DeviceMetadata
 from isaaclab_arena.relations.benchmark.multi_gpu import run_multi_gpu, validate_gpu_selectors
 from isaaclab_arena.relations.benchmark.reporting import build_distributed_run, requested_scenario_ids
 from isaaclab_arena.relations.benchmark.synthetic_benchmark import run_solver_benchmark
@@ -256,6 +256,37 @@ def test_diagnostic_plan_is_question_driven_and_isolates_axes():
     assert len(expected) == len(set(expected))
 
 
+def test_memory_plan_uses_matched_scenes_and_fixed_probe_work():
+    args = benchmark_cli._parse_args(["--suite", "memory"])
+    benchmark_cli._validate_args(args)
+    scenarios = benchmark_cli._memory_scenarios(args)
+
+    assert args.capacity_max_envs == 8192
+    assert {(scenario.name, scenario.collision_mode, scenario.asset_set_name) for scenario in scenarios} == {
+        ("memory-table", "bbox", "memory-table"),
+        ("memory-table", "mesh", "memory-table"),
+        ("memory-kitchen", "bbox", "memory-kitchen"),
+        ("memory-kitchen", "mesh", "memory-kitchen"),
+    }
+    assert all(
+        (
+            scenario.num_objects,
+            scenario.num_envs,
+            scenario.max_iters,
+            scenario.warmup_runs,
+            scenario.timed_runs,
+        )
+        == (6, 1, 2, 0, 1)
+        for scenario in scenarios
+    )
+
+
+def test_memory_plan_rejects_matrix_overrides():
+    args = benchmark_cli._parse_args(["--suite", "memory", "--num-envs", "32"])
+    with pytest.raises(ValueError, match="owns its execution matrix"):
+        benchmark_cli._validate_args(args)
+
+
 @pytest.mark.parametrize(
     "option",
     [
@@ -337,6 +368,68 @@ def test_multi_gpu_records_worker_that_writes_no_output(monkeypatch):
     assert not run.succeeded
     assert run.missing_scenario_ids == tuple(assignments["gpu-0"])
     assert "without writing" in worker_errors["gpu-0"]
+
+
+def test_memory_capacity_ignores_convergence_status(monkeypatch):
+    scenario = _tiny_scenario()
+    measurement = replace(
+        run_solver_benchmark(scenario),
+        status="failed",
+        device=DeviceMetadata("0", "Test GPU", 16 * 2**30, 15 * 2**30, 14 * 2**30, None, "8.9"),
+    )
+
+    def launch_worker(scenarios, targets, physical_gpu, directory, worker_id, script_path):
+        output_path = directory / f"{worker_id}.json"
+        output_path.write_text(json.dumps([measurement.to_dict()]), encoding="utf-8")
+        return _SuccessfulProcess(), output_path
+
+    monkeypatch.setattr(benchmark_multi_gpu, "_launch_worker", launch_worker)
+    common = {
+        "scenario": scenario,
+        "target": "solver",
+        "gpu": "0",
+        "script_path": Path(benchmark_cli.__file__),
+        "max_num_envs": 1,
+        "memory_headroom_gib": 1.0,
+    }
+    assert benchmark_multi_gpu.run_capacity_search(**common, require_success_status=False)["max_num_envs"] == 1
+    assert benchmark_multi_gpu.run_capacity_search(**common, require_success_status=True)["max_num_envs"] is None
+
+
+def test_memory_capacity_retries_transient_worker_failure(monkeypatch):
+    scenario = _tiny_scenario()
+    measurement = replace(
+        run_solver_benchmark(scenario),
+        device=DeviceMetadata("0", "Test GPU", 16 * 2**30, 15 * 2**30, 14 * 2**30, None, "8.9"),
+    )
+    launches = []
+
+    class _FailedProcess:
+        def poll(self):
+            return 139
+
+        def wait(self):
+            return 139
+
+    def launch_worker(scenarios, targets, physical_gpu, directory, worker_id, script_path):
+        launches.append(None)
+        output_path = directory / f"{worker_id}.json"
+        if len(launches) == 1:
+            return _FailedProcess(), output_path
+        output_path.write_text(json.dumps([measurement.to_dict()]), encoding="utf-8")
+        return _SuccessfulProcess(), output_path
+
+    monkeypatch.setattr(benchmark_multi_gpu, "_launch_worker", launch_worker)
+    result = benchmark_multi_gpu.run_capacity_search(
+        scenario,
+        "solver",
+        "0",
+        Path(benchmark_cli.__file__),
+        max_num_envs=1,
+        memory_headroom_gib=1.0,
+    )
+    assert result["max_num_envs"] == 1
+    assert len(launches) == 2
 
 
 def test_multi_gpu_omits_partial_aggregate_throughput(monkeypatch):

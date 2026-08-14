@@ -11,6 +11,7 @@ import importlib.util
 import math
 import time
 import torch
+from collections.abc import Iterable
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -34,7 +35,7 @@ from isaaclab_arena.relations.benchmark.timing import (
     time_call,
 )
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
-from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
 from isaaclab_arena.relations.collision_object import CollisionObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -47,6 +48,18 @@ from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     import trimesh
+
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+
+CONTROLLED_MOVABLE_OBJECT_NAMES = (
+    "orange_01_fruits_veggies_robolab",
+    "ketchup_bottle_hope_robolab",
+    "alphabet_soup_can_hope_robolab",
+    "spoon_handal_robolab",
+    "sugar_box_ycb_robolab",
+)
+"""Registered movable objects shared by the Maple-table and kitchen workloads."""
 
 
 class BenchmarkAsset(PlaceableAsset):
@@ -187,7 +200,6 @@ def build_droid_homogeneous_scene() -> list[PlaceableAsset]:
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena_environments.droid_table_multi_object_placement_environment import HOMOGENEOUS_OBJECTS
 
     registry = AssetRegistry()
     background = registry.get_asset_by_name("maple_table_robolab")()
@@ -198,7 +210,7 @@ def build_droid_homogeneous_scene() -> list[PlaceableAsset]:
         object_type=ObjectType.RIGID,
     )
     table.add_relation(IsAnchor())
-    objects = [registry.get_asset_by_name(name)() for name in HOMOGENEOUS_OBJECTS]
+    objects = [registry.get_asset_by_name(name)() for name in CONTROLLED_MOVABLE_OBJECT_NAMES]
     for obj in objects:
         obj.add_relation(On(table))
     return [table, *objects]
@@ -208,6 +220,7 @@ def build_lightwheel_kitchen_workload(
     num_objects: int,
     collision_mode: CollisionModeName,
     include_robot: bool = False,
+    controlled_objects: bool = False,
 ) -> tuple[list[PlaceableAsset], list[CollisionObject]]:
     """Build a nested object-count workload on the Lightwheel kitchen counter."""
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -244,6 +257,8 @@ def build_lightwheel_kitchen_workload(
         "orange_01_fruits_veggies_robolab",
         "pomegranate01_fruits_veggies_robolab",
     )
+    if controlled_objects:
+        object_names = CONTROLLED_MOVABLE_OBJECT_NAMES
     assert num_objects - 1 <= len(object_names), "kitchen workload requests too many movable objects"
     objects = [registry.get_asset_by_name(name)() for name in object_names[: num_objects - 1]]
     for obj in objects:
@@ -280,7 +295,7 @@ def build_lightwheel_kitchen_workload(
 
 def build_benchmark_scene(scenario: BenchmarkScenario) -> list[PlaceableAsset]:
     """Build the objects configured for a synthetic-target benchmark."""
-    if scenario.asset_set_name == "droid-homogeneous":
+    if scenario.asset_set_name in ("droid-homogeneous", "memory-table"):
         return build_droid_homogeneous_scene()
     return build_clutter_scene(scenario.num_objects, scenario.collision_mode)
 
@@ -289,13 +304,21 @@ def build_benchmark_workload(
     scenario: BenchmarkScenario,
 ) -> tuple[list[PlaceableAsset], list[CollisionObject]]:
     """Build optimized objects and fixed collision geometry for a scenario."""
-    if scenario.asset_set_name == "lightwheel-kitchen-counter":
-        return build_lightwheel_kitchen_workload(
+    if scenario.asset_set_name in ("lightwheel-kitchen-counter", "memory-kitchen"):
+        objects, collision_objects = build_lightwheel_kitchen_workload(
             scenario.num_objects,
             scenario.collision_mode,
             include_robot=scenario.include_robot,
+            controlled_objects=scenario.asset_set_name == "memory-kitchen",
         )
-    return build_benchmark_scene(scenario), build_background_collision_objects(scenario)
+    else:
+        objects = build_benchmark_scene(scenario)
+        collision_objects = build_background_collision_objects(scenario)
+    anchors = set(get_anchor_objects(objects))
+    for obj in objects:
+        if obj not in anchors:
+            obj.collision_mode = CollisionMode(scenario.collision_mode)
+    return objects, collision_objects
 
 
 def build_background_collision_objects(scenario: BenchmarkScenario) -> list[BenchmarkAsset]:
@@ -321,6 +344,62 @@ def build_background_collision_objects(scenario: BenchmarkScenario) -> list[Benc
 
 def _relation_count(objects: list[PlaceableAsset]) -> int:
     return sum(len(obj.get_spatial_relations()) for obj in objects)
+
+
+def _raw_collision_mesh_counts(
+    objects: Iterable[CollisionObject],
+    default_collision_mode: CollisionMode,
+    mesh_cache: WarpMeshAndSphereCache,
+) -> tuple[int, int]:
+    """Count raw extracted mesh vertices and triangles selected for mesh collision."""
+    vertices = 0
+    triangles = 0
+    for obj in objects:
+        if not object_uses_mesh_collision(obj, default_collision_mode):
+            continue
+        mesh = mesh_cache.get_collision_mesh(obj)
+        if mesh is None:
+            continue
+        vertices += len(mesh.vertices)
+        triangles += len(mesh.faces)
+    return vertices, triangles
+
+
+def _collision_mesh_metadata(
+    objects: list[PlaceableAsset],
+    collision_objects: list[CollisionObject],
+    collision_mode: CollisionModeName,
+) -> dict[str, int]:
+    """Collect raw collision mesh complexity by solver role."""
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+    default_collision_mode = CollisionMode(collision_mode)
+    mesh_cache = WarpMeshAndSphereCache(device="cpu")
+    anchors = set(get_anchor_objects(objects))
+    optimized = [obj for obj in objects if obj not in anchors]
+    optimized_vertices, optimized_triangles = _raw_collision_mesh_counts(optimized, default_collision_mode, mesh_cache)
+    anchor_vertices, anchor_triangles = _raw_collision_mesh_counts(anchors, default_collision_mode, mesh_cache)
+    background_vertices, background_triangles = _raw_collision_mesh_counts(
+        collision_objects, default_collision_mode, mesh_cache
+    )
+    return {
+        "optimized_collision_mesh_vertex_count": optimized_vertices,
+        "optimized_collision_mesh_triangle_count": optimized_triangles,
+        "anchor_collision_mesh_vertex_count": anchor_vertices,
+        "anchor_collision_mesh_triangle_count": anchor_triangles,
+        "passive_background_collision_mesh_vertex_count": background_vertices,
+        "passive_background_collision_mesh_triangle_count": background_triangles,
+    }
+
+
+def _prepare_benchmark_workload(
+    scenario: BenchmarkScenario,
+) -> tuple[list[PlaceableAsset], list[CollisionObject], dict[str, int]]:
+    """Build a workload and collect its mesh metadata after variant assignment."""
+    objects, collision_objects = build_benchmark_workload(scenario)
+    assign_variants_for_envs(objects, scenario.num_envs, placement_seed=scenario.placement_seed)
+    mesh_metadata = _collision_mesh_metadata(objects, collision_objects, scenario.collision_mode)
+    return objects, collision_objects, mesh_metadata
 
 
 def make_solver_params(scenario: BenchmarkScenario) -> RelationSolverParams:
@@ -436,7 +515,7 @@ def run_solver_benchmark(
     """Benchmark RelationSolver.solve, including state construction."""
     device = get_device_metadata()
     try:
-        objects, collision_objects = build_benchmark_workload(scenario)
+        objects, collision_objects, mesh_metadata = _prepare_benchmark_workload(scenario)
         solver = RelationSolver(make_solver_params(scenario))
         positions, bboxes = build_solve_inputs(objects, scenario.num_envs, scenario.placement_seed)
 
@@ -498,6 +577,7 @@ def run_solver_benchmark(
             mesh_pair_count=solver.last_mesh_no_overlap_pair_count,
             relation_count=_relation_count(objects),
             background_object_count=len(collision_objects),
+            **mesh_metadata,
             peak_allocated_bytes=peak_allocated,
             peak_reserved_bytes=peak_reserved,
         )
@@ -513,7 +593,7 @@ def run_placer_benchmark(
     """Benchmark ObjectPlacer.place end to end."""
     device = get_device_metadata()
     try:
-        objects, collision_objects = build_benchmark_workload(scenario)
+        objects, collision_objects, mesh_metadata = _prepare_benchmark_workload(scenario)
         placer = ObjectPlacer(make_placer_params(scenario))
 
         def place():
@@ -561,6 +641,7 @@ def run_placer_benchmark(
             mesh_pair_count=placer.last_mesh_no_overlap_pair_count,
             relation_count=_relation_count(objects),
             background_object_count=len(collision_objects),
+            **mesh_metadata,
             peak_allocated_bytes=peak_allocated,
             peak_reserved_bytes=peak_reserved,
         )
