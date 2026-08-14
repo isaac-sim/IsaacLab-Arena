@@ -6,12 +6,15 @@
 """Verify typed OSMO workflow construction and its compatibility CLI."""
 
 import subprocess
+import yaml
+from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 from osmo.submit_evaluation_workflow import main
 from osmo.tasks.dreamzero_policy_runner_task import DreamZeroPolicyRunnerTaskCfg
+from osmo.tasks.dreamzero_server_task import DreamZeroServerTaskCfg
 from osmo.tasks.gr00t_policy_runner_task import DEFAULT_POLICY_CONFIG, Gr00tPolicyRunnerTaskCfg
 from osmo.tasks.gr00t_server_task import Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
@@ -123,6 +126,26 @@ def test_dreamzero_runner_quotes_explicit_server_task_name():
     task = workflow.generate_workflow()["workflow"]["groups"][0]["tasks"][0]
     assert task["name"] == "policy_runner"
     assert "port-forward server-workflow-id 'custom-server; false'" in task["files"][0]["contents"]
+
+
+def test_dreamzero_server_image_references_stay_aligned():
+    """Keep the standalone workflow and build helper on the typed task's server image."""
+    repository_root = Path(__file__).parents[2]
+    workflow_path = repository_root / "isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml"
+    build_helper_path = repository_root / "isaaclab_arena_dreamzero/docker/push_to_ngc.sh"
+    expected_image = DreamZeroServerTaskCfg().image
+
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    assert workflow["workflow"]["tasks"][0]["image"] == expected_image
+
+    helper_result = subprocess.run(
+        ["bash", str(build_helper_path), "-h"],
+        capture_output=True,
+        check=True,
+        text=True,
+        timeout=10,
+    )
+    assert f"Default NGC image: {expected_image}" in helper_result.stdout
 
 
 def test_compatibility_cli_builds_typed_config(capsys):

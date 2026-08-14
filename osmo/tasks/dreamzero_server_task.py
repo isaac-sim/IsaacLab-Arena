@@ -19,7 +19,7 @@ class DreamZeroServerTaskCfg(TaskCfg):
     """Config for the DreamZero inference-server task."""
 
     image: str = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:dreamzero-server-commit-checkpoints-20260709-130610"
-    """DreamZero server image, with the DreamZero-DROID checkpoint baked in."""
+    """Prebuilt DreamZero server image, rebuilt with ``push_to_ngc.sh`` when needed."""
 
     model_path: str = "${DREAMZERO_MODEL_PATH:-${MODELS_DIR:-/workspace/dreamzero/checkpoints}/DreamZero-DROID}"
     """Checkpoint path expression evaluated inside the task's entry script."""

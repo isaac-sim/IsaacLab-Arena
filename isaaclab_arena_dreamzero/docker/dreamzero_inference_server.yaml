@@ -30,7 +30,8 @@ workflow:
   tasks:
   - name: serve
     # Arena image with the DreamZero server code and the DreamZero-DROID
-    # checkpoint baked into /workspace/dreamzero/checkpoints.
+    # checkpoint baked into /workspace/dreamzero/checkpoints. Maintainers can
+    # rebuild this image with push_to_ngc.sh; normal users consume it directly.
     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:dreamzero-server-commit-checkpoints-20260709-130610
     command: ["bash", "-c"]
     args:
