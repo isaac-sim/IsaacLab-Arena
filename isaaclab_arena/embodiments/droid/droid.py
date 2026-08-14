@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
     import trimesh
 
 _DROID_ROBOT_PRIM = RobotPrimSpec(
-    robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+    robot_usd_path=str(Path(__file__).resolve().parents[3] / "franka_robotiq_2f_85_newton_detailed.usd"),
     root_prim_path="/panda",
     robot_base_prim_name="panda_link0",
     stand_prim_name="stand_instanceable",
@@ -317,11 +318,23 @@ class DroidSceneCfg:
                 stiffness=400.0,
                 damping=80.0,
             ),
-            "gripper": ImplicitActuatorCfg(
+            "gripper_drive": ImplicitActuatorCfg(
                 joint_names_expr=["finger_joint"],
-                stiffness=None,
-                damping=None,
-                velocity_limit=5.0,
+                effort_limit_sim=16.5,
+                velocity_limit_sim=10.0,
+                stiffness=0.17,
+                damping=0.02,
+            ),
+            "gripper_passive": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "right_outer_knuckle_joint",
+                    ".*_inner_finger_joint",
+                    ".*_inner_finger_knuckle_joint",
+                ],
+                effort_limit_sim=1.0,
+                velocity_limit_sim=10.0,
+                stiffness=0.0,
+                damping=0.0,
             ),
         },
     )
@@ -464,7 +477,9 @@ class DroidEventCfg:
         params={
             "mean": 0.0,
             "std": 0.02,
-            "asset_cfg": SceneEntityCfg("robot"),
+            # Mimic followers must start consistent with the leader joint. Randomize only
+            # the arm so Newton does not have to impulsively correct conflicting gripper state.
+            "asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]),
         },
     )
 
