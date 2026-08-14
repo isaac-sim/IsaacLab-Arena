@@ -1,6 +1,12 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Franka Kitchen 场景构建示例：演示如何组合场景并在 Kit 中可视化。"""
 
 import argparse
+import contextlib
 import time
 
 from isaaclab.app import AppLauncher
@@ -84,8 +90,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
-    except KeyboardInterrupt:
-        pass
+        with contextlib.suppress(KeyboardInterrupt):
+            main()
     finally:
         simulation_app.close()

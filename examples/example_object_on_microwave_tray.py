@@ -6,6 +6,7 @@
 """Visualize a cube falling onto the microwave tray in Omniverse Kit."""
 
 import argparse
+import contextlib
 import time
 
 from isaaclab.app import AppLauncher
@@ -89,9 +90,7 @@ def main() -> None:
         root_pose[0, :3] = target_pos
         root_pose[0, 3] = 1.0  # identity quaternion (w, x, y, z)
         cube_asset.write_root_pose_to_sim_index(root_pose=root_pose)
-        cube_asset.write_root_velocity_to_sim_index(
-            root_velocity=torch.zeros((1, 6), device=env.unwrapped.device)
-        )
+        cube_asset.write_root_velocity_to_sim_index(root_velocity=torch.zeros((1, 6), device=env.unwrapped.device))
 
         # Open the microwave door so the cube drops onto the tray.
         microwave.open(env, env_ids=None)
@@ -123,8 +122,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
-    except KeyboardInterrupt:
-        pass
+        with contextlib.suppress(KeyboardInterrupt):
+            main()
     finally:
         simulation_app.close()

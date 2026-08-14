@@ -60,4 +60,3 @@ git clone https://github.com/huggingface/lerobot.git
 `gr1_open_microwave` 在当前 IsaacLab-Arena 中的单个 episode 时长固定为 5 秒。
 `--env.video_length` 和 `--env.video_interval` 是旧 Arena 录像器的参数，不会改变 LeRobot evaluation
 视频的时长，因此新启动命令不再传入它们。
-

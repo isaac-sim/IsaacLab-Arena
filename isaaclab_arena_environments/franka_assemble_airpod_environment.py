@@ -36,9 +36,9 @@ class AirPodEnvironmentCfg(ArenaEnvironmentCfg):
     hdr: str | None = None
     light_intensity: float = 500.0
     # 待抓取的物体
-    pick_up_object: str = "rubiks_cube_hot3d_robolab"   # 需要改成 airpod
+    pick_up_object: str = "rubiks_cube_hot3d_robolab"  # 需要改成 airpod
     # 目标放置位置
-    destination_location: str = "bowl_ycb_robolab" # 需要改成 airpod 盒子
+    destination_location: str = "bowl_ycb_robolab"  # 需要改成 airpod 盒子
     # 额外干扰物体，放在桌子上，增加环境复杂性，需要改成 airpod 盒盖
     additional_table_objects: list[str] = field(
         default_factory=lambda: [

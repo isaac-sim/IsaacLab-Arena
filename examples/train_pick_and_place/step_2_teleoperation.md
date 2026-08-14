@@ -46,7 +46,7 @@ The static task drops the locomotion / squat / turn channels but still needs bim
 
 2.  Start the CloudXR runtime from the Arena Docker container:
 
-    docker_run_default  
+    docker_run_default
 
     ``` bash
     python -m isaacteleop.cloudxr
@@ -74,7 +74,7 @@ Accept NVIDIA CloudXR EULA? [y/N]: Yes
 
 1.  In another terminal, start the Arena Docker container and launch the teleop session to verify the pipeline:
 
-    docker_run_default  
+    docker_run_default
 
 2.  Run the following command to activate IsaacTeleop CloudXR environment settings:
 

@@ -52,7 +52,7 @@ This workflow trains directly from teleop recordings. The recorded HDF5 from `st
 
 Start the Isaac Lab Docker container:
 
-docker_run_default  
+docker_run_default
 
 Create the folders for the data and models:
 

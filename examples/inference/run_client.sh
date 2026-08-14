@@ -2,7 +2,7 @@
 
 # 需要先在Arena中安装Gr00t，否则会报错
 # 但注意不能安装gr00t的依赖，因为两个项目的依赖冲突了
-# uv pip install --no-deps -e submodules/Isaac-GR00T 
+# uv pip install --no-deps -e submodules/Isaac-GR00T
 
 python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit \

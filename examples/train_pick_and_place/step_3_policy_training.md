@@ -12,7 +12,7 @@ GR00T N1.7 consumes datasets in LeRobot format. The conversion runs inside the s
 
 **Docker Container**: Base (see `../../quickstart/installation` for more details)
 
-docker_run_default  
+docker_run_default
 
 Once inside the container, set the dataset directory:
 

@@ -1,6 +1,12 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Franka Kitchen Pick-and-Place 示例：使用 Quest 右手柄遥操作机械臂。"""
 
 import argparse
+import contextlib
 import math
 import traceback
 
@@ -42,6 +48,7 @@ def main() -> None:
     import torch
 
     from isaaclab_teleop import create_isaac_teleop_device
+
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry
@@ -169,8 +176,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
-    except KeyboardInterrupt:
-        pass
+        with contextlib.suppress(KeyboardInterrupt):
+            main()
     finally:
         simulation_app.close()

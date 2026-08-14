@@ -4,7 +4,7 @@ On this page we briefly describe the environment used in this example workflow a
 
 **Docker Container**: Base (see `../../quickstart/installation` for more details)
 
-docker_run_default  
+docker_run_default
 
 ## Environment Description
 

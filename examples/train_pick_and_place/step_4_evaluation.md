@@ -51,7 +51,7 @@ With the server from Step 1 running, launch the Arena client. The client side do
 
 **Docker Container**: Base (see `../../quickstart/installation` for more details)
 
-docker_run_default  
+docker_run_default
 
 Once inside the container, set the dataset and models directories.
 
