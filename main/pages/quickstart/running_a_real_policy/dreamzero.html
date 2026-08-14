@@ -565,38 +565,31 @@
 (<code class="docutils literal notranslate"><span class="pre">DreamZeroRemotePolicy</span></code>) that talks to a DreamZero inference server running remotely.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>DreamZero requires quite a large amount of GPU memory and therefore we provide tools to run this model remotely using OSMO.</p>
+<p>DreamZero inference requires an H100-class GPU. This guide starts the server
+on an OSMO cluster and runs Arena locally. Before continuing, follow the
+<a class="reference internal" href="../../example_workflows/multi_node_evaluation/multi_node_evaluation.html#osmo-setup"><span class="std std-ref">OSMO setup instructions</span></a> and identify an H100-capable
+pool. Replace <code class="docutils literal notranslate"><span class="pre">isaac-dev-h100-01</span></code> below with the name of that pool.</p>
 </div>
 <p>The setup uses two terminals: the <strong>DreamZero server</strong> (terminal 1, hosts the model remotely on OSMO)
 and the <strong>Arena Experiment Runner</strong> (terminal 2, runs the simulation and exchanges observations
 and actions with the server).</p>
 <section id="terminal-1-dreamzero-server">
 <h2>Terminal 1 — DreamZero server<a class="headerlink" href="#terminal-1-dreamzero-server" title="Link to this heading">#</a></h2>
-<p><strong>Build and push the server image</strong></p>
-<p>Arena ships everything needed to build the DreamZero inference server image and run
-it as an OSMO job. Log in to the NGC registry once:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>login<span class="w"> </span>nvcr.io<span class="w"> </span>-u<span class="w"> </span><span class="s1">&#39;$oauthtoken&#39;</span><span class="w"> </span>-p<span class="w"> </span>&lt;YOUR_NGC_API_KEY&gt;
-</pre></div>
-</div>
-<p>Then build and push (bakes the public <code class="docutils literal notranslate"><span class="pre">GEAR-Dreams/DreamZero-DROID</span></code> checkpoint into the image):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./isaaclab_arena_dreamzero/docker/push_to_ngc.sh<span class="w"> </span>-p
-<span class="c1"># Optional overrides:</span>
-<span class="c1">#   -t &lt;tag&gt;  Image tag (default: latest)</span>
-<span class="c1">#   -n &lt;name&gt; Override image name (default: dreamzero_inference_server)</span>
-<span class="c1">#   -R        Build without cache</span>
-</pre></div>
-</div>
-<p>This produces <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidian/dreamzero_inference_server:&lt;tag&gt;</span></code> with the
-<code class="docutils literal notranslate"><span class="pre">GEAR-Dreams/DreamZero-DROID</span></code> checkpoint baked in at
-<code class="docutils literal notranslate"><span class="pre">/workspace/dreamzero/checkpoints/DreamZero-DROID</span></code>.</p>
-<p><strong>Submit the OSMO job</strong></p>
+<p><strong>Start the prebuilt server on OSMO</strong></p>
+<p>Arena provides a prebuilt server image with the DreamZero code and public
+<code class="docutils literal notranslate"><span class="pre">GEAR-Dreams/DreamZero-DROID</span></code> checkpoint. Submit the server workflow to the H100 pool:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pool<span class="w"> </span>isaac-dev-h100-01<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--set<span class="w"> </span><span class="nv">port</span><span class="o">=</span><span class="m">5000</span>
 </pre></div>
 </div>
-<p>The job starts the WebSocket inference server on the requested port using a single H100
-GPU. Once the job is running, find its IP in the OSMO job logs. You will pass it to the
-runner below.</p>
+<p>The command prints the workflow ID. Once its <code class="docutils literal notranslate"><span class="pre">serve</span></code> task is running, forward the
+server port to your machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>osmo<span class="w"> </span>workflow<span class="w"> </span>port-forward<span class="w"> </span>&lt;WORKFLOW_ID&gt;<span class="w"> </span>serve<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span>
+</pre></div>
+</div>
+<p>Leave the port-forward command running. The workflow uses a single H100 GPU and serves
+the baked checkpoint from <code class="docutils literal notranslate"><span class="pre">/workspace/dreamzero/checkpoints/DreamZero-DROID</span></code>.</p>
 </section>
 <section id="terminal-2-experiment-runner">
 <h2>Terminal 2 — Experiment Runner<a class="headerlink" href="#terminal-2-experiment-runner" title="Link to this heading">#</a></h2>
@@ -632,20 +625,18 @@ the language instruction, and a three-episode rollout:</p>
 </pre></div>
 </div>
 </div>
-</details><p>The policy configuration uses <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code> by default. This works when the DreamZero server
-is local or its port is forwarded to your machine.</p>
+</details><p>The policy configuration uses <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code> by default, matching the port forward
+from terminal 1.</p>
 <p><strong>Run DreamZero closed-loop</strong></p>
-<p>Open a second terminal and enter the Arena container with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>. Replace
-<code class="docutils literal notranslate"><span class="pre">OSMO_JOB_IP</span></code> with the address from the server job, then start the rollout:</p>
+<p>Open a second terminal, enter the Arena container with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>, and
+start the rollout:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>runs.droid_pnp_dreamzero.policy.remote_host<span class="o">=</span>OSMO_JOB_IP
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
 </pre></div>
 </div>
 <p>The runner reads the other values from YAML and records the Run under the name
-<code class="docutils literal notranslate"><span class="pre">droid_pnp_dreamzero</span></code>. Omit the final override when the server is available on <code class="docutils literal notranslate"><span class="pre">localhost</span></code>.
-Run headless by replacing <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> with <code class="docutils literal notranslate"><span class="pre">--headless</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">droid_pnp_dreamzero</span></code>. Run headless by replacing <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> with <code class="docutils literal notranslate"><span class="pre">--headless</span></code>.</p>
 </section>
 </section>
 
