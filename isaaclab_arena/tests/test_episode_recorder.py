@@ -42,6 +42,10 @@ CUSTOM_KEY = "step_bucket"
 # Field contributed by the progress-tracking recorder.
 PROGRESS_KEY = "progress"
 
+# Field contributed by the initial-rest-position recorder.
+INITIAL_RESET_POSITIONS_KEY = "initial_reset_positions"
+INITIAL_REST_POSITIONS_KEY = "initial_rest_positions"
+
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
 VARIATION_NAME = "record_test_variation"
 VARIATION_SAMPLE = [0.25, 0.5]
@@ -187,14 +191,28 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
 
         # episode_in_env must increment from 0 per env, and the deterministic poses fix success.
         per_env_counter: dict[int, int] = {}
+        recorded_initial_positions = []
         for record in records:
             # With no variation drawn and no custom term, every record is the core schema plus the
             # progress block contributed by PickAndPlaceTask's progress objectives.
-            expected_keys = CORE_KEYS | {PROGRESS_KEY}
+            expected_keys = CORE_KEYS | {
+                INITIAL_RESET_POSITIONS_KEY,
+                INITIAL_REST_POSITIONS_KEY,
+                PROGRESS_KEY,
+            }
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
             assert isinstance(record["episode_length"], int)
+            reset_position = record[INITIAL_RESET_POSITIONS_KEY].get("cracker_box")
+            assert reset_position is not None
+            assert len(reset_position) == 3
+            assert all(isinstance(value, float) for value in reset_position)
+            initial_position = record[INITIAL_REST_POSITIONS_KEY].get("cracker_box")
+            if initial_position is not None:
+                assert len(initial_position) == 3
+                assert all(isinstance(value, float) for value in initial_position)
+                recorded_initial_positions.append(initial_position)
 
             env_id = record["env_id"]
             assert env_id in (0, 1)
@@ -207,6 +225,7 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
 
         # Both envs must have completed at least one episode.
         assert set(per_env_counter.keys()) == {0, 1}
+        assert recorded_initial_positions
     finally:
         env.close()
     return True
@@ -240,7 +259,12 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
 
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
-            expected_keys = CORE_KEYS | {PROGRESS_KEY, CUSTOM_KEY}
+            expected_keys = CORE_KEYS | {
+                INITIAL_RESET_POSITIONS_KEY,
+                INITIAL_REST_POSITIONS_KEY,
+                PROGRESS_KEY,
+                CUSTOM_KEY,
+            }
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record[CUSTOM_KEY] == record["episode_length"] // 10
     finally:

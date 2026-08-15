@@ -25,9 +25,7 @@ from isaaclab_arena.tasks.predicates.predicate_utils import (
 
 
 class ObjectInitialRestPoseRecorder:
-    """Recorder object that works in conjunction with the ``objects_settled`` predicate to record the
-    initial resting poses of scene objects and expose to downstream predicates.
-    """
+    """Record objects' post-reset and first-settled positions for each episode."""
 
     def __init__(self, num_envs: int, device):
         self._num_envs = num_envs
@@ -35,16 +33,25 @@ class ObjectInitialRestPoseRecorder:
         self._entries: dict[str, dict[str, torch.Tensor]] = {}
 
     def _entry(self, name: str) -> dict[str, torch.Tensor]:
-        """Get or create the ``{position, settled}`` record for one object."""
+        """Get or create the reset/settled record for one object."""
 
         entry = self._entries.get(name)
         if entry is None:
             entry = {
-                "position": torch.full((self._num_envs, 3), float("nan"), device=self._device),
+                "reset_position": torch.full((self._num_envs, 3), float("nan"), device=self._device),
+                "reset_recorded": torch.zeros(self._num_envs, dtype=torch.bool, device=self._device),
+                "settled_position": torch.full((self._num_envs, 3), float("nan"), device=self._device),
                 "settled": torch.zeros(self._num_envs, dtype=torch.bool, device=self._device),
             }
             self._entries[name] = entry
         return entry
+
+    def record_reset(self, name: str, positions: torch.Tensor, env_ids=None) -> None:
+        """Record an object's world position immediately after reset events finish."""
+        entry = self._entry(name)
+        ids = slice(None) if env_ids is None else torch.as_tensor(env_ids, dtype=torch.long, device=self._device)
+        entry["reset_position"][ids] = positions[ids]
+        entry["reset_recorded"][ids] = True
 
     def record(self, name: str, positions: torch.Tensor, settled: torch.Tensor) -> None:
         """Record object's world position for envs that just settled and weren't recorded yet."""
@@ -52,22 +59,38 @@ class ObjectInitialRestPoseRecorder:
         entry = self._entry(name)
         new = settled & ~entry["settled"]
         if bool(new.any()):
-            entry["position"] = torch.where(new.unsqueeze(-1), positions, entry["position"])
+            entry["settled_position"] = torch.where(new.unsqueeze(-1), positions, entry["settled_position"])
             entry["settled"] = entry["settled"] | new
 
     def get(self, name: str) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(position, settled)`` for object's recorded initial rest pose."""
 
         entry = self._entry(name)
-        return entry["position"], entry["settled"]
+        return entry["settled_position"], entry["settled"]
+
+    def get_reset(self, name: str) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return ``(position, recorded)`` for an object's post-reset position."""
+        entry = self._entry(name)
+        return entry["reset_position"], entry["reset_recorded"]
+
+    def get_all(self) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
+        """Return every recorded object as ``name -> (position, settled)``."""
+
+        return {name: (entry["settled_position"], entry["settled"]) for name, entry in self._entries.items()}
+
+    def get_all_reset(self) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
+        """Return every recorded object as ``name -> (post-reset position, recorded)``."""
+        return {name: (entry["reset_position"], entry["reset_recorded"]) for name, entry in self._entries.items()}
 
     def reset(self, env_ids=None) -> None:
-        """Clear recorded rest poses for ``env_ids`` (all envs if None)."""
+        """Clear recorded reset and rest poses for ``env_ids`` (all envs if None)."""
 
         ids = slice(None) if env_ids is None else torch.as_tensor(env_ids, dtype=torch.long, device=self._device)
         for entry in self._entries.values():
+            entry["reset_recorded"][ids] = False
+            entry["reset_position"][ids] = float("nan")
             entry["settled"][ids] = False
-            entry["position"][ids] = float("nan")
+            entry["settled_position"][ids] = float("nan")
 
 
 def get_rest_pose_recorder(env) -> ObjectInitialRestPoseRecorder:
@@ -82,6 +105,13 @@ def reset_rest_pose_recorder(env, env_ids=None) -> None:
     recorder = getattr(get_env(env), "object_initial_rest_pose_recorder", None)
     if recorder is not None:
         recorder.reset(env_ids)
+
+
+def record_object_reset_positions(env, object_names: list[str], env_ids=None) -> None:
+    """Record tracked objects' world positions after reset events complete."""
+    recorder = get_rest_pose_recorder(env)
+    for name in object_names:
+        recorder.record_reset(name, get_root_pos_w(env, name), env_ids)
 
 
 def get_object_initial_rest_state(env, name: str) -> tuple[torch.Tensor, torch.Tensor]:

@@ -175,6 +175,16 @@ class PickAndPlaceTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
+    def _settling_object_names(self) -> list[str]:
+        """Return dynamic pick-up and destination objects whose initial positions are tracked."""
+        from isaaclab_arena.assets.object_reference import ObjectReference
+
+        names = [self.pick_up_object.name]
+        destination = self.destination_object or self.destination_location
+        if not isinstance(destination, ObjectReference) and destination.name not in names:
+            names.append(destination.name)
+        return names
+
     def get_progress_objectives(self) -> list[ProgressObjective]:
         return [
             ProgressObjective(
@@ -182,7 +192,7 @@ class PickAndPlaceTask(TaskBase):
                 predicate_groups=[
                     partial(
                         objects_settled,
-                        object_names=[self.pick_up_object.name],
+                        object_names=self._settling_object_names(),
                     ),
                     partial(
                         object_is_above_height,
