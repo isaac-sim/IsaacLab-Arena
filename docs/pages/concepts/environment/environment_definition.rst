@@ -173,7 +173,7 @@ define an RL-training environment in YAML:
 
 **Patching the compiled config.** ``env_cfg_callback`` runs after Arena builds the
 ``ManagerBasedRLEnvCfg``. Use it for viewport, decimation, physics, or anything
-else on that config:
+else on that config. Mutate the config in place, or return a replacement config:
 
 .. code-block:: python
 

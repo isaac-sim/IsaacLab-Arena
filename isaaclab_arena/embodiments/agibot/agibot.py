@@ -10,8 +10,10 @@ import isaaclab.envs.mdp as mdp
 import isaaclab.utils.math as PoseUtils
 from isaaclab.controllers.config.rmp_flow import AGIBOT_LEFT_ARM_RMPFLOW_CFG, AGIBOT_RIGHT_ARM_RMPFLOW_CFG
 from isaaclab.envs.mdp.actions.rmpflow_actions_cfg import RMPFlowActionCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
@@ -41,6 +43,7 @@ class AgibotEmbodiment(EmbodimentBase):
         self.scene_config = AgibotLeftArmSceneCfg() if self.arm_mode == ArmMode.LEFT else AgibotRightArmSceneCfg()
         self.action_config = AgibotLeftArmActionsCfg() if self.arm_mode == ArmMode.LEFT else AgibotRightArmActionsCfg()
         self.observation_config = AgibotObservationsCfg()
+        self.event_config = AgibotEventCfg()
         self.mimic_env = AgibotMimicEnv
 
 
@@ -65,7 +68,10 @@ class AgibotLeftArmSceneCfg(AgibotSceneCfg):
                 prim_path="{ENV_REGEX_NS}/Robot/gripper_center",
                 name="left_end_effector",
                 offset=OffsetCfg(
-                    rot=(0.7071, 0.0, -0.7071, 0.0),
+                    # -90 deg about y in OffsetCfg's (x, y, z, w) order. Previously written
+                    # (0.7071, 0, -0.7071, 0) -- the same rotation in (w, x, y, z) order, which
+                    # is read here as a 180 deg flip; see AgibotLeftArmActionsCfg.
+                    rot=(0.0, -0.7071, 0.0, 0.7071),
                 ),
             ),
         ],
@@ -112,7 +118,15 @@ class AgibotLeftArmActionsCfg:
         body_name="gripper_center",
         controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
         scale=1.0,
-        body_offset=RMPFlowActionCfg.OffsetCfg(rot=[0.7071, 0.0, -0.7071, 0.0]),
+        # -90 deg about y, in OffsetCfg's (x, y, z, w) order. The left end-effector frame is
+        # not the mirror of the right one: agibot.urdf gives ``gripper_center_joint`` rpy
+        # "0 -1.5708 -1.5708" against ``right_gripper_center_joint``'s "0 0 -1.5708", and this
+        # offset cancels the extra quarter turn so both arms take deltas in the same axes.
+        # It was previously written (0.7071, 0, -0.7071, 0) -- the same rotation in (w, x, y, z)
+        # order, which OffsetCfg reads as a 180 deg flip. RMPFlow then chased an orientation the
+        # arm cannot hold: under a zero command the left gripper ran away ~270 mm after every
+        # reset, which made the arm unteleoperatable. Corrected, it holds and tracks each axis.
+        body_offset=RMPFlowActionCfg.OffsetCfg(rot=(0.0, -0.7071, 0.0, 0.7071)),
         use_relative_mode=True,
     )
 
@@ -143,6 +157,44 @@ class AgibotRightArmActionsCfg:
         open_command_expr={"right_hand_joint1": 0.994, "right_.*_Support_Joint": 0.994},
         close_command_expr={"right_hand_joint1": 0.0, "right_.*_Support_Joint": 0.0},
     )
+
+
+def reset_robot_to_default(env, env_ids, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
+    """Restore the robot's default joint state and joint targets on reset.
+
+    Deliberately robot-only, matching the Franka embodiment's reset event.
+    ``mdp.reset_scene_to_default`` would also restore every other scene asset, which tramples
+    task-level contracts -- an object whose reset pose a task disabled (``disable_reset_pose``)
+    would get teleported back to its spawn state by the embodiment.
+    """
+    asset = env.scene[asset_cfg.name]
+    default_joint_pos = asset.data.default_joint_pos.torch[env_ids].clone()
+    default_joint_vel = asset.data.default_joint_vel.torch[env_ids].clone()
+    asset.write_joint_position_to_sim_index(position=default_joint_pos, env_ids=env_ids)
+    asset.write_joint_velocity_to_sim_index(velocity=default_joint_vel, env_ids=env_ids)
+    asset.set_joint_position_target_index(target=default_joint_pos, env_ids=env_ids)
+    asset.set_joint_velocity_target_index(target=default_joint_vel, env_ids=env_ids)
+
+
+@configclass
+class AgibotEventCfg:
+    """Reset events for the Agibot robot."""
+
+    reset_robot_to_default_pose = EventTermCfg(
+        func=reset_robot_to_default,
+        mode="reset",
+    )
+    """Restore ``AGIBOT_A2D_CFG.init_state`` joint values and targets on every reset.
+
+    Without this the robot resets with every joint at 0, including ``joint_lift_body`` and
+    ``joint_body_pitch``. That silently breaks RMPFlow: lula pins those two at 0.1995 and 0.6025
+    through ``cspace_to_urdf_rules`` in ``agibot_left_arm_gripper.yaml``, and its ``default_q``
+    c-space attractor expects the arm at the same joint pose. Starting from all zeros, the
+    attractor drags the arm ~1 m away from wherever it began even under a zero action, and no
+    end-effector target tracks correctly. The Franka embodiment has the equivalent robot-only
+    term (``FrankaEventCfg.randomize_franka_joint_state``); the Agibot one had none, and
+    ``tabletop_place_upright`` only worked because it sets its own ``reset_scene_to_default`` at
+    the task level."""
 
 
 @configclass
