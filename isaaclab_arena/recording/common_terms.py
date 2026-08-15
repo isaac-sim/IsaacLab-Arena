@@ -47,7 +47,7 @@ def record_variation_samples(env, env_id: int) -> dict[str, Any]:
 
 
 def record_initial_rest_positions(env, env_id: int) -> dict[str, Any]:
-    """Record objects' post-reset and first-settled world positions for the finished episode."""
+    """Record the environment origin and objects' reset/settled world positions."""
     reset_positions = {
         name: position[env_id].tolist()
         for name, (position, recorded) in env.object_initial_rest_pose_recorder.get_all_reset().items()
@@ -59,6 +59,7 @@ def record_initial_rest_positions(env, env_id: int) -> dict[str, Any]:
         if bool(settled[env_id].item())
     }
     return {
+        "env_origin": env.scene.env_origins[env_id].tolist(),
         "initial_reset_positions": reset_positions,
         "initial_rest_positions": settled_positions,
     }
@@ -80,6 +81,6 @@ class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
 
 @configclass
 class InitialRestPositionEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
-    """Term recording each tracked object's post-reset and first-settled world positions."""
+    """Term recording the environment origin and tracked objects' reset/settled world positions."""
 
     func: Callable[..., dict[str, Any]] = record_initial_rest_positions

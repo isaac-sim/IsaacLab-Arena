@@ -7,10 +7,10 @@ import json
 import numpy as np
 
 from isaaclab_arena_examples.sensitivity_analysis.plot_object_pose_heatmaps import (
-    align_env_positions,
     bin_xy,
     generate_heatmaps,
     grid_edges,
+    to_env_local_positions,
 )
 
 
@@ -35,12 +35,14 @@ def test_generate_heatmaps_from_episode_results(tmp_path):
     records = [
         {
             "job_name": "task_a",
+            "env_origin": [0.0, 0.0, 0.0],
             "success": True,
             "initial_reset_positions": {"object": [0.01, 0.01, 0.1]},
             "initial_rest_positions": {"object": [0.02, 0.01, 0.05]},
         },
         {
             "job_name": "task_a",
+            "env_origin": [0.0, 0.0, 0.0],
             "success": False,
             "initial_reset_positions": {"object": [0.08, 0.07, 0.1]},
             "initial_rest_positions": {"object": [0.07, 0.07, 0.05]},
@@ -63,24 +65,26 @@ def test_grid_edges_are_aligned_to_requested_cell_size():
     assert np.allclose(edges, [-0.05, 0.0, 0.05, 0.10])
 
 
-def test_align_env_positions_removes_replication_offsets():
+def test_to_env_local_positions_subtracts_recorded_origins_only():
     records = [
         {
             "env_id": 0,
+            "env_origin": [30.0, -15.0, 0.0],
             "initial_reset_positions": {"object": [30.4, -14.8, 0.1]},
             "initial_rest_positions": {"object": [30.5, -14.7, 0.1]},
         },
         {
             "env_id": 1,
+            "env_origin": [30.0, 15.0, 0.0],
             "initial_reset_positions": {"object": [30.4, 15.2, 0.1]},
             "initial_rest_positions": {"object": [30.5, 15.3, 0.1]},
         },
     ]
 
-    aligned = align_env_positions(records, env_spacing_m=30.0)
-    env0 = aligned[0]["initial_reset_positions"]["object"]
-    env1 = aligned[1]["initial_reset_positions"]["object"]
+    local = to_env_local_positions(records)
+    env0 = local[0]["initial_reset_positions"]["object"]
+    env1 = local[1]["initial_reset_positions"]["object"]
 
     assert np.allclose(env0[:2], env1[:2])
-    assert np.allclose(env0[:2], [-0.05, -0.05])
+    assert np.allclose(env0[:2], [0.4, 0.2])
     assert env0[2] == 0.1

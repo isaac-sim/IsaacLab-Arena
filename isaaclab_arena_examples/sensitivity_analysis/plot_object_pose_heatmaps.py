@@ -26,7 +26,6 @@ from isaaclab_arena.visualization.episode_results_files import (  # noqa: E402
 RESET_POSITIONS_KEY = "initial_reset_positions"
 SETTLED_POSITIONS_KEY = "initial_rest_positions"
 DEFAULT_GRID_SIZE_M = 0.05
-DEFAULT_ENV_SPACING_M = 30.0
 
 
 def grid_edges(values: np.ndarray, grid_size_m: float) -> np.ndarray:
@@ -102,59 +101,30 @@ def load_records_by_task(results_root: str | Path) -> dict[str, list[dict]]:
     return dict(records_by_task)
 
 
-def align_env_positions(records: list[dict], env_spacing_m: float) -> list[dict]:
-    """Remove replicated-environment translations and center the aligned positions."""
-    assert env_spacing_m > 0, f"env_spacing_m must be positive, got {env_spacing_m}"
-    samples_by_env: dict[int, list[tuple[float, float]]] = defaultdict(list)
+def to_env_local_positions(records: list[dict]) -> list[dict]:
+    """Subtract each episode's recorded environment origin from object positions."""
+    local_records: list[dict] = []
     for record in records:
-        env_id = record.get("env_id")
-        if not isinstance(env_id, int):
-            continue
+        env_origin = _xy(record.get("env_origin"))
+        assert env_origin is not None, (
+            f"Episode record for env {record.get('env_id')} is missing a valid env_origin; "
+            "rerun the experiment with environment-origin recording enabled"
+        )
+        local_record = dict(record)
         for key in (RESET_POSITIONS_KEY, SETTLED_POSITIONS_KEY):
             positions = record.get(key)
             if not isinstance(positions, dict):
                 continue
-            samples_by_env[env_id].extend(
-                position for position in (_xy(value) for value in positions.values()) if position is not None
-            )
-    if not samples_by_env:
-        return records
-
-    centers = {
-        env_id: np.median(np.asarray(samples, dtype=float), axis=0) for env_id, samples in samples_by_env.items()
-    }
-    reference = centers[min(centers)]
-    offsets = {
-        env_id: np.rint((center - reference) / env_spacing_m) * env_spacing_m for env_id, center in centers.items()
-    }
-    aligned_samples = np.concatenate(
-        [np.asarray(samples_by_env[env_id], dtype=float) - offsets[env_id] for env_id in sorted(samples_by_env)],
-        axis=0,
-    )
-    common_center = np.median(aligned_samples, axis=0)
-
-    aligned_records: list[dict] = []
-    for record in records:
-        env_id = record.get("env_id")
-        if not isinstance(env_id, int) or env_id not in offsets:
-            aligned_records.append(record)
-            continue
-        aligned_record = dict(record)
-        translation = offsets[env_id] + common_center
-        for key in (RESET_POSITIONS_KEY, SETTLED_POSITIONS_KEY):
-            positions = record.get(key)
-            if not isinstance(positions, dict):
-                continue
-            aligned_positions = dict(positions)
+            local_positions = dict(positions)
             for name, value in positions.items():
                 position = _xy(value)
                 if position is None:
                     continue
-                aligned_xy = np.asarray(position) - translation
-                aligned_positions[name] = [*aligned_xy.tolist(), *value[2:]]
-            aligned_record[key] = aligned_positions
-        aligned_records.append(aligned_record)
-    return aligned_records
+                local_xy = np.asarray(position) - np.asarray(env_origin)
+                local_positions[name] = [*local_xy.tolist(), *value[2:]]
+            local_record[key] = local_positions
+        local_records.append(local_record)
+    return local_records
 
 
 def object_names(records: list[dict]) -> list[str]:
@@ -235,8 +205,8 @@ def plot_object_heatmaps(
             vmax=vmax,
         )
         axis.set_title(title)
-        axis.set_xlabel("Environment-aligned x [m]")
-        axis.set_ylabel("Environment-aligned y [m]")
+        axis.set_xlabel("Environment-local x [m]")
+        axis.set_ylabel("Environment-local y [m]")
         axis.grid(False)
         colorbar = figure.colorbar(image, ax=axis, fraction=0.046, pad=0.04)
         colorbar.set_label(colorbar_label)
@@ -262,14 +232,13 @@ def generate_heatmaps(
     results_root: str | Path,
     output_dir: str | Path,
     grid_size_m: float = DEFAULT_GRID_SIZE_M,
-    env_spacing_m: float = DEFAULT_ENV_SPACING_M,
 ) -> list[Path]:
     """Generate one three-panel heatmap figure per task and recorded object."""
     records_by_task = load_records_by_task(results_root)
     output_dir = Path(output_dir)
     written: list[Path] = []
     for task_name, records in sorted(records_by_task.items()):
-        records = align_env_positions(records, env_spacing_m)
+        records = to_env_local_positions(records)
         for object_name in object_names(records):
             output_path = output_dir / f"{_slug(task_name)}__{_slug(object_name)}.png"
             written.append(
@@ -306,15 +275,9 @@ def main() -> None:
         default=DEFAULT_GRID_SIZE_M,
         help="Square x/y grid size in metres (default: 0.05).",
     )
-    parser.add_argument(
-        "--env_spacing_m",
-        type=float,
-        default=DEFAULT_ENV_SPACING_M,
-        help="Replicated-environment spacing used to align world positions (default: 30).",
-    )
     args = parser.parse_args()
     output_dir = args.output_dir or (args.experiment_output / "object_pose_heatmaps")
-    generate_heatmaps(args.experiment_output, output_dir, args.grid_size_m, args.env_spacing_m)
+    generate_heatmaps(args.experiment_output, output_dir, args.grid_size_m)
 
 
 if __name__ == "__main__":

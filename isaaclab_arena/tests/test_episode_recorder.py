@@ -43,6 +43,7 @@ CUSTOM_KEY = "step_bucket"
 PROGRESS_KEY = "progress"
 
 # Field contributed by the initial-rest-position recorder.
+ENV_ORIGIN_KEY = "env_origin"
 INITIAL_RESET_POSITIONS_KEY = "initial_reset_positions"
 INITIAL_REST_POSITIONS_KEY = "initial_rest_positions"
 
@@ -196,6 +197,7 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
             # With no variation drawn and no custom term, every record is the core schema plus the
             # progress block contributed by PickAndPlaceTask's progress objectives.
             expected_keys = CORE_KEYS | {
+                ENV_ORIGIN_KEY,
                 INITIAL_RESET_POSITIONS_KEY,
                 INITIAL_REST_POSITIONS_KEY,
                 PROGRESS_KEY,
@@ -216,6 +218,7 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
 
             env_id = record["env_id"]
             assert env_id in (0, 1)
+            assert record[ENV_ORIGIN_KEY] == env.unwrapped.scene.env_origins[env_id].tolist()
             assert record["episode_in_env"] == per_env_counter.get(env_id, 0)
             per_env_counter[env_id] = per_env_counter.get(env_id, 0) + 1
             expected_success = env_id == 0
@@ -260,6 +263,7 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
         # The custom term's field is present and derived from the same intact episode-length buffer.
         for record in records:
             expected_keys = CORE_KEYS | {
+                ENV_ORIGIN_KEY,
                 INITIAL_RESET_POSITIONS_KEY,
                 INITIAL_REST_POSITIONS_KEY,
                 PROGRESS_KEY,
