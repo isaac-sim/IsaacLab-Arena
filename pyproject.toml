@@ -110,6 +110,9 @@ isaaclab-from-source = [
 openpi = [
     "openpi-client",
 ]
+gr00t-client = [
+    "gr00t==0.1.0",
+]
 
 [tool.uv]
 # Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
@@ -207,6 +210,7 @@ isaacteleop = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
+gr00t = { path = "submodules/Isaac-GR00T", editable = true, group = "gr00t-client" }
 # In the isaaclab-from-source flavor the Isaac Lab packages come editable from the
 # submodule checkout (one entry per source/isaaclab* package, mirroring
 # submodules/IsaacLab/pyproject.toml). When the group is inactive these
@@ -232,6 +236,15 @@ isaaclab-visualizers = [{ path = "submodules/IsaacLab/source/isaaclab_visualizer
 git = "https://github.com/Physical-Intelligence/openpi"
 rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79"
 subdirectory = "packages/openpi-client"
+
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = [
+    "msgpack==1.1.0",
+    "numpy==2.3.1",
+    "pyzmq==27.0.1",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

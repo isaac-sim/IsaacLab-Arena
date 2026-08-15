@@ -2,14 +2,14 @@ Welcome to Isaac Lab Arena!
 ===========================
 
 Isaac Lab Arena extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
-to simplify the creation of simulation environments, and for running them *fast*.
+with composable tools for creating robotics simulation environments and running them efficiently at scale.
 
 .. note::
-   This is the development version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
+   This is the development version of Isaac Lab Arena. It contains the newest features but may not be fully tested yet.
    For the tested version, please refer to the `release/0.2.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html>`_.
 
 | **Modular Environments**
-| Compose environments from reusable parts.
+| Compose scenes, embodiments, and tasks as reusable building blocks instead of duplicating full environment definitions.
 
 .. figure:: images/variation_axis_web.webp
    :width: 80%
@@ -17,7 +17,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Swappable assets**
-| Easily switch the assets in an environment without rewriting the environment code.
+| Run-time swapping of building blocks such as target objects and backgrounds allows parallel evaluation covering many variations of one task without code changes.
 
 .. container:: image-gallery gallery-3col
 
@@ -86,7 +86,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Automatic Object Placement**
-| Objects are placed automatically at run-time based on semantic spatial relationships.
+| Define layouts with semantic spatial relations rather than hand-coded poses. Arena solves and validates candidate placements against object geometry, collisions, and task constraints.
 
 
 .. grid:: 1 1 2 2
@@ -119,7 +119,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Parallel Evaluation**
-| Evaluate policies in multiple parallel environments *fast*.
+| Evaluate a policy across many parallel environments with aggregated metrics for high-level summary as well as per-episode recording for detailed analysis.
 
 .. container:: image-gallery
 
@@ -153,7 +153,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Agentic environment creation**
-| Work with an agent to create environments with randomization.
+| Turn a natural-language task request into a runnable Arena environment. Edit the environment specification and review the randomized layouts in a GUI interactively.
 
 .. container:: image-gallery
 
@@ -168,7 +168,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Built-in Evaluation Environments**
-| Test policies out of the box with a set of pre-defined environments.
+| Run policies against built-in registered environments.
 
 .. container:: image-gallery gallery-3col
 
@@ -192,7 +192,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Environmental Variations**
-| Inject controlled sources of randomness into the environment at run-time.
+| Enable build-time and run-time variations to sample controlled changes such as but not limited to HDR backgrounds, light properties, camera intrinsic and extrinsic parameters, and object mass.
 
 .. container:: image-gallery
 
@@ -234,7 +234,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Sensitivity Analysis**
-| Analyze the impact of variations on policy performance.
+| Analyze which environment factors are associated with policy success or failure.
 
 .. figure:: images/sensitivity_report_200_trails.png
    :width: 100%
@@ -242,7 +242,7 @@ to simplify the creation of simulation environments, and for running them *fast*
 
 
 | **Teleoperation**
-| Teleoperate robots in Arena-defined environments.
+| Teleoperate robots using IsaacTeleop in Arena-defined environments.
 
 .. container:: image-gallery
 
@@ -285,16 +285,20 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: Set Up
 
-   pages/quickstart/installation
-
+   Home <self>
 
 .. toctree::
    :maxdepth: 1
-   :caption: Why is Isaac Lab Arena needed?
+   :caption: Isaac Lab Arena Overview
 
    pages/motivation/motivation
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Set Up
+
+   pages/quickstart/installation
 
 .. toctree::
    :maxdepth: 1

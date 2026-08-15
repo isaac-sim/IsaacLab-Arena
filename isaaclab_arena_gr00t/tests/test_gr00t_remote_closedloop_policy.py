@@ -144,6 +144,14 @@ def _build_policy(policy_config_yaml: str, scheduler: str = "chunk"):
 # ------------------------------- tests ------------------------------- #
 
 
+def test_gr00t_client_imports():
+    """Import the real lightweight GR00T client API."""
+    from gr00t.policy.server_client import MsgSerializer, PolicyClient
+
+    assert MsgSerializer is not None
+    assert PolicyClient is not None
+
+
 def test_observation_sent_to_server_has_expected_structure(
     policy_config_yaml, synthetic_observation, fake_client_factory
 ):

@@ -1,0 +1,192 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Native uv CI
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+  schedule:
+    # Nightly at 06:00 UTC.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  uv_changes:
+    name: Detect uv-related changes
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 5
+    # Only meaningful on PRs; other events always run the uv tests.
+    if: github.event_name == 'pull_request'
+    outputs:
+      uv: ${{ steps.filter.outputs.uv }}
+    steps:
+      # Queries the PR's changed files via the GitHub API; no checkout needed.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            uv:
+              - '.github/workflows/uv-ci.yml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'submodules/IsaacLab'
+              - 'submodules/IsaacLab/**'
+              - 'submodules/Isaac-GR00T'
+              - 'submodules/Isaac-GR00T/**'
+
+  uv_test:
+    name: Run tests (native uv, ${{ matrix.variant }})
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [uv_changes]
+    # Runs nightly, on push to main, and on manual dispatch; on pull requests
+    # only when the PR touches the uv-managed dependency files or this workflow.
+    # The !cancelled() guard keeps the job alive when uv_changes is skipped on
+    # non-PR events.
+    if: >-
+      !cancelled() &&
+      (github.event_name != 'pull_request' ||
+       needs.uv_changes.outputs.uv == 'true')
+    strategy:
+      # Keep running the other variant when one fails.
+      fail-fast: false
+      # Test matrix:
+      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
+      #     - source: uv-based installation that consumes isaaclab through source code.
+      matrix:
+        include:
+          - variant: wheel
+            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
+          - variant: source
+            uv_flags: "--group gr00t-client"
+    env:
+      ARENA_INFERENCE_ENDPOINT: public
+      NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
+      # Accept the Isaac Sim EULA so the first launch is non-interactive.
+      OMNI_KIT_ACCEPT_EULA: "YES"
+      ACCEPT_EULA: "Y"
+      # Large CUDA wheels (e.g. nvidia-cublas-cu12) can exceed uv's 30s default.
+      UV_HTTP_TIMEOUT: "300"
+
+    # Validates the native workflow in a clean ubuntu:24.04 container.
+    container:
+      image: nvidia/cuda:12.8.2-base-ubuntu24.04
+      env:
+        # Needed to give the container access to the driver's graphics libraries.
+        NVIDIA_DRIVER_CAPABILITIES: all
+
+    steps:
+      - name: nvidia-smi
+        run: nvidia-smi
+
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
+          git --version
+          git lfs version
+
+      # Clean up residual stuff due to symlinks in the submodules directory.
+      - name: Clean up symlinks in submodules directory
+        run: |
+          rm -f .git/modules/submodules/IsaacLab/index.lock || true
+          rm -rf submodules/* || true
+
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Git LFS
+        run: |
+          git lfs update --force
+          git lfs install --local
+          git lfs pull
+
+      - name: Install graphics loader and build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libglu1-mesa libglx0 libxi6 libxrandr2 libxt6 libsm6 libvulkan1 \
+            cmake build-essential bash
+
+      - name: Install uv
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates
+          curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate uv lock
+        run: |
+          uv python install 3.12
+          uv lock --check --no-python-downloads
+
+      # Out-of-source packaging check: validates the lockfile via the
+      # packaging tests, run in an out of source directory.
+      - name: Validate editable package
+        run: |
+          uv venv --python 3.12 /tmp/arena-package-venv
+          uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
+          uv pip install --python /tmp/arena-package-venv/bin/python pytest
+          REPO_DIR="$PWD"
+          cd /tmp
+          /tmp/arena-package-venv/bin/python -m pytest -v "${REPO_DIR}/isaaclab_arena/tests/test_packaging.py"
+
+      # In-source full environment: sync the locked deps and run the sim suite.
+      - name: Sync the locked environment
+        run: |
+          # Fix dubious ownership issues in cache
+          git config --global --add safe.directory '*'
+          uv sync ${{ matrix.uv_flags }} --extra dev
+
+      - name: Run in-process Newton tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m with_newton \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests without cameras
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process PhysX tests with cameras
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+            isaaclab_arena/tests/
+
+      - name: Run subprocess-spawning PhysX tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          pytest -sv --durations=0 -m with_subprocess \
+            isaaclab_arena/tests/
+
+      - name: Run GR00T remote policy client tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 \
+            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy.py
