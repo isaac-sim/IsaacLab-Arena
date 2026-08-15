@@ -1,0 +1,79 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.36508633440412985
+    - -0.03974793453181227
+    - 0.027351130566992295
+    rotation_xyzw:
+    - -0.0003799391622758397
+    - -0.00044702490708508784
+    - -6.251974433932306e-05
+    - 0.9999998259531084
+- id: grey_bin
+  registry_name: grey_bin_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5183118023909514
+    - 0.2881363735360605
+    - 1.3853838235454441e-08
+    rotation_xyzw:
+    - 4.020191274679448e-09
+    - -3.6520565004312745e-08
+    - 6.718444587698055e-08
+    - 0.9999999999999971
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5899060696220505
+    - 3.2756507665856594e-05
+    - 0.09549231464775708
+    rotation_xyzw:
+    - -0.00017273464938180922
+    - -0.0009335340501531214
+    - 1.4597635214069811e-05
+    - 0.999999549231812
+- id: dry_erase_marker
+  registry_name: dry_erase_marker_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.38043467688760985
+    - -0.2602368148094251
+    - 0.00907982636326579
+    rotation_xyzw:
+    - -0.000805771071312099
+    - 0.04130230316225157
+    - 1.1609667184407087e-05
+    - 0.9991463708344688
+- id: mug
+  registry_name: mug
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5091498295322074
+    - -0.18376982628207947
+    - 0.04055188599903194
+    rotation_xyzw:
+    - -0.00033325955790861577
+    - -0.0015970903093534086
+    - 0.00014253106111244396
+    - 0.9999986589618546

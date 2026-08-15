@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
   params: {}
 objects:
 - id: cheez_it_box
@@ -26,24 +26,24 @@ objects:
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: oak_table_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: cheez_it_box
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: bin_a06
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: mustard
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: tomato_soup_can
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: rotate_around_solution
   subject: tomato_soup_can

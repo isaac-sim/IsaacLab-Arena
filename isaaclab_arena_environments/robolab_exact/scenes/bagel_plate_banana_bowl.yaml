@@ -1,0 +1,80 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 1.35
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.46777553579677594
+    - -0.11137772032433418
+    - 0.018178832364805563
+    rotation_xyzw:
+    - -0.0006169950459229911
+    - -0.0011194444046297455
+    - -1.4118733329257814e-06
+    - 0.9999991830793388
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5881184750005463
+    - 0.22644721755646402
+    - -0.002757962580302804
+    rotation_xyzw:
+    - 1.3262650131710358e-06
+    - -9.304794174907195e-07
+    - -1.619220810430602e-06
+    - 0.9999999999973767
+- id: bagel_1
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.341771782363124
+    - 0.13158955409891068
+    - 0.014792544930193496
+    rotation_xyzw:
+    - -0.020256206296462336
+    - 0.004854996750126216
+    - 0.00024130780558038358
+    - 0.9997830048983501
+- id: bagel_2
+  registry_name: bagel_00_objaverse_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3168599036467834
+    - -0.05670360534262948
+    - 0.015080894890364259
+    rotation_xyzw:
+    - 0.004849397094432465
+    - 0.002537632636941885
+    - 9.593004151254972e-07
+    - 0.9999850217715764
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.36511216856962997
+    - -0.3099837939369787
+    - 0.027351147830012044
+    rotation_xyzw:
+    - -0.0003801105904656788
+    - -0.0004471196072237032
+    - -5.241818303036826e-05
+    - 0.9999998264261499
