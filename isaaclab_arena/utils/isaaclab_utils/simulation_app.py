@@ -36,6 +36,7 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
     import time
 
+    _ensure_livestream_visualizer(args)
     t0 = time.monotonic()
     app_launcher = AppLauncher(args)
     elapsed = time.monotonic() - t0
@@ -152,7 +153,6 @@ class SimulationAppContext:
         return self.app_launcher.app.is_exiting()
 
     def __enter__(self):
-        _ensure_livestream_visualizer(self.args)
         self.app_launcher = get_app_launcher(self.args)
         return self
 

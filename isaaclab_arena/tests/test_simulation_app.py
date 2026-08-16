@@ -7,6 +7,7 @@ import argparse
 
 import pytest
 
+from isaaclab_arena.utils.isaaclab_utils import simulation_app
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import _ensure_livestream_visualizer
 
 
@@ -17,6 +18,20 @@ def test_livestream_enables_kit_visualizer(livestream):
     _ensure_livestream_visualizer(args)
 
     assert args.visualizer == ["kit"]
+
+
+def test_get_app_launcher_enables_kit_visualizer_for_livestream(monkeypatch):
+    args = argparse.Namespace(livestream=1, visualizer=None)
+    launched_args = None
+
+    def fake_app_launcher(app_args):
+        nonlocal launched_args
+        launched_args = app_args
+
+    monkeypatch.setattr(simulation_app, "AppLauncher", fake_app_launcher)
+    simulation_app.get_app_launcher(args)
+
+    assert launched_args.visualizer == ["kit"]
 
 
 def test_livestream_environment_enables_kit_visualizer(monkeypatch):
