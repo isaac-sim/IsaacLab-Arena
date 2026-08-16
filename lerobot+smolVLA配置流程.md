@@ -5,6 +5,12 @@
 官方教程使用的是旧版本的 IsaacLab-Arena，这里使用当前版本的
 IsaacLab-Arena，并使用项目根目录下的 `.venv`。
 
+### 再在这个虚拟环境下安装lerobot
+```bash
+cd lerobot
+uv pip install ".[dataset, smolvla]"
+```
+
 
 ### 用IsaacLab-Arena评估
 ```bash
