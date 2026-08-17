@@ -261,6 +261,25 @@ include = [
 ]
 namespaces = false
 
+# Configuration the packages read at runtime. setuptools installs only .py files
+# unless the data files are declared, so in a non-editable install (anything built
+# from the wheel) the paths these modules resolve relative to __file__ do not
+# exist -- the G1 joint order and whole-body controller YAML among them. Every
+# install flavor here is editable, which is why the source tree does not show it.
+#
+# The globs must be recursive: the directories holding the environment specs
+# (isaaclab_arena_environments/robolab/scenes, .../tasks, kitchen_bench,
+# experiment_configs) carry no __init__.py, so they are not packages of their own.
+[tool.setuptools.package-data]
+"*" = ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.jsonl", "**/*.html"]
+
+# Test fixtures are not runtime data. Their large artifacts (hdf5, parquet, mp4,
+# pt) are not matched above; these keep the accompanying configs out as well. Both
+# forms are listed because test_data sits under a package in isaaclab_arena and
+# under a plain directory in isaaclab_arena_gr00t.
+[tool.setuptools.exclude-package-data]
+"*" = ["tests/test_data/**", "test_data/**"]
+
 # ----------------------------------------------------------------------------
 # Existing tool configuration (migrated unchanged from the previous pyproject)
 # ----------------------------------------------------------------------------
