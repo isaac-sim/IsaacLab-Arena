@@ -22,7 +22,9 @@ RUN apt-get update && apt-get install -y \
   sudo \
   jq \
   ffmpeg \
-  python3-pip
+  python3-pip && \
+  apt-get install -y --no-install-recommends \
+  pqiv
 
 ################################
 # Install Isaac Lab

@@ -86,12 +86,11 @@ For the downloaded sample, the terminal output includes:
 Read the posterior marginals
 ----------------------------
 
-From another terminal on the host, set the corresponding host path and open the generated image:
+Still in the Base Docker container, open the generated image:
 
 .. code-block:: bash
 
-   POSTERIOR_FIGURE_PATH="$HOME/eval/camera_sensitivity_workflow/droid_pnp_camera_sensitivity_openpi/camera_sensitivity_posterior.png"
-   xdg-open "${POSTERIOR_FIGURE_PATH}"
+   pqiv "${POSTERIOR_FIGURE_PATH}"
 
 .. figure:: ../../../images/droid_camera_sensitivity_posterior.png
    :width: 100%
