@@ -15,6 +15,7 @@ from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.usd.rigid_bodies import find_nearest_rigid_body_ancestor
 from isaaclab_arena.utils.usd_articulation import (
     articulation_joint_prims,
     compute_posed_prim_world_deltas,
@@ -522,19 +523,6 @@ def _extract_trimesh_from_usd_at_joint_pos(
     return trimesh.util.concatenate(_posed_link_bbox_meshes(stage, default_prim, deltas, scale))
 
 
-def _nearest_rigid_body_ancestor(prim: Usd.Prim, root_prim: Usd.Prim) -> Usd.Prim | None:
-    """Return the nearest rigid-body ancestor at or below root_prim."""
-    candidate = prim
-    root_path = root_prim.GetPath()
-    while candidate and candidate.IsValid() and candidate.GetPath().HasPrefix(root_path):
-        if candidate.HasAPI(UsdPhysics.RigidBodyAPI):
-            return candidate
-        if candidate == root_prim:
-            break
-        candidate = candidate.GetParent()
-    return None
-
-
 def _untransformed_gprim_corners(
     prim: Usd.Prim,
     bbox_cache: UsdGeom.BBoxCache,
@@ -571,7 +559,7 @@ def _posed_link_bbox_meshes(
         local_corners = _untransformed_gprim_corners(prim, bbox_cache)
         if local_corners is None:
             continue
-        body_prim = _nearest_rigid_body_ancestor(prim, default_prim)
+        body_prim = find_nearest_rigid_body_ancestor(prim, default_prim)
         frame_prim = body_prim or default_prim
         frame_path = frame_prim.GetPath().pathString
         frames.setdefault(frame_path, frame_prim)

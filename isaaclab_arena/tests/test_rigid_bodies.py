@@ -11,9 +11,11 @@ from pathlib import Path
 
 import pytest
 
+from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 from isaaclab_arena.utils.usd.rigid_bodies import (
     find_shallowest_rigid_body,
     find_shallowest_rigid_body_from_stage,
+    freeze_loose_rigid_bodies,
     read_asset_rigid_body_paths,
 )
 
@@ -75,3 +77,71 @@ def test_find_shallowest_rigid_body_from_stage_raises_on_a_tie(tmp_path: Path):
     stage.GetDefaultPrim().GetVariantSets().GetVariantSet("Physics").SetVariantSelection("physics")
     with pytest.raises(ValueError, match="Expected only one"):
         find_shallowest_rigid_body_from_stage(stage)
+
+
+def test_freeze_loose_rigid_bodies_preserves_jointed_bodies():
+    from pxr import UsdPhysics
+
+    stage = new_stage()
+    loose_body_path = add_body(stage, "loose_prop")
+    cabinet_body_path = add_body(stage, "cabinet")
+    door_body_path = add_body(stage, "door")
+    joint = UsdPhysics.RevoluteJoint.Define(stage, "/Root/cabinet_door_joint")
+    joint.CreateBody0Rel().SetTargets([cabinet_body_path])
+    joint.CreateBody1Rel().SetTargets([f"{door_body_path}/door_mesh_00"])
+
+    frozen_paths = freeze_loose_rigid_bodies(stage.GetDefaultPrim())
+
+    assert frozen_paths == (loose_body_path,)
+    assert UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(loose_body_path)).GetKinematicEnabledAttr().Get()
+    assert UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(cabinet_body_path)).GetKinematicEnabledAttr().Get() is not True
+    assert UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(door_body_path)).GetKinematicEnabledAttr().Get() is not True
+
+
+def test_freeze_loose_rigid_bodies_preserves_world_joint_body():
+    from pxr import UsdPhysics
+
+    stage = new_stage()
+    loose_body_path = add_body(stage, "loose_prop")
+    door_body_path = add_body(stage, "door")
+    joint = UsdPhysics.RevoluteJoint.Define(stage, "/Root/world_door_joint")
+    joint.CreateBody1Rel().SetTargets([f"{door_body_path}/door_mesh_00"])
+
+    frozen_paths = freeze_loose_rigid_bodies(stage.GetDefaultPrim())
+
+    assert frozen_paths == (loose_body_path,)
+    assert UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(door_body_path)).GetKinematicEnabledAttr().Get() is not True
+
+
+def test_freeze_loose_rigid_bodies_rejects_missing_joint_target():
+    from pxr import UsdPhysics
+
+    stage = new_stage()
+    add_body(stage, "loose_prop")
+    joint = UsdPhysics.RevoluteJoint.Define(stage, "/Root/broken_joint")
+    joint.CreateBody1Rel().SetTargets(["/Root/missing_body"])
+
+    with pytest.raises(AssertionError, match="targets missing prim"):
+        freeze_loose_rigid_bodies(stage.GetDefaultPrim())
+
+
+def test_freeze_loose_rigid_bodies_does_not_follow_targets_outside_root():
+    from pxr import UsdGeom, UsdPhysics
+
+    stage = new_stage()
+    loose_body_path = add_body(stage, "loose_prop")
+    external_body = UsdGeom.Xform.Define(stage, "/ExternalBody")
+    UsdPhysics.RigidBodyAPI.Apply(external_body.GetPrim())
+    joint = UsdPhysics.RevoluteJoint.Define(stage, "/Root/external_joint")
+    joint.CreateBody1Rel().SetTargets(["/ExternalBody"])
+
+    frozen_paths = freeze_loose_rigid_bodies(stage.GetDefaultPrim())
+
+    assert frozen_paths == (loose_body_path,)
+
+
+def test_freeze_loose_rigid_bodies_accepts_empty_root():
+    stage = new_stage()
+    frozen_paths = freeze_loose_rigid_bodies(stage.GetDefaultPrim())
+
+    assert frozen_paths == ()
