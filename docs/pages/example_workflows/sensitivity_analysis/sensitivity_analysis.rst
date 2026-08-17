@@ -90,7 +90,7 @@ Still in the Base Docker container, open the generated image:
 
 .. code-block:: bash
 
-   pqiv "${POSTERIOR_FIGURE_PATH}"
+   NO_AT_BRIDGE=1 pqiv "${POSTERIOR_FIGURE_PATH}"
 
 .. figure:: ../../../images/droid_camera_sensitivity_posterior.png
    :width: 100%
