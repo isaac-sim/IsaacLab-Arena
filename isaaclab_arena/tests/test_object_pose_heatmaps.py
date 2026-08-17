@@ -59,6 +59,45 @@ def test_generate_heatmaps_from_episode_results(tmp_path):
     assert written[0].stat().st_size > 0
 
 
+def test_generate_heatmaps_from_arena_experiment_result_by_policy(tmp_path):
+    episode = {
+        "env_id": 0,
+        "env_origin": [0.0, 0.0, 0.0],
+        "success": True,
+        "initial_reset_positions": {"object": [0.01, 0.01, 0.1]},
+        "initial_rest_positions": {"object": [0.02, 0.01, 0.05]},
+    }
+    result_path = tmp_path / "arena_experiment_result.json"
+    result_path.write_text(
+        json.dumps({
+            "runs": {
+                "task_a_pi0": {
+                    "status": "completed",
+                    "rebuilds": [{"index": 0, "episodes": [{**episode, "job_name": "task_a_pi0"}]}],
+                },
+                "task_a_cosmos": {
+                    "status": "completed",
+                    "rebuilds": [{"index": 0, "episodes": [{**episode, "job_name": "task_a_cosmos"}]}],
+                },
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    written = generate_heatmaps(
+        result_path,
+        tmp_path / "plots",
+        grid_size_m=0.05,
+        policies=["pi0", "cosmos"],
+    )
+
+    assert {path.relative_to(tmp_path / "plots").as_posix() for path in written} == {
+        "pi0/task_a__object.png",
+        "cosmos/task_a__object.png",
+    }
+    assert all(path.stat().st_size > 0 for path in written)
+
+
 def test_grid_edges_are_aligned_to_requested_cell_size():
     edges = grid_edges(np.asarray([-0.021, 0.081]), grid_size_m=0.05)
 

@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import matplotlib
 import numpy as np
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 
 matplotlib.use("Agg")
@@ -26,6 +28,7 @@ from isaaclab_arena.visualization.episode_results_files import (  # noqa: E402
 RESET_POSITIONS_KEY = "initial_reset_positions"
 SETTLED_POSITIONS_KEY = "initial_rest_positions"
 DEFAULT_GRID_SIZE_M = 0.05
+ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 
 
 def grid_edges(values: np.ndarray, grid_size_m: float) -> np.ndarray:
@@ -79,9 +82,36 @@ def _xy(position: object) -> tuple[float, float] | None:
     return float(x), float(y)
 
 
+def _load_experiment_result_records(result_path: Path) -> dict[str, list[dict]]:
+    """Load embedded episodes from one canonical Arena Experiment result."""
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    assert isinstance(result, dict) and isinstance(
+        result.get("runs"), dict
+    ), f"{result_path} must contain a JSON object named 'runs'"
+    records_by_run: dict[str, list[dict]] = {}
+    for run_name, run in result["runs"].items():
+        assert isinstance(run_name, str) and isinstance(run, dict), f"Invalid Run entry in {result_path}"
+        rebuilds = run.get("rebuilds")
+        assert isinstance(rebuilds, list), f"Run {run_name!r} must contain a rebuilds list"
+        records: list[dict] = []
+        for rebuild in rebuilds:
+            assert isinstance(rebuild, dict) and isinstance(
+                rebuild.get("episodes"), list
+            ), f"Run {run_name!r} contains an invalid rebuild"
+            for episode in rebuild["episodes"]:
+                assert isinstance(episode, dict), f"Run {run_name!r} contains a non-object episode"
+                records.append(episode)
+        records_by_run[run_name] = records
+    assert records_by_run, f"No Runs found in {result_path}"
+    return records_by_run
+
+
 def load_records_by_task(results_root: str | Path) -> dict[str, list[dict]]:
-    """Load episode records beneath an Experiment output directory, grouped by task."""
+    """Load episode records from an Experiment JSON or output directory, grouped by Run."""
     results_root = Path(results_root)
+    if results_root.name == ARENA_EXPERIMENT_RESULT_FILENAME:
+        return _load_experiment_result_records(results_root)
+
     files = [results_root] if results_root.is_file() else find_episode_results_files(results_root)
     assert files, f"No episode_results*.jsonl files found under {results_root}"
 
@@ -228,22 +258,36 @@ def _slug(value: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_").lower()
 
 
+def _split_task_and_policy(run_name: str, policies: Sequence[str]) -> tuple[str, str]:
+    """Split a Run name using the longest requested policy suffix."""
+    for policy in sorted(policies, key=len, reverse=True):
+        suffix = f"_{policy}"
+        if run_name.endswith(suffix):
+            task_name = run_name[: -len(suffix)]
+            assert task_name, f"Run {run_name!r} has no task name before policy suffix {suffix!r}"
+            return task_name, policy
+    raise AssertionError(f"Run {run_name!r} does not end in one of the requested policy suffixes: {list(policies)}")
+
+
 def generate_heatmaps(
     results_root: str | Path,
     output_dir: str | Path,
     grid_size_m: float = DEFAULT_GRID_SIZE_M,
+    policies: Sequence[str] | None = None,
 ) -> list[Path]:
     """Generate one three-panel heatmap figure per task and recorded object."""
     records_by_task = load_records_by_task(results_root)
     output_dir = Path(output_dir)
     written: list[Path] = []
-    for task_name, records in sorted(records_by_task.items()):
+    for run_name, records in sorted(records_by_task.items()):
+        task_name, policy = _split_task_and_policy(run_name, policies) if policies else (run_name, None)
         records = to_env_local_positions(records)
         for object_name in object_names(records):
-            output_path = output_dir / f"{_slug(task_name)}__{_slug(object_name)}.png"
+            policy_output_dir = output_dir / policy if policy is not None else output_dir
+            output_path = policy_output_dir / f"{_slug(task_name)}__{_slug(object_name)}.png"
             written.append(
                 plot_object_heatmaps(
-                    task_name,
+                    f"{task_name} [{policy}]" if policy is not None else task_name,
                     object_name,
                     records,
                     output_path,
@@ -261,7 +305,7 @@ def main() -> None:
         "--experiment_output",
         type=Path,
         required=True,
-        help="Experiment output directory containing per-task episode_results*.jsonl files.",
+        help="arena_experiment_result.json or an output directory containing episode_results*.jsonl files.",
     )
     parser.add_argument(
         "--output_dir",
@@ -275,9 +319,16 @@ def main() -> None:
         default=DEFAULT_GRID_SIZE_M,
         help="Square x/y grid size in metres (default: 0.05).",
     )
+    parser.add_argument(
+        "--policies",
+        nargs="+",
+        default=None,
+        help="Policy suffixes used to group plots into per-policy subdirectories, e.g. pi0 cosmos.",
+    )
     args = parser.parse_args()
-    output_dir = args.output_dir or (args.experiment_output / "object_pose_heatmaps")
-    generate_heatmaps(args.experiment_output, output_dir, args.grid_size_m)
+    default_output_root = args.experiment_output.parent if args.experiment_output.is_file() else args.experiment_output
+    output_dir = args.output_dir or (default_output_root / "object_pose_heatmaps")
+    generate_heatmaps(args.experiment_output, output_dir, args.grid_size_m, args.policies)
 
 
 if __name__ == "__main__":
