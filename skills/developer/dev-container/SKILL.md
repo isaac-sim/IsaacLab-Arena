@@ -1,6 +1,7 @@
 ---
 name: dev-container
 description: Bootstraps and maintains the Docker environment used when contributing to Isaac Lab-Arena. Use when preparing a checkout for development, installing contributor hooks, rebuilding the Arena image with or without cache, inspecting the clone-specific container, or running development commands inside it. For installing or using Arena without contribution work, use setup-arena instead.
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(pre-commit install) Bash(test -x *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *)
 ---
 
 # Dev Container
