@@ -3,20 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import h5py
 import json
 import multiprocessing as mp
-import numpy as np
 import shutil
 import subprocess
 import time
 import traceback
 from dataclasses import fields
 from pathlib import Path
-from tqdm import tqdm
 from typing import Any
 
+import h5py
+import imageio.v2 as imageio
+import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from isaaclab_arena_gr00t.lerobot.config.dataset_config import Gr00tDatasetConfig
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
