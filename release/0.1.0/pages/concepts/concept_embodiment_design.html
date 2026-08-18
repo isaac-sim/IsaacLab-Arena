@@ -424,7 +424,7 @@
 <p>Embodiments use the <code class="docutils literal notranslate"><span class="pre">EmbodimentBase</span></code> abstract class that extends the asset system:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">EmbodimentBase</span><span class="p">(</span><span class="n">Asset</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;embodiment&quot;</span><span class="p">]</span>
+    <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"embodiment"</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_cameras</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">initial_pose</span><span class="p">:</span> <span class="n">Pose</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scene_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -434,11 +434,11 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Robot physical configuration and actuators.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Robot physical configuration and actuators."""</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_action_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Control interface definition.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Control interface definition."""</span>
 </pre></div>
 </div>
 </section>
@@ -471,7 +471,7 @@
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Embodiment creation with camera support</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)(</span>
     <span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 
@@ -482,7 +482,7 @@
 
 <span class="c1"># Environment composition</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"manipulation_task"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>  <span class="c1"># Robot configuration</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
@@ -494,21 +494,21 @@
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Manipulation Robot</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Humanoid Control Modes</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Joint space control</span>
-<span class="n">g1_joint</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;g1_wbc_joint&quot;</span><span class="p">)()</span>
+<span class="n">g1_joint</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"g1_wbc_joint"</span><span class="p">)()</span>
 
 <span class="c1"># Inverse kinematics control</span>
-<span class="n">g1_ik</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;g1_wbc_pink&quot;</span><span class="p">)()</span>
+<span class="n">g1_ik</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"g1_wbc_pink"</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p><strong>Teleop Integration</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;gr1_pink&quot;</span><span class="p">)()</span>
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;avp_handtracking&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"gr1_pink"</span><span class="p">)()</span>
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">"avp_handtracking"</span><span class="p">)()</span>
 
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>

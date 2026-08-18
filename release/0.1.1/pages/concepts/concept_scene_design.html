@@ -431,11 +431,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Asset</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">add_asset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">:</span> <span class="n">Asset</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add single asset to scene.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Add single asset to scene."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="p">[</span><span class="n">asset</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">asset</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate Isaac Lab scene configuration from assets.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Generate Isaac Lab scene configuration from assets."""</span>
 </pre></div>
 </div>
 <p>Scenes automatically aggregate asset configurations into Isaac Lab-compatible scene configurations while maintaining asset relationships and spatial organization.</p>
@@ -445,12 +445,12 @@
 <p>The main method in the scene class is <code class="docutils literal notranslate"><span class="pre">get_scene_cfg</span></code> which returns a configclass containing all the scene elements.</p>
 <p>It reads all the registered assets and their cfgs and combines them into a configclass.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot;Returns a configclass containing all the scene elements.&quot;&quot;&quot;</span>
+<span class="w">      </span><span class="sd">"""Returns a configclass containing all the scene elements."""</span>
       <span class="c1"># Combine the configs into a configclass.</span>
       <span class="n">fields</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">AssetCfg</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
       <span class="k">for</span> <span class="n">asset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">asset</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">object_cfg</span><span class="p">),</span> <span class="n">asset</span><span class="o">.</span><span class="n">object_cfg</span><span class="p">))</span>
-      <span class="n">NewConfigClass</span> <span class="o">=</span> <span class="n">make_configclass</span><span class="p">(</span><span class="s2">&quot;SceneCfg&quot;</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
+      <span class="n">NewConfigClass</span> <span class="o">=</span> <span class="n">make_configclass</span><span class="p">(</span><span class="s2">"SceneCfg"</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
       <span class="n">new_config_class</span> <span class="o">=</span> <span class="n">NewConfigClass</span><span class="p">()</span>
       <span class="k">return</span> <span class="n">new_config_class</span>
 </pre></div>
@@ -459,8 +459,8 @@
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Asset creation and positioning</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 <span class="n">pick_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
 
 <span class="c1"># Scene composition</span>
@@ -468,7 +468,7 @@
 
 <span class="c1"># Environment integration</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"manipulation_task"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>  <span class="c1"># Physical environment layout</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
@@ -480,16 +480,16 @@
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Kitchen Pick and Place</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">mustard_bottle</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">mustard_bottle</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"mustard_bottle"</span><span class="p">)()</span>
 <span class="n">mustard_bottle</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
 
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">mustard_bottle</span><span class="p">])</span>
 </pre></div>
 </div>
 <p><strong>Microwave Interaction</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>
 <span class="n">microwave</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.23</span><span class="p">)))</span>
 
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">microwave</span><span class="p">])</span>
@@ -498,8 +498,8 @@
 <p><strong>Object References</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reference elements within larger scene assets</span>
 <span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_drawer"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
     <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 <span class="p">)</span>

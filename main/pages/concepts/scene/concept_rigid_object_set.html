@@ -621,11 +621,11 @@ Python</label><div class="sd-tab-content docutils">
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 
 <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;banana_ycb_robolab&quot;</span><span class="p">)(),</span>
-    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;orange_01_fruits_veggies_robolab&quot;</span><span class="p">)(),</span>
-    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;lemon_01_fruits_veggies_robolab&quot;</span><span class="p">)(),</span>
+    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"banana_ycb_robolab"</span><span class="p">)(),</span>
+    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"orange_01_fruits_veggies_robolab"</span><span class="p">)(),</span>
+    <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"lemon_01_fruits_veggies_robolab"</span><span class="p">)(),</span>
 <span class="p">]</span>
-<span class="n">fruit_set</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;fruit&quot;</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">members</span><span class="p">)</span>
+<span class="n">fruit_set</span> <span class="o">=</span> <span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"fruit"</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="n">members</span><span class="p">)</span>
 <span class="n">fruit_set</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
 
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">bowl</span><span class="p">,</span> <span class="n">fruit_set</span><span class="p">])</span>
@@ -656,7 +656,7 @@ reference a single object:</p>
 <span class="w">  </span><span class="nt">random_choice</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="nt">relations</span><span class="p">:</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;on&#39;</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fruit</span>
 <span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>

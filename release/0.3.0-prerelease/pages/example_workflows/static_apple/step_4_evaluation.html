@@ -542,7 +542,7 @@ standalone Isaac-GR00T venv before starting the server.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>~/models/isaaclab_arena/static_apple_tutorial
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODEL_PATH</span><span class="o">=</span><span class="nv">$MODELS_DIR</span>/gn1x_tuned_static_apple
 
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MODEL_PATH</span><span class="s2">&quot;</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$MODEL_PATH</span><span class="s2">"</span>
 hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>model<span class="w"> </span><span class="se">\</span>
@@ -620,7 +620,7 @@ and 1000 episodes is roughly <code class="docutils literal notranslate"><span cl
 You should see similar metrics.</p>
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected
 by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 1}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {'success_rate': 1.0, 'object_moved_rate': 1.0, 'num_episodes': 1}
 </pre></div>
 </div>
 </section>
@@ -647,12 +647,12 @@ gives each environment enough steps to complete at least one full 6-second episo
 </div>
 <p>During evaluation, the console prints which environments terminated because the task succeeded or
 timed out, and which environments were truncated by runner-level limits.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 </pre></div>
 </div>
 <p>At the end of the evaluation, you should see metrics similar to the single-environment run, but
 computed over more episodes because multiple environments are stepped in parallel.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 5}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 5}
 </pre></div>
 </div>
 <div class="admonition note">

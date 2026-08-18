@@ -431,7 +431,7 @@ This includes the embodiment, scene, task and teleop device.</p>
     <span class="n">teleop_device</span><span class="p">:</span> <span class="n">TeleopDeviceBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ArenaEnvBuilder</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compose IsaacLab Arena → Isaac Lab configs.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Compose IsaacLab Arena → Isaac Lab configs."""</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compose_manager_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaManagerBasedRLEnvCfg</span><span class="p">:</span>
         <span class="c1"># Combine configurations from all components</span>
         <span class="n">scene_cfg</span> <span class="o">=</span> <span class="n">combine_configclass_instances</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
@@ -444,9 +444,9 @@ This includes the embodiment, scene, task and teleop device.</p>
 <section id="creating-an-environment-example">
 <h2>Creating an Environment Example<a class="headerlink" href="#creating-an-environment-example" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Component creation</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)()</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)()</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 <span class="n">pick_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
 
 <span class="c1"># Environment composition</span>
@@ -454,7 +454,7 @@ This includes the embodiment, scene, task and teleop device.</p>
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
 
 <span class="n">arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"manipulation_task"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>

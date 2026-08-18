@@ -537,7 +537,7 @@ Replace the checkpoint path with the path to your own checkpoint.</p>
 environment name. Environment-specific arguments (<code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, etc.) must come
 <strong>after</strong> it.</p>
 <p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.81, &#39;num_episodes&#39;: 12}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.81, 'num_episodes': 12}
 </pre></div>
 </div>
 </section>
@@ -554,7 +554,7 @@ environment name. Environment-specific arguments (<code class="docutils literal 
 <span class="w">  </span>lift_object
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.72, &#39;num_episodes&#39;: 1024}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.72, 'num_episodes': 1024}
 </pre></div>
 </div>
 <a class="reference internal image-reference" href="../../../_images/lift_object_rl_parallel.gif"><img alt="../../../_images/lift_object_rl_parallel.gif" class="align-center" src="../../../_images/lift_object_rl_parallel.gif" style="height: 400px;" />
@@ -568,29 +568,29 @@ The checkpoint path should be replaced with the timestamp of your training run i
 <p><strong>1. Create an evaluation config</strong></p>
 <p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1000&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lift_object_model_1000"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"num_episodes"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lift_object"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1000.pt&quot;</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1000.pt"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1999&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lift_object_model_1999"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"num_episodes"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lift_object"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt&quot;</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>

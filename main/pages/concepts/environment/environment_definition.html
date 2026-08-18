@@ -621,17 +621,17 @@ read across to see the correspondence.</p>
 <span class="nt">relations</span><span class="p">:</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">is_anchor</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;on&#39;</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cube</span>
 <span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;on&#39;</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl</span>
 <span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
 
 <span class="c1"># Task</span>
 <span class="nt">task</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">composition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">atomic</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik&#39;s cube and place it in the bowl.</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik's cube and place it in the bowl.</span>
 <span class="w">  </span><span class="nt">subtasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PickAndPlaceTask</span>
 <span class="w">    </span><span class="nt">params</span><span class="p">:</span>
@@ -645,27 +645,27 @@ read across to see the correspondence.</p>
 <td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_environment</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTable</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">):</span>
     <span class="c1"># Identity</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;pick_and_place_maple_table&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"pick_and_place_maple_table"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
         <span class="n">get</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span>
 
         <span class="c1"># Embodiment</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;droid_abs_joint_pos&quot;</span><span class="p">)(</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"droid_abs_joint_pos"</span><span class="p">)(</span>
             <span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Scene (light must be added explicitly)</span>
-        <span class="n">maple_table</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
-        <span class="n">cube</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span><span class="p">)()</span>
-        <span class="n">bowl</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;bowl_ycb_robolab&quot;</span><span class="p">)()</span>
-        <span class="n">light</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
+        <span class="n">maple_table</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"maple_table_robolab"</span><span class="p">)()</span>
+        <span class="n">cube</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"rubiks_cube_hot3d_robolab"</span><span class="p">)()</span>
+        <span class="n">bowl</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"bowl_ycb_robolab"</span><span class="p">)()</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
 
         <span class="c1"># Sub-asset prims</span>
         <span class="n">table</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
-            <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">&quot;</span>
-                      <span class="s2">&quot;/maple_table_robolab/table&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"table"</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">"</span>
+                      <span class="s2">"/maple_table_robolab/table"</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">maple_table</span><span class="p">,</span>
             <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
         <span class="p">)</span>
@@ -724,8 +724,8 @@ pass a device that drives the embodiment:</p>
 define an RL-training environment in YAML:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="o">...</span><span class="p">,</span>
-    <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">&quot;rsl_rl_cfg_entry_point&quot;</span><span class="p">,</span>
-    <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="s2">&quot;my_module:RLPolicyCfg&quot;</span><span class="p">,</span>
+    <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">"rsl_rl_cfg_entry_point"</span><span class="p">,</span>
+    <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="s2">"my_module:RLPolicyCfg"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -742,7 +742,7 @@ else on that config:</p>
 <p><strong>Extra episode recorder terms.</strong> Per-episode signals beyond the built-ins:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="o">...</span><span class="p">,</span>
-    <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;cube_pose&quot;</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">record_cube_pose</span><span class="p">)},</span>
+    <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span><span class="s2">"cube_pose"</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">record_cube_pose</span><span class="p">)},</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -778,9 +778,9 @@ calls on a live instance have no YAML form:</p>
 relation arity, task params, and check subsets fail when the file loads — before
 Isaac Sim starts. Python has no equivalent; the same mistakes show up later as an
 <code class="docutils literal notranslate"><span class="pre">AttributeError</span></code> or a broken scene:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>AssertionError: Unknown asset registry_name &#39;rubiks_cube_hot3d&#39;
-AssertionError: Relation kind &#39;is_anchor&#39; must not define relation.reference
-AssertionError: composition &#39;atomic&#39; requires exactly one atomic task
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>AssertionError: Unknown asset registry_name 'rubiks_cube_hot3d'
+AssertionError: Relation kind 'is_anchor' must not define relation.reference
+AssertionError: composition 'atomic' requires exactly one atomic task
 </pre></div>
 </div>
 <p><strong>Automatic default lighting.</strong> No <code class="docutils literal notranslate"><span class="pre">light</span></code>-tagged asset and no light in the
@@ -816,8 +816,8 @@ id. Asset classes default it to the registry name, so two Python instances of th
 same asset share one name unless you set <code class="docutils literal notranslate"><span class="pre">instance_name</span></code>. Prim paths, event
 terms, and observation keys all key off that name:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two objects, one name. Pass instance_name yourself.</span>
-<span class="n">banana_a</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;banana_ycb_robolab&quot;</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">&quot;banana_a&quot;</span><span class="p">)</span>
-<span class="n">banana_b</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;banana_ycb_robolab&quot;</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">&quot;banana_b&quot;</span><span class="p">)</span>
+<span class="n">banana_a</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"banana_ycb_robolab"</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">"banana_a"</span><span class="p">)</span>
+<span class="n">banana_b</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"banana_ycb_robolab"</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">"banana_b"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>An anchor without a pose.</strong> YAML gives an <code class="docutils literal notranslate"><span class="pre">is_anchor</span></code> subject with no pose
@@ -835,7 +835,7 @@ verbatim; it must be the full runtime path.</p>
 <p><strong>Cameras.</strong> YAML forwards <code class="docutils literal notranslate"><span class="pre">enable_cameras</span></code> into the embodiment <code class="docutils literal notranslate"><span class="pre">params</span></code>. A
 Python factory that ignores <code class="docutils literal notranslate"><span class="pre">cfg.enable_cameras</span></code> builds a camera-less env even
 when the flag is set. Policies that expect images will not be amused:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">&quot;droid_abs_joint_pos&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"droid_abs_joint_pos"</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Openable references.</strong> YAML picks the class from the fields: <code class="docutils literal notranslate"><span class="pre">openable_joint_name</span></code>
@@ -845,7 +845,7 @@ and you get a door with nothing to open.</p>
 <p><strong>Object set members.</strong> YAML constructs set members with no constructor args, so
 they cannot carry a <code class="docutils literal notranslate"><span class="pre">usd_path</span></code>. SimReady assets fail at load time and cannot be
 set members. Python <code class="docutils literal notranslate"><span class="pre">RigidObjectSet</span></code> takes live instances — SimReady is fine:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;bottles&quot;</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="p">[</span><span class="n">simready_bottle</span><span class="p">,</span> <span class="n">ycb_bottle</span><span class="p">])</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bottles"</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="p">[</span><span class="n">simready_bottle</span><span class="p">,</span> <span class="n">ycb_bottle</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
@@ -882,7 +882,7 @@ set members. Python <code class="docutils literal notranslate"><span class="pre"
 </table>
 </div>
 <p>Or load a graph YAML directly:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spec</span> <span class="o">=</span> <span class="n">ArenaEnvGraphSpec</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">&quot;path/to/env_graph.yaml&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spec</span> <span class="o">=</span> <span class="n">ArenaEnvGraphSpec</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">"path/to/env_graph.yaml"</span><span class="p">)</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_arena_env</span><span class="p">()</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 </pre></div>

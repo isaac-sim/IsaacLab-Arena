@@ -598,12 +598,12 @@ its accompanying <code class="docutils literal notranslate"><span class="pre">pa
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyPolicyCfg</span><span class="p">(</span><span class="n">PolicyCfg</span><span class="p">):</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cuda:0"</span>
 
 
 <span class="nd">@register_policy</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyPolicy</span><span class="p">(</span><span class="n">PolicyBase</span><span class="p">[</span><span class="n">MyPolicyCfg</span><span class="p">]):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_policy&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_policy"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">MyPolicyCfg</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -614,7 +614,7 @@ its accompanying <code class="docutils literal notranslate"><span class="pre">pa
 </pre></div>
 </div>
 <p>Construct the policy by passing its typed configuration directly:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy_cfg</span> <span class="o">=</span> <span class="n">MyPolicyCfg</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy_cfg</span> <span class="o">=</span> <span class="n">MyPolicyCfg</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">)</span>
 <span class="n">policy</span> <span class="o">=</span> <span class="n">MyPolicy</span><span class="p">(</span><span class="n">policy_cfg</span><span class="p">)</span>
 </pre></div>
 </div>

@@ -614,7 +614,7 @@ sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </s
 </div>
 </li>
 <li><p>Run the recording script. It launches the CloudXR runtime automatically:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CLOUDXR_ENV</span><span class="o">=</span>cloudxrjs<span class="w">  </span><span class="c1"># Use &quot;avp&quot; for Apple Vision Pro.</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CLOUDXR_ENV</span><span class="o">=</span>cloudxrjs<span class="w">  </span><span class="c1"># Use "avp" for Apple Vision Pro.</span>
 python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
@@ -634,7 +634,7 @@ python<span class="w"> </span>submodules/IsaacLab/scripts/tools/record_demos.py<
 <p class="admonition-title">Warning</p>
 <p>If you exit Sim with Ctrl-C, you need to manually clean up the spawned CloudXR
 process with:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pkill</span> <span class="o">-</span><span class="n">KILL</span> <span class="o">-</span><span class="n">f</span> <span class="s1">&#39;[i]saacteleop.cloudxr.runtime&#39;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pkill</span> <span class="o">-</span><span class="n">KILL</span> <span class="o">-</span><span class="n">f</span> <span class="s1">'[i]saacteleop.cloudxr.runtime'</span>
 </pre></div>
 </div>
 <p>Otherwise the next <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> run will crash with an error looking like

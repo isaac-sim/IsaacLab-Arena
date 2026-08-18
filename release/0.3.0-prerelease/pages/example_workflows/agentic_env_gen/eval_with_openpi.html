@@ -560,7 +560,7 @@ environment graph spec.</p></li>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--env_spacing<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the red raisin box and place it in the grey bin.&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--language_instruction<span class="w"> </span><span class="s2">"Pick up the red raisin box and place it in the grey bin."</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
 </pre></div>
 </div>
@@ -589,26 +589,26 @@ after the environment source.</p>
 eval jobs config. The <code class="docutils literal notranslate"><span class="pre">environment</span></code> field points at the graph spec YAML, and the
 OpenPI connection options go in <code class="docutils literal notranslate"><span class="pre">policy_config_dict</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agentic_openpi_butter_raisin_box_grey_bin&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml&quot;</span>
+<span class="w">            </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"agentic_openpi_butter_raisin_box_grey_bin"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"enable_cameras"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml"</span>
 <span class="w">            </span><span class="p">},</span>
-<span class="w">            </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;language_instruction&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Pick up the red raisin box and place it in the grey bin.&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;policy_variant&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pi05&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;remote_host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;remote_port&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8000</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;openpi_embodiment_adapter&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;droid&quot;</span>
+<span class="w">            </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"language_instruction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pick up the red raisin box and place it in the grey bin."</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"policy_variant"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pi05"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"policy_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cuda:0"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"remote_host"</span><span class="p">:</span><span class="w"> </span><span class="s2">"127.0.0.1"</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"remote_port"</span><span class="p">:</span><span class="w"> </span><span class="mi">8000</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">"openpi_embodiment_adapter"</span><span class="p">:</span><span class="w"> </span><span class="s2">"droid"</span>
 <span class="w">            </span><span class="p">},</span>
-<span class="w">            </span><span class="nt">&quot;variations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;droid_abs_joint_pos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;camera_extrinsics_wrist_camera&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="nt">"variations"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">"droid_abs_joint_pos"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">"camera_extrinsics_wrist_camera"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 <span class="w">                </span><span class="p">}</span>
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">}</span>

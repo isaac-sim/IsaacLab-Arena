@@ -503,12 +503,12 @@ The microwave inherits from both <code class="docutils literal notranslate"><spa
 and declares the joint name that the affordance controls:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Microwave</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">,</span> <span class="n">Openable</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;microwave&quot;</span>
-    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;object&quot;</span><span class="p">,</span> <span class="s2">&quot;openable&quot;</span><span class="p">]</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"microwave"</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"object"</span><span class="p">,</span> <span class="s2">"openable"</span><span class="p">]</span>
     <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">ARTICULATION</span>
 
     <span class="c1"># Openable affordance parameters</span>
-    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">&quot;microjoint&quot;</span>
+    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">"microjoint"</span>
     <span class="n">openable_threshold</span> <span class="o">=</span> <span class="mf">0.5</span>  <span class="c1"># open if joint &gt; threshold, closed otherwise</span>
 </pre></div>
 </div>

@@ -635,7 +635,7 @@ a single three-predicate chain: settle, lift, then place.</p>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_progress_objectives</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ProgressObjective</span><span class="p">]:</span>
     <span class="k">return</span> <span class="p">[</span>
         <span class="n">ProgressObjective</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pick_and_place&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"pick_and_place"</span><span class="p">,</span>
             <span class="n">predicate_groups</span><span class="o">=</span><span class="p">[</span>
                 <span class="n">partial</span><span class="p">(</span><span class="n">objects_settled</span><span class="p">,</span> <span class="n">object_names</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">]),</span>
                 <span class="n">partial</span><span class="p">(</span>
@@ -661,13 +661,13 @@ arguments, use <code class="docutils literal notranslate"><span class="pre">func
 <p>Use a dictionary to specify <code class="docutils literal notranslate"><span class="pre">predicate_groups</span></code> when a progress objective has multiple independent predicate chains. Predicates
 within each group remain sequential while groups advance independently:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;pack_objects&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"pack_objects"</span><span class="p">,</span>
     <span class="n">predicate_groups</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;can&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">can_lifted</span><span class="p">,</span> <span class="n">can_placed</span><span class="p">],</span>
-        <span class="s2">&quot;bottle&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">bottle_lifted</span><span class="p">,</span> <span class="n">bottle_placed</span><span class="p">],</span>
-        <span class="s2">&quot;box&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">box_lifted</span><span class="p">,</span> <span class="n">box_placed</span><span class="p">],</span>
+        <span class="s2">"can"</span><span class="p">:</span> <span class="p">[</span><span class="n">can_lifted</span><span class="p">,</span> <span class="n">can_placed</span><span class="p">],</span>
+        <span class="s2">"bottle"</span><span class="p">:</span> <span class="p">[</span><span class="n">bottle_lifted</span><span class="p">,</span> <span class="n">bottle_placed</span><span class="p">],</span>
+        <span class="s2">"box"</span><span class="p">:</span> <span class="p">[</span><span class="n">box_lifted</span><span class="p">,</span> <span class="n">box_placed</span><span class="p">],</span>
     <span class="p">},</span>
-    <span class="n">logical</span><span class="o">=</span><span class="s2">&quot;choose&quot;</span><span class="p">,</span>
+    <span class="n">logical</span><span class="o">=</span><span class="s2">"choose"</span><span class="p">,</span>
     <span class="n">K</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -706,16 +706,16 @@ tracking on each subtask’s predicates only after the preceding subtask succeed
 <p>When a task provides progress objectives, Arena will track and record the progress of the task according to the
 supplied progress objectives. The current per-environment state and the episode’s accumulated predicate
 transitions are available through <code class="docutils literal notranslate"><span class="pre">env.extras</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">progress</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">extras</span><span class="p">[</span><span class="s2">&quot;progress_tracking&quot;</span><span class="p">]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">progress</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">extras</span><span class="p">[</span><span class="s2">"progress_tracking"</span><span class="p">]</span>
 
-<span class="n">state</span> <span class="o">=</span> <span class="n">progress</span><span class="p">[</span><span class="s2">&quot;states&quot;</span><span class="p">][</span><span class="n">env_id</span><span class="p">]</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">progress</span><span class="p">[</span><span class="s2">"states"</span><span class="p">][</span><span class="n">env_id</span><span class="p">]</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">overall_score</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">all_complete</span><span class="p">)</span>
 
-<span class="n">objective</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">progress_objectives</span><span class="p">[</span><span class="s2">&quot;subtask_0/pick_and_place&quot;</span><span class="p">]</span>
+<span class="n">objective</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">progress_objectives</span><span class="p">[</span><span class="s2">"subtask_0/pick_and_place"</span><span class="p">]</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">objective</span><span class="o">.</span><span class="n">is_complete</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">active_predicates</span><span class="p">)</span>
 
-<span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">progress</span><span class="p">[</span><span class="s2">&quot;events&quot;</span><span class="p">][</span><span class="n">env_id</span><span class="p">]:</span>
+<span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">progress</span><span class="p">[</span><span class="s2">"events"</span><span class="p">][</span><span class="n">env_id</span><span class="p">]:</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">progress_objective</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">group</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">predicate_name</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -729,36 +729,36 @@ episode’s JSONL record when an output path is configured. Tasks without progre
 no progress-tracking configuration and produce no progress fields.</p>
 <p>For example, one entry of the JSONL record may look like:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;overall_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;all_complete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;objectives&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;subtask_0/pick_and_place&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;is_complete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;completed_groups&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;total_groups&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;active_predicates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">          </span><span class="nt">&quot;default_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object_on_destination&quot;</span>
+<span class="w">  </span><span class="nt">"progress"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"overall_score"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"all_complete"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"objectives"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"subtask_0/pick_and_place"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"score"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"is_complete"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"completed_groups"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"total_groups"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"active_predicates"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">"default_group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"object_on_destination"</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;events&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="nt">"events"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">      </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;objective&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;subtask_0/pick_and_place&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;predicate_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;predicate_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;objects_settled&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;score_delta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
+<span class="w">        </span><span class="nt">"step"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"objective"</span><span class="p">:</span><span class="w"> </span><span class="s2">"subtask_0/pick_and_place"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_group"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"predicate_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"predicate_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"objects_settled"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"score_delta"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
 <span class="w">      </span><span class="p">},</span>
 <span class="w">      </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">18</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;objective&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;subtask_0/pick_and_place&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;predicate_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;predicate_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object_is_above_height(object_name=&#39;can&#39;, use_settled_state=True)&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;score_delta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
+<span class="w">        </span><span class="nt">"step"</span><span class="p">:</span><span class="w"> </span><span class="mi">18</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"objective"</span><span class="p">:</span><span class="w"> </span><span class="s2">"subtask_0/pick_and_place"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_group"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"predicate_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"predicate_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"object_is_above_height(object_name='can', use_settled_state=True)"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"score_delta"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>

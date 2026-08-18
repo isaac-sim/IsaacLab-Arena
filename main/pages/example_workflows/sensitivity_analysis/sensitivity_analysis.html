@@ -584,10 +584,10 @@ concept page</span></a>.</p>
 <section id="estimate-the-success-conditioned-posterior">
 <h2>Estimate the success-conditioned posterior<a class="headerlink" href="#estimate-the-success-conditioned-posterior" title="Link to this heading">#</a></h2>
 <p>In the Base Docker container, set the paths used by the download and analysis commands:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/eval/camera_sensitivity_workflow&quot;</span>
-<span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">/droid_pnp_camera_sensitivity_openpi&quot;</span>
-<span class="nv">EPISODE_RESULTS_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/episode_results_rebuild0.jsonl&quot;</span>
-<span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/camera_sensitivity_posterior.png&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"/eval/camera_sensitivity_workflow"</span>
+<span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">/droid_pnp_camera_sensitivity_openpi"</span>
+<span class="nv">EPISODE_RESULTS_PATH</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/episode_results_rebuild0.jsonl"</span>
+<span class="nv">POSTERIOR_FIGURE_PATH</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">/camera_sensitivity_posterior.png"</span>
 </pre></div>
 </div>
 <p>To start here without running the evaluation workflow, download the saved episode results:</p>
@@ -596,27 +596,27 @@ concept page</span></a>.</p>
 <span class="sd-summary-text">Download episode results (skip evaluation workflow)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <p class="sd-card-text">These commands download a small sample of episode results from the camera-sensitivity
 experiment, so you can follow this workflow without first running the variation sweep.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">"</span>
 
-<span class="nv">HF_DATASET_REPOSITORY</span><span class="o">=</span><span class="s2">&quot;nvidia/Arena-DROID-Camera-Sensitivity-Workflow-Sample&quot;</span>
-<span class="nv">HF_DATASET_REVISION</span><span class="o">=</span><span class="s2">&quot;arena_v0.2_lab_v3.0&quot;</span>
+<span class="nv">HF_DATASET_REPOSITORY</span><span class="o">=</span><span class="s2">"nvidia/Arena-DROID-Camera-Sensitivity-Workflow-Sample"</span>
+<span class="nv">HF_DATASET_REVISION</span><span class="o">=</span><span class="s2">"arena_v0.2_lab_v3.0"</span>
 
 hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">HF_DATASET_REPOSITORY</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"</span><span class="si">${</span><span class="nv">HF_DATASET_REPOSITORY</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>episode_results_rebuild0.jsonl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--revision<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">HF_DATASET_REVISION</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="w">  </span>--revision<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">HF_DATASET_REVISION</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--local-dir<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">RUN_OUTPUT_DIRECTORY</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 </div>
 </details><p>Whether generated by the evaluation workflow or downloaded above, the results are stored in
 <code class="docutils literal notranslate"><span class="pre">${RUN_OUTPUT_DIRECTORY}</span></code>. Run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.analysis.sensitivity.generate_report<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--episode_results<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">EPISODE_RESULTS_PATH</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--episode_results<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">EPISODE_RESULTS_PATH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--outcome<span class="w"> </span>success<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--factors<span class="w"> </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="w">  </span>--output<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 <p>This command trains a neural posterior estimator (NPE) on all episodes in the JSONL file and
@@ -632,7 +632,7 @@ the next step.</p>
 <section id="read-the-posterior-marginals">
 <h2>Read the posterior marginals<a class="headerlink" href="#read-the-posterior-marginals" title="Link to this heading">#</a></h2>
 <p>Still in the Base Docker container, open the generated image:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pqiv<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pqiv<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 <figure class="align-center" id="id1">

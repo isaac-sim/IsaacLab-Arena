@@ -430,7 +430,7 @@ The policy system provides a registry system for managing different policies.</p
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PolicyBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">observation</span><span class="p">:</span> <span class="n">GymSpacesDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute an action given the environment and observation.</span>
+<span class="w">        </span><span class="sd">"""Compute an action given the environment and observation.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            env: The environment instance</span>
@@ -438,7 +438,7 @@ The policy system provides a registry system for managing different policies.</p
 
 <span class="sd">        Returns:</span>
 <span class="sd">            torch.Tensor: The action to take</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 </pre></div>
 </div>
 <p>This enables seamless swapping between different policy implementations while maintaining consistent integration with IsaacLab Arena environments.</p>

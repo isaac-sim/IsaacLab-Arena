@@ -617,7 +617,7 @@ create an order-independent packing task for two objects:</p>
 
 <span class="n">packing_task</span> <span class="o">=</span> <span class="n">CompositeTaskBase</span><span class="p">(</span>
     <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">place_can</span><span class="p">,</span> <span class="n">place_bottle</span><span class="p">],</span>
-    <span class="n">task_description</span><span class="o">=</span><span class="s2">&quot;Place the can and bottle into the bin.&quot;</span><span class="p">,</span>
+    <span class="n">task_description</span><span class="o">=</span><span class="s2">"Place the can and bottle into the bin."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -632,7 +632,7 @@ before closing the refrigerator:</p>
 
 <span class="n">put_away_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span>
     <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">],</span>
-    <span class="n">task_description</span><span class="o">=</span><span class="s2">&quot;Place the object in the refrigerator, then close the door.&quot;</span><span class="p">,</span>
+    <span class="n">task_description</span><span class="o">=</span><span class="s2">"Place the object in the refrigerator, then close the door."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>

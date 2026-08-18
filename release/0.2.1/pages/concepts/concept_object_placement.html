@@ -652,8 +652,8 @@ whose pose is derived automatically from the USD scene:</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span>
 
 <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"table"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">table_background</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
@@ -741,23 +741,23 @@ and add them to the scene:</p>
 
 <span class="c1"># Define anchor</span>
 <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"table"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">table_background</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
 
 <span class="c1"># Define placeable objects</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 <span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
 <span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
 
-<span class="n">mug</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mug&quot;</span><span class="p">)()</span>
+<span class="n">mug</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"mug"</span><span class="p">)()</span>
 <span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
 
 <span class="c1"># Build scene and environment</span>
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">table_background</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">,</span> <span class="n">cracker_box</span><span class="p">,</span> <span class="n">mug</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;demo&quot;</span><span class="p">,</span> <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
 
 <span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">gym_env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>

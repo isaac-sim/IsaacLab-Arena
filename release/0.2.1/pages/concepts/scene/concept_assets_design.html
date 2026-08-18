@@ -493,8 +493,8 @@
 <p>Assets are the objects and backgrounds that make up a scene.
 Arena ships with a set of assets ready to use by name,
 and new assets can be added by registering them in the asset library.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 </pre></div>
 </div>
 <section id="registering-a-new-asset">
@@ -503,22 +503,22 @@ and new assets can be added by registering them in the asset library.</p>
 and decorate it with <code class="docutils literal notranslate"><span class="pre">&#64;register_asset</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyObject</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_object&quot;</span>
-    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;object&quot;</span><span class="p">,</span> <span class="s2">&quot;graspable&quot;</span><span class="p">]</span>
-    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">&quot;path/to/my_object.usd&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"my_object"</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"object"</span><span class="p">,</span> <span class="s2">"graspable"</span><span class="p">]</span>
+    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">"path/to/my_object.usd"</span>
     <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 </pre></div>
 </div>
 <p>Once registered, the object is available in the registry like any other asset:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;my_object&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"my_object"</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p>Assets can also be tagged to make them discoverable by category:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># All graspable objects</span>
-<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">&quot;graspable&quot;</span><span class="p">)</span>
+<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">"graspable"</span><span class="p">)</span>
 
 <span class="c1"># A random graspable object</span>
-<span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_random_asset_by_tag</span><span class="p">(</span><span class="s2">&quot;graspable&quot;</span><span class="p">)()</span>
+<span class="n">obj</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_random_asset_by_tag</span><span class="p">(</span><span class="s2">"graspable"</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p>Useful tags include <code class="docutils literal notranslate"><span class="pre">&quot;graspable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;openable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;pressable&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">&quot;background&quot;</span></code>.
@@ -539,11 +539,11 @@ Assets can have multiple tags — for example, a fruit is tagged both <code clas
 countertops, shelves, drawers, and so on. To use one of these internal prims
 as a destination or interaction target (e.g. “place the object on the counter”),
 you use an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
 
 <span class="n">counter</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_counter&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/counter_right_main_group/top_geometry&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_counter"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/counter_right_main_group/top_geometry"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
 <span class="p">)</span>
 

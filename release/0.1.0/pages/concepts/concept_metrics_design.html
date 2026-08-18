@@ -428,11 +428,11 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_recorder_term_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecorderTermCfg</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define what data to record.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Define what data to record."""</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_metric_from_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recorded_metric_data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute final metric from recorded data.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Compute final metric from recorded data."""</span>
 </pre></div>
 </div>
 <p>Each metric has a <strong>RecorderTerm</strong> that collects data and a <strong>MetricBase</strong> implementation that processes recorded data into performance indicators.</p>
@@ -510,8 +510,8 @@
 </div>
 <p><strong>Results Analysis</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Performance evaluation across environments</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;success_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Object Moved Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;object_moved_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Success Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">'success_rate'</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Object Moved Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">'object_moved_rate'</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

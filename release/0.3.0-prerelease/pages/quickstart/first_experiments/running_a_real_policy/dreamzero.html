@@ -532,7 +532,7 @@ observations / receives actions over WebSocket + MessagePack).</p>
 <p><strong>Build and push the server image</strong></p>
 <p>Arena ships everything needed to build the DreamZero inference server image and run
 it as an OSMO job. Log in to the NGC registry once:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>login<span class="w"> </span>nvcr.io<span class="w"> </span>-u<span class="w"> </span><span class="s1">&#39;$oauthtoken&#39;</span><span class="w"> </span>-p<span class="w"> </span>&lt;YOUR_NGC_API_KEY&gt;
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>login<span class="w"> </span>nvcr.io<span class="w"> </span>-u<span class="w"> </span><span class="s1">'$oauthtoken'</span><span class="w"> </span>-p<span class="w"> </span>&lt;YOUR_NGC_API_KEY&gt;
 </pre></div>
 </div>
 <p>Then build and push (bakes the public <code class="docutils literal notranslate"><span class="pre">GEAR-Dreams/DreamZero-DROID</span></code> checkpoint into the image):</p>
@@ -569,7 +569,7 @@ specific to the environment go after it.</p>
 <span class="w">  </span>--dreamzero_port<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the Rubik&#39;s cube and place it in the bowl.&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--language_instruction<span class="w"> </span><span class="s2">"Pick up the Rubik's cube and place it in the bowl."</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--pick_up_object<span class="w"> </span>rubiks_cube_hot3d_robolab<span class="w"> </span><span class="se">\</span>

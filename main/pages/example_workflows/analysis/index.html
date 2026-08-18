@@ -574,8 +574,8 @@ starting Sensitivity Analysis, which reads the saved episode results directly. F
 model variants, and server options, see
 <a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html"><span class="doc">OpenPI</span></a>.</p>
 <p>In the Base Docker container, create the output directory used throughout this walkthrough:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/eval/camera_sensitivity_workflow&quot;</span>
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"/eval/camera_sensitivity_workflow"</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">/eval</span></code> directory is mounted from <code class="docutils literal notranslate"><span class="pre">$HOME/eval</span></code> on the host by default. Arena requires the

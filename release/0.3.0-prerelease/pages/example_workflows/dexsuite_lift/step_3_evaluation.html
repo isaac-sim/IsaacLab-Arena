@@ -559,7 +559,7 @@ are at:</p>
 </pre></div>
 </div>
 <p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.75, &#39;num_episodes&#39;: 12}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.75, 'num_episodes': 12}
 </pre></div>
 </div>
 <a class="reference internal image-reference" href="../../../_images/dexsuite_lift_task.gif"><img alt="../../../_images/dexsuite_lift_task.gif" class="align-center" src="../../../_images/dexsuite_lift_task.gif" style="height: 400px;" />
@@ -594,7 +594,7 @@ evaluated with PhysX.</p>
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.72, &#39;num_episodes&#39;: 320}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.72, 'num_episodes': 320}
 </pre></div>
 </div>
 </section>
@@ -605,31 +605,31 @@ JSON config.</p>
 <p><strong>1. Create an evaluation config</strong></p>
 <p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dexsuite_lift_7500&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dexsuite_lift&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;env_spacing&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift_7500"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"env_spacing"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;models/isaaclab_arena/dexsuite_lift/model_7500.pt&quot;</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/isaaclab_arena/dexsuite_lift/model_7500.pt"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dexsuite_lift_14999&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dexsuite_lift&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;env_spacing&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift_14999"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"env_spacing"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;models/isaaclab_arena/dexsuite_lift/model_14999.pt&quot;</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/isaaclab_arena/dexsuite_lift/model_14999.pt"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>

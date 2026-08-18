@@ -446,7 +446,7 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.app</span><span class="w"> </span><span class="kn">import</span> <span class="n">AppLauncher</span>
 
 <span class="c1"># Launch the Isaac Sim application</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Launching simulation app&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Launching simulation app"</span><span class="p">)</span>
 <span class="n">simulation_app</span> <span class="o">=</span> <span class="n">AppLauncher</span><span class="p">()</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.asset_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetRegistry</span>
@@ -460,9 +460,9 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="c1"># Step 1: Initialize and get the assets from the registry</span>
 <span class="n">asset_registry</span> <span class="o">=</span> <span class="n">AssetRegistry</span><span class="p">()</span>
 
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)()</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)()</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 <span class="n">cracker_box</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
     <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
 <span class="p">)</span>
@@ -475,7 +475,7 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 
 <span class="c1"># Step 4: Create the IsaacLab Arena environment</span>
 <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"my_first_arena_env"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
@@ -506,9 +506,9 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> provides access to all available assets including robots, objects, and backgrounds. It automatically discovers registered assets through the registration system.</p>
 <p>See <a class="reference internal" href="../concepts/concept_assets_design.html"><span class="doc">Assets Design</span></a> for details on asset architecture.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)()</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)()</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 </pre></div>
 </div>
 <p><strong>2. Compose the Scene</strong></p>
@@ -524,7 +524,7 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <p>See <a class="reference internal" href="../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for task creation details.</p>
 <p><strong>4. Create the IsaacLab Arena Environment</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"my_first_arena_env"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">DummyTask</span><span class="p">(),</span>

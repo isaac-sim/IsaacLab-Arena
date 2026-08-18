@@ -597,7 +597,7 @@ and samples a new wrist-camera position for each episode.</span><a class="header
 <span class="w">      </span><span class="nt">destination_location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl_ycb_robolab</span>
 <span class="w">      </span><span class="nt">hdr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">home_office_robolab</span>
 <span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik&#39;s cube and place it in the bowl.</span>
+<span class="w">      </span><span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik's cube and place it in the bowl.</span>
 <span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy</span>
 <span class="w">      </span><span class="nt">policy_variant</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pi05</span>
@@ -616,8 +616,8 @@ and samples a new wrist-camera position for each episode.</span><a class="header
 </div>
 </div>
 </details><p>In the Base Docker container, set the output directory used by this workflow:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">&quot;/eval/camera_sensitivity_workflow&quot;</span>
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="o">=</span><span class="s2">"/eval/camera_sensitivity_workflow"</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 <p>Arena requires this directory to be empty. With the OpenPI server running, run the evaluation from
@@ -627,7 +627,7 @@ the repository root:</p>
 <span class="w">  </span>--record_camera_video<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--serve_evaluation_report<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--evaluation_report_port<span class="w"> </span><span class="m">8001</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_output_directory<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">CAMERA_SENSITIVITY_OUTPUT_DIR</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/droid_pnp_camera_sensitivity_openpi_experiment.yaml
 </pre></div>
 </div>

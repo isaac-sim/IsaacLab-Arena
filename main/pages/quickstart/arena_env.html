@@ -739,29 +739,29 @@ that Isaac Lab can run.</p></li>
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the Maple-table pick-and-place environment.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Configure the Maple-table pick-and-place environment."""</span>
 
-    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;droid_abs_joint_pos&quot;</span>
+    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"droid_abs_joint_pos"</span>
     <span class="n">hdr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">light_intensity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">500.0</span>
-    <span class="n">pick_up_object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span>
-    <span class="n">destination_location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bowl_ycb_robolab&quot;</span>
+    <span class="n">pick_up_object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"rubiks_cube_hot3d_robolab"</span>
+    <span class="n">destination_location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"bowl_ycb_robolab"</span>
     <span class="n">additional_table_objects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">episode_length_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">70.0</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;episode_length_s must be greater than zero&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"episode_length_s must be greater than zero"</span>
 
 
 <span class="nd">@register_environment</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Registered provider for the Maple-table pick-and-place environment.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Registered provider for the Maple-table pick-and-place environment."""</span>
 
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pick_and_place_maple_table&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pick_and_place_maple_table"</span>
     <span class="n">_legacy_argparse_cfg_type</span> <span class="o">=</span> <span class="n">PickAndPlaceMapleTableEnvironmentCfg</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its typed configuration.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Build the environment from its typed configuration."""</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.envs.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">ViewerCfg</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectType</span>
@@ -772,14 +772,14 @@ that Isaac Lab can run.</p></li>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 
         <span class="c1"># Step 1: Retrieve assets from the registry</span>
-        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
+        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"maple_table_robolab"</span><span class="p">)()</span>
         <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)()</span>
         <span class="n">destination_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination_location</span><span class="p">)()</span>
 
         <span class="c1"># Step 2: Describe spatial relationships</span>
         <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
-            <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/maple_table_robolab/table&quot;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"table"</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/maple_table_robolab/table"</span><span class="p">,</span>
             <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
             <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
         <span class="p">)</span>
@@ -795,11 +795,11 @@ that Isaac Lab can run.</p></li>
             <span class="n">obj</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
 
         <span class="c1"># Step 3: Configure lighting</span>
-        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
         <span class="n">light</span><span class="o">.</span><span class="n">set_intensity</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">light_intensity</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">hdr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">light</span><span class="o">.</span><span class="n">add_hdr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hdr_registry</span><span class="o">.</span><span class="n">get_hdr_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">hdr</span><span class="p">)())</span>
-        <span class="n">directional_light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;directional_light&quot;</span><span class="p">)()</span>
+        <span class="n">directional_light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"directional_light"</span><span class="p">)()</span>
 
         <span class="c1"># Step 4: Select the embodiment</span>
         <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
@@ -847,7 +847,7 @@ that Isaac Lab can run.</p></li>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_add_legacy_cli_only_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--teleop_device&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--teleop_device"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

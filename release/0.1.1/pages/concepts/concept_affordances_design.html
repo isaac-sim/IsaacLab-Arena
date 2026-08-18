@@ -435,10 +435,10 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Openable</span><span class="p">(</span><span class="n">AffordanceBase</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">env_ids</span><span class="p">,</span> <span class="n">percentage</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set opening percentage via joint control.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Set opening percentage via joint control."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">is_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query current open state.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Query current open state."""</span>
 </pre></div>
 </div>
 <p>Affordances are mixin classes that combine with objects through multiple inheritance, operating on articulated objects via joint control.</p>
@@ -465,9 +465,9 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
 <dt><strong>Object Integration Pattern</strong></dt><dd><p>Affordances combine with assets through multiple inheritance:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Microwave</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">,</span> <span class="n">Openable</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;microwave&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"microwave"</span>
     <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">ARTICULATION</span>
-    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">&quot;microjoint&quot;</span>
+    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">"microjoint"</span>
     <span class="n">openable_open_threshold</span> <span class="o">=</span> <span class="mf">0.5</span>
 </pre></div>
 </div>
@@ -484,7 +484,7 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create affordance-enabled object</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
+<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>
 
 <span class="c1"># Use in task definition</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span>
@@ -495,7 +495,7 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
 
 <span class="c1"># Environment composition</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;microwave_opening&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"microwave_opening"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span>
@@ -506,14 +506,14 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Microwave Opening Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Runtime State Querying</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check object state during simulation</span>
 <span class="k">if</span> <span class="n">microwave</span><span class="o">.</span><span class="n">is_open</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Microwave is open enough&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"Microwave is open enough"</span><span class="p">)</span>
 
 <span class="n">current_openness</span> <span class="o">=</span> <span class="n">microwave</span><span class="o">.</span><span class="n">get_openness</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 </pre></div>

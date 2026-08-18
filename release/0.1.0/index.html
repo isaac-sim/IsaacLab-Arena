@@ -470,22 +470,22 @@ into a <code class="docutils literal notranslate"><span class="pre">ManagerBased
 <section id="usage-example">
 <h1>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h1>
 <p>The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to set up a manager-based RL environment using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">tomato_soup_can</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;tomato_soup_can&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"franka"</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">tomato_soup_can</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"tomato_soup_can"</span><span class="p">)()</span>
 <span class="n">destination_location</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;destination_location&quot;</span><span class="p">,</span>
-         <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
+         <span class="n">name</span><span class="o">=</span><span class="s2">"destination_location"</span><span class="p">,</span>
+         <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02"</span><span class="p">,</span>
          <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
          <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
      <span class="p">)</span>
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;keyboard&quot;</span><span class="p">)()</span>
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">"keyboard"</span><span class="p">)()</span>
 
 <span class="c1"># Compose the scene</span>
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">([</span><span class="n">background</span><span class="p">,</span> <span class="n">tomato_soup_can</span><span class="p">])</span>
 
 <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-   <span class="n">name</span><span class="o">=</span><span class="s2">&quot;franka_kitchen_pickup&quot;</span><span class="p">,</span>
+   <span class="n">name</span><span class="o">=</span><span class="s2">"franka_kitchen_pickup"</span><span class="p">,</span>
    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
    <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">tomato_soup_can</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>

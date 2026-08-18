@@ -456,7 +456,7 @@ installation options.</p>
 <li><p><strong>Optionally verify installation by running tests:</strong></p></li>
 </ol>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_cameras<span class="w"> </span>isaaclab_arena/tests/<span class="w"> </span>--ignore<span class="o">=</span>isaaclab_arena/tests/policy/
-pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not with_cameras&quot;</span><span class="w"> </span>isaaclab_arena/tests/<span class="w"> </span>--ignore<span class="o">=</span>isaaclab_arena/tests/policy/
+pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not with_cameras"</span><span class="w"> </span>isaaclab_arena/tests/<span class="w"> </span>--ignore<span class="o">=</span>isaaclab_arena/tests/policy/
 </pre></div>
 </div>
 <p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed and the docker running, you’re ready to build your first IsaacLab-Arena Environment. See <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a> to get started.</p>
@@ -472,7 +472,7 @@ TODO(cvolk, 2025-11-03): Remove this once we have public assets.</p>
 </div>
 <p>Isaac Sim and other Nvidia Omniverse applications use two environment variables <code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> and <code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> to authenticate automatically.</p>
 <p>To generate those, follow the instructions on the <a class="reference external" href="https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html">Omniverse Authentication documentation</a>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_USER</span><span class="o">=</span><span class="s1">&#39;$omni-api-token&#39;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_USER</span><span class="o">=</span><span class="s1">'$omni-api-token'</span>
 <span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_PASS</span><span class="o">=</span>&lt;your_generated_api_token&gt;
 </pre></div>
 </div>

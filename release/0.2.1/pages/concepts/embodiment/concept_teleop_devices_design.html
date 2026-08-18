@@ -500,7 +500,7 @@ the same way assets and embodiments are.</p>
 
 <span class="nd">@register_device</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">KeyboardCfg</span><span class="p">(</span><span class="n">TeleopDeviceBase</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;keyboard&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"keyboard"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pipeline_builder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Se3KeyboardCfg</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">Se3KeyboardCfg</span><span class="p">(</span><span class="n">pos_sensitivity</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">rot_sensitivity</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
@@ -510,10 +510,10 @@ the same way assets and embodiments are.</p>
 implements a single method, <code class="docutils literal notranslate"><span class="pre">get_device_cfg()</span></code>, that returns the underlying
 Isaac Lab device configuration.</p>
 <p>To add teleoperation to an environment, pick a device by name and pass it in:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;keyboard&quot;</span><span class="p">)()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">"keyboard"</span><span class="p">)()</span>
 
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_pick_and_place&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_pick_and_place"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>

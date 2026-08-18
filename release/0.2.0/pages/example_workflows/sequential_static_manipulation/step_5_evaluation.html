@@ -509,7 +509,7 @@ such that the preceding steps can be skipped.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000
 hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>nvidia/GN1.6-Tuned-Arena-GR1-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--include<span class="w"> </span><span class="s2">&quot;ranch_bottle_into_fridge/*&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--include<span class="w"> </span><span class="s2">"ranch_bottle_into_fridge/*"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--repo-type<span class="w"> </span>model<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/_hf_download
 mv<span class="w"> </span><span class="nv">$MODELS_DIR</span>/_hf_download/ranch_bottle_into_fridge/*<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000/
@@ -526,7 +526,7 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$MODELS_DI
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000</span>
 
-<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Place</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">sauce</span><span class="nv"> </span><span class="s">bottle</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">top</span><span class="nv"> </span><span class="s">shelf</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge,</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">close</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge</span><span class="nv"> </span><span class="s">door.&quot;</span>
+<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">"Place</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">sauce</span><span class="nv"> </span><span class="s">bottle</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">top</span><span class="nv"> </span><span class="s">shelf</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge,</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">close</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">fridge</span><span class="nv"> </span><span class="s">door."</span>
 <span class="nt">action_horizon</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
 <span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GR1</span>
 <span class="nt">video_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decord</span>
@@ -538,7 +538,7 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$MODELS_DI
 <span class="nt">action_chunk_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
 <span class="nt">task_mode_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_tabletop_manipulation</span>
 
-<span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_pov_cam_rgb&quot;</span>
+<span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">"robot_pov_cam_rgb"</span>
 
 <span class="nt">original_image_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">]</span>
 <span class="nt">target_image_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">512</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">]</span>
@@ -568,7 +568,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Best Quality</label><div class="sd-tab-content docutils">
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 </pre></div>
 </div>
 </div>
@@ -576,7 +576,7 @@ Best Quality</label><div class="sd-tab-content docutils">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 0.75, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.75, 0.75], &#39;num_episodes&#39;: 4}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {'success_rate': 0.75, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
 </pre></div>
 </div>
 </div>
@@ -624,7 +624,7 @@ Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
 <p>And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the microwave door is opened),
 or truncated (if timeouts are enabled, like the maximum episode length is exceeded).</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([7], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 </pre></div>
 </div>
 <p>At the end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -632,7 +632,7 @@ You can see that the success rate for this sequential task, object moved rate fo
 and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
 All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.98, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.98, 1.0], &#39;num_episodes&#39;: 50}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
 </pre></div>
 </div>
 <div class="admonition note">
@@ -689,7 +689,7 @@ Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,
 and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8666666666666667, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 30}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
 </pre></div>
 </div>
 <p>The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
@@ -707,37 +707,37 @@ The evaluation batch can be specified in a config file, with examples shown belo
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_sequential_static_manip_eval_jobs_config.json</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">   </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_put_ranch_dressing_bottle_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">         </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ranch_dressing_hope_robolab&quot;</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_put_ranch_dressing_bottle_in_fridge_and_close_door"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"enable_cameras"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"put_item_in_fridge_and_close_door"</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ranch_dressing_hope_robolab"</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"embodiment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_joint"</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"policy_config_yaml_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cuda:0"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">   </span><span class="p">},</span>
 <span class="w">   </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_put_jug_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">         </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;jug&quot;</span><span class="p">,</span>
-<span class="w">         </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_put_jug_in_fridge_and_close_door"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">         </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"enable_cameras"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"put_item_in_fridge_and_close_door"</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jug"</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">"embodiment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_joint"</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"policy_config_yaml_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cuda:0"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">   </span><span class="p">}</span>
 <span class="p">]</span>

@@ -424,19 +424,19 @@ The asset system provides a registry system for managing these components.</p>
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>The asset system uses a hierarchical class structure:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Asset</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for all assets.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Base class for all assets."""</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="n">tags</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ObjectBase</span><span class="p">(</span><span class="n">Asset</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Physical objects that can be spawned.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Physical objects that can be spawned."""</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">object_type</span><span class="p">:</span> <span class="n">ObjectType</span><span class="p">,</span> <span class="n">prim_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">object_type</span> <span class="o">=</span> <span class="n">object_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prim_path</span> <span class="o">=</span> <span class="n">prim_path</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_cfgs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate Isaac Lab configurations.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Generate Isaac Lab configurations."""</span>
 </pre></div>
 </div>
 <p>The system supports complex compositions through mixins like affordances while automatically generating Isaac Lab-compatible configurations.</p>
@@ -461,9 +461,9 @@ The asset system provides a registry system for managing these components.</p>
 <dt><strong>Registration System</strong></dt><dd><p>Automatic asset discovery through decorators:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CrackerBox</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;cracker_box&quot;</span>
-    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;object&quot;</span><span class="p">]</span>
-    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">&quot;path/to/cracker_box.usd&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"cracker_box"</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"object"</span><span class="p">]</span>
+    <span class="n">usd_path</span> <span class="o">=</span> <span class="s2">"path/to/cracker_box.usd"</span>
     <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 </pre></div>
 </div>
@@ -482,8 +482,8 @@ The asset system provides a registry system for managing these components.</p>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Asset creation and positioning</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"cracker_box"</span><span class="p">)()</span>
 <span class="n">pick_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
 
 <span class="c1"># Scene composition</span>
@@ -491,7 +491,7 @@ The asset system provides a registry system for managing these components.</p>
 
 <span class="c1"># Environment integration</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"manipulation_task"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span>
@@ -503,21 +503,21 @@ The asset system provides a registry system for managing these components.</p>
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Asset Discovery</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Direct asset creation</span>
-<span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">&quot;object&quot;</span><span class="p">)</span>
+<span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kitchen"</span><span class="p">)()</span>
+<span class="n">objects</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_assets_by_tag</span><span class="p">(</span><span class="s2">"object"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Affordance Integration</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Objects with interaction capabilities</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>  <span class="c1"># Has Openable mixin</span>
+<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"microwave"</span><span class="p">)()</span>  <span class="c1"># Has Openable mixin</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Object References</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reference existing scene elements</span>
 <span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"kitchen_drawer"</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02"</span><span class="p">,</span>
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen_background</span><span class="p">,</span>
     <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 <span class="p">)</span>

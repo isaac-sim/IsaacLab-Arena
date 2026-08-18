@@ -428,14 +428,14 @@ We define this wrapper to allow for easy registration and discovery of teleop de
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_teleop_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embodiment</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return Isaac Lab DevicesCfg for the specific device.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return Isaac Lab DevicesCfg for the specific device."""</span>
 
 <span class="nd">@register_device</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">KeyboardTeleopDevice</span><span class="p">(</span><span class="n">TeleopDeviceBase</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;keyboard&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"keyboard"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_teleop_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">DevicesCfg</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;keyboard&quot;</span><span class="p">:</span> <span class="n">Se3KeyboardCfg</span><span class="p">(</span><span class="o">...</span><span class="p">)})</span>
+        <span class="k">return</span> <span class="n">DevicesCfg</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="p">{</span><span class="s2">"keyboard"</span><span class="p">:</span> <span class="n">Se3KeyboardCfg</span><span class="p">(</span><span class="o">...</span><span class="p">)})</span>
 </pre></div>
 </div>
 <p>Devices are automatically discovered through decorator-based registration and provide Isaac Lab-compatible configurations.</p>
@@ -465,7 +465,7 @@ We define this wrapper to allow for easy registration and discovery of teleop de
 
 <span class="c1"># Environment composition with teleop support</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"manipulation_task"</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>

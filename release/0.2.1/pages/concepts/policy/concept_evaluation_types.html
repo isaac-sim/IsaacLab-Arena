@@ -657,32 +657,32 @@ default (e.g. <code class="docutils literal notranslate"><span class="pre">--num
 </ul>
 <p><strong>Example config structure</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_open_microwave_cracker_box&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_open_microwave&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cracker_box&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_open_microwave_cracker_box"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_open_microwave"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cracker_box"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"embodiment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_joint"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zero_action&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zero_action"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_sequential_static_manipulation_put_ranch_dressing_bottle_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_sequential_static_manipulation&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ranch_dressing_hope_robolab&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_sequential_static_manipulation_put_ranch_dressing_bottle_in_fridge_and_close_door"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"enable_cameras"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_sequential_static_manipulation"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ranch_dressing_hope_robolab"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"embodiment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gr1_joint"</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
+<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"policy_config_yaml_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"policy_device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cuda:0"</span>
 <span class="w">       </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>

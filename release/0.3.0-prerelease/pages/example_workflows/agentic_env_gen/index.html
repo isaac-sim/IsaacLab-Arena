@@ -532,7 +532,7 @@ layout, tasks, and spatial relations.</p>
 specs:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>resolve<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;Droid picks up the mustard bottle from the maple table and places it in the grey bin.&quot;</span>
+<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">"Droid picks up the mustard bottle from the maple table and places it in the grey bin."</span>
 </pre></div>
 </div>
 <p>The runner writes <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/</span></code> by
@@ -544,7 +544,7 @@ default. Pass it to policy and evaluation commands with <code class="docutils li
 prompt-specified environment:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>full<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;Droid picks up the mustard bottle from the maple table and places it in the grey bin.&quot;</span>
+<span class="w">   </span>--prompt<span class="w"> </span><span class="s2">"Droid picks up the mustard bottle from the maple table and places it in the grey bin."</span>
 </pre></div>
 </div>
 </section>
@@ -624,15 +624,15 @@ sensitivity.</span><a class="headerlink" href="#id2" title="Link to this image">
 <p>Evaluation jobs can also point their environment source at an environment graph
 spec YAML with variations, instead of a registered example-environment name:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agentic_env_eval&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"agentic_env_eval"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"enable_cameras"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_rebuilds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zero_action&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">    </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"num_rebuilds"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"zero_action"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
