@@ -44,9 +44,7 @@ def _test_replicator_kitchen_background_physics(simulation_app) -> bool:
             background_path = f"/World/envs/env_{env_id}/replicator_kitchen_l_shape"
             background_prim = stage.GetPrimAtPath(background_path)
             assert background_prim.IsValid(), f"Missing Replicator background at {background_path}"
-            rigid_body_prims = [
-                prim for prim in Usd.PrimRange(background_prim) if prim.HasAPI(UsdPhysics.RigidBodyAPI)
-            ]
+            rigid_body_prims = [prim for prim in Usd.PrimRange(background_prim) if prim.HasAPI(UsdPhysics.RigidBodyAPI)]
             assert rigid_body_prims, f"Expected embedded rigid bodies under {background_path}"
             kinematic_body_paths = [
                 str(prim.GetPath())
