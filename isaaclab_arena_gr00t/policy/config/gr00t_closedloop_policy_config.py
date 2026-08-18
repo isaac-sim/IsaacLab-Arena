@@ -8,6 +8,23 @@ from pathlib import Path
 
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 
+# Embodiment tags that can be evaluated closed-loop. Tags GR00T ships in its own
+# MODALITY_CONFIGS resolve without a modality_config_path; the rest are registered by the
+# file that modality_config_path names.
+SUPPORTED_EMBODIMENT_TAGS = (
+    "GR1",
+    "NEW_EMBODIMENT",
+    "OXE_DROID",
+    "UNITREE_G1_FULL_BODY_WITH_WAIST_HEIGHT_NAV_CMD_SIM",
+)
+
+# G1 locomanipulation accepts either the locally registered NEW_EMBODIMENT layout or the
+# equivalent embodiment GR00T N2 ships for the G1 in simulation.
+G1_LOCOMANIPULATION_EMBODIMENT_TAGS = (
+    "NEW_EMBODIMENT",
+    "UNITREE_G1_FULL_BODY_WITH_WAIST_HEIGHT_NAV_CMD_SIM",
+)
+
 
 @dataclass
 class Gr00tClosedloopPolicyCfg:
@@ -106,15 +123,15 @@ class Gr00tClosedloopPolicyCfg:
             self.pov_cam_name_sim = [self.pov_cam_name_sim]
 
         # embodiment_tag
-        assert self.embodiment_tag in [
-            "GR1",
-            "NEW_EMBODIMENT",
-            "OXE_DROID",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT", "OXE_DROID"])
+        assert (
+            self.embodiment_tag in SUPPORTED_EMBODIMENT_TAGS
+        ), "embodiment_tag must be one of the following: " + ", ".join(SUPPORTED_EMBODIMENT_TAGS)
         if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
             assert (
-                self.embodiment_tag == "NEW_EMBODIMENT"
-            ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
+                self.embodiment_tag in G1_LOCOMANIPULATION_EMBODIMENT_TAGS
+            ), "embodiment_tag must be one of the following for G1 locomanipulation: " + ", ".join(
+                G1_LOCOMANIPULATION_EMBODIMENT_TAGS
+            )
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
             assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
         elif self.task_mode_name == TaskMode.DROID_MANIPULATION.value:

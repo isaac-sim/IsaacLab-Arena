@@ -12,7 +12,7 @@ import socket
 import time
 
 import zmq
-from gr00t.policy.server_client import MsgSerializer
+from groot.core.policy.server_client import MsgSerializer
 
 
 def _diagnostics(host: str, port: int, tcp_timeout_sec: float) -> str:

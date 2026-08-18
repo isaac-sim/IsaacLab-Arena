@@ -6,12 +6,13 @@
 """GR00T remote closed-loop policy using GR00T's native PolicyClient.
 
 This policy connects to a GR00T policy server (launched via
-``gr00t/eval/run_gr00t_server.py``) and uses its own observation/action translation pipeline.
+``python -m groot.infra.oss policy-server``) and uses its own observation/action translation pipeline.
 """
 
 from __future__ import annotations
 
 import gymnasium as gym
+import numpy as np
 import torch
 from dataclasses import dataclass
 from enum import Enum
@@ -30,6 +31,35 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     load_gr00t_joint_configs,
 )
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+
+
+def _to_flat_observation(nested: dict[str, Any]) -> dict[str, Any]:
+    """Convert a nested observation into the dotted-key form GR00T N2's server expects.
+
+    N2 wraps its policy in ``Gr00tFlatPolicyWrapper``, which reads ``video.<key>`` and
+    ``state.<key>`` rather than the nested ``video``/``state`` dicts N1.7's server took.
+    The language modality key is already fully qualified, so it is passed through as-is.
+    """
+    flat: dict[str, Any] = {}
+    for group in ("video", "state"):
+        for key, value in nested.get(group, {}).items():
+            flat[f"{group}.{key}"] = value
+    flat.update(nested.get("language", {}))
+    return flat
+
+
+def _from_flat_action(flat_action: dict[str, Any]) -> dict[str, Any]:
+    """Convert N2's ``action.<key>`` response back to the plain keys Arena consumes.
+
+    The server's flat wrapper drops the batch dimension for batched actions, so a
+    leading axis is restored to keep the ``(B, T, D)`` shape the action builder expects.
+    """
+    action: dict[str, Any] = {}
+    for key, value in flat_action.items():
+        name = key[len("action.") :] if key.startswith("action.") else key
+        array = np.asarray(value)
+        action[name] = array[None, ...] if array.ndim == 2 else array
+    return action
 
 
 class ActionSchedulerType(str, Enum):
@@ -75,7 +105,7 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
 
-    Uses GR00T's native ``PolicyClient`` (from ``gr00t.policy.server_client``)
+    Uses GR00T's native ``PolicyClient`` (from ``groot.core.policy.server_client``)
     to communicate with a GR00T policy server.
     """
 
@@ -121,11 +151,11 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         )
 
         # Connect to GR00T's native PolicyClient
-        from gr00t.policy.server_client import PolicyClient
+        from groot.core.policy.server_client import PolicyClient
 
+        # GR00T N2 takes a single ZMQ address rather than N1.7's separate host and port.
         client = PolicyClient(
-            host=config.remote_host,
-            port=config.remote_port,
+            address=f"tcp://{config.remote_host}:{config.remote_port}",
             api_token=config.remote_api_token,
             strict=False,
         )
@@ -194,8 +224,15 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             modality_configs=self.modality_configs,
         )
 
-        # 2. Call GR00T's own client
-        robot_action_policy, _ = self._client.get_action(policy_observations)
+        # 2. Call GR00T's own client. N2's server speaks flat dotted keys in both
+        # directions, and returns only the first environment's action, so the remote
+        # path is single-environment for now.
+        assert self.num_envs == 1, (
+            "GR00T N2's flat server protocol returns a single environment's action; "
+            f"num_envs={self.num_envs} is not supported."
+        )
+        flat_action, _ = self._client.get_action(_to_flat_observation(policy_observations))
+        robot_action_policy = _from_flat_action(flat_action)
 
         # 3. Action translation from policy output to sim action tensor
         action_tensor = build_gr00t_action_tensor(

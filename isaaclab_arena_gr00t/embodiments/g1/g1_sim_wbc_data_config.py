@@ -7,9 +7,9 @@
 External data configuration module for UnitreeG1 WBC simulation.
 """
 
-from gr00t.configs.data.embodiment_configs import register_modality_config
-from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.data.types import ActionConfig, ActionFormat, ActionRepresentation, ActionType, ModalityConfig
+from groot.core.data.schema.embodiment_tags import EmbodimentTag
+from groot.core.data.types import ActionConfig, ActionFormat, ActionRepresentation, ActionType, ModalityConfig
+from groot.core.training.configs.data.embodiment_configs import register_modality_config
 
 unitree_g1_sim_wbc_config = {
     "video": ModalityConfig(
@@ -75,4 +75,5 @@ unitree_g1_sim_wbc_config = {
     ),
 }
 
-register_modality_config(unitree_g1_sim_wbc_config, embodiment_tag=EmbodimentTag.NEW_EMBODIMENT)
+# GR00T N2 takes the tag first, as the plain string key used in MODALITY_CONFIGS.
+register_modality_config(EmbodimentTag.NEW_EMBODIMENT.value, unitree_g1_sim_wbc_config)

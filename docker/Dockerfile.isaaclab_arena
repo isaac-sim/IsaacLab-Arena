@@ -94,6 +94,15 @@ RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzm
     /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
 RUN /isaac-sim/python.sh -m pip install av
 
+COPY ./submodules/isaac-gr00t-n2 ${WORKDIR}/submodules/isaac-gr00t-n2
+# Same idea for GR00T N2's client (groot.core.policy.server_client), which
+# isaaclab_arena_gr00t imports. N1.7's client only reached numpy, but N2's reaches
+# groot.core.data.types, so importing it additionally needs polars, pyarrow,
+# transformers, tyro, and pydantic. They are listed unpinned so an interpreter that
+# already satisfies one keeps its version rather than having it moved underneath.
+RUN /isaac-sim/python.sh -m pip install polars pyarrow transformers tyro pydantic && \
+    /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/isaac-gr00t-n2/
+
 # openpi remote-client. The pinned commit is read from
 # isaaclab_arena_openpi/docker/OPENPI_COMMIT, which is also consumed by
 # isaaclab_arena_openpi/docker/run_openpi_server.sh when it builds the
