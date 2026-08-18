@@ -1,5 +1,10 @@
 [build-system]
-requires = ["setuptools>=61"]
+# 62.3 is the first release that expands the recursive `**` globs used in
+# [tool.setuptools.package-data]; below it a build would silently ship only the
+# top-level configs. 66.1 is the first that runs on Python 3.12 at all, the only
+# interpreter this project supports: 66.0 and earlier raise AttributeError on
+# `pkgutil.ImpImporter`, removed in 3.12, while importing pkg_resources.
+requires = ["setuptools>=66.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
