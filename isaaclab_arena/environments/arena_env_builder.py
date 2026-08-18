@@ -479,14 +479,17 @@ class ArenaEnvBuilder:
             env_kwargs = {}
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
-        # NOTE(alexmillane, 2026-08-05): Do not spread env_kwargs into the registry kwargs. env_kwargs carries the
-        # VariationRecorder, whose bind_env() holds a reference to the constructed env
-        # (and thus its SimulationContext/PhysX GPU buffers). The Gym registry is process-global
-        # and never cleared, so pinning it there retains every registered env's GPU memory until
-        # process exit — an unbounded leak across a persistent SimulationApp.
+        # NOTE(alexmillane, 2026-08-05): Do not spread all env_kwargs into the registry kwargs. env_kwargs carries
+        # the VariationRecorder, whose bind_env() holds a reference to the constructed env (and thus its
+        # SimulationContext/PhysX GPU buffers). The Gym registry is process-global and never cleared, so pinning
+        # the recorder there retains every registered env's GPU memory until process exit. Object metadata is
+        # non-owning and must be registered so Isaac Lab external scripts can construct the env without access
+        # to the env_kwargs returned here.
         # TODO(alexmillane, 2026-08-05): Fix this issue and remove this note.
         kwargs = {
             "env_cfg_entry_point": env_cfg,
+            "arena_object_types": env_kwargs.get("arena_object_types", {}),
+            "arena_object_bounds": env_kwargs.get("arena_object_bounds", {}),
         }
         if env_cfg.demo_recorder_config is not None:
             kwargs["demo_recorder_cfg_entry_point"] = env_cfg.demo_recorder_config
