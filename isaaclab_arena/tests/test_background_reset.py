@@ -8,7 +8,6 @@
 import torch
 
 import warp as wp
-from pxr import Sdf
 
 from isaaclab_arena.terms.background_reset import (
     _ArticulationReset,
@@ -67,6 +66,8 @@ def test_replicator_body_event_is_independent_of_root_pose_reset():
 
 
 def test_exclude_articulation_owned_bodies_partitions_by_subtree():
+    from pxr import Sdf
+
     body_paths = (
         "/World/envs/env_0/kitchen/Range/body",
         "/World/envs/env_0/kitchen/Fridge/door",
