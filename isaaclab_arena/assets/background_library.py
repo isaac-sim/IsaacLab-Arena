@@ -30,10 +30,12 @@ class LibraryBackground(Background):
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
+    reset_nested_physics = False
 
     def __init__(self, **kwargs):
         # Check lazy USD paths are set by here
         assert self.usd_path is not None
+        kwargs.setdefault("reset_nested_physics", self.reset_nested_physics)
         super().__init__(
             name=self.name,
             tags=self.tags,
@@ -175,6 +177,7 @@ class LightwheelKitchenBackground(LibraryBackground):
     object_min_z = -0.2
     layout_id = 1
     style_id = 1
+    reset_nested_physics = True
 
     def __init__(
         self,
@@ -247,6 +250,7 @@ class ReplicatorKitchenBackground(LibraryBackground):
     tags = ["background", "replicator"]
     initial_pose = Pose.identity()
     object_min_z = -0.2
+    reset_nested_physics = True
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(0.0, -1.0, 1.65), lookat=(0.0, 0.0, 1.35))

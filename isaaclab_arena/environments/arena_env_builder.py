@@ -42,6 +42,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.terms.events import ResetNestedBackgroundPhysics
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.resolve_clone_plan_source_patch import patch_resolve_clone_plan_source
@@ -258,8 +259,26 @@ class ArenaEnvBuilder:
         progress_tracking_events_cfg: Any = (
             make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
         )
+        background_physics_events_cfg = None
+        background_entities = self.arena_env.scene.get_background_physics_entities()
+        if background_entities:
+            reset_nested_background_physics = EventTermCfg(
+                func=ResetNestedBackgroundPhysics,
+                mode="reset",
+                params={
+                    "background_prim_paths": self.arena_env.scene.get_background_physics_prim_paths(),
+                    "background_entities": background_entities,
+                    "claimed_paths": self.arena_env.scene.get_background_physics_claimed_paths(),
+                },
+            )
+            BackgroundPhysicsEventsCfg = make_configclass(
+                "BackgroundPhysicsEventsCfg",
+                [("reset_nested_background_physics", EventTermCfg, reset_nested_background_physics)],
+            )
+            background_physics_events_cfg = BackgroundPhysicsEventsCfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
+            background_physics_events_cfg,
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),

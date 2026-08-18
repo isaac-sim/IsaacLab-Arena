@@ -7,10 +7,104 @@ import torch
 
 import warp as wp
 from isaaclab.envs import ManagerBasedEnv
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd_prim_tree import find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
+
+
+class ResetNestedBackgroundPhysics(ManagerTermBase):
+    """Restore hidden background physics entities to their initialized state."""
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self._background_prim_paths: dict[str, str] = cfg.params["background_prim_paths"]
+        self._background_entities: dict[str, dict[str, str]] = cfg.params["background_entities"]
+        self._claimed_paths: dict[str, dict[str, ObjectType]] = cfg.params["claimed_paths"]
+        self._entity_names = {
+            entity_name for entities in self._background_entities.values() for entity_name in entities
+        }
+        self._initial_state: dict[str, dict[str, dict[str, torch.Tensor]]] | None = None
+
+    @staticmethod
+    def _runtime_path(path_template: str, env_prim_path: str) -> str:
+        return path_template.replace("{ENV_REGEX_NS}", env_prim_path)
+
+    def _validate_runtime_composition(self, env: ManagerBasedEnv) -> None:
+        """Verify source-stage discovery covers every live unclaimed physics root."""
+        env_prim_path = env.scene.env_prim_paths[0]
+        for background_name, background_path_template in self._background_prim_paths.items():
+            background_path = self._runtime_path(background_path_template, env_prim_path)
+            background_prim = env.scene.stage.GetPrimAtPath(background_path)
+            assert background_prim.IsValid(), f"Missing opted-in background prim at '{background_path}'"
+            runtime_roots = find_nested_physics_roots(background_prim)
+            claimed_paths = {
+                self._runtime_path(path, env_prim_path): object_type
+                for path, object_type in self._claimed_paths[background_name].items()
+            }
+            unclaimed_runtime_paths = {
+                path
+                for path in runtime_roots
+                if path not in claimed_paths
+                and not any(
+                    claimed_type == ObjectType.ARTICULATION and path.startswith(f"{claimed_path}/")
+                    for claimed_path, claimed_type in claimed_paths.items()
+                )
+            }
+            expected_paths = {
+                self._runtime_path(path, env_prim_path) for path in self._background_entities[background_name].values()
+            }
+            missing = sorted(unclaimed_runtime_paths - expected_paths)
+            stale = sorted(expected_paths - unclaimed_runtime_paths)
+            assert not missing and not stale, (
+                f"Nested physics discovery for background '{background_name}' differs from the live composed stage. "
+                f"Unregistered runtime roots: {missing}. Missing runtime roots for generated entities: {stale}."
+            )
+
+    def _capture_initial_state(self, env: ManagerBasedEnv) -> None:
+        self._validate_runtime_composition(env)
+        scene_state = env.scene.get_state(is_relative=False)
+        self._initial_state = {"articulation": {}, "rigid_object": {}}
+        for asset_type in self._initial_state:
+            for entity_name, asset_state in scene_state[asset_type].items():
+                if entity_name in self._entity_names:
+                    self._initial_state[asset_type][entity_name] = {
+                        state_name: value.clone() for state_name, value in asset_state.items()
+                    }
+        captured_names = {entity_name for assets in self._initial_state.values() for entity_name in assets}
+        assert captured_names == self._entity_names, (
+            "Hidden background entities were not initialized as rigid objects or articulations: "
+            f"{sorted(self._entity_names - captured_names)}"
+        )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        background_prim_paths: dict[str, str],  # noqa: ARG002
+        background_entities: dict[str, dict[str, str]],  # noqa: ARG002
+        claimed_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
+    ) -> None:
+        if self._initial_state is None:
+            self._capture_initial_state(env)
+        assert self._initial_state is not None
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=env.device)
+        else:
+            env_ids = torch.as_tensor(env_ids, device=env.device).reshape(-1)
+
+        for entity_name, state in self._initial_state["rigid_object"].items():
+            asset = env.scene.rigid_objects[entity_name]
+            asset.write_root_pose_to_sim_index(root_pose=state["root_pose"][env_ids], env_ids=env_ids)
+            asset.write_root_velocity_to_sim_index(root_velocity=state["root_velocity"][env_ids], env_ids=env_ids)
+        for entity_name, state in self._initial_state["articulation"].items():
+            asset = env.scene.articulations[entity_name]
+            asset.write_root_pose_to_sim_index(root_pose=state["root_pose"][env_ids], env_ids=env_ids)
+            asset.write_root_velocity_to_sim_index(root_velocity=state["root_velocity"][env_ids], env_ids=env_ids)
+            asset.write_joint_position_to_sim_index(position=state["joint_position"][env_ids], env_ids=env_ids)
+            asset.write_joint_velocity_to_sim_index(velocity=state["joint_velocity"][env_ids], env_ids=env_ids)
 
 
 def set_object_pose(
