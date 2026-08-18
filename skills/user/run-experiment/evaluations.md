@@ -84,7 +84,27 @@ Known failure modes:
 - Starts the full evaluation or edits the Experiment Definition.
 - Reports missing output artifacts as a failure.
 
-## Scenario 6: Respect Workflow Boundaries
+## Scenario 6: Start A Required Local OpenPI Server
+
+Query: "Run `droid_pnp_openpi_experiment.yaml` locally; I haven't started a policy server."
+
+Expected behavior:
+
+- Detects OpenPI from the Run's resolved policy type and reads its variant, host, and port.
+- Uses `serve-openpi-policy` to reuse a matching ready server or start one on the configured local
+  endpoint before launching the Experiment.
+- Discloses and confirms a potentially large first image build or checkpoint download.
+- Waits for OpenPI readiness, runs the Experiment, verifies its artifacts, and leaves the server
+  running while reporting its endpoint and identity.
+
+Known failure modes:
+
+- Requires the user to discover and invoke the server skill separately.
+- Infers OpenPI only from the filename, starts a duplicate server, or serves a mismatched variant.
+- Treats a listening TCP port as sufficient readiness, submits to OSMO, or stops the server without
+  being asked.
+
+## Scenario 7: Respect Workflow Boundaries
 
 Query: "Submit this Experiment to OSMO pool `example-pool` and download the results."
 
@@ -98,7 +118,7 @@ Known failure modes:
 - Treats local and managed execution as interchangeable.
 - Submits remote compute using the local skill's permissions.
 
-## Scenario 7: Route Runtime Setup And Regression Testing
+## Scenario 8: Route Runtime Setup And Regression Testing
 
 Query: "I just cloned Arena. Install it, then run the no-camera pytest phase."
 

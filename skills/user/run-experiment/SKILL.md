@@ -1,6 +1,6 @@
 ---
 name: run-experiment
-description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
+description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates a required local OpenPI server, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
 allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id -un) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *)
 ---
 
@@ -35,8 +35,16 @@ path; do not create new legacy configurations or apply Hydra overrides to them.
    and state the choice. If neither route is ready, use `setup-arena`; do not install dependencies,
    build an image, create mounts, or recreate a container here.
 5. Confirm that referenced configs, datasets, checkpoints, and output locations are available from
-   the selected runtime. For a remote policy, require an already-running and reachable server; do
-   not start or submit one as part of this workflow.
+   the selected runtime. Identify a policy from each Run's resolved `policy.type`, not the
+   Experiment filename.
+6. For an OpenPI `Pi0RemotePolicy` or registered `pi0_remote` policy whose `remote_host` is local,
+   use `serve-openpi-policy` for each distinct variant and port. It must reuse a compatible ready
+   server or start one before this workflow launches the Experiment; the user does not need to
+   invoke that skill separately. If Runs request different variants on the same port, stop and ask
+   the user to resolve the conflict.
+7. For an OpenPI policy pointing to another host, or another remote policy without a matching local
+   server skill, require an already-running and reachable endpoint. Do not replace a deliberately
+   remote endpoint with a local server or submit it to managed compute.
 
 For a built-in smoke evaluation, use
 `isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml`. It uses the local
@@ -126,8 +134,9 @@ console; the runner does not currently promise a separate `metrics.json`.
 For `--list_variations`, report the catalogue and explicitly state that no rollout or output
 artifacts were expected.
 
-Finish with the selected runtime, Experiment path, effective overrides, output path, per-Run
-statuses, episode counts, and any preserved partial artifacts or failures.
+Finish with the selected runtime, any policy-server endpoint and whether it was reused or started,
+the Experiment path, effective overrides, output path, per-Run statuses, episode counts, and any
+preserved partial artifacts or failures.
 
 ## Hand off other workflows
 
@@ -138,10 +147,13 @@ statuses, episode counts, and any preserved partial artifacts or failures.
   rollout outside an Experiment Definition.
 - Use a separate OSMO submission skill for previews, cluster resources, submission, monitoring, or
   remote result download. An unqualified request to "run" an Experiment means local execution.
+- Use `serve-openpi-policy` automatically when a local OpenPI Experiment needs a compatible server.
+  Leave that server running after the Experiment unless the user asks to stop it.
 
 ## References
 
 - [Evaluations](evaluations.md)
+- [OpenPI server skill](../serve-openpi-policy/SKILL.md)
 - [Arena Experiments](../../../docs/pages/concepts/concept_arena_experiments.rst)
 - [First Arena Experiment](../../../docs/pages/quickstart/arena_experiment.rst)
 - [Environment variations](../../../docs/pages/quickstart/environment_variations.rst)
