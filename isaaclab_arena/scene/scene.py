@@ -35,7 +35,7 @@ class Scene:
         self.rewards_cfg = None
         self.curriculum_cfg = None
         self.commands_cfg = None
-        self._background_physics_entities: dict[str, dict[str, str]] = {}
+        self._background_physics_paths: dict[str, dict[str, ObjectType]] = {}
         self._background_physics_claimed_paths: dict[str, dict[str, ObjectType]] = {}
         self._background_physics_prim_paths: dict[str, str] = {}
         if assets is not None:
@@ -73,14 +73,13 @@ class Scene:
         """Returns a configclass containing all the scene elements."""
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
-        self._background_physics_entities = {}
+        self._background_physics_paths = {}
         self._background_physics_claimed_paths = {}
         self._background_physics_prim_paths = {}
         for asset in self.assets.values():
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
 
-        existing_names = {name for name, _, _ in fields}
         for background in (asset for asset in self.assets.values() if isinstance(asset, Background)):
             if not background.reset_nested_physics:
                 continue
@@ -89,22 +88,16 @@ class Scene:
                 for asset in self.assets.values()
                 if isinstance(asset, ObjectReference) and asset.parent_asset is background
             }
-            hidden_cfgs = background.get_nested_physics_cfgs(claimed_paths)
-            self._background_physics_entities[background.name] = {}
+            self._background_physics_paths[background.name] = background.get_nested_physics_prim_paths(claimed_paths)
             self._background_physics_claimed_paths[background.name] = claimed_paths
             self._background_physics_prim_paths[background.name] = background.prim_path
-            for entity_name, entity_cfg in hidden_cfgs.items():
-                assert entity_name not in existing_names, f"Background physics entity name collision: {entity_name}"
-                existing_names.add(entity_name)
-                fields.append((entity_name, type(entity_cfg), entity_cfg))
-                self._background_physics_entities[background.name][entity_name] = entity_cfg.prim_path
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
         return scene_cfg
 
-    def get_background_physics_entities(self) -> dict[str, dict[str, str]]:
-        """Return opted-in backgrounds mapped to hidden entity names and paths."""
-        return {background: dict(entities) for background, entities in self._background_physics_entities.items()}
+    def get_background_physics_paths(self) -> dict[str, dict[str, ObjectType]]:
+        """Return opted-in backgrounds mapped to deferred-reset physics roots."""
+        return {background: dict(paths) for background, paths in self._background_physics_paths.items()}
 
     def get_background_physics_claimed_paths(self) -> dict[str, dict[str, ObjectType]]:
         """Return opted-in backgrounds mapped to explicitly claimed runtime paths."""

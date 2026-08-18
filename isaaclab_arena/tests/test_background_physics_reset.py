@@ -75,7 +75,6 @@ def _test_background_physics_discovery_and_reset(
     import tempfile
     import torch
 
-    from isaaclab.assets import ArticulationCfg, RigidObjectCfg
     from pxr import UsdPhysics
 
     from isaaclab_arena.assets.background import Background
@@ -112,11 +111,14 @@ def _test_background_physics_discovery_and_reset(
             object_min_z=0.0,
             reset_nested_physics=True,
         )
-        configs = background.get_nested_physics_cfgs({"{ENV_REGEX_NS}/background/free_body": ObjectType.RIGID})
-        assert len(configs) == (4 if include_joint_network else 2)
-        assert sum(isinstance(cfg, ArticulationCfg) for cfg in configs.values()) == 1
-        assert sum(isinstance(cfg, RigidObjectCfg) for cfg in configs.values()) == (3 if include_joint_network else 1)
-        assert all(cfg.spawn is None for cfg in configs.values())
+        physics_paths = background.get_nested_physics_prim_paths(
+            {"{ENV_REGEX_NS}/background/free_body": ObjectType.RIGID}
+        )
+        assert len(physics_paths) == (4 if include_joint_network else 2)
+        assert sum(object_type == ObjectType.ARTICULATION for object_type in physics_paths.values()) == 1
+        assert sum(object_type == ObjectType.RIGID for object_type in physics_paths.values()) == (
+            3 if include_joint_network else 1
+        )
 
         scene = Scene(
             assets=[
@@ -132,71 +134,60 @@ def _test_background_physics_discovery_and_reset(
         args = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "2", *cli_options])
         builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args))
         env_cfg, _ = builder.compose_manager_cfg()
-        hidden_entities = scene.get_background_physics_entities()["background"]
-        assert len(hidden_entities) == (5 if include_joint_network else 3)
+        reset_paths = scene.get_background_physics_paths()["background"]
+        assert len(reset_paths) == (5 if include_joint_network else 3)
         assert list(vars(env_cfg.events))[0] == "reset_nested_background_physics"
 
         env = builder.make_registered(env_cfg)
         try:
             env.reset()
             base_env = env.unwrapped
-            initial_state = base_env.scene.get_state()
-            rigid_name = next(name for name, path in hidden_entities.items() if path.endswith("/free_body"))
-            articulation_name = next(name for name in hidden_entities if name in base_env.scene.articulations)
-
-            rigid = base_env.scene.rigid_objects[rigid_name]
-            initial_pose = initial_state["rigid_object"][rigid_name]["root_pose"].clone()
-            initial_joint_position = initial_state["articulation"][articulation_name]["joint_position"].clone()
+            reset_term = base_env.event_manager.get_term_cfg("reset_nested_background_physics").func
+            rigid_reset = next(
+                reset for reset in reset_term._rigid_resets if reset.asset.cfg.prim_path.endswith("/free_body")
+            )
+            articulation_reset = reset_term._articulation_resets[0]
+            rigid = rigid_reset.asset
+            articulation = articulation_reset.asset
+            initial_pose = rigid_reset.root_pose
+            initial_velocity = rigid_reset.root_velocity
+            initial_joint_position = articulation_reset.joint_position
+            env_ids = torch.arange(2, device=base_env.device)
             if check_interactivity:
-                probe_velocity = torch.zeros((1, 6), device=base_env.device)
-                probe_velocity[:, 0] = 2.0
-                rigid.write_root_velocity_to_sim_index(
-                    root_velocity=probe_velocity,
-                    env_ids=torch.tensor([0], device=base_env.device),
-                )
+                probe_velocity = initial_velocity.clone()
+                probe_velocity[0, 0] = 2.0
+                rigid.write_root_velocity_to_sim_index(root_velocity=probe_velocity, env_ids=env_ids)
                 base_env.sim.step()
                 base_env.scene.update(base_env.step_dt)
+                rigid.update(base_env.step_dt)
                 assert rigid.data.root_pose_w.torch[0, 0] > initial_pose[0, 0]
                 base_env.reset(env_ids=torch.arange(2, device=base_env.device))
 
             moved_pose = initial_pose.clone()
             moved_pose[:, 0] += 0.4
-            env_ids = torch.arange(2, device=base_env.device)
             rigid.write_root_pose_to_sim_index(root_pose=moved_pose, env_ids=env_ids)
             rigid.write_root_velocity_to_sim_index(
                 root_velocity=torch.ones((2, 6), device=base_env.device),
                 env_ids=env_ids,
             )
-
-            articulation_asset = base_env.scene.articulations[articulation_name]
             moved_joint_position = initial_joint_position.clone()
             moved_joint_position[:, 0] += 0.2
-            articulation_asset.write_joint_position_to_sim_index(position=moved_joint_position, env_ids=env_ids)
+            articulation.write_joint_position_to_sim_index(position=moved_joint_position, env_ids=env_ids)
 
             runtime_rigid_prim = base_env.scene.stage.GetPrimAtPath(
-                hidden_entities[rigid_name].replace("{ENV_REGEX_NS}", base_env.scene.env_prim_paths[0])
+                rigid.cfg.prim_path.replace(base_env.scene.env_regex_ns, base_env.scene.env_prim_paths[0])
             )
             kinematic_attr = UsdPhysics.RigidBodyAPI(runtime_rigid_prim).GetKinematicEnabledAttr()
             assert not kinematic_attr or not kinematic_attr.Get()
 
             base_env.reset(env_ids=torch.tensor([0], device=base_env.device))
-            reset_state = base_env.scene.get_state()
-            assert torch.allclose(
-                reset_state["rigid_object"][rigid_name]["root_pose"][0],
-                initial_pose[0],
-                atol=1.0e-5,
-            )
-            assert torch.allclose(
-                reset_state["rigid_object"][rigid_name]["root_velocity"][0],
-                initial_state["rigid_object"][rigid_name]["root_velocity"][0],
-                atol=1.0e-5,
-            )
-            assert torch.allclose(
-                reset_state["articulation"][articulation_name]["joint_position"][0],
-                initial_joint_position[0],
-                atol=1.0e-5,
-            )
-            assert torch.allclose(reset_state["rigid_object"][rigid_name]["root_pose"][1], moved_pose[1])
+            reset_pose = rigid.data.root_pose_w.torch
+            reset_velocity = rigid.data.root_vel_w.torch
+            reset_joint_position = articulation.data.joint_pos.torch
+            assert torch.allclose(reset_pose[0], initial_pose[0], atol=1.0e-5)
+            assert torch.allclose(reset_velocity[0], initial_velocity[0], atol=1.0e-5)
+            assert torch.allclose(reset_joint_position[0], initial_joint_position[0], atol=1.0e-5)
+            assert torch.allclose(reset_pose[1], moved_pose[1])
         finally:
             env.close()
     return True

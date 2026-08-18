@@ -260,14 +260,14 @@ class ArenaEnvBuilder:
             make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
         )
         background_physics_events_cfg = None
-        background_entities = self.arena_env.scene.get_background_physics_entities()
-        if background_entities:
+        background_physics_paths = self.arena_env.scene.get_background_physics_paths()
+        if background_physics_paths:
             reset_nested_background_physics = EventTermCfg(
                 func=ResetNestedBackgroundPhysics,
                 mode="reset",
                 params={
                     "background_prim_paths": self.arena_env.scene.get_background_physics_prim_paths(),
-                    "background_entities": background_entities,
+                    "physics_paths": background_physics_paths,
                     "claimed_paths": self.arena_env.scene.get_background_physics_claimed_paths(),
                 },
             )

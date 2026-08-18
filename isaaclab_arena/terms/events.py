@@ -4,8 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+from dataclasses import dataclass
+from typing import Any
 
+import carb
 import warp as wp
+from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 
@@ -15,18 +19,47 @@ from isaaclab_arena.utils.usd_prim_tree import find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
 
 
+@dataclass(frozen=True)
+class _RigidReset:
+    """A private rigid asset and its initialized state."""
+
+    asset: Any
+    root_pose: torch.Tensor
+    root_velocity: torch.Tensor
+
+    def restore(self, env_ids: torch.Tensor) -> None:
+        self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
+        self.asset.write_root_velocity_to_sim_index(root_velocity=self.root_velocity[env_ids], env_ids=env_ids)
+
+
+@dataclass(frozen=True)
+class _ArticulationReset:
+    """A private articulation asset and its initialized state."""
+
+    asset: Any
+    root_pose: torch.Tensor
+    root_velocity: torch.Tensor
+    joint_position: torch.Tensor
+    joint_velocity: torch.Tensor
+
+    def restore(self, env_ids: torch.Tensor) -> None:
+        self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
+        self.asset.write_root_velocity_to_sim_index(root_velocity=self.root_velocity[env_ids], env_ids=env_ids)
+        self.asset.write_joint_position_to_sim_index(position=self.joint_position[env_ids], env_ids=env_ids)
+        self.asset.write_joint_velocity_to_sim_index(velocity=self.joint_velocity[env_ids], env_ids=env_ids)
+
+
 class ResetNestedBackgroundPhysics(ManagerTermBase):
-    """Restore hidden background physics entities to their initialized state."""
+    """Restore unclaimed background physics roots through deferred runtime views."""
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self._background_prim_paths: dict[str, str] = cfg.params["background_prim_paths"]
-        self._background_entities: dict[str, dict[str, str]] = cfg.params["background_entities"]
+        self._physics_paths: dict[str, dict[str, ObjectType]] = cfg.params["physics_paths"]
         self._claimed_paths: dict[str, dict[str, ObjectType]] = cfg.params["claimed_paths"]
-        self._entity_names = {
-            entity_name for entities in self._background_entities.values() for entity_name in entities
-        }
-        self._initial_state: dict[str, dict[str, dict[str, torch.Tensor]]] | None = None
+        self._is_initialized = False
+        self._rigid_resets: list[_RigidReset] = []
+        self._articulation_resets: list[_ArticulationReset] = []
 
     @staticmethod
     def _runtime_path(path_template: str, env_prim_path: str) -> str:
@@ -53,9 +86,7 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                     for claimed_path, claimed_type in claimed_paths.items()
                 )
             }
-            expected_paths = {
-                self._runtime_path(path, env_prim_path) for path in self._background_entities[background_name].values()
-            }
+            expected_paths = {self._runtime_path(path, env_prim_path) for path in self._physics_paths[background_name]}
             missing = sorted(unclaimed_runtime_paths - expected_paths)
             stale = sorted(expected_paths - unclaimed_runtime_paths)
             assert not missing and not stale, (
@@ -64,47 +95,69 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
             )
 
     def _capture_initial_state(self, env: ManagerBasedEnv) -> None:
+        """Create private assets after simulation initialization and snapshot their state."""
         self._validate_runtime_composition(env)
-        scene_state = env.scene.get_state(is_relative=False)
-        self._initial_state = {"articulation": {}, "rigid_object": {}}
-        for asset_type in self._initial_state:
-            for entity_name, asset_state in scene_state[asset_type].items():
-                if entity_name in self._entity_names:
-                    self._initial_state[asset_type][entity_name] = {
-                        state_name: value.clone() for state_name, value in asset_state.items()
-                    }
-        captured_names = {entity_name for assets in self._initial_state.values() for entity_name in assets}
-        assert captured_names == self._entity_names, (
-            "Hidden background entities were not initialized as rigid objects or articulations: "
-            f"{sorted(self._entity_names - captured_names)}"
-        )
+        for physics_paths in self._physics_paths.values():
+            for path_template, object_type in physics_paths.items():
+                prim_path = path_template.replace("{ENV_REGEX_NS}", env.scene.env_regex_ns)
+                if object_type == ObjectType.ARTICULATION:
+                    asset_cfg = ArticulationCfg(
+                        prim_path=prim_path,
+                        actuators={},
+                        init_state=ArticulationCfg.InitialStateCfg(joint_pos={}, joint_vel={}),
+                    )
+                    asset = asset_cfg.class_type(asset_cfg)
+                    try:
+                        asset._initialize_callback(None)
+                    except (AttributeError, RuntimeError) as exc:
+                        asset._clear_callbacks()
+                        carb.log_warn(f"Skipping unavailable background articulation '{prim_path}': {exc}")
+                        continue
+                    self._articulation_resets.append(
+                        _ArticulationReset(
+                            asset=asset,
+                            root_pose=asset.data.root_pose_w.torch.clone(),
+                            root_velocity=asset.data.root_vel_w.torch.clone(),
+                            joint_position=asset.data.joint_pos.torch.clone(),
+                            joint_velocity=asset.data.joint_vel.torch.clone(),
+                        )
+                    )
+                else:
+                    asset_cfg = RigidObjectCfg(prim_path=prim_path)
+                    asset = asset_cfg.class_type(asset_cfg)
+                    try:
+                        asset._initialize_callback(None)
+                    except (AttributeError, RuntimeError) as exc:
+                        asset._clear_callbacks()
+                        carb.log_warn(f"Skipping unavailable background rigid body '{prim_path}': {exc}")
+                        continue
+                    self._rigid_resets.append(
+                        _RigidReset(
+                            asset=asset,
+                            root_pose=asset.data.root_pose_w.torch.clone(),
+                            root_velocity=asset.data.root_vel_w.torch.clone(),
+                        )
+                    )
+        self._is_initialized = True
 
     def __call__(
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
         background_prim_paths: dict[str, str],  # noqa: ARG002
-        background_entities: dict[str, dict[str, str]],  # noqa: ARG002
+        physics_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
         claimed_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
     ) -> None:
-        if self._initial_state is None:
+        if not self._is_initialized:
             self._capture_initial_state(env)
-        assert self._initial_state is not None
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device=env.device)
         else:
             env_ids = torch.as_tensor(env_ids, device=env.device).reshape(-1)
-
-        for entity_name, state in self._initial_state["rigid_object"].items():
-            asset = env.scene.rigid_objects[entity_name]
-            asset.write_root_pose_to_sim_index(root_pose=state["root_pose"][env_ids], env_ids=env_ids)
-            asset.write_root_velocity_to_sim_index(root_velocity=state["root_velocity"][env_ids], env_ids=env_ids)
-        for entity_name, state in self._initial_state["articulation"].items():
-            asset = env.scene.articulations[entity_name]
-            asset.write_root_pose_to_sim_index(root_pose=state["root_pose"][env_ids], env_ids=env_ids)
-            asset.write_root_velocity_to_sim_index(root_velocity=state["root_velocity"][env_ids], env_ids=env_ids)
-            asset.write_joint_position_to_sim_index(position=state["joint_position"][env_ids], env_ids=env_ids)
-            asset.write_joint_velocity_to_sim_index(velocity=state["joint_velocity"][env_ids], env_ids=env_ids)
+        for reset in self._rigid_resets:
+            reset.restore(env_ids)
+        for reset in self._articulation_resets:
+            reset.restore(env_ids)
 
 
 def set_object_pose(

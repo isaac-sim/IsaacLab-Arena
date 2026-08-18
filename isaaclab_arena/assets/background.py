@@ -3,9 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import re
-
-from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.assets.object import Object
@@ -56,17 +53,17 @@ class Background(Object):
             cfg.func = spawn_from_usd_with_resettable_nested_physics
         return cfg
 
-    def get_nested_physics_cfgs(
+    def get_nested_physics_prim_paths(
         self,
         claimed_prim_paths: dict[str, ObjectType] | None = None,
-    ) -> dict[str, ArticulationCfg | RigidObjectCfg]:
-        """Return non-spawning configs for unclaimed nested physics roots.
+    ) -> dict[str, ObjectType]:
+        """Return unclaimed nested physics root paths.
 
         Args:
             claimed_prim_paths: Runtime paths already represented by explicit object references.
 
         Returns:
-            Hidden scene configs keyed by deterministic private names.
+            Runtime path templates mapped to their physics object types.
         """
         if not self.reset_nested_physics:
             return {}
@@ -74,9 +71,8 @@ class Background(Object):
             self._nested_physics_records = load_usd_physics_roots(self.usd_path)
 
         claimed_prim_paths = claimed_prim_paths or {}
-        configs: dict[str, ArticulationCfg | RigidObjectCfg] = {}
-        background_slug = re.sub(r"\W+", "_", self.name).strip("_")
-        for index, record in enumerate(self._nested_physics_records):
+        paths: dict[str, ObjectType] = {}
+        for record in self._nested_physics_records:
             prim_path = f"{self.prim_path}/{record.relative_path}"
             is_claimed = prim_path in claimed_prim_paths or any(
                 claimed_type == ObjectType.ARTICULATION and prim_path.startswith(f"{claimed_path}/")
@@ -84,18 +80,8 @@ class Background(Object):
             )
             if is_claimed:
                 continue
-            path_slug = re.sub(r"\W+", "_", record.relative_path).strip("_")
-            entity_name = f"_background_physics_{background_slug}_{index}_{path_slug}"
-            assert entity_name not in configs, f"Duplicate hidden background entity name: {entity_name}"
-            if record.object_type == ObjectType.ARTICULATION:
-                configs[entity_name] = ArticulationCfg(
-                    prim_path=prim_path,
-                    actuators={},
-                    init_state=ArticulationCfg.InitialStateCfg(joint_pos={}, joint_vel={}),
-                )
-            else:
-                configs[entity_name] = RigidObjectCfg(prim_path=prim_path)
-        return configs
+            paths[prim_path] = record.object_type
+        return paths
 
     def get_viewer_cfg(self) -> ViewerCfg | None:
         """Return a custom viewer camera framing for this background, or None to auto-frame."""
