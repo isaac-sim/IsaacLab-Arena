@@ -15,6 +15,7 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -24,7 +25,13 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import (
+    object_is_above_height,
+    object_is_below_height,
+    object_on_destination,
+    object_supported_by,
+    objects_in_proximity,
+)
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
@@ -35,10 +42,11 @@ from isaaclab_arena.utils.configclass import make_configclass
 @agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
-    """Pick-and-place task. Success fires when the pick-up object contacts the destination
-    with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
-    of the destination. Failure (object_dropped) fires when the object falls below the
-    background's ``object_min_z``.
+    """Pick-and-place task for rigid or deformable objects.
+
+    Rigid success uses destination contact and low velocity; deformable success uses geometric
+    support. When ``max_separation`` is set, success additionally requires axis-aligned proximity.
+    Failure fires when the object falls below the background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
     shape (different arm subtask sequences, different per-subtask numerical knobs,
@@ -54,7 +62,7 @@ class PickAndPlaceTask(TaskBase):
 
     def __init__(
         self,
-        pick_up_object: Asset,
+        pick_up_object: ObjectBase,
         destination_location: Asset,
         background_scene: Asset,
         destination_object: Asset | None = None,
@@ -70,7 +78,17 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
+        if pick_up_object.object_type == ObjectType.RIGID:
+            self.placement_predicate = object_on_destination
+            self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
+        elif pick_up_object.object_type == ObjectType.DEFORMABLE:
+            self.placement_predicate = object_supported_by
+            self.contact_sensor_name = None
+        else:
+            raise ValueError(
+                f"PickAndPlaceTask does not support pick-up object type {pick_up_object.object_type!r}; "
+                f"expected {ObjectType.RIGID.value!r} or {ObjectType.DEFORMABLE.value!r}."
+            )
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
@@ -91,6 +109,9 @@ class PickAndPlaceTask(TaskBase):
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
     def make_scene_cfg(self):
+        if self.pick_up_object.object_type == ObjectType.DEFORMABLE:
+            return None
+        assert self.contact_sensor_name is not None
         contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
             contact_against_object=self.destination_location,
         )
@@ -108,15 +129,7 @@ class PickAndPlaceTask(TaskBase):
 
     def make_termination_cfg(self):
         predicates = [
-            TerminationTermCfg(
-                func=object_on_destination,
-                params={
-                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
-                    "force_threshold": self.force_threshold,
-                    "velocity_threshold": self.velocity_threshold,
-                },
-            ),
+            self._make_placement_predicate_cfg(),
         ]
         if self.max_separation is not None:
             # TODO(qianl): replace objects_in_proximity with object_centroid_in_proximity
@@ -143,15 +156,36 @@ class PickAndPlaceTask(TaskBase):
             },
         )
         object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
+            func=object_is_below_height,
             params={
+                "object_name": self.pick_up_object.name,
                 "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
         return TerminationsCfg(
             success=success,
             object_dropped=object_dropped,
+        )
+
+    def _make_placement_predicate_cfg(self) -> TerminationTermCfg:
+        """Build the object-type-specific placement predicate."""
+        if self.pick_up_object.object_type == ObjectType.RIGID:
+            assert self.contact_sensor_name is not None
+            return TerminationTermCfg(
+                func=self.placement_predicate,
+                params={
+                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
+                    "force_threshold": self.force_threshold,
+                    "velocity_threshold": self.velocity_threshold,
+                },
+            )
+        return TerminationTermCfg(
+            func=self.placement_predicate,
+            params={
+                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                "destination_cfg": SceneEntityCfg(self.destination_location.name),
+            },
         )
 
     def get_events_cfg(self):
@@ -164,39 +198,54 @@ class PickAndPlaceTask(TaskBase):
         ``arm_mode`` and return its result. Otherwise build the default
         ``PickPlaceMimicEnvCfg``.
         """
+        if self.pick_up_object.object_type == ObjectType.DEFORMABLE:
+            raise NotImplementedError("Mimic data generation is not supported for deformable pick-and-place objects.")
         if self.mimic_env_cfg_factory is not None:
             return self.mimic_env_cfg_factory(arm_mode)
+        destination_location_name = (
+            self.destination_object.name if self.destination_object is not None else self.destination_location.name
+        )
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
-            destination_location_name=self.destination_object.name,
+            destination_location_name=destination_location_name,
         )
 
     def get_metrics(self) -> list[MetricBase]:
+        if self.pick_up_object.object_type == ObjectType.DEFORMABLE:
+            return [SuccessRateMetric()]
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
+        placement_cfg = self._make_placement_predicate_cfg()
+        predicates = [
+            partial(
+                objects_settled,
+                object_names=[self.pick_up_object.name],
+            ),
+            partial(
+                object_is_above_height,
+                object_name=self.pick_up_object.name,
+                use_settled_state=True,
+            ),
+            partial(placement_cfg.func, **placement_cfg.params),
+        ]
+        if self.max_separation is not None:
+            max_x_separation, max_y_separation, max_z_separation = self.max_separation
+            predicates.append(
+                partial(
+                    objects_in_proximity,
+                    object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                    target_object_cfg=SceneEntityCfg(self.destination_location.name),
+                    max_x_separation=max_x_separation,
+                    max_y_separation=max_y_separation,
+                    max_z_separation=max_z_separation,
+                )
+            )
         return [
             ProgressObjective(
                 name="pick_and_place",
-                predicate_groups=[
-                    partial(
-                        objects_settled,
-                        object_names=[self.pick_up_object.name],
-                    ),
-                    partial(
-                        object_is_above_height,
-                        object_name=self.pick_up_object.name,
-                        use_settled_state=True,
-                    ),
-                    partial(
-                        object_on_destination,
-                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                        contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
-                        force_threshold=self.force_threshold,
-                        velocity_threshold=self.velocity_threshold,
-                    ),
-                ],
+                predicate_groups=predicates,
             ),
         ]
 
