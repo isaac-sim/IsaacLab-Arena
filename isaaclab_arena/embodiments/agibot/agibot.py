@@ -68,9 +68,6 @@ class AgibotLeftArmSceneCfg(AgibotSceneCfg):
                 prim_path="{ENV_REGEX_NS}/Robot/gripper_center",
                 name="left_end_effector",
                 offset=OffsetCfg(
-                    # -90 deg about y in OffsetCfg's (x, y, z, w) order. Previously written
-                    # (0.7071, 0, -0.7071, 0) -- the same rotation in (w, x, y, z) order, which
-                    # is read here as a 180 deg flip; see AgibotLeftArmActionsCfg.
                     rot=(0.0, -0.7071, 0.0, 0.7071),
                 ),
             ),
@@ -118,14 +115,6 @@ class AgibotLeftArmActionsCfg:
         body_name="gripper_center",
         controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
         scale=1.0,
-        # -90 deg about y, in OffsetCfg's (x, y, z, w) order. The left end-effector frame is
-        # not the mirror of the right one: agibot.urdf gives ``gripper_center_joint`` rpy
-        # "0 -1.5708 -1.5708" against ``right_gripper_center_joint``'s "0 0 -1.5708", and this
-        # offset cancels the extra quarter turn so both arms take deltas in the same axes.
-        # It was previously written (0.7071, 0, -0.7071, 0) -- the same rotation in (w, x, y, z)
-        # order, which OffsetCfg reads as a 180 deg flip. RMPFlow then chased an orientation the
-        # arm cannot hold: under a zero command the left gripper ran away ~270 mm after every
-        # reset, which made the arm unteleoperatable. Corrected, it holds and tracks each axis.
         body_offset=RMPFlowActionCfg.OffsetCfg(rot=(0.0, -0.7071, 0.0, 0.7071)),
         use_relative_mode=True,
     )

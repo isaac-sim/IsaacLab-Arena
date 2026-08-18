@@ -90,16 +90,7 @@ def _test_place_upright_mug_single(simulation_app) -> bool:
 
 
 def _test_place_upright_mug_multi(simulation_app) -> bool:
-    """Checks that place_upright's env_ids / upright_percentage plumbing hits the right envs.
-
-    Asserts immediately after each ``place_upright`` call, without stepping physics in between.
-    Earlier versions stepped the sim before asserting, which made the test a physics coin-flip:
-    once a mug has fallen to the table, rotating it upright *in place* sinks its base into the
-    tabletop (a lying mug's centre is lower than a standing one's), PhysX pops it out, and
-    whether it settles upright or tips over is marginal -- any unrelated change to the robot's
-    reset behaviour flipped the outcome. The plumbing this test exists for is fully observable
-    at the moment of the write.
-    """
+    """Checks that place_upright's env_ids / upright_percentage plumbing hits the right envs."""
     env, placeable_obj = get_test_environment(dont_reset_placeable_object_pose=True, num_envs=2)
 
     try:
