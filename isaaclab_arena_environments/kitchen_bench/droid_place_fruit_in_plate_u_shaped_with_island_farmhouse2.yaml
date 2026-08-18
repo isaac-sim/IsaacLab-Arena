@@ -1,0 +1,98 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_place_fruit_in_plate
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.6
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects:
+- id: lemon
+  registry_name: lemon_01_fruits_veggies_robolab
+  params: {}
+- id: orange
+  registry_name: orange_01_fruits_veggies_robolab
+  params: {}
+- id: apple
+  registry_name: apple_01_objaverse_robolab
+  params: {}
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+- id: shelf
+  parent_id: kitchen
+  prim_path: shelves_main_group/corpus/board_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: counter_top
+  params: {}
+- kind: is_anchor
+  subject: shelf
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: counter_top
+  params:
+    side: negative_x
+    distance_m: 0.2
+- kind: 'on'
+  subject: plate
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: lemon
+  reference: shelf
+  params: {}
+- kind: 'on'
+  subject: orange
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: apple
+  reference: counter_top
+  params: {}
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+task:
+  composition: atomic
+  description: Pick up the fruit from the shelf and place it into the plate.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon
+      destination_location: plate
+      background_scene: kitchen
+      destination_object: plate
