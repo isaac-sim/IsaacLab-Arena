@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
 from isaaclab_arena.visualization.episode_results_files import find_episode_results_files
 
@@ -65,7 +66,27 @@ def build_task_from_job_name(job_name: str, env_package: str) -> Any:
     return build_task_from_spec(spec.task, assets_by_node_id)
 
 
-def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict[str, list[dict[str, Any]]]]:
+def _task_for_objective(task: Any, objective: ProgressObjective) -> Any:
+    """Return the subtask instance that produced ``objective``, or ``task`` itself if it is not composite."""
+    if objective.parent_subtask_idx is not None:
+        return task.subtasks[objective.parent_subtask_idx]
+    return task
+
+
+def _pick_and_place_targets(task: Any) -> dict[str, str] | None:
+    """Return ``task``'s pick-up object and destination names, or ``None`` if it is not a ``PickAndPlaceTask``."""
+    # Deferred: pulls in isaaclab, which this module otherwise keeps out of import time.
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+    if not isinstance(task, PickAndPlaceTask):
+        return None
+    return {
+        "pick_up_object": task.pick_up_object.name,
+        "destination_location": task.destination_location.name,
+    }
+
+
+def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict[str, Any]]:
     """Return every predicate defined by ``job_name``'s progress objectives, whether or not any episode reached it.
 
     Args:
@@ -74,20 +95,28 @@ def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict
             (e.g. ``"robolab"``).
 
     Returns:
-        ``{objective_name: {group_name: [{"index": int, "predicate": str, "score": float}, ...]}}``,
-        one entry per group's ordered predicate chain. A composite task's objective names carry the
-        same ``subtask_{i}/{name}`` prefixes as the recorded ``progress.objectives`` keys.
+        ``{objective_name: {"pick_up_object": str, "destination_location": str, "groups": {...}}}``.
+        The ``pick_up_object``/``destination_location`` keys are only present when the objective's
+        subtask is a ``PickAndPlaceTask``. ``groups`` maps each group name to its ordered predicate
+        chain, as ``[{"index": int, "predicate": str, "score": float}, ...]``. A composite task's
+        objective names carry the same ``subtask_{i}/{name}`` prefixes as the recorded
+        ``progress.objectives`` keys.
     """
     task = build_task_from_job_name(job_name, env_package)
-    predicates: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    predicates: dict[str, dict[str, Any]] = {}
     for objective in task.get_progress_objectives():
-        predicates[objective.name] = {
+        entry: dict[str, Any] = {}
+        targets = _pick_and_place_targets(_task_for_objective(task, objective))
+        if targets is not None:
+            entry.update(targets)
+        entry["groups"] = {
             group_name: [
                 {"index": index, "predicate": _predicate_repr(predicate), "score": score}
                 for index, (predicate, score) in enumerate(chain)
             ]
             for group_name, chain in objective.canonical_predicate_groups.items()
         }
+        predicates[objective.name] = entry
     return predicates
 
 

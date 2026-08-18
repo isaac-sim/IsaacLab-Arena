@@ -18,7 +18,13 @@ from isaaclab_arena.progress_tracking.static_predicate_listing import (
     annotate_episode_results_file,
 )
 
-_FAKE_PREDICATES = {"pick_and_place": {"default_group": [{"index": 0, "predicate": "objects_settled", "score": 1.0}]}}
+_FAKE_PREDICATES = {
+    "pick_and_place": {
+        "pick_up_object": "apple",
+        "destination_location": "wooden_bowl",
+        "groups": {"default_group": [{"index": 0, "predicate": "objects_settled", "score": 1.0}]},
+    }
+}
 
 
 def _fake_lookup(job_name: str, env_package: str) -> dict:
