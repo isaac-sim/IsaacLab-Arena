@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import copy
 import datetime
 import gymnasium as gym
 from typing import Any
@@ -19,6 +21,7 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -178,6 +181,27 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
+    def _apply_physics_preset(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> None:
+        """Apply the selected named physics preset to an environment config."""
+        from isaaclab_arena.environments.physics_presets import ARENA_PHYSICS_PRESETS
+
+        selected = self._selected_physics_preset()
+        if selected is None:
+            # Preserve the existing rigid default: implicit PhysX with scene replication disabled.
+            return
+        try:
+            preset = ARENA_PHYSICS_PRESETS[selected]
+        except KeyError:
+            available = ", ".join(sorted(ARENA_PHYSICS_PRESETS))
+            raise ValueError(f"Unknown physics preset {selected!r}. Available presets: {available}.") from None
+
+        env_cfg.sim.physics = copy.deepcopy(preset.physics_cfg)
+        env_cfg.scene.replicate_physics = preset.replicate_physics
+
+    def _selected_physics_preset(self) -> str | None:
+        """Return the CLI preset or the environment's default preset."""
+        return self.cfg.presets or self.arena_env.default_physics_preset
+
     def _compose_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:
         """Build a configclass container with one ``MetricTermCfg`` field per metric."""
         if not metrics:
@@ -236,7 +260,7 @@ class ArenaEnvBuilder:
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
-            self.arena_env.scene.get_scene_cfg(),
+            self.arena_env.scene.get_scene_cfg(self._selected_physics_preset()),
             embodiment.get_scene_cfg(),
             task.get_scene_cfg(),
         )
@@ -397,20 +421,27 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend after the callback so it remains the final authority.
-        presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        # Apply the selected preset after the callback so it remains the final authority.
+        self._apply_physics_preset(env_cfg)
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+        object_types = {
+            asset.name: asset.object_type
+            for asset in self.arena_env.scene.assets.values()
+            if isinstance(getattr(asset, "object_type", None), ObjectType)
+        }
+        object_bounds = {}
+        for name in object_types:
+            asset = self.arena_env.scene.assets[name]
+            if not hasattr(asset, "get_bounding_box") or getattr(asset, "usd_path", True) is None:
+                continue
+            with contextlib.suppress(AssertionError):
+                object_bounds[name] = asset.get_bounding_box()
 
-            # Set replicate_physics for shared physics representations.
-            # For Newton, without this flag, the simulation initialization
-            # takes a very long time for large number of parallel environments.
-            if presets == "newton":
-                env_cfg.scene.replicate_physics = True
-
-        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        env_kwargs: dict[str, Any] = {
+            "variation_recorder": variation_recorder,
+            "arena_object_types": object_types,
+            "arena_object_bounds": object_bounds,
+        }
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
