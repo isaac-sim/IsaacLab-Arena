@@ -3,12 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import isaaclab.sim as sim_utils
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
@@ -16,7 +14,6 @@ from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.terms.background_reset import ResetBackgroundBodies
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -33,10 +30,12 @@ class LibraryBackground(Background):
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
+    reset_nested_physics = False
 
     def __init__(self, **kwargs):
         # Check lazy USD paths are set by here
         assert self.usd_path is not None
+        kwargs.setdefault("reset_nested_physics", self.reset_nested_physics)
         super().__init__(
             name=self.name,
             tags=self.tags,
@@ -178,6 +177,7 @@ class LightwheelKitchenBackground(LibraryBackground):
     object_min_z = -0.2
     layout_id = 1
     style_id = 1
+    reset_nested_physics = True
 
     def __init__(
         self,
@@ -250,17 +250,7 @@ class ReplicatorKitchenBackground(LibraryBackground):
     tags = ["background", "replicator"]
     initial_pose = Pose.identity()
     object_min_z = -0.2
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg]:
-        """Return the reset event for the kitchen's embedded rigid bodies."""
-        return (
-            f"{self.name}_body_reset",
-            EventTermCfg(
-                func=cast(Callable[..., None], ResetBackgroundBodies),
-                mode="reset",
-                params={"background_name": self.name},
-            ),
-        )
+    reset_nested_physics = True
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(0.0, -1.0, 1.65), lookat=(0.0, 0.0, 1.35))

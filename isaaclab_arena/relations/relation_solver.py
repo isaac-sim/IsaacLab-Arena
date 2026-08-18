@@ -189,6 +189,7 @@ class RelationSolver:
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[PlaceableAsset, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        device: str | torch.device | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -209,12 +210,14 @@ class RelationSolver:
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
+            device: Torch and Warp device used for placement. When omitted, CUDA is
+                selected if available.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device(device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu"))
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )
@@ -237,8 +240,8 @@ class RelationSolver:
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
-        if self.params.profile and torch.cuda.is_available():
-            torch.cuda.synchronize()
+        if self.params.profile and state.device.type == "cuda":
+            torch.cuda.synchronize(state.device)
         solve_start = time.perf_counter()
 
         # Precompute mesh collision cache (once per solve, before opt loop)
@@ -305,8 +308,8 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
-        if self.params.profile and torch.cuda.is_available():
-            torch.cuda.synchronize()
+        if self.params.profile and state.device.type == "cuda":
+            torch.cuda.synchronize(state.device)
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
 
         if self.params.save_position_history:

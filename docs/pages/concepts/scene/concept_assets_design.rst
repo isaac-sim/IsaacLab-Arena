@@ -80,6 +80,30 @@ you use an ``ObjectReference``.
 The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
 The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
 
+Resetting nested background physics
+-----------------------------------
+
+Backgrounds are registered as ``BASE`` assets, but their composed USDs may contain
+dynamic rigid bodies and articulations. Set ``reset_nested_physics=True`` on a
+``Background`` to register those nested physics roots as private Isaac Lab scene
+reset views. Arena creates the views after simulation and RTX initialization, then
+snapshots their poses, velocities, and joint states and restores them on each episode
+reset without making the bodies kinematic. These private roots are not exposed through
+the Isaac Lab scene entity registries.
+
+Explicit ``ObjectReference`` entries take ownership of their paths and are not
+duplicated. Articulation links are reset through their articulation root, while
+joint-connected rigid bodies without an articulation root are reset individually.
+
+Discovery follows the composed USD physics APIs rather than asset naming conventions.
+For Replicator content, physics contributed by a resolved ``_OnlineVisual`` reference
+is included. A ``_PlacementEnvelope`` is excluded when it is guide geometry without
+physics APIs. Instanceable subtrees that contribute dynamic physics are materialized
+at spawn time because physics views cannot control dynamic instance proxies. Authored
+roots that do not correspond to a live physics backend object after composition are
+skipped. All live roots, including ``_OnlineVisual`` objects, remain dynamic and
+interactive during physics stepping.
+
 Rigid object sets
 -----------------
 

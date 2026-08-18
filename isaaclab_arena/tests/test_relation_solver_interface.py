@@ -74,6 +74,32 @@ def test_solve_and_apply_relation_placement_requires_unique_asset_names():
         solve_and_apply_relation_placement([_make_box(), _make_box()], num_envs=1)
 
 
+def test_solve_and_apply_relation_placement_forwards_device(monkeypatch):
+    import isaaclab_arena.environments.relation_solver_interface as solver_interface
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk))
+    received_device = None
+
+    def _capture_device(**kwargs):
+        nonlocal received_device
+        received_device = kwargs["device"]
+        raise RuntimeError("device captured")
+
+    monkeypatch.setattr(solver_interface, "PooledObjectPlacer", _capture_device)
+
+    with pytest.raises(RuntimeError, match="device captured"):
+        solver_interface.solve_and_apply_relation_placement(
+            [desk, box],
+            num_envs=1,
+            device="cuda:1",
+        )
+
+    assert received_device == "cuda:1"
+
+
 def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment

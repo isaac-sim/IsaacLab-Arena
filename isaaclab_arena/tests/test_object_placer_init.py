@@ -7,6 +7,7 @@
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -26,6 +27,27 @@ def _make_desk():
 
 def _env_bboxes(objects):
     return {obj: obj.get_bounding_box() for obj in objects}
+
+
+def test_relation_solver_uses_explicit_device():
+    desk = _make_desk()
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk))
+    solver = RelationSolver(
+        RelationSolverParams(max_iters=0, save_position_history=False, verbose=False),
+    )
+
+    solver.solve(
+        [desk, box],
+        [{desk: (0.0, 0.0, 0.0), box: (0.1, 0.1, 0.1)}],
+        device="cpu",
+    )
+
+    assert solver.last_loss_per_env is not None
+    assert solver.last_loss_per_env.device.type == "cpu"
 
 
 def test_on_init_x_y_within_parent_footprint():

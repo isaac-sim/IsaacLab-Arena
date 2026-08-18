@@ -12,6 +12,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -34,6 +35,9 @@ class Scene:
         self.rewards_cfg = None
         self.curriculum_cfg = None
         self.commands_cfg = None
+        self._background_physics_paths: dict[str, dict[str, ObjectType]] = {}
+        self._background_physics_claimed_paths: dict[str, dict[str, ObjectType]] = {}
+        self._background_physics_prim_paths: dict[str, str] = {}
         if assets is not None:
             self.add_assets(assets)
 
@@ -69,12 +73,39 @@ class Scene:
         """Returns a configclass containing all the scene elements."""
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
+        self._background_physics_paths = {}
+        self._background_physics_claimed_paths = {}
+        self._background_physics_prim_paths = {}
         for asset in self.assets.values():
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+
+        for background in (asset for asset in self.assets.values() if isinstance(asset, Background)):
+            if not background.reset_nested_physics:
+                continue
+            claimed_paths = {
+                asset.prim_path: asset.object_type
+                for asset in self.assets.values()
+                if isinstance(asset, ObjectReference) and asset.parent_asset is background
+            }
+            self._background_physics_paths[background.name] = background.get_nested_physics_prim_paths(claimed_paths)
+            self._background_physics_claimed_paths[background.name] = claimed_paths
+            self._background_physics_prim_paths[background.name] = background.prim_path
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
         return scene_cfg
+
+    def get_background_physics_paths(self) -> dict[str, dict[str, ObjectType]]:
+        """Return opted-in backgrounds mapped to deferred-reset physics roots."""
+        return {background: dict(paths) for background, paths in self._background_physics_paths.items()}
+
+    def get_background_physics_claimed_paths(self) -> dict[str, dict[str, ObjectType]]:
+        """Return opted-in backgrounds mapped to explicitly claimed runtime paths."""
+        return {background: dict(paths) for background, paths in self._background_physics_claimed_paths.items()}
+
+    def get_background_physics_prim_paths(self) -> dict[str, str]:
+        """Return opted-in backgrounds mapped to their runtime root paths."""
+        return dict(self._background_physics_prim_paths)
 
     def get_observation_cfg(self) -> Any:
         return self.observation_cfg
