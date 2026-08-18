@@ -14,65 +14,6 @@ if TYPE_CHECKING:
     from pxr import Usd
 
 
-def find_nearest_rigid_body_ancestor(prim: Usd.Prim, root_prim: Usd.Prim) -> Usd.Prim | None:
-    """Return the nearest rigid-body ancestor at or below a root prim."""
-    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
-    from pxr import UsdPhysics
-
-    candidate = prim
-    root_path = root_prim.GetPath()
-    while candidate.IsValid() and candidate.GetPath().HasPrefix(root_path):
-        if candidate.HasAPI(UsdPhysics.RigidBodyAPI):
-            return candidate
-        if candidate == root_prim:
-            break
-        candidate = candidate.GetParent()
-    return None
-
-
-def get_joint_connected_rigid_body_paths(root_prim: Usd.Prim) -> tuple[str, ...]:
-    """Return rigid bodies under a root that are referenced by USD joints."""
-    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
-    from pxr import Usd, UsdPhysics
-
-    assert root_prim.IsValid(), "Cannot inspect joints under an invalid USD prim"
-    joint_connected_paths = set()
-    for prim in Usd.PrimRange(root_prim):
-        if not prim.IsA(UsdPhysics.Joint):
-            continue
-        joint = UsdPhysics.Joint(prim)
-        for relationship in (joint.GetBody0Rel(), joint.GetBody1Rel()):
-            for target in relationship.GetTargets():
-                target_prim = root_prim.GetStage().GetPrimAtPath(target)
-                assert target_prim.IsValid(), f"Joint '{prim.GetPath()}' targets missing prim '{target}'"
-                body_prim = find_nearest_rigid_body_ancestor(target_prim, root_prim)
-                if body_prim is not None:
-                    joint_connected_paths.add(str(body_prim.GetPath()))
-    return tuple(sorted(joint_connected_paths))
-
-
-def freeze_loose_rigid_bodies(root_prim: Usd.Prim) -> tuple[str, ...]:
-    """Make rigid bodies without USD joint connections kinematic and return their paths."""
-    # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
-    from pxr import Usd, UsdPhysics
-
-    assert root_prim.IsValid(), "Cannot freeze rigid bodies under an invalid USD prim"
-    prims = list(Usd.PrimRange(root_prim))
-    rigid_body_prims = {str(prim.GetPath()): prim for prim in prims if prim.HasAPI(UsdPhysics.RigidBodyAPI)}
-    joint_connected_paths = set(get_joint_connected_rigid_body_paths(root_prim))
-
-    frozen_paths = []
-    for path, prim in rigid_body_prims.items():
-        if path in joint_connected_paths:
-            continue
-        kinematic_attr = UsdPhysics.RigidBodyAPI(prim).CreateKinematicEnabledAttr(True)
-        assert (
-            kinematic_attr.IsValid() and kinematic_attr.Get() is True
-        ), f"Failed to make loose rigid body '{path}' kinematic"
-        frozen_paths.append(path)
-    return tuple(frozen_paths)
-
-
 def get_all_rigid_body_prim_paths_from_stage(stage: Usd.Stage) -> list[str]:
     """
     Get the prim paths of all rigid bodies in a stage.

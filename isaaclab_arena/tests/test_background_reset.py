@@ -47,7 +47,7 @@ class _RecordingArticulationView:
         self._record("dof_velocities", values, indices)
 
 
-def test_replicator_fixture_event_is_independent_of_root_pose_reset():
+def test_replicator_body_event_is_independent_of_root_pose_reset():
     from isaaclab_arena.assets.background_library import ReplicatorKitchenLShape
     from isaaclab_arena.assets.object_base import ObjectType
 
@@ -58,7 +58,7 @@ def test_replicator_fixture_event_is_independent_of_root_pose_reset():
 
     assert not background.has_pose_reset_event()
     event_name, event_cfg = background.get_event_cfg()
-    assert event_name == "replicator_kitchen_l_shape_jointed_body_reset"
+    assert event_name == "replicator_kitchen_l_shape_body_reset"
     assert event_cfg.params["background_name"] == background.name
 
     background.disable_reset_pose()

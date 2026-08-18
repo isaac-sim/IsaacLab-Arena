@@ -25,7 +25,6 @@ def _test_replicator_kitchen_background_physics(simulation_app) -> bool:
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.utils.usd.rigid_bodies import get_joint_connected_rigid_body_paths
 
     env = None
     try:
@@ -40,82 +39,59 @@ def _test_replicator_kitchen_background_physics(simulation_app) -> bool:
 
         stage = base_env.sim.stage
         physics_view = base_env.sim.physics_manager.get_physics_sim_view()
-        indices = wp.from_torch(torch.tensor([0], dtype=torch.int32, device=base_env.device))
-        tray_views = []
-        initial_transforms = []
+        all_indices = wp.from_torch(torch.tensor([0, 1], dtype=torch.int32, device=base_env.device))
         for env_id in range(2):
             background_path = f"/World/envs/env_{env_id}/replicator_kitchen_l_shape"
             background_prim = stage.GetPrimAtPath(background_path)
             assert background_prim.IsValid(), f"Missing Replicator background at {background_path}"
-            joint_connected_paths = set()
-            descendant_target_count = 0
-            for prim in Usd.PrimRange(background_prim):
-                if not prim.IsA(UsdPhysics.Joint):
-                    continue
-                joint = UsdPhysics.Joint(prim)
-                for relationship in (joint.GetBody0Rel(), joint.GetBody1Rel()):
-                    for target in relationship.GetTargets():
-                        target_prim = stage.GetPrimAtPath(target)
-                        body_prim = target_prim
-                        while body_prim.IsValid() and not body_prim.HasAPI(UsdPhysics.RigidBodyAPI):
-                            body_prim = body_prim.GetParent()
-                        if not body_prim.IsValid():
-                            continue
-                        if not target_prim.HasAPI(UsdPhysics.RigidBodyAPI):
-                            descendant_target_count += 1
-                        joint_connected_paths.add(str(body_prim.GetPath()))
-            assert joint_connected_paths, "Expected joint-connected cabinet rigid bodies in the L-shaped kitchen"
-            assert descendant_target_count, "Expected joints that target children of their owning rigid bodies"
-            for path in joint_connected_paths:
-                rigid_body = UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(path))
-                assert rigid_body.GetKinematicEnabledAttr().Get() is not True, f"Jointed rigid body was frozen: {path}"
-
-            tray_path = f"{background_path}/{_TRAY_RELATIVE_PATH}"
-            tray_prim = stage.GetPrimAtPath(tray_path)
-            assert tray_prim.IsValid(), f"Replicator kitchen tray path changed: {tray_path}"
-            assert (
-                UsdPhysics.RigidBodyAPI(tray_prim).GetKinematicEnabledAttr().Get() is True
-            ), f"Tray was not made kinematic: {tray_path}"
-            tray_view = physics_view.create_rigid_body_view(tray_path)
-            assert tray_view.count == 1
-            tray_views.append(tray_view)
-            initial_transforms.append(wp.to_torch(tray_view.get_transforms()).clone())
-
-            velocity = torch.zeros((1, 6), device=base_env.device)
-            velocity[0, 0] = 2.0
-            tray_view.set_velocities(wp.from_torch(velocity.contiguous()), indices=indices)
-
-        for _ in range(30):
-            base_env.sim.step(render=False)
-            base_env.scene.update(dt=base_env.physics_dt)
-
-        for tray_view, initial_transform in zip(tray_views, initial_transforms, strict=True):
-            final_transform = wp.to_torch(tray_view.get_transforms()).clone()
-            position_error = torch.linalg.vector_norm(final_transform[0, :3] - initial_transform[0, :3]).item()
-            assert position_error < 1.0e-6, f"Kinematic tray moved {position_error:.6f} m"
+            rigid_body_prims = [
+                prim for prim in Usd.PrimRange(background_prim) if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+            ]
+            assert rigid_body_prims, f"Expected embedded rigid bodies under {background_path}"
+            kinematic_body_paths = [
+                str(prim.GetPath())
+                for prim in rigid_body_prims
+                if UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get() is True
+            ]
+            assert not kinematic_body_paths, f"Background bodies must remain dynamic: {kinematic_body_paths}"
 
         background_prim = stage.GetPrimAtPath("/World/envs/env_0/replicator_kitchen_l_shape")
+        tray_path = f"{background_prim.GetPath()}/{_TRAY_RELATIVE_PATH}"
+        tray_path_pattern = tray_path.replace("/env_0/", "/env_*/", 1)
+        tray_view = physics_view.create_rigid_body_view(tray_path_pattern)
+        assert tray_view.count == 2
+        initial_tray_transforms = wp.to_torch(tray_view.get_transforms()).clone()
+
+        upward_velocity = torch.zeros((2, 6), device=base_env.device)
+        upward_velocity[:, 2] = 2.0
+        tray_view.set_velocities(wp.from_torch(upward_velocity), indices=all_indices)
+        for _ in range(3):
+            base_env.sim.step(render=False)
+            base_env.scene.update(dt=base_env.physics_dt)
+        moved_tray_transforms = wp.to_torch(tray_view.get_transforms()).clone()
+        tray_displacement = torch.linalg.vector_norm(
+            moved_tray_transforms[:, :3] - initial_tray_transforms[:, :3], dim=1
+        )
+        assert torch.all(tray_displacement > 1.0e-3), "Loose trays did not respond to applied velocity"
+
+        env.reset()
+        reset_tray_transforms = wp.to_torch(tray_view.get_transforms()).clone()
+        reset_tray_velocities = wp.to_torch(tray_view.get_velocities()).clone()
+        assert torch.allclose(reset_tray_transforms, initial_tray_transforms, atol=5.0e-5, rtol=0.0)
+        assert torch.max(torch.abs(reset_tray_velocities)).item() < 1.0e-5
+
         fridge_door_path = next(
-            path
-            for path in get_joint_connected_rigid_body_paths(background_prim)
-            if "refrigerator_a01_door_right_01_obj_00" in path
+            str(prim.GetPath())
+            for prim in Usd.PrimRange(background_prim)
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI) and "refrigerator_a01_door_right_01_obj_00" in str(prim.GetPath())
         )
         fridge_door_path_pattern = fridge_door_path.replace("/env_0/", "/env_*/", 1)
         fridge_door_view = physics_view.create_rigid_body_view(fridge_door_path_pattern)
         assert fridge_door_view.count == 2
         authored_fridge_transforms = wp.to_torch(fridge_door_view.get_transforms()).clone()
 
-        frozen_paths = [
-            str(prim.GetPath())
-            for prim in Usd.PrimRange(background_prim)
-            if prim.HasAPI(UsdPhysics.RigidBodyAPI)
-            and UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get() is True
-        ]
-        assert frozen_paths, "Expected frozen decorative props in the L-shaped kitchen"
-
         displaced_fridge_transforms = authored_fridge_transforms.clone()
         displaced_fridge_transforms[:, 0] += 0.1
-        all_indices = wp.from_torch(torch.tensor([0, 1], dtype=torch.int32, device=base_env.device))
         fridge_door_view.set_transforms(wp.from_torch(displaced_fridge_transforms), indices=all_indices)
         fridge_door_view.set_velocities(wp.from_torch(torch.ones((2, 6), device=base_env.device)), indices=all_indices)
 
@@ -179,8 +155,6 @@ def _test_replicator_kitchen_background_physics(simulation_app) -> bool:
         fully_reset_dof_positions = wp.to_torch(articulation_view.get_dof_positions()).clone()
         assert torch.allclose(fully_reset_root_transforms, authored_root_transforms, atol=5.0e-5, rtol=0.0)
         assert torch.allclose(fully_reset_dof_positions, authored_dof_positions, atol=1.0e-6, rtol=0.0)
-        for path in frozen_paths:
-            assert UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath(path)).GetKinematicEnabledAttr().Get() is True
     finally:
         if env is not None:
             env.close()
@@ -188,7 +162,7 @@ def _test_replicator_kitchen_background_physics(simulation_app) -> bool:
 
 
 def test_replicator_kitchen_background_physics():
-    """Replicator props stay fixed while both fixture representations reset per environment."""
+    """Embedded kitchen bodies remain dynamic and reset through both PhysX representations."""
     result = run_function_with_persistent_simulation_app(
         _test_replicator_kitchen_background_physics,
         headless=True,

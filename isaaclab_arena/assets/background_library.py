@@ -12,12 +12,11 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
-from isaaclab_arena.assets.background_spawner import spawn_from_usd_with_frozen_loose_rigid_bodies
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.terms.background_reset import ResetJointedBackgroundBodies
+from isaaclab_arena.terms.background_reset import ResetBackgroundBodies
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -251,15 +250,13 @@ class ReplicatorKitchenBackground(LibraryBackground):
     tags = ["background", "replicator"]
     initial_pose = Pose.identity()
     object_min_z = -0.2
-    spawn_cfg_addon = {"func": spawn_from_usd_with_frozen_loose_rigid_bodies}
-    """Freeze embedded loose props so physics cannot corrupt the background layout across episode resets."""
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg]:
-        """Return the reset event for the kitchen's embedded interactive fixtures."""
+        """Return the reset event for the kitchen's embedded rigid bodies."""
         return (
-            f"{self.name}_jointed_body_reset",
+            f"{self.name}_body_reset",
             EventTermCfg(
-                func=cast(Callable[..., None], ResetJointedBackgroundBodies),
+                func=cast(Callable[..., None], ResetBackgroundBodies),
                 mode="reset",
                 params={"background_name": self.name},
             ),

@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any, cast
 import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase
 
-from isaaclab_arena.utils.usd.rigid_bodies import get_joint_connected_rigid_body_paths
-
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
     from pxr import Sdf
@@ -59,8 +57,8 @@ def _exclude_articulation_owned_bodies(
     )
 
 
-class ResetJointedBackgroundBodies(ManagerTermBase):
-    """Restore dynamic background fixtures to their state at the first environment reset."""
+class ResetBackgroundBodies(ManagerTermBase):
+    """Restore embedded background bodies to their state at the first environment reset."""
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
@@ -78,8 +76,10 @@ class ResetJointedBackgroundBodies(ManagerTermBase):
         root_prim = env.sim.stage.GetPrimAtPath(root_path)
         assert root_prim.IsValid(), f"Missing background prim at '{root_path}'"
 
-        body_paths = get_joint_connected_rigid_body_paths(root_prim)
-        assert body_paths, f"No joint-connected rigid bodies found under '{root_path}'"
+        body_paths = tuple(
+            str(prim.GetPath()) for prim in Usd.PrimRange(root_prim) if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+        )
+        assert body_paths, f"No rigid bodies found under '{root_path}'"
         physics_view = env.sim.physics_manager.get_physics_sim_view()
         articulation_root_paths = tuple(
             prim.GetPath() for prim in Usd.PrimRange(root_prim) if prim.HasAPI(UsdPhysics.ArticulationRootAPI)
@@ -126,7 +126,8 @@ class ResetJointedBackgroundBodies(ManagerTermBase):
         view_indices = wp.from_torch(reset_env_ids.to(dtype=torch.int32))
         zero_velocities = torch.zeros((env.num_envs, 6), device=env.device)
 
-        # Fixtures stay dynamic for interaction, so reset both state and residual momentum.
+        # Background bodies stay dynamic for settling and interaction, so reset both state
+        # and residual momentum between episodes.
         for reset in self._rigid_body_resets:
             reset.restore(view_indices, zero_velocities)
         for reset in self._articulation_resets:
