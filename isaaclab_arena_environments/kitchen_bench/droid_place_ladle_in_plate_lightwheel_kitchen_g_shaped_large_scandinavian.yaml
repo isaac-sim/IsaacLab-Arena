@@ -14,7 +14,9 @@ embodiment:
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
 - id: green_ladle
   registry_name: ladle_handal_robolab

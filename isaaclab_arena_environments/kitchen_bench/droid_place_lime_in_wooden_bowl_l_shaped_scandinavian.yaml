@@ -14,7 +14,9 @@ embodiment:
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
 - id: lime
   registry_name: lime01_fruits_veggies_robolab

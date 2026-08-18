@@ -14,7 +14,9 @@ embodiment:
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
 - id: banana_1
   registry_name: banana_ycb_robolab

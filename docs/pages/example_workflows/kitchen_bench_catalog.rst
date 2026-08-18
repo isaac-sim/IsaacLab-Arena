@@ -38,7 +38,7 @@ the maintained DROID external camera.
      - .. image:: ../../images/kitchen_bench/kitchen_lime_to_bowl_pi.gif
           :alt: Pi policy placing a lime in a wooden bowl in the L-shaped Scandinavian kitchen
           :width: 100%
-   * - `droid_place_pepsi_in_plate_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/droid_place_pepsi_in_plate_u_shaped_with_island_farmhouse2.yaml>`_
+   * - `droid_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/droid_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml>`_
      - .. image:: ../../images/kitchen_bench/kitchen_pepsi_basket_pi.gif
           :alt: Pi policy placing a Pepsi can in a basket in the U-shaped farmhouse kitchen
           :width: 100%
