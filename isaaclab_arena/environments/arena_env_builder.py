@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+import os
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -171,11 +172,19 @@ class ArenaEnvBuilder:
                 variation.configure_at_build_time()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
-        """Modify the recorder dataset filename to include the timestamp and rank."""
+        """Modify the recorder dataset filename to include the timestamp and rank.
+
+        Also honours ``ISAACLAB_DATASET_DIR`` for the export directory. Isaac Lab's
+        ``RecorderManagerBaseCfg`` hardcodes ``/tmp/isaaclab/logs``, which is shared between users
+        and lives on the system disk; the variable lets a caller keep datasets on its own storage.
+        """
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
         recorder_cfg.dataset_filename = (
             f"{base}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_rank{get_local_rank()}"
         )
+        dataset_dir = os.environ.get("ISAACLAB_DATASET_DIR")
+        if dataset_dir:
+            recorder_cfg.dataset_export_dir_path = dataset_dir
         return recorder_cfg
 
     def _compose_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:

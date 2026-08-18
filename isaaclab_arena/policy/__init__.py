@@ -5,4 +5,5 @@
 
 from .replay_action_policy import *
 from .rsl_rl_action_policy import *
+from .scripted_pick_place_policy import *
 from .zero_action_policy import *
