@@ -28,12 +28,13 @@ from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
 __all__ = [
     "ObjectBase",
+    "SpawnableObjectBase",
     "ObjectType",
 ]
 
 
 class ObjectBase(PlaceableAsset, ABC):
-    """Parent class for (spawnable) Object and ObjectReference."""
+    """Base class for Arena scene objects, independent of their physics representation."""
 
     def __init__(
         self,
@@ -51,6 +52,42 @@ class ObjectBase(PlaceableAsset, ABC):
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
+
+    def resolve_object_cfg(self, physics_preset: object | None = None):
+        """Return the concrete Isaac Lab config for a selected physics preset."""
+        return self.object_cfg
+
+    def set_prim_path(self, prim_path: str) -> None:
+        self.prim_path = prim_path
+
+    def get_prim_path(self) -> str:
+        return self.prim_path
+
+    def get_object_cfg(self) -> tuple[str, object]:
+        return self.name, self.object_cfg
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self._pose_event_cfg
+
+    @abstractmethod
+    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Return the object's per-environment pose as ``(x, y, z, qx, qy, qz, qw)``."""
+
+    @abstractmethod
+    def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
+        """Write the object's pose for the selected environments."""
+
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
+        return ContactSensorCfg(
+            prim_path=self.prim_path,
+            filter_prim_paths_expr=filter_prim_paths,
+        )
+
+
+class SpawnableObjectBase(ObjectBase, ABC):
+    """Base for objects backed by rigid, articulation, or static Isaac Lab assets."""
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -123,18 +160,6 @@ class ObjectBase(PlaceableAsset, ABC):
                 },
             )
 
-    def set_prim_path(self, prim_path: str) -> None:
-        self.prim_path = prim_path
-
-    def get_prim_path(self) -> str:
-        return self.prim_path
-
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
-        return self.name, self.object_cfg
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self._pose_event_cfg
-
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
             object_cfg = self._generate_rigid_cfg()
@@ -189,14 +214,6 @@ class ObjectBase(PlaceableAsset, ABC):
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
         asset.write_root_velocity_to_sim(
             torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
-        )
-
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
-        return ContactSensorCfg(
-            prim_path=self.prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
         )
 
     @abstractmethod
