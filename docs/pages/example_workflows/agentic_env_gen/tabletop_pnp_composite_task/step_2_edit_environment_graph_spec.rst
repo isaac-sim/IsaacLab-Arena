@@ -75,7 +75,7 @@ The generated spec has one block per part of the environment graph:
      params: {}
    task:
      composition: parallel           # subtasks have no required order
-     description: Pick up the pepsi can and bean can from the maple table and place them
+     description: Pick up the beverage can and bean can from the maple table and place them
        into the mini plastic basket.
      subtasks:
      - kind: PickAndPlaceTask        # first atomic subtask

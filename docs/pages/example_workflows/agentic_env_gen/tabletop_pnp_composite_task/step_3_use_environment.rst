@@ -45,7 +45,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
          install — see :doc:`../../../quickstart/installation` and
          :ref:`ik-reachable-check`.
 
-      If you want to ensure the robot can reach the target objects (i.e. pepsi can, bean can and mini plastic
+      If you want to ensure the robot can reach the target objects (i.e. beverage can, bean can and mini plastic
       basket), you can use this environment in the cuRobo-installed docker container to activate the
       reachability validation.
 
@@ -86,4 +86,4 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
    :align: center
 
    Policy evaluation of the generated environment using the OpenPI policy with reachability validation.
-   The robot picks up the pepsi can and bean can and places them into the mini plastic basket.
+   The robot picks up the beverage can and bean can and places them into the mini plastic basket.

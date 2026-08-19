@@ -73,6 +73,8 @@ Most environments can be described with a small set of relations:
    starting pose; final solving and validation use each relation's actual
    parent.
 
+.. _next-to-relation:
+
 ``NextTo(parent)``
    Places an object beside another object. A side and distance can be specified
    when needed. Geometric validation rejects candidates that are not on the
