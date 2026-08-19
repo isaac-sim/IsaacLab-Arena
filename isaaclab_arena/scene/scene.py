@@ -6,7 +6,7 @@
 import pathlib
 from typing import Any, Union
 
-from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets import AssetBaseCfg, DeformableObjectCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
@@ -20,7 +20,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.variations.variation_base import VariationBase
 
-AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
+AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, DeformableObjectCfg, ContactSensorCfg]
 
 
 class Scene:
@@ -65,12 +65,16 @@ class Scene:
         for asset in sorted_assets:
             self.add_asset(asset)
 
-    def get_scene_cfg(self) -> Any:
+    def get_scene_cfg(self, physics_preset: str | None = None) -> Any:
         """Returns a configclass containing all the scene elements."""
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
-            asset_cfg_name, asset_cfg = asset.get_object_cfg()
+            if hasattr(asset, "resolve_object_cfg"):
+                asset_cfg_name = asset.name
+                asset_cfg = asset.resolve_object_cfg(physics_preset)
+            else:
+                asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
