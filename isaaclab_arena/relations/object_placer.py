@@ -236,6 +236,7 @@ class ObjectPlacer:
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
         unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
+        has_face_to = any(get_relation(obj, FaceTo) is not None for obj in objects)
 
         initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]] = []
         orientations_per_candidate: list[dict[PlaceableAsset, float]] = []
@@ -265,11 +266,12 @@ class ObjectPlacer:
             collision_objects=collision_objects,
             device=self._device,
         )
-        self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
+        if has_face_to:
+            self._apply_face_to_orientations(all_positions, orientations_per_candidate)
+            # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
+            candidate_bboxes = self._rotate_candidate_bboxes(
+                objects, unrotated_candidate_bboxes, orientations_per_candidate
+            )
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         bboxes_per_candidate = [

@@ -21,32 +21,32 @@ from isaaclab_arena.utils.velocity import Velocity
 
 @dataclass(frozen=True)
 class _RigidReset:
-    """A private rigid asset and its initialized state."""
+    """A private rigid asset and its initialized pose."""
 
     asset: Any
     root_pose: torch.Tensor
-    root_velocity: torch.Tensor
 
     def restore(self, env_ids: torch.Tensor) -> None:
         self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
-        self.asset.write_root_velocity_to_sim_index(root_velocity=self.root_velocity[env_ids], env_ids=env_ids)
+        root_velocity = torch.zeros_like(self.asset.data.root_vel_w.torch[env_ids])
+        self.asset.write_root_velocity_to_sim_index(root_velocity=root_velocity, env_ids=env_ids)
 
 
 @dataclass(frozen=True)
 class _ArticulationReset:
-    """A private articulation asset and its initialized state."""
+    """A private articulation asset and its initialized pose and joint positions."""
 
     asset: Any
     root_pose: torch.Tensor
-    root_velocity: torch.Tensor
     joint_position: torch.Tensor
-    joint_velocity: torch.Tensor
 
     def restore(self, env_ids: torch.Tensor) -> None:
         self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
-        self.asset.write_root_velocity_to_sim_index(root_velocity=self.root_velocity[env_ids], env_ids=env_ids)
+        root_velocity = torch.zeros_like(self.asset.data.root_vel_w.torch[env_ids])
+        joint_velocity = torch.zeros_like(self.asset.data.joint_vel.torch[env_ids])
+        self.asset.write_root_velocity_to_sim_index(root_velocity=root_velocity, env_ids=env_ids)
         self.asset.write_joint_position_to_sim_index(position=self.joint_position[env_ids], env_ids=env_ids)
-        self.asset.write_joint_velocity_to_sim_index(velocity=self.joint_velocity[env_ids], env_ids=env_ids)
+        self.asset.write_joint_velocity_to_sim_index(velocity=joint_velocity, env_ids=env_ids)
 
 
 class ResetNestedBackgroundPhysics(ManagerTermBase):
@@ -60,10 +60,11 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
         self._is_initialized = False
         self._rigid_resets: list[_RigidReset] = []
         self._articulation_resets: list[_ArticulationReset] = []
+        self._all_env_ids = torch.arange(env.scene.num_envs, device=env.device)
 
     @staticmethod
     def _runtime_path(path_template: str, env_prim_path: str) -> str:
-        return path_template.replace("{ENV_REGEX_NS}", env_prim_path)
+        return path_template.format(ENV_REGEX_NS=env_prim_path)
 
     @staticmethod
     def _initialize_asset(asset_cfg: Any, prim_path: str, asset_kind: str) -> Any | None:
@@ -71,7 +72,7 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
         asset = asset_cfg.class_type(asset_cfg)
         try:
             asset._initialize_callback(None)
-        except (AttributeError, RuntimeError) as exc:
+        except RuntimeError as exc:
             asset._clear_callbacks()
             carb.log_warn(f"Skipping unavailable background {asset_kind} '{prim_path}': {exc}")
             return None
@@ -89,14 +90,13 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                 self._runtime_path(path, env_prim_path): object_type
                 for path, object_type in self._claimed_paths[background_name].items()
             }
+            articulation_prefixes = tuple(
+                f"{path}/" for path, object_type in claimed_paths.items() if object_type == ObjectType.ARTICULATION
+            )
             unclaimed_runtime_paths = {
                 path
                 for path in runtime_roots
-                if path not in claimed_paths
-                and not any(
-                    claimed_type == ObjectType.ARTICULATION and path.startswith(f"{claimed_path}/")
-                    for claimed_path, claimed_type in claimed_paths.items()
-                )
+                if path not in claimed_paths and not path.startswith(articulation_prefixes)
             }
             expected_paths = {self._runtime_path(path, env_prim_path) for path in self._physics_paths[background_name]}
             missing = sorted(unclaimed_runtime_paths - expected_paths)
@@ -125,9 +125,7 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                         _ArticulationReset(
                             asset=asset,
                             root_pose=asset.data.root_pose_w.torch.clone(),
-                            root_velocity=asset.data.root_vel_w.torch.clone(),
                             joint_position=asset.data.joint_pos.torch.clone(),
-                            joint_velocity=asset.data.joint_vel.torch.clone(),
                         )
                     )
                 else:
@@ -139,7 +137,6 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                         _RigidReset(
                             asset=asset,
                             root_pose=asset.data.root_pose_w.torch.clone(),
-                            root_velocity=asset.data.root_vel_w.torch.clone(),
                         )
                     )
         self._is_initialized = True
@@ -155,7 +152,7 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
         if not self._is_initialized:
             self._capture_initial_state(env)
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=env.device)
+            env_ids = self._all_env_ids
         else:
             env_ids = torch.as_tensor(env_ids, device=env.device).reshape(-1)
         for reset in self._rigid_resets:

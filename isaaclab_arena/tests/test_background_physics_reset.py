@@ -90,7 +90,7 @@ def _test_background_physics_discovery_and_reset(
         online_asset_path = f"{temp_dir}/online_asset.usd"
         _create_background_usds(background_path, online_asset_path, include_joint_network)
 
-        records = {record.relative_path: record.object_type for record in load_usd_physics_roots(background_path)}
+        records = load_usd_physics_roots(background_path)
         expected_records = {
             "Prop_OnlineVisual/body": ObjectType.RIGID,
             "articulation": ObjectType.ARTICULATION,
@@ -150,11 +150,10 @@ def _test_background_physics_discovery_and_reset(
             rigid = rigid_reset.asset
             articulation = articulation_reset.asset
             initial_pose = rigid_reset.root_pose
-            initial_velocity = rigid_reset.root_velocity
             initial_joint_position = articulation_reset.joint_position
             env_ids = torch.arange(2, device=base_env.device)
             if check_interactivity:
-                probe_velocity = initial_velocity.clone()
+                probe_velocity = torch.zeros_like(rigid.data.root_vel_w.torch)
                 probe_velocity[0, 0] = 2.0
                 rigid.write_root_velocity_to_sim_index(root_velocity=probe_velocity, env_ids=env_ids)
                 base_env.sim.step()
@@ -172,7 +171,15 @@ def _test_background_physics_discovery_and_reset(
             )
             moved_joint_position = initial_joint_position.clone()
             moved_joint_position[:, 0] += 0.2
+            articulation.write_root_velocity_to_sim_index(
+                root_velocity=torch.ones((2, 6), device=base_env.device),
+                env_ids=env_ids,
+            )
             articulation.write_joint_position_to_sim_index(position=moved_joint_position, env_ids=env_ids)
+            articulation.write_joint_velocity_to_sim_index(
+                velocity=torch.ones_like(articulation.data.joint_vel.torch),
+                env_ids=env_ids,
+            )
 
             runtime_rigid_prim = base_env.scene.stage.GetPrimAtPath(
                 rigid.cfg.prim_path.replace(base_env.scene.env_regex_ns, base_env.scene.env_prim_paths[0])
@@ -183,10 +190,14 @@ def _test_background_physics_discovery_and_reset(
             base_env.reset(env_ids=torch.tensor([0], device=base_env.device))
             reset_pose = rigid.data.root_pose_w.torch
             reset_velocity = rigid.data.root_vel_w.torch
+            reset_articulation_velocity = articulation.data.root_vel_w.torch
             reset_joint_position = articulation.data.joint_pos.torch
+            reset_joint_velocity = articulation.data.joint_vel.torch
             assert torch.allclose(reset_pose[0], initial_pose[0], atol=1.0e-5)
-            assert torch.allclose(reset_velocity[0], initial_velocity[0], atol=1.0e-5)
+            assert torch.count_nonzero(reset_velocity[0]) == 0
+            assert torch.count_nonzero(reset_articulation_velocity[0]) == 0
             assert torch.allclose(reset_joint_position[0], initial_joint_position[0], atol=1.0e-5)
+            assert torch.count_nonzero(reset_joint_velocity[0]) == 0
             assert torch.allclose(reset_pose[1], moved_pose[1])
         finally:
             env.close()

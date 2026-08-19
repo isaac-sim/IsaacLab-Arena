@@ -76,18 +76,20 @@ class Scene:
         self._background_physics_paths = {}
         self._background_physics_claimed_paths = {}
         self._background_physics_prim_paths = {}
+        backgrounds: list[Background] = []
+        claimed_paths_by_background: dict[Background, dict[str, ObjectType]] = {}
         for asset in self.assets.values():
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+            if isinstance(asset, Background):
+                backgrounds.append(asset)
+            elif isinstance(asset, ObjectReference) and isinstance(asset.parent_asset, Background):
+                claimed_paths_by_background.setdefault(asset.parent_asset, {})[asset.prim_path] = asset.object_type
 
-        for background in (asset for asset in self.assets.values() if isinstance(asset, Background)):
+        for background in backgrounds:
             if not background.reset_nested_physics:
                 continue
-            claimed_paths = {
-                asset.prim_path: asset.object_type
-                for asset in self.assets.values()
-                if isinstance(asset, ObjectReference) and asset.parent_asset is background
-            }
+            claimed_paths = claimed_paths_by_background.get(background, {})
             self._background_physics_paths[background.name] = background.get_nested_physics_prim_paths(claimed_paths)
             self._background_physics_claimed_paths[background.name] = claimed_paths
             self._background_physics_prim_paths[background.name] = background.prim_path

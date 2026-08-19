@@ -34,7 +34,7 @@ def _test_kitchen_physics_prim_trees(_) -> bool:
 
     physics_roots = load_usd_physics_roots(usd_path)
     assert len(physics_roots) == 21
-    assert all(record.object_type == ObjectType.ARTICULATION for record in physics_roots)
+    assert all(object_type == ObjectType.ARTICULATION for object_type in physics_roots.values())
 
     usd_path = AssetSpec(
         id="replicator_kitchen_peninsula",
@@ -43,10 +43,10 @@ def _test_kitchen_physics_prim_trees(_) -> bool:
     physics_roots = load_usd_physics_roots(usd_path)
 
     assert len(physics_roots) == 56
-    online_visual_roots = [record for record in physics_roots if "_OnlineVisual" in record.relative_path]
+    online_visual_roots = {path: object_type for path, object_type in physics_roots.items() if "_OnlineVisual" in path}
     assert len(online_visual_roots) == 24
-    assert any(record.object_type == ObjectType.ARTICULATION for record in online_visual_roots)
-    assert any(record.object_type == ObjectType.RIGID for record in online_visual_roots)
+    assert ObjectType.ARTICULATION in online_visual_roots.values()
+    assert ObjectType.RIGID in online_visual_roots.values()
     return True
 
 

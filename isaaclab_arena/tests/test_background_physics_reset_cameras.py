@@ -11,7 +11,6 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 
 def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
-    import sys
     import torch
 
     import warp as wp
@@ -20,20 +19,9 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     env_spec = "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_peninsula_mustard_bowl.yaml"
-    previous_argv = sys.argv
-    sys.argv = [
-        "test_background_physics_reset_cameras.py",
-        "--env_spec",
-        env_spec,
-        "--headless",
-        "--num_envs",
-        "1",
-        "--enable_cameras",
-    ]
-    try:
-        args = get_isaaclab_arena_environments_cli_parser().parse_args()
-    finally:
-        sys.argv = previous_argv
+    args = get_isaaclab_arena_environments_cli_parser().parse_args(
+        ["--env_spec", env_spec, "--headless", "--num_envs", "1", "--enable_cameras"]
+    )
 
     builder = get_arena_builder_from_cli(args)
     env_cfg, env_kwargs = builder.compose_manager_cfg()
@@ -49,7 +37,6 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
         banana_view = env.unwrapped.sim.physics_manager.get_physics_sim_view().create_rigid_body_view(runtime_path)
         assert banana_view.count == 1
         initial_transform = wp.to_torch(banana_view.get_transforms()).clone()
-        initial_velocity = wp.to_torch(banana_view.get_velocities()).clone()
         moved_transform = initial_transform.clone()
         moved_transform[:, 0] += 1.0
         indices = wp.from_torch(torch.tensor([0], device=env.unwrapped.device, dtype=torch.int32))
@@ -61,11 +48,7 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
 
         env.reset()
         assert torch.allclose(wp.to_torch(banana_view.get_transforms()), initial_transform, atol=1.0e-5)
-        assert torch.allclose(
-            wp.to_torch(banana_view.get_velocities()),
-            initial_velocity,
-            atol=1.0e-5,
-        )
+        assert torch.count_nonzero(wp.to_torch(banana_view.get_velocities())) == 0
     finally:
         env.close()
     return True

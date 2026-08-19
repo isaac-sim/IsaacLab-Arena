@@ -135,7 +135,7 @@ class RelationSolver:
         # Add built-in no-overlap loss between all object pairs
         total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
 
-        self._last_loss_per_env = total_loss.detach().clone()
+        self._last_loss_per_env = total_loss.detach()
         return total_loss.mean()
 
     def _compute_no_overlap_loss(
@@ -236,7 +236,7 @@ class RelationSolver:
             if self.params.verbose:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
-            self._last_loss_per_env = torch.zeros(state.batch_size)
+            self._last_loss_per_env = torch.zeros(state.batch_size, device=state.device)
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
@@ -292,7 +292,8 @@ class RelationSolver:
                 position_history.append(state.get_all_positions_snapshot())
 
             loss = self._compute_total_loss(state)
-            loss_history.append(loss.item())
+            loss_value = loss.item()
+            loss_history.append(loss_value)
 
             # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
@@ -300,10 +301,10 @@ class RelationSolver:
                 optimizer.step()
 
             if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss.item():.6f}")
+                print(f"Iter {iter}: loss = {loss_value:.6f}")
 
             # Check convergence
-            if loss.item() < self.params.convergence_threshold:
+            if loss_value < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break

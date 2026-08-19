@@ -21,14 +21,6 @@ class UsdPrimRecord:
     joint_names: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class UsdPhysicsRootRecord:
-    """One independently resettable physics root inside a composed USD asset."""
-
-    relative_path: str
-    object_type: ObjectType
-
-
 def _traverse_composed_stage(stage):
     """Traverse loaded prims, including prims beneath instance proxies."""
     from pxr import Usd
@@ -43,24 +35,29 @@ def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
 
     from isaaclab_arena.utils.usd_helpers import is_articulation_root, is_rigid_body
 
-    prims = list(Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()))
-    articulation_paths = tuple(prim.GetPath() for prim in prims if is_articulation_root(prim))
+    root_path = root_prim.GetPath()
+    articulation_paths = set()
     roots: dict[str, ObjectType] = {}
-    for prim in prims:
+    for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
         prim_path = prim.GetPath()
+        if is_articulation_root(prim):
+            articulation_paths.add(prim_path)
         if prim == root_prim:
             continue
         if is_articulation_root(prim):
             roots[str(prim_path)] = ObjectType.ARTICULATION
-        elif is_rigid_body(prim) and not any(
-            prim_path != articulation_path and prim_path.HasPrefix(articulation_path)
-            for articulation_path in articulation_paths
-        ):
-            roots[str(prim_path)] = ObjectType.RIGID
+        elif is_rigid_body(prim):
+            ancestor = prim.GetParent()
+            while ancestor.IsValid() and ancestor.GetPath().HasPrefix(root_path):
+                if ancestor.GetPath() in articulation_paths:
+                    break
+                ancestor = ancestor.GetParent()
+            else:
+                roots[str(prim_path)] = ObjectType.RIGID
     return roots
 
 
-def load_usd_physics_roots(usd_path: str) -> list[UsdPhysicsRootRecord]:
+def load_usd_physics_roots(usd_path: str) -> dict[str, ObjectType]:
     """Return independently resettable physics roots in a composed USD asset.
 
     Articulation links are owned by their articulation root and are omitted.
@@ -71,39 +68,23 @@ def load_usd_physics_roots(usd_path: str) -> list[UsdPhysicsRootRecord]:
         usd_path: Local filesystem path or Nucleus/HTTPS URL for the USD.
 
     Returns:
-        Sorted records keyed by default-prim-relative path.
+        Physics object types keyed by sorted default-prim-relative paths.
     """
     from isaaclab.utils.assets import retrieve_file_path
-    from pxr import Tf, Usd
 
-    from isaaclab_arena.utils.usd_helpers import relative_path_from_default_prim
+    from isaaclab_arena.utils.usd_helpers import open_stage, relative_path_from_default_prim
 
-    records: list[UsdPhysicsRootRecord] = []
-    try:
-        stage = Usd.Stage.Open(usd_path)
-    except Tf.ErrorException:
-        stage = None
-    if stage is None:
-        stage = Usd.Stage.Open(retrieve_file_path(usd_path))
-    assert stage is not None, f"Failed to open composed USD stage: {usd_path}"
-    try:
+    local_usd_path = retrieve_file_path(usd_path)
+    roots: dict[str, ObjectType] = {}
+    with open_stage(local_usd_path) as stage:
         stage.Load()
         for prim_path, object_type in find_nested_physics_roots(stage.GetDefaultPrim()).items():
             relative_path = relative_path_from_default_prim(stage, prim_path)
             if not relative_path:
                 continue
-            records.append(UsdPhysicsRootRecord(relative_path=relative_path, object_type=object_type))
-    finally:
-        del stage
+            roots[relative_path] = object_type
 
-    records.sort(key=lambda record: (record.relative_path, record.object_type.value))
-    duplicate_paths = [
-        path
-        for path in {record.relative_path for record in records}
-        if sum(record.relative_path == path for record in records) > 1
-    ]
-    assert not duplicate_paths, f"Physics roots have duplicate composed paths: {sorted(duplicate_paths)}"
-    return records
+    return dict(sorted(roots.items()))
 
 
 def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
@@ -135,12 +116,13 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     local_usd_path = retrieve_file_path(usd_path)
     records: list[UsdPrimRecord] = []
     with open_stage(local_usd_path) as stage:
+        prims = tuple(_traverse_composed_stage(stage))
         # Collect prims that directly participate in physics or collision, then add
         # every ancestor so a prim is kept whenever any descendant is kept.
         # TODO(qianl): Ancestor-only prims are labeled base; non-leaf refs are valid today.
         # Revisit when relation solving adds descendant mesh exclusion; no issue observed yet.
         included_paths: set[str] = set()
-        for prim in _traverse_composed_stage(stage):
+        for prim in prims:
             if prim.IsPseudoRoot():
                 continue
             if not has_physics_or_collision(prim):
@@ -153,7 +135,7 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
                 included_paths.add(path)
                 ancestor = ancestor.GetParent()
 
-        for prim in _traverse_composed_stage(stage):
+        for prim in prims:
             if prim.IsPseudoRoot():
                 continue
             if str(prim.GetPath()) not in included_paths:
