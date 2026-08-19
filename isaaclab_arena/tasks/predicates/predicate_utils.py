@@ -7,17 +7,9 @@ from __future__ import annotations
 
 import torch
 
-import warp as wp
 from isaaclab.assets import RigidObject
 
-
-def get_env(env):
-    """Resolve to the unwrapped manager-based env regardless of wrapper depth."""
-    seen = set()
-    while hasattr(env, "unwrapped") and env.unwrapped is not env and id(env) not in seen:
-        seen.add(id(env))
-        env = env.unwrapped
-    return env
+from isaaclab_arena.scene.object_state import get_env, object_state
 
 
 def get_rigid_object(env, name: str) -> RigidObject:
@@ -26,18 +18,36 @@ def get_rigid_object(env, name: str) -> RigidObject:
 
 
 def get_root_pos_w(env, name: str) -> torch.Tensor:
-    """Get the root position of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_pos_w)
+    """Get the aggregate object position in the world frame."""
+    position_w = object_state(env, name).aggregate.position_w
+    assert position_w is not None, f"Object {name!r} has no aggregate position"
+    return position_w
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root linear velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
+    """Get the aggregate object linear velocity in the world frame."""
+    linear_velocity_w = object_state(env, name).aggregate.linear_velocity_w
+    assert linear_velocity_w is not None, f"Object {name!r} has no aggregate linear velocity"
+    return linear_velocity_w
 
 
-def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root angular velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+def get_root_ang_vel_w(env, name: str, required: bool = True) -> torch.Tensor:
+    """Get aggregate angular velocity, optionally returning zero when unavailable."""
+    state = object_state(env, name).aggregate
+    if state.angular_velocity_w is not None:
+        return state.angular_velocity_w
+    assert not required, f"Object {name!r} has no aggregate angular velocity"
+    assert state.position_w is not None, f"Object {name!r} has no aggregate position"
+    return torch.zeros_like(state.position_w)
+
+
+def get_max_point_speed_w(env, name: str) -> torch.Tensor:
+    """Get maximum point speed, using root speed for non-deformable objects."""
+    state = object_state(env, name)
+    kinematics = state.points if state.points is not None else state.aggregate
+    assert kinematics.linear_velocity_w is not None, f"Object {name!r} has no linear velocity"
+    speed = torch.linalg.vector_norm(kinematics.linear_velocity_w, dim=-1)
+    return speed.amax(dim=1) if state.points is not None else speed
 
 
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:
