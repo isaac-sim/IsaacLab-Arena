@@ -71,6 +71,7 @@ def _set_solver_results(
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[ObjectBase, float]] | None = None,
         collision_objects=None,
+        device=None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         assert len(initial_positions) == len(layouts)
         placer._solver._last_loss_per_env = torch.tensor(losses or [0.0] * len(layouts))
