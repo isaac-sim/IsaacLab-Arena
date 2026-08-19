@@ -573,23 +573,12 @@ submodule pinned at commit <code class="docutils literal notranslate"><span clas
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>submodules/Isaac-GR00T
 </pre></div>
 </div>
-<p>If you run Arena from its native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment, install the GR00T client
-package:</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
-Source</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="w"> </span>gr00t-client
-</pre></div>
-</div>
-</div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Wheel</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel<span class="w"> </span>--group<span class="w"> </span>gr00t-client
-</pre></div>
-</div>
-</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Blackwell GPUs with compute capability <code class="docutils literal notranslate"><span class="pre">sm_120</span></code> require CUDA 12.8 or newer. The
+<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102">official GR00T documentation</a>
+specify CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems. Please refer to the
+documentation for the latest requirements.</p>
 </div>
 <p>Then start the server from the repository root in a separate shell:</p>
 <div class="admonition-todo admonition" id="id1">
@@ -611,6 +600,24 @@ reuse the local cache. Leave this server running.</p>
 </section>
 <section id="run-gr00t-with-the-experiment-runner">
 <h2>Run GR00T with the Experiment Runner<a class="headerlink" href="#run-gr00t-with-the-experiment-runner" title="Link to this heading">#</a></h2>
+<p>If you run Arena from its native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment, install the GR00T client
+package:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Source</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="w"> </span>gr00t-client
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Wheel</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>isaaclab-from-wheel<span class="w"> </span>--group<span class="w"> </span>gr00t-client
+</pre></div>
+</div>
+</div>
+</div>
 <p>Arena includes a one-Run YAML configuration for the first rollout. It selects the
 DROID environment, connects the GR00T policy to the server, and stops after three episodes.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
