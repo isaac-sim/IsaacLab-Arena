@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Franka Kitchen 场景构建示例：演示如何组合场景并在 Kit 中可视化。"""
+"""
+Franka Kitchen 场景构建示例：演示如何组合场景并在 Kit 中可视化。
+使用方法：
+   python examples/example01_buildscene.py --viz kit --num_steps 500 --keep_open
+
+"""
 
 import argparse
 import contextlib

@@ -13,18 +13,18 @@ This is a minimal example that:
 4. renders frames during execution.
 
 Example:
-    python examples/example04_run_exist_env.py --viz kit --steps 1000
-    python examples/example04_run_exist_env.py --enable_cameras --camera_names camera_rgb --camera_resolution 640 480
+    # 可视化器模式运行100步
+    python examples/example04_run_exist_env.py --viz kit --steps 100
+    # 观测中加入相继图像
+    python examples/example04_run_exist_env.py --enable_cameras --steps 10
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 
 import gymnasium as gym
-import numpy as np
 import torch
 
 from isaaclab.app import AppLauncher
@@ -57,40 +57,24 @@ def print_obs_shapes(obs, prefix="obs"):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Minimal camera-enabled Isaac Lab Arena example")
-    # 注册 AppLauncher 参数（--viz/--visualizer、--headless、--device、--enable_cameras 等）。
-    # 新版 Isaac Lab 只有在显式声明可视化器（visualizer 参数）时才以非 headless 模式启动 Kit。
-    AppLauncher.add_app_launcher_args(parser)
+    parser = get_isaaclab_arena_environments_cli_parser()
     parser.add_argument("--steps", type=int, default=1, help="Number of environment steps to run")
-    # 默认启用 Kit 可视化（等价于 --viz kit）。
-    parser.set_defaults(visualizer=["kit"])
-    # 未显式指定 --device 时自动选择 cuda/cpu。
-    if "--device" not in sys.argv:
-        parser.set_defaults(device="cuda" if torch.cuda.is_available() else "cpu")
-    args, _ = parser.parse_known_args()
-
-    if not args.enable_cameras:
-        env_enable = os.environ.get("ENABLE_CAMERAS", "0").lower()
-        args.enable_cameras = env_enable in ("1", "true", "yes")
-
-    return args
+    env_cli_args = [
+        *sys.argv[1:],
+        "gr1_open_microwave",
+        "--object",
+        "cracker_box",
+        "--embodiment",
+        "gr1_pink",
+    ]
+    return parser.parse_args(env_cli_args)
 
 
 def main() -> None:
     args_cli = parse_args()
     app = AppLauncher(args_cli).app
 
-    env_name = "gr1_open_microwave"
-    env_args = get_isaaclab_arena_environments_cli_parser().parse_args([
-        env_name,
-        "--object",
-        "cracker_box",
-        "--embodiment",
-        "gr1_pink",
-    ])
-    env_args.enable_cameras = args_cli.enable_cameras
-
-    builder = get_arena_builder_from_cli(env_args)
+    builder = get_arena_builder_from_cli(args_cli)
     name, cfg, env_kwargs = builder.build_registered()
 
     env = gym.make(name, cfg=cfg, render_mode="rgb_array", disable_env_checker=True, **env_kwargs)
@@ -104,7 +88,6 @@ def main() -> None:
         action = torch.zeros(env.action_space.shape, device=env.unwrapped.device, dtype=torch.float32)
         obs, reward, terminated, truncated, info = env.step(action)
         print(f"step {i + 1}/{args_cli.steps}: reward={reward}, terminated={terminated}, truncated={truncated}")
-        print_obs_shapes(obs)
         if terminated or truncated:
             env.reset()
 
