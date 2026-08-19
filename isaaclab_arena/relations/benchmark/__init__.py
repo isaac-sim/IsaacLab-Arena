@@ -26,6 +26,15 @@ from isaaclab_arena.relations.benchmark.multi_gpu import (
     validate_gpu_selectors,
 )
 from isaaclab_arena.relations.benchmark.provenance import SoftwareMetadata, collect_software_metadata
+from isaaclab_arena.relations.benchmark.regression import (
+    RegressionComparison,
+    RegressionComparisonRow,
+    compare_benchmark_runs,
+    format_regression_markdown,
+    load_benchmark_run,
+    write_regression_csv,
+    write_regression_json,
+)
 from isaaclab_arena.relations.benchmark.reporting import (
     build_distributed_run,
     build_run,
@@ -66,16 +75,21 @@ __all__ = [
     "CollisionModeName",
     "DeviceMetadata",
     "DiagnosticTopic",
+    "RegressionComparison",
+    "RegressionComparisonRow",
     "SoftwareMetadata",
     "build_distributed_run",
     "build_run",
     "collect_software_metadata",
+    "compare_benchmark_runs",
     "default_scenarios",
     "env_count_sweep",
     "format_diagnostic_markdown",
     "format_memory_capacity_markdown",
+    "format_regression_markdown",
     "format_results_table",
     "format_scaling_summary",
+    "load_benchmark_run",
     "object_count_sweep",
     "requested_scenario_ids",
     "run_benchmarks",
@@ -98,4 +112,6 @@ __all__ = [
     "write_robot_scaling_svg",
     "write_results_csv",
     "write_results_json",
+    "write_regression_csv",
+    "write_regression_json",
 ]

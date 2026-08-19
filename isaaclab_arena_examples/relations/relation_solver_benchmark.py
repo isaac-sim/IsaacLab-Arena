@@ -32,6 +32,16 @@ Examples:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite memory --output-dir ~/solver-benchmark-results/memory
 
+  Stable solver-performance regression matrix for local or OSMO runs:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite regression --max-iters 200 --warmup 1 --repeat 5 \\
+      --output-dir /results/solver-regression
+
+  Run a candidate and compare it with a saved baseline:
+    /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
+      --suite regression --max-iters 200 --warmup 1 --repeat 5 \\
+      --baseline-json /results/baseline/benchmark.json --output-dir /results/candidate
+
   Replicate the full matrix on two GPUs:
     /isaac-sim/python.sh isaaclab_arena_examples/relations/relation_solver_benchmark.py \\
       --suite envs --targets solver --compare-modes --num-envs 1 --num-envs 8 --gpus 0,1
@@ -67,12 +77,15 @@ from isaaclab_arena.relations.benchmark import (
     CollisionModeName,
     build_distributed_run,
     build_run,
+    compare_benchmark_runs,
     default_scenarios,
     env_count_sweep,
     format_diagnostic_markdown,
     format_memory_capacity_markdown,
+    format_regression_markdown,
     format_results_table,
     format_scaling_summary,
+    load_benchmark_run,
     object_count_sweep,
     requested_scenario_ids,
     run_benchmarks,
@@ -88,6 +101,8 @@ from isaaclab_arena.relations.benchmark import (
     write_memory_capacity_csv,
     write_memory_scaling_svg,
     write_object_scaling_svg,
+    write_regression_csv,
+    write_regression_json,
     write_results_csv,
     write_results_json,
     write_robot_scaling_svg,
@@ -108,7 +123,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--suite",
-        choices=("presets", "objects", "envs", "comprehensive", "diagnostic", "memory"),
+        choices=("presets", "objects", "envs", "comprehensive", "diagnostic", "memory", "regression"),
         default="presets",
         help="Benchmark matrix; diagnostic prints a question-driven Markdown report.",
     )
@@ -169,6 +184,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Required free GPU memory after each capacity probe.",
     )
     parser.add_argument("--output-dir", type=Path, help="Write JSON and CSV reports to this directory.")
+    parser.add_argument("--baseline-json", type=Path, help="Compare a regression run with this benchmark.json.")
+    parser.add_argument(
+        "--maximum-regression-percent",
+        type=float,
+        default=10.0,
+        help="Largest allowed iter/s decrease when --baseline-json is used (default: 10).",
+    )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Report detected performance regressions without returning a failing exit code.",
+    )
     parser.add_argument("--worker-input", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--worker-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--physical-gpu", help=argparse.SUPPRESS)
@@ -184,6 +211,33 @@ def _targets(value: str) -> tuple[BenchmarkTarget, ...]:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
+    if not math.isfinite(args.maximum_regression_percent) or args.maximum_regression_percent < 0.0:
+        raise ValueError("--maximum-regression-percent must be finite and non-negative")
+    if args.suite != "regression" and (args.baseline_json is not None or args.report_only):
+        raise ValueError("--baseline-json and --report-only require --suite regression")
+    if args.report_only and args.baseline_json is None:
+        raise ValueError("--report-only requires --baseline-json")
+    if (
+        args.baseline_json is not None
+        and args.output_dir is not None
+        and args.baseline_json.resolve() == (args.output_dir / "benchmark.json").resolve()
+    ):
+        raise ValueError("--baseline-json must not be overwritten by the candidate --output-dir")
+    if args.suite == "regression":
+        incompatible = (
+            ("--gpus", args.gpus is not None),
+            ("--capacity-search", args.capacity_search),
+            ("--targets", args.targets is not None),
+            ("--environment-spec", args.environment_spec is not None),
+            ("--collision-mode", args.collision_mode != "auto"),
+            ("--compare-modes", args.compare_modes),
+            ("--robot-mode", args.robot_mode != "both"),
+            ("--num-envs", args.num_envs is not None),
+            ("--diagnostic-topic", args.diagnostic_topic != "all"),
+        )
+        rejected = [option for option, supplied in incompatible if supplied]
+        if rejected:
+            raise ValueError(f"--suite regression owns its execution matrix; cannot combine with {', '.join(rejected)}")
     if args.suite == "memory":
         incompatible = (
             ("--capacity-search", args.capacity_search),
@@ -368,6 +422,30 @@ def _memory_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]
     )
 
 
+def _regression_scenarios(args: argparse.Namespace) -> tuple[BenchmarkScenario, ...]:
+    """Build the stable solver-performance regression matrix."""
+    workloads = (
+        ("regression-small", 6, 1),
+        ("regression-batch-heavy", 6, 1024),
+        ("regression-pair-heavy", 21, 1),
+        ("regression-combined", 21, 256),
+    )
+    scenarios = tuple(
+        BenchmarkScenario(
+            name=name,
+            num_objects=num_objects,
+            num_envs=num_envs,
+            scene_label="Synthetic table",
+            asset_set_name="regression-synthetic",
+        )
+        for name, num_objects, num_envs in workloads
+    )
+    configured = tuple(
+        replace(scenario, final_loss_threshold=1e9) for scenario in _apply_scenario_options(scenarios, args)
+    )
+    return scenarios_for_modes(configured, ("bbox", "mesh"))
+
+
 def _diagnostic_scenario_groups(
     args: argparse.Namespace,
 ) -> tuple[tuple[BenchmarkScenario, ...], tuple[BenchmarkScenario, ...]]:
@@ -510,7 +588,26 @@ def _finish_run(args: argparse.Namespace, rows: list[BenchmarkMeasurement], run:
         print(f"\nReports written to: {args.output_dir.resolve()}")
     else:
         print("\nReports were not written. Pass --output-dir PATH to save JSON and CSV.")
-    return 0 if run.succeeded else 1
+    if args.suite != "regression" or args.baseline_json is None:
+        return 0 if run.succeeded else 1
+    try:
+        baseline = load_benchmark_run(args.baseline_json)
+        comparison = compare_benchmark_runs(
+            baseline,
+            run,
+            maximum_regression_percent=args.maximum_regression_percent,
+        )
+    except (AssertionError, OSError, ValueError) as error:
+        print(f"Unable to compare benchmark runs: {error}", file=sys.stderr)
+        return 2
+    markdown = format_regression_markdown(comparison)
+    print("\n=== Baseline Comparison ===")
+    print(markdown)
+    if args.output_dir is not None:
+        (args.output_dir / "regression.md").write_text(markdown + "\n", encoding="utf-8")
+        write_regression_json(args.output_dir / "regression.json", comparison)
+        write_regression_csv(args.output_dir / "regression.csv", comparison)
+    return 0 if run.succeeded and (comparison.passed or args.report_only) else 1
 
 
 def _run_memory_suite(
@@ -558,6 +655,11 @@ def main(argv: list[str] | None = None) -> int:
             targets = ("solver",)
             scenarios = _memory_scenarios(args)
             gpus = (args.gpus or "0",)
+        elif args.suite == "regression":
+            targets = ("solver",)
+            scenarios = _regression_scenarios(args)
+            requested_scenario_ids(scenarios, targets)
+            gpus = ()
         elif args.suite in ("comprehensive", "diagnostic"):
             if not torch.cuda.is_available():
                 raise ValueError(f"--suite {args.suite} requires a CUDA GPU")

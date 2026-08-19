@@ -428,6 +428,8 @@ class BenchmarkMeasurement:
             raise ValueError(f"measurement is missing required fields: {', '.join(missing)}")
         if unexpected:
             raise ValueError(f"measurement contains unknown fields: {', '.join(unexpected)}")
+        if not isinstance(values["device"], dict):
+            raise ValueError("measurement device must be an object")
         values["device"] = DeviceMetadata(**values["device"])
         sample_fields = (
             "solve_ms_samples",
@@ -489,3 +491,65 @@ class BenchmarkRun:
         data = asdict(self)
         data["missing_scenario_ids"] = self.missing_scenario_ids
         return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> BenchmarkRun:
+        """Deserialize a complete benchmark run."""
+        values = dict(data)
+        values.pop("missing_scenario_ids", None)
+        run_fields = fields(cls)
+        field_names = {run_field.name for run_field in run_fields}
+        required_field_names = {
+            run_field.name
+            for run_field in run_fields
+            if run_field.default is MISSING and run_field.default_factory is MISSING
+        }
+        missing = sorted(required_field_names - values.keys())
+        unexpected = sorted(values.keys() - field_names)
+        if missing:
+            raise ValueError(f"benchmark run is missing required fields: {', '.join(missing)}")
+        if unexpected:
+            raise ValueError(f"benchmark run contains unknown fields: {', '.join(unexpected)}")
+        values.setdefault("worker_errors", {})
+        if not isinstance(values["requested_scenario_ids"], (list, tuple)) or not all(
+            isinstance(scenario_id, str) for scenario_id in values["requested_scenario_ids"]
+        ):
+            raise ValueError("benchmark run requested_scenario_ids must be an array of strings")
+        if not isinstance(values["results"], (list, tuple)) or not all(
+            isinstance(result, dict) for result in values["results"]
+        ):
+            raise ValueError("benchmark run results must be an array of objects")
+        if (
+            not isinstance(values["worker_assignments"], dict)
+            or not all(isinstance(worker_id, str) for worker_id in values["worker_assignments"])
+            or not all(
+                isinstance(scenario_ids, (list, tuple))
+                and all(isinstance(scenario_id, str) for scenario_id in scenario_ids)
+                for scenario_ids in values["worker_assignments"].values()
+            )
+        ):
+            raise ValueError("benchmark run worker_assignments must map worker strings to scenario string arrays")
+        if not isinstance(values["worker_exit_codes"], dict) or not all(
+            isinstance(worker_id, str) and isinstance(exit_code, int)
+            for worker_id, exit_code in values["worker_exit_codes"].items()
+        ):
+            raise ValueError("benchmark run worker_exit_codes must map worker strings to integers")
+        if not isinstance(values["worker_errors"], dict) or not all(
+            isinstance(worker_id, str) and isinstance(error, str)
+            for worker_id, error in values["worker_errors"].items()
+        ):
+            raise ValueError("benchmark run worker_errors must map worker strings to strings")
+        if not isinstance(values["software"], dict):
+            raise ValueError("benchmark run software must be an object")
+        values["requested_scenario_ids"] = tuple(values["requested_scenario_ids"])
+        try:
+            values["results"] = tuple(BenchmarkMeasurement.from_dict(result) for result in values["results"])
+            values["software"] = SoftwareMetadata(**values["software"])
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"benchmark run contains invalid nested data: {error}") from error
+        if not all(isinstance(result.scenario_id, str) for result in values["results"]):
+            raise ValueError("benchmark result scenario IDs must be strings")
+        values["worker_assignments"] = {
+            worker_id: tuple(scenario_ids) for worker_id, scenario_ids in values["worker_assignments"].items()
+        }
+        return cls(**values)

@@ -287,6 +287,89 @@ def test_memory_plan_rejects_matrix_overrides():
         benchmark_cli._validate_args(args)
 
 
+def test_regression_plan_is_stable_and_solver_focused():
+    args = benchmark_cli._parse_args([
+        "--suite",
+        "regression",
+        "--max-iters",
+        "200",
+        "--warmup",
+        "1",
+        "--repeat",
+        "5",
+    ])
+    benchmark_cli._validate_args(args)
+    scenarios = benchmark_cli._regression_scenarios(args)
+
+    assert len(scenarios) == 8
+    assert {
+        (
+            scenario.name.removesuffix(f"-{scenario.collision_mode}"),
+            scenario.num_objects,
+            scenario.num_envs,
+        )
+        for scenario in scenarios
+    } == {
+        ("regression-small", 6, 1),
+        ("regression-batch-heavy", 6, 1024),
+        ("regression-pair-heavy", 21, 1),
+        ("regression-combined", 21, 256),
+    }
+    assert {scenario.collision_mode for scenario in scenarios} == {"bbox", "mesh"}
+    assert all(
+        (
+            scenario.max_iters,
+            scenario.warmup_runs,
+            scenario.timed_runs,
+            scenario.final_loss_threshold,
+        )
+        == (200, 1, 5, 1e9)
+        for scenario in scenarios
+    )
+    assert len(requested_scenario_ids(scenarios, ("solver",))) == 8
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        ["--gpus", "0"],
+        ["--targets", "solver"],
+        ["--compare-modes"],
+        ["--num-envs", "32"],
+        ["--capacity-search"],
+    ],
+)
+def test_regression_plan_rejects_matrix_overrides(option):
+    args = benchmark_cli._parse_args(["--suite", "regression", *option])
+    with pytest.raises(ValueError, match="owns its execution matrix"):
+        benchmark_cli._validate_args(args)
+
+
+def test_baseline_comparison_options_require_regression_suite():
+    args = benchmark_cli._parse_args(["--suite", "envs", "--baseline-json", "baseline.json"])
+    with pytest.raises(ValueError, match="require --suite regression"):
+        benchmark_cli._validate_args(args)
+
+
+def test_candidate_output_cannot_overwrite_baseline():
+    args = benchmark_cli._parse_args([
+        "--suite",
+        "regression",
+        "--baseline-json",
+        "/results/baseline/benchmark.json",
+        "--output-dir",
+        "/results/baseline",
+    ])
+    with pytest.raises(ValueError, match="must not be overwritten"):
+        benchmark_cli._validate_args(args)
+
+
+def test_report_only_requires_baseline():
+    args = benchmark_cli._parse_args(["--suite", "regression", "--report-only"])
+    with pytest.raises(ValueError, match="requires --baseline-json"):
+        benchmark_cli._validate_args(args)
+
+
 @pytest.mark.parametrize(
     "option",
     [
