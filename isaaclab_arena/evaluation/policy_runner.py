@@ -23,6 +23,7 @@ from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -74,9 +75,10 @@ def rollout_policy(
 
     pbar = None
     try:
-        obs, _ = env.reset()
-        policy.reset()
-        policy.set_task_description(env.unwrapped.get_language_instruction())
+        with Timer("rollout/initial_reset"):
+            obs, _ = env.reset()
+            policy.reset()
+            policy.set_task_description(env.unwrapped.get_language_instruction())
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
@@ -88,9 +90,11 @@ def rollout_policy(
         num_steps_completed = 0
 
         while True:
-            with torch.inference_mode():
-                actions = policy.get_action(env, obs)
-                obs, _, terminated, truncated, _ = env.step(actions)
+            with torch.inference_mode(), Timer("rollout/step_total"):
+                with Timer("rollout/policy_get_action"):
+                    actions = policy.get_action(env, obs)
+                with Timer("rollout/env_step"):
+                    obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
@@ -99,12 +103,14 @@ def rollout_policy(
                         f" and truncated env_ids: {truncated.nonzero().flatten()}"
                     )
                     env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
+                    with Timer("rollout/policy_reset"):
+                        policy.reset(env_ids=env_ids)
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
                     if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        metrics = env.unwrapped.compute_metrics()
+                        with Timer("rollout/compute_metrics"):
+                            metrics = env.unwrapped.compute_metrics()
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
                             f" {metrics_to_plain_python_types(metrics)}"

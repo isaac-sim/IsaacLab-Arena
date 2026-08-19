@@ -10,7 +10,11 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_EXPERIMENT_TIMINGS_FILENAME,
+    ArenaExperimentResult,
+    build_arena_run_result_metadata,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult, build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
@@ -22,6 +26,7 @@ from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.timer import Timer, print_timer_stats, write_timer_stats_json
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
@@ -141,11 +146,12 @@ def main():
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
-        experiment_cfg = load_arena_experiment_from_config_file(
-            experiment_config_path,
-            device=args_cli.device,
-            overrides=experiment_overrides,
-        )
+        with Timer("experiment/load_config"):
+            experiment_cfg = load_arena_experiment_from_config_file(
+                experiment_config_path,
+                device=args_cli.device,
+                overrides=experiment_overrides,
+            )
         for run_name in experiment_cfg.runs:
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
@@ -156,13 +162,14 @@ def main():
         if args_cli.record_viewport_video:
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
 
-        run_results = execute_experiment(
-            experiment_cfg,
-            output_dir=experiment_output_directory,
-            record_viewport_video=args_cli.record_viewport_video,
-            record_camera_video=args_cli.record_camera_video,
-            continue_on_error=args_cli.continue_on_error,
-        )
+        with Timer("experiment/execute_runs"):
+            run_results = execute_experiment(
+                experiment_cfg,
+                output_dir=experiment_output_directory,
+                record_viewport_video=args_cli.record_viewport_video,
+                record_camera_video=args_cli.record_camera_video,
+                continue_on_error=args_cli.continue_on_error,
+            )
         for run_result in run_results:
             if run_result.metrics is not None:
                 metrics_logger.append_job_metrics(run_result.run_name, run_result.metrics)
@@ -173,7 +180,18 @@ def main():
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
 
         # Write HTML report.
-        report_path = build_report(experiment_output_directory)
+        with Timer("experiment/build_report"):
+            report_path = build_report(experiment_output_directory)
+
+        # Report where the Experiment spent its time. Isaac Sim startup is not covered here, it is
+        # reported separately by the AppLauncher startup marker.
+        print_timer_stats()
+        timings_path = write_timer_stats_json(
+            experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+            app_name="experiment_runner",
+        )
+        print(f"Wrote Arena Experiment timings to: {timings_path}")
+
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 
