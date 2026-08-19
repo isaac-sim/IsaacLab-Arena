@@ -581,7 +581,7 @@ For a composite task, check that the subtask list covers every pick and place pa
 <span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table_robolab</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="nt">objects</span><span class="p">:</span><span class="w">                          </span><span class="c1"># one entry per asset in the scene</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pepsi_can</span><span class="w">                   </span><span class="c1"># a SimReady search result: asset comes from a usd_path</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beverage_can</span><span class="w">                </span><span class="c1"># a SimReady search result: asset comes from a usd_path</span>
 <span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">simready_usd_object</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">usd_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd</span>
@@ -603,7 +603,7 @@ For a composite task, check that the subtask list covers every pick and place pa
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span><span class="w">                      </span><span class="c1"># every object needs its own placement relation</span>
-<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pepsi_can</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beverage_can</span>
 <span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
@@ -628,16 +628,16 @@ For a composite task, check that the subtask list covers every pick and place pa
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">next_to</span>
 <span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hammer</span>
-<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pepsi_can</span>
+<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beverage_can</span>
 <span class="w">  </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="nt">task</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">composition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">parallel</span><span class="w">           </span><span class="c1"># subtasks have no required order</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the pepsi can and bean can from the maple table and place them</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the beverage can and bean can from the maple table and place them</span>
 <span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">into the mini plastic basket.</span>
 <span class="w">  </span><span class="nt">subtasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PickAndPlaceTask</span><span class="w">        </span><span class="c1"># first atomic subtask</span>
 <span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">pick_up_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pepsi_can</span><span class="w">   </span><span class="c1"># object id</span>
+<span class="w">      </span><span class="nt">pick_up_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beverage_can</span><span class="w">  </span><span class="c1"># object id</span>
 <span class="w">      </span><span class="nt">destination_location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mini_plastic_basket</span>
 <span class="w">      </span><span class="nt">background_scene</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PickAndPlaceTask</span><span class="w">        </span><span class="c1"># second atomic subtask</span>

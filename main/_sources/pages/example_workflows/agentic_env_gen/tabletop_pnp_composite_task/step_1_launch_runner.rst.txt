@@ -32,8 +32,8 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
 
       .. code-block:: text
 
-         Droid picks up the pepsi can and the bean can from the maple table and places
-         them into the mini plastic basket. There is a hammer next to the pepsi can and
+         Droid picks up the beverage can and the bean can from the maple table and places
+         them into the mini plastic basket. There is a hammer next to the beverage can and
          a tuna can on the table, and the bean can sits next to the basket.
 
       The returned YAML is loaded into the editor and assets are rendered on the right side of the editor.
@@ -57,7 +57,7 @@ for assets that match the prompt, if assets are not found in the Arena asset lib
          python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
             --enable_simready_search \
-            --prompt "Droid picks up the pepsi can and the bean can from the maple table and places them into the mini plastic basket. There is a hammer next to the pepsi can and a tuna can on the table, and the bean can sits next to the basket."
+            --prompt "Droid picks up the beverage can and the bean can from the maple table and places them into the mini plastic basket. There is a hammer next to the beverage can and a tuna can on the table, and the bean can sits next to the basket."
 
       The runner prints the generated graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.

@@ -24,7 +24,7 @@ The generated spec has one block per part of the environment graph:
      registry_name: maple_table_robolab
      params: {}
    objects:                          # one entry per asset in the scene
-   - id: pepsi_can                   # a SimReady search result: asset comes from a usd_path
+   - id: beverage_can                # a SimReady search result: asset comes from a usd_path
      registry_name: simready_usd_object
      params:
        usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
@@ -46,7 +46,7 @@ The generated spec has one block per part of the environment graph:
      subject: maple_table
      params: {}
    - kind: 'on'                      # every object needs its own placement relation
-     subject: pepsi_can
+     subject: beverage_can
      reference: maple_table
      params: {}
    - kind: 'on'
@@ -71,16 +71,16 @@ The generated spec has one block per part of the environment graph:
      params: {}
    - kind: next_to
      subject: hammer
-     reference: pepsi_can
+     reference: beverage_can
      params: {}
    task:
      composition: parallel           # subtasks have no required order
-     description: Pick up the pepsi can and bean can from the maple table and place them
+     description: Pick up the beverage can and bean can from the maple table and place them
        into the mini plastic basket.
      subtasks:
      - kind: PickAndPlaceTask        # first atomic subtask
        params:
-         pick_up_object: pepsi_can   # object id
+         pick_up_object: beverage_can  # object id
          destination_location: mini_plastic_basket
          background_scene: maple_table
      - kind: PickAndPlaceTask        # second atomic subtask

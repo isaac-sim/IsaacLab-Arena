@@ -103,7 +103,11 @@ its placement relation:
       - kind: 'next_to'
         subject: apple_1
         reference: bagel_2
-        params: {}
+        params:
+          side: positive_x
+
+   The ``side`` parameter places the apple on the bagel's positive X side. See
+   :ref:`NextTo relation parameters <next-to-relation>` for the supported sides.
 
 Applying your edits
 ^^^^^^^^^^^^^^^^^^^

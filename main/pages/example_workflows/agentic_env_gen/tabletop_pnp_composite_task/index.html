@@ -568,16 +568,16 @@ for <strong>pick and place composite task with SimReady assets</strong> on a tab
 <a class="reference internal image-reference" href="../../../../_images/tabletop_agentic_env_cans_simready.png"><img alt="Generated table-top pick and place composite task shown in the agentic environment-generation GUI." src="../../../../_images/tabletop_agentic_env_cans_simready.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">The generated table-top scene: a DROID arm, a pepsi can, a tuna can, a mini plastic basket, a hammer and a
-bean can. The task is to pick up the pepsi can and bean can from the maple table and place them into the
+<p><span class="caption-text">The generated table-top scene: a DROID arm, a beverage can, a tuna can, a mini plastic basket, a hammer and a
+bean can. The task is to pick up the beverage can and bean can from the maple table and place them into the
 mini plastic basket.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p>The task is <em>composite</em>: instead of a single pick and place, the robot picks up
-both the pepsi can and the bean can from the maple table and places them into
+both the beverage can and the bean can from the maple table and places them into
 the mini plastic basket. Two atomic <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> subtasks are combined
 under one root task. A hammer and a tuna can are on the table as distractors.</p>
-<p>Two of the assets (i.e. pepsi can and plastic basket) are not in the Arena asset catalog. They are found by
+<p>Two of the assets (i.e. beverage can and plastic basket) are not in the Arena asset catalog. They are found by
 asset search through the SimReady service and enter the spec as <code class="docutils literal notranslate"><span class="pre">simready_usd_object</span></code> entries carrying a <code class="docutils literal notranslate"><span class="pre">usd_path</span></code>.</p>
 <p>The generated spec for this example is available at
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml</span></code>.</p>

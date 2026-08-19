@@ -597,7 +597,7 @@ Policy evaluation (with cuRobo-based reachability validation)</label><div class=
 install — see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> and
 <a class="reference internal" href="../../../concepts/object_placement/validation.html#ik-reachable-check"><span class="std std-ref">IK Reachability (ik_reachable)</span></a>.</p>
 </div>
-<p>If you want to ensure the robot can reach the target objects (i.e. pepsi can, bean can and mini plastic
+<p>If you want to ensure the robot can reach the target objects (i.e. beverage can, bean can and mini plastic
 basket), you can use this environment in the cuRobo-installed docker container to activate the
 reachability validation.</p>
 <p><strong>Docker Container</strong>: Curobo-installed Base (see <a class="reference internal" href="../../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
@@ -619,7 +619,7 @@ check. <code class="docutils literal notranslate"><span class="pre">ik_reachable
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[placement] Validated 50 candidate layout(s); passed per check: on_relation=47/50, next_to=39/50, not_next_to=50/50, face_to=50/50, no_overlap=39/50, ik_reachable=6/36
 </pre></div>
 </div>
-<p>A low <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> ratio means most sampled layouts put the pepsi or bean can or the basket outside the
+<p>A low <code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> ratio means most sampled layouts put the beverage can, bean can, or basket outside the
 arm’s workspace, and the placer keeps resampling. A composite task rejects more layouts than an atomic
 one, because every pick target and the place target must be reachable in the same layout.
 When an environment finds no reachable layout at all, it falls back to its lowest-loss layout.</p>
@@ -632,7 +632,7 @@ or disable it.</p>
 </a>
 <figcaption>
 <p><span class="caption-text">Policy evaluation of the generated environment using the OpenPI policy with reachability validation.
-The robot picks up the pepsi can and bean can and places them into the mini plastic basket.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+The robot picks up the beverage can and bean can and places them into the mini plastic basket.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
