@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
     get_base_rotation_per_asset,
@@ -25,6 +27,27 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
+
+CAPTURED_OBJECTS_SETTLED = "captured_objects_settled"
+"""Verdict key for whether the objects whose poses are recorded came to rest.
+
+Distinct from ``PHYSICS_SETTLED``, which covers every movable asset in the scene. A caller
+that records only some of them needs to know about those, not about a robot beside them.
+"""
+
+
+def _is_embodiment(asset: PlaceableAsset) -> bool:
+    """Whether an asset is a robot rather than something the scene places.
+
+    An embodiment reaches placement like any other asset but is driven by a policy, so its
+    settled pose is not a property of the layout and must not be written back into one.
+    """
+    # Imported here because embodiments build on placement assets, so importing them at module
+    # scope would make this package depend on one that already depends on it.
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
+    return isinstance(asset, EmbodimentBase)
 
 
 def _write_layout_to_envs_for_episode_index(
@@ -61,16 +84,26 @@ def _compute_physics_settled_and_add_to_validation_results(
     layouts: list[tuple[int, PlacementResult]],
     movable_object_names: list[str],
     settle_params: PhysicsSettleParams,
+    settled_per_env_override: list[bool] | None = None,
 ) -> list[tuple[int, PlacementValidationResults]]:
     """Read back per-object velocities for a list of layouts and stamp ``PHYSICS_SETTLED`` per layout.
 
     Returns ``(env_id, validation_results)`` per layout; the settle verdict is stamped only if not already present.
+
+    Args:
+        settled_per_env_override: Per-env verdicts to stamp instead of reading velocities, indexed
+            by env id. Required when settling
+            was decided from pose deltas, because objects in stable contact keep micro-rocking
+            and so never satisfy a velocity threshold.
     """
 
     env_ids = [env_id for env_id, _ in layouts]
-    settled_per_env = physics_settle.are_all_objects_settled_per_env(
-        env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
-    )
+    if settled_per_env_override is not None:
+        settled_per_env = [settled_per_env_override[env_id] for env_id in env_ids]
+    else:
+        settled_per_env = physics_settle.are_all_objects_settled_per_env(
+            env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
+        )
     validation_results_all_envs: list[tuple[int, PlacementValidationResults]] = []
     for (env_id, layout), settled in zip(layouts, settled_per_env):
         validation_results_per_env = layout.validation_results
@@ -80,11 +113,117 @@ def _compute_physics_settled_and_add_to_validation_results(
     return validation_results_all_envs
 
 
+def _capture_settled_poses_into_layouts(
+    env: ManagerBasedEnv,
+    layouts: list[tuple[int, PlacementResult]],
+    assets: list[PlaceableAsset],
+) -> None:
+    """Overwrite each given asset's layout pose with where it came to rest.
+
+    Settling moves objects, so a layout that is replayed later has to carry the resting
+    poses rather than the poses it was dropped from. Non-finite poses are left alone, so a
+    diverged step cannot poison a layout.
+    """
+    scene = env.unwrapped.scene
+    env_origins = scene.env_origins
+    for env_id, layout in layouts:
+        for asset in assets:
+            root_state = scene[asset.get_scene_key()].data.root_state_w[env_id]
+            if not bool(torch.isfinite(root_state[:7]).all()):
+                continue
+            position = root_state[:3] - env_origins[env_id]
+            rotation = root_state[3:7]
+            layout.positions[asset] = (float(position[0]), float(position[1]), float(position[2]))
+            layout.rotations[asset] = (
+                float(rotation[0]),
+                float(rotation[1]),
+                float(rotation[2]),
+                float(rotation[3]),
+            )
+
+
+def _step_until_poses_are_quiet(
+    env: ManagerBasedEnv,
+    movable_object_names: list[str],
+    max_physics_steps: int,
+    params: ClutterSettleParams,
+    poll_every: int,
+    render: bool = False,
+    subset_indices: list[int] | None = None,
+) -> tuple[list[bool], list[bool]]:
+    """Step physics until every environment's poses stop changing, or the budget runs out.
+
+    Returns early once all environments are quiet, so a sparse arrangement does not pay the
+    budget a dense one needs. Velocity is not consulted: objects in stable contact micro-rock
+    forever.
+
+    Args:
+        env: The Isaac Lab env.
+        movable_object_names: Scene keys of the objects being settled.
+        max_physics_steps: Upper bound on physics steps before giving up.
+        params: Quiet-window thresholds.
+        poll_every: Physics steps between pose reads.
+        render: When True, render each step.
+        subset_indices: Columns of ``movable_object_names`` forming a second, narrower verdict.
+            A caller that only records the poses of some objects must judge only those objects:
+            an unrelated one still rolling says nothing about whether they came to rest.
+
+    Returns:
+        ``(settled_per_env, subset_settled_per_env)``, each indexed by env id. One environment
+        still rearranging says nothing about the others, so verdicts are per environment rather
+        than shared. Without ``subset_indices`` the two are the same.
+    """
+    # Quiet thresholds are per-poll, so they only mean anything if the interval is long enough
+    # for real motion to exceed them. Poll too often and a free-falling object moves under the
+    # movement threshold between reads, and a pile still in the air reads as settled.
+    physics_dt = env.unwrapped.sim.get_physics_dt()
+    free_fall = 0.5 * 9.81 * (poll_every * physics_dt) ** 2
+    assert free_fall > params.move_thresh_m, (
+        f"poll_every={poll_every} is too frequent to detect motion: a free-falling object moves "
+        f"{free_fall * 1000:.2f} mm between polls, under the {params.move_thresh_m * 1000:.2f} mm "
+        "movement threshold, so a falling pile would be reported as settled."
+    )
+
+    scene = env.unwrapped.scene
+    num_envs = env.unwrapped.num_envs
+    trackers = [SettleTracker(params) for _ in range(num_envs)]
+    subset_trackers = [SettleTracker(params) for _ in range(num_envs)]
+    stepped = 0
+    while stepped < max_physics_steps:
+        # A short final chunk would compare poses over too little time and read motion as quiet,
+        # so stop rather than take a poll the interval guard above has not certified.
+        if max_physics_steps - stepped < poll_every:
+            break
+        physics_settle.step_physics(env, poll_every, render=render)
+        stepped += poll_every
+        states = torch.stack([scene[name].data.root_state_w for name in movable_object_names], dim=1)
+        settled = [
+            tracker.update(states[env_id, :, :3], states[env_id, :, 3:7]) for env_id, tracker in enumerate(trackers)
+        ]
+        subset_settled = (
+            settled
+            if subset_indices is None
+            else [
+                tracker.update(states[env_id][subset_indices, :3], states[env_id][subset_indices, 3:7])
+                for env_id, tracker in enumerate(subset_trackers)
+            ]
+        )
+        if all(settled) and all(subset_settled):
+            return settled, subset_settled
+    if subset_indices is None:
+        settled = [tracker.settled for tracker in trackers]
+        return settled, settled
+    return [tracker.settled for tracker in trackers], [tracker.settled for tracker in subset_trackers]
+
+
 def validate_pool_layouts(
     env: ManagerBasedEnv,
     placement_pool: PooledObjectPlacer | None = None,
     settle_params: PhysicsSettleParams | None = None,
     render: bool = False,
+    capture_settled_poses: bool = False,
+    pose_settle_params: ClutterSettleParams | None = None,
+    poll_every: int = 50,
 ) -> list[tuple[int, int, PlacementValidationResults]] | None:
     """Physics-validate every layout in a placement pool, recording the result on its validation results.
 
@@ -98,6 +237,14 @@ def validate_pool_layouts(
         settle_params: Settle-check tuning params. Defaults to
             ``PhysicsSettleParams()`` when omitted.
         render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
+        capture_settled_poses: When True, write each clutter member's resting pose back into its
+            layout. Required for layouts whose value is the settled arrangement itself. Defaults
+            to False, which leaves solved layouts untouched.
+        pose_settle_params: When given, settle by watching poses stop changing and return as soon
+            as they do, rather than always stepping the full budget. Needed for arrangements that
+            physics produces, where objects in stable contact keep micro-rocking and so never meet
+            a velocity threshold. Defaults to None, which keeps the fixed-step behaviour.
+        poll_every: Physics steps between pose reads when ``pose_settle_params`` is given.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
@@ -112,8 +259,17 @@ def validate_pool_layouts(
 
     assets = placement_pool.objects
     anchor_assets = set(get_anchor_objects(assets))
+    # A pour moves whatever it lands against, so recording only the pile would replay its
+    # settled poses beside a neighbour's stale ones and reproduce neither arrangement. Capture
+    # every asset the settle could have moved, less the embodiment, which is driven rather than
+    # placed and must not be frozen wherever gravity left it.
+    capture_assets = [asset for asset in assets if asset not in anchor_assets and not _is_embodiment(asset)]
     base_rotations = get_base_rotation_per_asset(assets)
     movable_object_names = get_movable_asset_names(assets, anchor_assets)
+    # Columns of the polled set holding the objects whose poses are captured, so their rest is
+    # judged on its own rather than on whatever else in the scene happens to still be moving.
+    capture_keys = {asset.get_scene_key() for asset in capture_assets}
+    capture_indices = [index for index, name in enumerate(movable_object_names) if name in capture_keys]
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
     layouts_per_env = placement_pool.layouts_per_env()
@@ -140,9 +296,39 @@ def validate_pool_layouts(
             base_rotations,
         )
         if layouts:
-            physics_settle.step_physics(env, num_physics_steps, render=render)
+            settled_per_env_override = None
+            captured_per_env = None
+            if pose_settle_params is None:
+                physics_settle.step_physics(env, num_physics_steps, render=render)
+            else:
+                settled_per_env_override, captured_per_env = _step_until_poses_are_quiet(
+                    env,
+                    movable_object_names,
+                    num_physics_steps,
+                    pose_settle_params,
+                    poll_every=poll_every,
+                    render=render,
+                    subset_indices=capture_indices,
+                )
+            if captured_per_env is not None:
+                # The full-scene verdict covers every movable, including a policy-driven
+                # embodiment that may never be still. A consumer judging the captured objects
+                # must not be told they failed because something else was moving.
+                for env_id, layout in layouts:
+                    layout.validation_results.validation_results[CAPTURED_OBJECTS_SETTLED] = captured_per_env[env_id]
+            if capture_settled_poses:
+                # Only capture where the captured objects themselves came to rest. Capturing an
+                # env that ran out of budget mid-fall would cache falling poses and replay them
+                # every reset, and judging them by an unrelated object still rolling would skip
+                # a pile that is perfectly at rest.
+                settled_layouts = (
+                    layouts
+                    if captured_per_env is None
+                    else [(env_id, layout) for env_id, layout in layouts if captured_per_env[env_id]]
+                )
+                _capture_settled_poses_into_layouts(env, settled_layouts, capture_assets)
             validation_results = _compute_physics_settled_and_add_to_validation_results(
-                env, layouts, movable_object_names, settle_params
+                env, layouts, movable_object_names, settle_params, settled_per_env_override
             )
             for env_id, validation_results_per_env in validation_results:
                 results.append((env_id, episode_index, validation_results_per_env))
