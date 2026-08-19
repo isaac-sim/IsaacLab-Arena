@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test reading annotated bounding boxes back out of a dataset and comparing footprints (no Isaac Sim needed)."""
+"""Test reading annotated bounding boxes back out of a dataset and comparing footprints.
+
+``aabb_overlap`` is vendorable: it depends on h5py and numpy alone, so it restates the HDF5 layout it
+reads and carries its own bounding-box type. The last two tests here pin those restatements against
+their in-tree counterparts, so the duplication cannot silently drift.
+"""
 
 import h5py
 import math
@@ -11,9 +16,13 @@ import numpy as np
 
 import pytest
 
-from isaaclab_arena.analysis.aabb_overlap import find_demo_name, read_object_aabbs, xy_overlap_fraction
-from isaaclab_arena.analysis.recording_annotation import BOUNDING_BOXES_GROUP
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.analysis.aabb_overlap import (
+    BOUNDING_BOXES_GROUP,
+    AxisAlignedBoundingBox,
+    find_demo_name,
+    read_object_aabbs,
+    xy_overlap_fraction,
+)
 
 _IDENTITY_XYZW = (0.0, 0.0, 0.0, 1.0)
 
@@ -114,6 +123,42 @@ def test_zero_area_child_is_rejected():
 
 
 # --------------------------------------------------------------------------------------------------
+# AxisAlignedBoundingBox
+# --------------------------------------------------------------------------------------------------
+
+
+def test_inverted_corners_are_rejected():
+    with pytest.raises(AssertionError, match="min_point must not exceed max_point"):
+        _box((1.0, 0.0, 0.0), (0.0, 1.0, 1.0))
+
+
+def test_identity_rotation_leaves_the_box_unchanged():
+    box = _box((-0.05, -0.03, 0.0), (0.05, 0.03, 0.10))
+
+    rotated = box.rotated_by_quat(_IDENTITY_XYZW)
+
+    np.testing.assert_allclose(rotated.min_point, box.min_point, atol=1e-12)
+    np.testing.assert_allclose(rotated.max_point, box.max_point, atol=1e-12)
+
+
+def test_a_quarter_turn_swaps_the_horizontal_extents_exactly():
+    box = _box((-0.05, -0.03, 0.0), (0.05, 0.03, 0.10))
+    yaw_90 = (0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
+
+    rotated = box.rotated_by_quat(yaw_90)
+
+    # A 90-degree multiple stays axis-aligned, so x and y extents swap with no inflation.
+    np.testing.assert_allclose(rotated.size, [0.06, 0.10, 0.10], atol=1e-9)
+
+
+def test_size_and_center_describe_the_box():
+    box = _box((-0.05, -0.03, 0.0), (0.05, 0.03, 0.10))
+
+    np.testing.assert_allclose(box.size, [0.10, 0.06, 0.10])
+    np.testing.assert_allclose(box.center, [0.0, 0.0, 0.05])
+
+
+# --------------------------------------------------------------------------------------------------
 # read_object_aabbs
 # --------------------------------------------------------------------------------------------------
 
@@ -132,8 +177,8 @@ def test_stored_boxes_are_placed_at_the_recorded_pose(tmp_path):
 
     child, destination = read_object_aabbs(dataset, "apple", "wooden_bowl")
 
-    np.testing.assert_allclose(child.min_point[0].numpy(), [0.35, 0.15, 0.85], atol=1e-6)
-    np.testing.assert_allclose(destination.min_point[0].numpy(), [0.30, 0.10, 0.75], atol=1e-6)
+    np.testing.assert_allclose(child.min_point, [0.35, 0.15, 0.85], atol=1e-6)
+    np.testing.assert_allclose(destination.min_point, [0.30, 0.10, 0.75], atol=1e-6)
     assert xy_overlap_fraction(child, destination) == pytest.approx(1.0)
 
     # The default frame is the last one, so the earlier off-target frame must score differently.
@@ -153,7 +198,7 @@ def test_a_yaw_rotated_box_is_refitted_conservatively(tmp_path):
     child, _ = read_object_aabbs(dataset, "apple", "wooden_bowl")
 
     # A 0.1 m square yawed 45 degrees needs a 0.1 * sqrt(2) axis-aligned box to contain it.
-    np.testing.assert_allclose(float(child.max_point[0][0]), 0.05 * math.sqrt(2), atol=1e-6)
+    np.testing.assert_allclose(float(child.max_point[0]), 0.05 * math.sqrt(2), atol=1e-6)
 
 
 def test_a_per_env_box_is_selected_by_the_demo_env_id(tmp_path):
@@ -175,8 +220,8 @@ def test_a_per_env_box_is_selected_by_the_demo_env_id(tmp_path):
     from_env_one, _ = read_object_aabbs(dataset, "apple", "wooden_bowl", demo="demo_0")
     from_env_zero, _ = read_object_aabbs(dataset, "apple", "wooden_bowl", demo="demo_1")
 
-    assert float(from_env_one.max_point[0][0]) == pytest.approx(0.2)
-    assert float(from_env_zero.max_point[0][0]) == pytest.approx(0.05)
+    assert float(from_env_one.max_point[0]) == pytest.approx(0.2)
+    assert float(from_env_zero.max_point[0]) == pytest.approx(0.05)
 
 
 def test_demo_lookup_joins_an_episode_results_record_to_its_demo(tmp_path):
@@ -211,6 +256,20 @@ def test_an_unannotated_object_is_reported_clearly(tmp_path):
         read_object_aabbs(dataset, "apple", "never_annotated")
 
 
+def test_an_unannotated_dataset_is_reported_clearly(tmp_path):
+    dataset = tmp_path / "dataset_job_rebuild0.hdf5"
+    _write_annotated_dataset(
+        dataset,
+        poses={"apple": [(0.0, 0.0, 0.0, *_IDENTITY_XYZW)], "wooden_bowl": [(0.0, 0.0, 0.0, *_IDENTITY_XYZW)]},
+        boxes=_unit_boxes(),
+    )
+    with h5py.File(dataset, "r+") as hdf5_file:
+        del hdf5_file[BOUNDING_BOXES_GROUP]
+
+    with pytest.raises(AssertionError, match="No 'bounding_boxes' group"):
+        read_object_aabbs(dataset, "apple", "wooden_bowl")
+
+
 def test_legacy_quaternion_format_is_refused(tmp_path):
     dataset = tmp_path / "dataset_job_rebuild0.hdf5"
     _write_annotated_dataset(
@@ -222,3 +281,41 @@ def test_legacy_quaternion_format_is_refused(tmp_path):
 
     with pytest.raises(AssertionError, match="format_version=0"):
         read_object_aabbs(dataset, "apple", "wooden_bowl")
+
+
+# --------------------------------------------------------------------------------------------------
+# Guards on the vendorable copy: these must fail if the in-tree originals change
+# --------------------------------------------------------------------------------------------------
+
+
+def test_group_name_matches_the_one_the_annotation_tool_writes():
+    from isaaclab_arena.analysis.recording_annotation import BOUNDING_BOXES_GROUP as written_group
+
+    assert BOUNDING_BOXES_GROUP == written_group, "the reader's group name has drifted from the writer's"
+
+
+def test_rotation_matches_arenas_bounding_box_implementation():
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox as ArenaBoundingBox
+
+    generator = np.random.default_rng(seed=0)
+    for _ in range(32):
+        lower = generator.uniform(-0.5, 0.0, size=3)
+        upper = lower + generator.uniform(0.01, 0.5, size=3)
+        quaternion = generator.normal(size=4)
+        quaternion /= np.linalg.norm(quaternion)
+        offset = generator.uniform(-1.0, 1.0, size=3)
+
+        vendored = (
+            AxisAlignedBoundingBox(min_point=lower, max_point=upper)
+            .rotated_by_quat(tuple(quaternion))
+            .translated(tuple(offset))
+        )
+        arena = (
+            ArenaBoundingBox(min_point=tuple(lower), max_point=tuple(upper))
+            .rotated_by_quat(tuple(quaternion))
+            .translated(tuple(offset))
+        )
+
+        # Arena's implementation is float32, hence the loose-ish tolerance.
+        np.testing.assert_allclose(vendored.min_point, arena.min_point[0].numpy(), atol=1e-6)
+        np.testing.assert_allclose(vendored.max_point, arena.max_point[0].numpy(), atol=1e-6)
