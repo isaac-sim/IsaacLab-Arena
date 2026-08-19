@@ -3,7 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Franka Kitchen Pick-and-Place 示例：在 Kit 可视化窗口中运行抓取放置任务。"""
+"""
+Franka Kitchen Pick-and-Place 示例：在 Kit 可视化窗口中运行抓取放置任务。
+使用方法：
+    python examples/example03_teleop.py --viz kit --num_steps 500 --keep_open
+"""
 
 import argparse
 import contextlib
