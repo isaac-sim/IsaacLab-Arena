@@ -8,7 +8,9 @@ from __future__ import annotations
 import torch
 from collections.abc import Sequence
 
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.sim.views import FrameView
 
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
@@ -53,8 +55,17 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        self._restore_static_asset_views()
         self._external_policy_termination_buf = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self._settle_clutter_layouts()
+
+    def _restore_static_asset_views(self) -> None:
+        """Expose static assets through the transform-view contract Arena relies on."""
+        for name, asset_cfg in tuple(self.scene.extras.items()):
+            if isinstance(asset_cfg, AssetBaseCfg):
+                self.scene.extras[name] = FrameView(
+                    asset_cfg.prim_path, device=self.device, stage=self.scene.stage
+                )
 
     def _settle_clutter_layouts(self) -> None:
         """Replace pooled clutter drop poses with the poses the pile settles into.

@@ -20,11 +20,9 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots import KUKA_ALLEGRO_CFG
-from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
-from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp
-from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro import (
-    dexsuite_kuka_allegro_env_cfg as kuka_dexsuite_cfg,
-)
+from isaaclab_tasks.core.lift import lift_env_cfg as dexsuite
+from isaaclab_tasks.core.lift import mdp as dexsuite_mdp
+from isaaclab_tasks.core.lift.config.kuka_allegro import kuka_allegro_env_cfg as kuka_dexsuite_cfg
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode

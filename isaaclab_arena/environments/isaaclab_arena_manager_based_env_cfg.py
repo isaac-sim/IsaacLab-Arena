@@ -8,7 +8,8 @@ from __future__ import annotations
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.managers import RecorderManagerBaseCfg
-from isaaclab.sim import RenderCfg, SimulationCfg
+from isaaclab.app import get_settings_manager
+from isaaclab.sim import SimulationCfg
 from isaaclab.utils.configclass import configclass
 
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
@@ -97,22 +98,18 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     # Control rate: sim.dt (1/120 s) x decimation (8) = 15 Hz
-    sim: SimulationCfg = SimulationCfg(
-        dt=1 / 120,
-        render_interval=2,
-        render=RenderCfg(
-            carb_settings={
-                "/rtx/sceneDb/ambientLightIntensity": 0.0,
-                # Workaround for IsaacLab #6424: stop the physx-tensors filter matcher from
-                # recursing into leaf collision shapes so a contact filter pointing at a rigid
-                # body with multiple collision shapes resolves to a single entry (otherwise the
-                # view fails with "expected 1, found N").
-                "/physics/tensors/recursiveLeafPatternMatch": False,
-            },
-        ),
-    )
+    sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=2)
     decimation: int = 8
     wait_for_textures: bool = False
+
+    def __post_init__(self) -> None:
+        settings = get_settings_manager()
+        settings.set("/rtx/sceneDb/ambientLightIntensity", 0.0)
+        # Workaround for IsaacLab #6424: stop the physx-tensors filter matcher from
+        # recursing into leaf collision shapes so a contact filter pointing at a rigid
+        # body with multiple collision shapes resolves to a single entry (otherwise the
+        # view fails with "expected 1, found N").
+        settings.set("/physics/tensors/recursiveLeafPatternMatch", False)
 
 
 def set_control_rate_50hz(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:

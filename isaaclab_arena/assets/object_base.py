@@ -13,7 +13,7 @@ from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
+from isaaclab_tasks.contrib.stack.mdp.stack_events import randomize_object_pose
 
 # Re-export ObjectType from the lightweight module so existing
 # `from isaaclab_arena.assets.object_base import ObjectType` consumers keep working,

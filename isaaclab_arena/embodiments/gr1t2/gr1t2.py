@@ -12,7 +12,7 @@ import isaaclab.controllers.utils as ControllerUtils
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
-import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+import isaaclab_tasks.contrib.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -24,7 +24,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg
 from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
-from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
+from isaaclab_tasks.contrib.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 from isaaclab_teleop import XrCfg
 from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 

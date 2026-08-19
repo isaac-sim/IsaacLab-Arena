@@ -35,7 +35,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         """Build the environment from its typed configuration."""
         import math
 
-        import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
+        import isaaclab_tasks.core.lift  # noqa: F401
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
@@ -65,8 +65,8 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
 
         dexsuite_rl_cfg_entry = (
-            "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."
-            "rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"
+            "isaaclab_tasks.core.lift.config.kuka_allegro.agents."
+            "rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"
         )
 
         return IsaacLabArenaEnvironment(
