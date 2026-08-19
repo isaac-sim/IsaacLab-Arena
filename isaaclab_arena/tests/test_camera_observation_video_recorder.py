@@ -18,7 +18,15 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
+from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
+from isaaclab_arena.utils.timer import get_timer_stats, reset_timer_stats
+from isaaclab_arena.video.camera_observation_video_recorder import (
+    CAMERA_FINALIZE_TIMER_NAME,
+    CAMERA_FRAME_WRITE_TIMER_NAME,
+    CAMERA_OBS_GROUP_KEY,
+    CameraObsVideoRecorder,
+)
+from isaaclab_arena.video.video_recording import STEP_WITHOUT_VIDEO_TIMER_NAME, VideoRecordingCfg, wrap_env_for_video
 
 # ---------------------------------------------------------------------------
 # Minimal gym.Env stub — satisfies gymnasium.Wrapper's isinstance check
@@ -226,6 +234,77 @@ def test_no_video_written_for_empty_episode(tmp_path):
         # per-episode results record).
         assert not any(writer.filename.endswith("env0-front-episode-0.mp4") for writer in writers)
         assert env.get_episode_index(0) == 1
+
+
+def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):
+    """Frame writes are timed on every recorded step; finalizing is timed only on a reset."""
+    reset_timer_stats()
+    env = _make_env()
+    with _patched_writers():
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+        _configure_step(env)
+        recorder.step(None)
+        recorder.step(None)
+
+        stats = get_timer_stats()
+        assert stats[CAMERA_FRAME_WRITE_TIMER_NAME].count == 2
+        assert CAMERA_FINALIZE_TIMER_NAME not in stats
+
+        _configure_step(env, done_envs=[0])
+        recorder.step(None)
+
+        stats = get_timer_stats()
+        assert stats[CAMERA_FRAME_WRITE_TIMER_NAME].count == 3
+        assert stats[CAMERA_FINALIZE_TIMER_NAME].count == 1
+
+
+def test_wrap_env_for_video_times_the_step_below_the_recorders(tmp_path):
+    """The recording stack puts the step timer below the recorders, so the two costs separate."""
+    reset_timer_stats()
+    env = _make_env()
+    _configure_step(env)
+
+    wrapped = wrap_env_for_video(
+        env,
+        VideoRecordingCfg(record_camera_video=True, video_base_dir=str(tmp_path)),
+        num_steps=1,
+        num_episodes=None,
+    )
+
+    assert isinstance(wrapped, CameraObsVideoRecorder)
+    assert isinstance(wrapped.env, EnvStepTimerWrapper)
+    assert wrapped.env.env is env
+
+    with _patched_writers():
+        wrapped.step(None)
+
+    stats = get_timer_stats()
+    assert stats[STEP_WITHOUT_VIDEO_TIMER_NAME].count == 1
+    assert stats[CAMERA_FRAME_WRITE_TIMER_NAME].count == 1
+
+
+def test_wrap_env_for_video_adds_no_timer_when_recording_is_disabled(tmp_path):
+    """With no recorder requested the env is returned unchanged and nothing is timed."""
+    reset_timer_stats()
+    env = _make_env()
+
+    wrapped = wrap_env_for_video(env, VideoRecordingCfg(video_base_dir=str(tmp_path)), 1, None)
+
+    assert wrapped is env
+    assert get_timer_stats() == {}
+
+
+def test_no_timing_recorded_without_camera_observations(tmp_path):
+    """A step carrying no camera observations does no recording work, so nothing is timed."""
+    reset_timer_stats()
+    env = _make_env()
+    with _patched_writers():
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+        recorder.step(None)  # _StubEnv returns an empty obs until _configure_step is called
+
+        assert CAMERA_FRAME_WRITE_TIMER_NAME not in get_timer_stats()
 
 
 def test_post_reset_frame_not_recorded(tmp_path):

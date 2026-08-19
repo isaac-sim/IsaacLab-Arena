@@ -10,7 +10,17 @@ import datetime
 import os
 from gymnasium.wrappers import RecordVideo
 
+from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 from isaaclab_arena.video.camera_observation_video_recorder import CameraObsVideoRecorder
+
+STEP_WITHOUT_VIDEO_TIMER_NAME = "rollout/env_step_without_video"
+"""Timer covering the env step below every recorder, so recording cost can be separated from it.
+
+The Experiment Runner's ``rollout/env_step`` measures the outermost wrapper, so the difference
+between it and this timer is the total cost of recording. ``video/camera_frame_write`` and
+``video/camera_finalize`` break out the camera recorder's share; whatever remains is the viewport
+recorder's ``env.render()``. This timer only exists while a recorder is enabled.
+"""
 
 
 @dataclasses.dataclass
@@ -82,6 +92,9 @@ def wrap_env_for_video(
         return env
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
+
+    # Sits below every recorder so its measurement excludes them.
+    env = EnvStepTimerWrapper(env, timer_name=STEP_WITHOUT_VIDEO_TIMER_NAME)
 
     # Record the kit viewport (via env.render()).
     if video_cfg.record_viewport_video:
