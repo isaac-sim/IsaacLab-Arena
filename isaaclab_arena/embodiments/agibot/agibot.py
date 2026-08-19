@@ -149,13 +149,7 @@ class AgibotRightArmActionsCfg:
 
 
 def reset_robot_to_default(env, env_ids, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
-    """Restore the robot's default joint state and joint targets on reset.
-
-    Deliberately robot-only, matching the Franka embodiment's reset event.
-    ``mdp.reset_scene_to_default`` would also restore every other scene asset, which tramples
-    task-level contracts -- an object whose reset pose a task disabled (``disable_reset_pose``)
-    would get teleported back to its spawn state by the embodiment.
-    """
+    """Restore the robot's default joint state and joint targets on reset."""
     asset = env.scene[asset_cfg.name]
     default_joint_pos = asset.data.default_joint_pos.torch[env_ids].clone()
     default_joint_vel = asset.data.default_joint_vel.torch[env_ids].clone()
@@ -173,17 +167,10 @@ class AgibotEventCfg:
         func=reset_robot_to_default,
         mode="reset",
     )
-    """Restore ``AGIBOT_A2D_CFG.init_state`` joint values and targets on every reset.
+    """Restore ``init_state`` joint values and targets on every reset.
 
-    Without this the robot resets with every joint at 0, including ``joint_lift_body`` and
-    ``joint_body_pitch``. That silently breaks RMPFlow: lula pins those two at 0.1995 and 0.6025
-    through ``cspace_to_urdf_rules`` in ``agibot_left_arm_gripper.yaml``, and its ``default_q``
-    c-space attractor expects the arm at the same joint pose. Starting from all zeros, the
-    attractor drags the arm ~1 m away from wherever it began even under a zero action, and no
-    end-effector target tracks correctly. The Franka embodiment has the equivalent robot-only
-    term (``FrankaEventCfg.randomize_franka_joint_state``); the Agibot one had none, and
-    ``tabletop_place_upright`` only worked because it sets its own ``reset_scene_to_default`` at
-    the task level."""
+    RMPFlow expects `joint_lift_body`` and ``joint_body_pitch`` at those default values
+    through ``cspace_to_urdf_rules`` in ``agibot_left_arm_gripper.yaml``."""
 
 
 @configclass
