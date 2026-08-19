@@ -50,7 +50,7 @@ class RelationSolverParams:
     """Learning rate for Adam optimizer."""
 
     convergence_threshold: float = 1e-4
-    """Stop when loss falls below this value."""
+    """Stop when every environment's loss falls below this value."""
 
     verbose: bool = True
     """Print optimization progress."""
