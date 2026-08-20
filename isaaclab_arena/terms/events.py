@@ -75,13 +75,31 @@ class ResetBackgroundPhysics(ManagerTermBase):
         return path_template.format(ENV_REGEX_NS=env_prim_path)
 
     @staticmethod
+    def _is_unavailable_backend_error(exc: Exception) -> bool:
+        """Return whether initialization failed because no live backend view exists."""
+        if isinstance(exc, RuntimeError):
+            message = str(exc)
+            return message.endswith("Please check PhysX logs.") and message.startswith(
+                ("Failed to create rigid body at:", "Failed to create articulation at:")
+            )
+        if isinstance(exc, KeyError) and len(exc.args) == 1:
+            message = str(exc.args[0])
+            return message.startswith("No articulations matching pattern '") and message.endswith("'")
+        return False
+
+    @staticmethod
     def _initialize_asset(asset_cfg: Any, prim_path: str, asset_kind: str) -> Any | None:
         """Initialize a private asset, returning None when no backend object exists."""
         asset = asset_cfg.class_type(asset_cfg)
         try:
             asset._initialize_callback(None)
-        except RuntimeError as exc:
+        except Exception as exc:
             asset._clear_callbacks()
+            # Composed USD APIs may expose authored physics roots that the active
+            # backend does not materialize. Backends do not share an exception
+            # type for that case, so accept only their known error signatures.
+            if not ResetBackgroundPhysics._is_unavailable_backend_error(exc):
+                raise
             carb.log_warn(f"Skipping unavailable background {asset_kind} '{prim_path}': {exc}")
             return None
         return asset
@@ -104,15 +122,18 @@ class ResetBackgroundPhysics(ManagerTermBase):
                 )
             )
             expected_paths = {self._runtime_path(path, env_prim_path) for path in self._physics_paths[background_name]}
-            missing = sorted(runtime_paths - expected_paths)
-            stale = sorted(expected_paths - runtime_paths)
-            assert not missing and not stale, (
+            unregistered_runtime_paths = sorted(runtime_paths - expected_paths)
+            missing_runtime_paths = sorted(expected_paths - runtime_paths)
+            assert not unregistered_runtime_paths and not missing_runtime_paths, (
                 f"Nested physics discovery for background '{background_name}' differs from the live composed stage. "
-                f"Unregistered runtime roots: {missing}. Missing runtime roots for generated entities: {stale}."
+                f"Unregistered runtime roots: {unregistered_runtime_paths}. "
+                f"Missing runtime roots for generated entities: {missing_runtime_paths}."
             )
 
     def _capture_initial_state(self, env: ManagerBasedEnv) -> None:
         """Create private assets after simulation initialization and snapshot their state."""
+        # Source-USD discovery happens before runtime composition. Validate it once
+        # here, after deferred RTX/backend initialization has completed.
         self._validate_runtime_composition(env)
         for physics_paths in self._physics_paths.values():
             for path_template, object_type in physics_paths.items():

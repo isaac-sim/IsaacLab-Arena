@@ -276,6 +276,8 @@ class ArenaEnvBuilder:
                 [("reset_background_physics", EventTermCfg, reset_background_physics)],
             )
             background_physics_events_cfg = BackgroundPhysicsEventsCfg()
+        # Keep the background term first so its one-time snapshot observes the
+        # composed startup state before any reset event can mutate scene entities.
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             background_physics_events_cfg,

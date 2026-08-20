@@ -45,11 +45,12 @@ def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
     roots: dict[str, ObjectType] = {}
     for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
         prim_path = prim.GetPath()
-        if is_articulation_root(prim):
+        articulation_root = is_articulation_root(prim)
+        if articulation_root:
             articulation_paths.add(prim_path)
         if prim == root_prim:
             continue
-        if is_articulation_root(prim):
+        if articulation_root:
             roots[str(prim_path)] = ObjectType.ARTICULATION
         elif is_rigid_body(prim):
             ancestor = prim.GetParent()
@@ -86,14 +87,13 @@ def exclude_referenced_physics_roots(
                 ),
                 None,
             )
-            if articulation_owner is not None:
-                raise AssertionError(
-                    f"Object reference '{path}' lies inside articulation root '{articulation_owner}' and cannot "
-                    "independently own its reset state. Reference the articulation root instead."
-                )
-            raise AssertionError(
-                f"Object reference '{path}' does not identify an independently resettable physics root"
+            assert articulation_owner is None, (
+                f"Object reference '{path}' lies inside articulation root '{articulation_owner}' and cannot "
+                "independently own its reset state. Reference the articulation root instead."
             )
+            assert (
+                physics_type is not None
+            ), f"Object reference '{path}' does not identify an independently resettable physics root"
         assert referenced_type == physics_type, (
             f"Object reference '{path}' is declared as {referenced_type.name}, "
             f"but its physics root is {physics_type.name}"

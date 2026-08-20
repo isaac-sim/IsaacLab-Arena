@@ -30,7 +30,7 @@ class LibraryBackground(Background):
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
-    reset_nested_physics = False
+    reset_nested_physics: bool = False
 
     def __init__(self, reset_nested_physics: bool | None = None, **kwargs):
         # Check lazy USD paths are set by here

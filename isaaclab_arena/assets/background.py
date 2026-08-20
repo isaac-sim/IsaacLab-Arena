@@ -116,7 +116,8 @@ def _deinstance_nested_physics(prim: Usd.Prim) -> None:
             ancestor = ancestor.GetParent()
 
     for path, instance_root in sorted(instance_roots.items()):
-        assert instance_root.SetInstanceable(False), f"Failed to de-instance nested physics subtree '{path}'"
+        deinstanced = instance_root.SetInstanceable(False)
+        assert deinstanced, f"Failed to de-instance nested physics subtree '{path}'"
 
 
 @clone

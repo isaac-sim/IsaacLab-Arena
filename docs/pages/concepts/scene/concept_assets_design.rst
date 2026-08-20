@@ -67,15 +67,25 @@ joint configuration. On each episode reset, Arena applies those values to the
 resetting environments and zeros all root and joint velocities. The private views
 are not exposed through the Isaac Lab scene entity registries.
 
-Arena discovers nested roots through the composed USD physics APIs. Explicit
-rigid and articulation ``ObjectReference`` entries are normal scene entities with
-their own reset events; articulation references restore both root and default joint
-state. Matching physics-root references are therefore excluded from background-owned
-resets. ``BASE`` references remain observational, and references to articulation
-links cannot independently own reset state. Instanceable subtrees that contribute
-dynamic physics are materialized at spawn time because physics views cannot control
-dynamic instance proxies. Authored roots that do not correspond to a live physics
-backend object after composition are skipped.
+Arena discovers nested roots through the composed USD physics APIs.
+
+Included:
+
+- Standalone rigid bodies.
+- Articulation roots, which own their links and joints.
+
+Excluded:
+
+- ``BASE`` and collision-only prims.
+- Rigid and articulation roots owned by matching ``ObjectReference`` entries.
+- Articulation links, which cannot own reset state independently.
+- Authored roots without a live physics backend object after composition.
+
+``BASE`` object references remain observational and do not transfer reset
+ownership away from the background.
+
+Instanceable subtrees that contribute dynamic physics are materialized at spawn
+time because physics views cannot control dynamic instance proxies.
 
 Object references
 -----------------
