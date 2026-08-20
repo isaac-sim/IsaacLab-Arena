@@ -13,7 +13,6 @@ from isaaclab.envs.mdp.actions.rmpflow_actions_cfg import RMPFlowActionCfg
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
@@ -25,6 +24,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv
+from isaaclab_arena.terms.events import reset_joint_position_and_velocity_to_defaults
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -148,28 +148,17 @@ class AgibotRightArmActionsCfg:
     )
 
 
-def reset_robot_to_default(env, env_ids, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
-    """Restore the robot's default joint state and joint targets on reset."""
-    asset = env.scene[asset_cfg.name]
-    default_joint_pos = asset.data.default_joint_pos.torch[env_ids].clone()
-    default_joint_vel = asset.data.default_joint_vel.torch[env_ids].clone()
-    asset.write_joint_position_to_sim_index(position=default_joint_pos, env_ids=env_ids)
-    asset.write_joint_velocity_to_sim_index(velocity=default_joint_vel, env_ids=env_ids)
-    asset.set_joint_position_target_index(target=default_joint_pos, env_ids=env_ids)
-    asset.set_joint_velocity_target_index(target=default_joint_vel, env_ids=env_ids)
-
-
 @configclass
 class AgibotEventCfg:
     """Reset events for the Agibot robot."""
 
     reset_robot_to_default_pose = EventTermCfg(
-        func=reset_robot_to_default,
+        func=reset_joint_position_and_velocity_to_defaults,
         mode="reset",
     )
     """Restore ``init_state`` joint values and targets on every reset.
 
-    RMPFlow expects `joint_lift_body`` and ``joint_body_pitch`` at those default values
+    RMPFlow expects ``joint_lift_body`` and ``joint_body_pitch`` at those default values
     through ``cspace_to_urdf_rules`` in ``agibot_left_arm_gripper.yaml``."""
 
 

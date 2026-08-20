@@ -127,3 +127,20 @@ def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
         default_joint_vel = wp.to_torch(articulation_asset.data.default_joint_vel)[env_ids].clone()
         # set into the physics simulation
         articulation_asset.write_joint_state_to_sim(default_joint_pos, default_joint_vel, env_ids=env_ids)
+
+
+def reset_joint_position_and_velocity_to_defaults(
+    env: ManagerBasedEnv, env_ids: torch.Tensor, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+):
+    """Reset one articulation's joint positions and velocities to their defaults.
+
+    Also resets the joint drive targets, so targets left over from before the reset don't pull
+    the asset away from its default state.
+    """
+    asset = env.scene[asset_cfg.name]
+    default_joint_pos = asset.data.default_joint_pos.torch[env_ids].clone()
+    default_joint_vel = asset.data.default_joint_vel.torch[env_ids].clone()
+    asset.write_joint_position_to_sim_index(position=default_joint_pos, env_ids=env_ids)
+    asset.write_joint_velocity_to_sim_index(velocity=default_joint_vel, env_ids=env_ids)
+    asset.set_joint_position_target_index(target=default_joint_pos, env_ids=env_ids)
+    asset.set_joint_velocity_target_index(target=default_joint_vel, env_ids=env_ids)
