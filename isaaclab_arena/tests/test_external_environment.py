@@ -25,6 +25,7 @@ def _test_external_environment_registration_callback(_) -> bool:
     """Verify the Isaac Lab callback registers an externally defined Arena environment."""
     import gymnasium as gym
 
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.environments.isaaclab_interop import environment_registration_callback
 
     callback_args = [
@@ -40,7 +41,11 @@ def _test_external_environment_registration_callback(_) -> bool:
         remaining_args = environment_registration_callback()
 
     assert remaining_args == []
-    assert gym.spec("franka_table").id == "franka_table"
+    spec = gym.spec("franka_table")
+    assert spec.id == "franka_table"
+    assert spec.kwargs["arena_object_types"]["cracker_box"] is ObjectType.RIGID
+    assert "cracker_box" in spec.kwargs["arena_object_bounds"]
+    assert "variation_recorder" not in spec.kwargs
     return True
 
 

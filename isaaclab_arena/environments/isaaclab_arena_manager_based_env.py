@@ -9,11 +9,13 @@ from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
 
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -27,12 +29,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        arena_object_types: dict[str, ObjectType] | None = None,
+        arena_object_bounds: dict[str, AxisAlignedBoundingBox] | None = None,
         **kwargs,
     ):
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._arena_object_types = dict(arena_object_types or {})
+        self._arena_object_bounds = dict(arena_object_bounds or {})
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -56,6 +62,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
         """The recorder of initial object rest poses. Used when object_settled predicate is enabled by task progress tracking."""
         return self._object_initial_rest_pose_recorder
+
+    @property
+    def arena_object_types(self) -> dict[str, ObjectType]:
+        """Arena object types keyed by runtime scene name."""
+        return self._arena_object_types
+
+    @property
+    def arena_object_bounds(self) -> dict[str, AxisAlignedBoundingBox]:
+        """Local object bounds available to runtime geometry predicates."""
+        return self._arena_object_bounds
 
     @property
     def episode_recorder(self) -> EpisodeRecorderManager:

@@ -6,15 +6,19 @@
 from __future__ import annotations
 
 import torch
+from typing import Literal
 
 import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
+from isaaclab_arena.scene.object_geometry import object_bounds_w
+from isaaclab_arena.scene.object_state import object_state
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
+
+HeightMode = Literal["centroid", "min", "max", "min_point", "max_point"]
 
 
 def object_is_above_height(
@@ -24,6 +28,7 @@ def object_is_above_height(
     use_settled_state: bool = False,
     distance: float = 1e-2,
     env_id: int | None = None,
+    height_mode: HeightMode = "centroid",
 ) -> torch.Tensor:
     """Checks if an object is above a certain height.
 
@@ -38,7 +43,7 @@ def object_is_above_height(
         surface_height is not None
     ) != use_settled_state, "object_is_above_height requires exactly one of surface_height or use_settled_state"
 
-    object_z = get_root_pos_w(env, object_name)[:, 2]
+    object_z = _object_height(env, object_name, height_mode)
     if use_settled_state:
         settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
@@ -76,13 +81,9 @@ def objects_in_proximity(
     Returns True when the object is within a certain proximity of the target object.
     """
 
-    # Get object entities from the scene
-    object: RigidObject = env.scene[object_cfg.name]
-    target_object: RigidObject = env.scene[target_object_cfg.name]
-
     # Get positions relative to environment origin
-    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    object_pos = get_root_pos_w(env, object_cfg.name) - env.scene.env_origins
+    target_object_pos = get_root_pos_w(env, target_object_cfg.name) - env.scene.env_origins
 
     # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
@@ -94,6 +95,45 @@ def objects_in_proximity(
     done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
+
+
+def object_is_below_height(
+    env: ManagerBasedRLEnv,
+    object_name: str,
+    minimum_height: float,
+    height_mode: HeightMode = "centroid",
+) -> torch.Tensor:
+    """Return whether the selected object height is below ``minimum_height``."""
+    return _object_height(env, object_name, height_mode) < minimum_height
+
+
+def object_supported_by(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    destination_cfg: SceneEntityCfg,
+    support_tolerance: float = 0.03,
+    low_point_tolerance: float = 0.01,
+    minimum_support_fraction: float = 0.5,
+) -> torch.Tensor:
+    """Check deformable support using low nodal points and destination bounds."""
+    points = object_state(env, object_cfg.name).points
+    assert points is not None, f"Object {object_cfg.name!r} has no deformable point state"
+    assert points.position_w is not None, f"Object {object_cfg.name!r} has no nodal positions"
+
+    position_w = points.position_w
+    low_z = position_w[..., 2].amin(dim=1, keepdim=True)
+    low_mask = position_w[..., 2] <= low_z + low_point_tolerance
+    destination_bounds = object_bounds_w(env, destination_cfg.name)
+
+    inside_xy = torch.all(
+        (position_w[..., :2] >= destination_bounds.min_point[:, None, :2])
+        & (position_w[..., :2] <= destination_bounds.max_point[:, None, :2]),
+        dim=-1,
+    )
+    near_top = torch.abs(position_w[..., 2] - destination_bounds.top_surface_z[:, None]) <= support_tolerance
+    supported_points = low_mask & inside_xy & near_top
+    support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
+    return support_fraction >= minimum_support_fraction
 
 
 def object_on_destination(
@@ -110,7 +150,6 @@ def object_on_destination(
     """
 
     unwrapped_env = get_env(env)
-    object: RigidObject = unwrapped_env.scene[object_cfg.name]
     sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
@@ -123,13 +162,32 @@ def object_on_destination(
     force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
+    velocity_w = get_root_lin_vel_w(env, object_cfg.name)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
 
     return condition_met
+
+
+def _object_height(env, object_name: str, height_mode: HeightMode) -> torch.Tensor:
+    """Reduce aggregate or nodal world height with the requested semantics."""
+    state = object_state(env, object_name)
+    assert state.aggregate.position_w is not None, f"Object {object_name!r} has no aggregate position"
+    if height_mode == "centroid":
+        return state.aggregate.position_w[:, 2]
+
+    kinematics = state.points if state.points is not None else state.aggregate
+    assert kinematics.position_w is not None, f"Object {object_name!r} has no positions"
+    point_z = kinematics.position_w[..., 2]
+    if state.points is None:
+        return point_z
+    if height_mode in ("min", "min_point"):
+        return point_z.amin(dim=1)
+    if height_mode in ("max", "max_point"):
+        return point_z.amax(dim=1)
+    raise ValueError(f"Unsupported height mode: {height_mode!r}")
 
 
 def objects_on_destinations(
