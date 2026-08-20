@@ -603,6 +603,35 @@ Assets can have multiple tags — for example, a fruit is tagged both <code clas
 <li><p><strong>BASE</strong> — no physics; used for static backgrounds and markers.</p></li>
 </ul>
 </section>
+<section id="backgrounds">
+<h2>Backgrounds<a class="headerlink" href="#backgrounds" title="Link to this heading">#</a></h2>
+<p>Backgrounds are registered as <code class="docutils literal notranslate"><span class="pre">BASE</span></code> assets, but their composed USDs may contain
+dynamic rigid bodies and articulations whose states can change as they interact with
+the robot or other objects. Set <code class="docutils literal notranslate"><span class="pre">reset_nested_physics=True</span></code> on a <code class="docutils literal notranslate"><span class="pre">Background</span></code> to
+reset these nested physics roots.</p>
+<p>Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
+initialization, Arena creates the views and records one environment-local pose and
+joint configuration. On each episode reset, Arena applies those values to the
+resetting environments and zeros all root and joint velocities. The private views
+are not exposed through the Isaac Lab scene entity registries.</p>
+<p>Arena discovers nested roots through the composed USD physics APIs.</p>
+<p>Included:</p>
+<ul class="simple">
+<li><p>Standalone rigid bodies.</p></li>
+<li><p>Articulation roots, which own their links and joints.</p></li>
+</ul>
+<p>Excluded:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BASE</span></code> and collision-only prims.</p></li>
+<li><p>Rigid and articulation roots owned by matching <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> entries.</p></li>
+<li><p>Articulation links, which cannot own reset state independently.</p></li>
+<li><p>Authored roots without a live physics backend object after composition.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">BASE</span></code> object references remain observational and do not transfer reset
+ownership away from the background.</p>
+<p>Instanceable subtrees that contribute dynamic physics are materialized at spawn
+time because physics views cannot control dynamic instance proxies.</p>
+</section>
 <section id="object-references">
 <h2>Object references<a class="headerlink" href="#object-references" title="Link to this heading">#</a></h2>
 <p>A background asset like a kitchen is a single USD file containing many prims:
@@ -686,6 +715,7 @@ environments, wrap the candidates in a <code class="docutils literal notranslate
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#registering-a-new-asset">Registering a new asset</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-types">Object types</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backgrounds">Backgrounds</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-references">Object references</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rigid-object-sets">Rigid object sets</a></li>
 </ul>
