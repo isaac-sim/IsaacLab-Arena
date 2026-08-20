@@ -2,7 +2,7 @@ Policy Post-Training
 --------------------
 
 This workflow covers post-training an example policy using the generated dataset,
-here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
+here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_ as the base model.
 
 Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T ``uv`` environment in ``submodules/Isaac-GR00T``,
@@ -133,7 +133,7 @@ Training Configuration:
 
 To post-train the policy, open another terminal **outside** the Arena Base Docker container
 and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by following
-the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_,
+the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L81>`_,
 then run the finetuning command below. The paths assume the default Arena Docker mounts
 (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with custom
 mount directories.
@@ -160,6 +160,6 @@ mount directories.
      --embodiment-tag NEW_EMBODIMENT
 
 
-If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
+If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L184>`_
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.

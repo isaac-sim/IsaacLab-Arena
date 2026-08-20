@@ -68,11 +68,14 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
 **Prerequisite: launch the GR00T policy server**
 
 The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
+Before running the evaluation, open another terminal **outside the Arena development
+container** and follow the :doc:`GR00T server setup <../../quickstart/running_a_real_policy/gr00t>`.
 The server runs out of
 the `Isaac-GR00T <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
 submodule pinned at commit ``e29d8fc``; populate it with
 ``git submodule update --init submodules/Isaac-GR00T`` if it is not already
-checked out. Then, in a separate shell with ``uv`` available from the repo root:
+checked out. Then, from the repository root in that terminal, launch the server and
+leave it running:
 
 .. todo::
 
