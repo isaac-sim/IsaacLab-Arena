@@ -143,6 +143,10 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_set = set(done_envs)
 
             for camera_name, frames in cam_obs.items():
+                # Observation groups may also contain depth, segmentation, or other
+                # policy inputs. The mp4 encoder records only batched RGB streams.
+                if frames.ndim != 4 or frames.shape[-1] != 3:
+                    continue
                 if camera_name not in self.writers:
                     self.writers[camera_name] = [None] * n_envs
                 for env_idx in range(n_envs):
