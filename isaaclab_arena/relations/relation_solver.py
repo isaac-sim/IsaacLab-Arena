@@ -135,7 +135,7 @@ class RelationSolver:
         # Add built-in no-overlap loss between all object pairs
         total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
 
-        self._last_loss_per_env = total_loss.detach()
+        self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
 
     def _compute_no_overlap_loss(
@@ -189,7 +189,6 @@ class RelationSolver:
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[PlaceableAsset, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
-        device: str | torch.device | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -210,14 +209,12 @@ class RelationSolver:
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
-            device: Torch and Warp device used for placement. When omitted, CUDA is
-                selected if available.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
-        device = torch.device(device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu"))
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
         )
@@ -236,12 +233,12 @@ class RelationSolver:
             if self.params.verbose:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
-            self._last_loss_per_env = torch.zeros(state.batch_size, device=state.device)
+            self._last_loss_per_env = torch.zeros(state.batch_size)
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
-        if self.params.profile and state.device.type == "cuda":
-            torch.cuda.synchronize(state.device)
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
         solve_start = time.perf_counter()
 
         # Precompute mesh collision cache (once per solve, before opt loop)
@@ -292,8 +289,7 @@ class RelationSolver:
                 position_history.append(state.get_all_positions_snapshot())
 
             loss = self._compute_total_loss(state)
-            loss_value = loss.item()
-            loss_history.append(loss_value)
+            loss_history.append(loss.item())
 
             # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
@@ -301,16 +297,16 @@ class RelationSolver:
                 optimizer.step()
 
             if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss_value:.6f}")
+                print(f"Iter {iter}: loss = {loss.item():.6f}")
 
             # Check convergence
-            if loss_value < self.params.convergence_threshold:
+            if loss.item() < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break
 
-        if self.params.profile and state.device.type == "cuda":
-            torch.cuda.synchronize(state.device)
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
 
         if self.params.save_position_history:

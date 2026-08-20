@@ -66,7 +66,6 @@ class PooledObjectPlacer:
         num_envs: Number of simulation environments.
         collision_objects: Fixed background obstacles avoided during placement but never
             optimized or relation-constrained.
-        device: Torch and Warp device used by the relation solver.
     """
 
     def __init__(
@@ -76,7 +75,6 @@ class PooledObjectPlacer:
         pool_size: int = 100,
         num_envs: int | None = None,
         collision_objects: list[CollisionObject] | None = None,
-        device: str | torch.device | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
@@ -89,10 +87,7 @@ class PooledObjectPlacer:
         self._collision_objects = list(collision_objects) if collision_objects else []
         # Pool construction ranks several candidate layouts per env and applies
         # poses only when a sampled layout is used.
-        self._placer = ObjectPlacer(
-            params=replace(placer_params, apply_positions_to_objects=False),
-            device=device,
-        )
+        self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
         self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks

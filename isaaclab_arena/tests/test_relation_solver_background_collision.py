@@ -9,6 +9,10 @@ Background obstacles carry no relations (so they are absent from the relation gr
 but should still be avoided by placed objects.
 """
 
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+HEADLESS = True
+
 
 def _make_desk():
     """Anchor desk, 2m x 1m wide so a box has room to relocate along X away from the obstacle."""
@@ -477,9 +481,8 @@ def test_validate_no_overlap_rejects_background_overlap():
     assert validator._validate_no_overlap(clear, env_bboxes, [background])
 
 
-def test_get_passive_collision_objects_filters():
+def _test_get_passive_collision_objects_filters(simulation_app) -> bool:
     """Only relation-free objects with a USD path and a fixed Pose are returned; Background is excluded."""
-    from types import SimpleNamespace
     from unittest.mock import MagicMock
 
     import isaaclab_arena.relations.passive_collision_objects as passive_collision_module
@@ -487,6 +490,7 @@ def test_get_passive_collision_objects_filters():
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     def fake_object(name, relations, usd_path, pose, spec=Object):
@@ -515,11 +519,10 @@ def test_get_passive_collision_objects_filters():
     no_pose = fake_object("no_pose", [], "n.usd", None)
     ranged = fake_object("ranged", [], "r.usd", pose_range)
 
-    scene = SimpleNamespace(
-        assets={
-            o.name: o for o in [furniture, counter_ref, kitchen, kitchen_no_pose, anchored, no_usd, no_pose, ranged]
-        }
-    )
+    scene = Scene()
+    scene.assets = {
+        o.name: o for o in [furniture, counter_ref, kitchen, kitchen_no_pose, anchored, no_usd, no_pose, ranged]
+    }
 
     original = passive_collision_module.make_fixed_collision_objects
     passive_collision_module.make_fixed_collision_objects = lambda objects, excluded_prim_paths_by_object=None: list(
@@ -533,8 +536,12 @@ def test_get_passive_collision_objects_filters():
     finally:
         passive_collision_module.make_fixed_collision_objects = original
 
-    assert no_combine == [furniture, counter_ref]
-    assert combined == [furniture, kitchen, kitchen_no_pose]
+    return no_combine == [furniture, counter_ref] and combined == [furniture, kitchen, kitchen_no_pose]
+
+
+def test_get_passive_collision_objects_filters():
+    result = run_function_with_persistent_simulation_app(_test_get_passive_collision_objects_filters, headless=HEADLESS)
+    assert result, "get_passive_collision_objects() returned the wrong subset"
 
 
 def test_background_with_pose_range_rejected_for_aggregate_collision():
@@ -677,7 +684,6 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        device=None,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
@@ -723,7 +729,6 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        device=None,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
@@ -801,7 +806,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, device=None):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 
@@ -849,7 +854,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, device=None):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 
@@ -898,7 +903,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, device=None):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 

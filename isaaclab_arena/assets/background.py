@@ -52,7 +52,6 @@ class Background(Object):
         # TODO(alexmillane, 2025.09.19): Make this value relative to the background
         # prim origin.
         self.object_min_z = object_min_z
-        self._nested_physics_roots: dict[str, ObjectType] | None = None
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return a USD spawner that materializes nested instance-proxy physics."""
@@ -65,32 +64,34 @@ class Background(Object):
 
     def get_nested_physics_prim_paths(
         self,
-        claimed_prim_paths: dict[str, ObjectType] | None = None,
+        referenced_prim_paths: dict[str, ObjectType] | None = None,
     ) -> dict[str, ObjectType]:
-        """Return unclaimed nested physics root paths.
+        """Return nested physics root paths not owned by object references.
 
         Args:
-            claimed_prim_paths: Runtime paths already represented by explicit object references.
+            referenced_prim_paths: Runtime paths represented by explicit object references.
 
         Returns:
             Runtime path templates mapped to their physics object types.
         """
         if not self.reset_nested_physics:
             return {}
-        if self._nested_physics_roots is None:
-            self._nested_physics_roots = load_usd_physics_roots(self.usd_path)
 
-        claimed_prim_paths = claimed_prim_paths or {}
-        articulation_prefixes = tuple(
-            f"{path}/" for path, object_type in claimed_prim_paths.items() if object_type == ObjectType.ARTICULATION
+        referenced_relative_paths: dict[str, ObjectType] = {}
+        prim_path_prefix = f"{self.prim_path}/"
+        for prim_path, object_type in (referenced_prim_paths or {}).items():
+            assert prim_path.startswith(
+                prim_path_prefix
+            ), f"Referenced prim '{prim_path}' is outside background '{self.prim_path}'"
+            referenced_relative_paths[prim_path.removeprefix(prim_path_prefix)] = object_type
+
+        physics_roots = load_usd_physics_roots(
+            self.usd_path,
+            referenced_prim_paths=referenced_relative_paths,
         )
-        paths: dict[str, ObjectType] = {}
-        for relative_path, object_type in self._nested_physics_roots.items():
-            prim_path = f"{self.prim_path}/{relative_path}"
-            if prim_path in claimed_prim_paths or prim_path.startswith(articulation_prefixes):
-                continue
-            paths[prim_path] = object_type
-        return paths
+        return {
+            f"{self.prim_path}/{relative_path}": object_type for relative_path, object_type in physics_roots.items()
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg | None:
         """Return a custom viewer camera framing for this background, or None to auto-frame."""
@@ -128,5 +129,7 @@ def _spawn_from_usd_with_resettable_nested_physics(
 ) -> Usd.Prim:
     """Spawn a USD background and materialize instance-proxy physics subtrees."""
     prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    # PhysX tensor views cannot bind dynamic instance proxies. Materialize only
+    # instanceable subtrees containing physics so reset views can control them.
     _deinstance_nested_physics(prim)
     return prim

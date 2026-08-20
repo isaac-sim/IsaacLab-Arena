@@ -15,48 +15,56 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_prim_tree import find_nested_physics_roots
+from isaaclab_arena.utils.usd_prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
 
 
 @dataclass(frozen=True)
 class _RigidReset:
-    """A private rigid asset and its initialized pose."""
+    """A private rigid asset and its env-local initial pose."""
 
     asset: Any
-    root_pose: torch.Tensor
+    root_pose_local: torch.Tensor
+    """Root pose with shape ``(7,)``."""
 
-    def restore(self, env_ids: torch.Tensor) -> None:
-        self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
+    def restore(self, env_ids: torch.Tensor, env_origins: torch.Tensor) -> None:
+        root_pose = self.root_pose_local.unsqueeze(0).repeat(len(env_ids), 1)
+        root_pose[:, :3] += env_origins[env_ids]
+        self.asset.write_root_pose_to_sim_index(root_pose=root_pose, env_ids=env_ids)
         root_velocity = torch.zeros_like(self.asset.data.root_vel_w.torch[env_ids])
         self.asset.write_root_velocity_to_sim_index(root_velocity=root_velocity, env_ids=env_ids)
 
 
 @dataclass(frozen=True)
 class _ArticulationReset:
-    """A private articulation asset and its initialized pose and joint positions."""
+    """A private articulation asset and its env-local initial state."""
 
     asset: Any
-    root_pose: torch.Tensor
+    root_pose_local: torch.Tensor
+    """Root pose with shape ``(7,)``."""
     joint_position: torch.Tensor
+    """Joint positions with shape ``(num_joints,)``."""
 
-    def restore(self, env_ids: torch.Tensor) -> None:
-        self.asset.write_root_pose_to_sim_index(root_pose=self.root_pose[env_ids], env_ids=env_ids)
+    def restore(self, env_ids: torch.Tensor, env_origins: torch.Tensor) -> None:
+        root_pose = self.root_pose_local.unsqueeze(0).repeat(len(env_ids), 1)
+        root_pose[:, :3] += env_origins[env_ids]
+        self.asset.write_root_pose_to_sim_index(root_pose=root_pose, env_ids=env_ids)
         root_velocity = torch.zeros_like(self.asset.data.root_vel_w.torch[env_ids])
         joint_velocity = torch.zeros_like(self.asset.data.joint_vel.torch[env_ids])
         self.asset.write_root_velocity_to_sim_index(root_velocity=root_velocity, env_ids=env_ids)
-        self.asset.write_joint_position_to_sim_index(position=self.joint_position[env_ids], env_ids=env_ids)
+        joint_position = self.joint_position.unsqueeze(0).repeat(len(env_ids), 1)
+        self.asset.write_joint_position_to_sim_index(position=joint_position, env_ids=env_ids)
         self.asset.write_joint_velocity_to_sim_index(velocity=joint_velocity, env_ids=env_ids)
 
 
-class ResetNestedBackgroundPhysics(ManagerTermBase):
-    """Restore unclaimed background physics roots through deferred runtime views."""
+class ResetBackgroundPhysics(ManagerTermBase):
+    """Restore unreferenced background physics roots through deferred runtime views."""
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self._background_prim_paths: dict[str, str] = cfg.params["background_prim_paths"]
         self._physics_paths: dict[str, dict[str, ObjectType]] = cfg.params["physics_paths"]
-        self._claimed_paths: dict[str, dict[str, ObjectType]] = cfg.params["claimed_paths"]
+        self._referenced_paths: dict[str, dict[str, ObjectType]] = cfg.params["referenced_paths"]
         self._is_initialized = False
         self._rigid_resets: list[_RigidReset] = []
         self._articulation_resets: list[_ArticulationReset] = []
@@ -79,28 +87,25 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
         return asset
 
     def _validate_runtime_composition(self, env: ManagerBasedEnv) -> None:
-        """Verify source-stage discovery covers every live unclaimed physics root."""
+        """Verify source-stage discovery covers every live background-owned physics root."""
         env_prim_path = env.scene.env_prim_paths[0]
         for background_name, background_path_template in self._background_prim_paths.items():
             background_path = self._runtime_path(background_path_template, env_prim_path)
             background_prim = env.scene.stage.GetPrimAtPath(background_path)
             assert background_prim.IsValid(), f"Missing opted-in background prim at '{background_path}'"
-            runtime_roots = find_nested_physics_roots(background_prim)
-            claimed_paths = {
+            referenced_paths = {
                 self._runtime_path(path, env_prim_path): object_type
-                for path, object_type in self._claimed_paths[background_name].items()
+                for path, object_type in self._referenced_paths[background_name].items()
             }
-            articulation_prefixes = tuple(
-                f"{path}/" for path, object_type in claimed_paths.items() if object_type == ObjectType.ARTICULATION
+            runtime_paths = set(
+                exclude_referenced_physics_roots(
+                    find_nested_physics_roots(background_prim),
+                    referenced_paths,
+                )
             )
-            unclaimed_runtime_paths = {
-                path
-                for path in runtime_roots
-                if path not in claimed_paths and not path.startswith(articulation_prefixes)
-            }
             expected_paths = {self._runtime_path(path, env_prim_path) for path in self._physics_paths[background_name]}
-            missing = sorted(unclaimed_runtime_paths - expected_paths)
-            stale = sorted(expected_paths - unclaimed_runtime_paths)
+            missing = sorted(runtime_paths - expected_paths)
+            stale = sorted(expected_paths - runtime_paths)
             assert not missing and not stale, (
                 f"Nested physics discovery for background '{background_name}' differs from the live composed stage. "
                 f"Unregistered runtime roots: {missing}. Missing runtime roots for generated entities: {stale}."
@@ -124,8 +129,8 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                     self._articulation_resets.append(
                         _ArticulationReset(
                             asset=asset,
-                            root_pose=asset.data.root_pose_w.torch.clone(),
-                            joint_position=asset.data.joint_pos.torch.clone(),
+                            root_pose_local=self._env_local_root_pose(asset, env),
+                            joint_position=asset.data.joint_pos.torch[0].clone(),
                         )
                     )
                 else:
@@ -136,10 +141,17 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
                     self._rigid_resets.append(
                         _RigidReset(
                             asset=asset,
-                            root_pose=asset.data.root_pose_w.torch.clone(),
+                            root_pose_local=self._env_local_root_pose(asset, env),
                         )
                     )
         self._is_initialized = True
+
+    @staticmethod
+    def _env_local_root_pose(asset: Any, env: ManagerBasedEnv) -> torch.Tensor:
+        """Return env 0's root pose in its environment-local frame."""
+        root_pose_local = asset.data.root_pose_w.torch[0].clone()
+        root_pose_local[:3] -= env.scene.env_origins[0]
+        return root_pose_local
 
     def __call__(
         self,
@@ -147,18 +159,18 @@ class ResetNestedBackgroundPhysics(ManagerTermBase):
         env_ids: torch.Tensor | None,
         background_prim_paths: dict[str, str],  # noqa: ARG002
         physics_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
-        claimed_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
+        referenced_paths: dict[str, dict[str, ObjectType]],  # noqa: ARG002
     ) -> None:
         if not self._is_initialized:
             self._capture_initial_state(env)
         if env_ids is None:
             env_ids = self._all_env_ids
         else:
-            env_ids = torch.as_tensor(env_ids, device=env.device).reshape(-1)
+            env_ids = torch.as_tensor(env_ids, device=env.device, dtype=torch.long).reshape(-1)
         for reset in self._rigid_resets:
-            reset.restore(env_ids)
+            reset.restore(env_ids, env.scene.env_origins)
         for reset in self._articulation_resets:
-            reset.restore(env_ids)
+            reset.restore(env_ids, env.scene.env_origins)
 
 
 def set_object_pose(
@@ -183,6 +195,24 @@ def set_object_pose(
         asset.write_root_velocity_to_sim(vel, env_ids=env_ids)
     else:
         asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
+
+
+def reset_articulation_pose_and_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> None:
+    """Restore an articulation's root state and default joint state."""
+    if env_ids is None:
+        return
+    set_object_pose(env, env_ids, asset_cfg, pose, velocity)
+    asset = env.scene[asset_cfg.name]
+    joint_position = asset.data.default_joint_pos.torch[env_ids].clone()
+    joint_velocity = asset.data.default_joint_vel.torch[env_ids].clone()
+    asset.write_joint_position_to_sim_index(position=joint_position, env_ids=env_ids)
+    asset.write_joint_velocity_to_sim_index(velocity=joint_velocity, env_ids=env_ids)
 
 
 def set_object_pose_per_env(

@@ -36,7 +36,7 @@ class Scene:
         self.curriculum_cfg = None
         self.commands_cfg = None
         self._background_physics_paths: dict[str, dict[str, ObjectType]] = {}
-        self._background_physics_claimed_paths: dict[str, dict[str, ObjectType]] = {}
+        self._background_physics_referenced_paths: dict[str, dict[str, ObjectType]] = {}
         self._background_physics_prim_paths: dict[str, str] = {}
         if assets is not None:
             self.add_assets(assets)
@@ -74,24 +74,27 @@ class Scene:
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         self._background_physics_paths = {}
-        self._background_physics_claimed_paths = {}
+        self._background_physics_referenced_paths = {}
         self._background_physics_prim_paths = {}
         backgrounds: list[Background] = []
-        claimed_paths_by_background: dict[Background, dict[str, ObjectType]] = {}
+        referenced_paths_by_background: dict[Background, dict[str, ObjectType]] = {}
         for asset in self.assets.values():
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
             if isinstance(asset, Background):
                 backgrounds.append(asset)
             elif isinstance(asset, ObjectReference) and isinstance(asset.parent_asset, Background):
-                claimed_paths_by_background.setdefault(asset.parent_asset, {})[asset.prim_path] = asset.object_type
+                # Matching rigid and articulation references own complete reset
+                # events and are excluded from private background views. BASE
+                # references are observational and do not transfer reset ownership.
+                referenced_paths_by_background.setdefault(asset.parent_asset, {})[asset.prim_path] = asset.object_type
 
         for background in backgrounds:
             if not background.reset_nested_physics:
                 continue
-            claimed_paths = claimed_paths_by_background.get(background, {})
-            self._background_physics_paths[background.name] = background.get_nested_physics_prim_paths(claimed_paths)
-            self._background_physics_claimed_paths[background.name] = claimed_paths
+            referenced_paths = referenced_paths_by_background.get(background, {})
+            self._background_physics_paths[background.name] = background.get_nested_physics_prim_paths(referenced_paths)
+            self._background_physics_referenced_paths[background.name] = referenced_paths
             self._background_physics_prim_paths[background.name] = background.prim_path
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
@@ -101,9 +104,9 @@ class Scene:
         """Return opted-in backgrounds mapped to deferred-reset physics roots."""
         return {background: dict(paths) for background, paths in self._background_physics_paths.items()}
 
-    def get_background_physics_claimed_paths(self) -> dict[str, dict[str, ObjectType]]:
-        """Return opted-in backgrounds mapped to explicitly claimed runtime paths."""
-        return {background: dict(paths) for background, paths in self._background_physics_claimed_paths.items()}
+    def get_background_physics_referenced_paths(self) -> dict[str, dict[str, ObjectType]]:
+        """Return opted-in backgrounds mapped to object-reference-owned runtime paths."""
+        return {background: dict(paths) for background, paths in self._background_physics_referenced_paths.items()}
 
     def get_background_physics_prim_paths(self) -> dict[str, str]:
         """Return opted-in backgrounds mapped to their runtime root paths."""

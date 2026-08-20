@@ -177,10 +177,6 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
             assert received_app_args.device == "cpu"
 
         def __enter__(self):
-            # AppLauncher normalizes fields on the namespace it receives. The environment
-            # builder must retain the interactive values validated before startup.
-            self.received_app_args.device = "cuda:0"
-            self.received_app_args.disable_fabric = False
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
@@ -242,8 +238,8 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
 
     assert parser.allow_abbrev is False
     assert args_cli.visualizer == ["kit"]
-    assert args_cli.device == "cuda:0"
-    assert not args_cli.disable_fabric
+    assert args_cli.device == "cpu"
+    assert args_cli.disable_fabric
     assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1

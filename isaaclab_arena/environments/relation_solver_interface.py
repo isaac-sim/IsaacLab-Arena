@@ -32,7 +32,6 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-    device: str | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to asset reset/static state.
 
@@ -45,7 +44,6 @@ def solve_and_apply_relation_placement(
             or relation-constrained.
         scene_assets: Optional scene assets to scan for passive collision objects
             when collision_objects is not supplied.
-        device: Torch and Warp device used for placement.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -90,7 +88,6 @@ def solve_and_apply_relation_placement(
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
         collision_objects=collision_objects,
-        device=device,
     )
     # Validators are built once above and reused for every refill, so the embodiment is done being read; drop
     # it before the reset-event params below capture (and deep-copy/validate) the pool.

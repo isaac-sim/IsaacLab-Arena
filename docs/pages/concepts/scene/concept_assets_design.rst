@@ -53,6 +53,30 @@ Every asset has an object type that determines how it is simulated:
 - **ARTICULATION** — a multi-body object with joints (robots, doors, drawers, appliances).
 - **BASE** — no physics; used for static backgrounds and markers.
 
+Backgrounds
+-----------
+
+Backgrounds are registered as ``BASE`` assets, but their composed USDs may contain
+dynamic rigid bodies and articulations whose states can change as they interact with
+the robot or other objects. Set ``reset_nested_physics=True`` on a ``Background`` to
+reset these nested physics roots.
+
+Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
+initialization, Arena creates the views and records one environment-local pose and
+joint configuration. On each episode reset, Arena applies those values to the
+resetting environments and zeros all root and joint velocities. The private views
+are not exposed through the Isaac Lab scene entity registries.
+
+Arena discovers nested roots through the composed USD physics APIs. Explicit
+rigid and articulation ``ObjectReference`` entries are normal scene entities with
+their own reset events; articulation references restore both root and default joint
+state. Matching physics-root references are therefore excluded from background-owned
+resets. ``BASE`` references remain observational, and references to articulation
+links cannot independently own reset state. Instanceable subtrees that contribute
+dynamic physics are materialized at spawn time because physics views cannot control
+dynamic instance proxies. Authored roots that do not correspond to a live physics
+backend object after composition are skipped.
+
 Object references
 -----------------
 
@@ -86,24 +110,3 @@ Rigid object sets
 To fill one scene role with different rigid objects across parallel
 environments, wrap the candidates in a ``RigidObjectSet``. See
 :doc:`./concept_rigid_object_set` for motivation, usage, and limitations.
-
-Resetting nested background physics
------------------------------------
-
-Backgrounds are registered as ``BASE`` assets, but their composed USDs may contain
-dynamic rigid bodies and articulations whose states can change as they interact with
-the robot or other objects. Set ``reset_nested_physics=True`` on a ``Background`` to
-reset these nested physics roots.
-
-Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
-initialization, Arena creates the views and records their poses and joint positions.
-On each episode reset, Arena restores those values and zeros all root and joint
-velocities. The private views are not exposed through the Isaac Lab scene entity
-registries.
-
-Arena discovers nested roots through the composed USD physics APIs.
-Explicit ``ObjectReference`` entries take ownership of their paths and are
-excluded from background-owned resets. Instanceable subtrees that contribute
-dynamic physics are materialized at spawn time because physics views cannot control
-dynamic instance proxies. Authored roots that do not correspond to a live physics
-backend object after composition are skipped.

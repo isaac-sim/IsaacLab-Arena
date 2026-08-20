@@ -133,11 +133,10 @@ def run_environment(
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
     args_cli, hydra_overrides = _parse_interactive_runner_args()
-    builder_args_cli = argparse.Namespace(**vars(args_cli))
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
     with SimulationAppContext(args_cli) as simulation_app:
-        env = _create_interactive_environment(builder_args_cli, hydra_overrides)
+        env = _create_interactive_environment(args_cli, hydra_overrides)
         try:
             _enable_mouse_interaction()
             run_environment(simulation_app, env)
