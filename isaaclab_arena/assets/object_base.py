@@ -8,12 +8,9 @@ from __future__ import annotations
 import torch
 from abc import ABC, abstractmethod
 
-import warp as wp
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 # Re-export ObjectType from the lightweight module so existing
 # `from isaaclab_arena.assets.object_base import ObjectType` consumers keep working,
@@ -21,10 +18,8 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
-from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
 __all__ = [
     "ObjectBase",
@@ -33,7 +28,7 @@ __all__ = [
 
 
 class ObjectBase(PlaceableAsset, ABC):
-    """Parent class for (spawnable) Object and ObjectReference."""
+    """Base class for Arena scene objects with a construction-time immutable prim path."""
 
     def __init__(
         self,
@@ -47,169 +42,34 @@ class ObjectBase(PlaceableAsset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
-        if self.object_type == ObjectType.RIGID:
-            self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
 
-    def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
-        """Store the pose and write its construction values into the object config."""
-        self.initial_pose = pose
-        initial_pose = self._get_initial_pose_as_pose()
-        if initial_pose is not None and self.object_cfg is not None:
-            self.object_cfg.init_state.pos = initial_pose.position_xyz
-            self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
-
-    def set_initial_velocity(self, velocity: Velocity) -> None:
-        """Set / override the initial velocity and rebuild derived configs.
-
-        The velocity is applied as ``init_state.lin_vel`` and
-        ``init_state.ang_vel`` on the underlying config
-        (``RigidObjectCfg`` or ``ArticulationCfg``) and is also restored
-        on every environment reset via the reset event.
-
-        Args:
-            velocity: A ``Velocity`` specifying linear and angular components.
-        """
-        self.initial_velocity = velocity
-        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "lin_vel"):
-            self.object_cfg.init_state.lin_vel = velocity.linear_xyz
-        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "ang_vel"):
-            self.object_cfg.init_state.ang_vel = velocity.angular_xyz
-        self._pose_event_cfg = self._build_reset_event()
-
-    def _requires_reset_pose_event(self) -> bool:
-        """Whether a reset-event for the initial pose should be generated.
-
-        Subclasses may override to add extra conditions (e.g. a ``reset_pose`` flag).
-        """
-        return self.get_initial_pose() is not None and self.object_type in (
-            ObjectType.RIGID,
-            ObjectType.ARTICULATION,
-        )
-
-    def _build_reset_event(self) -> EventTermCfg | None:
-        """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
-        if not self._requires_reset_pose_event():
-            return None
-
-        initial_pose = self.get_initial_pose()
-        if isinstance(initial_pose, PosePerEnv):
-            return EventTermCfg(
-                func=set_object_pose_per_env,
-                mode="reset",
-                params={
-                    "asset_cfg": SceneEntityCfg(self.name),
-                    "pose_list": initial_pose.poses,
-                },
-            )
-        elif isinstance(initial_pose, PoseRange):
-            return EventTermCfg(
-                func=randomize_object_pose,
-                mode="reset",
-                params={
-                    "pose_range": initial_pose.to_dict(),
-                    "asset_cfgs": [SceneEntityCfg(self.name)],
-                },
-            )
-        else:  # Pose
-            return EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(self.name),
-                    "velocity": self.initial_velocity,
-                },
-            )
-
-    def set_prim_path(self, prim_path: str) -> None:
-        self.prim_path = prim_path
+    def resolve_object_cfg(self, physics_preset: object | None = None):
+        """Return the concrete Isaac Lab config for a selected physics preset."""
+        return self.object_cfg
 
     def get_prim_path(self) -> str:
         return self.prim_path
 
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
+    def _get_contact_sensor_prim_path(self, usd_path: str | None = None) -> str:
+        """Return the root prim used for contact sensing by default."""
+        return self.prim_path
+
+    def get_object_cfg(self) -> tuple[str, object]:
         return self.name, self.object_cfg
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
         return self.name, self._pose_event_cfg
 
-    def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
-        if self.object_type == ObjectType.RIGID:
-            object_cfg = self._generate_rigid_cfg()
-        elif self.object_type == ObjectType.ARTICULATION:
-            object_cfg = self._generate_articulation_cfg()
-        elif self.object_type == ObjectType.BASE:
-            object_cfg = self._generate_base_cfg()
-        else:
-            raise ValueError(f"Invalid object type: {self.object_type}")
-        return object_cfg
-
+    @abstractmethod
     def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
-        """Get the pose of the object in the environment.
+        """Return the object's per-environment pose as ``(x, y, z, qx, qy, qz, qw)``."""
 
-        Args:
-            env: The environment.
-            is_relative: Whether to return the pose in the relative frame of the environment.
-
-        Returns:
-            The pose of the object in each environment. The shape is (num_envs, 7).
-            The order is (x, y, z, qx, qy, qz, qw).
-        """
-        # We require that the asset has been added to the scene under its name.
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
-        if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = wp.to_torch(env.unwrapped.scene[self.name].data.root_pose_w).clone()
-        elif self.object_type == ObjectType.BASE:
-            object_pose = torch.cat(env.unwrapped.scene[self.name].get_world_poses(), dim=-1)
-        else:
-            raise ValueError(f"Function not implemented for object type: {self.object_type}")
-        if is_relative:
-            object_pose[:, :3] -= env.unwrapped.scene.env_origins
-        return object_pose
-
+    @abstractmethod
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
-        """Set the pose of the object in the environment.
-
-        Args:
-            env: The environment.
-            pose: The pose to set.
-        """
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
-        if env_ids is None:
-            env_ids = torch.arange(env.unwrapped.num_envs, device=env.unwrapped.device)
-        # Grab the object
-        asset = env.unwrapped.scene[self.name]
-        num_envs = len(env_ids)
-        # Convert the pose to the env frame
-        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
-        pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
-        # Set the pose and velocity
-        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(
-            torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
-        )
+        """Write the object's pose for the selected environments."""
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
-        return ContactSensorCfg(
-            prim_path=self.prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
-        )
-
-    @abstractmethod
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        # Subclasses must implement this method
-        pass
-
-    @abstractmethod
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        # Subclasses must implement this method
-        pass
-
-    @abstractmethod
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        # Subclasses must implement this method
-        pass
+        """Return a contact sensor config when this object representation supports one."""
+        raise NotImplementedError(f"{type(self).__name__} does not support contact sensors")
