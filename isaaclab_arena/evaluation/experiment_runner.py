@@ -102,11 +102,13 @@ def main(runtime_initializer: Callable[[], None] | None = None) -> None:
     if runtime_initializer is not None and args_cli.chunk_size is not None:
         raise ValueError("runtime_initializer is not supported with --chunk_size subprocess dispatch")
 
-    # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
-    if args_cli.record_camera_video or _experiment_requires_cameras(
+    # AppLauncher must enable camera support before SimulationApp starts. It
+    # consumes this private launch value from the argparse namespace, so retain
+    # the resolved requirement separately for post-launch validation.
+    enable_cameras = args_cli.record_camera_video or _experiment_requires_cameras(
         experiment_config_path, legacy_experiment_config, experiment_overrides
-    ):
-        args_cli.enable_cameras = True
+    )
+    args_cli.enable_cameras = enable_cameras
 
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
@@ -118,7 +120,7 @@ def main(runtime_initializer: Callable[[], None] | None = None) -> None:
                 device=args_cli.device,
                 overrides=experiment_overrides,
             )
-            _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
+            _assert_camera_support_enabled(experiment_cfg, enable_cameras)
             list_variations(experiment_cfg)
         return
 
@@ -156,7 +158,7 @@ def main(runtime_initializer: Callable[[], None] | None = None) -> None:
         )
         for run_name in experiment_cfg.runs:
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
-        _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
+        _assert_camera_support_enabled(experiment_cfg, enable_cameras)
         metrics_logger = MetricsLogger()
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))

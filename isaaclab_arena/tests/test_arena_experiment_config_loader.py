@@ -339,10 +339,13 @@ def test_typed_experiment_enables_camera_support_from_its_config(
     class _SimulationAppContext:
         def __init__(self, args_cli):
             nonlocal launched_with_cameras
+            self.args_cli = args_cli
             launched_with_cameras = args_cli.enable_cameras
 
         def __enter__(self):
-            pass
+            # AppLauncher consumes its private launch configuration from the
+            # argparse namespace before yielding control to the experiment.
+            del self.args_cli.enable_cameras
 
         def __exit__(self, _exception_type, _exception, _traceback):
             pass
