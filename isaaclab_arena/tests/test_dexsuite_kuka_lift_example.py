@@ -23,32 +23,20 @@ def test_dexsuite_lift_example_in_cli_registry() -> None:
 
 
 @pytest.mark.with_newton
-def test_procedural_assets_registered() -> None:
-    pytest.importorskip(
-        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
-    )
-    from isaaclab_arena.assets.registries import AssetRegistry
-
-    reg = AssetRegistry()
-    assert reg.is_registered("procedural_table")
-    assert reg.is_registered("procedural_cube")
-
-
-@pytest.mark.with_newton
 def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     pytest.importorskip(
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
 
-    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
     from isaaclab_arena.utils.pose import Pose, PoseRange
+    from isaaclab_arena_environments.dexsuite_lift_environment import procedural_asset_classes
 
-    reg = AssetRegistry()
-    lift = reg.get_asset_by_name("procedural_cube")()
+    procedural_table_cls, procedural_cube_cls = procedural_asset_classes()
+    lift = procedural_cube_cls()
     lift.set_initial_pose(PoseRange(position_xyz_min=(-0.75, -0.1, 0.35), position_xyz_max=(-0.35, 0.3, 0.75)))
-    table = reg.get_asset_by_name("procedural_table")()
+    table = procedural_table_cls()
     table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
     task = DexsuiteLiftTask(lift_object=lift, background_scene=table)
     assert isinstance(task, LiftObjectTask)

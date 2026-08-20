@@ -49,9 +49,9 @@ body states, object point cloud, and 5-step observation history.
    * - **Embodiment**
      - Kuka LBR iiwa + Allegro Hand (7 DOF arm + 16 DOF hand)
    * - **Scene**
-     - Procedural table (static background) with ground plane and lighting
+     - Env-local procedural table (static background) with ``ground_plane`` and ``light``
    * - **Objects**
-     - Procedural lift cuboid (``procedural_cube``)
+     - Env-local procedural lift cuboid (constructed via ``procedural_asset_classes()``)
    * - **Policy**
      - RSL-RL PPO (``DexsuiteKukaAllegroPPORunnerCfg``)
    * - **Training Method**
