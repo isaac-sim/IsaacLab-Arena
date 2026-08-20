@@ -77,6 +77,14 @@ def test_pyglet_constraint_matches_isaaclab_submodule():
     assert _arena_constraint("pyglet") == f"pyglet{match.group(1)}"
 
 
+def test_camera_video_recorder_dependency_is_declared():
+    """A normal Arena install can import its eagerly loaded camera recorder."""
+    dependencies = tomllib.loads(_ARENA_PYPROJECT.read_text())["project"]["dependencies"]
+    dependency_names = {_requirement_name(requirement) for requirement in dependencies}
+
+    assert "moviepy" in dependency_names
+
+
 def test_isaaclab_from_source_group_covers_submodule_packages():
     """The isaaclab-from-source group tracks the submodule's own uv dev project.
 
