@@ -7,6 +7,7 @@ import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING
 from functools import partial
+from typing import Literal
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -15,6 +16,7 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -24,12 +26,20 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import (
+    object_is_above_height,
+    object_is_below_height,
+    object_on_destination,
+    object_on_destination_by_geometry,
+    objects_in_proximity,
+)
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
+
+PickAndPlaceSuccessStrategy = Literal["auto", "contact", "geometry", "proximity"]
 
 
 @agent_ready
@@ -37,8 +47,8 @@ from isaaclab_arena.utils.configclass import make_configclass
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination
     with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
-    of the destination. Failure (object_dropped) fires when the object falls below the
-    background's ``object_min_z``.
+    of the destination. Objects without contact-sensor support use geometry success instead.
+    Failure (object_dropped) fires when the object falls below the background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
     shape (different arm subtask sequences, different per-subtask numerical knobs,
@@ -54,7 +64,7 @@ class PickAndPlaceTask(TaskBase):
 
     def __init__(
         self,
-        pick_up_object: Asset,
+        pick_up_object: ObjectBase,
         destination_location: Asset,
         background_scene: Asset,
         destination_object: Asset | None = None,
@@ -63,6 +73,10 @@ class PickAndPlaceTask(TaskBase):
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
         max_separation: tuple[float, float, float] | None = None,
+        success_strategy: PickAndPlaceSuccessStrategy = "auto",
+        support_tolerance: float = 0.03,
+        containment_margin: float = 0.01,
+        containment_fraction_threshold: float = 0.5,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -70,13 +84,19 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
-        self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
         if max_separation is not None:
             assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
         self.max_separation = max_separation
+        self.support_tolerance = support_tolerance
+        self.containment_margin = containment_margin
+        self.containment_fraction_threshold = containment_fraction_threshold
+        self.success_strategy = self._resolve_success_strategy(success_strategy)
+        self.contact_sensor_name = (
+            f"contact_sensor_{pick_up_object.name}" if self.success_strategy == "contact" else None
+        )
+        self.scene_config = self.make_scene_cfg()
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
@@ -86,11 +106,30 @@ class PickAndPlaceTask(TaskBase):
             else task_description
         )
 
+    def _resolve_success_strategy(self, success_strategy: PickAndPlaceSuccessStrategy) -> str:
+        """Resolve ``auto`` success based on object capabilities."""
+        if success_strategy not in ("auto", "contact", "geometry", "proximity"):
+            raise ValueError(
+                "PickAndPlaceTask success_strategy must be one of 'auto', 'contact', 'geometry', or 'proximity'; "
+                f"got {success_strategy!r}."
+            )
+        supports_contact = self.pick_up_object.supports_contact_sensor()
+        if success_strategy == "auto":
+            success_strategy = "contact" if supports_contact else "geometry"
+        if success_strategy == "contact" and not supports_contact:
+            raise ValueError(f"Object '{self.pick_up_object.name}' does not support contact-sensor success.")
+        if success_strategy == "proximity" and self.max_separation is None:
+            self.max_separation = (0.08, 0.08, 0.08)
+        return success_strategy
+
     def apply_reachability_constraints(self) -> None:
         """The robot must reach the object it picks up and the location it places onto."""
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
     def make_scene_cfg(self):
+        if self.success_strategy != "contact":
+            return None
+        assert self.contact_sensor_name is not None
         contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
             contact_against_object=self.destination_location,
         )
@@ -107,32 +146,52 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     def make_termination_cfg(self):
-        predicates = [
-            TerminationTermCfg(
-                func=object_on_destination,
-                params={
-                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
-                    "force_threshold": self.force_threshold,
-                    "velocity_threshold": self.velocity_threshold,
-                },
-            ),
-        ]
-        if self.max_separation is not None:
+        predicates = []
+        if self.success_strategy == "contact":
+            assert self.contact_sensor_name is not None
+            predicates.append(
+                TerminationTermCfg(
+                    func=object_on_destination,
+                    params={
+                        "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                        "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
+                        "force_threshold": self.force_threshold,
+                        "velocity_threshold": self.velocity_threshold,
+                    },
+                ),
+            )
+        elif self.success_strategy == "geometry":
+            predicates.append(
+                TerminationTermCfg(
+                    func=object_on_destination_by_geometry,
+                    params={
+                        "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                        "target_object_cfg": SceneEntityCfg(self.destination_location.name),
+                        "velocity_threshold": self.velocity_threshold,
+                        "support_tolerance": self.support_tolerance,
+                        "containment_margin": self.containment_margin,
+                        "containment_fraction_threshold": self.containment_fraction_threshold,
+                    },
+                )
+            )
+        if self.max_separation is not None and self.success_strategy != "geometry":
             # TODO(qianl): replace objects_in_proximity with object_centroid_in_proximity
             # for tighter container placement checks.
             # TODO (qianl): current implementation doesn't support ObjectReference as target_object_cfg.
             max_x_separation, max_y_separation, max_z_separation = self.max_separation
+            proximity_params = {
+                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                "target_object_cfg": SceneEntityCfg(self.destination_location.name),
+                "max_x_separation": max_x_separation,
+                "max_y_separation": max_y_separation,
+                "max_z_separation": max_z_separation,
+            }
+            if self.success_strategy == "proximity":
+                proximity_params["velocity_threshold"] = self.velocity_threshold
             predicates.append(
                 TerminationTermCfg(
                     func=objects_in_proximity,
-                    params={
-                        "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                        "target_object_cfg": SceneEntityCfg(self.destination_location.name),
-                        "max_x_separation": max_x_separation,
-                        "max_y_separation": max_y_separation,
-                        "max_z_separation": max_z_separation,
-                    },
+                    params=proximity_params,
                 )
             )
         success = TerminationTermCfg(
@@ -143,10 +202,10 @@ class PickAndPlaceTask(TaskBase):
             },
         )
         object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
+            func=object_is_below_height,
             params={
+                "object_name": self.pick_up_object.name,
                 "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
         return TerminationsCfg(
@@ -164,18 +223,78 @@ class PickAndPlaceTask(TaskBase):
         ``arm_mode`` and return its result. Otherwise build the default
         ``PickPlaceMimicEnvCfg``.
         """
+        if self.success_strategy != "contact":
+            raise NotImplementedError("Mimic data generation requires contact-sensor pick-and-place success.")
         if self.mimic_env_cfg_factory is not None:
             return self.mimic_env_cfg_factory(arm_mode)
+        destination_location_name = (
+            self.destination_object.name if self.destination_object is not None else self.destination_location.name
+        )
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
-            destination_location_name=self.destination_object.name,
+            destination_location_name=destination_location_name,
         )
 
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
+        if self.success_strategy == "geometry":
+            return [
+                ProgressObjective(
+                    name="pick_and_place",
+                    predicate_groups=[
+                        partial(
+                            objects_settled,
+                            object_names=[self.pick_up_object.name],
+                        ),
+                        partial(
+                            object_is_above_height,
+                            object_name=self.pick_up_object.name,
+                            use_settled_state=True,
+                        ),
+                        partial(
+                            object_on_destination_by_geometry,
+                            object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                            target_object_cfg=SceneEntityCfg(self.destination_location.name),
+                            velocity_threshold=self.velocity_threshold,
+                            support_tolerance=self.support_tolerance,
+                            containment_margin=self.containment_margin,
+                            containment_fraction_threshold=self.containment_fraction_threshold,
+                        ),
+                    ],
+                ),
+            ]
+        if self.success_strategy == "proximity":
+            assert self.max_separation is not None
+            max_x_separation, max_y_separation, max_z_separation = self.max_separation
+            return [
+                ProgressObjective(
+                    name="pick_and_place",
+                    predicate_groups=[
+                        partial(
+                            objects_settled,
+                            object_names=[self.pick_up_object.name],
+                        ),
+                        partial(
+                            object_is_above_height,
+                            object_name=self.pick_up_object.name,
+                            use_settled_state=True,
+                        ),
+                        partial(
+                            objects_in_proximity,
+                            object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                            target_object_cfg=SceneEntityCfg(self.destination_location.name),
+                            max_x_separation=max_x_separation,
+                            max_y_separation=max_y_separation,
+                            max_z_separation=max_z_separation,
+                            velocity_threshold=self.velocity_threshold,
+                        ),
+                    ],
+                ),
+            ]
+        assert self.contact_sensor_name is not None
         return [
             ProgressObjective(
                 name="pick_and_place",
@@ -208,7 +327,7 @@ class PickAndPlaceTask(TaskBase):
 
     @classmethod
     def success_state_transition(cls, pick_up_object: str, destination_location: str, **_) -> TaskTransition:
-        """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
+        """Success means the picked object ends up in an ``on`` relation with the destination."""
         # Note: with the current AABB-based object solver, placing an object ``on`` an open container
         # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
         # relation covers both surfaces and containers.

@@ -16,6 +16,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
+from isaaclab_tasks.utils.hydra import resolve_presets
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
@@ -115,6 +116,84 @@ class ArenaEnvBuilder:
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
         )
+
+    def _scene_needs_soft_body(self) -> bool:
+        """Return True when any composed asset requires a soft-body-capable physics preset.
+
+        Detection queries the asset capability (``requires_soft_body_solver``) rather than a concrete
+        object type, so the builder stays agnostic to what a "deformable" is and new soft asset types
+        need no builder change.
+        """
+        return any(
+            getattr(asset, "requires_soft_body_solver", lambda: False)()
+            for asset in self.arena_env.scene.assets.values()
+        )
+
+    def _scene_soft_body_kinds(self) -> frozenset[str]:
+        """Return every soft-body kind required by composed assets."""
+        kinds: set[str] = set()
+        for asset in self.arena_env.scene.assets.values():
+            kinds.update(getattr(asset, "soft_body_kinds", lambda: frozenset())())
+        return frozenset(kinds)
+
+    def _select_backend_preset(self, presets: str | None, needs_soft_body: bool) -> str | None:
+        """Return the effective physics preset name for the scene.
+
+        Selection order is: explicit builder preset, environment default preset, then the global
+        soft-body default when a soft-body scene still has no preset. An explicit/default preset that
+        does not support the scene's soft-body kinds is rejected. These facts are read from the
+        physics-preset registry -- no backend or variant name is hardcoded here.
+        """
+        from isaaclab_arena.environments.physics_presets import (
+            ARENA_PHYSICS_PRESETS,
+            DEFAULT_SOFT_BODY_PRESET,
+            is_soft_body_preset,
+            soft_body_presets,
+        )
+
+        selected = presets if presets is not None else getattr(self.arena_env, "default_physics_preset", None)
+
+        if selected is None:
+            return DEFAULT_SOFT_BODY_PRESET if needs_soft_body else None
+        if needs_soft_body and not is_soft_body_preset(selected):
+            raise NotImplementedError(
+                f"Soft-body scenes need a soft-body physics preset ({sorted(soft_body_presets())}); got {selected!r}."
+            )
+        if needs_soft_body:
+            required_kinds = self._scene_soft_body_kinds()
+            supported_kinds = ARENA_PHYSICS_PRESETS[selected].soft_body_kinds
+            unsupported = required_kinds - supported_kinds
+            if unsupported:
+                raise NotImplementedError(
+                    f"Preset {selected!r} does not support soft-body kinds {sorted(unsupported)}; "
+                    f"supported kinds are {sorted(supported_kinds)}."
+                )
+        return selected
+
+    def _configure_physics_for_scene(self, env_cfg: Any, presets: str | None) -> Any:
+        """Select the physics backend preset and set ``replicate_physics`` for the composed scene.
+
+        Single source of truth for backend/replication, driven entirely by the physics-preset
+        registry. A soft-body scene with no explicit preset resolves to the soft-body default;
+        rigid-only scenes with no preset stay on the stock PhysX spawn so they boot out of the box.
+        ``replicate_physics`` is taken from the selected preset's registry metadata. Returns the
+        (possibly preset-resolved) ``env_cfg``.
+        """
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        from isaaclab_arena.environments.physics_presets import ARENA_PHYSICS_PRESETS
+
+        presets = self._select_backend_preset(presets, self._scene_needs_soft_body())
+        if presets is None:
+            # Rigid-only, no preset -> stock PhysX spawn (sim.physics stays None).
+            return env_cfg
+
+        env_cfg = resolve_presets(env_cfg, selected=(presets,))
+        env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+
+        replicate_physics = ARENA_PHYSICS_PRESETS[presets].replicate_physics
+        if replicate_physics is not None:
+            env_cfg.scene.replicate_physics = replicate_physics
+        return env_cfg
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
@@ -398,19 +477,12 @@ class ArenaEnvBuilder:
         env_cfg.seed = self.cfg.seed
 
         # Apply the requested physics backend after the callback so it remains the final authority.
-        presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        env_cfg = self._configure_physics_for_scene(env_cfg, self.cfg.presets)
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
-
-            # Set replicate_physics for shared physics representations.
-            # For Newton, without this flag, the simulation initialization
-            # takes a very long time for large number of parallel environments.
-            if presets == "newton":
-                env_cfg.scene.replicate_physics = True
-
-        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        env_kwargs: dict[str, Any] = {
+            "variation_recorder": variation_recorder,
+            "arena_scene_assets": self.arena_env.scene.assets,
+        }
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

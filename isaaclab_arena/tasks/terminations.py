@@ -7,12 +7,11 @@ import math
 import torch
 from enum import Enum
 
-import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.math import combine_frame_transforms
+
+from isaaclab_arena.scene.object_state import object_state
 
 
 class SuccessMode(str, Enum):
@@ -94,8 +93,7 @@ def lift_object_il_success(
         A boolean tensor of shape (num_envs,) indicating success.
     """
 
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = wp.to_torch(object_instance.data.root_pos_w)
+    object_pos = object_state(env, object_cfg.name).position_w()
 
     goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
@@ -132,18 +130,16 @@ def lift_object_rl_success(
     if rl_training:
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
-    robot: RigidObject = env.scene[robot_cfg.name]
-    object_instance: RigidObject = env.scene[object_cfg.name]
-
     command = env.command_manager.get_command(command_name)
     des_pos_b = command[:, :3]
 
     # Transform goal from robot-base frame to world frame
-    root_pos_w = wp.to_torch(robot.data.root_pos_w)
-    root_quat_w = wp.to_torch(robot.data.root_quat_w)
+    robot_state = object_state(env, robot_cfg.name)
+    root_pos_w = robot_state.position_w()
+    root_quat_w = robot_state.quat_w(required=True)
     des_pos_w, _ = combine_frame_transforms(root_pos_w, root_quat_w, des_pos_b)
 
-    object_pos_w = wp.to_torch(object_instance.data.root_pos_w)
+    object_pos_w = object_state(env, object_cfg.name).position_w()
     distance = torch.linalg.norm(des_pos_w - object_pos_w[:, :3], dim=1)
     return distance < position_tolerance
 
@@ -171,9 +167,8 @@ def goal_pose_task_termination(
     Returns:
         A boolean tensor of shape (num_envs, )
     """
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_root_pos_w = wp.to_torch(object_instance.data.root_pos_w)
-    object_root_quat_w = wp.to_torch(object_instance.data.root_quat_w)
+    state = object_state(env, object_cfg.name)
+    object_root_pos_w = state.position_w()
 
     device = env.device
     num_envs = env.num_envs
@@ -200,6 +195,7 @@ def goal_pose_task_termination(
 
     # Orientation check
     if target_orientation_xyzw is not None:
+        object_root_quat_w = state.quat_w(required=True)
         target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
@@ -223,10 +219,7 @@ def root_height_below_minimum_multi_objects(
     Note:
         This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
     """
-    outs = [
-        root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
-        for asset_cfg in asset_cfg_list
-    ]
+    outs = [object_state(env, asset_cfg.name).position_w()[:, 2] < minimum_height for asset_cfg in asset_cfg_list]
     outs_tensor = torch.stack(outs, dim=0)  # [X, N]
     terminated = outs_tensor.any(dim=0)  # [N], bool
     return terminated

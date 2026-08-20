@@ -225,6 +225,62 @@ def test_solve_and_place_objects_uses_runtime_pool():
     env._assets["robot"].write_root_pose_to_sim.assert_called_once()
 
 
+def test_solve_and_place_objects_delegates_primary_object_pose_write():
+    """Runtime placement should use an object's own pose writer when it provides one."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, _, _ = _create_test_objects()
+
+    class PoseRecordingObject:
+        name = "box"
+
+        def __init__(self):
+            self.pose_writes = []
+
+        def get_relations(self):
+            return []
+
+        def get_scene_key(self):
+            return self.name
+
+        def layout_pose_to_scene_writes(self, layout_pose):
+            return [(self.name, layout_pose)]
+
+        def set_object_pose(self, env, pose, env_ids=None):
+            self.pose_writes.append((pose, env_ids.clone()))
+
+    box = PoseRecordingObject()
+    env = _make_mock_env(num_envs=1)
+
+    class Pool:
+        num_envs = 1
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            assert env_ids == [0]
+            return {
+                0: PlacementResult(
+                    validation_results=_checklist(True),
+                    positions={box: (0.2, 0.3, 0.4)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            }
+
+    solve_and_place_objects(
+        env,
+        torch.tensor([0]),
+        assets=[desk, box],
+        placement_pool=Pool(),
+    )
+
+    assert len(box.pose_writes) == 1
+    pose, env_ids = box.pose_writes[0]
+    assert pose.position_xyz == (0.2, 0.3, 0.4)
+    assert env_ids.tolist() == [0]
+    assert "box" not in env._assets
+
+
 def _identity_pose(position_xyz):
     from isaaclab_arena.utils.pose import Pose
 
