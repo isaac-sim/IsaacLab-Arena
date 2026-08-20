@@ -1,0 +1,73 @@
+#usda 1.0
+(
+    defaultPrim = "i2rt_yam"
+    subLayers = [
+        @./i2rt_yam_default.usda@
+    ]
+)
+
+over "i2rt_yam"
+{
+    over "Physics"
+    {
+        over "PhysicsMaterial"
+        {
+            float newton:contactDamping = 1e-5
+            float newton:contactStiffness = 40000
+            float physics:dynamicFriction = 5
+            float physics:staticFriction = 5
+        }
+
+        def Material "CableRoutingFingerMaterial" (
+            prepend apiSchemas = ["PhysicsMaterialAPI", "NewtonMaterialAPI"]
+        )
+        {
+            float newton:contactDamping = 1e-5
+            float newton:contactStiffness = 40000
+            float physics:dynamicFriction = 60
+            float physics:staticFriction = 60
+        }
+    }
+
+    over "Geometry"
+    {
+        over "arm"
+        {
+            over "link_1"
+            {
+                over "link_2"
+                {
+                    over "link_3"
+                    {
+                        over "link_4"
+                        {
+                            over "link_5"
+                            {
+                                over "link_6"
+                                {
+                                    over "link_left_finger" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/CableRoutingFingerMaterial> (
+                                            bindMaterialAs = "strongerThanDescendants"
+                                        )
+                                    }
+
+                                    over "link_right_finger" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/CableRoutingFingerMaterial> (
+                                            bindMaterialAs = "strongerThanDescendants"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
