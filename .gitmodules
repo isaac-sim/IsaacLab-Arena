@@ -4,3 +4,6 @@
 [submodule "submodules/Isaac-GR00T"]
 	path = submodules/Isaac-GR00T
 	url = git@github.com:NVIDIA/Isaac-GR00T.git
+[submodule "submodules/isaac-gr00t-n2"]
+	path = submodules/isaac-gr00t-n2
+	url = ssh://git@gitlab-master.nvidia.com:12051/gr00t-release/isaac-gr00t-n2.git
