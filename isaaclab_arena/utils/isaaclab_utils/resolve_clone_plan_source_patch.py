@@ -72,7 +72,17 @@ def installed_resolver_handles_nesting() -> bool:
     import torch
 
     from isaaclab.cloner import ClonePlan
-    from isaaclab.cloner.cloner_utils import resolve_clone_plan_source
+
+    try:
+        from isaaclab.cloner.query import path_to_source
+    except ModuleNotFoundError as exc:
+        if exc.name != "isaaclab.cloner.query":
+            raise
+        from isaaclab.cloner.cloner_utils import resolve_clone_plan_source
+    else:
+
+        def resolve_clone_plan_source(path_expr: str, plan: ClonePlan):
+            return path_to_source(plan, path_expr)
 
     plan = ClonePlan(
         sources=("/World/envs/env_0/Robot", "/World/envs/env_0/Robot/link/camera"),
@@ -92,12 +102,13 @@ def patch_resolve_clone_plan_source() -> bool:
     Returns:
         Whether this call installed the patch.
     """
+    if installed_resolver_handles_nesting():
+        return False
+
     import isaaclab.cloner.cloner_utils as cloner_utils
 
     original = cloner_utils.resolve_clone_plan_source
     if getattr(original, _PATCHED_MARKER, False):
-        return False
-    if installed_resolver_handles_nesting():
         return False
 
     # Import the known importers so their stale bindings are visible to the sweep below.
