@@ -10,6 +10,8 @@ from typing import Any
 # TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module with the JSON evaluation-job
 # frontend once experiment_runner loads typed YAML experiments directly.
 
+_BOOLEAN_OPTIONAL_KEYS = frozenset({"resolve_on_reset"})
+
 
 def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
     """Convert legacy environment arguments into the existing parser's token order."""
@@ -21,8 +23,11 @@ def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
         if key not in args:
             continue
         value = args[key]
-        if isinstance(value, bool) and value:
-            cli_args.append(f"--{key}")
+        if isinstance(value, bool):
+            if value:
+                cli_args.append(f"--{key}")
+            elif key in _BOOLEAN_OPTIONAL_KEYS:
+                cli_args.append(f"--no-{key}")
         elif not isinstance(value, bool) and value is not None:
             cli_args.extend((f"--{key}", str(value)))
 
@@ -35,8 +40,11 @@ def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
     for key, value in args.items():
         if key in priority_keys or key == "environment":
             continue
-        if isinstance(value, bool) and value:
-            cli_args.append(f"--{key}")
+        if isinstance(value, bool):
+            if value:
+                cli_args.append(f"--{key}")
+            elif key in _BOOLEAN_OPTIONAL_KEYS:
+                cli_args.append(f"--no-{key}")
         elif not isinstance(value, bool) and value is not None:
             cli_args.extend((f"--{key}", str(value)))
     return cli_args

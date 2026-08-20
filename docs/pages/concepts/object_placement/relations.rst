@@ -130,6 +130,40 @@ Most environments can be described with a small set of relations:
   XY offsets.
 - The subject and target must have different XY positions.
 
+``ClutteredOn(parent)``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Places a group of objects as a settled pile on a support surface. Members are
+released above the support and allowed to fall rather than being positioned by
+the solver.
+
+.. code-block:: python
+
+   table.add_relation(IsAnchor())
+   for tool in tools:
+       tool.add_relation(ClutteredOn(table, group="tools"))
+
+Objects that share a parent and ``group`` form one pile. ``spread`` selects the
+fraction of the support footprint used for release, ``gap_m`` separates stacked
+release poses, ``clearance_m`` offsets the lowest layer, and ``random_yaw``
+controls per-object yaw sampling.
+
+The support must be collidable and have readable geometry. A placement seed is
+required so the pour is reproducible. Clutter members do not participate in the
+solver; their settled contact and tilt are the resulting placement.
+
+The equivalent environment-spec relation is:
+
+.. code-block:: yaml
+
+   relations:
+     - kind: cluttered_on
+       subject: mug
+       reference: table
+       params:
+         group: tools
+         spread: 0.8
+
 Combining Relations
 -------------------
 

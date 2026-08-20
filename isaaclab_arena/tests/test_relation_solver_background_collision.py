@@ -731,6 +731,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         scene_assets=None,
     ):
         calls["objects"] = objects
+        calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
@@ -741,6 +742,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     builder._solve_relations()
 
     assert calls["objects"] == []
+    assert calls["placer_params"].solver_params.clearance_m == 0.01
     assert calls["scene_assets"] == []
     assert calls["collision_objects"] is None
 
@@ -777,6 +779,85 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
     ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
 
     assert calls["objects"] == [embodiment]
+
+
+def test_arena_env_builder_applies_requested_default_solver_clearance(monkeypatch):
+    """A builder-owned placer forwards the requested seed and collision clearance."""
+    from types import SimpleNamespace
+
+    import pytest
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    captured = {}
+    scene = SimpleNamespace(
+        assets={},
+        get_objects_with_relations=lambda: [],
+    )
+
+    def fake_solve(objects, num_envs, placer_params, collision_objects=None, scene_assets=None):
+        captured["placer_params"] = placer_params
+
+    monkeypatch.setattr(
+        builder_module,
+        "solve_and_apply_relation_placement",
+        fake_solve,
+    )
+    builder = ArenaEnvBuilder(
+        SimpleNamespace(scene=scene, placer_params=None, embodiment=None, task=None),
+        ArenaEnvBuilderCfg(
+            placement_seed=71,
+            placement_clearance_m=0.0005,
+        ),
+    )
+
+    builder._solve_relations()
+
+    assert captured["placer_params"].placement_seed == 71
+    assert captured["placer_params"].solver_params.clearance_m == pytest.approx(0.0005)
+
+
+def test_arena_env_builder_applies_clearance_to_environment_placement_validators(monkeypatch):
+    """The CLI override reaches both the relation solver and pluggable validators."""
+    from types import SimpleNamespace
+
+    import pytest
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.placement_validators import NoOverlapValidator, build_validators
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    captured = {}
+    placer_params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(clearance_m=0.02),
+        enabled_checks={PlacementCheck.NO_OVERLAP},
+    )
+    scene = SimpleNamespace(assets={}, get_objects_with_relations=lambda: [])
+
+    def fake_solve(objects, num_envs, placer_params, collision_objects=None, scene_assets=None):
+        captured["placer_params"] = placer_params
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve)
+    builder = ArenaEnvBuilder(
+        SimpleNamespace(scene=scene, placer_params=placer_params, embodiment=None, task=None),
+        ArenaEnvBuilderCfg(placement_clearance_m=0.0005),
+    )
+
+    builder._solve_relations()
+
+    effective_params = captured["placer_params"]
+    validators = build_validators(effective_params)
+    assert effective_params is placer_params
+    assert effective_params.solver_params.clearance_m == pytest.approx(0.0005)
+    assert len(validators) == 1
+    assert isinstance(validators[0], NoOverlapValidator)
+    assert validators[0]._params.solver_params.clearance_m == pytest.approx(0.0005)
 
 
 def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypatch):
@@ -823,6 +904,51 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     assert calls["include_background"] is True
     assert calls["background_mesh_exclusions"] == [reference]
     assert calls["objects"] == [reference]
+    assert calls["collision_objects"] == []
+
+
+def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):
+    """Object-level MESH override enables aggregate background meshes."""
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    mesh_object = DummyObject(
+        "mesh_object",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+    )
+    mesh_object.add_relation(IsAnchor())
+    mesh_object.collision_mode = CollisionMode.MESH
+    calls = {}
+
+    def fake_get_passive_collision_objects(assets, include_background: bool = False, background_mesh_exclusions=()):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return []
+
+    class FakePooledObjectPlacer:
+        had_fallbacks = False
+
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+            calls["objects"] = objects
+            calls["collision_objects"] = collision_objects
+
+    monkeypatch.setattr(
+        "isaaclab_arena.relations.passive_collision_objects.get_passive_collision_objects",
+        fake_get_passive_collision_objects,
+    )
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
+    placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
+
+    solve_and_apply_relation_placement([mesh_object], num_envs=1, placer_params=placer_params, scene_assets=[])
+
+    assert calls["assets"] == []
+    assert calls["include_background"] is True
+    assert calls["objects"] == [mesh_object]
     assert calls["collision_objects"] == []
 
 

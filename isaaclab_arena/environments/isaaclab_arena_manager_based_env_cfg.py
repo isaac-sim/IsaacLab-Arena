@@ -76,6 +76,24 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Task language description
     task_description: str | None = None
 
+    # Placement provenance
+    placement_seed: int | None = None
+    placement_clearance_m: float | None = None
+
+    clutter_containment_margin_m: float = 0.02
+    """How far past its support a settled clutter member may rest before its layout is rejected.
+
+    Only applied when clutter is settled at build time, where a spilled layout can be dropped
+    from the cache and another drawn instead.
+    """
+
+    settle_clutter_on_build: bool = True
+    """Whether to settle poured clutter into the placement pool once the env is built.
+
+    On by default, so a reset places the resting pile rather than the poses it was released
+    from. Turn it off to observe the pour itself, which then happens on the caller's steps.
+    """
+
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     # Control rate: sim.dt (1/120 s) x decimation (8) = 15 Hz

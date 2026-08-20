@@ -44,6 +44,8 @@ def _test_episode_length_defaults(simulation_app) -> bool:
     subtasks = [_StubTask(episode_length_s=20.0), _StubTask(episode_length_s=30.0)]
     assert CompositeTaskBase(subtasks=subtasks).get_episode_length_s() == 50.0
     assert CompositeTaskBase(subtasks=subtasks, episode_length_s=12.0).get_episode_length_s() == 12.0
+    arena_env = object()
+    assert _StubTask().get_episode_recorder_terms(arena_env) == {}
     return True
 
 

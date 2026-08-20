@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Callable
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -90,13 +91,16 @@ def _write_arena_experiment_result(
     return ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
 
 
-def main():
+def main(runtime_initializer: Callable[[], None] | None = None) -> None:
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
         experiment_overrides,
     )
+
+    if runtime_initializer is not None and args_cli.chunk_size is not None:
+        raise ValueError("runtime_initializer is not supported with --chunk_size subprocess dispatch")
 
     # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
     if args_cli.record_camera_video or _experiment_requires_cameras(
@@ -107,6 +111,8 @@ def main():
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
+            if runtime_initializer is not None:
+                runtime_initializer()
             experiment_cfg = load_arena_experiment_from_config_file(
                 experiment_config_path,
                 device=args_cli.device,
@@ -141,6 +147,8 @@ def main():
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
+        if runtime_initializer is not None:
+            runtime_initializer()
         experiment_cfg = load_arena_experiment_from_config_file(
             experiment_config_path,
             device=args_cli.device,

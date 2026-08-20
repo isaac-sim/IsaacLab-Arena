@@ -151,6 +151,32 @@ def test_frames_are_streamed_not_buffered(tmp_path):
         assert all(writer.frames_written == 3 for writer in writers)
 
 
+def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
+    """Depth and other non-RGB policy observations do not become video streams."""
+    env = _make_env()
+    terminated = torch.zeros(1, dtype=torch.bool)
+    truncated = torch.zeros(1, dtype=torch.bool)
+    env._step_return = (
+        {
+            CAMERA_OBS_GROUP_KEY: {
+                "exterior_rgb": torch.zeros(1, H, W, 3, dtype=torch.uint8),
+                "exterior_distance_to_image_plane": torch.zeros(1, H, W, 1),
+            }
+        },
+        None,
+        terminated,
+        truncated,
+        None,
+    )
+
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        recorder.step(None)
+
+    assert len(writers) == 1
+    assert writers[0].filename.endswith("-exterior_rgb-episode-0.mp4")
+
+
 def test_episode_counter_increments_per_env(tmp_path):
     """Each env tracks its own episode count independently via the env's centralized index."""
     env = _make_env()

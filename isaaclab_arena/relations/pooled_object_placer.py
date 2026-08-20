@@ -97,6 +97,7 @@ class PooledObjectPlacer:
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
+        self._recycle_layouts = False
 
         self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
@@ -255,7 +256,15 @@ class PooledObjectPlacer:
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
 
-        if any(self._env_pools[env_id].available < 1 for env_id in env_ids):
+        exhausted = [env_id for env_id in env_ids if self._env_pools[env_id].available < 1]
+        if exhausted and self._recycle_layouts:
+            # Re-read the stored layouts instead of solving new ones. Layouts that only become
+            # usable after simulation -- a settled clutter pile is the case in hand -- are
+            # prepared once, outside any reset. A refill here would hand back layouts that
+            # preparation never saw, silently dropping the guarantee it established.
+            for env_id in exhausted:
+                self._env_pools[env_id].cursor = 0
+        elif exhausted:
             self._solve_and_store(max(self._pool_size, len(env_ids)))
 
         results: dict[int, PlacementResult] = {}
@@ -268,6 +277,49 @@ class PooledObjectPlacer:
                 )
             results[env_id] = pool.next()
         return results
+
+    @property
+    def recycle_layouts(self) -> bool:
+        """Whether an exhausted env queue rewinds instead of being refilled by a fresh solve."""
+        return self._recycle_layouts
+
+    @recycle_layouts.setter
+    def recycle_layouts(self, recycle: bool) -> None:
+        """Turn recycling on for pools whose layouts required preparation beyond solving.
+
+        A refill solves new layouts in the middle of a reset, where the preparation that made
+        the stored ones usable -- settling a poured pile, for instance -- cannot run. Recycling
+        keeps drawing from the prepared set instead, so the guarantee holds for the pool's whole
+        life at the cost of a fixed number of distinct layouts.
+        """
+        self._recycle_layouts = bool(recycle)
+
+    def retain_layouts(self, keep, minimum: int = 1) -> tuple[int, int]:
+        """Drop unread layouts that ``keep`` rejects, leaving at least ``minimum`` per env.
+
+        Rejection sampling for outcomes that are only knowable after simulating, such as a
+        poured pile that spilled. An env is left with its rejected layouts when too few pass,
+        because an imperfect layout still beats having none to draw.
+
+        Args:
+            keep: Called as ``keep(env_id, layout)``; return False to reject the layout.
+            minimum: Fewest layouts to leave in an env's queue.
+
+        Returns:
+            ``(kept, rejected)`` counts across every env.
+        """
+        kept = rejected = 0
+        for env_id, pool in enumerate(self._env_pools):
+            unread = pool.layouts[pool.cursor :]
+            passing = [layout for layout in unread if keep(env_id, layout)]
+            if len(passing) < minimum:
+                kept += len(unread)
+                continue
+            rejected += len(unread) - len(passing)
+            kept += len(passing)
+            pool.layouts = passing
+            pool.cursor = 0
+        return kept, rejected
 
     @property
     def num_envs(self) -> int:
