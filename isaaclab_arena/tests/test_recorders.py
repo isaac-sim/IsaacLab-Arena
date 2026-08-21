@@ -7,7 +7,7 @@ from isaaclab.managers import RecorderTerm, RecorderTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.utils.isaaclab_utils.recorders import add_trajectory_recorder_terms
+from isaaclab_arena.terms.recorders import add_trajectory_recorder_terms
 
 TRAJECTORY_TERM_NAMES = (
     "record_initial_state",

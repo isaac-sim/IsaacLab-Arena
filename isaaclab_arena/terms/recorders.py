@@ -108,7 +108,7 @@ class EndEffectorPosesRecorder(RecorderTerm):
     """Recorder term that exports end-effector (and fingertip) poses and velocities from ``ee_frame``.
 
     Pose and velocity share the same env-aligned frame as scene ``root_pose`` / ``root_velocity``.
-    No-ops when the scene has no sensor named by :attr:`EndEffectorPosesRecorderCfg.sensor_name`.
+    No-ops when the scene has no sensor named by :attr:`EndEffectorPosesRecorderCfg.frame_transformer_name`.
     """
 
     def __init__(self, cfg: RecorderTermCfg, env) -> None:
@@ -146,7 +146,7 @@ class EndEffectorPosesRecorder(RecorderTerm):
         Args:
             env_ids: Environments to report, or None for all of them.
         """
-        sensor = self._env.scene.sensors.get(self.cfg.sensor_name)
+        sensor = self._env.scene.sensors.get(self.cfg.frame_transformer_name)
         if sensor is None:
             return None
 
@@ -207,7 +207,7 @@ class EndEffectorPosesRecorderCfg(RecorderTermCfg):
 
     class_type: type[RecorderTerm] = EndEffectorPosesRecorder
 
-    sensor_name: str = "ee_frame"
+    frame_transformer_name: str = "ee_frame"
     """Name of the scene's end-effector frame transformer; the term no-ops when it is absent."""
 
     asset_name: str = "robot"
