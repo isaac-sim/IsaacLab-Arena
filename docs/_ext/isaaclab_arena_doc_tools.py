@@ -20,20 +20,12 @@ from sphinx.application import Sphinx
 
 
 def isaaclab_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) -> None:
-    """Replaces the :isaaclab_arena_git_clone_code_block: directive with a code block.
-
-    Emits a single clone that directly checks out the git branch/tag the docs were built
-    from, so a reader lands on the code matching the version they are reading:
-    sphinx-multiversion's ``smv_current_version`` for published per-version builds, falling
-    back to the ``default_git_ref`` entry of ``isaaclab_arena_docs_config`` for local
-    single-version previews (``make html``), where ``smv_current_version`` is empty.
-    """
+    """Replaces the :isaaclab_arena_git_clone_code_block: directive with a code block."""
 
     def replacer(_: Any) -> str:
         git_url = app.config.isaaclab_arena_docs_config["git_url"]
-        docs_ref = getattr(app.config, "smv_current_version", "") or app.config.isaaclab_arena_docs_config.get(
-            "default_git_ref", "main"
-        )
+        # smv_current_version is the ref of a per-version build; empty for local `make html`.
+        docs_ref = getattr(app.config, "smv_current_version", "") or "main"
         repo_dir = git_url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
         return f"""
 .. code-block:: bash

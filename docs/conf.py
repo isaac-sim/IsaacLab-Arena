@@ -164,9 +164,6 @@ for ignore in temporary_linkcheck_ignore:
 
 isaaclab_arena_docs_config = {
     "released": released,
-    # Ref that :isaaclab_arena_git_clone_code_block: falls back to when smv_current_version is
-    # unset (local single-version `make html` previews); per-version builds use the built ref.
-    "default_git_ref": "main",
     "git_url": "git@github.com:isaac-sim/IsaacLab-Arena.git",
     "internal_code_link_base_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "external_code_link_base_url": "UNDECIDED",
