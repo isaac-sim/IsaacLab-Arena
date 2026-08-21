@@ -45,11 +45,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     @property
     def variation_recorder(self) -> VariationRecorder | None:
         """The recorder of variation samples, or ``None`` if the env was not built with one."""
-        if self._variation_recorder is None:
-            print(
-                "[WARNING] variation_recorder is None; no variation samples were recorded. "
-                "Build the env through ArenaEnvBuilder to record variations."
-            )
         return self._variation_recorder
 
     @property
