@@ -165,15 +165,10 @@ def _build_environment_from_cfg(
     """
     # Stamp eval-only recorder options onto a copy of the run's builder cfg so composition in
     # ArenaEnvBuilder.compose_manager_cfg sees them without mutating the caller's run config.
-    run_cfg = replace(
-        cfg,
-        environment_builder=replace(
-            cfg.environment_builder,
-            record_trajectories=record_trajectories,
-            recorder_dataset_export_dir_path=str(output_dir) if record_trajectories else None,
-            recorder_dataset_filename=f"dataset_{cfg.name}_rebuild{rebuild_index}",
-        ),
-    )
+    run_cfg = deepcopy(cfg)
+    run_cfg.environment_builder.record_trajectories = record_trajectories
+    run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir) if record_trajectories else None
+    run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
     return arena_builder.make_registered(render_mode=render_mode)
 
