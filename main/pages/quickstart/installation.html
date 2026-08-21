@@ -689,13 +689,17 @@ a few more steps so there is time to see it):</p>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">200</span><span class="w"> </span>cube_goal_pose
 </pre></div>
 </div>
-<p>Optionally verify the installation by running the test phases (the same phases
-the Docker workflow runs below):</p>
+<p>With the <strong>source installation</strong>, optionally verify the installation by running the test
+phases:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not with_cameras and not with_subprocess"</span><span class="w"> </span>isaaclab_arena/tests/
 pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">"with_cameras and not with_subprocess"</span><span class="w"> </span>isaaclab_arena/tests/
 pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_subprocess<span class="w"> </span>isaaclab_arena/tests/
 </pre></div>
 </div>
+<p>The full test suite is not supported by the wheel flavor because it includes
+tests for Isaac Lab’s imitation-learning and reinforcement-learning
+interoperability. Use the zero-action rollout above to verify a wheel-based
+installation.</p>
 <p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed you’re ready to build your first environment;
 see <a class="reference internal" href="arena_env.html"><span class="doc">First Arena Environment</span></a>.</p>
 </section>
