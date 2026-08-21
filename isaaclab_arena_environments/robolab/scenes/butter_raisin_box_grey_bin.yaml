@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
   params: {}
 objects:
 - id: raisin_box
@@ -23,28 +23,28 @@ objects:
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: oak_table_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: grey_bin
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: raisin_box
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: butter
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: rotate_around_solution
   subject: raisin_box
   reference: null
   params:
-    pitch_rad: 90.0
+    pitch_rad: 1.57
 - kind: rotate_around_solution
   subject: butter
   reference: null
   params:
-    pitch_rad: 90.0
+    pitch_rad: 1.57

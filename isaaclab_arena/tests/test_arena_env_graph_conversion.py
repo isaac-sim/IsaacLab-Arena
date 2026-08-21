@@ -20,6 +20,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CompositeTaskSpec,
+    PoseSpec,
     TaskCompositionType,
     TaskSpec,
 )
@@ -32,6 +33,11 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
+    fixed_pose = PoseSpec(
+        position_xyz=(0.51, -0.12, 0.82),
+        rotation_xyzw=(0.1, 0.2, 0.3, 0.9),
+    )
+    spec.objects[0].initial_pose = fixed_pose
     arena_env = spec.to_arena_env()
 
     assert arena_env.name == "pick_and_place_maple_table_default"
@@ -43,6 +49,9 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
     assert arena_env.task.subtasks[1].pick_up_object.name == "mug_ycb_robolab"
     assert all(subtask.destination_location.name == "bowl_ycb_robolab" for subtask in arena_env.task.subtasks)
     assert all(subtask.background_scene.name == "maple_table_robolab" for subtask in arena_env.task.subtasks)
+    cube = next(asset for asset in arena_env.scene.assets.values() if asset.name == "rubiks_cube_hot3d_robolab")
+    assert cube.get_initial_pose().position_xyz == fixed_pose.position_xyz
+    assert cube.get_initial_pose().rotation_xyzw == fixed_pose.rotation_xyzw
 
     return True
 

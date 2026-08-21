@@ -1,0 +1,827 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+source_scene_directory: RoboLab/assets/scenes
+transform_formula: T_arena_background = I; T_arena_obj = T_benchmark_obj * inverse(T_benchmark_table)
+  * T_wrapper_table
+scenes:
+  bagel_plate_banana_bowl:
+    source_usda: RoboLab/assets/scenes/bagel_plate_banana_bowl.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471122860908508
+      - -7.538755744462833e-05
+      - -0.34500008821487427
+      rotation_wxyz:
+      - 0.9999999999991618
+      - 1.134898752751682e-07
+      - 2.70633819354544e-07
+      - 1.2610765907073416e-06
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: banana
+      benchmark_prim: banana
+    - arena_object_id: plate
+      benchmark_prim: plate_large
+    - arena_object_id: bagel_1
+      benchmark_prim: bagel_00
+    - arena_object_id: bagel_2
+      benchmark_prim: bagel_06
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  banana_bowl:
+    source_usda: RoboLab/assets/scenes/banana_bowl.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471946001052856
+      - -5.8164543588645756e-05
+      - -0.3470015227794647
+      rotation_wxyz:
+      - 0.99999999999606
+      - -5.381696723795073e-07
+      - 4.838112204178324e-07
+      - 2.7122350729662234e-06
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: banana
+      benchmark_prim: banana
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  bin_condiments:
+    source_usda: RoboLab/assets/scenes/bin_condiments.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.547142744064331
+      - 1.5474630572498427e-06
+      - -0.3449999988079071
+      rotation_wxyz:
+      - 0.9999999999999942
+      - -1.126311932608808e-08
+      - 1.0618573753617905e-07
+      - -1.2002102423025393e-08
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: coffee_pot
+      benchmark_prim: coffee_pot
+    - arena_object_id: grey_bin
+      benchmark_prim: grey_bin
+    - arena_object_id: mug
+      benchmark_prim: mug
+    - arena_object_id: mustard
+      benchmark_prim: mustard
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    - arena_object_id: ranch_dressing
+      benchmark_prim: ranch_dressing
+    - arena_object_id: bbq_sauce_bottle_1
+      benchmark_prim: bbq_sauce_bottle
+    - arena_object_id: bbq_sauce_bottle_2
+      benchmark_prim: bbq_sauce_bottle_01
+    - arena_object_id: oatmeal_raisin_cookies
+      benchmark_prim: oatmeal_raisin_cookies
+    - arena_object_id: canned_tuna
+      benchmark_prim: canned_tuna
+    - arena_object_id: soft_scrub
+      benchmark_prim: soft_scrub
+    - arena_object_id: wood_block
+      benchmark_prim: wood_block
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  bin_mug_mustard_marker_bowl:
+    source_usda: RoboLab/assets/scenes/bin_mug_mustard_marker_bowl.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471368432044983
+      - 1.9772434356468693e-08
+      - -0.3449999988079071
+      rotation_wxyz:
+      - 0.9999999999999933
+      - -5.774945521785885e-10
+      - 1.1440646119353838e-07
+      - 1.5280829046559927e-08
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    - arena_object_id: grey_bin
+      benchmark_prim: grey_bin
+    - arena_object_id: mustard
+      benchmark_prim: mustard
+    - arena_object_id: dry_erase_marker
+      benchmark_prim: dry_erase_marker
+    - arena_object_id: mug
+      benchmark_prim: mug
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  bottles_crate:
+    source_usda: RoboLab/assets/scenes/bottles_crate.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.6095603704452515
+      - -7.927604883661843e-07
+      - -0.3000028133392334
+      rotation_wxyz:
+      - 0.9999999999665425
+      - 9.49740012824861e-07
+      - 8.122184226250475e-06
+      - -2.0798191257413147e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: bbq_sauce_bottle
+      benchmark_prim: bbq_sauce_bottle
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    - arena_object_id: purple_crate
+      benchmark_prim: purple_crate
+    - arena_object_id: ceramic_mug
+      benchmark_prim: ceramic_mug
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    - arena_object_id: salad_dressing_bottle
+      benchmark_prim: salad_dressing_bottle
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  butter_raisin_box:
+    source_usda: RoboLab/assets/scenes/butter_raisin_box.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471954941749573
+      - -5.750182754127309e-05
+      - -0.3470015823841095
+      rotation_wxyz:
+      - 0.9999999999963507
+      - -6.433984935915017e-07
+      - 5.666021252161286e-07
+      - 2.5619970074237427e-06
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: butter_hope_robolab
+      benchmark_prim: butter
+      benchmark_rigid_prim: butter/obj_000003_Mesh
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    - arena_object_id: raisin_box_hope_robolab
+      benchmark_prim: raisin_box
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  butter_raisin_box_grey_bin:
+    source_usda: RoboLab/assets/scenes/butter_raisin_box_grey_bin.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5472245216369629
+      - -8.502558921463788e-05
+      - -0.34700220823287964
+      rotation_wxyz:
+      - 0.9999999999617739
+      - -2.3535919807737433e-06
+      - 1.2369325758736629e-06
+      - -8.329632691720603e-06
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: raisin_box
+      benchmark_prim: raisin_box
+    - arena_object_id: grey_bin
+      benchmark_prim: grey_bin
+    - arena_object_id: butter
+      benchmark_prim: butter
+      benchmark_rigid_prim: butter/obj_000003_Mesh
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  clutter_fruit_bottle_bluebin:
+    source_usda: RoboLab/assets/scenes/clutter_fruit_bottle_bluebin.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471951961517334
+      - -5.8073303080163896e-05
+      - -0.3470001220703125
+      rotation_wxyz:
+      - 0.9999999999997475
+      - -7.38903551677863e-08
+      - 1.87237048976338e-07
+      - -6.816406425967314e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: pumpkin_large
+      benchmark_prim: pumpkinlarge
+    - arena_object_id: pumpkin_small
+      benchmark_prim: pumpkinsmall
+    - arena_object_id: lemon_1
+      benchmark_prim: lemon_01
+    - arena_object_id: lemon_2
+      benchmark_prim: lemon_02
+    - arena_object_id: lime_1
+      benchmark_prim: lime01
+    - arena_object_id: lime_2
+      benchmark_prim: lime01_01
+    - arena_object_id: orange_1
+      benchmark_prim: orange_01
+    - arena_object_id: orange_2
+      benchmark_prim: orange_02
+    - arena_object_id: pomegranate
+      benchmark_prim: pomegranate01
+    - arena_object_id: white_packer_bottle
+      benchmark_prim: whitepackerbottle_a01
+    - arena_object_id: avocado
+      benchmark_prim: avocado01
+    - arena_object_id: crabbypenholder
+      benchmark_prim: crabbypenholder
+    - arena_object_id: serving_bowl
+      benchmark_prim: serving_bowl
+    - arena_object_id: milk_jug
+      benchmark_prim: milkjug_a01
+    - arena_object_id: utilityjug
+      benchmark_prim: utilityjug_a03
+    - arena_object_id: red_onion
+      benchmark_prim: red_onion
+    - arena_object_id: container_f24
+      benchmark_prim: right_bin
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  foodpacking_1bin_1box_1can:
+    source_usda: RoboLab/assets/scenes/foodpacking_1bin_1box_1can.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5472070574760437
+      - -7.31465988792479e-05
+      - -0.3470000624656677
+      rotation_wxyz:
+      - 0.9999999999999953
+      - -6.773159366701944e-09
+      - 9.576466908356406e-08
+      - 1.0446346010439763e-08
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: cheez_it_box
+      benchmark_prim: cheez_it
+    - arena_object_id: bin_a06
+      benchmark_prim: bin_a06
+    - arena_object_id: mustard
+      benchmark_prim: mustard
+    - arena_object_id: tomato_soup_can
+      benchmark_prim: tomato_soup_can
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  mustard_raisin_box:
+    source_usda: RoboLab/assets/scenes/mustard_raisin_box.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5472202301025391
+      - -6.994768045842648e-05
+      - -0.34699881076812744
+      rotation_wxyz:
+      - 0.9999999999847697
+      - -4.997392352303281e-06
+      - 9.915326017866354e-07
+      - -2.1221342194298477e-06
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: mustard_bottle
+      benchmark_prim: mustard_bottle
+    - arena_object_id: raisin_box
+      benchmark_prim: raisin_box
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  rubiks_cube_banana_bowl:
+    source_usda: RoboLab/assets/scenes/rubiks_cube_banana_bowl.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.19858434796333313
+      - 0.02206825464963913
+      - 0.05000072345137596
+      rotation_wxyz:
+      - 0.9999999999985056
+      - 6.058171493341476e-07
+      - 1.500318489886499e-06
+      - -6.09075073042731e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: banana
+      benchmark_prim: banana
+    - arena_object_id: cube
+      benchmark_prim: rubiks_cube
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    source_table_asset: table_maple.usd
+    table_registry_name: maple_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.19859090447425842
+      - 0.02206302247941494
+      - 0.003000684082508087
+      rotation_wxyz:
+      - 0.9999999999986571
+      - 1.4034503692509386e-06
+      - -8.336888868132237e-07
+      - 1.4616210819420684e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/maple_table.usda
+  rubiks_cube_bowl:
+    source_usda: RoboLab/assets/scenes/rubiks_cube_bowl.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.19859090447425842
+      - 0.02206302247941494
+      - 0.003000684082508087
+      rotation_wxyz:
+      - 0.9999999999986571
+      - 1.4034503692509386e-06
+      - -8.336888868132237e-07
+      - 1.4616210819420684e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: rubiks_cube
+      benchmark_prim: rubiks_cube
+    - arena_object_id: bowl
+      benchmark_prim: bowl
+    source_table_asset: table_maple.usd
+    table_registry_name: maple_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.19859090447425842
+      - 0.02206302247941494
+      - 0.003000684082508087
+      rotation_wxyz:
+      - 0.9999999999986571
+      - 1.4034503692509386e-06
+      - -8.336888868132237e-07
+      - 1.4616210819420684e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/maple_table.usda
+  tools_container:
+    source_usda: RoboLab/assets/scenes/tools_container.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5472192168235779
+      - -6.671319715678692e-05
+      - -0.34699884057044983
+      rotation_wxyz:
+      - 0.9999999999867473
+      - -5.048745606406039e-06
+      - 9.764144124217384e-07
+      - 2.4993548208509134e-07
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: container_f24
+      benchmark_prim: left_bin
+    - arena_object_id: bin_b04
+      benchmark_prim: right_bin
+    - arena_object_id: spring_clamp
+      benchmark_prim: spring_clamp
+    - arena_object_id: red_hammer
+      benchmark_prim: red_hammer
+    - arena_object_id: black_hammer
+      benchmark_prim: husky_hammer
+    - arena_object_id: cordless_drill
+      benchmark_prim: cordless_drill
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  two_bin:
+    source_usda: RoboLab/assets/scenes/two_bin.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471368432044983
+      - 1.2532538562481932e-08
+      - -0.3449999988079071
+      rotation_wxyz:
+      - 0.9999999999999956
+      - 2.057654491238727e-09
+      - 9.371357378995485e-08
+      - 9.762993080641948e-09
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: grey_bin_left
+      benchmark_prim: grey_bin_left
+    - arena_object_id: grey_bin_right
+      benchmark_prim: grey_bin_right
+    - arena_object_id: mustard
+      benchmark_prim: mustard
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  workdesk:
+    source_usda: RoboLab/assets/scenes/workdesk.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471952557563782
+      - -5.7007273426279426e-05
+      - -0.34700003266334534
+      rotation_wxyz:
+      - 0.9999999999999867
+      - -9.762076302877047e-08
+      - 1.0054304055984042e-07
+      - 8.502165371737533e-08
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: computer_mouse
+      benchmark_prim: computer_mouse
+    - arena_object_id: keyboard
+      benchmark_prim: keyboard
+    - arena_object_id: ceramic_mug
+      benchmark_prim: ceramic_mug
+    - arena_object_id: glasses
+      benchmark_prim: glasses
+    - arena_object_id: lizard_figurine
+      benchmark_prim: lizard_figurine
+    - arena_object_id: marker
+      benchmark_prim: marker
+    - arena_object_id: remote_control
+      benchmark_prim: remote_control
+    - arena_object_id: rubiks_cube
+      benchmark_prim: rubiks_cube
+    - arena_object_id: smartphone
+      benchmark_prim: smartphone
+    - arena_object_id: wooden_bowl
+      benchmark_prim: wooden_bowl
+    - arena_object_id: yogurt_cup
+      benchmark_prim: yogurt_cup
+    - arena_object_id: oatmeal_raisin_cookies
+      benchmark_prim: oatmeal_raisin_cookies
+    - arena_object_id: granola_bar
+      benchmark_prim: granola_bars
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  workdesk_bin:
+    source_usda: RoboLab/assets/scenes/workdesk_bin.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.5471949577331543
+      - -5.7009914598893374e-05
+      - -0.3470000624656677
+      rotation_wxyz:
+      - 0.9999999999999181
+      - 3.4542892990427286e-08
+      - -4.0296492898047625e-07
+      - 2.2738191773894825e-08
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: lizard_figurine
+      benchmark_prim: lizard_figurine
+    - arena_object_id: grey_bin
+      benchmark_prim: grey_bin
+    - arena_object_id: ceramic_mug
+      benchmark_prim: ceramic_mug
+    - arena_object_id: keyboard
+      benchmark_prim: keyboard
+    - arena_object_id: glasses
+      benchmark_prim: glasses
+    - arena_object_id: marker
+      benchmark_prim: marker
+    - arena_object_id: remote_control
+      benchmark_prim: remote_control
+    - arena_object_id: smartphone
+      benchmark_prim: smartphone
+    - arena_object_id: wooden_bowl
+      benchmark_prim: wooden_bowl
+    - arena_object_id: spoon_big
+      benchmark_prim: spoon_big
+    - arena_object_id: computer_mouse
+      benchmark_prim: computer_mouse
+    - arena_object_id: yogurt_cup
+      benchmark_prim: yogurt_cup
+    - arena_object_id: granola_bar
+      benchmark_prim: granola_bars
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda
+  workdesk_snacks:
+    source_usda: RoboLab/assets/scenes/workdesk_snacks.usda
+    benchmark_table_transform:
+      position_xyz:
+      - 0.547195315361023
+      - -5.7022596593014896e-05
+      - -0.3470000624656677
+      rotation_wxyz:
+      - 0.9999999999999993
+      - 1.4138116455342232e-08
+      - 3.260241498992398e-08
+      - 8.334495760209388e-09
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    object_mappings:
+    - arena_object_id: apple
+      benchmark_prim: apple_01
+    - arena_object_id: plasticpail
+      benchmark_prim: plasticpail_a02
+    - arena_object_id: ceramic_mug
+      benchmark_prim: ceramic_mug
+    - arena_object_id: glasses
+      benchmark_prim: glasses
+    - arena_object_id: keyboard
+      benchmark_prim: keyboard
+    - arena_object_id: marker
+      benchmark_prim: marker
+    - arena_object_id: remote_control
+      benchmark_prim: remote_control
+    - arena_object_id: smartphone
+      benchmark_prim: smartphone
+    - arena_object_id: wooden_bowl
+      benchmark_prim: wooden_bowl
+    - arena_object_id: spoon_big
+      benchmark_prim: spoon_big
+    - arena_object_id: computer_mouse
+      benchmark_prim: computer_mouse
+    - arena_object_id: yogurt_cup
+      benchmark_prim: yogurt_cup
+    - arena_object_id: pitcher
+      benchmark_prim: pitcher
+    source_table_asset: table_oak.usd
+    table_registry_name: oak_table_robolab
+    wrapper_table_transform:
+      position_xyz:
+      - 0.5471367990922231
+      - 0.0
+      - -0.35
+      rotation_wxyz:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
+    table_wrapper_usda: isaaclab_arena/assets/robolab/oak_table.usda

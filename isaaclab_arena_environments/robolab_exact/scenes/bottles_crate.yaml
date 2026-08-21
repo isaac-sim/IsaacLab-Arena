@@ -1,0 +1,70 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: bbq_sauce_bottle
+  registry_name: bbq_sauce_bottle_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.4390296444080696
+    - -0.03754776671525051
+    - 0.05
+    rotation_xyzw:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+- id: purple_crate
+  registry_name: purple_crate
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.4450396623712307
+    - 0.19843289695174005
+    - 0.05
+    rotation_xyzw:
+    - 4.178994174350908e-05
+    - -3.8043880824584753e-05
+    - 0.7071135326642485
+    - 0.7071000273860488
+- id: ceramic_mug
+  registry_name: ceramic_mug_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.7058852933751271
+    - -0.015246756817981821
+    - 0.05
+    rotation_xyzw:
+    - 0.705990065825069
+    - 0.001781598942182774
+    - -0.0018622452540830406
+    - 0.708217046465374
+- id: salad_dressing_bottle
+  registry_name: ranch_dressing_hope_robolab
+  params:
+    scale:
+    - 1.0
+    - 1.0
+    - 1.0
+  initial_pose:
+    position_xyz:
+    - 0.6075308275470827
+    - -0.20474995156041353
+    - 0.05
+    rotation_xyzw:
+    - 0.5722479864257625
+    - -0.017399652966667224
+    - 0.028522708668469704
+    - 0.8193997493278318

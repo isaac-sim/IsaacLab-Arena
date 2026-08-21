@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
   params: {}
 objects:
 - id: container_f24
@@ -32,32 +32,32 @@ objects:
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: oak_table_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: container_f24
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: bin_b04
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: spring_clamp
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: red_hammer
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: black_hammer
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: 'on'
   subject: cordless_drill
-  reference: maple_table_robolab
+  reference: oak_table_robolab
   params: {}
 - kind: next_to
   subject: container_f24

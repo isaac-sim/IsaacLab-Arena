@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -15,6 +16,8 @@ from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+_LOCAL_ROBOLAB_ASSETS_DIR = Path(__file__).resolve().parent / "robolab"
 
 
 class LibraryBackground(Background):
@@ -226,18 +229,31 @@ class MapleTableRobolab(LibraryBackground):
 
     name = "maple_table_robolab"
     tags = ["background", "robolab"]
-    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
+    usd_path = str(_LOCAL_ROBOLAB_ASSETS_DIR / "maple_table.usda")
     object_min_z = -0.05
-
-    def __init__(self):
-        super().__init__()
 
 
 @register_asset
-class TableOakRobolab(LibraryBackground):
-    name = "table_oak_robolab"
+class OakTableRobolab(LibraryBackground):
+    name = "oak_table_robolab"
     tags = ["background", "robolab"]
-    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
+    usd_path = str(_LOCAL_ROBOLAB_ASSETS_DIR / "oak_table.usda")
+    object_min_z = -0.05
+
+
+@register_asset
+class BlackTableRobolab(LibraryBackground):
+    name = "black_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = str(_LOCAL_ROBOLAB_ASSETS_DIR / "black_table.usda")
+    object_min_z = -0.05
+
+
+@register_asset
+class BambooTableRobolab(LibraryBackground):
+    name = "bamboo_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = str(_LOCAL_ROBOLAB_ASSETS_DIR / "bamboo_table.usda")
     object_min_z = -0.05
 
 

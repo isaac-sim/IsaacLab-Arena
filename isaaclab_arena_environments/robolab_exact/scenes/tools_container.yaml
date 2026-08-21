@@ -1,0 +1,92 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: container_f24
+  registry_name: container_f24_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6124941874750255
+    - 0.38143246897527444
+    - 2.8514686896928543e-07
+    rotation_xyzw:
+    - 5.048724600612086e-06
+    - -9.764103499552251e-07
+    - -2.4993444220436696e-07
+    - 0.9999999999867473
+- id: bin_b04
+  registry_name: bin_b04_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6040739057219557
+    - -0.3132700750287779
+    - 0.007922625706550036
+    rotation_xyzw:
+    - 5.048724600612086e-06
+    - -9.764103499552251e-07
+    - -2.4993444220436696e-07
+    - 0.9999999999867473
+- id: spring_clamp
+  registry_name: spring_clamp_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6105095946209573
+    - -0.10357601722781938
+    - 0.017863112991742265
+    rotation_xyzw:
+    - -0.0009413598973768662
+    - 0.004821721824761289
+    - -0.00018557821042546632
+    - 0.999987915127436
+- id: red_hammer
+  registry_name: red_hammer_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.520062096460286
+    - 0.10235968103710887
+    - 0.016043766065388085
+    rotation_xyzw:
+    - 0.001963921226288184
+    - 0.003578956000061155
+    - 0.00027634028630256236
+    - 0.9999916288266681
+- id: black_hammer
+  registry_name: black_hammer_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.676511334280764
+    - 0.035299718360678564
+    - 0.03990165481316132
+    rotation_xyzw:
+    - -0.0003862573502348302
+    - 0.08065647373769333
+    - -0.005192930828360973
+    - 0.9967283569352645
+- id: cordless_drill
+  registry_name: cordless_drill_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3831735922200007
+    - -0.030854709227683033
+    - 0.027835755879455058
+    rotation_xyzw:
+    - -0.0002724193213288066
+    - -0.001079607859103889
+    - 9.418112840165143e-06
+    - 0.9999993800727494

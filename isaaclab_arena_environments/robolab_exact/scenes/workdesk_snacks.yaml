@@ -1,0 +1,187 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: apple
+  registry_name: apple_01_objaverse_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5419862145355079
+    - -0.24560888971494607
+    - 0.01651167934426654
+    rotation_xyzw:
+    - 0.02162856875992813
+    - 0.008842637734290344
+    - 0.12186107078991193
+    - 0.9922720857694393
+- id: plasticpail
+  registry_name: plasticpail_a02_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3327063013319463
+    - 0.3753598276630762
+    - 8.120257909399048e-08
+    rotation_xyzw:
+    - -7.579293371499354e-10
+    - -4.789419966472785e-07
+    - -1.3829608419953964e-06
+    - 0.9999999999989291
+- id: ceramic_mug
+  registry_name: ceramic_mug_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5655239217241254
+    - 0.3957465494405836
+    - -0.0002049069181716168
+    rotation_xyzw:
+    - -0.0013816577387298628
+    - 0.0026144148591633535
+    - 0.0001628077284602459
+    - 0.9999956146656248
+- id: glasses
+  registry_name: glasses_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.43940370250933447
+    - -0.05898369755675472
+    - 0.02956263706841826
+    rotation_xyzw:
+    - -0.008855421566457865
+    - -0.01858494201635485
+    - 0.9045018120426164
+    - 0.4259725970655302
+- id: keyboard
+  registry_name: keyboard_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.56872873678304
+    - 6.245478810126922e-05
+    - 0.01337865657156748
+    rotation_xyzw:
+    - -0.03918093318679365
+    - 0.039330806980489165
+    - 0.7114208507308641
+    - -0.7005699931072191
+- id: marker
+  registry_name: marker_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.27469425783196755
+    - 0.10908358853803148
+    - 0.009080817190475739
+    rotation_xyzw:
+    - -0.0007769098215251488
+    - 0.0411447436086117
+    - -0.0007133731981903014
+    - 0.9991526397819259
+- id: remote_control
+  registry_name: remote_control_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.33643110612464117
+    - -0.19665814047566726
+    - -0.013286561874074407
+    rotation_xyzw:
+    - 0.4306903510199198
+    - 0.5648491455687839
+    - -0.5588465284718777
+    - -0.4279507236861318
+- id: smartphone
+  registry_name: smartphone_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5132952272738298
+    - 0.13433461561005988
+    - 0.013583897754607995
+    rotation_xyzw:
+    - 0.04171306349981696
+    - -0.045360005058561886
+    - -0.5880015068618049
+    - 0.8065089696976683
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params:
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
+  initial_pose:
+    position_xyz:
+    - 0.446220921017704
+    - -0.3630265072210007
+    - -0.00011178706162986692
+    rotation_xyzw:
+    - -0.002227724238882261
+    - 0.000410277709852222
+    - 0.0009840974409196291
+    - 0.9999969502299211
+- id: spoon_big
+  registry_name: spoon_big_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3947198822434823
+    - -0.36819181377643423
+    - 0.045863540943359746
+    rotation_xyzw:
+    - -0.004212605442089762
+    - 0.3151989579368361
+    - 0.0014124731114657134
+    - 0.9490152136771208
+- id: computer_mouse
+  registry_name: computer_mouse_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3415812411829954
+    - -0.32044926800013523
+    - 0.020606483274780745
+    rotation_xyzw:
+    - 0.708409178339224
+    - 3.4672162459568363e-05
+    - -0.00010589028712085254
+    - 0.7058019719651071
+- id: yogurt_cup
+  registry_name: yogurt_cup_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.43388380289547235
+    - -0.24198027605832584
+    - 0.02676855122452184
+    rotation_xyzw:
+    - 5.5368817904141085e-05
+    - -0.0013682145211956224
+    - 9.319698213252113e-06
+    - 0.9999990624177911
+- id: pitcher
+  registry_name: pitcher_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6799755675712772
+    - 0.3393136745295175
+    - 5.548503103893843e-05
+    rotation_xyzw:
+    - -0.0016955580443649464
+    - -0.0012693271533211607
+    - 0.5595375327164531
+    - 0.828802306568388

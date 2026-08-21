@@ -1,0 +1,170 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: coffee_pot
+  registry_name: coffee_pot_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6630313449339532
+    - -0.18677178309291761
+    - -0.0001801554950216491
+    rotation_xyzw:
+    - -0.0007952761317201035
+    - 0.00040177367689931987
+    - 2.9332818675973492e-05
+    - 0.9999996026266074
+- id: grey_bin
+  registry_name: grey_bin_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5183073816794007
+    - 0.2881336745019617
+    - 1.6759308084542124e-08
+    rotation_xyzw:
+    - 5.114818072429996e-08
+    - -1.158243126269386e-08
+    - -6.474877267529233e-08
+    - 0.9999999999999966
+- id: mug
+  registry_name: mug
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5091553296081607
+    - -0.18376003950942704
+    - 0.04055155487204184
+    rotation_xyzw:
+    - -0.00032296432675114884
+    - -0.001577883094756335
+    - 0.0003014082000602971
+    - 0.999998657565139
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5899134679207937
+    - 2.594347594845283e-05
+    - 0.09549290254255166
+    rotation_xyzw:
+    - -0.00016315401041073596
+    - -0.0009137082425638855
+    - 1.704722110547168e-05
+    - 0.9999995691136115
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.36509325691623
+    - -0.039757374110615876
+    - 0.027351136437249374
+    rotation_xyzw:
+    - -0.0003797796037440694
+    - -0.0004472944931738788
+    - -2.137447661773419e-05
+    - 0.9999998276190956
+- id: ranch_dressing
+  registry_name: ranch_dressing_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3399284487560302
+    - -0.18289446449475497
+    - 0.0216668638643906
+    rotation_xyzw:
+    - 0.6669873319761256
+    - -0.23441214812310737
+    - 0.6761289141744097
+    - 0.207433206630505
+- id: bbq_sauce_bottle_1
+  registry_name: bbq_sauce_bottle_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.3678325732173504
+    - -0.3006601439324626
+    - 0.02841639280384964
+    rotation_xyzw:
+    - 0.5155712380552757
+    - 0.5496606231552368
+    - 0.45007422474401965
+    - 0.4790539531867124
+- id: bbq_sauce_bottle_2
+  registry_name: bbq_sauce_bottle_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.550986954956852
+    - -0.3554526920792792
+    - -0.00013361696107039387
+    rotation_xyzw:
+    - -0.0031641095362147896
+    - 0.0015522751421283938
+    - 0.8502979664027737
+    - 0.5262897939196935
+- id: oatmeal_raisin_cookies
+  registry_name: oatmeal_raisin_cookies_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.7361600960090815
+    - -0.0015523464273172751
+    - 0.02025489012324098
+    rotation_xyzw:
+    - -0.5215876590509021
+    - -0.47726808536753357
+    - 0.5230559574139042
+    - -0.47599785086619123
+- id: canned_tuna
+  registry_name: canned_tuna_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.4838790866928797
+    - -5.11828111935566e-05
+    - 0.016154774626698017
+    rotation_xyzw:
+    - 0.0016990948856533076
+    - -0.00044078501944904797
+    - -5.169686306926603e-06
+    - 0.9999984593780186
+- id: soft_scrub
+  registry_name: soft_scrub_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.7707735536598467
+    - 0.42428227951819003
+    - 0.12493980569639271
+    rotation_xyzw:
+    - -0.0046851990063135176
+    - 8.624020035773924e-06
+    - -0.5686801479897817
+    - 0.8225454018582911
+- id: wood_block
+  registry_name: wood_block_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.729203940395608
+    - -0.4031394742700617
+    - 0.04466843359757813
+    rotation_xyzw:
+    - -0.05756407102904968
+    - -0.7018841756857809
+    - 0.06567555935260307
+    - 0.7069170407849688

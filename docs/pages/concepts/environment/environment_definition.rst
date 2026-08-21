@@ -253,6 +253,21 @@ task files. Pattern used in ``isaaclab_arena_environments/robolab/``:
      composition: atomic
      ...
 
+**Fixed initial poses.** An asset can declare an env-local pose directly. The
+quaternion order is ``xyzw``:
+
+.. code-block:: yaml
+
+   objects:
+   - id: banana
+     registry_name: banana_ycb_robolab
+     initial_pose:
+       position_xyz: [0.51, -0.12, 0.38]
+       rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+Combine it with an ``is_anchor`` relation when relation solving must preserve
+that exact pose.
+
 **Declared CLI overrides.** ``cli_override_specs`` turns a node into a CLI flag
 with no code change. Below, ``--object`` replaces that node's ``registry_name``:
 
