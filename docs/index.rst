@@ -354,3 +354,9 @@ TABLE OF CONTENTS
 
    pages/references/release_notes
    pages/references/citing_us
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Development Team Internal
+
+   pages/development_team_internal/index
