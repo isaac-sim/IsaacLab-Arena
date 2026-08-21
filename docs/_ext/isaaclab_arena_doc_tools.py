@@ -21,22 +21,25 @@ from sphinx.application import Sphinx
 
 def isaaclab_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) -> None:
     """Replaces the :isaaclab_arena_git_clone_code_block: directive with a code block.
-    The output git clone command depends on whether we're in release or internal mode.
+
+    Emits a single clone that directly checks out the git branch/tag the docs were built
+    from, so a reader lands on the code matching the version they are reading:
+    sphinx-multiversion's ``smv_current_version`` for published per-version builds, falling
+    back to the ``default_git_ref`` entry of ``isaaclab_arena_docs_config`` for local
+    single-version previews (``make html``), where ``smv_current_version`` is empty.
     """
 
     def replacer(_: Any) -> str:
-        release_state = app.config.isaaclab_arena_docs_config["released"]
-        internal_git_url = app.config.isaaclab_arena_docs_config["internal_git_url"]
-        external_git_url = app.config.isaaclab_arena_docs_config["external_git_url"]
-        if release_state:
-            git_clone_target = external_git_url
-        else:
-            git_clone_target = internal_git_url
-        print(f"git_clone_target: {git_clone_target}")
+        git_url = app.config.isaaclab_arena_docs_config["git_url"]
+        docs_ref = getattr(app.config, "smv_current_version", "") or app.config.isaaclab_arena_docs_config.get(
+            "default_git_ref", "main"
+        )
+        repo_dir = git_url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
         return f"""
 .. code-block:: bash
 
-    git clone {git_clone_target}
+    git clone --branch {docs_ref} --recurse-submodules {git_url}
+    cd {repo_dir}
 
 """
 
