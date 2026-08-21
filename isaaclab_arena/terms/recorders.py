@@ -18,10 +18,7 @@ from isaaclab.envs.mdp.recorders.recorders_cfg import (
     PreStepActionsRecorderCfg,
 )
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
-from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.utils.configclass import configclass
-
-from isaaclab_arena.utils.configclass import combine_configclass_instances
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
@@ -285,27 +282,26 @@ class GripperStateRecorderCfg(RecorderTermCfg):
 class TrajectoryRecorderTermsCfg:
     """Recorder terms capturing per-step robot and object trajectories."""
 
-    record_initial_state = InitialStateRecorderCfg()
-    record_post_step_states = PostStepStatesRecorderCfg()
-    record_pre_step_actions = PreStepActionsRecorderCfg()
-    record_post_step_processed_actions = PostStepProcessedActionsRecorderCfg()
-    record_episode_id = EpisodeIdentityRecorderCfg()
-    record_end_effector_poses = EndEffectorPosesRecorderCfg()
-    record_gripper_state = GripperStateRecorderCfg()
+    record_initial_state: InitialStateRecorderCfg = InitialStateRecorderCfg()
+    record_post_step_states: PostStepStatesRecorderCfg = PostStepStatesRecorderCfg()
+    record_pre_step_actions: PreStepActionsRecorderCfg = PreStepActionsRecorderCfg()
+    record_post_step_processed_actions: PostStepProcessedActionsRecorderCfg = PostStepProcessedActionsRecorderCfg()
+    record_episode_id: EpisodeIdentityRecorderCfg = EpisodeIdentityRecorderCfg()
+    record_end_effector_poses: EndEffectorPosesRecorderCfg = EndEffectorPosesRecorderCfg()
+    record_gripper_state: GripperStateRecorderCfg = GripperStateRecorderCfg()
 
 
-def add_trajectory_recorder_terms(recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
-    """Return ``recorder_cfg`` extended with the per-step trajectory recorder terms.
-
-    The metric terms already on ``recorder_cfg`` are preserved, because metrics are computed by
-    reading their terms back out of the same exported dataset.
+def make_trajectory_recorder_terms_cfg(
+    frame_transformer_name: str = "ee_frame", asset_name: str = "robot"
+) -> TrajectoryRecorderTermsCfg:
+    """Build the per-step trajectory recorder terms for one embodiment's frame transformer and asset names.
 
     Args:
-        recorder_cfg: The composed recorder manager config to extend.
+        frame_transformer_name: Name of the scene's end-effector frame transformer sensor.
+        asset_name: Scene entity name of the articulation that owns the end-effector frames.
     """
-    return combine_configclass_instances(
-        "TrajectoryRecorderManagerCfg",
-        recorder_cfg,
-        TrajectoryRecorderTermsCfg(),
-        bases=(RecorderManagerBaseCfg,),
+    return TrajectoryRecorderTermsCfg(
+        record_end_effector_poses=EndEffectorPosesRecorderCfg(
+            frame_transformer_name=frame_transformer_name, asset_name=asset_name
+        )
     )
