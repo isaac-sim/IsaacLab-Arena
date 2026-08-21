@@ -131,14 +131,19 @@ a few more steps so there is time to see it):
     python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 
-Optionally verify the installation by running the test phases (the same phases
-the Docker workflow runs below):
+With the **source installation**, optionally verify the installation by running the test
+phases:
 
 .. code-block:: bash
 
     pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests/
     pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
     pytest -sv -m with_subprocess isaaclab_arena/tests/
+
+The full test suite is not supported by the wheel flavor because it includes
+tests for Isaac Lab's imitation-learning and reinforcement-learning
+interoperability. Use the zero-action rollout above to verify a wheel-based
+installation.
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
 see :doc:`arena_env`.
