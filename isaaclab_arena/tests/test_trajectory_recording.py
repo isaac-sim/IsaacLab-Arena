@@ -188,15 +188,15 @@ def _test_trajectory_terms_reach_the_dataset(simulation_app, output_dir):  # noq
             # The gripper's commanded state is only known once an action has been processed, so it
             # is recorded per step but not for the initial state.
             kinematics = demo["states/kinematics"]
-            gripper_names = [name for name in kinematics if "is_open" in kinematics[name]]
-            assert gripper_names, f"Expected a gripper group with is_open, got {list(kinematics)}"
+            gripper_names = [name for name in kinematics if "is_commanded_open" in kinematics[name]]
+            assert gripper_names, f"Expected a gripper group with is_commanded_open, got {list(kinematics)}"
             for gripper_name in gripper_names:
                 # One column per driver joint, so the width is embodiment-specific.
                 opening = kinematics[gripper_name]["position"]
                 assert opening.shape[0] == num_steps
                 assert np.isfinite(opening[:]).all()
-                assert kinematics[gripper_name]["is_open"].dtype == bool
-                assert "is_open" not in demo[f"initial_state/kinematics/{gripper_name}"]
+                assert kinematics[gripper_name]["is_commanded_open"].dtype == bool
+                assert "is_commanded_open" not in demo[f"initial_state/kinematics/{gripper_name}"]
 
             # The task's metric terms must survive alongside the trajectory terms, because metrics
             # are computed by reading them back out of this same dataset.

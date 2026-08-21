@@ -193,11 +193,13 @@ class EndEffectorPosesRecorder(RecorderTerm):
         return frames
 
     def record_post_reset(self, env_ids: Sequence[int] | None):
+        # Paired with record_post_step: without this, the pose right after reset (before the
+        # first action) would never be recorded.
         poses = self._end_effector_poses(env_ids)
         return (None, None) if poses is None else ("initial_state/kinematics", poses)
 
     def record_post_step(self):
-        poses = self._end_effector_poses(None)
+        poses = self._end_effector_poses(env_ids=None)
         return (None, None) if poses is None else ("states/kinematics", poses)
 
 
@@ -254,8 +256,10 @@ class GripperStateRecorder(RecorderTerm):
 
             if include_command:
                 # process_actions() assigns the command tensors verbatim, so this comparison is exact.
-                is_open = (term.processed_actions == open_command).all(dim=-1)
-                gripper_state["is_open"] = is_open[env_ids] if env_ids is not None else is_open
+                is_commanded_open = (term.processed_actions == open_command).all(dim=-1)
+                gripper_state["is_commanded_open"] = (
+                    is_commanded_open[env_ids] if env_ids is not None else is_commanded_open
+                )
 
             states[term_name] = gripper_state
         return states or None
@@ -279,12 +283,7 @@ class GripperStateRecorderCfg(RecorderTermCfg):
 
 @configclass
 class TrajectoryRecorderTermsCfg:
-    """Recorder terms capturing per-step robot and object trajectories.
-
-    Camera observations are deliberately excluded: at Arena's default resolutions they outweigh the
-    state and action terms by three orders of magnitude. Use the imitation-learning scripts when
-    image data is wanted.
-    """
+    """Recorder terms capturing per-step robot and object trajectories."""
 
     record_initial_state = InitialStateRecorderCfg()
     record_post_step_states = PostStepStatesRecorderCfg()
