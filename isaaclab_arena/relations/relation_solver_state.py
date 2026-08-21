@@ -169,6 +169,11 @@ class RelationSolverState:
         return self._optimizable_objects
 
     @property
+    def all_objects(self) -> list[PlaceableAsset]:
+        """Return all placement objects in solver order."""
+        return list(self._all_objects)
+
+    @property
     def anchor_objects(self) -> set[PlaceableAsset]:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects

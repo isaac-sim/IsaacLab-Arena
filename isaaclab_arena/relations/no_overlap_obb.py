@@ -148,7 +148,7 @@ def compute_no_overlap_loss_obb(
 
     if debug:
         for (subject_name, obstacle_name), loss in zip(pair_names, pair_loss):
-            print(f"  [NoOverlap] {subject_name} vs {obstacle_name}: loss={loss.mean().item():.6f}")
+            print(f"  [NoOverlap] {subject_name} vs {obstacle_name}: loss_per_env={loss.detach().tolist()}")
 
     return pair_loss.sum(dim=0), num_pairs
 

@@ -57,6 +57,7 @@ class RelationSolver:
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+        self._last_state: RelationSolverState | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
@@ -105,7 +106,7 @@ class RelationSolver:
                         child_bbox=child_bbox,
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
+                        _print_unary_relation_debug(obj, relation, child_pos, child_bbox, loss)
                 # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
@@ -124,7 +125,15 @@ class RelationSolver:
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
+                        _print_relation_debug(
+                            obj,
+                            relation,
+                            child_pos,
+                            child_bbox,
+                            parent_pos,
+                            parent_world_bbox,
+                            loss,
+                        )
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
@@ -215,6 +224,9 @@ class RelationSolver:
             rotations=rotations,
             collision_objects=collision_objects,
         )
+        self._last_state = state
+        self._mesh_collision_enabled = False
+        self._mesh_cache = None
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -357,15 +369,12 @@ class RelationSolver:
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        final_positions_list = self.last_position_history[-1] if self.last_position_history else None
-        if final_positions_list is None:
-            print("No position history available. Run solve() first.")
+        if self._last_state is None:
+            print("No solver state available. Run solve() first.")
             return
 
-        final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
-
-        state = RelationSolverState(objects, [final_positions])
-        self._compute_total_loss(state, debug=True)
+        assert objects == self._last_state.all_objects, "objects must match the most recent solve() call."
+        self._compute_total_loss(self._last_state, debug=True)
         print("\n" + "=" * 60)
 
 
@@ -373,60 +382,62 @@ def _print_relation_debug(
     obj: PlaceableAsset,
     relation: Relation,
     child_pos: torch.Tensor,
+    child_bbox: OrientedBoundingBox,
     parent_pos: torch.Tensor,
+    parent_world_bbox: OrientedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a single binary relation."""
-    child_bbox = obj.get_bounding_box()
-    parent_world_bbox = relation.parent.get_world_bounding_box()
     child_min, child_max = child_bbox.get_axis_aligned_bounds()
     parent_min, parent_max = parent_world_bbox.get_axis_aligned_bounds()
 
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
-    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(
-        f"  Child bbox: min={child_min[0].tolist()}, max={child_max[0].tolist()},"
-        f" size={(2.0 * child_bbox.half_extents[0]).tolist()}"
-    )
-    print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
-    print(
-        f"  Parent world bbox: min={parent_min[0].tolist()},"
-        f" max={parent_max[0].tolist()}, size={(2.0 * parent_world_bbox.half_extents[0]).tolist()}"
-    )
-
-    # Child world extents
-    child_x_range = (
-        child_pos[0].item() + child_min[0, 0].item(),
-        child_pos[0].item() + child_max[0, 0].item(),
-    )
-    child_y_range = (
-        child_pos[1].item() + child_min[0, 1].item(),
-        child_pos[1].item() + child_max[0, 1].item(),
-    )
-
-    print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
-    print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(f"  Parent world X: [{parent_min[0, 0].item():.4f}, {parent_max[0, 0].item():.4f}]")
-    print(f"  Parent world Y: [{parent_min[0, 1].item():.4f}, {parent_max[0, 1].item():.4f}]")
-    print(f"  Loss: {loss.item():.6f}")
+    for env_index in range(loss.shape[0]):
+        prefix = f"  [env {env_index}]"
+        child_bbox_index = _broadcasted_bbox_index(child_bbox, env_index)
+        parent_bbox_index = _broadcasted_bbox_index(parent_world_bbox, env_index)
+        child_position = child_pos[env_index]
+        parent_position = parent_pos[env_index]
+        print(f"{prefix} Child pos: {child_position.tolist()}")
+        print(
+            f"{prefix} Child bbox: min={child_min[child_bbox_index].tolist()},"
+            f" max={child_max[child_bbox_index].tolist()},"
+            f" size={(2.0 * child_bbox.half_extents[child_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Parent pos: {parent_position.tolist()}")
+        print(
+            f"{prefix} Parent world bbox: min={parent_min[parent_bbox_index].tolist()},"
+            f" max={parent_max[parent_bbox_index].tolist()},"
+            f" size={(2.0 * parent_world_bbox.half_extents[parent_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Loss: {loss[env_index].item():.6f}")
 
 
 def _print_unary_relation_debug(
     obj: PlaceableAsset,
     relation: RelationBase,
     child_pos: torch.Tensor,
+    child_bbox: OrientedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a unary relation (no parent)."""
-    child_bbox = obj.get_bounding_box()
     child_min, child_max = child_bbox.get_axis_aligned_bounds()
 
     params = {k: v for k, v in relation.__dict__.items() if v is not None and k != "relation_loss_weight"}
     param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
     print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
-    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(
-        f"  Child bbox: min={child_min[0].tolist()}, max={child_max[0].tolist()},"
-        f" size={(2.0 * child_bbox.half_extents[0]).tolist()}"
-    )
-    print(f"  Loss: {loss.item():.6f}")
+    for env_index in range(loss.shape[0]):
+        prefix = f"  [env {env_index}]"
+        child_bbox_index = _broadcasted_bbox_index(child_bbox, env_index)
+        print(f"{prefix} Child pos: {child_pos[env_index].tolist()}")
+        print(
+            f"{prefix} Child bbox: min={child_min[child_bbox_index].tolist()},"
+            f" max={child_max[child_bbox_index].tolist()},"
+            f" size={(2.0 * child_bbox.half_extents[child_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Loss: {loss[env_index].item():.6f}")
+
+
+def _broadcasted_bbox_index(bbox: OrientedBoundingBox, env_index: int) -> int:
+    """Return the matching bbox row, allowing one row to broadcast over environments."""
+    return 0 if bbox.num_envs == 1 else env_index

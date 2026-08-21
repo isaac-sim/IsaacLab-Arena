@@ -359,26 +359,26 @@ def test_validator_uses_relation_placed_robot_pose(monkeypatch):
     """IK uses the robot's solved layout pose instead of its configured pre-placement pose."""
     from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RequiresReachability, Side
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.5, -0.5, 0.0), max_point=(0.5, 0.5, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.5, -0.5, 0.0), max_point=(0.5, 0.5, 0.1)),
         initial_pose=Pose.identity(),
     )
     desk.add_relation(IsAnchor())
     target = DummyObject(
         name="target",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, 0.0), max_point=(0.1, 0.1, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.1, 0.0), max_point=(0.1, 0.1, 0.2)),
     )
     target.add_relation(On(desk))
     target.add_relation(RequiresReachability())
     configured_robot_pose = Pose(position_xyz=(9.0, 9.0, 0.0))
     robot = DummyObject(
         name="robot",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
         initial_pose=configured_robot_pose,
     )
     robot.add_relation(NextTo(desk, side=Side.NEGATIVE_Y))
@@ -390,9 +390,10 @@ def test_validator_uses_relation_placed_robot_pose(monkeypatch):
         target: (0.0, 0.0, 0.11),
         robot: solved_robot_position,
     }
-    orientations = {desk: 0.0, target: 0.0, robot: 0.0}
+    rotations = {}
+    bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
-    assert validator.validate_batch([positions], [orientations], [{}], []) == [True]
+    assert validator.validate_batch([positions], [rotations], [bboxes], []) == [True]
     base_position, base_orientation = captured["base_poses_per_world_update"][0]
     assert base_position == solved_robot_position
     assert base_position != configured_robot_pose.position_xyz

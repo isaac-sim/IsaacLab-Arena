@@ -47,6 +47,28 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
     return table, box_a, box_b
 
 
+def _create_rotated_collision_scene() -> tuple[
+    list[DummyObject],
+    list[dict[DummyObject, tuple[float, float, float]]],
+    DummyObject,
+]:
+    """Create a scene where rotating the long box introduces a collision."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    long_box = DummyObject(
+        name="long_box",
+        bounding_box=OrientedBoundingBox.from_min_max((-0.3, -0.05, -0.05), (0.3, 0.05, 0.05)),
+    )
+    cube = DummyObject(
+        name="cube",
+        bounding_box=OrientedBoundingBox.from_min_max((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05)),
+    )
+    objects = [table, long_box, cube]
+    initial = [{table: (0.0, 0.0, 0.0), long_box: (0.0, 0.0, 0.5), cube: (0.0, 0.2, 0.5)}]
+    return objects, initial, long_box
+
+
 def test_solver_state_rejects_anchor_position_different_from_fixed_pose():
     table, box_a, _ = _create_no_collision_scene()
     initial = [{table: (0.1, 0.0, 0.0), box_a: (0.0, 0.0, 0.2)}]
@@ -87,23 +109,7 @@ def test_solver_state_rejects_rotation_keys_for_non_optimizable_objects(invalid_
 
 def test_solver_uses_rotated_bbox_for_collision():
     """Test that a yaw-rotated env bbox passed to solve() changes the no-overlap loss (solver consumes it)."""
-    table = _create_table()
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-    table.add_relation(IsAnchor())
-
-    # Long box (spans X) and a cube offset in +Y. No On/NextTo relations, so the only loss is
-    # the built-in no-overlap loss between the two non-anchors.
-    long_box = DummyObject(
-        name="long_box",
-        bounding_box=OrientedBoundingBox.from_min_max((-0.3, -0.05, -0.05), (0.3, 0.05, 0.05)),
-    )
-    cube = DummyObject(
-        name="cube",
-        bounding_box=OrientedBoundingBox.from_min_max((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05)),
-    )
-    objects = [table, long_box, cube]
-    # Boxes sit high above the table (z=0.5) so neither collides with the table.
-    initial = [{table: (0.0, 0.0, 0.0), long_box: (0.0, 0.0, 0.5), cube: (0.0, 0.2, 0.5)}]
+    objects, initial, long_box = _create_rotated_collision_scene()
 
     # max_iters=0: solve() only computes the initial loss and stores last_loss_per_env.
     solver = RelationSolver(params=RelationSolverParams(max_iters=0, verbose=False))
@@ -122,6 +128,52 @@ def test_solver_uses_rotated_bbox_for_collision():
     assert loss_unrotated == 0.0
     # Rotated 90°: long box now spans Y [-0.3, 0.3], overlapping the cube -> positive loss.
     assert loss_rotated > 0.0
+
+
+def test_debug_losses_reuses_rotated_solver_state_without_position_history(capsys):
+    objects, initial, long_box = _create_rotated_collision_scene()
+    quarter_turn = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0, save_position_history=False))
+
+    solver.solve(objects, initial, rotations=[{long_box: quarter_turn}])
+    assert solver.last_loss_per_env is not None
+    expected_loss = solver.last_loss_per_env.clone()
+    solver.debug_losses(objects)
+
+    assert torch.equal(solver.last_loss_per_env, expected_loss)
+    assert "No solver state available" not in capsys.readouterr().out
+
+
+def test_debug_losses_reports_each_environment(capsys):
+    table, box, _ = _create_no_collision_scene()
+    objects = [table, box]
+    initial = [
+        {table: (0.0, 0.0, 0.0), box: (0.1, 0.1, 0.11)},
+        {table: (0.0, 0.0, 0.0), box: (0.2, 0.2, 0.2)},
+    ]
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0))
+
+    solver.solve(objects, initial)
+    solver.debug_losses(objects)
+
+    output = capsys.readouterr().out
+    assert "[env 0]" in output
+    assert "[env 1]" in output
+
+
+def test_all_anchor_solve_resets_mesh_debug_state():
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    solver = RelationSolver()
+    solver._mesh_collision_enabled = True
+    solver._mesh_cache = object()
+
+    solver.solve([table], [{table: (0.0, 0.0, 0.0)}])
+
+    assert not solver._mesh_collision_enabled
+    assert solver._mesh_cache is None
+    solver.debug_losses([table])
 
 
 def _single_pair_no_overlap_loss(
