@@ -106,7 +106,29 @@ Known failure modes:
 - Treats a listening TCP port as sufficient readiness, submits to OSMO, or stops the server without
   being asked.
 
-## Scenario 7: Respect Workflow Boundaries
+## Scenario 7: Start A Required Local GR00T Server
+
+Query: "Run `droid_pnp_gr00t_experiment.yaml` locally; I haven't started a GR00T server."
+
+Expected behavior:
+
+- Detects GR00T from the Run's resolved policy type and reads its host, port, and referenced client
+  policy configuration.
+- Uses `serve-gr00t-policy` to reuse a matching ready server or start the maintained N1.6-DROID
+  server before launching the Experiment.
+- Discloses and confirms a potentially large first dependency resolution or checkpoint download.
+- Waits for protocol-level GR00T readiness from a retained asynchronous terminal session, runs the
+  Experiment while that session remains active, verifies its artifacts, and leaves the server
+  running while reporting its endpoint and identity.
+
+Known failure modes:
+
+- Requires the user to discover and invoke the server skill separately.
+- Infers GR00T only from the filename, guesses a custom checkpoint, or starts a mismatched model.
+- Waits for the server process to exit, treats TCP listening as sufficient readiness, submits to
+  OSMO, or stops the server without being asked.
+
+## Scenario 8: Respect Workflow Boundaries
 
 Query: "Submit this Experiment to OSMO pool `example-pool` and download the results."
 
@@ -120,7 +142,7 @@ Known failure modes:
 - Treats local and managed execution as interchangeable.
 - Submits remote compute using the local skill's permissions.
 
-## Scenario 8: Route Runtime Setup And Regression Testing
+## Scenario 9: Route Runtime Setup And Regression Testing
 
 Query: "I just cloned Arena. Install it, then run the no-camera pytest phase."
 
