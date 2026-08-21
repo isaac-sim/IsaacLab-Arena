@@ -18,7 +18,7 @@ from isaaclab_arena.environment_spec import arena_env_graph_yaml_loader
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_EXPERIMENT_RESULT_FILENAME,
     ArenaExperimentResult,
-    build_arena_run_result_metadata,
+    run_environment_and_policy_variant_from_config,
 )
 
 
@@ -163,7 +163,7 @@ class _RunCfg:
     policy: object
 
 
-def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_variant(monkeypatch):
+def test_gets_graph_environment_and_preserves_an_explicit_policy_variant(monkeypatch):
     monkeypatch.setattr(
         arena_env_graph_yaml_loader,
         "load_env_graph_spec_dict",
@@ -174,7 +174,7 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
         policy=_PolicyCfg(policy_variant="Pi0.5-Exact"),
     )
 
-    assert build_arena_run_result_metadata(run_cfg) == {
+    assert run_environment_and_policy_variant_from_config(run_cfg) == {
         "environment": {
             "name": "banana_in_bowl",
             "definition": "configs/../tasks/banana_in_bowl.yaml",
@@ -183,7 +183,7 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
     }
 
 
-def test_builds_registered_environment_and_policy_metadata(monkeypatch):
+def test_gets_registered_environment_and_policy_variant(monkeypatch):
     class _EnvironmentFactory:
         name = "registered_environment"
 
@@ -201,7 +201,7 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
         lambda registry, policy_cfg: _Policy,
     )
 
-    assert build_arena_run_result_metadata(_RunCfg(_EnvironmentCfg(), _PolicyCfg())) == {
+    assert run_environment_and_policy_variant_from_config(_RunCfg(_EnvironmentCfg(), _PolicyCfg())) == {
         "environment": {
             "name": "registered_environment",
             "definition": "registered_environment",

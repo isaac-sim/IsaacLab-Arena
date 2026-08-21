@@ -60,7 +60,7 @@ ArenaExperimentResultData = dict[Literal["runs"], dict[str, ArenaExperimentRunDa
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
-    """Return a non-empty string used in Run metadata."""
+    """Return a non-empty string used in an Experiment result."""
     assert isinstance(value, str) and value.strip(), f"{field_name} must be a non-empty string"
     return value
 
@@ -125,33 +125,19 @@ class ArenaExperimentResult:
     def _collect_run(self, run_name: str, run_metadata: Mapping[str, Any]) -> ArenaExperimentRunData:
         """Collect one declared Run's metadata and episode results."""
         self.assert_run_name_is_safe_path_component(run_name)
-        environment = run_metadata["environment"]
-        status = run_metadata["status"]
-        assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
-
         run_output_directory = self.experiment_output_directory / run_name
-        if status == "completed":
-            assert (
-                run_output_directory.is_dir()
-            ), f"completed Run {run_name!r} is missing its output directory: {run_output_directory}"
-        elif run_output_directory.exists():
-            assert (
-                run_output_directory.is_dir()
-            ), f"output path for failed Run {run_name!r} must be a directory: {run_output_directory}"
-
-        rebuilds = (
-            _collect_rebuilds(run_output_directory, self.experiment_output_directory)
-            if run_output_directory.is_dir()
-            else []
-        )
+        assert (
+            not run_output_directory.exists() or run_output_directory.is_dir()
+        ), f"Run output path must be a directory: {run_output_directory}"
+        status = run_metadata["status"]
+        assert (
+            status != "completed" or run_output_directory.is_dir()
+        ), f"completed Run {run_name!r} is missing its output directory: {run_output_directory}"
         return {
-            "environment": {
-                "name": environment["name"],
-                "definition": environment["definition"],
-            },
+            "environment": run_metadata["environment"],
             "policy_variant": run_metadata["policy_variant"],
             "status": status,
-            "rebuilds": rebuilds,
+            "rebuilds": _collect_rebuilds(run_output_directory, self.experiment_output_directory),
         }
 
     def to_dict(self) -> ArenaExperimentResultData:
@@ -169,10 +155,12 @@ class ArenaExperimentResult:
         return result_path
 
 
-def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
-    """Build serializable environment and policy metadata for an effective Run."""
+def run_environment_and_policy_variant_from_config(run_cfg: ArenaRunCfg) -> dict[str, Any]:
+    """Return the environment and policy variant fields stored for one Run."""
     from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 
+    # TODO(cvolk): Remove this conversion once ArenaRunCfg stores the environment identifiers and policy variant
+    # used in Arena Experiment results.
     environment_cfg = run_cfg.environment
     # TODO(cvolk): Remove this structural check once graph-YAML environments use registered typed configurations.
     if hasattr(environment_cfg, "env_spec_path"):
