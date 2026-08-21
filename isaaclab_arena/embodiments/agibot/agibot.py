@@ -10,6 +10,7 @@ import isaaclab.envs.mdp as mdp
 import isaaclab.utils.math as PoseUtils
 from isaaclab.controllers.config.rmp_flow import AGIBOT_LEFT_ARM_RMPFLOW_CFG, AGIBOT_RIGHT_ARM_RMPFLOW_CFG
 from isaaclab.envs.mdp.actions.rmpflow_actions_cfg import RMPFlowActionCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.markers.config import FRAME_MARKER_CFG
@@ -23,6 +24,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv
+from isaaclab_arena.terms.events import reset_joint_position_and_velocity_to_defaults
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -41,6 +43,7 @@ class AgibotEmbodiment(EmbodimentBase):
         self.scene_config = AgibotLeftArmSceneCfg() if self.arm_mode == ArmMode.LEFT else AgibotRightArmSceneCfg()
         self.action_config = AgibotLeftArmActionsCfg() if self.arm_mode == ArmMode.LEFT else AgibotRightArmActionsCfg()
         self.observation_config = AgibotObservationsCfg()
+        self.event_config = AgibotEventCfg()
         self.mimic_env = AgibotMimicEnv
 
 
@@ -65,7 +68,7 @@ class AgibotLeftArmSceneCfg(AgibotSceneCfg):
                 prim_path="{ENV_REGEX_NS}/Robot/gripper_center",
                 name="left_end_effector",
                 offset=OffsetCfg(
-                    rot=(0.7071, 0.0, -0.7071, 0.0),
+                    rot=(0.0, -0.7071, 0.0, 0.7071),
                 ),
             ),
         ],
@@ -112,7 +115,7 @@ class AgibotLeftArmActionsCfg:
         body_name="gripper_center",
         controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
         scale=1.0,
-        body_offset=RMPFlowActionCfg.OffsetCfg(rot=[0.7071, 0.0, -0.7071, 0.0]),
+        body_offset=RMPFlowActionCfg.OffsetCfg(rot=(0.0, -0.7071, 0.0, 0.7071)),
         use_relative_mode=True,
     )
 
@@ -143,6 +146,20 @@ class AgibotRightArmActionsCfg:
         open_command_expr={"right_hand_joint1": 0.994, "right_.*_Support_Joint": 0.994},
         close_command_expr={"right_hand_joint1": 0.0, "right_.*_Support_Joint": 0.0},
     )
+
+
+@configclass
+class AgibotEventCfg:
+    """Reset events for the Agibot robot."""
+
+    reset_robot_to_default_pose = EventTermCfg(
+        func=reset_joint_position_and_velocity_to_defaults,
+        mode="reset",
+    )
+    """Restore ``init_state`` joint values and targets on every reset.
+
+    RMPFlow expects ``joint_lift_body`` and ``joint_body_pitch`` at those default values
+    through ``cspace_to_urdf_rules`` in ``agibot_left_arm_gripper.yaml``."""
 
 
 @configclass
