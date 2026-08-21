@@ -1034,7 +1034,6 @@ class ButterHopeRobolab(LibraryObject):
     name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
-    scale = (2.2, 2.0, 1.8)
 
 
 @register_asset

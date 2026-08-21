@@ -210,12 +210,24 @@ scenes:
     object_mappings:
     - arena_object_id: bbq_sauce_bottle
       benchmark_prim: bbq_sauce_bottle
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
     - arena_object_id: purple_crate
       benchmark_prim: purple_crate
     - arena_object_id: ceramic_mug
       benchmark_prim: ceramic_mug
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
     - arena_object_id: salad_dressing_bottle
       benchmark_prim: salad_dressing_bottle
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
     source_table_asset: table_oak.usd
     table_registry_name: oak_table_robolab
     wrapper_table_transform:
@@ -252,6 +264,11 @@ scenes:
     object_mappings:
     - arena_object_id: butter_hope_robolab
       benchmark_prim: butter
+      benchmark_rigid_prim: butter/obj_000003_Mesh
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
     - arena_object_id: raisin_box_hope_robolab
       benchmark_prim: raisin_box
     source_table_asset: table_oak.usd
@@ -294,6 +311,11 @@ scenes:
       benchmark_prim: grey_bin
     - arena_object_id: butter
       benchmark_prim: butter
+      benchmark_rigid_prim: butter/obj_000003_Mesh
+      arena_scale_xyz:
+      - 1.0
+      - 1.0
+      - 1.0
     source_table_asset: table_oak.usd
     table_registry_name: oak_table_robolab
     wrapper_table_transform:

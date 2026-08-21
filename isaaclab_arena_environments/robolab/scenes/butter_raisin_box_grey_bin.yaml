@@ -42,9 +42,9 @@ relations:
   subject: raisin_box
   reference: null
   params:
-    pitch_rad: 90.0
+    pitch_rad: 1.57
 - kind: rotate_around_solution
   subject: butter
   reference: null
   params:
-    pitch_rad: 90.0
+    pitch_rad: 1.57

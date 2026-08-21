@@ -232,9 +232,6 @@ class MapleTableRobolab(LibraryBackground):
     usd_path = str(_LOCAL_ROBOLAB_ASSETS_DIR / "maple_table.usda")
     object_min_z = -0.05
 
-    def __init__(self):
-        super().__init__()
-
 
 @register_asset
 class OakTableRobolab(LibraryBackground):

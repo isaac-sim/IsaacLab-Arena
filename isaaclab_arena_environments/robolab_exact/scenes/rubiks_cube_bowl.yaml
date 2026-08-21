@@ -9,7 +9,7 @@ embodiment:
   params: {}
 background:
   id: maple_table_robolab
-  registry_name: maple_table_robolab
+  registry_name: oak_table_robolab
   params: {}
 objects:
 - id: rubiks_cube

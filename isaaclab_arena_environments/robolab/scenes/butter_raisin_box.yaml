@@ -44,3 +44,8 @@ relations:
   reference: null
   params:
     pitch_rad: 1.57
+- kind: rotate_around_solution
+  subject: butter_hope_robolab
+  reference: null
+  params:
+    pitch_rad: 1.57

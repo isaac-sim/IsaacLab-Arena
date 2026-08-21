@@ -33,8 +33,7 @@ def test_robolab_exact_specs_are_complete_and_parseable():
     for scene_path in scene_paths:
         scene = yaml.safe_load(scene_path.read_text(encoding="utf-8"))
         assert all(obj.get("initial_pose") is not None for obj in scene["objects"])
-        anchored_subjects = {relation["subject"] for relation in scene["relations"] if relation["kind"] == "is_anchor"}
-        assert {scene["background"]["id"], *(obj["id"] for obj in scene["objects"])} == anchored_subjects
+        assert "relations" not in scene
     for task_path in task_paths:
         ArenaEnvGraphSpec.from_yaml(task_path)
 

@@ -177,7 +177,12 @@ def _source_scene_data(
         parent_path = str(table_prim.path).rsplit("/", maxsplit=1)[0]
         prim = layer.GetPrimAtPath(f"{parent_path}/{benchmark_prim}")
         assert prim is not None, f"Missing source prim '{benchmark_prim}' in '{source_path}'"
-        poses[arena_id] = _pose_dict(prim)
+        pose = _pose_dict(prim)
+        if rigid_prim_path := mapping.get("benchmark_rigid_prim"):
+            rigid_prim = layer.GetPrimAtPath(f"{parent_path}/{rigid_prim_path}")
+            assert rigid_prim is not None, f"Missing source rigid prim '{rigid_prim_path}' in '{source_path}'"
+            pose = _matrix_pose(_pose_matrix(_pose_dict(rigid_prim)) * _pose_matrix(pose))
+        poses[arena_id] = pose
     return fixture_name, table_pose, poses
 
 
@@ -224,6 +229,13 @@ def _update_files(manifest: dict, source_dir: Path) -> None:
         exact["background"].pop("initial_pose", None)
         for object_spec in exact["objects"]:
             object_spec["initial_pose"] = expected_poses[object_spec["id"]]
+            mapping = next(
+                mapping
+                for mapping in scene_manifest["object_mappings"]
+                if mapping["arena_object_id"] == object_spec["id"]
+            )
+            if scale := mapping.get("arena_scale_xyz"):
+                object_spec["params"]["scale"] = scale
         exact.pop("relations", None)
         _write_yaml(exact_path, exact)
 
@@ -296,6 +308,13 @@ def _validate_yaml(
         assert exact["background"]["registry_name"] == table_registry
         assert "initial_pose" not in exact["background"], f"{scene_name}: exact background offset must be omitted"
         for object_spec in exact["objects"]:
+            mapping = next(
+                mapping
+                for mapping in scene_manifest["object_mappings"]
+                if mapping["arena_object_id"] == object_spec["id"]
+            )
+            if scale := mapping.get("arena_scale_xyz"):
+                assert object_spec["params"].get("scale") == scale, f"{scene_name}/{object_spec['id']} scale mismatch"
             _assert_pose_close(
                 object_spec["initial_pose"],
                 expected_poses[object_spec["id"]],
