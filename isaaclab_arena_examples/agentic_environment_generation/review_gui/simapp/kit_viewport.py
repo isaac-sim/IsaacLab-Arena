@@ -27,7 +27,7 @@ def review_gui_cache_dir(subdir: str) -> Path:
 
 
 def thumbnail_cache_dir() -> Path:
-    """Cache directory for per-node USD thumbnail PNGs."""
+    """Cache directory for per-node USD thumbnail and panorama PNGs."""
     return review_gui_cache_dir(THUMBNAIL_CACHE_SUBDIR)
 
 

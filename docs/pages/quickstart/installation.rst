@@ -11,7 +11,9 @@ or from source inside a Docker container.
      - Evaluation
      - Imitation learning
      - Reinforcement learning
+     - Agentic environment generation
    * - Docker
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -19,10 +21,12 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
+     - ✓
    * - uv (Isaac Lab from wheel)
      - ✓
      - ✗
      - ✗
+     - ✓
 
 Supported Systems
 -----------------
@@ -65,14 +69,14 @@ workflow:
 
       .. code-block:: bash
 
-          uv sync
+          uv sync --extra dev
           source .venv/bin/activate
 
    .. tab-item:: Wheel
 
       .. code-block:: bash
 
-          uv sync --no-default-groups --group isaaclab-from-wheel
+          uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
           source .venv/bin/activate
 
       .. note::
@@ -87,13 +91,23 @@ workflow:
 ``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
 ``submodules/IsaacLab`` in the source flavor, or from the published wheel),
 and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
-pinned by the committed lockfile.
+pinned by the committed lockfile. The ``dev`` extra installs the Streamlit and
+SimReady search dependencies used by the
+:doc:`agentic environment generation workflow
+</pages/concepts/agentic_environment_generation/index>`.
 
 .. note::
    The two flavors are mutually exclusive within the single ``.venv``: syncing
    one replaces the other. In the wheel flavor, run ``python``/``pytest`` in
    the activated environment rather than through ``uv run`` — a bare
    ``uv run`` re-syncs the environment back to the source flavor.
+
+.. note::
+   Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
+   package, so :doc:`cuRobo-based reachability validation
+   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
+   is not available. Use the Docker workflow with ``./docker/run_docker.sh -c``
+   instead.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -127,7 +141,7 @@ the Docker workflow runs below):
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
-see :doc:`first_arena_env`.
+see :doc:`arena_env`.
 
 
 Installation via Docker
@@ -153,6 +167,12 @@ installation options.
 
 The container will build (if needed) and drop you into an interactive shell.
 
+For :doc:`cuRobo-based reachability validation
+</pages/concepts/object_placement/validation>`, launch with the ``-c`` flag
+instead (native ``uv`` installs do not support this check):
+
+:docker_run_curobo:
+
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:
 
@@ -174,4 +194,4 @@ The container will build (if needed) and drop you into an interactive shell.
     pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your
-first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
+first IsaacLab-Arena Environment. See :doc:`arena_env` to get started.

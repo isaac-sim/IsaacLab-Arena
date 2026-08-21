@@ -4,7 +4,7 @@ Edit the Environment Graph Spec
 Review the spec before building the environment. The agent infers it from the prompt with an
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
-:doc:`../model_selection` for more details.
+:doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
 For an object set, check that the members are the assets you expected as those are added based on semantic similarity by the agent.
 
 Understanding the YAML
@@ -70,15 +70,16 @@ An object set is referenced by its ``id`` exactly like an object — in the
 rest of the graph is written once and stays valid whichever member an
 environment spawns.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Editing the object set
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Widening or narrowing the variation is a one-block edit — ``members`` and
-``random_choice`` — that leaves the relations and the task untouched:
+``random_choice`` — that leaves the relations and the task untouched. For the
+asset concept behind object sets, see
+:doc:`../../../concepts/scene/concept_rigid_object_set`.
 
 #. Add or remove a member to change which assets the environments draw from.
    Members are registered rigid-object names from the Arena asset catalog:
@@ -124,7 +125,7 @@ Applying your edits
       Set the number of parallel environments in the sim preview controls to more than
       one to see the members spread across environments.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 
@@ -133,12 +134,12 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 4 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

@@ -2,12 +2,12 @@ Pick and Place on a Kitchen Countertop
 =======================================
 
 This example uses the agentic environment-generation system to infer an environment graph spec from a prompt
-for **pick and place atomic task on a kitchen countertop** in the ``lightwheel_robocasa_kitchen`` background.
+for **pick and place atomic task on a kitchen countertop** in the ``lightwheel_kitchen_one_wall_coastal`` background.
 
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/agentic_ui_kitchen_pnp_prompt_robot.png
+.. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prompt_robot.png
    :width: 100%
    :alt: Generated kitchen pick and place task shown in the agentic environment-generation GUI.
    :align: center
@@ -28,8 +28,9 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
-The spec shown here depends on the model behind that endpoint — see :doc:`../model_selection`.
+See :ref:`agentic-env-gen-prerequisites` for the environment and API key setup.
+The spec shown here depends on the model behind that endpoint — see
+:doc:`../../../concepts/agentic_environment_generation/model_selection`.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

@@ -20,7 +20,7 @@ The generated spec has one block per part of the environment graph:
        stand_height_m: 0.8           # the stand that lifts DROID to counter height
    background:                       # the kitchen the task happens in
      id: kitchen
-     registry_name: lightwheel_robocasa_kitchen
+     registry_name: lightwheel_kitchen_one_wall_coastal
      params: {}
    objects:                          # assets spawned into the scene
    - id: mustard_bottle              # the pick target
@@ -83,9 +83,8 @@ An ``object_references`` entry is a prim that the background already contains, a
 ``prim_path`` under ``parent_id``. Nothing is spawned for it — it only becomes a target that relations and
 task params can name by ``id``, exactly like a spawned object.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Resolving the countertop ambiguity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -101,7 +100,7 @@ surfaces. List them from the background prim tree — the set of prims the agent
 
       Expand the GUI's ``Background prim tree`` and search for ``counter``:
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_pnp_prim_tree.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_pnp_prim_tree.png
          :width: 40%
          :alt: Background prim tree showing five candidate kitchen counter surfaces
          :align: center
@@ -115,9 +114,9 @@ surfaces. List them from the background prim tree — the set of prims the agent
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode prim_tree \
-            --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml \
+            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml \
             | grep counter
 
       It prints each line as a ``prim_path`` candidate with its ``object_type``, plus the joint names when the prim
@@ -181,7 +180,7 @@ Applying your edits
       #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 
@@ -190,12 +189,12 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

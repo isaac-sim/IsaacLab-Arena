@@ -54,7 +54,7 @@ def build_prim_nodes(prim_tree: list[UsdPrimRecord]) -> list[_PrimNode]:
 
 def estimate_prim_tree_height_px(prim_tree: list[UsdPrimRecord]) -> int:
     """Heuristic iframe height so typical trees fit without excessive scrolling."""
-    return max(160, min(560, 22 * max(len(prim_tree), 1) + 64))
+    return max(80, min(280, 11 * max(len(prim_tree), 1) + 64))
 
 
 def _render_nodes(nodes: list[_PrimNode]) -> str:

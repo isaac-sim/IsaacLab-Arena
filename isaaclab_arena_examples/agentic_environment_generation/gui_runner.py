@@ -12,7 +12,7 @@ Usage::
 
     # Open an existing spec:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \\
-        --env_graph_spec_yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
+        --env_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
 
     # Custom port:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py --port 8600
@@ -31,11 +31,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    DEFAULT_ENDPOINT_NAME,
-    INFERENCE_ENDPOINT_ENV_VAR,
-    INFERENCE_ENDPOINTS,
-)
 from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SIMAPP_SOCKET_ENV,
@@ -54,7 +49,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--env_graph_spec_yaml",
+        "--env_spec",
         type=Path,
         default=None,
         help="Optional ArenaEnvGraphSpec YAML to open in the editor.",
@@ -73,22 +68,11 @@ def main() -> None:
         default=8501,
         help="Streamlit server port (default: 8501).",
     )
-    parser.add_argument(
-        "--inference_endpoint",
-        type=str,
-        choices=tuple(INFERENCE_ENDPOINTS),
-        default=None,
-        help=(
-            "Inference endpoint the generation agent calls (default: the ARENA_INFERENCE_ENDPOINT "
-            f"environment variable, else '{DEFAULT_ENDPOINT_NAME}')."
-        ),
-    )
     args = parser.parse_args()
     serve_live_editor(
-        args.env_graph_spec_yaml,
+        args.env_spec,
         out_dir=args.out_dir,
         port=args.port,
-        inference_endpoint=args.inference_endpoint,
     )
 
 
@@ -97,7 +81,6 @@ def serve_live_editor(
     *,
     out_dir: Path = DEFAULT_AGENTIC_OUTPUT_DIR,
     port: int = 8501,
-    inference_endpoint: str | None = None,
 ) -> None:
     """Start the SimApp server, spawn Streamlit, and supervise both until exit.
 
@@ -105,8 +88,6 @@ def serve_live_editor(
         yaml_path: Optional spec YAML to open in the editor.
         out_dir: Directory the editor writes generated spec YAML into.
         port: Streamlit server port.
-        inference_endpoint: Inference endpoint name handed to the Streamlit process, or ``None``
-            to leave the environment's own selection in place.
     """
     app_path = _REVIEW_GUI_DIR / "streamlit_ui.py"
     assert app_path.exists(), f"Streamlit app not found at {app_path} — installation is incomplete."
@@ -129,8 +110,6 @@ def serve_live_editor(
         env = os.environ.copy()
         if active_socket is not None:
             env[SIMAPP_SOCKET_ENV] = str(active_socket)
-        if inference_endpoint is not None:
-            env[INFERENCE_ENDPOINT_ENV_VAR] = inference_endpoint
 
         cmd = [
             sys.executable,
@@ -147,7 +126,7 @@ def serve_live_editor(
             "--",
         ]
         if yaml_path is not None:
-            cmd.extend(["--env_graph_spec_yaml", str(yaml_path.resolve())])
+            cmd.extend(["--env_spec", str(yaml_path.resolve())])
         cmd.extend(["--out_dir", str(out_dir.resolve())])
 
         print(f"[review_gui] launching Streamlit live editor: {' '.join(cmd)}", file=sys.stderr)

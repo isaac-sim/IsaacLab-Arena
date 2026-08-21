@@ -142,7 +142,7 @@ Run the example with:
      --viz kit \
      --policy_type zero_action \
      --num_steps 100 \
-     --env_graph_spec_yaml \
+     --env_spec \
        isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
 
 This example uses the Droid stand footprint for geometric placement.

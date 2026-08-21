@@ -7,7 +7,7 @@ for **pick and place atomic task with heterogeneous objects** for table-top mani
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/tabletop_agentic_env_fruits.png
+.. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_fruits.png
    :width: 100%
    :alt: Generated table-top pick and place task shown in the agentic environment-generation GUI.
    :align: center
@@ -34,8 +34,9 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
-The spec shown here depends on the model behind that endpoint — see :doc:`../model_selection`.
+See :ref:`agentic-env-gen-prerequisites` for the environment and API key setup.
+The spec shown here depends on the model behind that endpoint — see
+:doc:`../../../concepts/agentic_environment_generation/model_selection`.
 
 Workflow Steps
 ^^^^^^^^^^^^^^
