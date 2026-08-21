@@ -639,7 +639,7 @@ the next step.</p>
 <section id="read-the-posterior-marginals">
 <h2>Read the posterior marginals<a class="headerlink" href="#read-the-posterior-marginals" title="Link to this heading">#</a></h2>
 <p>Still in the Base Docker container, open the generated image:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pqiv<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">NO_AT_BRIDGE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pqiv<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">POSTERIOR_FIGURE_PATH</span><span class="si">}</span><span class="s2">"</span>
 </pre></div>
 </div>
 <figure class="align-center" id="id1">
