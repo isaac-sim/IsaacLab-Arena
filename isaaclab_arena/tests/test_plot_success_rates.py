@@ -60,6 +60,45 @@ def test_collect_success_rates_reads_tar_archive(tmp_path):
     assert results[("task_alpha", "cosmos")].success_rate == pytest.approx(1.0)
 
 
+def test_collect_success_rates_reads_arena_experiment_result(tmp_path):
+    result_path = tmp_path / "arena_experiment_result.json"
+    result_path.write_text(
+        json.dumps({
+            "runs": {
+                "task_alpha_pi0": {
+                    "status": "completed",
+                    "rebuilds": [
+                        {
+                            "index": 0,
+                            "episodes": [
+                                {"job_name": "task_alpha_pi0", "success": True},
+                                {"job_name": "task_alpha_pi0", "success": False},
+                            ],
+                        },
+                        {
+                            "index": 1,
+                            "episodes": [{"job_name": "task_alpha_pi0", "success": True}],
+                        },
+                    ],
+                },
+                "task_alpha_cosmos": {
+                    "status": "completed",
+                    "rebuilds": [{
+                        "index": 0,
+                        "episodes": [{"job_name": "task_alpha_cosmos", "success": False}],
+                    }],
+                },
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    results = collect_success_rates(result_path, ["pi0", "cosmos"])
+
+    assert results[("task_alpha", "pi0")] == SuccessRateResult(successful_episodes=2, total_episodes=3)
+    assert results[("task_alpha", "cosmos")] == SuccessRateResult(successful_episodes=0, total_episodes=1)
+
+
 def test_collect_success_rates_uses_most_recent_dated_experiment_directory(tmp_path):
     output_directory = tmp_path / "output"
     _write_episode_results(
