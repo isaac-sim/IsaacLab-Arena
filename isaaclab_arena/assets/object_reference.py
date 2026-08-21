@@ -5,12 +5,10 @@
 
 import trimesh
 
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object import Object, RootedTransform
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.terms.events import reset_articulation_pose_and_joints
@@ -25,11 +23,11 @@ from isaaclab_arena.utils.usd_helpers import (
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
-class ObjectReference(ObjectBase):
-    """An object which *refers* to an existing element in the scene"""
+class ReferencedPrim:
+    """Provenance and geometry behavior for a prim nested in a parent asset."""
 
-    def __init__(self, parent_asset: Object, **kwargs):
-        super().__init__(**kwargs)
+    def _init_referenced_prim(self, parent_asset: Object) -> None:
+        """Resolve and cache this object's parent-relative prim state."""
         self.parent_asset = parent_asset
         self._parent_scale = parent_asset.scale
         # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
@@ -65,6 +63,12 @@ class ObjectReference(ObjectBase):
         """Return the referenced prim's absolute path in its parent USD stage."""
         return self._prim_path_in_parent_usd
 
+    def _resolve_prim_path_in_parent_usd(self, parent_stage: Usd.Stage) -> str:
+        """Return the cached referenced path, resolving it for partially initialized test objects."""
+        return getattr(self, "_prim_path_in_parent_usd", None) or self.isaaclab_prim_path_to_original_prim_path(
+            self.prim_path, self.parent_asset, parent_stage
+        )
+
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
 
@@ -90,9 +94,7 @@ class ObjectReference(ObjectBase):
         """
         if self._bounding_box is None:
             with open_stage(self.parent_asset.usd_path) as parent_stage:
-                prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
-                    self.prim_path, self.parent_asset, parent_stage
-                )
+                prim_path_in_usd = self._resolve_prim_path_in_parent_usd(parent_stage)
                 raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
                 # Apply parent's scale (no centering - solver is origin-agnostic)
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
@@ -130,61 +132,14 @@ class ObjectReference(ObjectBase):
     def _extract_collision_mesh(self) -> trimesh.Trimesh:
         """Extract the referenced prim mesh from the parent asset USD."""
         with open_stage(self.parent_asset.usd_path) as parent_stage:
-            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
-                self.prim_path, self.parent_asset, parent_stage
-            )
+            prim_path_in_usd = self._resolve_prim_path_in_parent_usd(parent_stage)
             if not parent_stage.GetPrimAtPath(prim_path_in_usd):
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
             return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        # NOTE(alexmillane): Right now this requires that the object
-        # has the contact sensor enabled prior to using this reference.
-        # At the moment, for the tests, I enabled the relevant APIs in the GUI.
-        # TODO(alexmillane, 2025.09.08): Make the code automatically enable the
-        # contact reporter API.
-        # NOTE(alexmillane, 2025.11.27): I've added a function for adding
-        # the contact reporter API to a prim in a USD, perhaps that can be repurposed
-        # and used here.
-        # Just call out to the parent class method.
-        return super().get_contact_sensor_cfg(contact_against_object)
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        assert self.object_type == ObjectType.RIGID
-        initial_pose = self.get_initial_pose()
-        object_cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            init_state=RigidObjectCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
-        )
-        return object_cfg
-
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        assert self.object_type == ObjectType.ARTICULATION
-        initial_pose = self.get_initial_pose()
-        object_cfg = ArticulationCfg(
-            prim_path=self.prim_path,
-            actuators={},
-            init_state=ArticulationCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
-        )
-        return object_cfg
-
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        assert self.object_type == ObjectType.BASE
-        initial_pose = self.get_initial_pose()
-        object_cfg = AssetBaseCfg(
-            prim_path=self.prim_path,
-            init_state=AssetBaseCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
-        )
-        return object_cfg
+    def _get_cfg_source_kwargs(self, activate_contact_sensors: bool = False) -> dict[str, object]:
+        """Return no spawn arguments because the referenced prim already exists."""
+        return {}
 
     def _get_referenced_prim_path_and_pose_relative_to_parent(self, parent_asset: Object) -> tuple[str, Pose]:
         """Get the prim path and transform pose relative to the parent's default prim.
@@ -239,6 +194,15 @@ class ObjectReference(ObjectBase):
         # Append the default prim path.
         original_prim_path = str(default_prim_path) + original_prim_path
         return original_prim_path
+
+
+class ObjectReference(ReferencedPrim, RootedTransform, ObjectBase):
+    """Rigid, articulated, or static object represented by an existing parent prim."""
+
+    def __init__(self, parent_asset: Object, **kwargs):
+        super().__init__(**kwargs)
+        self._init_rooted_transform()
+        self._init_referenced_prim(parent_asset)
 
 
 class OpenableObjectReference(ObjectReference, Openable):
