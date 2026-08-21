@@ -592,7 +592,38 @@ This step requires the Hugging Face CLI, which can be installed by following the
 </pre></div>
 </div>
 </div>
-</details><section id="step-1-run-single-environment-evaluation">
+</details><p><strong>Prerequisite: launch the GR00T policy server</strong></p>
+<p>The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
+Before running the evaluation, open another terminal <strong>outside the Arena development
+container</strong>.
+The server runs out of
+the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6">Isaac-GR00T</a>
+submodule pinned at commit <code class="docutils literal notranslate"><span class="pre">e29d8fc</span></code>; populate it with
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">update</span> <span class="pre">--init</span> <span class="pre">submodules/Isaac-GR00T</span></code> if it is not already
+checked out. Then, from the repository root in that terminal, launch the server and
+leave it running:</p>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> submodule will be removed after the policy
+config refactor. After that, users will be expected to set up a separate
+GR00T repository checkout themselves and launch the server from there.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Blackwell GPUs with compute capability <code class="docutils literal notranslate"><span class="pre">sm_120</span></code> require CUDA 12.8 or newer. The
+<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102">official GR00T documentation</a>
+specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems. Please refer to the
+documentation for the latest requirements.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model-path<span class="w"> </span>/models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment-tag<span class="w"> </span>NEW_EMBODIMENT<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
+</pre></div>
+</div>
+<section id="step-1-run-single-environment-evaluation">
 <h2>Step 1: Run Single Environment Evaluation<a class="headerlink" href="#step-1-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>We first run the policy in a single environment with visualization via the GUI.</p>
 <p>The Arena GR00T evaluation client is configured by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml</span></code>.</p>
@@ -616,28 +647,7 @@ This step requires the Hugging Face CLI, which can be installed by following the
 </pre></div>
 </div>
 </div>
-</details><p><strong>Prerequisite: launch the GR00T policy server</strong></p>
-<p>The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
-The server runs out of
-the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6">Isaac-GR00T</a>
-submodule pinned at commit <code class="docutils literal notranslate"><span class="pre">e29d8fc</span></code>; populate it with
-<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">update</span> <span class="pre">--init</span> <span class="pre">submodules/Isaac-GR00T</span></code> if it is not already
-checked out. Then, in a separate shell with <code class="docutils literal notranslate"><span class="pre">uv</span></code> available from the repo root:</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> submodule will be removed after the policy
-config refactor. After that, users will be expected to set up a separate
-GR00T repository checkout themselves and launch the server from there.</p>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
-uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--model-path<span class="w"> </span>/models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment-tag<span class="w"> </span>NEW_EMBODIMENT<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
-</pre></div>
-</div>
-<p>Test the policy in a single environment with visualization via the GUI run:</p>
+</details><p>Test the policy in a single environment with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
