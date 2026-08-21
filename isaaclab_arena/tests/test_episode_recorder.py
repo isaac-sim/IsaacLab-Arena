@@ -44,8 +44,8 @@ PROGRESS_KEY = "progress"
 
 # Field contributed by the initial-rest-position recorder.
 ENV_ORIGIN_KEY = "env_origin"
-INITIAL_RESET_POSITIONS_KEY = "initial_reset_positions"
-INITIAL_REST_POSITIONS_KEY = "initial_rest_positions"
+RESET_POSITIONS_KEY = "reset_positions"
+SETTLED_POSITIONS_KEY = "settled_positions"
 
 # Deterministic, single-valued (low == high) sample for the variation test, so each draw is known.
 VARIATION_NAME = "record_test_variation"
@@ -198,19 +198,19 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
             # progress block contributed by PickAndPlaceTask's progress objectives.
             expected_keys = CORE_KEYS | {
                 ENV_ORIGIN_KEY,
-                INITIAL_RESET_POSITIONS_KEY,
-                INITIAL_REST_POSITIONS_KEY,
+                RESET_POSITIONS_KEY,
+                SETTLED_POSITIONS_KEY,
                 PROGRESS_KEY,
             }
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
             assert record["language_instruction"] == LANGUAGE_INSTRUCTION
             assert isinstance(record["episode_length"], int)
-            reset_position = record[INITIAL_RESET_POSITIONS_KEY].get("cracker_box")
+            reset_position = record[RESET_POSITIONS_KEY].get("cracker_box")
             assert reset_position is not None
             assert len(reset_position) == 3
             assert all(isinstance(value, float) for value in reset_position)
-            initial_position = record[INITIAL_REST_POSITIONS_KEY].get("cracker_box")
+            initial_position = record[SETTLED_POSITIONS_KEY].get("cracker_box")
             if initial_position is not None:
                 assert len(initial_position) == 3
                 assert all(isinstance(value, float) for value in initial_position)
@@ -264,8 +264,8 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
         for record in records:
             expected_keys = CORE_KEYS | {
                 ENV_ORIGIN_KEY,
-                INITIAL_RESET_POSITIONS_KEY,
-                INITIAL_REST_POSITIONS_KEY,
+                RESET_POSITIONS_KEY,
+                SETTLED_POSITIONS_KEY,
                 PROGRESS_KEY,
                 CUSTOM_KEY,
             }

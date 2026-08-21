@@ -37,7 +37,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 )
 from isaaclab_arena.recording.common_terms import (
     CoreEpisodeRecorderTermCfg,
-    InitialRestPositionEpisodeRecorderTermCfg,
+    InitialPositionEpisodeRecorderTermCfg,
     VariationEpisodeRecorderTermCfg,
 )
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
@@ -201,7 +201,7 @@ class ArenaEnvBuilder:
             (
                 "initial_rest_positions",
                 EpisodeRecorderTermCfg,
-                InitialRestPositionEpisodeRecorderTermCfg(),
+                InitialPositionEpisodeRecorderTermCfg(),
             ),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),

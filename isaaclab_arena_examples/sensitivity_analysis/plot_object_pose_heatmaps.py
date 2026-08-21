@@ -20,15 +20,15 @@ from pathlib import Path
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME  # noqa: E402
 from isaaclab_arena.visualization.episode_results_files import (  # noqa: E402
     find_episode_results_files,
     read_episode_results,
 )
 
-RESET_POSITIONS_KEY = "initial_reset_positions"
-SETTLED_POSITIONS_KEY = "initial_rest_positions"
+RESET_POSITIONS_KEY = "reset_positions"
+SETTLED_POSITIONS_KEY = "settled_positions"
 DEFAULT_GRID_SIZE_M = 0.05
-ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 
 
 def grid_edges(values: np.ndarray, grid_size_m: float) -> np.ndarray:
@@ -49,26 +49,21 @@ def bin_xy(
     xy: np.ndarray,
     x_edges: np.ndarray,
     y_edges: np.ndarray,
-    successes: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray | None]:
-    """Bin x/y positions into episode counts and optional per-cell success rates."""
+    weights: np.ndarray | None = None,
+) -> np.ndarray:
+    """Bin x/y positions, optionally weighting each sample."""
     xy = np.asarray(xy, dtype=float)
     assert xy.ndim == 2 and xy.shape[1] == 2, f"xy must have shape (N, 2), got {xy.shape}"
-    counts, _, _ = np.histogram2d(xy[:, 1], xy[:, 0], bins=(y_edges, x_edges))
-    if successes is None:
-        return counts, None
-
-    successes = np.asarray(successes, dtype=float)
-    assert successes.shape == (xy.shape[0],), f"successes must have shape ({xy.shape[0]},), got {successes.shape}"
-    success_counts, _, _ = np.histogram2d(
+    if weights is not None:
+        weights = np.asarray(weights, dtype=float)
+        assert weights.shape == (xy.shape[0],), f"weights must have shape ({xy.shape[0]},), got {weights.shape}"
+    histogram, _, _ = np.histogram2d(
         xy[:, 1],
         xy[:, 0],
         bins=(y_edges, x_edges),
-        weights=successes,
+        weights=weights,
     )
-    success_rates = np.full(counts.shape, np.nan, dtype=float)
-    np.divide(success_counts, counts, out=success_rates, where=counts > 0)
-    return counts, success_rates
+    return histogram
 
 
 def _xy(position: object) -> tuple[float, float] | None:
@@ -150,8 +145,7 @@ def to_env_local_positions(records: list[dict]) -> list[dict]:
                 position = _xy(value)
                 if position is None:
                     continue
-                local_xy = np.asarray(position) - np.asarray(env_origin)
-                local_positions[name] = [*local_xy.tolist(), *value[2:]]
+                local_positions[name] = [position[0] - env_origin[0], position[1] - env_origin[1], *value[2:]]
             local_record[key] = local_positions
         local_records.append(local_record)
     return local_records
@@ -212,9 +206,11 @@ def plot_object_heatmaps(
 
     x_edges = grid_edges(combined_xy[:, 0], grid_size_m)
     y_edges = grid_edges(combined_xy[:, 1], grid_size_m)
-    reset_counts, _ = bin_xy(reset_xy, x_edges, y_edges)
-    settled_counts, success_rates = bin_xy(settled_xy, x_edges, y_edges, settled_successes)
-    assert success_rates is not None
+    reset_counts = bin_xy(reset_xy, x_edges, y_edges)
+    settled_counts = bin_xy(settled_xy, x_edges, y_edges)
+    success_counts = bin_xy(settled_xy, x_edges, y_edges, settled_successes)
+    success_rates = np.full(settled_counts.shape, np.nan, dtype=float)
+    np.divide(success_counts, settled_counts, out=success_rates, where=settled_counts > 0)
 
     figure, axes = plt.subplots(1, 3, figsize=(18, 5.5), sharex=True, sharey=True)
     extent = (x_edges[0], x_edges[-1], y_edges[0], y_edges[-1])
@@ -249,7 +245,7 @@ def plot_object_heatmaps(
     figure.tight_layout(rect=[0, 0, 1, 0.92])
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(output_path, dpi=150, bbox_inches="tight")
+    figure.savefig(output_path, dpi=150)
     plt.close(figure)
     return output_path
 
@@ -282,8 +278,8 @@ def generate_heatmaps(
     for run_name, records in sorted(records_by_task.items()):
         task_name, policy = _split_task_and_policy(run_name, policies) if policies else (run_name, None)
         records = to_env_local_positions(records)
+        policy_output_dir = output_dir / policy if policy is not None else output_dir
         for object_name in object_names(records):
-            policy_output_dir = output_dir / policy if policy is not None else output_dir
             output_path = policy_output_dir / f"{_slug(task_name)}__{_slug(object_name)}.png"
             written.append(
                 plot_object_heatmaps(

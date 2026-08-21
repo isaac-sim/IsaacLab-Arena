@@ -14,19 +14,16 @@ from isaaclab_arena_examples.sensitivity_analysis.plot_object_pose_heatmaps impo
 )
 
 
-def test_bin_xy_counts_and_normalized_success_rates():
+def test_bin_xy_counts_support_optional_weights():
     xy = np.asarray([[0.01, 0.01], [0.02, 0.01], [0.07, 0.07]])
     successes = np.asarray([True, False, True])
     edges = np.asarray([0.0, 0.05, 0.10])
 
-    counts, rates = bin_xy(xy, edges, edges, successes)
+    counts = bin_xy(xy, edges, edges)
+    success_counts = bin_xy(xy, edges, edges, successes)
 
-    assert rates is not None
     assert counts.tolist() == [[2.0, 0.0], [0.0, 1.0]]
-    assert rates[0, 0] == 0.5
-    assert rates[1, 1] == 1.0
-    assert np.isnan(rates[0, 1])
-    assert np.isnan(rates[1, 0])
+    assert success_counts.tolist() == [[1.0, 0.0], [0.0, 1.0]]
 
 
 def test_generate_heatmaps_from_episode_results(tmp_path):
@@ -37,15 +34,15 @@ def test_generate_heatmaps_from_episode_results(tmp_path):
             "job_name": "task_a",
             "env_origin": [0.0, 0.0, 0.0],
             "success": True,
-            "initial_reset_positions": {"object": [0.01, 0.01, 0.1]},
-            "initial_rest_positions": {"object": [0.02, 0.01, 0.05]},
+            "reset_positions": {"object": [0.01, 0.01, 0.1]},
+            "settled_positions": {"object": [0.02, 0.01, 0.05]},
         },
         {
             "job_name": "task_a",
             "env_origin": [0.0, 0.0, 0.0],
             "success": False,
-            "initial_reset_positions": {"object": [0.08, 0.07, 0.1]},
-            "initial_rest_positions": {"object": [0.07, 0.07, 0.05]},
+            "reset_positions": {"object": [0.08, 0.07, 0.1]},
+            "settled_positions": {"object": [0.07, 0.07, 0.05]},
         },
     ]
     results_path = task_dir / "episode_results_rebuild0.jsonl"
@@ -64,8 +61,8 @@ def test_generate_heatmaps_from_arena_experiment_result_by_policy(tmp_path):
         "env_id": 0,
         "env_origin": [0.0, 0.0, 0.0],
         "success": True,
-        "initial_reset_positions": {"object": [0.01, 0.01, 0.1]},
-        "initial_rest_positions": {"object": [0.02, 0.01, 0.05]},
+        "reset_positions": {"object": [0.01, 0.01, 0.1]},
+        "settled_positions": {"object": [0.02, 0.01, 0.05]},
     }
     result_path = tmp_path / "arena_experiment_result.json"
     result_path.write_text(
@@ -109,21 +106,26 @@ def test_to_env_local_positions_subtracts_recorded_origins_only():
         {
             "env_id": 0,
             "env_origin": [30.0, -15.0, 0.0],
-            "initial_reset_positions": {"object": [30.4, -14.8, 0.1]},
-            "initial_rest_positions": {"object": [30.5, -14.7, 0.1]},
+            "reset_positions": {"object": [30.4, -14.8, 0.1]},
+            "settled_positions": {"object": [30.5, -14.7, 0.1]},
         },
         {
             "env_id": 1,
             "env_origin": [30.0, 15.0, 0.0],
-            "initial_reset_positions": {"object": [30.4, 15.2, 0.1]},
-            "initial_rest_positions": {"object": [30.5, 15.3, 0.1]},
+            "reset_positions": {"object": [30.4, 15.2, 0.1]},
+            "settled_positions": {"object": [30.5, 15.3, 0.1]},
         },
     ]
 
     local = to_env_local_positions(records)
-    env0 = local[0]["initial_reset_positions"]["object"]
-    env1 = local[1]["initial_reset_positions"]["object"]
+    reset_env0 = local[0]["reset_positions"]["object"]
+    reset_env1 = local[1]["reset_positions"]["object"]
+    settled_env0 = local[0]["settled_positions"]["object"]
+    settled_env1 = local[1]["settled_positions"]["object"]
 
-    assert np.allclose(env0[:2], env1[:2])
-    assert np.allclose(env0[:2], [0.4, 0.2])
-    assert env0[2] == 0.1
+    assert np.allclose(reset_env0[:2], reset_env1[:2])
+    assert np.allclose(reset_env0[:2], [0.4, 0.2])
+    assert reset_env0[2] == 0.1
+    assert np.allclose(settled_env0[:2], settled_env1[:2])
+    assert np.allclose(settled_env0[:2], [0.5, 0.3])
+    assert settled_env0[2] == 0.1

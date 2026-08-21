@@ -60,8 +60,8 @@ def record_initial_rest_positions(env, env_id: int) -> dict[str, Any]:
     }
     return {
         "env_origin": env.scene.env_origins[env_id].tolist(),
-        "initial_reset_positions": reset_positions,
-        "initial_rest_positions": settled_positions,
+        "reset_positions": reset_positions,
+        "settled_positions": settled_positions,
     }
 
 
@@ -80,7 +80,7 @@ class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
 
 
 @configclass
-class InitialRestPositionEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
+class InitialPositionEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording the environment origin and tracked objects' reset/settled world positions."""
 
     func: Callable[..., dict[str, Any]] = record_initial_rest_positions

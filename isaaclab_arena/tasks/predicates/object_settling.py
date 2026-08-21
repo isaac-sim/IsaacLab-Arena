@@ -58,9 +58,8 @@ class ObjectInitialRestPoseRecorder:
 
         entry = self._entry(name)
         new = settled & ~entry["settled"]
-        if bool(new.any()):
-            entry["settled_position"] = torch.where(new.unsqueeze(-1), positions, entry["settled_position"])
-            entry["settled"] = entry["settled"] | new
+        entry["settled_position"][new] = positions[new]
+        entry["settled"].logical_or_(new)
 
     def get(self, name: str) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(position, settled)`` for object's recorded initial rest pose."""
@@ -102,9 +101,7 @@ def get_rest_pose_recorder(env) -> ObjectInitialRestPoseRecorder:
 def reset_rest_pose_recorder(env, env_ids=None) -> None:
     """Clear recorded initial rest poses for ``env_ids``. Invoked by the progress tracker on env reset."""
 
-    recorder = getattr(get_env(env), "object_initial_rest_pose_recorder", None)
-    if recorder is not None:
-        recorder.reset(env_ids)
+    get_rest_pose_recorder(env).reset(env_ids)
 
 
 def record_object_reset_positions(env, object_names: list[str], env_ids=None) -> None:
