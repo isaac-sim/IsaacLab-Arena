@@ -8,7 +8,7 @@
 python isaaclab_arena/evaluation/policy_runner.py \
   --policy_type zero_action \
   --num_steps 200 \
-  pick_and_place_maple_table
+  pick_and_place_airpod
 
 在指定环境中用指定策略运行给定的步数。
 """
@@ -28,31 +28,35 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
-    """Configure the Maple-table pick-and-place environment."""
+class AirPodEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the airpod Maple-table pick-and-place environment."""
 
+    enable_cameras: bool = False
     embodiment: str = "droid_abs_joint_pos"
     hdr: str | None = None
     light_intensity: float = 500.0
     # 待抓取的物体
-    pick_up_object: str = "rubiks_cube_hot3d_robolab"
+    pick_up_object: str = "rubiks_cube_hot3d_robolab"  # 需要改成 airpod
     # 目标放置位置
-    destination_location: str = "bowl_ycb_robolab"
-    additional_table_objects: list[str] = field(default_factory=list)
-    episode_length_s: float = 70.0
-
-    def __post_init__(self) -> None:
-        assert self.episode_length_s > 0.0, "episode_length_s must be greater than zero"
+    destination_location: str = "bowl_ycb_robolab"  # 需要改成 airpod 盒子
+    # 额外干扰物体，放在桌子上，增加环境复杂性，需要改成 airpod 盒盖
+    additional_table_objects: list[str] = field(
+        default_factory=lambda: [
+            "banana_ycb_robolab",
+            "chocolate_pudding_ycb_robolab",
+            "mug_ycb_robolab",
+        ]
+    )
 
 
 @register_environment
-class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapleTableEnvironmentCfg]):
-    """Registered provider for the Maple-table pick-and-place environment."""
+class AirPodEnvironment(ArenaEnvironmentFactory[AirPodEnvironmentCfg]):
+    """Registered provider for the airpod pick-and-place environment."""
 
-    name: str = "pick_and_place_maple_table"
-    _legacy_argparse_cfg_type = PickAndPlaceMapleTableEnvironmentCfg
+    name: str = "pick_and_place_airpod"
+    _legacy_argparse_cfg_type = AirPodEnvironmentCfg
 
-    def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: AirPodEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab.envs.common import ViewerCfg
 
@@ -68,7 +72,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
         destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location)()
 
-        # Step 2: Describe spatial relationships
+        # Step 2: 桌子为场景中的固定物体
         table_reference = ObjectReference(
             name="table",
             prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
@@ -77,9 +81,11 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         )
         table_reference.add_relation(IsAnchor())
 
+        # 桌子上放两个物体
         pick_up_object.add_relation(On(table_reference))
         destination_location.add_relation(On(table_reference))
 
+        # 桌子上的额外物体
         additional_table_objects = [
             self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_objects
         ]
@@ -93,12 +99,12 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
         directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
-        # Step 4: Select the embodiment
+        # Step 4: 设置机械臂
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
             enable_cameras=cfg.enable_cameras,
         )
 
-        # Step 5: Compose the scene
+        # Step 5: 组装场景（不包括机械臂）
         scene = Scene(
             assets=[
                 background,
@@ -111,20 +117,20 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             ]
         )
 
-        # Step 6: Define the task
+        # Step 6: 定义任务
         task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
             background_scene=background,
-            episode_length_s=cfg.episode_length_s,
+            episode_length_s=20.0,
         )
 
-        # Set viewport camera to match the robolab droid view
+        # 设置视口摄像机以匹配 robolab droid 视图
         def _set_viewer_cfg(env_cfg):
             env_cfg.viewer = ViewerCfg(eye=(1.5, 0.0, 1.0), lookat=(0.2, 0.0, 0.0))
             return env_cfg
 
-        # Step 7: Assemble the environment
+        # Step 7: 组装环境，包括机械臂、场景、任务和视口配置
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -138,5 +144,5 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
-        # Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).
+        # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)
