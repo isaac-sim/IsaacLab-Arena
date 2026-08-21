@@ -94,13 +94,15 @@ Expected behavior:
 - Uses `serve-openpi-policy` to reuse a matching ready server or start one on the configured local
   endpoint before launching the Experiment.
 - Discloses and confirms a potentially large first image build or checkpoint download.
-- Waits for OpenPI readiness, runs the Experiment, verifies its artifacts, and leaves the server
-  running while reporting its endpoint and identity.
+- Waits for OpenPI readiness from a retained asynchronous terminal session, runs the Experiment
+  while that session remains active, verifies its artifacts, and leaves the server running while
+  reporting its endpoint and identity.
 
 Known failure modes:
 
 - Requires the user to discover and invoke the server skill separately.
 - Infers OpenPI only from the filename, starts a duplicate server, or serves a mismatched variant.
+- Waits for the server command to exit before running the Experiment or loses its session handle.
 - Treats a listening TCP port as sufficient readiness, submits to OSMO, or stops the server without
   being asked.
 

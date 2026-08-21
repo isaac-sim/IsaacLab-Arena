@@ -68,10 +68,10 @@ owner.
 
 ## Disclose first-run work
 
-Before a missing-image launch, explain that the documented first build takes about three minutes
-and creates an image of roughly 19 GB. Also disclose that a first launch of a variant can download
-roughly 11 GB of checkpoint data into the OpenPI cache. Obtain confirmation before starting that
-large build or download.
+Read the current build-time, image-size, and checkpoint-download estimates from the checked-out
+OpenPI workflow and disclose them before a missing-image or uncached-variant launch. Obtain
+confirmation before starting that large build or download. Do not rely on copied estimates when the
+checked-out documentation has newer values.
 
 Use `-r` only when the user explicitly requests a forced rebuild and confirms it. Do not push an
 image, run a no-cache build, clear caches, or install or change Docker, GPU drivers, or the NVIDIA
@@ -79,25 +79,33 @@ Container Toolkit through this skill.
 
 ## Launch and verify
 
-Run the wrapper from the repository root in a foreground terminal session. Pass the resolved values
-explicitly so the effective server matches the Experiment:
+Start the wrapper from the repository root in a retained terminal session that runs asynchronously
+from this workflow. Keep the wrapper in the foreground of that session, record the returned session
+or task handle, and pass the resolved values explicitly so the effective server matches the
+Experiment:
 
 ```bash
 ./isaaclab_arena_openpi/docker/run_openpi_server.sh -v <pi05-or-pi0> -p <port>
 ```
 
-Keep the session alive. Do not report readiness until the wrapper remains running and emits the
-readiness line for the selected port. The wrapper owns the image build, host-network Docker launch,
-GPU access, checkpoint cache, and cache-ownership cleanup; do not duplicate those operations.
+Retain the terminal session handle and poll its output without waiting for the command to finish;
+the command is expected to remain active for the server's lifetime. Do not append `&`, use `nohup`,
+or replace the wrapper with a detached Docker command. Do not report readiness until the wrapper
+remains running and emits the readiness line for the selected port. After readiness, leave that
+session active while returning control to `run-experiment`.
+
+The wrapper owns the image build, host-network Docker launch, GPU access, checkpoint cache, and
+cache-ownership cleanup; do not duplicate those operations.
 
 On failure, preserve and report the wrapper output. Do not silently rebuild, change variants or
 ports, stop another process, or retry with different settings.
 
 ## Hand off the endpoint
 
-Return the variant, loopback host, port, readiness evidence, exact container identity, and the
-foreground session identity when known. If `run-experiment` requested the server, return control to
-it so it can execute the Experiment and verify artifacts. Do not invoke the Experiment Runner here.
+Return the variant, loopback host, port, readiness evidence, exact container identity, and retained
+terminal session handle when this workflow started the server. If `run-experiment` requested the
+server, return control to it while the retained session remains active so it can execute the
+Experiment and verify artifacts. Do not invoke the Experiment Runner here.
 
 When the user approves a different port, provide the corresponding per-Run Hydra override, for
 example:
@@ -111,10 +119,10 @@ Do not edit the Experiment Definition merely to change the local endpoint.
 ## Stop only on request
 
 Leave the server running after an Experiment unless the user asks to stop it. For a server started
-in this workflow, interrupt its retained foreground session so the wrapper can remove its temporary
-container and repair cache ownership. Never stop an arbitrary port owner or a reused server based
-only on an image name. If the original session cannot be identified safely, report that limitation
-instead of guessing.
+in this workflow, send an interrupt through its retained terminal session, wait for the wrapper to
+exit, and confirm that its temporary container stopped. This lets the wrapper repair cache
+ownership. Never stop an arbitrary port owner or a reused server based only on an image name. If the
+original session cannot be identified safely, report that limitation instead of guessing.
 
 ## References
 

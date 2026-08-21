@@ -23,14 +23,16 @@ Query: "Start the default OpenPI server for a local rollout."
 Expected behavior:
 
 - Checks for a compatible running server and the server image before launching.
-- If the image is missing, discloses the roughly 19 GB image build and possible 11 GB checkpoint
-  download and obtains confirmation.
-- Starts pi05 on port 8000 only after confirmation and waits for the readiness log.
+- If the image or selected variant is uncached, reads and discloses the current build and download
+  estimates from the checked-out OpenPI workflow and obtains confirmation.
+- Starts pi05 on port 8000 only after confirmation in a retained asynchronous terminal session and
+  waits for the readiness log without waiting for the server process to exit.
 
 Known failure modes:
 
 - Starts a large build or download without confirmation.
 - Reports readiness while the build, download, or server startup is still running.
+- Blocks forever waiting for the server command to exit or launches an unmanaged background process.
 
 ## Scenario 3: Select Pi0 On A Non-Default Port
 
@@ -70,11 +72,13 @@ Expected behavior:
 
 - `run-experiment` detects `Pi0RemotePolicy` from the policy type and uses this skill without a
   separate user invocation.
-- This skill resolves the configured variant and local endpoint, starts and verifies the server,
-  then returns control for Experiment execution.
+- This skill resolves the configured variant and local endpoint, starts and verifies the server in
+  a retained asynchronous terminal session, then returns control while that session remains active
+  for Experiment execution.
 - The server remains running afterward unless the user explicitly asks to stop it.
 
 Known failure modes:
 
 - Infers the provider only from the filename, asks the user to invoke this skill manually, runs the
-  Experiment before readiness, submits to OSMO, or stops the server automatically.
+  Experiment before readiness, waits for the server process to exit, loses the retained session
+  handle, submits to OSMO, or stops the server automatically.
