@@ -11,6 +11,8 @@ from isaaclab_arena.utils.pose import Pose
 def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pose:
     """Get the pose of a prim in the default prim's local frame.
 
+    Scale is intentionally omitted because ``Pose`` represents only a rigid transform.
+
     Args:
         prim: The prim to get the pose of.
         stage: The stage to get the default prim from.

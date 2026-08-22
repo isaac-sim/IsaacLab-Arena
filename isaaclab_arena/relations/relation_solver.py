@@ -10,8 +10,8 @@ import torch
 from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
-from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
+from isaaclab_arena.relations.no_overlap_obb import compute_no_overlap_loss_obb
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 
 class RelationSolver:
@@ -48,17 +48,16 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
-        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
-        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=self.params.collision_loss_slope)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
         self._last_no_overlap_pair_count: int = 0
-        self._mesh_orientations: list[dict[PlaceableAsset, float]] | None = None
         self._warned_no_mesh: set[str] = set()
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
         self._mesh_collision_enabled = False
+        self._last_state: RelationSolverState | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type.
@@ -107,7 +106,7 @@ class RelationSolver:
                         child_bbox=child_bbox,
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
+                        _print_unary_relation_debug(obj, relation, child_pos, child_bbox, loss)
                 # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
@@ -126,7 +125,15 @@ class RelationSolver:
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
+                        _print_relation_debug(
+                            obj,
+                            relation,
+                            child_pos,
+                            child_bbox,
+                            parent_pos,
+                            parent_world_bbox,
+                            loss,
+                        )
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
@@ -154,12 +161,11 @@ class RelationSolver:
                 state,
                 self._mesh_cache,
                 self._mesh_manager,
-                self._mesh_orientations,
-                self.params.clearance_m,
-                self._no_collision_strategy.slope,
-                debug,
+                clearance_m=self.params.clearance_m,
+                slope=self._no_collision_strategy.slope,
+                debug=debug,
             )
-            aabb_loss, n = compute_no_overlap_loss_aabb(
+            bbox_loss, pair_count = compute_no_overlap_loss_obb(
                 state,
                 self._no_collision_strategy,
                 self.params.clearance_m,
@@ -168,9 +174,9 @@ class RelationSolver:
                 skip_mesh_pairs=True,
                 debug=debug,
             )
-            self._last_no_overlap_pair_count = n
-            return mesh_loss + aabb_loss
-        loss, n = compute_no_overlap_loss_aabb(
+            self._last_no_overlap_pair_count = pair_count
+            return mesh_loss + bbox_loss
+        loss, pair_count = compute_no_overlap_loss_obb(
             state,
             self._no_collision_strategy,
             self.params.clearance_m,
@@ -178,16 +184,15 @@ class RelationSolver:
             self.params.collision_mode,
             debug=debug,
         )
-        self._last_no_overlap_pair_count = n
+        self._last_no_overlap_pair_count = pair_count
         return loss
 
     def solve(
         self,
         objects: list[PlaceableAsset],
         initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
-        env_bboxes_include_yaw: bool = False,
-        orientations: list[dict[PlaceableAsset, float]] | None = None,
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox] | None = None,
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> list[dict[PlaceableAsset, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
@@ -199,13 +204,10 @@ class RelationSolver:
                 for single-env placement.
             env_bboxes: Optional per-env bounding boxes keyed by object.
                 ObjectPlacer always supplies these, with each
-                AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
+                OrientedBoundingBox shaped with N=batch. Direct solver calls
                 may omit them to use each object's default get_bounding_box().
-            env_bboxes_include_yaw: Whether env_bboxes already enclose each object's
-                yawed footprint. ObjectPlacer sets this after applying candidate yaw;
-                direct callers should leave it False unless they expanded the bboxes.
-            orientations: Optional per-env yaw angles (radians about Z) per object.
-                Used in MESH mode to rotate sphere centers before collision queries.
+            rotations: Optional fixed per-candidate xyzw rotations for movable
+                objects. FaceTo rotations are derived from current positions.
             collision_objects: Optional fixed background obstacles included in the
                 no-overlap collision term only. They are not optimized and carry no
                 relation constraints.
@@ -213,11 +215,18 @@ class RelationSolver:
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
-        assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(
-            objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
+            objects,
+            initial_positions,
+            device=device,
+            env_bboxes=env_bboxes,
+            rotations=rotations,
+            collision_objects=collision_objects,
         )
+        self._last_state = state
+        self._mesh_collision_enabled = False
+        self._mesh_cache = None
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -241,7 +250,6 @@ class RelationSolver:
             torch.cuda.synchronize()
         solve_start = time.perf_counter()
 
-        # Precompute mesh collision cache (once per solve, before opt loop)
         self._mesh_collision_enabled = self._should_use_mesh_collision(state)
         if self._mesh_collision_enabled:
             non_anchor_objects = state.optimizable_objects
@@ -252,7 +260,6 @@ class RelationSolver:
                     if isinstance(rel, On):
                         on_pairs.add((id(obj), id(rel.parent)))
                         on_pairs.add((id(rel.parent), id(obj)))
-            self._mesh_orientations = orientations
             device_str = str(state.device)
             if self._mesh_manager is None or self._mesh_manager.device != device_str:
                 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
@@ -264,11 +271,8 @@ class RelationSolver:
                 on_pairs,
                 self._warned_no_mesh,
                 default_collision_mode=self.params.collision_mode,
-                bboxes_include_yaw=env_bboxes_include_yaw,
             )
-            self._mesh_manager.reset_sentinel_warning()
         else:
-            self._mesh_orientations = None
             self._mesh_cache = None
 
         # Setup optimizer (only for optimizable positions)
@@ -365,15 +369,12 @@ class RelationSolver:
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        final_positions_list = self.last_position_history[-1] if self.last_position_history else None
-        if final_positions_list is None:
-            print("No position history available. Run solve() first.")
+        if self._last_state is None:
+            print("No solver state available. Run solve() first.")
             return
 
-        final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
-
-        state = RelationSolverState(objects, [final_positions])
-        self._compute_total_loss(state, debug=True)
+        assert objects == self._last_state.all_objects, "objects must match the most recent solve() call."
+        self._compute_total_loss(self._last_state, debug=True)
         print("\n" + "=" * 60)
 
 
@@ -381,63 +382,62 @@ def _print_relation_debug(
     obj: PlaceableAsset,
     relation: Relation,
     child_pos: torch.Tensor,
+    child_bbox: OrientedBoundingBox,
     parent_pos: torch.Tensor,
+    parent_world_bbox: OrientedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a single binary relation."""
-    child_bbox = obj.get_bounding_box()
-    parent_world_bbox = relation.parent.get_world_bounding_box()
+    child_min, child_max = child_bbox.get_axis_aligned_bounds()
+    parent_min, parent_max = parent_world_bbox.get_axis_aligned_bounds()
 
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
-    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(
-        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
-        f" size={child_bbox.size[0].tolist()}"
-    )
-    print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
-    print(
-        f"  Parent world bbox: min={parent_world_bbox.min_point[0].tolist()},"
-        f" max={parent_world_bbox.max_point[0].tolist()}, size={parent_world_bbox.size[0].tolist()}"
-    )
-
-    # Child world extents
-    child_x_range = (
-        child_pos[0].item() + child_bbox.min_point[0, 0].item(),
-        child_pos[0].item() + child_bbox.max_point[0, 0].item(),
-    )
-    child_y_range = (
-        child_pos[1].item() + child_bbox.min_point[0, 1].item(),
-        child_pos[1].item() + child_bbox.max_point[0, 1].item(),
-    )
-
-    print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
-    print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(
-        f"  Parent world X: [{parent_world_bbox.min_point[0, 0].item():.4f},"
-        f" {parent_world_bbox.max_point[0, 0].item():.4f}]"
-    )
-    print(
-        f"  Parent world Y: [{parent_world_bbox.min_point[0, 1].item():.4f},"
-        f" {parent_world_bbox.max_point[0, 1].item():.4f}]"
-    )
-    print(f"  Loss: {loss.item():.6f}")
+    for env_index in range(loss.shape[0]):
+        prefix = f"  [env {env_index}]"
+        child_bbox_index = _broadcasted_bbox_index(child_bbox, env_index)
+        parent_bbox_index = _broadcasted_bbox_index(parent_world_bbox, env_index)
+        child_position = child_pos[env_index]
+        parent_position = parent_pos[env_index]
+        print(f"{prefix} Child pos: {child_position.tolist()}")
+        print(
+            f"{prefix} Child bbox: min={child_min[child_bbox_index].tolist()},"
+            f" max={child_max[child_bbox_index].tolist()},"
+            f" size={(2.0 * child_bbox.half_extents[child_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Parent pos: {parent_position.tolist()}")
+        print(
+            f"{prefix} Parent world bbox: min={parent_min[parent_bbox_index].tolist()},"
+            f" max={parent_max[parent_bbox_index].tolist()},"
+            f" size={(2.0 * parent_world_bbox.half_extents[parent_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Loss: {loss[env_index].item():.6f}")
 
 
 def _print_unary_relation_debug(
     obj: PlaceableAsset,
     relation: RelationBase,
     child_pos: torch.Tensor,
+    child_bbox: OrientedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a unary relation (no parent)."""
-    child_bbox = obj.get_bounding_box()
+    child_min, child_max = child_bbox.get_axis_aligned_bounds()
 
     params = {k: v for k, v in relation.__dict__.items() if v is not None and k != "relation_loss_weight"}
     param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
     print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
-    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(
-        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
-        f" size={child_bbox.size[0].tolist()}"
-    )
-    print(f"  Loss: {loss.item():.6f}")
+    for env_index in range(loss.shape[0]):
+        prefix = f"  [env {env_index}]"
+        child_bbox_index = _broadcasted_bbox_index(child_bbox, env_index)
+        print(f"{prefix} Child pos: {child_pos[env_index].tolist()}")
+        print(
+            f"{prefix} Child bbox: min={child_min[child_bbox_index].tolist()},"
+            f" max={child_max[child_bbox_index].tolist()},"
+            f" size={(2.0 * child_bbox.half_extents[child_bbox_index]).tolist()}"
+        )
+        print(f"{prefix} Loss: {loss[env_index].item():.6f}")
+
+
+def _broadcasted_bbox_index(bbox: OrientedBoundingBox, env_index: int) -> int:
+    """Return the matching bbox row, allowing one row to broadcast over environments."""
+    return 0 if bbox.num_envs == 1 else env_index

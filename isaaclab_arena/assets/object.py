@@ -15,7 +15,7 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
@@ -63,7 +63,7 @@ class Object(ObjectBase):
         self.object_cfg = self._init_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Get local bounding box (relative to object origin)."""
         assert self.usd_path is not None
         if self.bounding_box is None:
@@ -74,7 +74,7 @@ class Object(ObjectBase):
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
-        return self.bounding_box.get_corners_at(pos)
+        return self.bounding_box.translated(pos).get_corners()
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None

@@ -16,7 +16,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -88,7 +88,7 @@ class EmbodimentBase(PlaceableAsset):
             joint_pos=dict(robot.init_state.joint_pos or {}),
         )
 
-    def get_bounding_box(self, prim_path: str | None = None) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self, prim_path: str | None = None) -> OrientedBoundingBox:
         """Return root-relative bounds of the articulation posed at its configured joint positions.
 
         Args:

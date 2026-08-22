@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 import trimesh
 from abc import ABC, abstractmethod
@@ -12,6 +13,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
+from isaaclab_arena.relations.no_overlap_mesh import transform_points_between_frames
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
@@ -22,8 +24,9 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
+from isaaclab_arena.utils.yaw import yaw_toward_positions
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -31,14 +34,10 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlacementValidator(ABC):
-    """A single build-time placement check evaluated over a batch of candidate layouts.
-
-    Register a concrete validator with @register_validator so build_validators() can discover it.
-    """
+    """A build-time placement check over a batch of candidate layouts."""
 
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
@@ -65,16 +64,16 @@ class PlacementValidator(ABC):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
         """Return one pass/fail verdict per candidate layout.
 
         Args:
             positions: Solved (x, y, z) per object, one dict per candidate.
-            orientations: Absolute world Z-yaw per object, one dict per candidate (may be empty).
-            bboxes: Per-object bboxes for the candidate's env, one dict per candidate, each (1, 3).
+            rotations: World xyzw rotations per movable object.
+            bboxes: Per-object boxes for each candidate's environment, each with N=1.
             collision_objects: Fixed background obstacles shared across candidates.
         """
         pass
@@ -114,6 +113,31 @@ def build_validators(
     return validators
 
 
+def _candidate_local_bbox(
+    obj: PlaceableAsset,
+    bbox: OrientedBoundingBox,
+    rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+) -> OrientedBoundingBox:
+    """Return candidate-oriented local geometry for a movable object."""
+    if obj.is_anchor:
+        return bbox
+    return bbox.rotated_by_quat(rotations.get(obj, (0.0, 0.0, 0.0, 1.0)))
+
+
+def _candidate_world_bbox(
+    obj: PlaceableAsset,
+    bbox: OrientedBoundingBox,
+    position: tuple[float, float, float],
+    rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+) -> OrientedBoundingBox:
+    """Transform candidate or fixed-anchor geometry into world coordinates."""
+    if obj.is_anchor:
+        pose = obj.get_initial_pose()
+        assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose."
+        return bbox.transformed(pose.position_xyz, pose.rotation_xyzw)
+    return bbox.transformed(position, rotations.get(obj, (0.0, 0.0, 0.0, 1.0)))
+
+
 @register_validator
 class OnRelationValidator(PlacementValidator):
     """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
@@ -123,16 +147,17 @@ class OnRelationValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+        return [self._validate(positions[i], bboxes[i], rotations[i]) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
@@ -142,8 +167,9 @@ class OnRelationValidator(PlacementValidator):
 
         Args:
             positions: Solved positions for each object.
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object boxes for the current environment, each with N=1.
         """
+        rotations = rotations or {}
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, On):
@@ -151,21 +177,27 @@ class OnRelationValidator(PlacementValidator):
                 parent = rel.parent
                 if parent not in positions:
                     continue
-                child_bbox = env_bboxes[obj]
-                parent_bbox = env_bboxes[parent]
-                child_world = child_bbox.translated(positions[obj])
-                parent_world = parent_bbox.translated(positions[parent])
-                parent_size = parent_world.max_point - parent_world.min_point
-                child_size = child_world.max_point - child_world.min_point
+                child_bbox = _candidate_local_bbox(obj, env_bboxes[obj], rotations)
+                child_world = _candidate_world_bbox(obj, env_bboxes[obj], positions[obj], rotations)
+                parent_world = _candidate_world_bbox(parent, env_bboxes[parent], positions[parent], rotations)
+                axes = torch.eye(3, dtype=child_bbox.center.dtype, device=child_bbox.center.device)
+                child_x_min, child_x_max = child_world.get_bounds_along_axis(axes[0])
+                child_y_min, child_y_max = child_world.get_bounds_along_axis(axes[1])
+                child_z_min, _ = child_world.get_bounds_along_axis(axes[2])
+                parent_x_min, parent_x_max = parent_world.get_bounds_along_axis(axes[0])
+                parent_y_min, parent_y_max = parent_world.get_bounds_along_axis(axes[1])
+                _, parent_z_max = parent_world.get_bounds_along_axis(axes[2])
+                parent_size = torch.stack([parent_x_max - parent_x_min, parent_y_max - parent_y_min], dim=1)
+                child_size = torch.stack([child_x_max - child_x_min, child_y_max - child_y_min], dim=1)
 
                 m = rel.edge_margin_m
                 # 1) Checking that with the specified margin, the parent is wide enough to place the child on top
                 if m > 0.0:
                     freespace = parent_size - child_size
                     # A margin too large for the surface inverts the inset band so containment can never pass.
-                    if torch.any(freespace[0, :2] < 2 * m):
+                    if torch.any(freespace[0] < 2 * m):
                         # The maximum feasible margin is the minimum of the freespace on the xy axes.
-                        max_feasible_margin = max(0.0, min(freespace[0, :2]) / 2.0)
+                        max_feasible_margin = max(0.0, min(freespace[0]) / 2.0)
                         # When parent < child, freespace[0, :2] is negative and max_feasible_margin is 0.0.
                         if max_feasible_margin > 0.0:
                             if self._params.verbose:
@@ -177,22 +209,22 @@ class OnRelationValidator(PlacementValidator):
                             return False
                 # 2) Checking that the child lies within the parent's xy
                 if (
-                    child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
-                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
-                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1] + m
-                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
+                    child_x_min[0] < parent_x_min[0] + m
+                    or child_x_max[0] > parent_x_max[0] - m
+                    or child_y_min[0] < parent_y_min[0] + m
+                    or child_y_max[0] > parent_y_max[0] - m
                 ):
                     if self._params.verbose:
                         print(f"On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 # 3) Checking that the child lies within an acceptable z-range.
-                parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
-                child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
-                parent_top_z = parent_local_top_z + positions[parent][2]
                 clearance_m = rel.clearance_m
-                child_bottom_z = child_local_bottom_z + positions[obj][2]
                 eps_z = self._params.on_relation_z_tolerance_m
-                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
+                numerical_eps = 1e-6
+                if (
+                    child_z_min[0] <= parent_z_max[0] - eps_z + numerical_eps
+                    or child_z_min[0] > parent_z_max[0] + clearance_m + eps_z
+                ):
                     if self._params.verbose:
                         print(f"  On relation: '{obj.name}' Z outside band (retrying)")
                     return False
@@ -208,16 +240,17 @@ class NextToValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+        return [self._validate(positions[i], bboxes[i], rotations[i]) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
     ) -> bool:
         """Validate each NextTo relation: child on the requested side, facing edge within the
         relation's tolerance_m of distance_m from the parent edge. Shares next_to_violations with
@@ -225,8 +258,9 @@ class NextToValidator(PlacementValidator):
 
         Args:
             positions: Solved positions for each object.
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object boxes for the current environment, each with N=1.
         """
+        rotations = rotations or {}
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NextTo):
@@ -235,9 +269,9 @@ class NextToValidator(PlacementValidator):
                 if parent not in positions:
                     continue
                 cfg = SIDE_CONFIGS[rel.side]
-                child_bbox = env_bboxes[obj]
-                child_pos = child_bbox.min_point.new_tensor([positions[obj]])
-                parent_world = env_bboxes[parent].translated(positions[parent])
+                child_bbox = _candidate_local_bbox(obj, env_bboxes[obj], rotations)
+                child_pos = child_bbox.center.new_tensor([positions[obj]])
+                parent_world = _candidate_world_bbox(parent, env_bboxes[parent], positions[parent], rotations)
                 half_plane, distance = next_to_violations(cfg, child_pos, child_bbox, parent_world, rel.distance_m)
 
                 if half_plane.item() > rel.tolerance_m or distance.item() > rel.tolerance_m:
@@ -260,16 +294,17 @@ class NotNextToValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+        return [self._validate(positions[i], bboxes[i], rotations[i]) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
     ) -> bool:
         """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
         (within the relation's tolerance_m) via either route — back over the edge or past the
@@ -277,8 +312,9 @@ class NotNextToValidator(PlacementValidator):
 
         Args:
             positions: Solved positions for each object.
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object boxes for the current environment, each with N=1.
         """
+        rotations = rotations or {}
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NotNextTo):
@@ -288,9 +324,9 @@ class NotNextToValidator(PlacementValidator):
                     continue
                 cfg = SIDE_CONFIGS[rel.side]
                 margin_m = self._not_next_to_margin(rel)
-                child_bbox = env_bboxes[obj]
-                child_pos = child_bbox.min_point.new_tensor([positions[obj]])
-                parent_world = env_bboxes[parent].translated(positions[parent])
+                child_bbox = _candidate_local_bbox(obj, env_bboxes[obj], rotations)
+                child_pos = child_bbox.center.new_tensor([positions[obj]])
+                parent_world = _candidate_world_bbox(parent, env_bboxes[parent], positions[parent], rotations)
                 remaining_side, remaining_cross = not_next_to_violations(
                     cfg, child_pos, child_bbox, parent_world, margin_m
                 )
@@ -321,16 +357,16 @@ class FaceToValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+        return [self._validate(positions[i], rotations[i]) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        orientations: dict[PlaceableAsset, float] | None,
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None,
     ) -> bool:
         """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
@@ -344,7 +380,7 @@ class FaceToValidator(PlacementValidator):
                 if self._params.verbose:
                     print(f"  FaceTo: '{obj.name}' is too close to its target in XY")
                 return False
-            if orientations is None or obj not in orientations:
+            if rotations is None or obj not in rotations:
                 if self._params.verbose:
                     print(f"  FaceTo: '{obj.name}' has no computed facing yaw")
                 return False
@@ -368,31 +404,30 @@ class NoOverlapValidator(PlacementValidator):
     def validate_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[bool]:
-        return [
-            self._validate(positions[i], bboxes[i], orientations[i], collision_objects) for i in range(len(positions))
-        ]
+        return [self._validate(positions[i], bboxes[i], rotations[i], collision_objects) for i in range(len(positions))]
 
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        orientations: dict[PlaceableAsset, float] | None,
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
         collision_objects: list[CollisionObject] | None,
     ) -> bool:
-        """AABB overlap check, falling through to mesh penetration for mesh-collision objects."""
+        """OBB overlap check, falling through to mesh penetration when requested."""
         use_mesh = self._should_validate_mesh(positions, collision_objects)
         no_overlap = self._validate_no_overlap(
             positions,
             env_bboxes,
+            rotations,
             collision_objects=collision_objects,
             skip_mesh_pairs=use_mesh,
         )
         if no_overlap and use_mesh:
-            no_overlap = self._validate_no_overlap_mesh(positions, env_bboxes, orientations, collision_objects)
+            no_overlap = self._validate_no_overlap_mesh(positions, env_bboxes, rotations, collision_objects)
         return no_overlap
 
     def _should_validate_mesh(
@@ -410,23 +445,18 @@ class NoOverlapValidator(PlacementValidator):
     @staticmethod
     def _collect_skip_pairs(
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-    ) -> tuple[set[tuple], set[int]]:
-        """Build On-pair skip set and anchor ID set from positioned objects.
-
-        Returns:
-            Tuple of (on_pairs, anchor_ids) where on_pairs contains (id(a), id(b))
-            tuples for On-linked objects, and anchor_ids contains id() of anchors.
-        """
-        on_pairs: set[tuple] = set()
-        anchor_ids: set[int] = set()
+    ) -> tuple[set[tuple[int, int]], set[PlaceableAsset]]:
+        """Return On-linked identity pairs and anchors."""
+        on_pairs: set[tuple[int, int]] = set()
+        anchors: set[PlaceableAsset] = set()
         for obj in positions:
             for rel in obj.get_relations():
                 if isinstance(rel, On) and rel.parent in positions:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
             if obj.is_anchor:
-                anchor_ids.add(id(obj))
-        return on_pairs, anchor_ids
+                anchors.add(obj)
+        return on_pairs, anchors
 
     def _non_skip_pairs(
         self,
@@ -434,14 +464,14 @@ class NoOverlapValidator(PlacementValidator):
         skip_mesh_pairs: bool = False,
     ) -> Iterator[tuple[PlaceableAsset, PlaceableAsset]]:
         """Yield non-relation object pairs, optionally skipping pairs handled by mesh collision."""
-        on_pairs, anchor_ids = self._collect_skip_pairs(positions)
+        on_pairs, anchors = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
         default_collision_mode = self._params.solver_params.collision_mode
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
-                if id(a) in anchor_ids and id(b) in anchor_ids:
+                if a in anchors and b in anchors:
                     continue
                 if (id(a), id(b)) in on_pairs:
                     continue
@@ -461,18 +491,22 @@ class NoOverlapValidator(PlacementValidator):
     def _validate_no_overlap(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> bool:
-        """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
+        """OBB penetration check using the same geometry as the solver."""
         clearance_m = self._params.solver_params.clearance_m
         margin = max(0.0, clearance_m - 1e-6)
         collision_objects = collision_objects or []
-        _, anchor_ids = self._collect_skip_pairs(positions)
+        rotations = rotations or {}
+        _, anchors = self._collect_skip_pairs(positions)
 
         for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
-            if self._pair_aabb_overlaps(env_bboxes[a], env_bboxes[b], positions[a], positions[b], 0.0, 0.0, margin):
+            a_world = _candidate_world_bbox(a, env_bboxes[a], positions[a], rotations)
+            b_world = _candidate_world_bbox(b, env_bboxes[b], positions[b], rotations)
+            if a_world.penetration(b_world, clearance_m=margin).item() > 0.0:
                 if self._params.verbose:
                     print(f"  Overlap between '{a.name}' and '{b.name}'")
                 return False
@@ -483,9 +517,9 @@ class NoOverlapValidator(PlacementValidator):
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
         default_collision_mode = self._params.solver_params.collision_mode
         for obj in positions:
-            if id(obj) in anchor_ids:
+            if obj in anchors:
                 continue
-            obj_world = env_bboxes[obj].translated(positions[obj])
+            obj_world = _candidate_world_bbox(obj, env_bboxes[obj], positions[obj], rotations)
             for background, background_world in background_worlds:
                 if (
                     mesh_manager is not None
@@ -493,7 +527,7 @@ class NoOverlapValidator(PlacementValidator):
                     and mesh_manager.get_collision_mesh(background) is not None
                 ):
                     continue
-                if obj_world.overlaps(background_world, margin=margin).item():
+                if obj_world.penetration(background_world, clearance_m=margin).item() > 0.0:
                     if self._params.verbose:
                         print(f"  Overlap between '{obj.name}' and background '{background.name}'")
                     return False
@@ -513,17 +547,17 @@ class NoOverlapValidator(PlacementValidator):
     def _validate_no_overlap_mesh(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        orientations: dict[PlaceableAsset, float] | None = None,
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
-        """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
+        """Sphere-to-SDF overlap check; meshless pairs use OBB validation."""
         clearance_m = self._params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
         mesh_manager = self._get_cpu_mesh_manager()
-        mesh_manager.reset_sentinel_warning()
         warned_no_mesh: set[str] = set()
         collision_objects = collision_objects or []
+        rotations = rotations or {}
         default_collision_mode = self._params.solver_params.collision_mode
 
         for a, b in self._non_skip_pairs(positions):
@@ -537,43 +571,43 @@ class NoOverlapValidator(PlacementValidator):
                         warned_no_mesh.add(obj.name)
                         print(
                             f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
-                            " falling back to AABB validation for this pair"
+                            " falling back to OBB validation for this pair"
                         )
                 continue
 
-            a_pos = torch.tensor(positions[a], dtype=torch.float32)
-            b_pos = torch.tensor(positions[b], dtype=torch.float32)
+            a_pos, a_rotation = self._candidate_mesh_pose(a, positions[a], rotations)
+            b_pos, b_rotation = self._candidate_mesh_pose(b, positions[b], rotations)
+            a_collision_mesh = self._collision_mesh_or_bbox_proxy(a_mesh, env_bboxes[a])
+            b_collision_mesh = self._collision_mesh_or_bbox_proxy(b_mesh, env_bboxes[b])
 
-            if b_mesh is not None and self._spheres_penetrate_mesh(
+            if self._spheres_penetrate_mesh(
                 a,
-                self._collision_mesh_or_aabb_proxy(a_mesh, env_bboxes[a]),
+                a_collision_mesh,
                 a if a_mesh is not None else None,
-                a_mesh is not None,
-                a.is_anchor,
                 a_pos,
+                a_rotation,
                 b,
-                b_mesh,
+                b_collision_mesh,
+                b if b_mesh is not None else None,
                 b_pos,
-                b.is_anchor,
+                b_rotation,
                 mesh_manager,
                 tolerance,
-                orientations,
             ):
                 return False
-            if a_mesh is not None and self._spheres_penetrate_mesh(
+            if self._spheres_penetrate_mesh(
                 b,
-                self._collision_mesh_or_aabb_proxy(b_mesh, env_bboxes[b]),
+                b_collision_mesh,
                 b if b_mesh is not None else None,
-                b_mesh is not None,
-                b.is_anchor,
                 b_pos,
+                b_rotation,
                 a,
-                a_mesh,
+                a_collision_mesh,
+                a if a_mesh is not None else None,
                 a_pos,
-                a.is_anchor,
+                a_rotation,
                 mesh_manager,
                 tolerance,
-                orientations,
             ):
                 return False
 
@@ -585,7 +619,7 @@ class NoOverlapValidator(PlacementValidator):
                 if object_uses_mesh_collision(source, default_collision_mode)
                 else None
             )
-            source_pos = torch.tensor(positions[source], dtype=torch.float32)
+            source_pos, source_rotation = self._candidate_mesh_pose(source, positions[source], rotations)
             for background in collision_objects:
                 target_mesh = (
                     mesh_manager.get_collision_mesh(background)
@@ -599,133 +633,88 @@ class NoOverlapValidator(PlacementValidator):
                     target_pose, Pose
                 ), f"Background collision object '{background.name}' must have a fixed Pose in MESH mode."
                 target_pos = torch.tensor(target_pose.position_xyz, dtype=torch.float32)
+                target_rotation = torch.tensor(target_pose.rotation_xyzw, dtype=torch.float32)
                 if self._spheres_penetrate_mesh(
                     source,
-                    self._collision_mesh_or_aabb_proxy(source_mesh, env_bboxes[source]),
+                    self._collision_mesh_or_bbox_proxy(source_mesh, env_bboxes[source]),
                     source if source_mesh is not None else None,
-                    source_mesh is not None,
-                    source.is_anchor,
                     source_pos,
+                    source_rotation,
                     background,
                     target_mesh,
+                    background,
                     target_pos,
-                    True,
+                    target_rotation,
                     mesh_manager,
                     tolerance,
-                    orientations,
                 ):
                     return False
 
         return True
 
     @staticmethod
-    def _collision_mesh_or_aabb_proxy(
+    def _collision_mesh_or_bbox_proxy(
         mesh: trimesh.Trimesh | None,
-        bbox: AxisAlignedBoundingBox,
+        bbox: OrientedBoundingBox,
     ) -> trimesh.Trimesh:
-        """Return an object's collision mesh, or a box mesh matching the candidate AABB."""
+        """Return a collision mesh or asset-local box proxy for the base OBB."""
         if mesh is not None:
             return mesh
-        box_mesh = trimesh.creation.box(extents=bbox.size[0].detach().cpu().numpy())
-        box_mesh.apply_translation(bbox.center[0].detach().cpu().numpy())
+        box_mesh = trimesh.creation.box(extents=(2.0 * bbox.half_extents[0]).detach().cpu().numpy())
+        rotation_xyzw = bbox.rotation_xyzw[0].detach().cpu().numpy()
+        transform = trimesh.transformations.quaternion_matrix(np.roll(rotation_xyzw, 1))
+        transform[:3, 3] = bbox.center[0].detach().cpu().numpy()
+        box_mesh.apply_transform(transform)
         return box_mesh
+
+    @staticmethod
+    def _candidate_mesh_pose(
+        obj: PlaceableAsset,
+        position: tuple[float, float, float],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the current world position and xyzw rotation used by mesh validation."""
+        if obj.is_anchor:
+            pose = obj.get_initial_pose()
+            assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose in MESH mode."
+            return torch.tensor(pose.position_xyz, dtype=torch.float32), torch.tensor(
+                pose.rotation_xyzw, dtype=torch.float32
+            )
+        return torch.tensor(position, dtype=torch.float32), torch.tensor(
+            rotations.get(obj, (0.0, 0.0, 0.0, 1.0)), dtype=torch.float32
+        )
 
     def _spheres_penetrate_mesh(
         self,
         source: PlaceableAsset,
         source_mesh: trimesh.Trimesh,
         source_sphere_cache_obj: PlaceableAsset | None,
-        source_applies_yaw: bool,
-        source_uses_pose_yaw: bool,
         source_pos: torch.Tensor,
+        source_rotation: torch.Tensor,
         target: PlaceableAsset | CollisionObject,
         target_mesh: trimesh.Trimesh,
+        target_mesh_cache_obj: PlaceableAsset | CollisionObject | None,
         target_pos: torch.Tensor,
-        target_uses_pose_yaw: bool,
+        target_rotation: torch.Tensor,
         mesh_manager: WarpMeshAndSphereCache,
         tolerance: float,
-        orientations: dict[PlaceableAsset, float] | None,
     ) -> bool:
-        """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel.
-
-        source_applies_yaw describes whether sphere centers need sampled-yaw rotation.
-        *_uses_pose_yaw controls whether fixed anchors/passive obstacles contribute pose yaw.
-        """
+        """Return whether source spheres penetrate the target mesh."""
         spheres = mesh_manager.get_query_spheres(source_mesh, obj=source_sphere_cache_obj)
-        warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target)
-        centers = self._centers_in_target_frame(
+        warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target_mesh_cache_obj)
+        centers = transform_points_between_frames(
             spheres[:, :3],
-            source,
-            target,
             source_pos,
+            source_rotation,
             target_pos,
-            orientations,
-            source_applies_yaw=source_applies_yaw,
-            source_uses_pose_yaw=source_uses_pose_yaw,
-            target_uses_pose_yaw=target_uses_pose_yaw,
+            target_rotation,
         )
         sdf = mesh_sdf(centers, warp_mesh)
-        mesh_manager.warn_sdf_sentinel(sdf)
-        if has_sdf_sentinel(sdf):
-            return True
+        assert not has_sdf_sentinel(
+            sdf
+        ), "MESH collision query could not resolve a target face; the promised collision geometry is unsupported."
         if (sdf < spheres[:, 3] + tolerance).any():
             if self._params.verbose:
                 print(f"  Mesh overlap between '{source.name}' and '{target.name}'")
             return True
         return False
-
-    @staticmethod
-    def _effective_yaw(
-        obj: PlaceableAsset | CollisionObject,
-        orientations: dict[PlaceableAsset, float] | None,
-        use_pose_yaw: bool,
-    ) -> float:
-        """Resolve effective Z-yaw from sampled orientations or, when allowed, fixed initial pose."""
-        if orientations is not None and obj in orientations:
-            return orientations[cast("PlaceableAsset", obj)]
-        if not use_pose_yaw:
-            return 0.0
-        pose = obj.get_initial_pose()
-        if not isinstance(pose, Pose):
-            return 0.0
-        return yaw_from_quat_xyzw(pose.rotation_xyzw)
-
-    @staticmethod
-    def _pair_aabb_overlaps(
-        a_bbox: AxisAlignedBoundingBox,
-        b_bbox: AxisAlignedBoundingBox,
-        pos_a: tuple[float, float, float],
-        pos_b: tuple[float, float, float],
-        yaw_a: float,
-        yaw_b: float,
-        margin: float,
-    ) -> bool:
-        """True if two yaw-rotated, world-translated AABBs overlap (with margin)."""
-        if yaw_a != 0.0:
-            a_bbox = a_bbox.rotated_around_z(yaw_a)
-        if yaw_b != 0.0:
-            b_bbox = b_bbox.rotated_around_z(yaw_b)
-        a_world = a_bbox.translated(pos_a)
-        b_world = b_bbox.translated(pos_b)
-        return a_world.overlaps(b_world, margin=margin).item()
-
-    @staticmethod
-    def _centers_in_target_frame(
-        centers_local: torch.Tensor,
-        source_obj: PlaceableAsset,
-        target_obj: PlaceableAsset | CollisionObject,
-        source_pos: torch.Tensor,
-        target_pos: torch.Tensor,
-        orientations: dict[PlaceableAsset, float] | None,
-        source_applies_yaw: bool = True,
-        source_uses_pose_yaw: bool = True,
-        target_uses_pose_yaw: bool = True,
-    ) -> torch.Tensor:
-        """Transform source sphere centers into the target's local frame (Z-yaw only)."""
-        src_yaw = (
-            NoOverlapValidator._effective_yaw(source_obj, orientations, source_uses_pose_yaw)
-            if source_applies_yaw
-            else 0.0
-        )
-        tgt_yaw = NoOverlapValidator._effective_yaw(target_obj, orientations, target_uses_pose_yaw)
-        return centers_in_target_frame(centers_local, src_yaw, tgt_yaw, source_pos - target_pos)

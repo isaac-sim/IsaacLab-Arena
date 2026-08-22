@@ -21,7 +21,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, Side
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_examples.relations.example_object import ExampleObject
 
@@ -93,34 +93,42 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     parent_pose = parent.get_initial_pose()
     parent_bbox = parent.get_bounding_box()
     px, py, pz = parent_pose.position_xyz
-    pw, pd, ph = parent_bbox.size[0].tolist()
+    parent_min, parent_max = parent_bbox.get_axis_aligned_bounds()
+    pmin_x, pmin_y, _ = parent_min[0].tolist()
+    pmax_x, pmax_y, _ = parent_max[0].tolist()
+    pw, pd = pmax_x - pmin_x, pmax_y - pmin_y
 
     # Draw parent bounding box
     parent_rect = Rectangle(
-        (px - pw / 2, py - pd / 2), pw, pd, linewidth=3, edgecolor="blue", facecolor="none", label="Parent Object"
+        (px + pmin_x, py + pmin_y), pw, pd, linewidth=3, edgecolor="blue", facecolor="none", label="Parent Object"
     )
     ax.add_patch(parent_rect)
     ax.plot(px, py, "b*", markersize=15, label="Parent Center")
 
     # Get child bounding box
     child_bbox = child.get_bounding_box()
-    cw, cd, ch = child_bbox.size[0].tolist()
+    child_min, child_max = child_bbox.get_axis_aligned_bounds()
+    cmin_x, cmin_y, _ = child_min[0].tolist()
+    cmax_x, cmax_y, _ = child_max[0].tolist()
+    cw, cd = cmax_x - cmin_x, cmax_y - cmin_y
+    aligned_x = px + (pmin_x + pmax_x - cmin_x - cmax_x) / 2
+    aligned_y = py + (pmin_y + pmax_y - cmin_y - cmax_y) / 2
 
     # Mark ideal position
     if side == Side.POSITIVE_X:
-        ideal_x, ideal_y = px + pw / 2 + distance_m + cw / 2, py
+        ideal_x, ideal_y = px + pmax_x + distance_m - cmin_x, aligned_y
     elif side == Side.NEGATIVE_X:
-        ideal_x, ideal_y = px - pw / 2 - distance_m - cw / 2, py
+        ideal_x, ideal_y = px + pmin_x - distance_m - cmax_x, aligned_y
     elif side == Side.NEGATIVE_Y:
-        ideal_x, ideal_y = px, py - pd / 2 - distance_m - cd / 2
+        ideal_x, ideal_y = aligned_x, py + pmin_y - distance_m - cmax_y
     elif side == Side.POSITIVE_Y:
-        ideal_x, ideal_y = px, py + pd / 2 + distance_m + cd / 2
+        ideal_x, ideal_y = aligned_x, py + pmax_y + distance_m - cmin_y
 
     ax.plot(ideal_x, ideal_y, "g*", markersize=15, label="Ideal Position")
 
     # Draw child bounding box at ideal position
     child_rect = Rectangle(
-        (ideal_x - cw / 2, ideal_y - cd / 2),
+        (ideal_x + cmin_x, ideal_y + cmin_y),
         cw,
         cd,
         linewidth=2,
@@ -148,9 +156,9 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
 # %%
 def run_visualization_demo():
     """Run the full visualization demo."""
-    parent_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
+    parent_bbox = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
     parent_pos = (0.0, 0.0, 0.05)
-    child_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
+    child_bbox = OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
     distance_m = 0.1
 
     # Create parent object

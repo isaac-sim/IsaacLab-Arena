@@ -5,17 +5,17 @@
 
 """Tests for the RelationSolver built-in no-overlap loss."""
 
-import math
 import torch
 
-from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
+import pytest
+
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -23,7 +23,7 @@ def _create_box(name: str = "box", size: float = 0.2) -> DummyObject:
     """Create a small box (local bbox [0,0,0] to [size, size, size])."""
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(size, size, size)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (size, size, size)),
     )
 
 
@@ -31,7 +31,7 @@ def _create_table() -> DummyObject:
     """Create a table-like object at origin."""
     return DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)),
     )
 
 
@@ -47,25 +47,69 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
     return table, box_a, box_b
 
 
-def test_solver_uses_rotated_bbox_for_collision():
-    """Test that a yaw-rotated env bbox passed to solve() changes the no-overlap loss (solver consumes it)."""
+def _create_rotated_collision_scene() -> tuple[
+    list[DummyObject],
+    list[dict[DummyObject, tuple[float, float, float]]],
+    DummyObject,
+]:
+    """Create a scene where rotating the long box introduces a collision."""
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
-
-    # Long box (spans X) and a cube offset in +Y. No On/NextTo relations, so the only loss is
-    # the built-in no-overlap loss between the two non-anchors.
     long_box = DummyObject(
         name="long_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.3, -0.05, -0.05), max_point=(0.3, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max((-0.3, -0.05, -0.05), (0.3, 0.05, 0.05)),
     )
     cube = DummyObject(
         name="cube",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05)),
     )
     objects = [table, long_box, cube]
-    # Boxes sit high above the table (z=0.5) so neither collides with the table.
     initial = [{table: (0.0, 0.0, 0.0), long_box: (0.0, 0.0, 0.5), cube: (0.0, 0.2, 0.5)}]
+    return objects, initial, long_box
+
+
+def test_solver_state_rejects_anchor_position_different_from_fixed_pose():
+    table, box_a, _ = _create_no_collision_scene()
+    initial = [{table: (0.1, 0.0, 0.0), box_a: (0.0, 0.0, 0.2)}]
+
+    with pytest.raises(AssertionError, match="must match its fixed Pose position"):
+        RelationSolverState([table, box_a], initial)
+
+
+@pytest.mark.parametrize(
+    "rotation",
+    [
+        (0.0, 0.0, 1.0),
+        (0.0, 0.0, float("nan"), 1.0),
+        (0.0, 0.0, 0.0, 2.0),
+    ],
+)
+def test_solver_state_rejects_invalid_candidate_rotations(rotation):
+    table, box_a, _ = _create_no_collision_scene()
+    initial = [{table: (0.0, 0.0, 0.0), box_a: (0.0, 0.0, 0.2)}]
+
+    with pytest.raises(AssertionError, match="Candidate rotations"):
+        RelationSolverState([table, box_a], initial, rotations=[{box_a: rotation}])
+
+
+@pytest.mark.parametrize("invalid_key_kind", ["anchor", "unknown"])
+def test_solver_state_rejects_rotation_keys_for_non_optimizable_objects(invalid_key_kind):
+    table, box_a, _ = _create_no_collision_scene()
+    initial = [{table: (0.0, 0.0, 0.0), box_a: (0.0, 0.0, 0.2)}]
+    invalid_key = table if invalid_key_kind == "anchor" else _create_box("unknown")
+
+    with pytest.raises(AssertionError, match="Rotation keys must belong to optimizable objects"):
+        RelationSolverState(
+            [table, box_a],
+            initial,
+            rotations=[{invalid_key: (0.0, 0.0, 0.0, 1.0)}],
+        )
+
+
+def test_solver_uses_rotated_bbox_for_collision():
+    """Test that a yaw-rotated env bbox passed to solve() changes the no-overlap loss (solver consumes it)."""
+    objects, initial, long_box = _create_rotated_collision_scene()
 
     # max_iters=0: solve() only computes the initial loss and stores last_loss_per_env.
     solver = RelationSolver(params=RelationSolverParams(max_iters=0, verbose=False))
@@ -74,9 +118,9 @@ def test_solver_uses_rotated_bbox_for_collision():
     assert solver.last_loss_per_env is not None
     loss_unrotated = solver.last_loss_per_env[0].item()
 
-    # Hand the solver a 90° conservative bbox for the long box via the env_bboxes channel.
-    rotated = {long_box: long_box.get_bounding_box().rotated_around_z(math.pi / 2)}
-    solver.solve(objects, initial, env_bboxes=rotated)
+    # Hand the solver a 90° candidate rotation through the quaternion channel.
+    quarter_turn = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    solver.solve(objects, initial, rotations=[{long_box: quarter_turn}])
     assert solver.last_loss_per_env is not None
     loss_rotated = solver.last_loss_per_env[0].item()
 
@@ -86,34 +130,66 @@ def test_solver_uses_rotated_bbox_for_collision():
     assert loss_rotated > 0.0
 
 
+def test_debug_losses_reuses_rotated_solver_state_without_position_history(capsys):
+    objects, initial, long_box = _create_rotated_collision_scene()
+    quarter_turn = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0, save_position_history=False))
+
+    solver.solve(objects, initial, rotations=[{long_box: quarter_turn}])
+    assert solver.last_loss_per_env is not None
+    expected_loss = solver.last_loss_per_env.clone()
+    solver.debug_losses(objects)
+
+    assert torch.equal(solver.last_loss_per_env, expected_loss)
+    assert "No solver state available" not in capsys.readouterr().out
+
+
+def test_debug_losses_reports_each_environment(capsys):
+    table, box, _ = _create_no_collision_scene()
+    objects = [table, box]
+    initial = [
+        {table: (0.0, 0.0, 0.0), box: (0.1, 0.1, 0.11)},
+        {table: (0.0, 0.0, 0.0), box: (0.2, 0.2, 0.2)},
+    ]
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0))
+
+    solver.solve(objects, initial)
+    solver.debug_losses(objects)
+
+    output = capsys.readouterr().out
+    assert "[env 0]" in output
+    assert "[env 1]" in output
+
+
+def test_all_anchor_solve_resets_mesh_debug_state():
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    solver = RelationSolver()
+    solver._mesh_collision_enabled = True
+    solver._mesh_cache = object()
+
+    solver.solve([table], [{table: (0.0, 0.0, 0.0)}])
+
+    assert not solver._mesh_collision_enabled
+    assert solver._mesh_cache is None
+    solver.debug_losses([table])
+
+
 def _single_pair_no_overlap_loss(
     slope: float,
     clearance_m: float,
     child_pos: torch.Tensor,
-    child_bbox: AxisAlignedBoundingBox,
-    parent_world_bbox: AxisAlignedBoundingBox,
+    child_bbox: OrientedBoundingBox,
+    parent_world_bbox: OrientedBoundingBox,
 ) -> torch.Tensor:
     """Single-pair no-overlap loss; the reference the vectorized solver path must reproduce."""
     single_input = child_pos.dim() == 1
     if single_input:
         child_pos = child_pos.unsqueeze(0)
 
-    c = clearance_m
-    parent_x_min = parent_world_bbox.min_point[:, 0] - c
-    parent_x_max = parent_world_bbox.max_point[:, 0] + c
-    parent_y_min = parent_world_bbox.min_point[:, 1] - c
-    parent_y_max = parent_world_bbox.max_point[:, 1] + c
-    parent_z_min = parent_world_bbox.min_point[:, 2] - c
-    parent_z_max = parent_world_bbox.max_point[:, 2] + c
-
-    child_world_min = child_pos + child_bbox.min_point
-    child_world_max = child_pos + child_bbox.max_point
-
-    overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
-    overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
-    overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
-
-    total_loss = slope * (overlap_x * overlap_y * overlap_z)
+    child_world = child_bbox.translated(child_pos)
+    total_loss = slope * child_world.penetration(parent_world_bbox, clearance_m)
     return total_loss.squeeze(0) if single_input else total_loss
 
 
@@ -198,7 +274,7 @@ def test_no_collision_positive_loss_when_3d_overlap():
 
 
 def test_no_collision_loss_scales_with_slope():
-    """Test that NoCollision loss scales with slope (loss = slope * overlap_volume)."""
+    """Test that NoCollision loss scales with slope times penetration distance."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
 
@@ -214,15 +290,30 @@ def test_no_collision_loss_scales_with_slope():
     assert torch.isclose(loss_20, 2.0 * loss_10, rtol=1e-5)
 
 
-def test_no_collision_loss_volume_formula():
-    """Test that NoCollision loss equals slope * overlap volume for known overlap (clearance_m=0)."""
+def test_relation_solver_uses_configured_collision_loss_slope():
+    """Solver configuration controls the shared OBB and mesh penetration scale."""
+    params = RelationSolverParams(collision_loss_slope=25.0, verbose=False)
+    solver = RelationSolver(params=params)
+
+    assert solver._no_collision_strategy.slope == 25.0  # pyright: ignore[reportPrivateUsage]
+
+
+def test_default_collision_loss_dominates_strongest_relation():
+    """Default collision penetration is weighted ten times above an equal On violation."""
+    params = RelationSolverParams()
+
+    assert params.collision_loss_slope == 10.0 * params.strategies[On].slope
+
+
+def test_no_collision_loss_minimum_penetration_formula():
+    """NoCollision loss equals slope times minimum SAT penetration."""
     box_a = _create_box("box_a", size=0.2)
     box_b = _create_box("box_b", size=0.2)
 
     child_pos = torch.tensor([0.1, 0.1, 0.1])
     parent_world_bbox = box_b.get_bounding_box().translated((0.15, 0.15, 0.15))
-    # Overlap [0.15, 0.3]^3, volume 0.15^3. Expected loss = 10 * 0.15^3.
-    expected_loss = 10.0 * (0.15**3)
+    # Overlap depth is 0.15 m along every axis.
+    expected_loss = 10.0 * 0.15
 
     loss = _single_pair_no_overlap_loss(
         10.0, clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
@@ -277,7 +368,7 @@ def test_solver_respects_clearance_m():
     bbox_b = box_b.get_bounding_box().translated(pos_b)
 
     assert not bbox_a.overlaps(
-        bbox_b, margin=0.05
+        bbox_b, clearance_m=0.05
     ).item(), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
 
 
@@ -381,9 +472,9 @@ def test_no_collision_loss_multi_env_shape_and_values():
     box_a = _create_box("box_a")
 
     child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.1, 0.1, 0.0]])
-    parent_world_bbox = AxisAlignedBoundingBox(
-        min_point=torch.tensor([[1.0, 0.0, 0.0], [0.05, 0.05, 0.0]]),
-        max_point=torch.tensor([[1.2, 0.2, 0.2], [0.25, 0.25, 0.2]]),
+    parent_world_bbox = OrientedBoundingBox.from_min_max(
+        torch.tensor([[1.0, 0.0, 0.0], [0.05, 0.05, 0.0]]),
+        torch.tensor([[1.2, 0.2, 0.2], [0.25, 0.25, 0.2]]),
     )
 
     loss = _single_pair_no_overlap_loss(
@@ -483,6 +574,28 @@ def test_vectorized_no_overlap_matches_reference_non_anchor_pairs():
     ]
     # Both boxes On(table) -> anchor pairs skipped; only the box_a/box_b pair, both directions.
     _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=2)
+
+
+def test_coincident_movable_boxes_receive_opposite_gradients():
+    """Directed coincident-box losses separate two movable subjects instead of translating both."""
+    table, box_a, box_b = _create_no_collision_scene()
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        box_a: (0.3, 0.3, 0.11),
+        box_b: (0.3, 0.3, 0.11),
+    }]
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    state = RelationSolverState([table, box_a, box_b], initial_positions, device=torch.device("cpu"))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+    loss.sum().backward()
+
+    assert state.optimizable_positions is not None
+    gradients = state.optimizable_positions.grad
+    assert gradients is not None
+    assert torch.isfinite(gradients).all()
+    assert torch.count_nonzero(gradients[0, 0]).item() > 0
+    torch.testing.assert_close(gradients[0, 0], -gradients[0, 1])
 
 
 def test_vectorized_no_overlap_matches_reference_anchor_pairs():
@@ -615,18 +728,14 @@ def test_solver_profile_zero_iters_does_not_raise():
 
 
 def test_compute_loss_batched_direct():
-    """compute_loss_batched returns (num_pairs, batch_size) loss for known world-space extents."""
+    """compute_loss_batched scales (P, N) penetration distances."""
     strategy = NoCollisionLossStrategy(slope=10.0)
-    # Two pairs, batch_size=1. Pair 0 overlaps by 0.1 on each axis; pair 1 is fully separated.
-    subject_min = torch.tensor([[[0.0, 0.0, 0.0]], [[0.0, 0.0, 0.0]]])
-    subject_max = torch.tensor([[[0.2, 0.2, 0.2]], [[0.2, 0.2, 0.2]]])
-    obstacle_min = torch.tensor([[[0.1, 0.1, 0.1]], [[1.0, 1.0, 1.0]]])
-    obstacle_max = torch.tensor([[[0.3, 0.3, 0.3]], [[1.2, 1.2, 1.2]]])
+    penetration = torch.tensor([[0.1], [0.0]])
 
-    loss = strategy.compute_loss_batched(0.0, subject_min, subject_max, obstacle_min, obstacle_max)
+    loss = strategy.compute_loss_batched(penetration)
 
     assert loss.shape == (2, 1)
-    assert torch.isclose(loss[0, 0], torch.tensor(10.0 * 0.1**3), rtol=1e-4)  # slope * overlap volume
+    assert torch.isclose(loss[0, 0], torch.tensor(1.0), rtol=1e-4)
     assert torch.isclose(loss[1, 0], torch.tensor(0.0), atol=1e-6)
 
 
