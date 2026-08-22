@@ -16,8 +16,9 @@ annotations are available, each opt-in on the CLI:
   object, written into the trajectory dataset itself (see ``annotate_bounding_boxes_dir``). Read
   them back with ``isaaclab_arena.analysis.aabb_overlap``.
 
-Both need a headless ``SimulationApp`` running before ``isaaclab``/``pxr`` are imported, so the
-imports that reach them are deferred and ``main`` launches one app for the whole folder scan.
+Both need to reach into the ``pxr`` module, which requires a headless ``SimulationApp`` to already be
+running. Since launching a ``SimulationApp`` is real work (tens of seconds), both the app launch and
+the imports that reach ``pxr`` are deferred into the ``main`` function.
 """
 
 from __future__ import annotations
@@ -579,17 +580,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
-    # Deferred: launching a SimulationApp is real work (tens of seconds), so pay it once for the
-    # whole directory scan rather than per job — and keep it out of this module's import time.
+    # See module docstring for why these are deferred; launched once here for the whole directory
+    # scan rather than per job.
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
     sim_app_args = get_isaaclab_arena_cli_parser().parse_args([])
     sim_app_args.headless = True
     sim_app_args.enable_cameras = False
-
-    # Report before the `with` block exits: SimulationAppContext.__exit__ calls Kit's app.close(),
-    # which can terminate the process immediately, before any code after the block gets to run.
     with SimulationAppContext(sim_app_args):
         if args.predicates:
             output_paths = annotate_episode_results_dir(args.recordings_dir, args.env_package)
