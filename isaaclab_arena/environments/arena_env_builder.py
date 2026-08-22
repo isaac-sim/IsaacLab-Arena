@@ -421,6 +421,12 @@ class ArenaEnvBuilder:
         # Apply the requested physics backend after the callback so it remains the final authority.
         presets = self.cfg.presets
         if presets is not None:
+            if not self.arena_env.allow_physics_presets:
+                raise NotImplementedError(
+                    f"Environment {self.arena_env.name!r} defines task-specific physics settings and does not support "
+                    f"builder physics presets; got --presets {presets}."
+                )
+
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
