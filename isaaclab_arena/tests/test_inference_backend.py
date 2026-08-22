@@ -15,6 +15,7 @@ import pytest
 from isaaclab_arena.agentic_environment_generation.inference_backend import (
     INFERENCE_ENDPOINT_ENV_VAR,
     INTERNAL_ENDPOINT,
+    OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
     InferenceBackend,
     StructuredOutputRequest,
@@ -50,6 +51,7 @@ def clean_endpoint_env(monkeypatch):
     monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
     monkeypatch.delenv(INTERNAL_ENDPOINT.api_key_env_var, raising=False)
     monkeypatch.delenv(PUBLIC_ENDPOINT.api_key_env_var, raising=False)
+    monkeypatch.delenv(OPENAI_ENDPOINT.api_key_env_var, raising=False)
 
 
 class TestResolveInferenceEndpoint:
@@ -109,6 +111,18 @@ class TestInit:
         with pytest.raises(AssertionError, match=f"set {INTERNAL_ENDPOINT.api_key_env_var}"):
             InferenceBackend(endpoint=INTERNAL_ENDPOINT.name)
 
+    def test_openai_endpoint_sets_base_url_model_and_key(self, monkeypatch, stub_openai):
+        mock_cls, client = stub_openai
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        backend = InferenceBackend(endpoint=OPENAI_ENDPOINT.name)
+        assert backend.endpoint == OPENAI_ENDPOINT
+        assert backend.model == OPENAI_ENDPOINT.model
+        mock_cls.assert_called_once_with(api_key="openai-key", base_url=OPENAI_ENDPOINT.base_url)
+        ping_kwargs = client.chat.completions.create.call_args.kwargs
+        assert ping_kwargs["max_completion_tokens"] == 32
+        assert "max_tokens" not in ping_kwargs
+        assert "temperature" not in ping_kwargs
+
     def test_custom_model_and_base_url(self, stub_openai):
         mock_cls, _ = stub_openai
         backend = InferenceBackend(api_key="k", model="custom-model", base_url="http://localhost:8000")
@@ -117,6 +131,38 @@ class TestInit:
 
 
 class TestRunJson:
+    def test_public_endpoint_uses_legacy_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = inference_backend(stub_openai)
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_tokens"] == 4096
+        assert kwargs["temperature"] == 0.2
+        assert "max_completion_tokens" not in kwargs
+
+    def test_openai_endpoint_uses_openai_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = InferenceBackend(api_key="test-key", endpoint=OPENAI_ENDPOINT.name)
+        client.chat.completions.create.reset_mock()
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_completion_tokens"] == 4096
+        assert "max_tokens" not in kwargs
+        assert "temperature" not in kwargs
+
+    def test_internal_gpt_uses_openai_completion_options(self, stub_openai):
+        _, client = stub_openai
+        backend = InferenceBackend(api_key="test-key", endpoint=INTERNAL_ENDPOINT.name)
+        client.chat.completions.create.reset_mock()
+        client.chat.completions.create.return_value = chat_response(content='{"ok": true}')
+        backend.run_json(_request())
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_completion_tokens"] == 4096
+        assert "max_tokens" not in kwargs
+        assert "temperature" not in kwargs
+
     def test_tolerates_unescaped_control_chars(self, stub_openai):
         _, client = stub_openai
         backend = inference_backend(stub_openai)

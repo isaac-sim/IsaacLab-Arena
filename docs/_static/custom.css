@@ -114,3 +114,22 @@ table.gallery th {
     display: flex;
     align-items: center;
 }
+
+/* Header labels above the manual/agentic workflow comparison. */
+.nv-green-grid-header {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    background-color: #76b900;
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+}
+
+.nv-green-grid-header p {
+    margin: 0;
+}

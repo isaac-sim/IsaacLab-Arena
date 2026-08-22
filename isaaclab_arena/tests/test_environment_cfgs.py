@@ -87,6 +87,8 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
 
 def test_generated_cli_arguments_and_cfg_validation():
     """Keep list, boolean, and scalar parsing while configs validate domain values."""
+    assert PickAndPlaceMapleTableEnvironmentCfg().episode_length_s == 70.0
+
     test_cases = [
         (
             GR1PutAndCloseDoorEnvironment,
@@ -98,8 +100,20 @@ def test_generated_cli_arguments_and_cfg_validation():
         (GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "heterogeneous"], {"mode": "heterogeneous"}),
         (
             PickAndPlaceMapleTableEnvironment,
-            ["--light_intensity", "750", "--additional_table_objects", "apple", "banana"],
-            {"light_intensity": 750.0, "additional_table_objects": ["apple", "banana"]},
+            [
+                "--light_intensity",
+                "750",
+                "--additional_table_objects",
+                "apple",
+                "banana",
+                "--episode_length_s",
+                "1.5",
+            ],
+            {
+                "light_intensity": 750.0,
+                "additional_table_objects": ["apple", "banana"],
+                "episode_length_s": 1.5,
+            },
         ),
     ]
 
@@ -112,6 +126,13 @@ def test_generated_cli_arguments_and_cfg_validation():
     invalid_mode_args = _parse_legacy_arguments(GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "unsupported"])
     with pytest.raises(AssertionError, match="Unsupported placement mode"):
         _environment_cfg_from_cli(GR1TableMultiObjectNoCollisionEnvironment, invalid_mode_args)
+
+    invalid_episode_length_args = _parse_legacy_arguments(
+        PickAndPlaceMapleTableEnvironment,
+        ["--episode_length_s", "0"],
+    )
+    with pytest.raises(AssertionError, match="episode_length_s must be greater than zero"):
+        _environment_cfg_from_cli(PickAndPlaceMapleTableEnvironment, invalid_episode_length_args)
 
 
 def test_build_environment_from_cli_calls_typed_build(monkeypatch):

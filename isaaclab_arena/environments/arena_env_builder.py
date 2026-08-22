@@ -42,8 +42,9 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.terms.events import ResetBackgroundPhysics
+from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
-from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg, add_trajectory_recorder_terms
 from isaaclab_arena.utils.isaaclab_utils.resolve_clone_plan_source_patch import patch_resolve_clone_plan_source
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -258,8 +259,28 @@ class ArenaEnvBuilder:
         progress_tracking_events_cfg: Any = (
             make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
         )
+        background_physics_events_cfg = None
+        background_physics_paths = self.arena_env.scene.get_background_physics_paths()
+        if background_physics_paths:
+            reset_background_physics = EventTermCfg(
+                func=ResetBackgroundPhysics,
+                mode="reset",
+                params={
+                    "background_prim_paths": self.arena_env.scene.get_background_physics_prim_paths(),
+                    "physics_paths": background_physics_paths,
+                    "referenced_paths": self.arena_env.scene.get_background_physics_referenced_paths(),
+                },
+            )
+            BackgroundPhysicsEventsCfg = make_configclass(
+                "BackgroundPhysicsEventsCfg",
+                [("reset_background_physics", EventTermCfg, reset_background_physics)],
+            )
+            background_physics_events_cfg = BackgroundPhysicsEventsCfg()
+        # Keep the background term first so its one-time snapshot observes the
+        # composed startup state before any reset event can mutate scene entities.
         events_cfg = combine_configclass_instances(
             "EventsCfg",
+            background_physics_events_cfg,
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
@@ -296,12 +317,10 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
-            embodiment.get_recorder_term_cfg(),
+            embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
             progress_tracking_recorder_cfg,
             bases=(RecorderManagerBaseCfg,),
         )
-        if self.cfg.record_trajectories:
-            recorder_manager_cfg = add_trajectory_recorder_terms(recorder_manager_cfg)
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
         # Eval runs overwrite the timestamped default so rebuilds do not clobber each other.
         if self.cfg.recorder_dataset_filename is not None:

@@ -13,6 +13,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    INFERENCE_ENDPOINT_ENV_VAR,
+    INFERENCE_ENDPOINTS,
+    INTERNAL_ENDPOINT,
+    OPENAI_ENDPOINT,
+    PUBLIC_ENDPOINT,
+)
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySearchConfig
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -25,6 +33,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_pa
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel import (
     DEFAULT_GENERATION_PROMPT,
     _apply_generated_yaml,
+    _clear_orphaned_generation_agents,
+    _default_inference_endpoint,
+    _generation_agent_cache_key,
+    _get_generation_agent,
+    available_inference_endpoints,
     run_generation_pipeline,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
@@ -34,6 +47,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     wait_for_simapp_socket,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    _preview_cfg,
     parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
@@ -82,6 +96,11 @@ def session_state(monkeypatch):
 
 
 class TestSimPreviewParams:
+    def test_preview_cfg_uses_cpu_without_fabric(self):
+        cfg = _preview_cfg(num_envs=1, env_spacing=30.0)
+        assert cfg.device == "cpu"
+        assert cfg.disable_fabric
+
     def test_parse_sim_preview_params_requires_all_keys(self):
         with pytest.raises(ValueError, match="missing required sim preview params"):
             parse_sim_preview_params({})
@@ -92,6 +111,8 @@ class TestSimPreviewParams:
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
             parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
+        with pytest.raises(AssertionError):
+            parse_sim_preview_params({"num_envs": 1, "num_steps": 0, "env_spacing": 1.5})
 
 
 class TestBuildAssetCards:
@@ -233,14 +254,14 @@ class TestParseArgs:
     def test_defaults_to_none_spec_path(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py"])
         args = parse_args()
-        assert args.env_graph_spec_yaml is None
+        assert args.env_spec is None
 
-    def test_parses_env_graph_spec_yaml(self, monkeypatch, tmp_path: Path):
+    def test_parses_env_spec(self, monkeypatch, tmp_path: Path):
         spec_path = tmp_path / "spec.yaml"
         spec_path.write_text("env_name: x\n", encoding="utf-8")
-        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_graph_spec_yaml", str(spec_path)])
+        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_spec", str(spec_path)])
         args = parse_args()
-        assert args.env_graph_spec_yaml == spec_path
+        assert args.env_spec == spec_path
 
     def test_parses_out_dir(self, monkeypatch, tmp_path: Path):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--out_dir", str(tmp_path / "generated")])
@@ -319,7 +340,7 @@ class TestApplyGeneratedYaml:
         assert "_validation_result" not in session_state
 
 
-def _patch_generation_agent(agent: MagicMock):
+def _patch_generation_agent(agent: MagicMock | None):
     """Stub the panel's agent accessor.
 
     The real one caches the agent under a key built from the SimReady settings, so seeding a
@@ -331,6 +352,78 @@ def _patch_generation_agent(agent: MagicMock):
     )
 
 
+class TestInferenceEndpointSelection:
+    @pytest.fixture(autouse=True)
+    def clean_endpoint_env(self, monkeypatch):
+        monkeypatch.delenv(INFERENCE_ENDPOINT_ENV_VAR, raising=False)
+        for endpoint in INFERENCE_ENDPOINTS.values():
+            monkeypatch.delenv(endpoint.api_key_env_var, raising=False)
+
+    def test_available_endpoints_omit_unset_keys(self, monkeypatch):
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        assert available_inference_endpoints() == [INTERNAL_ENDPOINT.name]
+
+    def test_available_endpoints_include_every_set_key(self, monkeypatch):
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        assert available_inference_endpoints() == [
+            INTERNAL_ENDPOINT.name,
+            PUBLIC_ENDPOINT.name,
+            OPENAI_ENDPOINT.name,
+        ]
+
+    def test_default_falls_back_when_preferred_key_missing(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, PUBLIC_ENDPOINT.name)
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        available = available_inference_endpoints()
+        assert PUBLIC_ENDPOINT.name not in available
+        assert _default_inference_endpoint(available) == INTERNAL_ENDPOINT.name
+
+    def test_default_prefers_arena_inference_endpoint_when_available(self, monkeypatch):
+        monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, OPENAI_ENDPOINT.name)
+        monkeypatch.setenv(INTERNAL_ENDPOINT.api_key_env_var, "internal-key")
+        monkeypatch.setenv(OPENAI_ENDPOINT.api_key_env_var, "openai-key")
+        available = available_inference_endpoints()
+        assert _default_inference_endpoint(available) == OPENAI_ENDPOINT.name
+
+    def test_cache_key_includes_endpoint(self):
+        cfg = SimReadySearchConfig()
+        public_key = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        internal_key = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        assert public_key != internal_key
+        assert PUBLIC_ENDPOINT.name in public_key
+        assert INTERNAL_ENDPOINT.name in internal_key
+
+    def test_clear_orphaned_generation_agents_keeps_requested_key(self, session_state):
+        cfg = SimReadySearchConfig()
+        keep = _generation_agent_cache_key(PUBLIC_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        other = _generation_agent_cache_key(INTERNAL_ENDPOINT.name, simready_enabled=False, simready_config=cfg)
+        session_state[keep] = object()
+        session_state[other] = object()
+        session_state["unrelated"] = "keep-me"
+        _clear_orphaned_generation_agents(keep=keep)
+        assert keep in session_state
+        assert other not in session_state
+        assert session_state["unrelated"] == "keep-me"
+
+    def test_get_generation_agent_retries_after_failed_init(self, session_state, monkeypatch):
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        session_state["inference_endpoint"] = PUBLIC_ENDPOINT.name
+        session_state["generation_agent_error"] = "previous failure"
+        mock_agent = MagicMock(name="generation-agent")
+        with patch(
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.EnvironmentGenerationAgent",
+            side_effect=[AssertionError("transient"), mock_agent],
+        ) as mock_cls:
+            assert _get_generation_agent() is None
+            assert session_state["generation_agent_error"] == "transient"
+            assert _get_generation_agent() is mock_agent
+        assert mock_cls.call_count == 2
+        assert "generation_agent_error" not in session_state
+        assert mock_cls.call_args.kwargs["endpoint"] == PUBLIC_ENDPOINT.name
+
+
 class TestRunGenerationPipeline:
     def test_rejects_empty_prompt(self, session_state):
         ok, message = run_generation_pipeline("   ")
@@ -339,7 +432,8 @@ class TestRunGenerationPipeline:
 
     def test_fails_when_agent_unavailable(self, session_state):
         session_state["generation_agent_error"] = "missing key"
-        ok, message = run_generation_pipeline("pick up a cube")
+        with _patch_generation_agent(None):
+            ok, message = run_generation_pipeline("pick up a cube")
         assert not ok
         assert "missing key" in message
 
@@ -526,17 +620,20 @@ class TestSimAppSimPreview:
             response = client.run_sim_preview(
                 yaml_text,
                 num_envs=1,
-                num_steps=0,
-                env_spacing=1.5,
+                num_steps=2,
+                env_spacing=ENV_SPACING_M,
             )
             assert response["ok"] is True
 
-            first_frame = Path(response["first_frame"])
-            last_frame = Path(response["last_frame"])
-            assert first_frame.is_file() and first_frame.stat().st_size > 0
-            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            video_path = Path(response["video_path"])
+            assert video_path.is_file() and video_path.stat().st_size > 0
             assert response["num_envs"] == 1
-            assert response["num_steps"] == 0
+            assert response["env_spacing"] == ENV_SPACING_M
+            assert response["num_steps"] == 2
+            assert client.ping()
+
+            video_path.unlink()
+            video_path.parent.rmdir()
 
             client.shutdown()
         finally:

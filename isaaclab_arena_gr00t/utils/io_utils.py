@@ -194,7 +194,7 @@ def create_config_from_yaml(yaml_path: str | Path, config_class: type[ConfigType
     return config
 
 
-def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embodiment_tag: str):
+def load_gr00t_modality_config_from_file(modality_config_path: str | Path | None, embodiment_tag: str):
     """Load the modality configs using GR00T's pattern.
     1. Import the config module (registers it globally)
     2. Retrieve from the global registry using embodiment_tag

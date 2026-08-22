@@ -5,9 +5,9 @@ Once you are satisfied with the environment, you can use it to evaluate a policy
 The base container runs the environment as it was generated. The cuRobo-installed container additionally
 gates object placement on whether the robot can reach the target objects.
 
-For example, you can use the policy runner to evaluate PI policy on the environment. For other policy types, please refer to the evaluation workflow page.
-
-.. todo:: add link to policy evaluation workflow page
+For example, you can use the policy runner to evaluate a PI policy on the
+environment. For other policy types, see
+:doc:`Running a Real Policy <../../../quickstart/running_a_real_policy/index>`.
 
 Open one terminal and run the following command outside the Arena docker container to launch the PI policy server:
 
@@ -17,16 +17,14 @@ Open one terminal and run the following command outside the Arena docker contain
 
 In the other terminal, run the following command to launch the policy runner. The commands below use the
 ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-``--env_graph_spec_yaml`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
 
 .. tab-set::
 
-   .. tab-item:: Policy evaluation (base)
+   .. tab-item:: Policy evaluation (without reachability validation)
       :selected:
 
-      **Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
-
-      :docker_run_default:
+      Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
 
       .. code-block:: bash
 
@@ -36,10 +34,16 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
 
-   .. tab-item:: Policy evaluation with reachability validation (cuRobo)
+   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
+
+      .. note::
+         Reachability validation runs only in the cuRobo-installed Docker container
+         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
+         install — see :doc:`../../../quickstart/installation` and
+         :ref:`ik-reachable-check`.
 
       If you want to ensure the robot can reach the target objects (i.e. banana and plate), you can use this
       environment in the cuRobo-installed docker container to activate the reachability validation.
@@ -58,7 +62,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 3 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/droid_banana_on_plate_maple_table.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
       check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
@@ -74,7 +78,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
       See :ref:`ik-reachable-check` for how this check is registered, what it requires, and how to tune
       or disable it.
 
-.. figure:: ../../../../images/agentic_env_droid_pi_banana_plate_pnp_run1.gif
+.. figure:: ../../../../images/agentic_environment_generation/agentic_env_droid_pi_banana_plate_pnp_run1.gif
    :width: 100%
    :alt: Policy evaluation of the generated environment using the OpenPI policy.
    :align: center

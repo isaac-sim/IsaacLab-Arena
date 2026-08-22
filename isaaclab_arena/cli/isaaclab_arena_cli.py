@@ -119,7 +119,7 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
         "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
     )
     env_graph_spec_group.add_argument(
-        "--env_graph_spec_yaml",
+        "--env_spec",
         type=str,
         default=None,
         help=(

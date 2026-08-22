@@ -1,7 +1,7 @@
 Run Agentic Environment Generation
 ----------------------------------
 
-**Docker Container**: Base (see :doc:`../../../quickstart/installation` for more details)
+Complete the shared :ref:`agentic-env-gen-prerequisites` before running this workflow.
 
 The Arena environment generation agent infers an ``ArenaEnvGraphSpec`` YAML from a user prompt.
 The agent runs in two modes:
@@ -31,11 +31,11 @@ That is, the task is to open the fridge door to the 0.2 openness threshold in th
 
       .. code-block:: text
 
-         There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen.
+         There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal kitchen.
          DROID is on the floor, next to the fridge with 0.1 meter distance and facing
          it. DROID opens the fridge door to the 0.2 openness threshold.
 
-      .. figure:: ../../../../images/agentic_ui_kitchen_open_door.png
+      .. figure:: ../../../../images/agentic_environment_generation/agentic_ui_kitchen_open_door.png
          :width: 100%
          :alt: GUI runner view of the environment graph spec.
          :align: center
@@ -49,9 +49,9 @@ That is, the task is to open the fridge door to the 0.2 openness threshold in th
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode resolve \
-            --prompt "There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen. DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. DROID opens the fridge door to the 0.2 openness threshold."
+            --prompt "There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal kitchen. DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. DROID opens the fridge door to the 0.2 openness threshold."
 
       The runner prints the resolved graph and writes ``<env_name>.yaml`` under
       ``isaaclab_arena_environments/agent_generated/``.

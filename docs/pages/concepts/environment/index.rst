@@ -45,9 +45,10 @@ for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment *parts*.
 
-The two pages below cover how you write an environment down, and how it is built:
+The two pages below cover how you define an environment, and how it is built:
 
-- :doc:`env_spec` — the two ways to specify an environment, Python or YAML.
+- :doc:`environment_definition` — the two ways to define an environment, Python
+  or YAML.
 - :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
   Isaac Lab ``ManagerBasedRLEnv``.
 
@@ -57,5 +58,5 @@ The individual components are covered in :doc:`../scene/index`,
 .. toctree::
    :maxdepth: 1
 
-   env_spec
+   environment_definition
    env_builder

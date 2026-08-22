@@ -63,6 +63,8 @@ def _render_asset_card(card: AssetCard) -> None:
     with st.container(border=True):
         if card.thumbnail_bytes is not None:
             st.image(card.thumbnail_bytes, width="stretch")
+            if card.is_panorama:
+                st.caption("360° panorama")
         elif is_reference and spec.prim_path is None:
             st.caption("⛔ Resolve prim_path to enable collision-mesh snapshot")
         else:
@@ -79,12 +81,26 @@ def _render_asset_card(card: AssetCard) -> None:
 
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:
-    """Lay out asset cards in a grid."""
-    for start in range(0, len(cards), _ASSET_GRID_COLS):
-        columns = st.columns(_ASSET_GRID_COLS)
-        for column, card in zip(columns, cards[start : start + _ASSET_GRID_COLS]):
+    """Lay out asset cards in a grid; panorama cards span the full width on their own row."""
+    row: list[AssetCard] = []
+
+    def _flush_row() -> None:
+        if not row:
+            return
+        for column, card in zip(st.columns(_ASSET_GRID_COLS), row):
             with column:
                 _render_asset_card(card)
+        row.clear()
+
+    for card in cards:
+        if card.is_panorama:
+            _flush_row()
+            _render_asset_card(card)
+        else:
+            row.append(card)
+            if len(row) == _ASSET_GRID_COLS:
+                _flush_row()
+    _flush_row()
 
 
 def _render_prim_tree(prim_tree: list[UsdPrimRecord]) -> None:

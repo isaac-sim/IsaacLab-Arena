@@ -158,10 +158,10 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
 
     # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
     # here, before parsing, so they appear in --help and parse like any other flag.
-    env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
-    if env_graph_spec_yaml is not None:
+    env_spec = getattr(args, "env_spec", None)
+    if env_spec is not None:
         # The env comes from the graph spec, so don't register the example-environment subparsers.
-        cli_override_specs_from_yaml = ArenaEnvGraphSpec.read_cli_override_specs(env_graph_spec_yaml)
+        cli_override_specs_from_yaml = ArenaEnvGraphSpec.read_cli_override_specs(env_spec)
         add_cli_override_args(args_parser, cli_override_specs_from_yaml)
         return args_parser
 
@@ -206,28 +206,28 @@ def get_arena_builder_from_cli(
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    # The env comes from exactly one source: a graph spec YAML (--env_graph_spec_yaml) or a
+    # The env comes from exactly one source: a graph spec YAML (--env_spec) or a
     # registered example-environment name (subcommand).
-    env_graph_spec_yaml = getattr(args_cli, "env_graph_spec_yaml", None)
+    env_spec = getattr(args_cli, "env_spec", None)
     example_environment = getattr(args_cli, "example_environment", None)
-    assert (env_graph_spec_yaml is None) != (example_environment is None), (
-        "Specify exactly one environment source: an example-environment name or --env_graph_spec_yaml"
-        f" (got example_environment={example_environment!r}, env_graph_spec_yaml={env_graph_spec_yaml!r})"
+    assert (env_spec is None) != (example_environment is None), (
+        "Specify exactly one environment source: an example-environment name or --env_spec"
+        f" (got example_environment={example_environment!r}, env_spec={env_spec!r})"
     )
 
     # Either env graph spec yaml OR example env name
     arena_env = (
-        arena_env_from_graph_spec(env_graph_spec_yaml, args_cli)
-        if env_graph_spec_yaml is not None
+        arena_env_from_graph_spec(env_spec, args_cli)
+        if env_spec is not None
         else _arena_env_from_example_name(example_environment, args_cli)
     )
     builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
     return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 
 
-def arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
-    spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
+    spec = ArenaEnvGraphSpec.from_yaml(env_spec)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env
     return spec.to_arena_env(enable_cameras=args_cli.enable_cameras)

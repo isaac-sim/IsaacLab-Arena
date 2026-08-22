@@ -79,6 +79,7 @@ def _patch_curobo(monkeypatch, feasible_fn):
 
         def update_world(self, cuboids, base_pos, base_quat):
             self.world_cuboids = cuboids
+            captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
 
     captured = {}
 
@@ -286,6 +287,51 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
     assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
     assert captured["total_grasps"] == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_uses_relation_placed_robot_pose(monkeypatch):
+    """IK uses the robot's solved layout pose instead of its configured pre-placement pose."""
+    from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RequiresReachability, Side
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True] * n)
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.5, -0.5, 0.0), max_point=(0.5, 0.5, 0.1)),
+        initial_pose=Pose.identity(),
+    )
+    desk.add_relation(IsAnchor())
+    target = DummyObject(
+        name="target",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, 0.0), max_point=(0.1, 0.1, 0.2)),
+    )
+    target.add_relation(On(desk))
+    target.add_relation(RequiresReachability())
+    configured_robot_pose = Pose(position_xyz=(9.0, 9.0, 0.0))
+    robot = DummyObject(
+        name="robot",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+        initial_pose=configured_robot_pose,
+    )
+    robot.add_relation(NextTo(desk, side=Side.NEGATIVE_Y))
+    validator = _make_reachability_validator(robot)
+
+    solved_robot_position = (0.0, -1.0, 0.0)
+    positions = {
+        desk: (0.0, 0.0, 0.0),
+        target: (0.0, 0.0, 0.11),
+        robot: solved_robot_position,
+    }
+    orientations = {desk: 0.0, target: 0.0, robot: 0.0}
+
+    assert validator.validate_batch([positions], [orientations], [{}], []) == [True]
+    base_position, base_orientation = captured["base_poses_per_world_update"][0]
+    assert base_position == solved_robot_position
+    assert base_position != configured_robot_pose.position_xyz
+    assert base_orientation == (0.0, 0.0, 0.0, 1.0)
 
 
 @pytest.mark.curobo_deps

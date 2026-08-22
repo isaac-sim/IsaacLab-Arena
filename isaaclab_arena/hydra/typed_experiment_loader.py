@@ -281,11 +281,11 @@ def _build_environment_cfg_from_yaml_values(
     argparse compatibility path; otherwise the type selects a registered typed config.
     """
     if _is_environment_graph_yaml_spec(environment_values):
-        env_graph_spec_yaml_path = _graph_spec_yaml_path(environment_values)
+        env_spec_path = _graph_spec_yaml_path(environment_values)
         per_run_overrides = {
             field_name: value for field_name, value in environment_values.items() if field_name != "type"
         }
-        return _graph_environment_cfg_from_yaml_values(env_graph_spec_yaml_path, per_run_overrides)
+        return _graph_environment_cfg_from_yaml_values(env_spec_path, per_run_overrides)
     else:
         return _compose_typed_config_from_yaml_selector(
             config_store,
@@ -301,7 +301,7 @@ def _build_environment_cfg_from_yaml_values(
 # TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
 # environments have a typed configuration and no longer use the argparse compatibility path.
 def _graph_environment_cfg_from_yaml_values(
-    env_graph_spec_yaml_path: str,
+    env_spec_path: str,
     per_run_overrides: dict[str, Any],
 ) -> LegacyGraphEnvironmentCfg:
     """Create the temporary graph-YAML compatibility config from typed YAML Run values.
@@ -313,7 +313,7 @@ def _graph_environment_cfg_from_yaml_values(
     """
     return LegacyGraphEnvironmentCfg(
         enable_cameras=bool(per_run_overrides.get("enable_cameras", False)),
-        env_graph_spec_yaml_path=env_graph_spec_yaml_path,
+        env_spec_path=env_spec_path,
         per_run_overrides=dict(per_run_overrides),
     )
 

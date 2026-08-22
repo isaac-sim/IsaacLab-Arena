@@ -4,7 +4,7 @@ Edit the Environment Graph Spec
 Review the spec before building the environment. The agent infers it from the prompt with an
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
-:doc:`../model_selection` for more details.
+:doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
 For a composite task, check that the subtask list covers every pick and place pair you asked for, and that the SimReady hits are the assets you expected.
 
 Understanding the YAML
@@ -24,7 +24,7 @@ The generated spec has one block per part of the environment graph:
      registry_name: maple_table_robolab
      params: {}
    objects:                          # one entry per asset in the scene
-   - id: pepsi_can                   # a SimReady search result: asset comes from a usd_path
+   - id: beverage_can                # a SimReady search result: asset comes from a usd_path
      registry_name: simready_usd_object
      params:
        usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
@@ -46,7 +46,7 @@ The generated spec has one block per part of the environment graph:
      subject: maple_table
      params: {}
    - kind: 'on'                      # every object needs its own placement relation
-     subject: pepsi_can
+     subject: beverage_can
      reference: maple_table
      params: {}
    - kind: 'on'
@@ -71,16 +71,16 @@ The generated spec has one block per part of the environment graph:
      params: {}
    - kind: next_to
      subject: hammer
-     reference: pepsi_can
+     reference: beverage_can
      params: {}
    task:
      composition: parallel           # subtasks have no required order
-     description: Pick up the pepsi can and bean can from the maple table and place them
+     description: Pick up the beverage can and bean can from the maple table and place them
        into the mini plastic basket.
      subtasks:
      - kind: PickAndPlaceTask        # first atomic subtask
        params:
-         pick_up_object: pepsi_can   # object id
+         pick_up_object: beverage_can  # object id
          destination_location: mini_plastic_basket
          background_scene: maple_table
      - kind: PickAndPlaceTask        # second atomic subtask
@@ -95,9 +95,8 @@ the destination. ``registry_name`` is the Arena asset the id resolves to, so
 swapping an asset is a one-line change that leaves the rest of the graph
 untouched.
 
-For more details on the env graph spec, see more in concept.
-
-.. todo:: add link to concept page
+For more details on the Env Spec, see
+:doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
 Editing the composite task
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -146,7 +145,7 @@ Applying your edits
       #. Click **Run relation solver preview** to build the environment, solve the relations, run a zero-action rollout, and compare the viewport before and after the relation solver is run.
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
-      See :doc:`../gui_runner` for the full UI walkthrough.
+      See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 
    .. tab-item:: Edit outside the GUI (text editor)
 
@@ -155,12 +154,12 @@ Applying your edits
 
       .. code-block:: bash
 
-         python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+         python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode build \
             --viz kit \
             --num_envs 1 \
             --num_steps 100 \
-            --env_graph_spec_yaml isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` — named after ``env_name``, without the

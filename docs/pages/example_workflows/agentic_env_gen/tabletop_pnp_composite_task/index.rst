@@ -7,21 +7,21 @@ for **pick and place composite task with SimReady assets** on a table-top scene.
 Environment Description
 -----------------------
 
-.. figure:: ../../../../images/tabletop_agentic_env_cans_simready.png
+.. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_cans_simready.png
    :width: 100%
    :alt: Generated table-top pick and place composite task shown in the agentic environment-generation GUI.
    :align: center
 
-   The generated table-top scene: a DROID arm, a pepsi can, a tuna can, a mini plastic basket, a hammer and a
-   bean can. The task is to pick up the pepsi can and bean can from the maple table and place them into the
+   The generated table-top scene: a DROID arm, a beverage can, a tuna can, a mini plastic basket, a hammer and a
+   bean can. The task is to pick up the beverage can and bean can from the maple table and place them into the
    mini plastic basket.
 
 The task is *composite*: instead of a single pick and place, the robot picks up
-both the pepsi can and the bean can from the maple table and places them into
+both the beverage can and the bean can from the maple table and places them into
 the mini plastic basket. Two atomic ``PickAndPlaceTask`` subtasks are combined
 under one root task. A hammer and a tuna can are on the table as distractors.
 
-Two of the assets (i.e. pepsi can and plastic basket) are not in the Arena asset catalog. They are found by
+Two of the assets (i.e. beverage can and plastic basket) are not in the Arena asset catalog. They are found by
 asset search through the SimReady service and enter the spec as ``simready_usd_object`` entries carrying a ``usd_path``.
 
 The generated spec for this example is available at
@@ -33,8 +33,9 @@ Workflow
 Prerequisites
 ^^^^^^^^^^^^^
 
-See :ref:`agentic-env-gen-prerequisites` for the container and API key setup.
-The spec shown here depends on the model behind that endpoint — see :doc:`../model_selection`.
+See :ref:`agentic-env-gen-prerequisites` for the environment and API key setup.
+The spec shown here depends on the model behind that endpoint — see
+:doc:`../../../concepts/agentic_environment_generation/model_selection`.
 
 Workflow Steps
 ^^^^^^^^^^^^^^

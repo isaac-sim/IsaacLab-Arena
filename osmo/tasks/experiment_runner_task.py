@@ -7,12 +7,14 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_experiment_result import build_arena_run_result_metadata
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from osmo.tasks.base_task import BaseTask, TaskCfg
@@ -97,10 +99,16 @@ class ExperimentRunnerTask(BaseTask):
             experiment_runner_command_arguments.append("--record_viewport_video")
         experiment_runner_command = shlex.join(experiment_runner_command_arguments)
         experiment_runner_result_path = shlex.quote(f"{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}")
+        run_metadata_json = shlex.quote(
+            json.dumps({
+                run_name: build_arena_run_result_metadata(run_cfg)
+                for run_name, run_cfg in self.experiment_cfg.runs.items()
+            })
+        )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d}\\n\' '
+            'printf \'{"execution_status":"%s","process_exit_code":%d,"runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
-            f"> {experiment_runner_result_path}"
+            f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
             "# Record the application result without failing the OSMO task.",
