@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=61"]
+# >=66.1 for Python 3.12 compatibility, >=62.3 for the recursive `**` globs in
+# [tool.setuptools.package-data].
+requires = ["setuptools>=66.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -223,6 +225,15 @@ include = [
     "isaaclab_arena_openpi*",
 ]
 namespaces = false
+
+# setuptools installs only .py files. Declare the configuration data files, and
+# exclude the test fixtures, for a non-editable install. The globs are recursive
+# because the environment spec directories are not packages of their own.
+[tool.setuptools.package-data]
+"*" = ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.jsonl", "**/*.html"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["tests/test_data/**", "test_data/**"]
 
 # ----------------------------------------------------------------------------
 # Existing tool configuration (migrated unchanged from the previous pyproject)

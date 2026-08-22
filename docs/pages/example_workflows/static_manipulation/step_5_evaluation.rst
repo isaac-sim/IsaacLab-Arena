@@ -33,6 +33,41 @@ pre-trained model checkpoint below:
          --local-dir $MODELS_DIR/checkpoint-20000
 
 
+**Prerequisite: launch the GR00T policy server**
+
+The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
+Before running the evaluation, open another terminal **outside the Arena development
+container**.
+The server runs out of
+the `Isaac-GR00T <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
+submodule pinned at commit ``e29d8fc``; populate it with
+``git submodule update --init submodules/Isaac-GR00T`` if it is not already
+checked out. Then, from the repository root in that terminal, launch the server and
+leave it running:
+
+.. todo::
+
+   The ``submodules/Isaac-GR00T`` submodule will be removed after the policy
+   config refactor. After that, users will be expected to set up a separate
+   GR00T repository checkout themselves and launch the server from there.
+
+.. note::
+
+   Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
+   `official GR00T documentation <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102>`_
+   specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems. Please refer to the
+   documentation for the latest requirements.
+
+.. code-block:: bash
+
+   cd submodules/Isaac-GR00T
+   uv run python gr00t/eval/run_gr00t_server.py \
+     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+     --model-path /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000 \
+     --embodiment-tag GR1 \
+     --device cuda --host 127.0.0.1 --port 5555
+
+
 Step 1: Run Single Environment Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -62,30 +97,6 @@ The Arena GR00T evaluation client is configured by a config file at ``isaaclab_a
       original_image_size: [512, 512, 3]
       target_image_size: [512, 512, 3]
 
-
-**Prerequisite: launch the GR00T policy server**
-
-The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
-The server runs out of
-the `Isaac-GR00T <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
-submodule pinned at commit ``e29d8fc``; populate it with
-``git submodule update --init submodules/Isaac-GR00T`` if it is not already
-checked out. Then, in a separate shell with ``uv`` available from the repo root:
-
-.. todo::
-
-   The ``submodules/Isaac-GR00T`` submodule will be removed after the policy
-   config refactor. After that, users will be expected to set up a separate
-   GR00T repository checkout themselves and launch the server from there.
-
-.. code-block:: bash
-
-   cd submodules/Isaac-GR00T
-   uv run python gr00t/eval/run_gr00t_server.py \
-     --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-     --model-path /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000 \
-     --embodiment-tag GR1 \
-     --device cuda --host 127.0.0.1 --port 5555
 
 Test the policy in a single environment with visualization via the GUI run:
 

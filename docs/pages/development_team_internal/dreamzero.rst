@@ -49,7 +49,7 @@ the language instruction, and a three-episode rollout:
 .. dropdown:: Configuration file (``droid_pnp_dreamzero_experiment.yaml``)
    :animate: fade-in
 
-   .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
+   .. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
       :language: yaml
 
 The policy configuration uses ``localhost:5000`` by default, matching the port forward

@@ -1,0 +1,99 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_place_pepsi_in_basket
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects:
+- id: tuna_can
+  registry_name: tuna_can_ycb_robolab
+  params: {}
+- id: mug
+  registry_name: mug
+  params: {}
+- id: pepsi_can
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Food/Canned_Goods/Can_M01/sm_food_beverage_can_m01_01.usd
+- id: corn_can
+  registry_name: corn_can_hope_robolab
+  params: {}
+- id: mini_plastic_basket
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Residential/Kitchen/Baskets/Plastic_Basket_A01/sm_misc_basket_plastic_a01_01.usd
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: counter_top
+  parent_id: kitchen
+  prim_path: island_island_group/top_geometry_left
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: counter_top
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: counter_top
+  params:
+    side: positive_y
+- kind: 'on'
+  subject: tuna_can
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: mini_plastic_basket
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: mug
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: pepsi_can
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: corn_can
+  reference: counter_top
+  params: {}
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.57
+task:
+  composition: atomic
+  description: Pick up the Pepsi can from the counter top and place it into the mini
+    plastic basket.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pepsi_can
+      destination_location: mini_plastic_basket
+      background_scene: kitchen
+      destination_object: mini_plastic_basket
