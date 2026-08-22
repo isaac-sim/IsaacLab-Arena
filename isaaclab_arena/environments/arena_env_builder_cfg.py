@@ -26,6 +26,12 @@ class ArenaEnvBuilderCfg:
     presets: str | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
+    record_trajectories: bool = False
+    """Whether to extend the recorder manager with per-step trajectory terms."""
+    recorder_dataset_export_dir_path: str | None = None
+    """If set, overrides the recorder manager's dataset export directory."""
+    recorder_dataset_filename: str | None = None
+    """If set, overrides the recorder manager's dataset filename."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

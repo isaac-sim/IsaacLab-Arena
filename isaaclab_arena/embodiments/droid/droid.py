@@ -326,30 +326,38 @@ class DroidSceneCfg:
         },
     )
 
-    # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+                # Offset along +x (the gripper approach axis) from Robotiq base_link to the grasp
+                # point — the midpoint between the two finger pads when the gripper is open. Measured
+                # in the DROID USD: first estimated visually in Isaac Sim (cube placed between the
+                # fingers), then refined from the finger bounding boxes. In this flattened USD,
+                # left_inner_finger and right_inner_finger also originate at base_link when open, so
+                # the finger-pad frames below reuse the same +x. As the fingers close, the true grasp
+                # point moves a negligible amount further along +x.
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
                 offset=OffsetCfg(
-                    pos=[0.0, 0.0, 0.1034],
+                    pos=(0.131, 0.0, 0.0),
                 ),
             ),
+            # ±y offset to each finger pad from its finger frame (left_inner_finger /
+            # right_inner_finger), from the same USD bounding boxes as above.
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
                 name="tool_rightfinger",
                 offset=OffsetCfg(
-                    pos=(0.0, 0.0, 0.046),
+                    pos=(0.131, -0.0414, 0.0),
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/left_inner_finger",
                 name="tool_leftfinger",
                 offset=OffsetCfg(
-                    pos=(0.0, 0.0, 0.046),
+                    pos=(0.131, 0.0417, 0.0),
                 ),
             ),
         ],
