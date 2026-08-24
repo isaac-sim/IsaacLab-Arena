@@ -21,13 +21,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.tasks.predicates.predicate_utils import (
-    get_env,
-    get_root_lin_vel_w,
-    get_root_pos_w,
-    runtime_buffer_to_torch,
-    select,
-)
+from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -181,8 +175,8 @@ def objects_in_proximity(
     target_object_entity: RigidObject | Articulation = env.scene[target_object_cfg.name]
 
     # Get positions relative to environment origin
-    object_pos = runtime_buffer_to_torch(object_entity.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = runtime_buffer_to_torch(target_object_entity.data.root_pos_w) - env.scene.env_origins
+    object_pos = object_entity.data.root_pos_w.torch - env.scene.env_origins
+    target_object_pos = target_object_entity.data.root_pos_w.torch - env.scene.env_origins
 
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
     y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
@@ -223,10 +217,10 @@ def object_on_destination(
     assert contact_sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(runtime_buffer_to_torch(contact_sensor.data.force_matrix_w), dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(contact_sensor.data.force_matrix_w.torch, dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = runtime_buffer_to_torch(object_entity.data.root_lin_vel_w)
+    velocity_w = object_entity.data.root_lin_vel_w.torch
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 

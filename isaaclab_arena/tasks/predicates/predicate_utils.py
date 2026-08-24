@@ -10,11 +10,6 @@ import torch
 from isaaclab.assets import RigidObject
 
 
-def runtime_buffer_to_torch(value) -> torch.Tensor:
-    """Return a Torch view of an Isaac Lab runtime buffer."""
-    return value.torch
-
-
 def get_env(env):
     """Resolve to the unwrapped manager-based env regardless of wrapper depth."""
     seen = set()
@@ -31,17 +26,17 @@ def get_rigid_object(env, name: str) -> RigidObject:
 
 def get_root_pos_w(env, name: str) -> torch.Tensor:
     """Get the root position of a rigid object in the world frame."""
-    return runtime_buffer_to_torch(get_rigid_object(env, name).data.root_pos_w)
+    return get_rigid_object(env, name).data.root_pos_w.torch
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
     """Get the root linear velocity of a rigid object in the world frame."""
-    return runtime_buffer_to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
+    return get_rigid_object(env, name).data.root_lin_vel_w.torch
 
 
 def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
     """Get the root angular velocity of a rigid object in the world frame."""
-    return runtime_buffer_to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+    return get_rigid_object(env, name).data.root_ang_vel_w.torch
 
 
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:

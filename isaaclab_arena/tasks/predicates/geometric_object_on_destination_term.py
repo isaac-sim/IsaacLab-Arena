@@ -20,7 +20,6 @@ from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCf
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.live_scene_geometry import LiveSceneEntityGeometry
-from isaaclab_arena.tasks.predicates.predicate_utils import runtime_buffer_to_torch
 from isaaclab_arena.tasks.predicates.spatial import (
     contact_force_is_upward_support,
     object_bounds_center_over_destination,
@@ -101,7 +100,7 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
         force_matrix_w = contact_sensor.data.force_matrix_w
         assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
-        force_matrix_w = runtime_buffer_to_torch(force_matrix_w)
+        force_matrix_w = force_matrix_w.torch
         assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
             f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
             f"got force shape {tuple(force_matrix_w.shape)}."
@@ -114,6 +113,6 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         )
 
         object_entity: RigidObject = env.scene[self._object_name]
-        object_linear_velocity_w = runtime_buffer_to_torch(object_entity.data.root_lin_vel_w)
+        object_linear_velocity_w = object_entity.data.root_lin_vel_w.torch
         object_is_moving_slowly = torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
         return object_center_over_destination & destination_provides_upward_support & object_is_moving_slowly

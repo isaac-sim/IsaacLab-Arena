@@ -18,7 +18,6 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.views import FrameView
 from pxr import Usd, UsdGeom, UsdPhysics
 
-from isaaclab_arena.tasks.predicates.predicate_utils import runtime_buffer_to_torch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -273,13 +272,13 @@ class LiveSceneEntityGeometry:
     def get_pose_w(self) -> torch.Tensor:
         """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
         if self._rigid_object is not None:
-            pose_w = runtime_buffer_to_torch(self._rigid_object.data.root_pose_w)
+            pose_w = self._rigid_object.data.root_pose_w.torch
         elif self._articulation is not None:
-            pose_w = runtime_buffer_to_torch(self._articulation.data.body_pose_w)[:, self._articulation_body_id, :]
+            pose_w = self._articulation.data.body_pose_w.torch[:, self._articulation_body_id, :]
         else:
             position_w_buffer, orientation_w_buffer = self._reference_frame_view.get_world_poses()
-            position_w = runtime_buffer_to_torch(position_w_buffer)
-            orientation_w = runtime_buffer_to_torch(orientation_w_buffer)
+            position_w = position_w_buffer.torch
+            orientation_w = orientation_w_buffer.torch
             assert position_w.shape == (self._num_envs, 3), (
                 f"Read-only scene reference '{self._entity_name}' returned position shape {tuple(position_w.shape)}; "
                 f"expected ({self._num_envs}, 3)."
