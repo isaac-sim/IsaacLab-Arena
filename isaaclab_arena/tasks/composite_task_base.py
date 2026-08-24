@@ -5,6 +5,7 @@
 
 import copy
 import dataclasses
+import inspect
 import numpy as np
 import torch
 import warnings
@@ -172,27 +173,48 @@ class CompositeTaskBase(TaskBase):
         return [(name, ftype, value) for name, ftype, value in fields if name not in exclude_fields]
 
     @staticmethod
+    def _validate_resolved_subtask_success_cfgs(
+        resolved_subtask_success_cfgs: list[TerminationTermCfg],
+        desired_subtask_success_state: list[bool | None] | None,
+    ) -> int:
+        """Validate resolved child success configs and return the subtask count."""
+        assert resolved_subtask_success_cfgs, "At least one resolved subtask success config is required"
+        assert all(
+            isinstance(subtask_success_cfg, TerminationTermCfg) for subtask_success_cfg in resolved_subtask_success_cfgs
+        ), "Every resolved subtask success config must be a TerminationTermCfg"
+        assert all(
+            callable(subtask_success_cfg.func) and not inspect.isclass(subtask_success_cfg.func)
+            for subtask_success_cfg in resolved_subtask_success_cfgs
+        ), "Subtask success functions must be constructed or resolved to callables before evaluation"
+        num_subtasks = len(resolved_subtask_success_cfgs)
+        if desired_subtask_success_state is not None:
+            assert (
+                len(desired_subtask_success_state) == num_subtasks
+            ), "Desired subtask success state must be the same length as the resolved subtask success configs"
+        return num_subtasks
+
+    @staticmethod
     def _evaluate_subtask_successes(
         env,
-        subtask_success_terms: list[TerminationTermCfg],
+        resolved_subtask_success_cfgs: list[TerminationTermCfg],
         subtask_indices,
     ) -> list[list[bool]]:
         """Evaluate the success function of selected subtasks across all envs.
 
         Args:
             env: The environment instance.
-            subtask_success_terms: Resolved success terms for every subtask.
+            resolved_subtask_success_cfgs: Manager-resolved success configuration for every subtask.
             subtask_indices: Iterable of subtask indices to evaluate. Indices not in this
                 iterable are left as False in the returned matrix.
 
         Returns:
-            A (num_envs x len(subtask_success_terms)) list of bools, where entry
+            A (num_envs x len(resolved_subtask_success_cfgs)) list of bools, where entry
             [env_idx][subtask_idx] is True if that subtask's success function returned True this step.
         """
-        subtask_currently_succeeding = [[False for _ in subtask_success_terms] for _ in range(env.num_envs)]
+        subtask_currently_succeeding = [[False for _ in resolved_subtask_success_cfgs] for _ in range(env.num_envs)]
         for subtask_idx in subtask_indices:
-            subtask_success_term = subtask_success_terms[subtask_idx]
-            results = subtask_success_term.func(env, **subtask_success_term.params)
+            subtask_success_cfg = resolved_subtask_success_cfgs[subtask_idx]
+            results = subtask_success_cfg.func(env, **subtask_success_cfg.params)
             for env_idx in range(env.num_envs):
                 if results[env_idx]:
                     subtask_currently_succeeding[env_idx][subtask_idx] = True
@@ -201,35 +223,35 @@ class CompositeTaskBase(TaskBase):
     @staticmethod
     def composite_task_success_func(
         env,
-        subtasks: list[TaskBase],
+        resolved_subtask_success_cfgs: list[TerminationTermCfg],
         desired_subtask_success_state: list[bool | None] | None,
-        subtask_success_terms: list[TerminationTermCfg] | None = None,
     ) -> torch.Tensor:
         """Composite task composite success function.
 
         Args:
             env: The environment instance.
-            subtasks: List of subtasks that compose this composite task.
+            resolved_subtask_success_cfgs: Success configurations whose class-based functions have been
+                constructed by the manager.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
-            subtask_success_terms: Manager-resolved success terms. Defaults to the terms stored on ``subtasks``.
 
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
+        num_subtasks = CompositeTaskBase._validate_resolved_subtask_success_cfgs(
+            resolved_subtask_success_cfgs, desired_subtask_success_state
+        )
+
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
-
-        if subtask_success_terms is None:
-            subtask_success_terms = [subtask.get_termination_cfg().success for subtask in subtasks]
+            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
 
         # Evaluate every subtask's success function (composite tasks have no ordering constraint).
         subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, subtask_success_terms, range(len(subtasks))
+            env, resolved_subtask_success_cfgs, range(num_subtasks)
         )
         for env_idx in range(env.num_envs):
-            for subtask_idx in range(len(subtasks)):
+            for subtask_idx in range(num_subtasks):
                 if subtask_currently_succeeding[env_idx][subtask_idx]:
                     env._subtask_ever_succeeded[env_idx][subtask_idx] = True
 
@@ -264,15 +286,15 @@ class CompositeTaskBase(TaskBase):
     def reset_subtask_success_state(
         env,
         env_ids,
-        subtasks: list[TaskBase],
+        num_subtasks: int,
     ) -> None:
         "Reset subtask success vector for each environment."
         # Initialize each env's subtask success state to False
         if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
+            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
         else:
             for env_id in env_ids:
-                env._subtask_ever_succeeded[env_id] = [False for _ in subtasks]
+                env._subtask_ever_succeeded[env_id] = [False for _ in range(num_subtasks)]
 
     def get_scene_cfg(self) -> Any:
         "Make combined scene cfg from all subtasks."
@@ -294,7 +316,7 @@ class CompositeTaskBase(TaskBase):
             func=self.reset_subtask_success_state,
             mode="reset",
             params={
-                "subtasks": self.subtasks,
+                "num_subtasks": len(self.subtasks),
             },
         )
 
@@ -325,13 +347,14 @@ class CompositeTaskBase(TaskBase):
 
     def _make_composite_task_termination_cfg(self) -> Any:
         "Make composite success check termination term."
-        subtask_success_terms = [subtask.get_termination_cfg().success for subtask in self.subtasks]
+        subtask_success_cfgs = [subtask.get_termination_cfg().success for subtask in self.subtasks]
         success = TerminationTermCfg(
             func=self.composite_task_success_func,
             params={
-                "subtasks": self.subtasks,
+                # Isaac Lab recursively processes manager configs stored in term parameters. By the time
+                # composite_task_success_func runs, class-based child functions have been constructed.
+                "resolved_subtask_success_cfgs": subtask_success_cfgs,
                 "desired_subtask_success_state": self.desired_subtask_success_state,
-                "subtask_success_terms": subtask_success_terms,
             },
         )
 

@@ -87,7 +87,9 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
             # Set Franka arm pose for kitchen setup
             embodiment.set_initial_joint_pose([0.0, -1.309, 0.0, -2.793, 0.0, 3.037, 0.740, 0.04, 0.04])
 
-        # Create destination reference
+        # Keep this reference read-only because the microwave articulation owns the turntable body
+        # and its reset state. Registering it in the scene lets geometric success resolve its live
+        # pose and bounds without creating a second rigid-body owner.
         destination_ref = ObjectReference(
             name="microwave_disc",
             parent_asset=container,

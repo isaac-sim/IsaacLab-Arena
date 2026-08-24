@@ -166,24 +166,26 @@ class _MockSubtask:
     """Minimal stand-in for a TaskBase with a controllable success function."""
 
     def __init__(self, num_envs: int):
-        self.func = _MockSuccessFunc(num_envs)
+        from isaaclab.managers import TerminationTermCfg
 
-        class _SuccessCfg:
-            pass
+        self.func = _MockSuccessFunc(num_envs)
 
         class _TerminationCfg:
             pass
 
         self._termination_cfg = _TerminationCfg()
-        self._termination_cfg.success = _SuccessCfg()
-        self._termination_cfg.success.func = self.func
-        self._termination_cfg.success.params = {}
+        self._termination_cfg.success = TerminationTermCfg(func=self.func, params={})
 
     def get_termination_cfg(self):
         return self._termination_cfg
 
     def set_success(self, values: list[bool]):
         self.func.set(values)
+
+
+def _get_success_cfgs(subtasks: list[_MockSubtask]):
+    """Return the already-callable success configs used by the direct unit tests."""
+    return [subtask.get_termination_cfg().success for subtask in subtasks]
 
 
 class _MockEnv:
@@ -205,33 +207,34 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
+        resolved_subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Latch all three subtasks True simultaneously (composite doesn't require order).
         subtasks[0].set_success([True])
         subtasks[1].set_success([True])
         subtasks[2].set_success([True])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
         assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care) -> still success.
         subtasks[0].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [True]
 
         # Subtask 2 currently False breaks the [None, True, True] pattern -> failure.
         subtasks[2].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [False]
 
         # [None, False, None]: subtask 1 must be currently False AND latched True at
         # some point. Drive subtask 1 False; it was latched True earlier -> success.
         subtasks[1].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, False, None])
+        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, False, None])
         assert result.tolist() == [True]
 
         # All-None desired state matches trivially.
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, None, None])
+        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, None, None])
         assert result.tolist() == [True]
 
     except Exception as e:
@@ -242,101 +245,55 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
     return True
 
 
-def _test_manager_resolves_nested_object_on_destination_term(simulation_app) -> bool:
-    """The composite success term passes manager-resolved child predicates through to evaluation."""
+def _test_manager_constructs_nested_subtask_success_terms(simulation_app) -> bool:
+    """Composite and sequential tasks evaluate child terms constructed by the manager."""
 
     import torch
     from types import SimpleNamespace
-    from unittest.mock import patch
 
-    from isaaclab.managers import SceneEntityCfg, TerminationManager, TerminationTermCfg
+    from isaaclab.managers import ManagerTermBase, TerminationManager, TerminationTermCfg
 
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase, TerminationsCfg
-    from isaaclab_arena.tasks.predicates import spatial
-    from isaaclab_arena.tasks.terminations import SuccessMode, check_success
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     class _PlayingSimulation:
         def is_playing(self) -> bool:
             return True
 
-    class _Scene(dict):
-        def __init__(self):
-            identity_pose = torch.tensor([[0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0]])
-            object_entity = SimpleNamespace(
-                data=SimpleNamespace(
-                    root_pose_w=identity_pose,
-                    root_lin_vel_w=torch.zeros((1, 3)),
-                )
-            )
-            destination_entity = SimpleNamespace(
-                data=SimpleNamespace(
-                    root_pose_w=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
-                )
-            )
-            contact_sensor = SimpleNamespace(data=SimpleNamespace(force_matrix_w=torch.tensor([[[[0.0, 0.0, 1.0]]]])))
-            super().__init__(
-                object=object_entity,
-                destination=destination_entity,
-                contact_sensor=contact_sensor,
-            )
-            self.rigid_objects = {
-                "object": object_entity,
-                "destination": destination_entity,
-            }
-            self.extras = {}
+    class _ConstantSuccessTerm(ManagerTermBase):
+        def __call__(self, env, success_value: bool) -> torch.Tensor:
+            return torch.full((env.num_envs,), success_value, dtype=torch.bool, device=env.device)
 
     class _Subtask:
-        def __init__(self):
-            geometric_predicate = TerminationTermCfg(
-                func=spatial.ObjectOnDestinationTerm,
-                params={
-                    "object_cfg": SceneEntityCfg("object"),
-                    "destination_cfg": SceneEntityCfg("destination"),
-                    "contact_sensor_cfg": SceneEntityCfg("contact_sensor"),
-                    "force_threshold": 0.1,
-                    "velocity_threshold": 0.1,
-                    "support_cone_half_angle_deg": 45.0,
-                },
-            )
-            self._termination_cfg = TerminationsCfg(
-                success=TerminationTermCfg(
-                    func=check_success,
-                    params={
-                        "predicates": [geometric_predicate],
-                        "mode": SuccessMode.ALL,
-                    },
-                )
-            )
+        def __init__(self, success_cfg: TerminationTermCfg):
+            self._termination_cfg = TerminationsCfg(success=success_cfg)
 
         def get_termination_cfg(self):
             return self._termination_cfg
 
     try:
-        env = SimpleNamespace(
-            num_envs=1,
-            device="cpu",
-            extras={},
-            scene=_Scene(),
-            sim=_PlayingSimulation(),
-        )
-        composite_task = CompositeTaskBase([_Subtask()], episode_length_s=1.0)
+        for composite_task_type in (CompositeTaskBase, SequentialTaskBase):
+            child_success_cfg = TerminationTermCfg(
+                func=_ConstantSuccessTerm,
+                params={"success_value": True},
+            )
+            task = composite_task_type([_Subtask(child_success_cfg)], episode_length_s=1.0)
+            env = SimpleNamespace(
+                num_envs=1,
+                device="cpu",
+                extras={},
+                scene={},
+                sim=_PlayingSimulation(),
+            )
 
-        def _get_pose_frame_aabb(env, entity_cfg):
-            if entity_cfg.name == "object":
-                return torch.tensor([[-0.1, -0.1, -0.1]]), torch.tensor([[0.1, 0.1, 0.1]])
-            assert entity_cfg.name == "destination"
-            return torch.tensor([[-0.5, -0.5, 0.0]]), torch.tensor([[0.5, 0.5, 0.4]])
+            termination_manager = TerminationManager(task.get_termination_cfg(), env)
+            composite_success_cfg = termination_manager.get_term_cfg("success")
+            resolved_subtask_success_cfg = composite_success_cfg.params["resolved_subtask_success_cfgs"][0]
 
-        with patch.object(spatial, "_get_pose_frame_aabb", side_effect=_get_pose_frame_aabb):
-            termination_manager = TerminationManager(composite_task.get_termination_cfg(), env)
-
-        composite_success_cfg = termination_manager.get_term_cfg("success")
-        resolved_subtask_success_cfg = composite_success_cfg.params["subtask_success_terms"][0]
-        resolved_geometric_predicate_cfg = resolved_subtask_success_cfg.params["predicates"][0]
-        assert isinstance(resolved_geometric_predicate_cfg.func, spatial.ObjectOnDestinationTerm)
-        assert resolved_geometric_predicate_cfg.func.cfg is resolved_geometric_predicate_cfg
-        assert termination_manager.compute().tolist() == [True]
-        assert env._subtask_ever_succeeded == [[True]]
+            assert isinstance(resolved_subtask_success_cfg.func, _ConstantSuccessTerm)
+            assert child_success_cfg.func is _ConstantSuccessTerm
+            assert termination_manager.compute().tolist() == [True]
+            assert env._subtask_ever_succeeded == [[True]]
 
     except Exception as e:
         print(f"Error: {e}")
@@ -354,12 +311,12 @@ def test_composite_desired_subtask_success_state_with_none():
     assert result, f"Test {_test_composite_desired_subtask_success_state_with_none.__name__} failed"
 
 
-def test_manager_resolves_nested_object_on_destination_term():
+def test_manager_constructs_nested_subtask_success_terms():
     result = run_function_with_persistent_simulation_app(
-        _test_manager_resolves_nested_object_on_destination_term,
+        _test_manager_constructs_nested_subtask_success_terms,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_manager_resolves_nested_object_on_destination_term.__name__} failed"
+    assert result, f"Test {_test_manager_constructs_nested_subtask_success_terms.__name__} failed"
 
 
 def test_add_suffix_configclass_transform():
@@ -382,4 +339,4 @@ if __name__ == "__main__":
     test_add_suffix_configclass_transform()
     test_remove_configclass_transform()
     test_composite_desired_subtask_success_state_with_none()
-    test_manager_resolves_nested_object_on_destination_term()
+    test_manager_constructs_nested_subtask_success_terms()
