@@ -113,6 +113,13 @@ We provide two post-training options:
 * Best Quality: 8 GPUs with 48GB memory
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
+.. note::
+
+   Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
+   `official GR00T documentation <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102>`_
+   specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems. Please refer to the
+   documentation for the latest requirements.
+
 
 .. tab-set::
 
