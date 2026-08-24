@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
@@ -15,10 +16,9 @@ from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.views import FrameView
-from pxr import Usd, UsdPhysics
+from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.usd_helpers import compute_bounding_box_relative_to_prim
 
 
 # TODO(cvolk, 2026-08-24): [arena-world-migration] Move current-pose lookup, spawned-geometry extraction,
@@ -60,6 +60,43 @@ def _find_rigid_body_prim(representative_prim: Usd.Prim, entity_name: str) -> Us
         f"{len(rigid_body_prims)} rigid bodies; expected exactly one."
     )
     return rigid_body_prims[0]
+
+
+def _compute_aabb_relative_to_prim(prim: Usd.Prim) -> AxisAlignedBoundingBox:
+    """Compute descendant geometry bounds relative to a prim's origin and axes."""
+    assert prim.IsValid(), "Prim must be valid."
+
+    time_code = Usd.TimeCode.Default()
+    transform_cache = UsdGeom.XformCache(time_code)
+    prim_to_world = transform_cache.GetLocalToWorldTransform(prim).RemoveScaleShear()
+    world_to_prim = prim_to_world.GetInverse()
+    bounding_box_cache = UsdGeom.BBoxCache(time_code, includedPurposes=[UsdGeom.Tokens.default_])
+
+    lower = np.full(3, np.inf, dtype=np.float64)
+    upper = np.full(3, -np.inf, dtype=np.float64)
+    found_geometry = False
+    for geometry_prim in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
+        if not geometry_prim.IsA(UsdGeom.Gprim):
+            continue
+        if UsdGeom.Imageable(geometry_prim).ComputePurpose() != UsdGeom.Tokens.default_:
+            continue
+
+        geometry_bounds = bounding_box_cache.ComputeWorldBound(geometry_prim)
+        geometry_bounds.Transform(world_to_prim)
+        geometry_range = geometry_bounds.ComputeAlignedRange()
+        if geometry_range.IsEmpty():
+            continue
+
+        lower = np.minimum(lower, np.asarray(geometry_range.GetMin(), dtype=np.float64))
+        upper = np.maximum(upper, np.asarray(geometry_range.GetMax(), dtype=np.float64))
+        found_geometry = True
+
+    prim_path = prim.GetPath()
+    assert found_geometry, f"Prim '{prim_path}' has no default-purpose geometry."
+    return AxisAlignedBoundingBox(
+        min_point=tuple(float(value) for value in lower),
+        max_point=tuple(float(value) for value in upper),
+    )
 
 
 def build_spawned_entity_local_aabbs(
@@ -111,7 +148,7 @@ def build_spawned_entity_local_aabbs(
             assert pose_prim.HasAPI(
                 UsdPhysics.RigidBodyAPI
             ), f"Articulation '{entity_name}' geometry path '{resolved_geometry_prim_path}' must identify a rigid body."
-        local_aabb = compute_bounding_box_relative_to_prim(pose_prim).to(env.device)
+        local_aabb = _compute_aabb_relative_to_prim(pose_prim).to(env.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=env.device)
         lower_by_environment[environment_indices] = local_aabb.min_point[0]
         upper_by_environment[environment_indices] = local_aabb.max_point[0]

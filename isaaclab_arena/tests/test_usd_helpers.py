@@ -115,41 +115,6 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
     return True
 
 
-def _test_compute_bounding_box_relative_to_prim(simulation_app) -> bool:
-    """Bounds use the reference prim's origin and axes while retaining scale."""
-    from pxr import Gf, Usd, UsdGeom
-
-    from isaaclab_arena.utils.usd_helpers import compute_bounding_box_relative_to_prim
-
-    stage = Usd.Stage.CreateInMemory()
-    wrapper = UsdGeom.Xform.Define(stage, "/World/Wrapper")
-    wrapper.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(100.0, -50.0, 3.0))
-    wrapper.AddRotateZOp(UsdGeom.XformOp.PrecisionDouble).Set(37.0)
-    wrapper.AddScaleOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(2.0, 3.0, 4.0))
-
-    reference = UsdGeom.Xform.Define(stage, "/World/Wrapper/Reference")
-    cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/Cube")
-    cube.GetSizeAttr().Set(1.0)
-    UsdGeom.Xformable(cube.GetPrim()).AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(1.0, 0.0, 0.0))
-
-    ignored_cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/IgnoredCube")
-    ignored_cube.GetSizeAttr().Set(100.0)
-    ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
-
-    bounds = compute_bounding_box_relative_to_prim(reference.GetPrim())
-    expected_lower = (1.0, -1.5, -2.0)
-    expected_upper = (3.0, 1.5, 2.0)
-    assert all(abs(actual - expected) < EPS for actual, expected in zip(bounds.min_point[0], expected_lower)), (
-        bounds.min_point[0],
-        expected_lower,
-    )
-    assert all(abs(actual - expected) < EPS for actual, expected in zip(bounds.max_point[0], expected_upper)), (
-        bounds.max_point[0],
-        expected_upper,
-    )
-    return True
-
-
 def _test_mesh_exclusion_errors(simulation_app, asset_dir: pathlib.Path) -> bool:
     """Distinguish fully excluded meshes from malformed included meshes."""
     import pytest
@@ -193,13 +158,6 @@ def test_compute_local_bounding_box_from_usd_prim_path(tmp_path: pathlib.Path):
         asset_dir=tmp_path,
     )
     assert result, "Test failed"
-
-
-def test_compute_bounding_box_relative_to_prim():
-    assert run_function_with_persistent_simulation_app(
-        _test_compute_bounding_box_relative_to_prim,
-        headless=HEADLESS,
-    )
 
 
 def test_mesh_exclusion_errors(tmp_path: pathlib.Path):

@@ -75,6 +75,30 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
+def _check_aabb_relative_to_prim(live_scene_geometry) -> None:
+    """Check that runtime bounds remove pose but retain spawned scale."""
+    from pxr import Gf, Usd, UsdGeom
+
+    stage = Usd.Stage.CreateInMemory()
+    wrapper = UsdGeom.Xform.Define(stage, "/World/Wrapper")
+    wrapper.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(100.0, -50.0, 3.0))
+    wrapper.AddRotateZOp(UsdGeom.XformOp.PrecisionDouble).Set(37.0)
+    wrapper.AddScaleOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(2.0, 3.0, 4.0))
+
+    reference = UsdGeom.Xform.Define(stage, "/World/Wrapper/Reference")
+    cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/Cube")
+    cube.GetSizeAttr().Set(1.0)
+    UsdGeom.Xformable(cube.GetPrim()).AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(1.0, 0.0, 0.0))
+
+    ignored_cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/IgnoredCube")
+    ignored_cube.GetSizeAttr().Set(100.0)
+    ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
+
+    bounds = live_scene_geometry._compute_aabb_relative_to_prim(reference.GetPrim())
+    torch.testing.assert_close(bounds.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
+    torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
+
+
 def _check_reference_pose_row_order(live_scene_geometry) -> None:
     """Check concrete-path and Newton clone-plan rows are reordered by exact environment id."""
     num_envs = 12
@@ -321,6 +345,7 @@ def _test_geometric_object_on_destination(_simulation_app) -> bool:
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
+    _check_aabb_relative_to_prim(live_scene_geometry)
     _check_reference_pose_row_order(live_scene_geometry)
     _check_articulation_body_pose(live_scene_geometry, AxisAlignedBoundingBox, SceneEntityCfg)
     _check_geometric_term(geometric_term, AxisAlignedBoundingBox, SceneEntityCfg, TerminationTermCfg)
