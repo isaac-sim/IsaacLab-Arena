@@ -115,12 +115,14 @@ class CameraObsVideoRecorder(gym.Wrapper):
         video_folder: str,
         name_prefix: str = "robot-cam",
         fps: int | None = None,
+        save_partial_episodes: bool = False,
     ):
         super().__init__(env)
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
+        self.save_partial_episodes = save_partial_episodes
 
         # camera_name -> one entry per env, holding that env's open encoder for its current
         # episode, or None while no episode is in progress.
@@ -189,14 +191,14 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 env_writers[env_idx] = None
 
     def close(self) -> None:
-        # Partial episodes (cut off by num_steps rather than a real reset) are discarded: the
-        # encoder is shut down and the incomplete file it was writing is removed.
+        # The normal episode recorder discards partial episodes cut off by num_steps. Fixed-step
+        # diagnostic scripts can opt in to finalising those recordings instead.
         for env_writers in self.writers.values():
             for env_idx, episode_writer in enumerate(env_writers):
                 if episode_writer is None:
                     continue
                 episode_writer.writer.close()
-                if os.path.exists(episode_writer.path):
+                if not self.save_partial_episodes and os.path.exists(episode_writer.path):
                     os.remove(episode_writer.path)
                 env_writers[env_idx] = None
         self.env.close()

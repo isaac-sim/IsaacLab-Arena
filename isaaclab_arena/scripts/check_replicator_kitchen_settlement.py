@@ -12,6 +12,7 @@ Run inside the Arena development container:
     /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --kitchen_source s3
     /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --kitchen_source datasets
     /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --kitchen_layout g_shape
+    /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --kitchen_layout u_shape
     /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --steps 10
     /isaac-sim/python.sh isaaclab_arena/scripts/check_replicator_kitchen_settlement.py --sim_freq 60 --decimation 4
 
@@ -42,10 +43,12 @@ ENV_SPEC = "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_l_shape
 DATASETS_KITCHEN_DIR = "/datasets/assets/kitchen"
 KITCHEN_ENV_SPECS = {
     "g_shape": "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_g_shape_mustard_bowl.yaml",
+    "l_island": "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_l_island_mustard_bowl.yaml",
     "l_shape": ENV_SPEC,
     "peninsula": "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_peninsula_mustard_bowl.yaml",
+    "u_shape": "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_u_shape_mustard_bowl.yaml",
 }
-DATASETS_KITCHEN_LAYOUTS = set(KITCHEN_ENV_SPECS)
+DATASETS_KITCHEN_LAYOUTS = {"g_shape", "l_shape", "peninsula"}
 SETTLED_LINEAR_SPEED_M_S = 0.01
 SETTLED_ANGULAR_SPEED_RAD_S = 0.1
 LOG_PREFIX = "[replicator_kitchen_settlement]"

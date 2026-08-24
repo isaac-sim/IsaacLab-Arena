@@ -29,6 +29,9 @@ class VideoRecordingCfg:
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
+    save_partial_camera_video: bool = False
+    """Finalise camera videos when a fixed-step run ends before the episode terminates."""
+
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
@@ -102,6 +105,7 @@ def wrap_env_for_video(
             env,
             video_folder=video_cfg.video_base_dir,
             name_prefix=video_cfg.camera_name_prefix,
+            save_partial_episodes=video_cfg.save_partial_camera_video,
         )
         print(f"Recording per-episode per-camera videos to: {video_cfg.video_base_dir}")
 
