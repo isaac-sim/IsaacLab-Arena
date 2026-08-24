@@ -41,9 +41,7 @@ class SequentialTaskBase(CompositeTaskBase):
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
-        num_subtasks = CompositeTaskBase._validate_resolved_subtask_success_cfgs(
-            resolved_subtask_success_cfgs, desired_subtask_success_state
-        )
+        num_subtasks = len(resolved_subtask_success_cfgs)
 
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):

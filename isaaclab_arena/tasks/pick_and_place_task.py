@@ -15,6 +15,8 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -43,14 +45,15 @@ class PickAndPlaceTask(TaskBase):
     instantaneous check; the conditions do not need to persist for a minimum duration. Failure
     occurs when the object falls below the background's ``object_min_z``.
 
-    ``destination_location`` must be included in the environment's ``Scene`` because the success
-    term resolves its spawned pose and geometry by name. It must resolve to a rigid object or a
-    read-only ``ObjectReference``. Use a read-only reference when the destination is a rigid body
-    owned by an articulation.
+    An ordinary ``destination_location`` must be included in the environment's ``Scene``. A rigid
+    ``ObjectReference`` whose parent is an articulation remains task-level configuration instead:
+    include the parent articulation in the scene, and the success term reads the referenced body's
+    live pose from that articulation while using the reference prim path for its geometry.
 
     Args:
         pick_up_object: Rigid object or rigid object set to pick up.
-        destination_location: Rigid destination or read-only reference registered in the scene.
+        destination_location: Rigid destination, registered read-only reference, or config-only rigid
+            reference to a body owned by a registered articulation.
         background_scene: Background whose minimum object height defines the drop failure.
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
@@ -130,11 +133,13 @@ class PickAndPlaceTask(TaskBase):
 
     def make_termination_cfg(self):
         # The class-backed term caches spawned object and destination bounds once for the live environment.
+        destination_pose_cfg = self._make_destination_pose_cfg()
         success = TerminationTermCfg(
             func=GeometricObjectOnDestinationTerm,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "destination_cfg": SceneEntityCfg(self.destination_location.name),
+                "destination_pose_cfg": destination_pose_cfg,
+                "destination_prim_path": self.destination_location.prim_path,
                 "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                 "force_threshold": self.force_threshold,
                 "velocity_threshold": self.velocity_threshold,
@@ -152,6 +157,19 @@ class PickAndPlaceTask(TaskBase):
             success=success,
             object_dropped=object_dropped,
         )
+
+    def _make_destination_pose_cfg(self) -> SceneEntityCfg:
+        """Select the scene entity that owns the destination's live pose."""
+        destination = self.destination_location
+        if (
+            isinstance(destination, ObjectReference)
+            and destination.object_type == ObjectType.RIGID
+            and destination.parent_asset.object_type == ObjectType.ARTICULATION
+        ):
+            body_name = destination.prim_path.rsplit("/", maxsplit=1)[-1]
+            assert body_name, f"Destination reference '{destination.name}' has no body name in its prim path."
+            return SceneEntityCfg(destination.parent_asset.name, body_names=[body_name])
+        return SceneEntityCfg(destination.name)
 
     def get_events_cfg(self):
         return self.events_cfg

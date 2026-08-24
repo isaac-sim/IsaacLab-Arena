@@ -5,7 +5,6 @@
 
 import copy
 import dataclasses
-import inspect
 import numpy as np
 import torch
 import warnings
@@ -173,27 +172,6 @@ class CompositeTaskBase(TaskBase):
         return [(name, ftype, value) for name, ftype, value in fields if name not in exclude_fields]
 
     @staticmethod
-    def _validate_resolved_subtask_success_cfgs(
-        resolved_subtask_success_cfgs: list[TerminationTermCfg],
-        desired_subtask_success_state: list[bool | None] | None,
-    ) -> int:
-        """Validate resolved child success configs and return the subtask count."""
-        assert resolved_subtask_success_cfgs, "At least one resolved subtask success config is required"
-        assert all(
-            isinstance(subtask_success_cfg, TerminationTermCfg) for subtask_success_cfg in resolved_subtask_success_cfgs
-        ), "Every resolved subtask success config must be a TerminationTermCfg"
-        assert all(
-            callable(subtask_success_cfg.func) and not inspect.isclass(subtask_success_cfg.func)
-            for subtask_success_cfg in resolved_subtask_success_cfgs
-        ), "Subtask success functions must be constructed or resolved to callables before evaluation"
-        num_subtasks = len(resolved_subtask_success_cfgs)
-        if desired_subtask_success_state is not None:
-            assert (
-                len(desired_subtask_success_state) == num_subtasks
-            ), "Desired subtask success state must be the same length as the resolved subtask success configs"
-        return num_subtasks
-
-    @staticmethod
     def _evaluate_subtask_successes(
         env,
         resolved_subtask_success_cfgs: list[TerminationTermCfg],
@@ -238,9 +216,7 @@ class CompositeTaskBase(TaskBase):
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
-        num_subtasks = CompositeTaskBase._validate_resolved_subtask_success_cfgs(
-            resolved_subtask_success_cfgs, desired_subtask_success_state
-        )
+        num_subtasks = len(resolved_subtask_success_cfgs)
 
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):

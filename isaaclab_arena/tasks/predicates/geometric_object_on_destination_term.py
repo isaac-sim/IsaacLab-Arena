@@ -19,7 +19,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
-from isaaclab_arena.tasks.predicates.live_scene_geometry import build_entity_pose_frame_aabbs, get_entity_pose_w
+from isaaclab_arena.tasks.predicates.live_scene_geometry import LiveSceneEntityGeometry
 from isaaclab_arena.tasks.predicates.predicate_utils import runtime_buffer_to_torch
 from isaaclab_arena.tasks.predicates.spatial import (
     contact_force_is_upward_support,
@@ -40,7 +40,8 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
     def __init__(self, cfg: TerminationTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         object_cfg: SceneEntityCfg = cfg.params["object_cfg"]
-        destination_cfg: SceneEntityCfg = cfg.params["destination_cfg"]
+        destination_pose_cfg: SceneEntityCfg = cfg.params["destination_pose_cfg"]
+        destination_prim_path: str = cfg.params["destination_prim_path"]
         force_threshold: float = cfg.params["force_threshold"]
         velocity_threshold: float = cfg.params["velocity_threshold"]
         support_cone_half_angle_deg: float = cfg.params.get("support_cone_half_angle_deg", 45.0)
@@ -55,15 +56,21 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}."
 
         self._object_name = object_cfg.name
-        self._destination_name = destination_cfg.name
-        self._object_bounds = build_entity_pose_frame_aabbs(env, self._object_name)
-        self._destination_bounds = build_entity_pose_frame_aabbs(env, self._destination_name)
+        self._destination_pose_entity_name = destination_pose_cfg.name
+        self._destination_prim_path = destination_prim_path
+        self._object_geometry = LiveSceneEntityGeometry(env, object_cfg)
+        self._destination_geometry = LiveSceneEntityGeometry(
+            env,
+            destination_pose_cfg,
+            geometry_prim_path=destination_prim_path,
+        )
 
     def __call__(
         self,
         env: ManagerBasedEnv,
         object_cfg: SceneEntityCfg,
-        destination_cfg: SceneEntityCfg,
+        destination_pose_cfg: SceneEntityCfg,
+        destination_prim_path: str,
         contact_sensor_cfg: SceneEntityCfg,
         force_threshold: float,
         velocity_threshold: float,
@@ -73,18 +80,22 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         assert (
             object_cfg.name == self._object_name
         ), f"This term cached geometry for object '{self._object_name}', but was called with '{object_cfg.name}'."
-        assert destination_cfg.name == self._destination_name, (
-            f"This term cached geometry for destination '{self._destination_name}', "
-            f"but was called with '{destination_cfg.name}'."
+        assert destination_pose_cfg.name == self._destination_pose_entity_name, (
+            f"This term cached geometry using destination pose entity '{self._destination_pose_entity_name}', "
+            f"but was called with '{destination_pose_cfg.name}'."
+        )
+        assert destination_prim_path == self._destination_prim_path, (
+            f"This term cached destination geometry at '{self._destination_prim_path}', "
+            f"but was called with '{destination_prim_path}'."
         )
 
-        object_pose_w = get_entity_pose_w(env, self._object_name)
-        destination_pose_w = get_entity_pose_w(env, self._destination_name)
+        object_pose_w = self._object_geometry.get_pose_w()
+        destination_pose_w = self._destination_geometry.get_pose_w()
         object_center_over_destination = object_bounds_center_over_destination(
             object_pose_w=object_pose_w,
-            object_bounds=self._object_bounds,
+            object_bounds=self._object_geometry.bounds_in_live_pose_frame,
             destination_pose_w=destination_pose_w,
-            destination_bounds=self._destination_bounds,
+            destination_bounds=self._destination_geometry.bounds_in_live_pose_frame,
         )
 
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]

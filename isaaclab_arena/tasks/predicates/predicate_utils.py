@@ -7,17 +7,12 @@ from __future__ import annotations
 
 import torch
 
-import warp as wp
 from isaaclab.assets import RigidObject
 
 
 def runtime_buffer_to_torch(value) -> torch.Tensor:
     """Return a Torch view of an Isaac Lab runtime buffer."""
-    if isinstance(value, torch.Tensor):
-        return value
-    if hasattr(value, "torch"):
-        return value.torch
-    return wp.to_torch(value)
+    return value.torch
 
 
 def get_env(env):

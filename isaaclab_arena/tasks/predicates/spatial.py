@@ -20,7 +20,6 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
 
-from isaaclab_arena.tasks.predicates.live_scene_geometry import PoseFrameAabb
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import (
     get_env,
@@ -29,13 +28,14 @@ from isaaclab_arena.tasks.predicates.predicate_utils import (
     runtime_buffer_to_torch,
     select,
 )
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 def object_bounds_center_over_destination(
     object_pose_w: torch.Tensor,
-    object_bounds: PoseFrameAabb,
+    object_bounds: AxisAlignedBoundingBox,
     destination_pose_w: torch.Tensor,
-    destination_bounds: PoseFrameAabb,
+    destination_bounds: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
     """Check whether an object's bounds center is over a destination.
 
@@ -67,10 +67,10 @@ def object_bounds_center_over_destination(
         object_bounds_center_w,
     )
     center_inside_horizontal_bounds = (
-        (object_bounds_center_in_destination[:, :2] >= destination_bounds.lower[:, :2])
-        & (object_bounds_center_in_destination[:, :2] <= destination_bounds.upper[:, :2])
+        (object_bounds_center_in_destination[:, :2] >= destination_bounds.min_point[:, :2])
+        & (object_bounds_center_in_destination[:, :2] <= destination_bounds.max_point[:, :2])
     ).all(dim=-1)
-    center_above_destination_bottom = object_bounds_center_in_destination[:, 2] >= destination_bounds.lower[:, 2]
+    center_above_destination_bottom = object_bounds_center_in_destination[:, 2] >= destination_bounds.min_point[:, 2]
     return center_inside_horizontal_bounds & center_above_destination_bottom
 
 
