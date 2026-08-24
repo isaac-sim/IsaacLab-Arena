@@ -26,6 +26,8 @@ from isaaclab_arena.tasks.predicates.spatial import (
 )
 
 
+# TODO(cvolk, 2026-08-24): [arena-world-migration] Replace term-owned geometry caching and direct live-state reads
+# with env.arena_world queries, then make this a plain predicate function.
 class GeometricObjectOnDestinationTerm(ManagerTermBase):
     """Check object placement using cached spawned geometry and current state.
 

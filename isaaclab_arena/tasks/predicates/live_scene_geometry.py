@@ -21,6 +21,8 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
+# TODO(cvolk, 2026-08-24): [arena-world-migration] Move live-pose lookup, spawned-geometry extraction,
+# ObjectSet variant mapping, and geometry caching behind env.arena_world, then delete this predicate-owned module.
 def _get_spawned_entity_groups(
     env: ManagerBasedEnv,
     entity_name: str,

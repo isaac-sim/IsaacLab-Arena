@@ -131,6 +131,8 @@ class PickAndPlaceTask(TaskBase):
     def get_termination_cfg(self):
         return self.termination_cfg
 
+    # TODO(cvolk, 2026-08-24): [arena-world-migration] Let ArenaWorld resolve destination names, including
+    # articulation references, to live pose and geometry; then remove the destination pose/prim-path plumbing.
     def make_termination_cfg(self):
         # The class-backed term caches spawned object and destination bounds once for the live environment.
         destination_pose_cfg = self._make_destination_pose_cfg()
