@@ -640,34 +640,6 @@ the background. The Run name comes from its key below <code class="docutils lite
 field. Arena uses this name in command-line overrides, output directories, and reports.</p>
 <p>Runs keep their YAML order and execute locally in that order.</p>
 </section>
-<section id="reuse-values-with-shared">
-<h2>Reuse values with <code class="docutils literal notranslate"><span class="pre">shared</span></code><a class="headerlink" href="#reuse-values-with-shared" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">shared</span></code> removes repetition. Arena applies these values to every Run, then places each Run’s
-own values on top. A Run only needs to declare what is different.</p>
-<p>Values are applied in this order, from lowest to highest priority:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>typed configuration defaults
-              ↓
-shared values, including shared.* CLI overrides
-              ↓
-values written in an individual Run
-              ↓
-runs.&lt;name&gt;.* CLI overrides
-</pre></div>
-</div>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Configuration rules</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<ul class="simple">
-<li><p class="sd-card-text">The only top-level fields are <code class="docutils literal notranslate"><span class="pre">shared</span></code> and <code class="docutils literal notranslate"><span class="pre">runs</span></code>.</p></li>
-<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">runs</span></code> must contain at least one Run.</p></li>
-<li><p class="sd-card-text">A Run name starts with a letter or underscore. It can then contain letters, numbers,
-underscores, or hyphens.</p></li>
-<li><p class="sd-card-text">An override can change a field on a Run declared in the YAML, but it cannot add another Run.</p></li>
-<li><p class="sd-card-text">A <code class="docutils literal notranslate"><span class="pre">shared.*</span></code> override must point to a field already present below <code class="docutils literal notranslate"><span class="pre">shared</span></code>. The Hydra
-operators <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">++</span></code>, and <code class="docutils literal notranslate"><span class="pre">~</span></code> are not supported for shared values.</p></li>
-</ul>
-</div>
-</details></section>
 <section id="one-definition-two-execution-paths">
 <span id="sequential-batch-experiment-runner"></span><h2>One definition, two execution paths<a class="headerlink" href="#one-definition-two-execution-paths" title="Link to this heading">#</a></h2>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
@@ -695,25 +667,43 @@ when resources are available. OSMO then collects their outputs into one combined
 </div>
 </div>
 </div>
+<p>The CLI override root depends on the execution path:</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Run locally</label><div class="sd-tab-content docutils">
+<p>The Experiment Runner receives the Experiment Definition directly.</p>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">shared.&lt;path&gt;=&lt;value&gt;</span></code> to change a shared value.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">runs.&lt;name&gt;.&lt;path&gt;=&lt;value&gt;</span></code> to change one Run.</p></li>
+</ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--experiment_config<span class="w"> </span>path/to/experiment.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>path/to/experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>shared.rollout_limit.num_steps<span class="o">=</span><span class="m">100</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Preview an OSMO workflow</label><div class="sd-tab-content docutils">
+<p>OSMO nests the Experiment below <code class="docutils literal notranslate"><span class="pre">experiment_cfg</span></code>, so Experiment overrides need that prefix.</p>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">experiment_cfg.shared.&lt;path&gt;=&lt;value&gt;</span></code> to change a shared value.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">experiment_cfg.runs.&lt;name&gt;.&lt;path&gt;=&lt;value&gt;</span></code> to change one Run.</p></li>
+</ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>osmo.submit_arena_experiment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_cfg<span class="w"> </span>path/to/experiment.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dry_run
+<span class="w">  </span>--dry_run<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>experiment_cfg.shared.rollout_limit.num_steps<span class="o">=</span><span class="m">100</span>
 </pre></div>
 </div>
+<p>If Hydra suggests <code class="docutils literal notranslate"><span class="pre">+shared.&lt;path&gt;=&lt;value&gt;</span></code>, do not add <code class="docutils literal notranslate"><span class="pre">+</span></code>. Use
+<code class="docutils literal notranslate"><span class="pre">experiment_cfg.shared.&lt;path&gt;=&lt;value&gt;</span></code> instead.</p>
 </div>
 </div>
+<p>Both commands override the same <code class="docutils literal notranslate"><span class="pre">shared.rollout_limit.num_steps</span></code> field declared in the
+Experiment Definition. A value written inside an individual Run still takes priority over the
+shared override.</p>
 <p>For remote policies, configure the policy client inside its Run like any other policy. Start the
 policy server separately for local execution. OSMO can co-schedule a server for supported policy
 types.</p>
@@ -721,6 +711,34 @@ types.</p>
 example.
 For OSMO setup and submission options, see <a class="reference internal" href="../example_workflows/multi_node_evaluation/multi_node_evaluation.html"><span class="doc">Multi-node Evaluation</span></a>.</p>
 </section>
+<section id="reuse-values-with-shared">
+<h2>Reuse values with <code class="docutils literal notranslate"><span class="pre">shared</span></code><a class="headerlink" href="#reuse-values-with-shared" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">shared</span></code> removes repetition. Arena applies these values to every Run, then places each Run’s
+own values on top. A Run only needs to declare what is different.</p>
+<p>Values are applied in this order, from lowest to highest priority:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>typed configuration defaults
+              ↓
+shared values, including shared.* CLI overrides
+              ↓
+values written in an individual Run
+              ↓
+runs.&lt;name&gt;.* CLI overrides
+</pre></div>
+</div>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Configuration rules</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<ul class="simple">
+<li><p class="sd-card-text">The only top-level fields are <code class="docutils literal notranslate"><span class="pre">shared</span></code> and <code class="docutils literal notranslate"><span class="pre">runs</span></code>.</p></li>
+<li><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">runs</span></code> must contain at least one Run.</p></li>
+<li><p class="sd-card-text">A Run name starts with a letter or underscore. It can then contain letters, numbers,
+underscores, or hyphens.</p></li>
+<li><p class="sd-card-text">An override can change a field on a Run declared in the YAML, but it cannot add another Run.</p></li>
+<li><p class="sd-card-text">A shared override must point to a field already present below <code class="docutils literal notranslate"><span class="pre">shared</span></code> in the Experiment
+YAML. The Hydra operators <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">++</span></code>, and <code class="docutils literal notranslate"><span class="pre">~</span></code> are not supported for shared values.</p></li>
+</ul>
+</div>
+</details></section>
 <section id="choosing-a-runner">
 <h2>Choosing a runner<a class="headerlink" href="#choosing-a-runner" title="Link to this heading">#</a></h2>
 <div class="admonition note">
@@ -793,8 +811,8 @@ multi-GPU execution or policy evaluation of an external environment loaded with
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-experiment-definition">The Experiment Definition</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reuse-values-with-shared">Reuse values with <code class="docutils literal notranslate"><span class="pre">shared</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-definition-two-execution-paths">One definition, two execution paths</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reuse-values-with-shared">Reuse values with <code class="docutils literal notranslate"><span class="pre">shared</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-runner">Choosing a runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-concepts">Related concepts</a></li>
 </ul>

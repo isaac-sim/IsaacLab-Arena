@@ -745,14 +745,25 @@ Reach out at <a class="reference external" href="https://github.com/isaac-sim/Is
 </section>
 <section id="adjust-the-experiment-at-submission-time">
 <h2>Adjust the Experiment at submission time<a class="headerlink" href="#adjust-the-experiment-at-submission-time" title="Link to this heading">#</a></h2>
-<p>You can tweak a Run at submission time, without editing its YAML file.
-To view the available override-able values, use the <code class="docutils literal notranslate"><span class="pre">--list_overrides</span></code> flag.</p>
+<p>You can adjust an Experiment at submission time without editing its YAML file. OSMO nests the
+Experiment below <code class="docutils literal notranslate"><span class="pre">experiment_cfg</span></code>, so Experiment override paths start with that prefix.</p>
+<p>To inspect the effective Run values and submission settings, use the <code class="docutils literal notranslate"><span class="pre">--list_overrides</span></code> flag.
+Shared values have already been expanded into the Runs in this output; inspect the Experiment YAML
+to see which paths are declared below <code class="docutils literal notranslate"><span class="pre">shared</span></code>.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>osmo/submit_arena_experiment.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_cfg<span class="w"> </span>isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--list_overrides
 </pre></div>
 </div>
-<p>For example, to shorten the banana in bowl <code class="docutils literal notranslate"><span class="pre">pi0.5</span></code> run to four episodes:</p>
+<p>For example, to shorten every Run to four episodes, override the value declared below <code class="docutils literal notranslate"><span class="pre">shared</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>osmo/submit_arena_experiment.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_cfg<span class="w"> </span>isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>experiment_cfg.shared.rollout_limit.num_episodes<span class="o">=</span><span class="m">4</span>
+</pre></div>
+</div>
+<p>Do not add <code class="docutils literal notranslate"><span class="pre">+</span></code> to a shared override. If Hydra suggests <code class="docutils literal notranslate"><span class="pre">+shared.&lt;path&gt;=&lt;value&gt;</span></code>, use the missing
+<code class="docutils literal notranslate"><span class="pre">experiment_cfg.</span></code> prefix instead.</p>
+<p>To shorten only the banana in bowl <code class="docutils literal notranslate"><span class="pre">pi0.5</span></code> Run to four episodes:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>osmo/submit_arena_experiment.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--experiment_cfg<span class="w"> </span>isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>experiment_cfg.runs.banana_in_bowl_pi0.rollout_limit.num_episodes<span class="o">=</span><span class="m">4</span>
