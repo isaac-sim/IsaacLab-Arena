@@ -50,12 +50,6 @@ submodule pinned at commit ``e29d8fc``; populate it with
 checked out. Then, from the repository root in that terminal, launch the server and
 leave it running:
 
-.. todo::
-
-   The ``submodules/Isaac-GR00T`` submodule will be removed after the policy
-   config refactor. After that, users will be expected to set up a separate
-   GR00T repository checkout themselves and launch the server from there.
-
 .. note::
 
    Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
