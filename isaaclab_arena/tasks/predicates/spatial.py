@@ -3,22 +3,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Stateless spatial predicates and geometric checks.
+
+Functions in this module do not retain data between calls. Predicates that need
+manager-owned setup or cached data live in a dedicated ``*_term.py`` module.
+"""
+
 from __future__ import annotations
 
 import math
 import torch
 
 from isaaclab.assets import Articulation, RigidObject
-from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLEnv
-from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
+from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
 
-from isaaclab_arena.tasks.predicates.live_scene_geometry import (
-    PoseFrameAabb,
-    build_entity_pose_frame_aabbs,
-    get_entity_pose_w,
-)
+from isaaclab_arena.tasks.predicates.live_scene_geometry import PoseFrameAabb
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import (
     get_env,
@@ -105,87 +107,6 @@ def contact_force_is_upward_support(
         & (upward_force > 0.0)
         & (upward_force >= force_magnitude * minimum_upward_fraction)
     )
-
-
-class GeometricObjectOnDestinationTerm(ManagerTermBase):
-    """Check object placement using cached spawned geometry and current state.
-
-    Construction reads and caches the object and destination bounds. Each call
-    combines those bounds with current poses, filtered contact force, and object
-    velocity. The object bounds center must be over the destination footprint,
-    the contact force must point upward, and object speed must be below the
-    configured threshold.
-    """
-
-    def __init__(self, cfg: TerminationTermCfg, env: ManagerBasedEnv):
-        super().__init__(cfg, env)
-        object_cfg: SceneEntityCfg = cfg.params["object_cfg"]
-        destination_cfg: SceneEntityCfg = cfg.params["destination_cfg"]
-        force_threshold: float = cfg.params["force_threshold"]
-        velocity_threshold: float = cfg.params["velocity_threshold"]
-        support_cone_half_angle_deg: float = cfg.params.get("support_cone_half_angle_deg", 45.0)
-
-        assert (
-            object_cfg.name in env.scene.rigid_objects
-        ), f"GeometricObjectOnDestinationTerm requires rigid object '{object_cfg.name}'."
-        assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}."
-        assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}."
-        assert (
-            0.0 <= support_cone_half_angle_deg < 90.0
-        ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}."
-
-        self._object_name = object_cfg.name
-        self._destination_name = destination_cfg.name
-        self._object_bounds = build_entity_pose_frame_aabbs(env, self._object_name)
-        self._destination_bounds = build_entity_pose_frame_aabbs(env, self._destination_name)
-
-    def __call__(
-        self,
-        env: ManagerBasedEnv,
-        object_cfg: SceneEntityCfg,
-        destination_cfg: SceneEntityCfg,
-        contact_sensor_cfg: SceneEntityCfg,
-        force_threshold: float,
-        velocity_threshold: float,
-        support_cone_half_angle_deg: float = 45.0,
-    ) -> torch.Tensor:
-        """Return which environments currently satisfy the geometric placement check."""
-        assert (
-            object_cfg.name == self._object_name
-        ), f"This term cached geometry for object '{self._object_name}', but was called with '{object_cfg.name}'."
-        assert destination_cfg.name == self._destination_name, (
-            f"This term cached geometry for destination '{self._destination_name}', "
-            f"but was called with '{destination_cfg.name}'."
-        )
-
-        object_pose_w = get_entity_pose_w(env, self._object_name)
-        destination_pose_w = get_entity_pose_w(env, self._destination_name)
-        object_center_over_destination = object_bounds_center_over_destination(
-            object_pose_w=object_pose_w,
-            object_bounds=self._object_bounds,
-            destination_pose_w=destination_pose_w,
-            destination_bounds=self._destination_bounds,
-        )
-
-        contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
-        force_matrix_w = contact_sensor.data.force_matrix_w
-        assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
-        force_matrix_w = runtime_buffer_to_torch(force_matrix_w)
-        assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
-            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
-            f"got force shape {tuple(force_matrix_w.shape)}."
-        )
-        support_force_on_object_w = force_matrix_w[:, 0, 0, :]
-        destination_provides_upward_support = contact_force_is_upward_support(
-            contact_force_w=support_force_on_object_w,
-            force_threshold=force_threshold,
-            support_cone_half_angle_deg=support_cone_half_angle_deg,
-        )
-
-        object_entity: RigidObject = env.scene[self._object_name]
-        object_linear_velocity_w = runtime_buffer_to_torch(object_entity.data.root_lin_vel_w)
-        object_is_moving_slowly = torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
-        return object_center_over_destination & destination_provides_upward_support & object_is_moving_slowly
 
 
 def object_is_above_height(
@@ -282,9 +203,10 @@ def object_on_destination(
 ) -> torch.Tensor:
     """Check destination-filtered contact magnitude and object linear speed.
 
-    This compatibility predicate does not check the object's position or contact
-    direction. Use ``GeometricObjectOnDestinationTerm`` when placement
-    geometry is required, such as for task success.
+    This stateless compatibility predicate does not check the object's position
+    or contact direction. Task success uses the manager-owned
+    ``GeometricObjectOnDestinationTerm`` from
+    ``geometric_object_on_destination_term.py`` so spawned bounds can be cached.
 
     Returns True when filtered contact exceeds ``force_threshold`` and object
     speed is below ``velocity_threshold``.

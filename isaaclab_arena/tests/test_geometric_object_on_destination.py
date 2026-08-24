@@ -75,7 +75,12 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
-def _check_geometric_term(spatial, pose_frame_aabb_type, scene_entity_cfg_type, termination_term_cfg_type) -> None:
+def _check_geometric_term(
+    geometric_term_module,
+    pose_frame_aabb_type,
+    scene_entity_cfg_type,
+    termination_term_cfg_type,
+) -> None:
     """Check combined results, live-state reads, cached bounds, and cached entity identity."""
 
     class DummyScene(dict):
@@ -149,9 +154,13 @@ def _check_geometric_term(spatial, pose_frame_aabb_type, scene_entity_cfg_type, 
             upper=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
         )
 
-    with patch.object(spatial, "build_entity_pose_frame_aabbs", side_effect=fake_build_entity_pose_frame_aabbs):
+    with patch.object(
+        geometric_term_module,
+        "build_entity_pose_frame_aabbs",
+        side_effect=fake_build_entity_pose_frame_aabbs,
+    ):
         term_cfg = termination_term_cfg_type(
-            func=spatial.GeometricObjectOnDestinationTerm,
+            func=geometric_term_module.GeometricObjectOnDestinationTerm,
             params={
                 "object_cfg": object_cfg,
                 "destination_cfg": destination_cfg,
@@ -161,7 +170,7 @@ def _check_geometric_term(spatial, pose_frame_aabb_type, scene_entity_cfg_type, 
                 "support_cone_half_angle_deg": 45.0,
             },
         )
-        term = spatial.GeometricObjectOnDestinationTerm(term_cfg, env)
+        term = geometric_term_module.GeometricObjectOnDestinationTerm(term_cfg, env)
         assert geometry_build_calls == ["object", "destination"]
 
         # Each failing environment isolates one condition: geometry, force direction, or velocity.
@@ -188,12 +197,13 @@ def _check_geometric_term(spatial, pose_frame_aabb_type, scene_entity_cfg_type, 
 def _test_geometric_object_on_destination(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
+    import isaaclab_arena.tasks.predicates.geometric_object_on_destination_term as geometric_term
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.tasks.predicates.live_scene_geometry import PoseFrameAabb
 
     _check_bounds_center_over_destination(spatial, PoseFrameAabb)
     _check_upward_support_force(spatial)
-    _check_geometric_term(spatial, PoseFrameAabb, SceneEntityCfg, TerminationTermCfg)
+    _check_geometric_term(geometric_term, PoseFrameAabb, SceneEntityCfg, TerminationTermCfg)
     return True
 
 
