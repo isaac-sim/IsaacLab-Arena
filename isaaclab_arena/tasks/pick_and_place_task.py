@@ -48,7 +48,7 @@ class PickAndPlaceTask(TaskBase):
     An ordinary ``destination_location`` must be included in the environment's ``Scene``. A rigid
     ``ObjectReference`` whose parent is an articulation remains task-level configuration instead:
     include the parent articulation in the scene, and the success term reads the referenced body's
-    live pose from that articulation while using the reference prim path for its geometry.
+    current pose from that articulation while using the reference prim path for its geometry.
 
     Args:
         pick_up_object: Rigid object or rigid object set to pick up.
@@ -132,9 +132,9 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     # TODO(cvolk, 2026-08-24): [arena-world-migration] Let ArenaWorld resolve destination names, including
-    # articulation references, to live pose and geometry; then remove the destination pose/prim-path plumbing.
+    # articulation references, to current pose and geometry; then remove the destination pose/prim-path plumbing.
     def make_termination_cfg(self):
-        # The class-backed term caches spawned object and destination bounds once for the live environment.
+        # The class-backed term caches spawned object and destination bounds once for the runtime environment.
         destination_pose_cfg = self._make_destination_pose_cfg()
         success = TerminationTermCfg(
             func=GeometricObjectOnDestinationTerm,
@@ -161,7 +161,7 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def _make_destination_pose_cfg(self) -> SceneEntityCfg:
-        """Select the scene entity that owns the destination's live pose."""
+        """Select the scene entity that owns the destination's current pose."""
         destination = self.destination_location
         if (
             isinstance(destination, ObjectReference)

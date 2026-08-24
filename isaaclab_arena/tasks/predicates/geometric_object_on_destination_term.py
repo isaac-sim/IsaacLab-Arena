@@ -94,9 +94,9 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         destination_pose_w = self._destination_geometry.get_pose_w()
         object_center_over_destination = object_bounds_center_over_destination(
             object_pose_w=object_pose_w,
-            object_bounds=self._object_geometry.bounds_in_live_pose_frame,
+            object_bounds=self._object_geometry.local_aabbs,
             destination_pose_w=destination_pose_w,
-            destination_bounds=self._destination_geometry.bounds_in_live_pose_frame,
+            destination_bounds=self._destination_geometry.local_aabbs,
         )
 
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]

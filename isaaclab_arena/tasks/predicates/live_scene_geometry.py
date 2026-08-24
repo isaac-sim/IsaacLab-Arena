@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
@@ -16,12 +15,13 @@ from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.views import FrameView
-from pxr import Usd, UsdGeom, UsdPhysics
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.usd_helpers import compute_bounding_box_relative_to_prim
 
 
-# TODO(cvolk, 2026-08-24): [arena-world-migration] Move live-pose lookup, spawned-geometry extraction,
+# TODO(cvolk, 2026-08-24): [arena-world-migration] Move current-pose lookup, spawned-geometry extraction,
 # ObjectSet variant mapping, and geometry caching behind env.arena_world, then delete this predicate-owned module.
 def _get_spawned_entity_groups(
     env: ManagerBasedEnv,
@@ -47,8 +47,8 @@ def _get_spawned_entity_groups(
     return spawned_entity_groups
 
 
-def _find_rigid_body_pose_prim(representative_prim: Usd.Prim, entity_name: str) -> Usd.Prim:
-    """Find the rigid-body prim whose transform corresponds to the live root pose."""
+def _find_rigid_body_prim(representative_prim: Usd.Prim, entity_name: str) -> Usd.Prim:
+    """Find the rigid-body prim represented by the entity's root pose."""
     rigid_body_prims = sim_utils.get_all_matching_child_prims(
         representative_prim.GetPath(),
         predicate=lambda prim: prim.HasAPI(UsdPhysics.RigidBodyAPI),
@@ -62,60 +62,25 @@ def _find_rigid_body_pose_prim(representative_prim: Usd.Prim, entity_name: str) 
     return rigid_body_prims[0]
 
 
-def _compute_aabb_in_live_pose_frame(
-    live_pose_prim: Usd.Prim,
-    entity_name: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Compute default-purpose geometry bounds in the frame returned by the live pose."""
-    transform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-    live_pose_to_world = transform_cache.GetLocalToWorldTransform(live_pose_prim).RemoveScaleShear()
-    world_to_live_pose = live_pose_to_world.GetInverse()
-    bounding_box_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-
-    lower = np.full(3, np.inf, dtype=np.float64)
-    upper = np.full(3, -np.inf, dtype=np.float64)
-    found_geometry = False
-    for geometry_prim in Usd.PrimRange(live_pose_prim, Usd.TraverseInstanceProxies()):
-        if not geometry_prim.IsA(UsdGeom.Gprim):
-            continue
-        if UsdGeom.Imageable(geometry_prim).ComputePurpose() != UsdGeom.Tokens.default_:
-            continue
-
-        geometry_bounds = bounding_box_cache.ComputeWorldBound(geometry_prim)
-        geometry_bounds.Transform(world_to_live_pose)
-        geometry_range = geometry_bounds.ComputeAlignedRange()
-        if geometry_range.IsEmpty():
-            continue
-
-        lower = np.minimum(lower, np.asarray(geometry_range.GetMin(), dtype=np.float64))
-        upper = np.maximum(upper, np.asarray(geometry_range.GetMax(), dtype=np.float64))
-        found_geometry = True
-
-    assert (
-        found_geometry
-    ), f"Scene entity '{entity_name}' has no regular asset geometry below '{live_pose_prim.GetPath()}'."
-    return lower, upper
-
-
-def build_entity_aabbs_in_live_pose_frame(
+def build_spawned_entity_local_aabbs(
     env: ManagerBasedEnv,
     pose_entity_cfg: SceneEntityCfg,
     geometry_prim_path: str | None = None,
 ) -> AxisAlignedBoundingBox:
-    """Build one spawned-geometry AABB per environment in the entity's live pose frame.
+    """Build one local AABB per environment from the geometry that was spawned.
 
     This reads the USD stage. Callers should cache the result and combine it
-    with fresh live poses rather than rebuilding it on each simulation step.
+    with current poses rather than rebuilding it on each simulation step.
 
     Args:
-        env: The live manager-based environment.
-        pose_entity_cfg: Scene entity and optional articulation body whose live pose defines the bounds frame.
+        env: The runtime manager-based environment.
+        pose_entity_cfg: Scene entity and optional articulation body whose pose defines the returned coordinates.
         geometry_prim_path: Prim path whose spawned geometry should be bounded. Defaults to the entity's
             configured prim path. An articulation body requires its explicit prim path.
 
     Returns:
-        One AABB per environment, expressed relative to the entity pose returned
-        by :meth:`LiveSceneEntityGeometry.get_pose_w`.
+        One AABB per environment. Its coordinates are relative to the origin and
+        axes of the pose returned by :meth:`LiveSceneEntityGeometry.get_pose_w`.
     """
     scene = env.scene
     entity_name = pose_entity_cfg.name
@@ -141,17 +106,15 @@ def build_entity_aabbs_in_live_pose_frame(
         entity_name,
         resolved_geometry_prim_path,
     ):
-        live_pose_prim = (
-            _find_rigid_body_pose_prim(representative_prim, entity_name) if is_rigid_object else representative_prim
-        )
+        pose_prim = _find_rigid_body_prim(representative_prim, entity_name) if is_rigid_object else representative_prim
         if is_articulation:
-            assert live_pose_prim.HasAPI(
+            assert pose_prim.HasAPI(
                 UsdPhysics.RigidBodyAPI
             ), f"Articulation '{entity_name}' geometry path '{resolved_geometry_prim_path}' must identify a rigid body."
-        lower, upper = _compute_aabb_in_live_pose_frame(live_pose_prim, entity_name)
+        local_aabb = compute_bounding_box_relative_to_prim(pose_prim).to(env.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=env.device)
-        lower_by_environment[environment_indices] = torch.as_tensor(lower, dtype=torch.float32, device=env.device)
-        upper_by_environment[environment_indices] = torch.as_tensor(upper, dtype=torch.float32, device=env.device)
+        lower_by_environment[environment_indices] = local_aabb.min_point[0]
+        upper_by_environment[environment_indices] = local_aabb.max_point[0]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
@@ -162,13 +125,17 @@ def build_entity_aabbs_in_live_pose_frame(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-def _get_pose_row_indices_by_environment(
+def _get_reference_pose_row_order(
     env: ManagerBasedEnv,
     entity_name: str,
     reference_prim_path: str,
     reference_frame_view,
 ) -> torch.Tensor:
-    """Map a reference view's pose rows to environment-id order once."""
+    """Return FrameView row indices that put reference poses in environment order.
+
+    FrameView returns poses in backend-defined row order. Predicates require row
+    ``i`` of every input to describe the same environment.
+    """
     scene = env.scene
     prim_paths = getattr(reference_frame_view, "prim_paths", None)
     if prim_paths is not None:
@@ -198,7 +165,7 @@ def _get_pose_row_indices_by_environment(
         ]
 
     assert len(environment_ids_by_pose_row) == reference_frame_view.count == env.num_envs, (
-        f"Read-only scene reference '{entity_name}' resolved to {reference_frame_view.count} live poses for "
+        f"Read-only scene reference '{entity_name}' resolved to {reference_frame_view.count} poses for "
         f"{len(environment_ids_by_pose_row)} environment rows; expected {env.num_envs}."
     )
     pose_row_by_environment = [-1] * env.num_envs
@@ -214,7 +181,7 @@ def _get_pose_row_indices_by_environment(
 
 
 class LiveSceneEntityGeometry:
-    """Cache pose-frame bounds and read current poses for one live scene entity."""
+    """Cache spawned local AABBs and read current poses for one scene entity."""
 
     def __init__(
         self,
@@ -230,11 +197,12 @@ class LiveSceneEntityGeometry:
 
         self._entity_name = entity_name
         self._num_envs = env.num_envs
-        self.bounds_in_live_pose_frame = build_entity_aabbs_in_live_pose_frame(
+        self.local_aabbs = build_spawned_entity_local_aabbs(
             env,
             pose_entity_cfg,
             geometry_prim_path,
         )
+        """One cached local AABB for each environment."""
         self._rigid_object: RigidObject | None = None
         self._articulation: Articulation | None = None
         self._articulation_body_id: int | None = None
@@ -250,7 +218,7 @@ class LiveSceneEntityGeometry:
                 else list(pose_entity_cfg.body_ids)
             )
             assert len(selected_body_ids) == 1, (
-                f"Articulation '{entity_name}' must select exactly one body for live geometry; "
+                f"Articulation '{entity_name}' must select exactly one body for runtime geometry; "
                 f"got body ids {selected_body_ids}."
             )
             self._articulation_body_id = selected_body_ids[0]
@@ -264,7 +232,7 @@ class LiveSceneEntityGeometry:
                 stage=scene.stage,
                 validate_xform_ops=False,
             )
-            self._reference_pose_rows_by_environment = _get_pose_row_indices_by_environment(
+            self._reference_pose_row_order = _get_reference_pose_row_order(
                 env,
                 entity_name,
                 reference_prim_path,
@@ -291,7 +259,7 @@ class LiveSceneEntityGeometry:
             )
             pose_w = torch.cat((position_w, orientation_w), dim=-1).index_select(
                 0,
-                self._reference_pose_rows_by_environment,
+                self._reference_pose_row_order,
             )
 
         assert pose_w.shape == (self._num_envs, 7), (

@@ -86,7 +86,7 @@ def _check_reference_pose_row_order(live_scene_geometry) -> None:
     env = SimpleNamespace(scene=scene, num_envs=num_envs, device="cpu")
     reference_prim_path = "/World/envs/env_.*/destination"
 
-    pose_row_environment_ids = [10, 1, 7, 0, 11, 2, 3, 4, 5, 6, 8, 9]
+    pose_row_environment_ids = [0, 2, 4, 6, 8, 10, 1, 3, 5, 7, 9, 11]
     expected_pose_rows = torch.tensor(
         [pose_row_environment_ids.index(environment_id) for environment_id in range(num_envs)]
     )
@@ -97,7 +97,7 @@ def _check_reference_pose_row_order(live_scene_geometry) -> None:
             f"{environment_prim_paths[environment_id]}/destination" for environment_id in pose_row_environment_ids
         ],
     )
-    concrete_path_rows = live_scene_geometry._get_pose_row_indices_by_environment(
+    concrete_path_rows = live_scene_geometry._get_reference_pose_row_order(
         env,
         "destination",
         reference_prim_path,
@@ -111,7 +111,7 @@ def _check_reference_pose_row_order(live_scene_geometry) -> None:
     ]
     newton_view_without_paths = SimpleNamespace(count=num_envs)
     with patch.object(live_scene_geometry, "iter_clone_plan_matches", return_value=clone_matches):
-        newton_rows = live_scene_geometry._get_pose_row_indices_by_environment(
+        newton_rows = live_scene_geometry._get_reference_pose_row_order(
             env,
             "destination",
             reference_prim_path,
@@ -156,7 +156,7 @@ def _check_articulation_body_pose(
 
     with patch.object(
         live_scene_geometry,
-        "build_entity_aabbs_in_live_pose_frame",
+        "build_spawned_entity_local_aabbs",
         return_value=destination_bounds,
     ) as build_bounds:
         geometry = live_scene_geometry.LiveSceneEntityGeometry(
@@ -166,7 +166,7 @@ def _check_articulation_body_pose(
         )
 
     build_bounds.assert_called_once_with(env, destination_pose_cfg, geometry_prim_path)
-    assert geometry.bounds_in_live_pose_frame is destination_bounds
+    assert geometry.local_aabbs is destination_bounds
     torch.testing.assert_close(geometry.get_pose_w(), body_pose_w[:, 1, :])
 
 
@@ -251,12 +251,12 @@ def _check_geometric_term(
             geometry_build_calls.append((entity_name, geometry_prim_path))
             self._entity = geometry_env.scene[entity_name]
             if entity_name == "object":
-                self.bounds_in_live_pose_frame = axis_aligned_bounding_box_type(
+                self.local_aabbs = axis_aligned_bounding_box_type(
                     min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
                     max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
                 )
             else:
-                self.bounds_in_live_pose_frame = axis_aligned_bounding_box_type(
+                self.local_aabbs = axis_aligned_bounding_box_type(
                     min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
                     max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
                 )
