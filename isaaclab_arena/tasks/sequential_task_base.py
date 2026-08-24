@@ -6,6 +6,8 @@
 import copy
 import torch
 
+from isaaclab.managers import TerminationTermCfg
+
 from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -27,6 +29,7 @@ class SequentialTaskBase(CompositeTaskBase):
         env,
         subtasks: list[TaskBase],
         desired_subtask_success_state: list[bool | None] | None,
+        subtask_success_terms: list[TerminationTermCfg] | None = None,
     ) -> torch.Tensor:
         """Sequential task composite success function.
 
@@ -35,6 +38,7 @@ class SequentialTaskBase(CompositeTaskBase):
             subtasks: List of subtasks that compose this sequential task.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
+            subtask_success_terms: Manager-resolved success terms. Defaults to the terms stored on ``subtasks``.
 
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
@@ -46,6 +50,9 @@ class SequentialTaskBase(CompositeTaskBase):
         if not hasattr(env, "_current_subtask_idx"):
             env._current_subtask_idx = [0 for _ in range(env.num_envs)]
 
+        if subtask_success_terms is None:
+            subtask_success_terms = [subtask.get_termination_cfg().success for subtask in subtasks]
+
         # Determine which subtasks need their success function evaluated.
         if desired_subtask_success_state is not None:
             subtasks_to_evaluate = range(len(subtasks))
@@ -53,7 +60,7 @@ class SequentialTaskBase(CompositeTaskBase):
             subtasks_to_evaluate = sorted(set(env._current_subtask_idx))
 
         subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, subtasks, subtasks_to_evaluate
+            env, subtask_success_terms, subtasks_to_evaluate
         )
 
         # Advance the state machine per env using the precomputed active-subtask result.

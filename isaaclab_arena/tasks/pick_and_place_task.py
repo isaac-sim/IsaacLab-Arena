@@ -24,7 +24,12 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import (
+    ObjectOnDestinationTerm,
+    object_is_above_height,
+    object_on_destination,
+    objects_in_proximity,
+)
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
@@ -35,10 +40,10 @@ from isaaclab_arena.utils.configclass import make_configclass
 @agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
-    """Pick-and-place task. Success fires when the pick-up object contacts the destination
-    with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
-    of the destination. Failure (object_dropped) fires when the object falls below the
-    background's ``object_min_z``.
+    """Pick-and-place task. Success requires the object to be geometrically within the destination,
+    supported by an upward contact force, and moving below the velocity threshold. When
+    ``max_separation`` is set, its axis-aligned proximity check remains an additional requirement.
+    Failure (object_dropped) fires when the object falls below the background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
     shape (different arm subtask sequences, different per-subtask numerical knobs,
@@ -64,6 +69,7 @@ class PickAndPlaceTask(TaskBase):
         velocity_threshold: float = 0.1,
         max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
+        support_cone_half_angle_deg: float = 45.0,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -74,6 +80,10 @@ class PickAndPlaceTask(TaskBase):
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        assert (
+            0.0 <= support_cone_half_angle_deg < 90.0
+        ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}"
+        self.support_cone_half_angle_deg = support_cone_half_angle_deg
         if max_separation is not None:
             assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
         self.max_separation = max_separation
@@ -109,12 +119,14 @@ class PickAndPlaceTask(TaskBase):
     def make_termination_cfg(self):
         predicates = [
             TerminationTermCfg(
-                func=object_on_destination,
+                func=ObjectOnDestinationTerm,
                 params={
                     "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                    "destination_cfg": SceneEntityCfg(self.destination_location.name),
                     "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                     "force_threshold": self.force_threshold,
                     "velocity_threshold": self.velocity_threshold,
+                    "support_cone_half_angle_deg": self.support_cone_half_angle_deg,
                 },
             ),
         ]

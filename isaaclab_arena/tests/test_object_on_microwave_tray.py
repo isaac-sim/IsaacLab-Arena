@@ -15,7 +15,6 @@ HEADLESS = True
 
 
 def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -37,15 +36,14 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
         Pose(position_xyz=(0.4, -0.00586, 0.22773), rotation_xyzw=(0.0, 0.0, -0.7071068, 0.7071068))
     )
 
-    # Destination reference targeting the microwave turntable rigid body (the filter under test).
+    # Read-only destination reference targeting the microwave turntable (the filter under test).
     destination_ref = ObjectReference(
         name="microwave_disc",
         parent_asset=microwave,
         prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
-        object_type=ObjectType.RIGID,
     )
 
-    scene = Scene(assets=[background, microwave, dex_cube])
+    scene = Scene(assets=[background, microwave, dex_cube, destination_ref])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="microwave_tray",
         embodiment=FrankaIKEmbodiment(),
@@ -63,7 +61,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
         target_pos = torch.tensor([0.4, -0.00586, 0.28773], device=env.unwrapped.device)
         root_pose = torch.zeros((1, 7), device=env.unwrapped.device)
         root_pose[0, :3] = target_pos
-        root_pose[0, 3] = 1.0  # identity quaternion (w, x, y, z)
+        root_pose[0, 6] = 1.0  # identity quaternion (x, y, z, w)
         cube_asset.write_root_pose_to_sim(root_pose)
         cube_asset.write_root_velocity_to_sim(torch.zeros((1, 6), device=env.unwrapped.device))
 

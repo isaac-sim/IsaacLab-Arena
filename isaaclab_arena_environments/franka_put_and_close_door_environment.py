@@ -38,7 +38,6 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
 
     def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -93,7 +92,6 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
             name="microwave_disc",
             parent_asset=container,
             prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
-            object_type=ObjectType.RIGID,
         )
 
         # Task descriptions
@@ -101,7 +99,7 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
         task_description_close = "Close the microwave door."
 
         # Create scene
-        scene = Scene(assets=[background, container, pick_object])
+        scene = Scene(assets=[background, container, pick_object, destination_ref])
 
         # Create close door task
         close_door_task = CloseDoorTask(
