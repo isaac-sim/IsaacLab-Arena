@@ -133,18 +133,35 @@ Overlap checking has two stages:
    candidates according to the configured checks and fallback policy. See
    :doc:`./validation` and :doc:`./pooled_placement`.
 
-``MESH`` is a hybrid mode rather than an all-or-nothing switch. Pairs for which
-Arena has a collision mesh use sphere-to-mesh signed-distance queries. Pairs
-not covered by a mesh query continue to use bounding boxes. One per-asset
-``MESH`` override activates this hybrid path, but a pair uses it only when
-Arena obtains the required target collision mesh.
+``MESH`` enables sphere-to-mesh checks where Arena can obtain the target
+collision mesh. Pairs not covered by a mesh check use bounding-box-based
+checks.
 
-Both stages check movable objects against other movable objects, anchors, and
-passive obstacles. They skip the child-parent pair of an ``On`` relation so
-that support contact is allowed; the ``On`` constraint is checked separately.
-Two objects placed on the same support are still checked against each other.
-Anchor-anchor and anchor-passive-obstacle pairs are not checked because both
-objects are fixed.
+The solver and validator check the following pairs:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Pair
+     - Checked
+     - Notes
+   * - Movable / movable
+     - Yes
+     - Except when one is directly ``On`` the other
+   * - Movable / anchor
+     - Yes
+     - Except for the child-parent pair of an ``On`` relation
+   * - Movable / passive obstacle
+     - Yes
+     -
+   * - Fixed / fixed
+     - No
+     - Includes anchor-anchor, anchor-passive, and passive-passive pairs
+
+The ``On`` exemption allows support contact; the ``On`` constraint is checked
+separately. Two objects placed on the same support are still checked against
+each other.
 
 Background and Passive Obstacles
 --------------------------------
@@ -217,9 +234,9 @@ The settings expose complementary information:
   detected overlap pair when available.
 * ``RelationSolverParams.verbose`` reports optimization progress and final
   loss.
-* ``debug_visualize=True`` opens the Rerun view with candidate geometry and
-  per-check verdicts. For headless runs, leave it ``False`` and set
-  ``debug_visualize_output_path`` to record an ``.rrd`` file.
+* ``debug_visualize=True`` opens the Rerun view with candidate geometry. For
+  headless runs, leave it ``False`` and set ``debug_visualize_output_path`` to
+  record an ``.rrd`` file.
 * ``allow_best_loss_fallbacks=False`` keeps pooled placement from hiding a
   failed validation behind a fallback layout.
 
