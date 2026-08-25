@@ -8,6 +8,8 @@
 import torch
 import traceback
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 120
@@ -15,7 +17,8 @@ NUM_ENVS = 2
 HEADLESS = True
 
 
-def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
+def _make_microwave_tray_environment():
+    """Create the microwave-tray environment shared by this module's simulation checks."""
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -37,7 +40,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
         Pose(position_xyz=(0.4, -0.00586, 0.22773), rotation_xyzw=(0.0, 0.0, -0.7071068, 0.7071068))
     )
 
-    # The articulation owns this rigid body's live state; the scene reference is read-only.
+    # The microwave articulation owns the disc's live state; the reference is represented by AssetBaseCfg.
     destination_ref = ObjectReference(
         name="microwave_disc",
         parent_asset=microwave,
@@ -54,6 +57,11 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
 
     env = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
     env.reset()
+    return env, microwave, dex_cube, destination_ref
+
+
+def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
+    env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
 
     try:
         assert destination_ref.name in env.unwrapped.scene.extras
@@ -97,9 +105,37 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     return True
 
 
+def _record_scene_extra_pose_count(_simulation_app, pose_counts: list[int]) -> bool:
+    env, _microwave, _dex_cube, destination_ref = _make_microwave_tray_environment()
+    try:
+        position_w_buffer, _orientation_w_buffer = env.unwrapped.scene.extras[destination_ref.name].get_world_poses()
+        pose_counts.append(position_w_buffer.torch.shape[0])
+    finally:
+        env.close()
+    return True
+
+
 def test_object_on_microwave_tray_termination():
     result = run_function_with_persistent_simulation_app(_test_object_on_microwave_tray_termination, headless=HEADLESS)
     assert result, "Test failed"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Remove AssetBaseCfgPoseReader when this XPASSes: InteractiveScene currently creates scene.extras "
+        "FrameViews before cloning."
+    ),
+)
+def test_scene_extra_frame_view_covers_cloned_environments():
+    pose_counts = []
+    result = run_function_with_persistent_simulation_app(
+        _record_scene_extra_pose_count,
+        headless=HEADLESS,
+        pose_counts=pose_counts,
+    )
+    assert result, "Failed to inspect the AssetBaseCfg scene extra."
+    assert pose_counts == [NUM_ENVS]
 
 
 if __name__ == "__main__":

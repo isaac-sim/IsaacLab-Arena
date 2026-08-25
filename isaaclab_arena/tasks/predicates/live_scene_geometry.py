@@ -147,8 +147,8 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-# TODO(cvolk, 2026-08-25): Remove this workaround when InteractiveScene rebuilds its AssetBaseCfg FrameViews
-# after cloning rather than leaving scene.extras bound only to the source environment.
+# TODO(cvolk, 2026-08-25): Remove this workaround when
+# test_scene_extra_frame_view_covers_cloned_environments starts reporting XPASS.
 class AssetBaseCfgPoseReader:
     """Read current poses for one named AssetBaseCfg scene entry.
 
