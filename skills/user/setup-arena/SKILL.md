@@ -1,7 +1,7 @@
 ---
 name: setup-arena
 description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv source, native uv wheel, or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
 ---
 
 # Setup Arena
@@ -92,7 +92,8 @@ Use these options only when the request needs them:
 Confirm that each explicitly requested mount path exists before launching. Mount flags apply only
 when creating a container; they do not change an already-running container. If the requested
 configuration differs, explain that recreation is required and obtain approval before stopping the
-existing container.
+checkout-specific Arena container. When recreating it, preserve the current image flavor, container
+suffix, and mounts the user did not ask to change.
 
 The launcher builds a missing image, starts this checkout's container, and attaches interactively.
 Keep that process alive in a terminal session. Do not force a rebuild here; use `dev-container` for
