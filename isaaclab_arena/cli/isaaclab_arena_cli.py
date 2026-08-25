@@ -105,10 +105,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--presets",
         type=str,
         default=None,
-        help=(
-            "Arena physics backend preset: 'physx' or 'newton'. "
-            "When not set, each environment uses its own default."
-        ),
+        help="Arena physics backend preset: 'physx' or 'newton'. When not set, each environment uses its own default.",
     )
     arena_group.add_argument(
         "--resolve_on_reset",

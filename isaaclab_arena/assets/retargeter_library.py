@@ -49,9 +49,7 @@ class GR1T2PinkIsaacTeleopRetargeter(RetargetterBase):
         pass
 
     def get_pipeline_builder(self, embodiment: object) -> Callable:
-        from isaaclab_tasks.contrib.pick_place.pickplace_gr1t2_env_cfg import (
-            _build_gr1t2_pickplace_pipeline,
-        )
+        from isaaclab_tasks.contrib.pick_place.pickplace_gr1t2_env_cfg import _build_gr1t2_pickplace_pipeline
 
         return lambda: _build_gr1t2_pickplace_pipeline()[0]
 

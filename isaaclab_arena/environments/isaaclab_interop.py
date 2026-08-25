@@ -14,7 +14,6 @@ from isaaclab_arena_environments.cli import (
     parse_and_return_external_environment_from_string,
 )
 
-
 _RL_DISCOVERY_PLACEHOLDER_KEY = "_arena_rl_discovery_placeholder"
 
 

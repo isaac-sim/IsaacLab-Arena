@@ -65,8 +65,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
         task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
 
         dexsuite_rl_cfg_entry = (
-            "isaaclab_tasks.core.lift.config.kuka_allegro.agents."
-            "rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"
+            "isaaclab_tasks.core.lift.config.kuka_allegro.agents.rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"
         )
 
         return IsaacLabArenaEnvironment(
