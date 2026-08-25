@@ -20,7 +20,7 @@ from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCf
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.live_scene_geometry import (
-    SceneReferencePoseReader,
+    AssetBaseCfgPoseReader,
     compute_spawned_geometry_aabbs_relative_to_pose,
 )
 from isaaclab_arena.tasks.predicates.spatial import (
@@ -56,16 +56,16 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
         self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, destination_cfg)
         self._destination_rigid_object: RigidObject | None = None
-        self._destination_reference_pose_reader: SceneReferencePoseReader | None = None
+        self._destination_asset_base_pose_reader: AssetBaseCfgPoseReader | None = None
         if self._destination_name in env.scene.rigid_objects:
-            # Simulated destinations expose their pose through rigid-body state.
+            # RigidObjectCfg destinations expose their pose through rigid-body state.
             self._destination_rigid_object = env.scene[self._destination_name]
         elif self._destination_name in env.scene.extras:
-            # Read-only references have no rigid-body state, so read their scene transform.
-            self._destination_reference_pose_reader = SceneReferencePoseReader(env, self._destination_name)
+            # AssetBaseCfg destinations need a FrameView created after environment cloning.
+            self._destination_asset_base_pose_reader = AssetBaseCfgPoseReader(env, self._destination_name)
         else:
             unsupported_destination_message = (
-                f"Destination '{self._destination_name}' must be a rigid object or a read-only scene reference."
+                f"Destination '{self._destination_name}' must be a RigidObjectCfg or AssetBaseCfg scene entry."
             )
             assert False, unsupported_destination_message
 
@@ -117,9 +117,9 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         return object_center_over_destination & destination_provides_upward_support & object_is_moving_slowly
 
     def _get_destination_pose_w(self) -> torch.Tensor:
-        """Read the pose from rigid-body state or a read-only scene transform."""
+        """Read the pose from rigid-body state or an AssetBaseCfg scene entry."""
         if self._destination_rigid_object is not None:
             return self._destination_rigid_object.data.root_pose_w.torch
 
-        assert self._destination_reference_pose_reader is not None
-        return self._destination_reference_pose_reader.get_pose_w()
+        assert self._destination_asset_base_pose_reader is not None
+        return self._destination_asset_base_pose_reader.get_pose_w()

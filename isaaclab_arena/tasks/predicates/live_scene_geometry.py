@@ -119,7 +119,7 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     entity_name = entity_cfg.name
     assert (
         entity_name in scene.rigid_objects or entity_name in scene.extras
-    ), f"Scene entity '{entity_name}' must be a rigid object or read-only reference."
+    ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
@@ -147,54 +147,51 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-class SceneReferencePoseReader:
-    """Read current poses for one named scene reference.
+# TODO(cvolk, 2026-08-25): Remove this workaround when InteractiveScene rebuilds its AssetBaseCfg FrameViews
+# after cloning rather than leaving scene.extras bound only to the source environment.
+class AssetBaseCfgPoseReader:
+    """Read current poses for one named AssetBaseCfg scene entry.
 
-    The reader creates and validates its FrameView once, then reuses it for
-    every simulation step instead of rebuilding it for each pose query.
+    InteractiveScene creates ``scene.extras`` before cloning. This reader is
+    created after cloning so its FrameView covers every parallel environment.
     """
 
     def __init__(
         self,
         env: ManagerBasedEnv,
-        reference_name: str,
+        entity_name: str,
     ):
         scene = env.scene
-        assert reference_name in scene.extras, f"Scene entity '{reference_name}' must be a read-only reference."
+        assert entity_name in scene.extras, f"Scene entity '{entity_name}' must be an AssetBaseCfg scene entry."
 
-        self._reference_name = reference_name
+        self._entity_name = entity_name
         self._num_envs = env.num_envs
-        reference_prim_path = getattr(scene.cfg, reference_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        entity_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
-            reference_prim_path,
+            entity_prim_path,
             device=env.device,
             stage=scene.stage,
             validate_xform_ops=False,
         )
         # Ensure pose rows use the same environment order as other scene tensors.
-        reference_prim_paths = self._frame_view.prim_paths
-        assert len(reference_prim_paths) == env.num_envs, (
-            f"Read-only scene reference '{reference_name}' resolved to {len(reference_prim_paths)} prims; "
+        entity_prim_paths = self._frame_view.prim_paths
+        assert len(entity_prim_paths) == env.num_envs, (
+            f"AssetBaseCfg scene entry '{entity_name}' resolved to {len(entity_prim_paths)} prims; "
             f"expected {env.num_envs}."
         )
-        for environment_id, prim_path in enumerate(reference_prim_paths):
+        for environment_id, prim_path in enumerate(entity_prim_paths):
             environment_prim_path = scene.env_prim_paths[environment_id]
             assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                f"Read-only scene reference '{reference_name}' pose row {environment_id} belongs to '{prim_path}', "
+                f"AssetBaseCfg scene entry '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
 
     def get_pose_w(self) -> torch.Tensor:
         """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
         position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
-        position_w = position_w_buffer.torch
-        orientation_w = orientation_w_buffer.torch
-        assert position_w.shape == (self._num_envs, 3), (
-            f"Read-only scene reference '{self._reference_name}' returned position shape {tuple(position_w.shape)}; "
-            f"expected ({self._num_envs}, 3)."
+        pose_w = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
+        assert pose_w.shape == (self._num_envs, 7), (
+            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "
+            f"expected ({self._num_envs}, 7)."
         )
-        assert orientation_w.shape == (self._num_envs, 4), (
-            f"Read-only scene reference '{self._reference_name}' returned orientation shape "
-            f"{tuple(orientation_w.shape)}; expected ({self._num_envs}, 4)."
-        )
-        return torch.cat((position_w, orientation_w), dim=-1)
+        return pose_w
