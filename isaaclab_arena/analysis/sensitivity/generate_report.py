@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import argparse
 import matplotlib.pyplot as plt
-import torch
 from pathlib import Path
 from typing import Literal
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.empirical import compute_empirical_marginals
 from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.analysis.sensitivity.plotting import plot_empirical_marginals, plot_marginals
 
@@ -51,33 +49,30 @@ def generate_report(
     """
     assert method in {"fitted", "empirical"}, f"Unknown sensitivity method {method!r}."
     dataset = dataset_from_episode_results(episode_results_path, outcome_names, factor_names)
-    observation_tensor = (
-        dataset.default_observation() if observation is None else torch.tensor(observation, dtype=torch.float32)
-    )
     output_path = Path(output_path)
-
+    analyzer = SensitivityAnalyzer(dataset)
     if method == "empirical":
-        empirical_result = compute_empirical_marginals(
-            dataset,
-            observation_tensor,
+        result = analyzer.analyze(
+            method="empirical",
+            observation=observation,
+            seed=seed,
             num_bins=num_bins,
             num_bootstrap_samples=num_bootstrap_samples,
-            seed=seed,
         )
         print(
-            f"[INFO] Empirical sensitivity: {empirical_result.num_matching_episodes} of "
-            f"{empirical_result.num_episodes} episodes exactly match the observation."
+            f"[INFO] Empirical sensitivity: {result.num_matching_episodes} of "
+            f"{result.num_episodes} episodes exactly match the observation."
         )
-        plot_empirical_marginals(empirical_result, dataset, output_path=str(output_path))
+        plot_empirical_marginals(result, dataset, output_path=str(output_path))
     else:
-        # Estimator training and posterior sampling both draw from torch's global RNG in
-        # sequence, so seeding once here makes the fitted report reproducible.
-        if seed is not None:
-            torch.manual_seed(seed)
-        analyzer = SensitivityAnalyzer(dataset)
-        analyzer.fit()
-        samples = analyzer.sample_posterior(observation_tensor)
-        plot_marginals(samples, dataset, observation_tensor, output_path=str(output_path))
+        result = analyzer.analyze(method="fitted", observation=observation, seed=seed)
+        engine_reason = (
+            "the factor schema includes categorical values"
+            if result.inference_engine == "mnpe"
+            else "all factors are continuous"
+        )
+        print(f"[INFO] Fitted sensitivity selected {result.inference_engine.upper()} because {engine_reason}.")
+        plot_marginals(result.posterior_samples, dataset, result.observation, output_path=str(output_path))
 
     plt.close("all")
     print(f"[INFO] Wrote report → {output_path}")
@@ -127,7 +122,7 @@ def main():
         default=None,
         help=(
             "Outcome values to condition on, one per --outcome (in order). "
-            "Outcomes are binary, so use 1 for success or 0 for failure. Defaults to 1 (success)."
+            "Defaults to 1 for each binary outcome; pass values explicitly for continuous outcomes."
         ),
     )
     parser.add_argument(
@@ -135,7 +130,7 @@ def main():
         choices=["fitted", "empirical"],
         default="fitted",
         help=(
-            "Posterior method. 'empirical' uses episodes that exactly match the observation; "
+            "Analysis method. 'empirical' uses episodes that exactly match the observation; "
             "'fitted' trains NPE or MNPE. Default: fitted."
         ),
     )

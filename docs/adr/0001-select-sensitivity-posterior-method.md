@@ -14,7 +14,9 @@ Introduce three separate concepts:
 - An observation query records the requested outcome names and values.
 - A method recommendation records `empirical` or `fitted`, the NPE or MNPE engine when fitting applies, matching-episode counts, reasons, and warnings.
 
-The recommendation must inspect both the dataset and the observation query. The same dataset can support an empirical posterior for `success=1` and require a fitted posterior for an exact continuous duration. Start with an inspection command such as `--recommend-method`; require an explicit `--method empirical` or `--method fitted` until the rules and fitted engines have sufficient calibration coverage.
+The recommendation must inspect both the dataset and the observation query. The same dataset can support an empirical posterior for `success=1` and require a fitted posterior for an exact continuous duration. Start with an inspection command such as `--recommend-method`; require an explicit `--method empirical` or `--method fitted` for new computation entry points until the rules and fitted engines have sufficient calibration coverage.
+
+`SensitivityAnalyzer.analyze(method=...)` is the public computation facade. It requires the library caller to choose a method, resolves the observation query consistently, and returns either an `EmpiricalSensitivityResult` or a `FittedSensitivityResult`. The empirical calculation remains a pure lower-level function, while `fit()` and `sample_posterior()` remain available for callers that need direct control of fitted inference. The existing `generate_report()` function and report CLI temporarily retain their fitted default for backward compatibility.
 
 An empirical report should use matching episode factors directly, compare their fixed-bin distribution with the experiment's sampled distribution, show posterior-to-sampling ratios and uncertainty, and report the number of matching episodes. A fitted report should state whether NPE or MNPE was selected and why.
 

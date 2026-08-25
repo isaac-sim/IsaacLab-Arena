@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 
 import isaaclab_arena.analysis.sensitivity.generate_report as report_module
+from isaaclab_arena.analysis.sensitivity.analyzer import FittedSensitivityResult
 
 
 def _write_episode_results(path) -> None:
@@ -46,29 +47,46 @@ def test_empirical_report_writes_png_without_fitting(tmp_path, monkeypatch, caps
     assert "3 of 6 episodes exactly match" in capsys.readouterr().out
 
 
-def test_report_defaults_to_existing_fitted_path(tmp_path, monkeypatch):
+def test_report_defaults_to_existing_fitted_path(tmp_path, monkeypatch, capsys):
     """Omitting method preserves the existing fitted report behavior."""
     episode_results_path = tmp_path / "episode_results.jsonl"
     _write_episode_results(episode_results_path)
-    calls = {"fit": False, "sample": False, "plot": False}
+    calls = {"analyze": None, "analyzer_dataset": None, "plot": None}
 
     class _FakeSensitivityAnalyzer:
         def __init__(self, dataset):
             self.dataset = dataset
+            calls["analyzer_dataset"] = dataset
 
-        def fit(self):
-            calls["fit"] = True
-
-        def sample_posterior(self, observation):
-            calls["sample"] = True
-            return self.dataset.theta
+        def analyze(self, **kwargs):
+            calls["analyze"] = kwargs
+            return FittedSensitivityResult(
+                observation=self.dataset.resolve_observation(kwargs["observation"]),
+                posterior_samples=self.dataset.theta,
+                inference_engine="npe",
+                num_episodes=self.dataset.num_episodes,
+            )
 
     def record_plot(samples, dataset, observation, output_path):
-        calls["plot"] = True
+        calls["plot"] = {
+            "samples": samples,
+            "dataset": dataset,
+            "observation": observation,
+            "output_path": output_path,
+        }
 
     monkeypatch.setattr(report_module, "SensitivityAnalyzer", _FakeSensitivityAnalyzer)
     monkeypatch.setattr(report_module, "plot_marginals", record_plot)
 
     report_module.generate_report(episode_results_path, tmp_path / "fitted.png")
 
-    assert calls == {"fit": True, "sample": True, "plot": True}
+    assert calls["analyze"] == {
+        "method": "fitted",
+        "observation": None,
+        "seed": 0,
+    }
+    assert calls["plot"]["samples"] is calls["analyzer_dataset"].theta
+    assert calls["plot"]["dataset"] is calls["analyzer_dataset"]
+    assert calls["plot"]["observation"].tolist() == [1.0]
+    assert calls["plot"]["output_path"] == str(tmp_path / "fitted.png")
+    assert "selected NPE because all factors are continuous" in capsys.readouterr().out

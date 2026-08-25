@@ -119,7 +119,31 @@ class SensitivityDataset:
         """
         is_binary = set(self._x.flatten().tolist()).issubset({0.0, 1.0})
         assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
-        return torch.ones(self._x.shape[1], dtype=torch.float32)
+        return torch.ones(self._x.shape[1], dtype=self._x.dtype, device=self._x.device)
+
+    def resolve_observation(
+        self,
+        observation: torch.Tensor | list[float] | tuple[float, ...] | None = None,
+    ) -> torch.Tensor:
+        """Return a validated observation tensor in the dataset's outcome layout.
+
+        Args:
+            observation: One value per outcome column. None uses the default observation.
+
+        Returns:
+            The observation with the same dtype and device as ``x``.
+        """
+        if observation is None:
+            observation_tensor = self.default_observation()
+        else:
+            observation_tensor = torch.as_tensor(observation, dtype=self._x.dtype, device=self._x.device)
+
+        expected_shape = (self._x.shape[1],)
+        assert (
+            tuple(observation_tensor.shape) == expected_shape
+        ), f"Observation shape must be {expected_shape}, one value per outcome; got {tuple(observation_tensor.shape)}."
+        assert torch.isfinite(observation_tensor).all(), "Observation values must be finite."
+        return observation_tensor
 
     @property
     def has_categorical_factors(self) -> bool:

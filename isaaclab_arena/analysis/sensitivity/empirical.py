@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
 
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, FactorType, SensitivityDataset
 
@@ -77,6 +78,9 @@ class EmpiricalSensitivityResult:
 
     marginals: tuple[EmpiricalMarginal, ...]
     """Per-factor marginals in the dataset's declared factor order."""
+
+    method: Literal["empirical"] = field(default="empirical", init=False)
+    """The analysis method represented by this result."""
 
 
 @dataclass(frozen=True)
@@ -206,16 +210,7 @@ def compute_empirical_marginals(
     assert num_bootstrap_samples > 0, f"num_bootstrap_samples must be positive; got {num_bootstrap_samples}."
     assert 0.0 < confidence_level < 1.0, f"confidence_level must lie strictly between 0 and 1; got {confidence_level}."
 
-    if observation is None:
-        observation_tensor = dataset.default_observation()
-    else:
-        observation_tensor = torch.as_tensor(observation, dtype=dataset.x.dtype, device=dataset.x.device)
-    observation_tensor = observation_tensor.to(dtype=dataset.x.dtype, device=dataset.x.device)
-    expected_observation_shape = (dataset.x.shape[1],)
-    assert tuple(observation_tensor.shape) == expected_observation_shape, (
-        f"Observation shape must be {expected_observation_shape}, one value per outcome; "
-        f"got {tuple(observation_tensor.shape)}."
-    )
+    observation_tensor = dataset.resolve_observation(observation)
 
     matching_episode_mask = (dataset.x == observation_tensor).all(dim=1)
     num_matching_episodes = int(matching_episode_mask.sum().item())
