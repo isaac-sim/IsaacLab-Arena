@@ -11,7 +11,6 @@ import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import RigidObject
 from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
@@ -113,8 +112,8 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
         entity_cfg: Scene entity whose pose defines the returned coordinates.
 
     Returns:
-        One AABB per environment. Its coordinates are relative to the origin and
-        axes of the pose returned by :meth:`SceneEntityPoseReader.get_pose_w`.
+        One AABB per environment, expressed relative to the entity pose used by
+        the predicate.
     """
     scene = env.scene
     entity_name = entity_cfg.name
@@ -148,8 +147,8 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-class SceneEntityPoseReader:
-    """Read current poses for one rigid object or read-only scene reference."""
+class ReadOnlyReferencePoseReader:
+    """Read current poses for one read-only scene reference."""
 
     def __init__(
         self,
@@ -158,59 +157,48 @@ class SceneEntityPoseReader:
     ):
         scene = env.scene
         entity_name = entity_cfg.name
-        assert (
-            entity_name in scene.rigid_objects or entity_name in scene.extras
-        ), f"Scene entity '{entity_name}' must be a rigid object or read-only reference."
+        assert entity_name in scene.extras, f"Scene entity '{entity_name}' must be a read-only reference."
 
         self._entity_name = entity_name
         self._num_envs = env.num_envs
-        self._rigid_object: RigidObject | None = None
-        self._reference_frame_view = None
-
-        if entity_name in scene.rigid_objects:
-            self._rigid_object = scene[entity_name]
-        else:
-            reference_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
-            self._reference_frame_view = FrameView(
-                reference_prim_path,
-                device=env.device,
-                stage=scene.stage,
-                validate_xform_ops=False,
+        reference_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        self._frame_view = FrameView(
+            reference_prim_path,
+            device=env.device,
+            stage=scene.stage,
+            validate_xform_ops=False,
+        )
+        # PhysX exposes one prim path per pose row. Newton does not yet expose row identity.
+        reference_prim_paths = getattr(self._frame_view, "prim_paths", None)
+        assert reference_prim_paths is not None, (
+            f"Read-only scene reference '{entity_name}' requires a FrameView backend that exposes prim paths. "
+            "This predicate does not yet support read-only reference destinations on the selected backend."
+        )
+        assert len(reference_prim_paths) == env.num_envs, (
+            f"Read-only scene reference '{entity_name}' resolved to {len(reference_prim_paths)} prims; "
+            f"expected {env.num_envs}."
+        )
+        for environment_id, prim_path in enumerate(reference_prim_paths):
+            environment_prim_path = scene.env_prim_paths[environment_id]
+            assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+                f"Read-only scene reference '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
+                f"not environment '{environment_prim_path}'."
             )
-            # PhysX exposes one prim path per pose row. Newton does not yet expose row identity.
-            reference_prim_paths = getattr(self._reference_frame_view, "prim_paths", None)
-            assert reference_prim_paths is not None, (
-                f"Read-only scene reference '{entity_name}' requires a FrameView backend that exposes prim paths. "
-                "This predicate does not yet support read-only reference destinations on the selected backend."
-            )
-            assert len(reference_prim_paths) == env.num_envs, (
-                f"Read-only scene reference '{entity_name}' resolved to {len(reference_prim_paths)} prims; "
-                f"expected {env.num_envs}."
-            )
-            for environment_id, prim_path in enumerate(reference_prim_paths):
-                environment_prim_path = scene.env_prim_paths[environment_id]
-                assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                    f"Read-only scene reference '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
-                    f"not environment '{environment_prim_path}'."
-                )
 
     def get_pose_w(self) -> torch.Tensor:
         """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
-        if self._rigid_object is not None:
-            pose_w = self._rigid_object.data.root_pose_w.torch
-        else:
-            position_w_buffer, orientation_w_buffer = self._reference_frame_view.get_world_poses()
-            position_w = position_w_buffer.torch
-            orientation_w = orientation_w_buffer.torch
-            assert position_w.shape == (self._num_envs, 3), (
-                f"Read-only scene reference '{self._entity_name}' returned position shape {tuple(position_w.shape)}; "
-                f"expected ({self._num_envs}, 3)."
-            )
-            assert orientation_w.shape == (self._num_envs, 4), (
-                f"Read-only scene reference '{self._entity_name}' returned orientation shape "
-                f"{tuple(orientation_w.shape)}; expected ({self._num_envs}, 4)."
-            )
-            pose_w = torch.cat((position_w, orientation_w), dim=-1)
+        position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
+        position_w = position_w_buffer.torch
+        orientation_w = orientation_w_buffer.torch
+        assert position_w.shape == (self._num_envs, 3), (
+            f"Read-only scene reference '{self._entity_name}' returned position shape {tuple(position_w.shape)}; "
+            f"expected ({self._num_envs}, 3)."
+        )
+        assert orientation_w.shape == (self._num_envs, 4), (
+            f"Read-only scene reference '{self._entity_name}' returned orientation shape "
+            f"{tuple(orientation_w.shape)}; expected ({self._num_envs}, 4)."
+        )
+        pose_w = torch.cat((position_w, orientation_w), dim=-1)
 
         assert pose_w.shape == (self._num_envs, 7), (
             f"Scene entity '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "

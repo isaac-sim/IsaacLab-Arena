@@ -20,7 +20,7 @@ from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCf
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.live_scene_geometry import (
-    SceneEntityPoseReader,
+    ReadOnlyReferencePoseReader,
     compute_spawned_geometry_aabbs_relative_to_pose,
 )
 from isaaclab_arena.tasks.predicates.spatial import (
@@ -52,10 +52,15 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
 
         self._object_name = object_cfg.name
         self._destination_name = destination_cfg.name
+        self._object_rigid_object: RigidObject = env.scene[self._object_name]
         self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
         self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, destination_cfg)
-        self._object_pose_reader = SceneEntityPoseReader(env, object_cfg)
-        self._destination_pose_reader = SceneEntityPoseReader(env, destination_cfg)
+        self._destination_rigid_object: RigidObject | None = None
+        self._destination_reference_pose_reader: ReadOnlyReferencePoseReader | None = None
+        if self._destination_name in env.scene.rigid_objects:
+            self._destination_rigid_object = env.scene[self._destination_name]
+        else:
+            self._destination_reference_pose_reader = ReadOnlyReferencePoseReader(env, destination_cfg)
 
     def __call__(
         self,
@@ -76,8 +81,8 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
             f"but was called with '{destination_cfg.name}'."
         )
 
-        object_pose_w = self._object_pose_reader.get_pose_w()
-        destination_pose_w = self._destination_pose_reader.get_pose_w()
+        object_pose_w = self._object_rigid_object.data.root_pose_w.torch
+        destination_pose_w = self._get_destination_pose_w()
         object_center_over_destination = object_bounds_center_over_destination(
             object_pose_w=object_pose_w,
             object_bounds=self._object_aabbs,
@@ -100,7 +105,14 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
             support_cone_half_angle_deg=support_cone_half_angle_deg,
         )
 
-        object_entity: RigidObject = env.scene[self._object_name]
-        object_linear_velocity_w = object_entity.data.root_lin_vel_w.torch
+        object_linear_velocity_w = self._object_rigid_object.data.root_lin_vel_w.torch
         object_is_moving_slowly = torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
         return object_center_over_destination & destination_provides_upward_support & object_is_moving_slowly
+
+    def _get_destination_pose_w(self) -> torch.Tensor:
+        """Return the current destination pose."""
+        if self._destination_rigid_object is not None:
+            return self._destination_rigid_object.data.root_pose_w.torch
+
+        assert self._destination_reference_pose_reader is not None
+        return self._destination_reference_pose_reader.get_pose_w()
