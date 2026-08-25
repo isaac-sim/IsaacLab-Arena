@@ -127,7 +127,7 @@ Droid on the floor, ``NextTo`` offsets it from the counter, and
 ``rotate_around_solution`` sets its final heading.
 
 The complete example is
-``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``.
+``isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml``.
 Its ``placement_bbox_stand_only: true`` option uses only the Droid stand
 footprint for placement; the robot arm is excluded from those bounds.
 
@@ -143,7 +143,7 @@ Run the example with:
      --policy_type zero_action \
      --num_steps 100 \
      --env_spec \
-       isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+       isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
 This example uses the Droid stand footprint for geometric placement.
 Reachability, when configured by a task, is checked separately during

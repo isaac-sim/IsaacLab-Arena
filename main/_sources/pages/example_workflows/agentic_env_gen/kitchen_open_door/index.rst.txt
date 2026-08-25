@@ -20,7 +20,7 @@ The fridge is referenced as an articulation with an openable joint, expected by 
 Arena's relation solver places the robot on the floor next to and facing it.
 
 The generated spec for this example is available at
-``isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml``.
+``isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml``.
 
 Workflow
 --------

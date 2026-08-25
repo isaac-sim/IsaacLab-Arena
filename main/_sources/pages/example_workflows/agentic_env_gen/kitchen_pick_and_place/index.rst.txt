@@ -20,7 +20,7 @@ The agent picks out prims *inside* the kitchen background — a countertop surfa
 robot on the floor next to it.
 
 The generated spec for this example is available at
-``isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml``.
+``isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml``.
 
 Workflow
 --------
