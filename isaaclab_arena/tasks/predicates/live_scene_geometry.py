@@ -147,37 +147,36 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-class ReadOnlyReferencePoseReader:
-    """Read current poses for one read-only scene reference."""
+class SceneReferencePoseReader:
+    """Read current poses for one named scene reference."""
 
     def __init__(
         self,
         env: ManagerBasedEnv,
-        entity_cfg: SceneEntityCfg,
+        reference_name: str,
     ):
         scene = env.scene
-        entity_name = entity_cfg.name
-        assert entity_name in scene.extras, f"Scene entity '{entity_name}' must be a read-only reference."
+        assert reference_name in scene.extras, f"Scene entity '{reference_name}' must be a read-only reference."
 
-        self._entity_name = entity_name
+        self._reference_name = reference_name
         self._num_envs = env.num_envs
-        reference_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        reference_prim_path = getattr(scene.cfg, reference_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
             reference_prim_path,
             device=env.device,
             stage=scene.stage,
             validate_xform_ops=False,
         )
-        # Pick-and-place reference destinations currently require the PhysX FrameView.
+        # Ensure pose rows use the same environment order as other scene tensors.
         reference_prim_paths = self._frame_view.prim_paths
         assert len(reference_prim_paths) == env.num_envs, (
-            f"Read-only scene reference '{entity_name}' resolved to {len(reference_prim_paths)} prims; "
+            f"Read-only scene reference '{reference_name}' resolved to {len(reference_prim_paths)} prims; "
             f"expected {env.num_envs}."
         )
         for environment_id, prim_path in enumerate(reference_prim_paths):
             environment_prim_path = scene.env_prim_paths[environment_id]
             assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                f"Read-only scene reference '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
+                f"Read-only scene reference '{reference_name}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
 
@@ -187,17 +186,11 @@ class ReadOnlyReferencePoseReader:
         position_w = position_w_buffer.torch
         orientation_w = orientation_w_buffer.torch
         assert position_w.shape == (self._num_envs, 3), (
-            f"Read-only scene reference '{self._entity_name}' returned position shape {tuple(position_w.shape)}; "
+            f"Read-only scene reference '{self._reference_name}' returned position shape {tuple(position_w.shape)}; "
             f"expected ({self._num_envs}, 3)."
         )
         assert orientation_w.shape == (self._num_envs, 4), (
-            f"Read-only scene reference '{self._entity_name}' returned orientation shape "
+            f"Read-only scene reference '{self._reference_name}' returned orientation shape "
             f"{tuple(orientation_w.shape)}; expected ({self._num_envs}, 4)."
         )
-        pose_w = torch.cat((position_w, orientation_w), dim=-1)
-
-        assert pose_w.shape == (self._num_envs, 7), (
-            f"Scene entity '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "
-            f"expected ({self._num_envs}, 7)."
-        )
-        return pose_w
+        return torch.cat((position_w, orientation_w), dim=-1)

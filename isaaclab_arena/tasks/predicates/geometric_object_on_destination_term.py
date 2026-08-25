@@ -20,7 +20,7 @@ from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCf
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.live_scene_geometry import (
-    ReadOnlyReferencePoseReader,
+    SceneReferencePoseReader,
     compute_spawned_geometry_aabbs_relative_to_pose,
 )
 from isaaclab_arena.tasks.predicates.spatial import (
@@ -56,11 +56,11 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
         self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, destination_cfg)
         self._destination_rigid_object: RigidObject | None = None
-        self._destination_reference_pose_reader: ReadOnlyReferencePoseReader | None = None
+        self._destination_reference_pose_reader: SceneReferencePoseReader | None = None
         if self._destination_name in env.scene.rigid_objects:
             self._destination_rigid_object = env.scene[self._destination_name]
         else:
-            self._destination_reference_pose_reader = ReadOnlyReferencePoseReader(env, destination_cfg)
+            self._destination_reference_pose_reader = SceneReferencePoseReader(env, self._destination_name)
 
     def __call__(
         self,
