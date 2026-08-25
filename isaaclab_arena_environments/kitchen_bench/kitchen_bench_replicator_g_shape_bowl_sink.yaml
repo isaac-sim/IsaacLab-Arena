@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_banana_to_bowl_kitchen_l_island
+env_name: kitchen_bench_replicator_g_shape_bowl_sink
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,13 +12,10 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_island
+  registry_name: replicator_kitchen_g_shape
   params:
     collision_mode: mesh
 objects:
-- id: banana
-  registry_name: banana_ycb_robolab
-  params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
@@ -28,9 +25,14 @@ object_references:
   prim_path: KitchenRoom/Floor
   object_type: base
   params: {}
-- id: corner_counter
+- id: sink
   parent_id: kitchen
-  prim_path: CornerCounter_00_0
+  prim_path: Sink/BasinBottom
+  object_type: base
+  params: {}
+- id: sink_counter
+  parent_id: kitchen
+  prim_path: CapSurface_02
   object_type: base
   params: {}
 relations:
@@ -38,7 +40,10 @@ relations:
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: corner_counter
+  subject: sink
+  params: {}
+- kind: is_anchor
+  subject: sink_counter
   params: {}
 - kind: 'on'
   subject: droid
@@ -46,29 +51,31 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: corner_counter
+  reference: sink
   params:
-    side: negative_y
+    side: negative_x
     distance_m: 0.15
     tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 1.57
-- kind: 'on'
-  subject: banana
-  reference: corner_counter
-  params: {}
+    yaw_rad: 0.0
 - kind: 'on'
   subject: bowl
-  reference: corner_counter
+  reference: sink_counter
   params: {}
+- kind: next_to
+  subject: bowl
+  reference: sink
+  params:
+    side: positive_y
+    distance_m: 0.1
 task:
   composition: atomic
-  description: pick up the banana and place it in the red bowl
+  description: pick up the bowl and place it in the sink
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: banana
-      destination_location: bowl
+      pick_up_object: bowl
+      destination_location: sink
       background_scene: kitchen

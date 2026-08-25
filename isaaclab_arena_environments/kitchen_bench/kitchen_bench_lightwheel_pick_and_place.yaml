@@ -3,36 +3,36 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_bowl_to_sink_kitchen_l_island
+env_name: kitchen_bench_lightwheel_pick_and_place
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_island
+  registry_name: lightwheel_kitchen_one_wall_coastal
   params:
     collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
+- id: mustard_bottle
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
 object_references:
+- id: right_counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
 - id: floor
   parent_id: kitchen
-  prim_path: KitchenRoom/Floor
-  object_type: base
-  params: {}
-- id: sink
-  parent_id: kitchen
-  prim_path: Sink/BasinBottom
-  object_type: base
-  params: {}
-- id: sink_counter
-  parent_id: kitchen
-  prim_path: CapSurface
+  prim_path: floor_room/geometry
   object_type: base
   params: {}
 relations:
@@ -40,10 +40,7 @@ relations:
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: sink
-  params: {}
-- kind: is_anchor
-  subject: sink_counter
+  subject: right_counter_top
   params: {}
 - kind: 'on'
   subject: droid
@@ -51,31 +48,28 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: sink
+  reference: right_counter_top
   params:
     side: negative_y
-    distance_m: 0.15
-    tolerance_m: 0.15
+    distance_m: 0.3
 - kind: rotate_around_solution
   subject: droid
   params:
     yaw_rad: 1.57
 - kind: 'on'
-  subject: bowl
-  reference: sink_counter
+  subject: mustard_bottle
+  reference: right_counter_top
   params: {}
-- kind: next_to
+- kind: 'on'
   subject: bowl
-  reference: sink
-  params:
-    side: negative_x
-    distance_m: 0.1
+  reference: right_counter_top
+  params: {}
 task:
   composition: atomic
-  description: pick up the bowl and place it in the sink
+  description: pick up the mustard bottle and place it in the bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: bowl
-      destination_location: sink
+      pick_up_object: mustard_bottle
+      destination_location: bowl
       background_scene: kitchen

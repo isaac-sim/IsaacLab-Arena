@@ -41,10 +41,7 @@ editable from the ``submodules/IsaacLab`` checkout.
 
 Clone the repository:
 
-.. code-block:: bash
-
-    git clone --recurse-submodules https://github.com/isaac-sim/IsaacLab-Arena.git
-    cd IsaacLab-Arena
+:isaaclab_arena_git_clone_code_block:
 
 Sync the environment and activate it:
 
@@ -120,10 +117,6 @@ installation options.
 1. **Clone the repository and initialize submodules:**
 
 :isaaclab_arena_git_clone_code_block:
-
-.. code-block:: bash
-
-    git submodule update --init --recursive
 
 2. **Launch the docker container:**
 

@@ -3,34 +3,45 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_mustard_to_bowl_kitchen_l_shape
+env_name: kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 0.8
     placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_shape
+  registry_name: lightwheel_kitchen_l_shaped_scandinavian
   params:
     collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects:
-- id: mustard_bottle
-  registry_name: mustard_bottle_hope_robolab
+- id: lime
+  registry_name: lime01_fruits_veggies_robolab
   params: {}
-- id: bowl
-  registry_name: bowl_ycb_robolab
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params: {}
+- id: broccoli
+  registry_name: broccoli
+  params: {}
+- id: sweet_potato
+  registry_name: sweet_potato
+  params: {}
+- id: red_bell_pepper
+  registry_name: red_bell_pepper_objaverse_robolab
   params: {}
 object_references:
 - id: floor
   parent_id: kitchen
-  prim_path: KitchenRoom/Floor
+  prim_path: floor_room/geometry
   object_type: base
   params: {}
 - id: counter_top
   parent_id: kitchen
-  prim_path: CapSurface
+  prim_path: counter_main_main_group/top_geometry_right
   object_type: base
   params: {}
 relations:
@@ -49,26 +60,38 @@ relations:
   reference: counter_top
   params:
     side: negative_y
-    distance_m: 0.15
-    tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
     yaw_rad: 1.57
 - kind: 'on'
-  subject: mustard_bottle
+  subject: lime
   reference: counter_top
   params: {}
 - kind: 'on'
-  subject: bowl
+  subject: wooden_bowl
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: broccoli
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: sweet_potato
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: red_bell_pepper
   reference: counter_top
   params: {}
 task:
   composition: atomic
-  description: pick up the mustard bottle and place it in the red bowl
+  description: Pick up the lime from the counter top and place it into the wooden
+    bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: mustard_bottle
-      destination_location: bowl
+      pick_up_object: lime
+      destination_location: wooden_bowl
       background_scene: kitchen
+      destination_object: wooden_bowl

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_place_lime_in_wooden_bowl
+env_name: kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,25 +13,25 @@ embodiment:
     collision_mode: mesh
 background:
   id: kitchen
-  registry_name: lightwheel_kitchen_l_shaped_scandinavian
+  registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
   params:
     collision_mode: mesh
     repair_collision_mesh_non_watertight: false
 objects:
-- id: lime
-  registry_name: lime01_fruits_veggies_robolab
+- id: green_ladle
+  registry_name: ladle_handal_robolab
   params: {}
-- id: wooden_bowl
-  registry_name: wooden_bowl_hot3d_robolab
+- id: plate
+  registry_name: plate_large_vomp_robolab
   params: {}
-- id: broccoli
-  registry_name: broccoli
+- id: spoon_1
+  registry_name: spoon_1_handal_robolab
   params: {}
-- id: sweet_potato
-  registry_name: sweet_potato
+- id: spoon_2
+  registry_name: spoon_2_handal_robolab
   params: {}
-- id: red_bell_pepper
-  registry_name: red_bell_pepper_objaverse_robolab
+- id: spoon_3
+  registry_name: spoon_big_vomp_robolab
   params: {}
 object_references:
 - id: floor
@@ -41,7 +41,12 @@ object_references:
   params: {}
 - id: counter_top
   parent_id: kitchen
-  prim_path: counter_main_main_group/top_geometry_right
+  prim_path: counter_main_main_group/top_geometry
+  object_type: base
+  params: {}
+- id: toaster
+  parent_id: kitchen
+  prim_path: toaster_main_group
   object_type: base
   params: {}
 relations:
@@ -51,47 +56,59 @@ relations:
 - kind: is_anchor
   subject: counter_top
   params: {}
-- kind: 'on'
-  subject: droid
-  reference: floor
+- kind: is_anchor
+  subject: toaster
   params: {}
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
 - kind: next_to
   subject: droid
   reference: counter_top
   params:
     side: negative_y
-- kind: rotate_around_solution
+- kind: 'on'
   subject: droid
+  reference: floor
+  params: {}
+- kind: 'on'
+  subject: green_ladle
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: spoon_1
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: spoon_2
+  reference: counter_top
+  params: {}
+- kind: 'on'
+  subject: spoon_3
+  reference: counter_top
+  params: {}
+- kind: next_to
+  subject: green_ladle
+  reference: toaster
   params:
-    yaw_rad: 1.57
-- kind: 'on'
-  subject: lime
-  reference: counter_top
-  params: {}
-- kind: 'on'
-  subject: wooden_bowl
-  reference: counter_top
-  params: {}
-- kind: 'on'
-  subject: broccoli
-  reference: counter_top
-  params: {}
-- kind: 'on'
-  subject: sweet_potato
-  reference: counter_top
-  params: {}
-- kind: 'on'
-  subject: red_bell_pepper
-  reference: counter_top
-  params: {}
+    side: negative_y
+- kind: next_to
+  subject: plate
+  reference: toaster
+  params:
+    side: negative_x
 task:
   composition: atomic
-  description: Pick up the lime from the counter top and place it into the wooden
-    bowl.
+  description: Pick up the ladle from the counter top and place it into the plate.
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: lime
-      destination_location: wooden_bowl
+      pick_up_object: green_ladle
+      destination_location: plate
       background_scene: kitchen
-      destination_object: wooden_bowl
+      destination_object: plate

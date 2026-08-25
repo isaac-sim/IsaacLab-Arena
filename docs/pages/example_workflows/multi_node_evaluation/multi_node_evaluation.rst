@@ -217,8 +217,12 @@ For our experiment, the sensitivity analysis report looks like this:
 Adjust the Experiment at submission time
 ----------------------------------------
 
-You can tweak a Run at submission time, without editing its YAML file.
-To view the available override-able values, use the ``--list_overrides`` flag.
+You can adjust an Experiment at submission time without editing its YAML file. OSMO nests the
+Experiment below ``experiment_cfg``, so Experiment override paths start with that prefix.
+
+To inspect the effective Run values and submission settings, use the ``--list_overrides`` flag.
+Shared values have already been expanded into the Runs in this output; inspect the Experiment YAML
+to see which paths are declared below ``shared``.
 
 .. code-block:: bash
 
@@ -226,7 +230,18 @@ To view the available override-able values, use the ``--list_overrides`` flag.
      --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml \
      --list_overrides
 
-For example, to shorten the banana in bowl ``pi0.5`` run to four episodes:
+For example, to shorten every Run to four episodes, override the value declared below ``shared``:
+
+.. code-block:: bash
+
+   python osmo/submit_arena_experiment.py \
+     --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml \
+     experiment_cfg.shared.rollout_limit.num_episodes=4
+
+Do not add ``+`` to a shared override. If Hydra suggests ``+shared.<path>=<value>``, use the missing
+``experiment_cfg.`` prefix instead.
+
+To shorten only the banana in bowl ``pi0.5`` Run to four episodes:
 
 .. code-block:: bash
 

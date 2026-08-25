@@ -12,7 +12,7 @@ The generated spec has one block per part of the environment graph:
 
 .. code-block:: yaml
 
-   env_name: droid_pick_mustard_to_bowl
+   env_name: kitchen_bench_lightwheel_pick_and_place
    embodiment:                       # the robot, from the embodiment registry
      id: droid
      registry_name: droid_abs_joint_pos
@@ -116,7 +116,7 @@ surfaces. List them from the background prim tree — the set of prims the agent
 
          python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
             --mode prim_tree \
-            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml \
+            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml \
             | grep counter
 
       It prints each line as a ``prim_path`` candidate with its ``object_type``, plus the joint names when the prim
@@ -194,7 +194,7 @@ Applying your edits
             --viz kit \
             --num_envs 1 \
             --num_steps 100 \
-            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
       A spec you generated yourself is written to
       ``isaaclab_arena_environments/agent_generated/<env_name>.yaml`` instead — pass that path to build it.

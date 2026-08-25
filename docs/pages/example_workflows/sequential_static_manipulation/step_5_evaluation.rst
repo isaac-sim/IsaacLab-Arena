@@ -50,12 +50,6 @@ submodule pinned at commit ``e29d8fc``; populate it with
 checked out. Then, from the repository root in that terminal, launch the server and
 leave it running:
 
-.. todo::
-
-   The ``submodules/Isaac-GR00T`` submodule will be removed after the policy
-   config refactor. After that, users will be expected to set up a separate
-   GR00T repository checkout themselves and launch the server from there.
-
 .. note::
 
    Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
@@ -63,12 +57,17 @@ leave it running:
    specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems. Please refer to the
    documentation for the latest requirements.
 
+.. note::
+
+   ``$MODELS_DIR`` exists inside the container. On the host, the checkpoint is
+   under the models directory passed to ``./docker/run_docker.sh -m`` (default ``$HOME/models``).
+
 .. code-block:: bash
 
    cd submodules/Isaac-GR00T
    uv run python gr00t/eval/run_gr00t_server.py \
      --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-     --model-path /models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000 \
+     --model-path $HOME/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000 \
      --embodiment-tag GR1 \
      --device cuda --host 127.0.0.1 --port 5555
 

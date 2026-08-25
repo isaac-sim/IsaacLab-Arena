@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_bowl_to_sink_kitchen_l_shape
+env_name: kitchen_bench_replicator_u_shape_mustard_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,10 +12,13 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_shape
+  registry_name: replicator_kitchen_u_shape
   params:
     collision_mode: mesh
 objects:
+- id: mustard_bottle
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
@@ -25,14 +28,9 @@ object_references:
   prim_path: KitchenRoom/Floor
   object_type: base
   params: {}
-- id: sink
+- id: counter_top
   parent_id: kitchen
-  prim_path: Sink/BasinBottom
-  object_type: base
-  params: {}
-- id: sink_counter
-  parent_id: kitchen
-  prim_path: CapSurface_02
+  prim_path: CapSurface_03
   object_type: base
   params: {}
 relations:
@@ -40,10 +38,7 @@ relations:
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: sink
-  params: {}
-- kind: is_anchor
-  subject: sink_counter
+  subject: counter_top
   params: {}
 - kind: 'on'
   subject: droid
@@ -51,31 +46,29 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: sink
+  reference: counter_top
   params:
-    side: positive_x
+    side: negative_x
     distance_m: 0.15
     tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 3.14
+    yaw_rad: 0.0
+- kind: 'on'
+  subject: mustard_bottle
+  reference: counter_top
+  params: {}
 - kind: 'on'
   subject: bowl
-  reference: sink_counter
+  reference: counter_top
   params: {}
-- kind: next_to
-  subject: bowl
-  reference: sink
-  params:
-    side: negative_y
-    distance_m: 0.1
 task:
   composition: atomic
-  description: pick up the bowl and place it in the sink
+  description: pick up the mustard bottle and place it in the red bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: bowl
-      destination_location: sink
+      pick_up_object: mustard_bottle
+      destination_location: bowl
       background_scene: kitchen

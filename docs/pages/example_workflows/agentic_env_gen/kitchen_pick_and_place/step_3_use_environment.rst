@@ -32,7 +32,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 2 \
-            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
 
    .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
@@ -60,7 +60,7 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
             --enable_cameras \
             --num_envs 1 \
             --num_episodes 2 \
-            --env_spec isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+            --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
       check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:

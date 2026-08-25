@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_mustard_to_bowl_kitchen_l_island
+env_name: kitchen_bench_replicator_l_shape_banana_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,12 +12,12 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_island
+  registry_name: replicator_kitchen_l_shape
   params:
     collision_mode: mesh
 objects:
-- id: mustard_bottle
-  registry_name: mustard_bottle_hope_robolab
+- id: banana
+  registry_name: banana_ycb_robolab
   params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
@@ -28,9 +28,9 @@ object_references:
   prim_path: KitchenRoom/Floor
   object_type: base
   params: {}
-- id: island_top
+- id: corner_counter
   parent_id: kitchen
-  prim_path: CapSurface_03
+  prim_path: CornerCounter_00_0
   object_type: base
   params: {}
 relations:
@@ -38,7 +38,7 @@ relations:
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: island_top
+  subject: corner_counter
   params: {}
 - kind: 'on'
   subject: droid
@@ -46,7 +46,7 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: island_top
+  reference: corner_counter
   params:
     side: negative_y
     distance_m: 0.15
@@ -56,19 +56,19 @@ relations:
   params:
     yaw_rad: 1.57
 - kind: 'on'
-  subject: mustard_bottle
-  reference: island_top
+  subject: banana
+  reference: corner_counter
   params: {}
 - kind: 'on'
   subject: bowl
-  reference: island_top
+  reference: corner_counter
   params: {}
 task:
   composition: atomic
-  description: pick up the mustard bottle and place it in the red bowl
+  description: pick up the banana and place it in the red bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: mustard_bottle
+      pick_up_object: banana
       destination_location: bowl
       background_scene: kitchen

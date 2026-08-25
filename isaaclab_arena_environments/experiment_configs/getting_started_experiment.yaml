@@ -6,7 +6,9 @@
 # An Arena Experiment with shared values and four named Runs.
 # Values under shared are used by every Run below.
 # A Run only needs to list what is different; its values override the shared ones.
-# Use shared.<path>=<value> on the command line to change a shared value.
+# To change a shared value on the command line:
+# - with experiment_runner.py, use shared.<path>=<value>
+# - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
 # A value written directly in a Run still takes priority.
 shared:
   environment:

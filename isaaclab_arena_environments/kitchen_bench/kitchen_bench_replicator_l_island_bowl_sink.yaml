@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_bowl_to_sink_kitchen_u_shape
+env_name: kitchen_bench_replicator_l_island_bowl_sink
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,7 +12,7 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_u_shape
+  registry_name: replicator_kitchen_l_island
   params:
     collision_mode: mesh
 objects:
@@ -32,7 +32,7 @@ object_references:
   params: {}
 - id: sink_counter
   parent_id: kitchen
-  prim_path: CapSurface_01
+  prim_path: CapSurface
   object_type: base
   params: {}
 relations:
@@ -53,13 +53,13 @@ relations:
   subject: droid
   reference: sink
   params:
-    side: positive_x
+    side: negative_y
     distance_m: 0.15
     tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 3.14
+    yaw_rad: 1.57
 - kind: 'on'
   subject: bowl
   reference: sink_counter
@@ -68,7 +68,7 @@ relations:
   subject: bowl
   reference: sink
   params:
-    side: negative_y
+    side: negative_x
     distance_m: 0.1
 task:
   composition: atomic
