@@ -614,22 +614,18 @@ as a passive obstacle only in <code class="docutils literal notranslate"><span c
 </tbody>
 </table>
 </div>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/mesh_vs_bbox_collision.png"><img alt="Comparison of bounding-box and mesh collision modes" src="../../../_images/mesh_vs_bbox_collision.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">For the same requested placement, <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> rejects the layout because the
 axis-aligned boxes overlap, while <code class="docutils literal notranslate"><span class="pre">MESH</span></code> accepts it using
-sphere-versus-mesh collision checks.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+sphere-versus-mesh collision checks.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p>Start with <code class="docutils literal notranslate"><span class="pre">BBOX</span></code>. Use <code class="docutils literal notranslate"><span class="pre">MESH</span></code> only when bounding boxes exclude space that
 the actual objects can safely occupy. Collision mode changes overlap checking;
 it does not change the meaning of relations such as <code class="docutils literal notranslate"><span class="pre">On</span></code> or <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>Document overlap-checking implementation details and debugging guidance.</p>
-</div>
 <p>Set the solver-wide default when defining an environment in Python:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">IsaacLabArenaEnvironment</span><span class="p">,</span>
@@ -688,6 +684,62 @@ for clearance, mesh fidelity, and solver tuning fields, and
 <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/relations/object_placer_params.py">ObjectPlacerParams</a>
 for placement-level controls.</p>
 </section>
+<section id="how-overlap-checking-works">
+<h2>How Overlap Checking Works<a class="headerlink" href="#how-overlap-checking-works" title="Link to this heading">#</a></h2>
+<p>Overlap checking has two stages:</p>
+<ol class="arabic simple">
+<li><p>During optimization, the solver adds a differentiable no-overlap loss.
+<code class="docutils literal notranslate"><span class="pre">BBOX</span></code> expands the obstacle boxes by <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> and penalizes their
+intersection volume. For mesh-covered pairs, <code class="docutils literal notranslate"><span class="pre">MESH</span></code> represents movable
+geometry with up to <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> bounding spheres and queries their
+distance from the target collision mesh. Increasing <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> may
+improve sphere coverage, at the cost of slower solving and validation.</p></li>
+<li><p>After optimization, the <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> validator applies a discrete
+pass/fail check to each candidate. A low solver loss does not guarantee that
+this check passes. Placement uses the validator results to rank and select
+candidates according to the configured checks and fallback policy. See
+<a class="reference internal" href="validation.html"><span class="doc">Placement Validation</span></a> and <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">MESH</span></code> enables sphere-to-mesh checks where Arena can obtain the target
+collision mesh. Pairs not covered by a mesh check use bounding-box-based
+checks.</p>
+<p>The solver and validator check the following pairs:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pair</p></th>
+<th class="head"><p>Checked</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Movable / movable</p></td>
+<td><p>Yes</p></td>
+<td><p>Except when one is directly <code class="docutils literal notranslate"><span class="pre">On</span></code> the other</p></td>
+</tr>
+<tr class="row-odd"><td><p>Movable / anchor</p></td>
+<td><p>Yes</p></td>
+<td><p>Except for the child-parent pair of an <code class="docutils literal notranslate"><span class="pre">On</span></code> relation</p></td>
+</tr>
+<tr class="row-even"><td><p>Movable / passive obstacle</p></td>
+<td><p>Yes</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Fixed / fixed</p></td>
+<td><p>No</p></td>
+<td><p>Includes anchor-anchor, anchor-passive, and passive-passive pairs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">On</span></code> exemption allows support contact; the <code class="docutils literal notranslate"><span class="pre">On</span></code> constraint is checked
+separately. Two objects placed on the same support are still checked against
+each other.</p>
+</section>
 <section id="background-and-passive-obstacles">
 <h2>Background and Passive Obstacles<a class="headerlink" href="#background-and-passive-obstacles" title="Link to this heading">#</a></h2>
 <p>Assets do not need placement relations to act as obstacles. A table can be an
@@ -702,13 +754,13 @@ full-environment <code class="docutils literal notranslate"><span class="pre">Ba
 is omitted.</p>
 <p>The included kitchen example shows objects placed on a counter while avoiding
 the background mesh.</p>
-<figure class="align-center" id="id3">
+<figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../../_images/kitchen_background_collision.png"><img alt="Objects placed on a kitchen counter without intersecting nearby appliances" src="../../../_images/kitchen_background_collision.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">The counter is the placement anchor. The surrounding stove, toaster, and
 refrigerator remain fixed passive obstacles represented by the kitchen
-collision mesh.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+collision mesh.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <div class="admonition note">
@@ -726,6 +778,42 @@ display, for example <code class="docutils literal notranslate"><span class="pre
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> opens the viewer, and <code class="docutils literal notranslate"><span class="pre">--view_steps</span> <span class="pre">0</span></code> keeps it open until you
 close the application.</p>
+</section>
+<section id="debugging-placement-collisions">
+<h2>Debugging Placement Collisions<a class="headerlink" href="#debugging-placement-collisions" title="Link to this heading">#</a></h2>
+<p>Use the placement seed, verbose output, and Rerun view together to reproduce a
+failure, identify the failing check or object pair, and inspect the candidate
+layout:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">placer_params</span> <span class="o">=</span> <span class="n">ObjectPlacerParams</span><span class="p">(</span>
+    <span class="n">placement_seed</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">allow_best_loss_fallbacks</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">debug_visualize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">solver_params</span><span class="o">=</span><span class="n">RelationSolverParams</span><span class="p">(</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The settings expose complementary information:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> reproduces candidate generation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.verbose</span></code> reports validation failures and the first
+detected overlap pair when available.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RelationSolverParams.verbose</span></code> reports optimization progress and final
+loss.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> opens the Rerun view with candidate geometry. For
+headless runs, leave it <code class="docutils literal notranslate"><span class="pre">False</span></code> and set <code class="docutils literal notranslate"><span class="pre">debug_visualize_output_path</span></code> to
+record an <code class="docutils literal notranslate"><span class="pre">.rrd</span></code> file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=False</span></code> keeps pooled placement from hiding a
+failed validation behind a fallback layout.</p></li>
+</ul>
+<p>Start with the <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> verdict and any reported object pair, then inspect
+that candidate in Rerun. A <code class="docutils literal notranslate"><span class="pre">[NoCollision]</span></code> message means collision-mesh
+geometry was unavailable and Arena used a bounding-box-based fallback where
+possible. A <code class="docutils literal notranslate"><span class="pre">[MeshSDF]</span></code> warning means the mesh could not be queried reliably.
+If <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> rejects geometry that is visibly collision-free, retry the relevant
+asset with <code class="docutils literal notranslate"><span class="pre">MESH</span></code>.</p>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
@@ -785,7 +873,9 @@ constraints produce candidate layouts.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-collision-avoidance-covers">What Collision Avoidance Covers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-collision-representation">Choosing a Collision Representation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-overlap-checking-works">How Overlap Checking Works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#background-and-passive-obstacles">Background and Passive Obstacles</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#debugging-placement-collisions">Debugging Placement Collisions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

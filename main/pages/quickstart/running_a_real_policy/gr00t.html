@@ -588,12 +588,6 @@ specify CUDA 12.8 and <code class="docutils literal notranslate"><span class="pr
 documentation for the latest requirements.</p>
 </div>
 <p>Then start the server from the repository root in a separate shell:</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> submodule will be removed after the policy
-config refactor. After that, users will set up a separate GR00T repository
-checkout and launch the server from there.</p>
-</div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--model-path<span class="w"> </span>nvidia/GR00T-N1.6-DROID<span class="w"> </span><span class="se">\</span>
@@ -789,12 +783,12 @@ one place. Every Run lists only what changes.</p>
 </div>
 <p>The runner executes the nine Runs in YAML order. It keeps one SimulationApp open, but builds a
 fresh environment for every Run.</p>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/gr00t_droid_3x3_grid.gif"><img alt="3x3 grid of GR00T N1.6 DROID Runs across different objects, backgrounds, and destinations" src="../../../_images/gr00t_droid_3x3_grid.gif" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Nine closed-loop Runs of GR00T N1.6 on the DROID embodiment. Each cell changes the
-pick-up object, HDR background, and destination.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+pick-up object, HDR background, and destination.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p>When all Runs finish, Arena prints a summary table followed by a metrics report:</p>

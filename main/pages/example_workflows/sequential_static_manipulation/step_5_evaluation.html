@@ -610,12 +610,6 @@ submodule pinned at commit <code class="docutils literal notranslate"><span clas
 <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">update</span> <span class="pre">--init</span> <span class="pre">submodules/Isaac-GR00T</span></code> if it is not already
 checked out. Then, from the repository root in that terminal, launch the server and
 leave it running:</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> submodule will be removed after the policy
-config refactor. After that, users will be expected to set up a separate
-GR00T repository checkout themselves and launch the server from there.</p>
-</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Blackwell GPUs with compute capability <code class="docutils literal notranslate"><span class="pre">sm_120</span></code> require CUDA 12.8 or newer. The
@@ -623,10 +617,15 @@ GR00T repository checkout themselves and launch the server from there.</p>
 specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems. Please refer to the
 documentation for the latest requirements.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR</span></code> exists inside the container. On the host, the checkpoint is
+under the models directory passed to <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span> <span class="pre">-m</span></code> (default <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code>).</p>
+</div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--model-path<span class="w"> </span>/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model-path<span class="w"> </span><span class="nv">$HOME</span>/models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment-tag<span class="w"> </span>GR1<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
 </pre></div>
