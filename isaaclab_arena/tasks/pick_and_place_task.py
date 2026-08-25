@@ -97,6 +97,7 @@ class PickAndPlaceTask(TaskBase):
         self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
+        assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
         self.velocity_threshold = velocity_threshold
         assert (
             0.0 <= support_cone_half_angle_deg < 90.0

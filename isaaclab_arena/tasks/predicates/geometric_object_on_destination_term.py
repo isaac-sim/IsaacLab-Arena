@@ -43,18 +43,10 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         object_cfg: SceneEntityCfg = cfg.params["object_cfg"]
         destination_pose_cfg: SceneEntityCfg = cfg.params["destination_pose_cfg"]
         destination_prim_path: str = cfg.params["destination_prim_path"]
-        force_threshold: float = cfg.params["force_threshold"]
-        velocity_threshold: float = cfg.params["velocity_threshold"]
-        support_cone_half_angle_deg: float = cfg.params.get("support_cone_half_angle_deg", 45.0)
 
         assert (
             object_cfg.name in env.scene.rigid_objects
         ), f"GeometricObjectOnDestinationTerm requires rigid object '{object_cfg.name}'."
-        assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}."
-        assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}."
-        assert (
-            0.0 <= support_cone_half_angle_deg < 90.0
-        ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}."
 
         self._object_name = object_cfg.name
         self._destination_pose_entity_name = destination_pose_cfg.name
