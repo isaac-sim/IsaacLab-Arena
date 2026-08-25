@@ -148,7 +148,11 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
 
 
 class SceneReferencePoseReader:
-    """Read current poses for one named scene reference."""
+    """Read current poses for one named scene reference.
+
+    The reader creates and validates its FrameView once, then reuses it for
+    every simulation step instead of rebuilding it for each pose query.
+    """
 
     def __init__(
         self,
