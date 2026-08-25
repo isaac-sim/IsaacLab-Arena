@@ -51,10 +51,11 @@ def generate_report(
     dataset = dataset_from_episode_results(episode_results_path, outcome_names, factor_names)
     output_path = Path(output_path)
     analyzer = SensitivityAnalyzer(dataset)
+    observation_tensor = dataset.prepare_observation_tensor(observation)
     if method == "empirical":
         result = analyzer.analyze(
             method="empirical",
-            observation=observation,
+            observation=observation_tensor,
             seed=seed,
             num_bins=num_bins,
             num_bootstrap_samples=num_bootstrap_samples,
@@ -65,14 +66,8 @@ def generate_report(
         )
         plot_empirical_marginals(result, dataset, output_path=str(output_path))
     else:
-        result = analyzer.analyze(method="fitted", observation=observation, seed=seed)
-        engine_reason = (
-            "the factor schema includes categorical values"
-            if result.inference_engine == "mnpe"
-            else "all factors are continuous"
-        )
-        print(f"[INFO] Fitted sensitivity selected {result.inference_engine.upper()} because {engine_reason}.")
-        plot_marginals(result.posterior_samples, dataset, result.observation, output_path=str(output_path))
+        posterior_samples = analyzer.analyze(method="fitted", observation=observation_tensor, seed=seed)
+        plot_marginals(posterior_samples, dataset, observation_tensor, output_path=str(output_path))
 
     plt.close("all")
     print(f"[INFO] Wrote report → {output_path}")
@@ -141,14 +136,6 @@ def main():
         help="Number of fixed bins per continuous factor for --method empirical. Default: 6.",
     )
     parser.add_argument(
-        "--bootstrap_samples",
-        "--bootstrap-samples",
-        dest="bootstrap_samples",
-        type=int,
-        default=1000,
-        help="Number of paired episode resamples for empirical confidence intervals. Default: 1000.",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=0,
@@ -165,7 +152,6 @@ def main():
         seed=args.seed,
         method=args.method,
         num_bins=args.bins,
-        num_bootstrap_samples=args.bootstrap_samples,
     )
 
 

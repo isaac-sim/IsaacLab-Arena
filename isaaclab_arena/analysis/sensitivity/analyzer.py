@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 from contextlib import nullcontext
-from dataclasses import dataclass, field
 from typing import Literal
 
 from sbi.inference import MNPE, NPE
@@ -17,31 +16,11 @@ from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.empirical import EmpiricalSensitivityResult, compute_empirical_marginals
 
 
-@dataclass(frozen=True)
-class FittedSensitivityResult:
-    """Fitted-posterior output consumed by sensitivity analysis."""
-
-    observation: torch.Tensor
-    """The full outcome vector used to condition the posterior."""
-
-    posterior_samples: torch.Tensor
-    """Factor samples in dataset order: continuous values in original units, categoricals as integer codes."""
-
-    inference_engine: Literal["npe", "mnpe"]
-    """The fitted inference engine selected from the factor schema."""
-
-    num_episodes: int
-    """Number of episodes used to fit the posterior."""
-
-    method: Literal["fitted"] = field(default="fitted", init=False)
-    """The analysis method represented by this result."""
-
-
 class SensitivityAnalyzer:
     """Analyze factor sensitivity empirically or with a fitted posterior.
 
     ``analyze()`` is the main entry point. It returns empirical marginals from exact outcome
-    matches or samples from a fitted posterior. ``fit()`` and ``sample_posterior()`` remain
+    matches or a tensor of samples from a fitted posterior. ``fit()`` and ``sample_posterior()`` remain
     available for callers that need direct control over the fitted lifecycle.
 
     Fitted analysis picks the sbi estimator from the schema:
@@ -88,7 +67,7 @@ class SensitivityAnalyzer:
         num_bins: int = 6,
         num_bootstrap_samples: int = 1000,
         confidence_level: float = 0.95,
-    ) -> FittedSensitivityResult | EmpiricalSensitivityResult:
+    ) -> torch.Tensor | EmpiricalSensitivityResult:
         """Analyze the dataset with an explicitly selected analysis method.
 
         Fitted analysis trains a new posterior on every call. Call ``fit()`` followed by
@@ -106,11 +85,11 @@ class SensitivityAnalyzer:
             confidence_level: Bootstrap confidence level used only by empirical analysis.
 
         Returns:
-            A result type specific to the selected analysis method.
+            Empirical marginals or fitted posterior samples, depending on ``method``.
         """
         assert method in {"fitted", "empirical"}, f"Unknown sensitivity method {method!r}."
         assert seed is None or seed >= 0, f"seed must be non-negative or None; got {seed}."
-        observation_tensor = self.dataset.resolve_observation(observation)
+        observation_tensor = self.dataset.prepare_observation_tensor(observation)
 
         if method == "empirical":
             return compute_empirical_marginals(
@@ -129,17 +108,7 @@ class SensitivityAnalyzer:
                 torch.random.default_generator.manual_seed(seed)
             self.fit(training_batch_size=training_batch_size)
             posterior_samples = self.sample_posterior(observation_tensor, num_samples=num_posterior_samples)
-        return FittedSensitivityResult(
-            observation=observation_tensor.detach().cpu().clone(),
-            posterior_samples=posterior_samples.detach().cpu().clone(),
-            inference_engine=self._inference_engine,
-            num_episodes=self.dataset.num_episodes,
-        )
-
-    @property
-    def _inference_engine(self) -> Literal["npe", "mnpe"]:
-        """Canonical name of the fitted engine selected for the factor schema."""
-        return "mnpe" if self.dataset.has_categorical_factors else "npe"
+        return posterior_samples
 
     def _select_inference_class(self):
         """Choose the sbi inference class for this schema.
@@ -147,7 +116,7 @@ class SensitivityAnalyzer:
         Returns MNPE when any factor is categorical (its mixed density estimator handles
         continuous + categorical theta together), and NPE when every factor is continuous.
         """
-        return MNPE if self._inference_engine == "mnpe" else NPE
+        return MNPE if self.dataset.has_categorical_factors else NPE
 
     def _normalized_prior(self):
         """Uniform prior matching the normalized theta: continuous dims [0, 1], categoricals [0, k-1]."""
@@ -200,7 +169,7 @@ class SensitivityAnalyzer:
         """
         assert self.posterior is not None, "Call fit() before sampling the posterior"
         assert num_samples > 0, f"num_samples must be positive; got {num_samples}."
-        observation_tensor = self.dataset.resolve_observation(observation)
+        observation_tensor = self.dataset.prepare_observation_tensor(observation)
         with torch.no_grad():
             normalized_samples = self.posterior.sample((num_samples,), x=observation_tensor)
         return self._denormalize(normalized_samples)

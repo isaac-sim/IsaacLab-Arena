@@ -121,11 +121,11 @@ class SensitivityDataset:
         assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
         return torch.ones(self._x.shape[1], dtype=self._x.dtype, device=self._x.device)
 
-    def resolve_observation(
+    def prepare_observation_tensor(
         self,
         observation: torch.Tensor | list[float] | tuple[float, ...] | None = None,
     ) -> torch.Tensor:
-        """Return a validated observation tensor in the dataset's outcome layout.
+        """Convert and validate an observation in the dataset's outcome layout.
 
         Args:
             observation: One value per outcome column. None uses the default observation.

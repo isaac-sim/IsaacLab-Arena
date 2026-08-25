@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, FactorType, SensitivityDataset
 
@@ -78,9 +77,6 @@ class EmpiricalSensitivityResult:
 
     marginals: tuple[EmpiricalMarginal, ...]
     """Per-factor marginals in the dataset's declared factor order."""
-
-    method: Literal["empirical"] = field(default="empirical", init=False)
-    """The analysis method represented by this result."""
 
 
 @dataclass(frozen=True)
@@ -210,7 +206,7 @@ def compute_empirical_marginals(
     assert num_bootstrap_samples > 0, f"num_bootstrap_samples must be positive; got {num_bootstrap_samples}."
     assert 0.0 < confidence_level < 1.0, f"confidence_level must lie strictly between 0 and 1; got {confidence_level}."
 
-    observation_tensor = dataset.resolve_observation(observation)
+    observation_tensor = dataset.prepare_observation_tensor(observation)
 
     matching_episode_mask = (dataset.x == observation_tensor).all(dim=1)
     num_matching_episodes = int(matching_episode_mask.sum().item())

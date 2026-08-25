@@ -13,7 +13,7 @@ import torch
 import pytest
 
 import isaaclab_arena.analysis.sensitivity.analyzer as analyzer_module
-from isaaclab_arena.analysis.sensitivity.analyzer import FittedSensitivityResult, SensitivityAnalyzer
+from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.empirical import compute_empirical_marginals
 
@@ -24,18 +24,6 @@ def _continuous_dataset() -> SensitivityDataset:
         [FactorSpec(name="offset", type="continuous", range=(-1.0, 1.0))],
         torch.tensor([[-0.75], [-0.25], [0.25], [0.75]]),
         torch.tensor([[0.0], [1.0], [1.0], [0.0]]),
-    )
-
-
-def _mixed_dataset() -> SensitivityDataset:
-    """Build a small mixed dataset for MNPE engine selection."""
-    return SensitivityDataset(
-        [
-            FactorSpec(name="offset", type="continuous", range=(-1.0, 1.0)),
-            FactorSpec(name="background", type="categorical", choices=["studio", "sunset"]),
-        ],
-        torch.tensor([[-0.5, 0.0], [0.5, 1.0]]),
-        torch.tensor([[1.0], [0.0]]),
     )
 
 
@@ -104,7 +92,6 @@ def test_analyze_empirical_matches_direct_computation():
     direct_result = compute_empirical_marginals(dataset, **arguments)
     facade_result = SensitivityAnalyzer(dataset).analyze(method="empirical", **arguments)
 
-    assert facade_result.method == "empirical"
     assert facade_result.num_episodes == direct_result.num_episodes
     assert facade_result.num_matching_episodes == direct_result.num_matching_episodes
     torch.testing.assert_close(facade_result.observation, direct_result.observation)
@@ -120,7 +107,7 @@ def test_analyze_empirical_matches_direct_computation():
 
 
 def test_analyze_fitted_uses_existing_lifecycle(monkeypatch):
-    """Fitted analysis trains and samples through the existing API while recording provenance."""
+    """Fitted analysis trains and samples through the existing API."""
     dataset = _continuous_dataset()
     analyzer = SensitivityAnalyzer(dataset)
     fit_batch_sizes = []
@@ -139,14 +126,14 @@ def test_analyze_fitted_uses_existing_lifecycle(monkeypatch):
     monkeypatch.setattr(analyzer, "fit", record_fit)
     monkeypatch.setattr(analyzer, "sample_posterior", record_sample)
 
-    first_result = analyzer.analyze(
+    first_samples = analyzer.analyze(
         method="fitted",
         observation=[1.0],
         seed=None,
         training_batch_size=7,
         num_posterior_samples=3,
     )
-    second_result = analyzer.analyze(
+    second_samples = analyzer.analyze(
         method="fitted",
         observation=[0.0],
         seed=None,
@@ -154,16 +141,11 @@ def test_analyze_fitted_uses_existing_lifecycle(monkeypatch):
         num_posterior_samples=3,
     )
 
-    assert isinstance(first_result, FittedSensitivityResult)
-    assert first_result.method == "fitted"
-    assert first_result.inference_engine == "npe"
-    assert first_result.num_episodes == dataset.num_episodes
-    torch.testing.assert_close(first_result.observation, torch.tensor([1.0]))
-    torch.testing.assert_close(first_result.posterior_samples, expected_samples)
+    torch.testing.assert_close(first_samples, expected_samples)
+    torch.testing.assert_close(second_samples, expected_samples)
     assert fit_batch_sizes == [7, 11]
     assert [num_samples for _, num_samples in sampled_queries] == [3, 3]
     torch.testing.assert_close(sampled_queries[1][0], torch.tensor([0.0]))
-    assert second_result.inference_engine == "npe"
 
 
 @pytest.mark.parametrize(
@@ -202,24 +184,6 @@ def test_analyze_fitted_seed_does_not_change_global_random_state(monkeypatch):
         torch.testing.assert_close(torch.rand(1), expected_next_draw)
 
 
-def test_analyze_fitted_records_mnpe_for_categorical_factors(monkeypatch):
-    """The fitted result exposes a stable MNPE engine name for mixed schemas."""
-    analyzer = SensitivityAnalyzer(_mixed_dataset())
-
-    def record_fit(training_batch_size):
-        analyzer.posterior = object()
-
-    def return_samples(observation, num_samples):
-        return torch.zeros(num_samples, 2)
-
-    monkeypatch.setattr(analyzer, "fit", record_fit)
-    monkeypatch.setattr(analyzer, "sample_posterior", return_samples)
-
-    result = analyzer.analyze(method="fitted", seed=None, num_posterior_samples=2)
-
-    assert result.inference_engine == "mnpe"
-
-
 def test_direct_fitted_lifecycle_rejects_non_positive_counts():
     """Direct fitted calls enforce the same count constraints as the facade."""
     analyzer = SensitivityAnalyzer(_continuous_dataset())
@@ -245,7 +209,7 @@ def test_analyze_rejects_negative_seed(method):
         SensitivityAnalyzer(_continuous_dataset()).analyze(method=method, seed=-1)
 
 
-def test_resolve_observation_rejects_non_finite_values():
-    """The shared observation resolver rejects a query that cannot represent an outcome value."""
+def test_prepare_observation_tensor_rejects_non_finite_values():
+    """Observation preparation rejects a query that cannot represent an outcome value."""
     with pytest.raises(AssertionError, match="finite"):
-        _continuous_dataset().resolve_observation([float("nan")])
+        _continuous_dataset().prepare_observation_tensor([float("nan")])
