@@ -1,7 +1,7 @@
 ---
 name: setup-arena
 description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv source, native uv wheel, or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
-allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *)
+allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop *)
 ---
 
 # Setup Arena
@@ -123,3 +123,8 @@ zero-action exit status when run. Treat setup readiness separately from policy s
 Use `dev-container` for contributor bootstrap or forced rebuilds and `run-tests` only when the user
 explicitly asks for regression testing. Treat any requested experiment as the next workflow after
 setup; do not absorb its policy, configuration, execution, or artifact checks into this skill.
+
+## References
+
+- [Evaluation scenarios](evaluations.md)
+- [Installation workflow](../../../docs/pages/quickstart/installation.rst)

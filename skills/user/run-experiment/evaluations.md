@@ -20,11 +20,13 @@ Known failure modes:
 
 ## Scenario 2: Local Shared Override
 
-Query: "Run `my_experiment.yaml` headless, set the shared episode count to 4, and don't edit the YAML."
+Query: "Run `isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml`
+headless, set the shared episode count to 4, and don't edit the YAML."
 
 Expected behavior:
 
-- Uses `--viz none` and the local override `shared.rollout_limit.num_episodes=4`.
+- Passes the maintained configuration explicitly with `--experiment_config`, uses `--viz none`,
+  and applies the local override `shared.rollout_limit.num_episodes=4`.
 - Leaves the Experiment Definition unchanged and reports the effective override.
 - Verifies canonical results and per-Run episode records after execution.
 
