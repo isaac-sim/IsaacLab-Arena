@@ -15,8 +15,6 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -39,21 +37,13 @@ from isaaclab_arena.utils.configclass import make_configclass
 class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.
 
-    Success requires the center of the object's spawned bounds to be over the destination's
-    footprint, the destination's filtered normal force on the object to point near world +Z,
-    and the object's current linear speed to be below ``velocity_threshold``. This is an
-    instantaneous check; the conditions do not need to persist for a minimum duration. Failure
-    occurs when the object falls below the background's ``object_min_z``.
-
-    An ordinary ``destination_location`` must be included in the environment's ``Scene``. A rigid
-    ``ObjectReference`` whose parent is an articulation remains task-level configuration instead:
-    include the parent articulation in the scene, and the success term reads the referenced body's
-    current pose from that articulation while using the reference prim path for its geometry.
+    Success requires the object's bounds center over the destination footprint, upward support
+    force, and low linear speed. Failure occurs when the object falls below the background.
 
     Args:
         pick_up_object: Rigid object or rigid object set to pick up.
-        destination_location: Rigid destination, registered read-only reference, or config-only rigid
-            reference to a body owned by a registered articulation.
+        destination_location: Destination whose live pose and spawned geometry define placement.
+            It must be included in the environment scene.
         background_scene: Background whose minimum object height defines the drop failure.
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
@@ -64,16 +54,6 @@ class PickAndPlaceTask(TaskBase):
         support_cone_half_angle_deg: Maximum angle in degrees between the filtered contact force and
             world +Z. Smaller values require the support force to be more vertical.
 
-    The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
-    shape (different arm subtask sequences, different per-subtask numerical knobs,
-    bespoke fields), pass ``mimic_env_cfg_factory`` to inject a custom ``MimicEnvCfg``::
-
-        def _factory(arm_mode):
-            return MyCustomMimicEnvCfg(arm_mode=arm_mode, ...)
-
-        PickAndPlaceTask(..., mimic_env_cfg_factory=_factory)
-
-    The factory receives ``arm_mode`` from the env builder and returns a constructed cfg.
     """
 
     def __init__(
@@ -132,17 +112,13 @@ class PickAndPlaceTask(TaskBase):
     def get_termination_cfg(self):
         return self.termination_cfg
 
-    # TODO(cvolk, 2026-08-24): [arena-world-migration] Let ArenaWorld resolve destination names, including
-    # articulation references, to current pose and geometry; then remove the destination pose/prim-path plumbing.
     def make_termination_cfg(self):
         # The class-backed term caches spawned object and destination bounds once for the runtime environment.
-        destination_pose_cfg = self._make_destination_pose_cfg()
         success = TerminationTermCfg(
             func=GeometricObjectOnDestinationTerm,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "destination_pose_cfg": destination_pose_cfg,
-                "destination_prim_path": self.destination_location.prim_path,
+                "destination_cfg": SceneEntityCfg(self.destination_location.name),
                 "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                 "force_threshold": self.force_threshold,
                 "velocity_threshold": self.velocity_threshold,
@@ -160,19 +136,6 @@ class PickAndPlaceTask(TaskBase):
             success=success,
             object_dropped=object_dropped,
         )
-
-    def _make_destination_pose_cfg(self) -> SceneEntityCfg:
-        """Select the scene entity that owns the destination's current pose."""
-        destination = self.destination_location
-        if (
-            isinstance(destination, ObjectReference)
-            and destination.object_type == ObjectType.RIGID
-            and destination.parent_asset.object_type == ObjectType.ARTICULATION
-        ):
-            body_name = destination.prim_path.rsplit("/", maxsplit=1)[-1]
-            assert body_name, f"Destination reference '{destination.name}' has no body name in its prim path."
-            return SceneEntityCfg(destination.parent_asset.name, body_names=[body_name])
-        return SceneEntityCfg(destination.name)
 
     def get_events_cfg(self):
         return self.events_cfg

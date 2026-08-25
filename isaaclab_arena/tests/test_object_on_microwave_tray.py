@@ -11,11 +11,11 @@ import traceback
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 NUM_STEPS = 120
+NUM_ENVS = 2
 HEADLESS = True
 
 
 def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -26,7 +26,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
 
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", str(NUM_ENVS)])
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
@@ -37,15 +37,14 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
         Pose(position_xyz=(0.4, -0.00586, 0.22773), rotation_xyzw=(0.0, 0.0, -0.7071068, 0.7071068))
     )
 
-    # The articulation owns this rigid body's live state; the reference supplies task metadata.
+    # The articulation owns this rigid body's live state; the scene reference is read-only.
     destination_ref = ObjectReference(
         name="microwave_disc",
         parent_asset=microwave,
         prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
-        object_type=ObjectType.RIGID,
     )
 
-    scene = Scene(assets=[background, microwave, dex_cube])
+    scene = Scene(assets=[background, microwave, dex_cube, destination_ref])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="microwave_tray",
         embodiment=FrankaIKEmbodiment(),
@@ -57,15 +56,18 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     env.reset()
 
     try:
+        assert destination_ref.name in env.unwrapped.scene.extras
+        assert destination_ref.name not in env.unwrapped.scene.rigid_objects
+
         # Teleport the cube just above the tray and drop it (zero velocity, zero actions).
         # Tray world position (microwave x/y) plus a 0.06 m drop height.
         cube_asset = env.unwrapped.scene[dex_cube.name]
-        target_pos = torch.tensor([0.4, -0.00586, 0.28773], device=env.unwrapped.device)
-        root_pose = torch.zeros((1, 7), device=env.unwrapped.device)
-        root_pose[0, :3] = target_pos
-        root_pose[0, 6] = 1.0  # identity quaternion (x, y, z, w)
+        target_position = torch.tensor([0.4, -0.00586, 0.28773], device=env.unwrapped.device)
+        root_pose = torch.zeros((NUM_ENVS, 7), device=env.unwrapped.device)
+        root_pose[:, :3] = target_position + env.unwrapped.scene.env_origins
+        root_pose[:, 6] = 1.0  # identity quaternion (x, y, z, w)
         cube_asset.write_root_pose_to_sim(root_pose)
-        cube_asset.write_root_velocity_to_sim(torch.zeros((1, 6), device=env.unwrapped.device))
+        cube_asset.write_root_velocity_to_sim(torch.zeros((NUM_ENVS, 6), device=env.unwrapped.device))
 
         # Open the microwave door so the cube drops onto the tray.
         microwave.open(env, env_ids=None)
@@ -77,7 +79,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
             with torch.inference_mode():
                 _, _, terminated, _, _ = env.step(actions)
                 success_vec.append(env.unwrapped.termination_manager.get_term("success").clone())
-                terminated_vec.append(terminated.item())
+                terminated_vec.append(terminated.clone())
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -86,11 +88,11 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
         env.close()
 
     print("Checking the cube was not on the tray at the first step")
-    assert not success_vec[0].item(), "Cube registered success before it could fall onto the tray"
+    assert not success_vec[0].any(), "Cube registered success before it could fall onto the tray"
     print("Checking the cube landed on the tray and fired the success termination")
-    assert any(s.item() for s in success_vec), "Cube on the tray never fired the success termination"
+    assert torch.stack(success_vec).any(dim=0).all(), "Cube on the tray never fired success in every environment"
     print("Checking the task terminated")
-    assert any(terminated_vec), "The task was not terminated"
+    assert torch.stack(terminated_vec).any(dim=0).all(), "The task did not terminate in every environment"
 
     return True
 

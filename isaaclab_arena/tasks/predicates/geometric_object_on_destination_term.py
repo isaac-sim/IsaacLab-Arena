@@ -44,31 +44,24 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
     def __init__(self, cfg: TerminationTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         object_cfg: SceneEntityCfg = cfg.params["object_cfg"]
-        destination_pose_cfg: SceneEntityCfg = cfg.params["destination_pose_cfg"]
-        destination_prim_path: str = cfg.params["destination_prim_path"]
+        destination_cfg: SceneEntityCfg = cfg.params["destination_cfg"]
 
         assert (
             object_cfg.name in env.scene.rigid_objects
         ), f"GeometricObjectOnDestinationTerm requires rigid object '{object_cfg.name}'."
 
         self._object_name = object_cfg.name
-        self._destination_pose_entity_name = destination_pose_cfg.name
-        self._destination_prim_path = destination_prim_path
+        self._destination_name = destination_cfg.name
         self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
-        self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(
-            env,
-            destination_pose_cfg,
-            geometry_prim_path=destination_prim_path,
-        )
+        self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, destination_cfg)
         self._object_pose_reader = SceneEntityPoseReader(env, object_cfg)
-        self._destination_pose_reader = SceneEntityPoseReader(env, destination_pose_cfg)
+        self._destination_pose_reader = SceneEntityPoseReader(env, destination_cfg)
 
     def __call__(
         self,
         env: ManagerBasedEnv,
         object_cfg: SceneEntityCfg,
-        destination_pose_cfg: SceneEntityCfg,
-        destination_prim_path: str,
+        destination_cfg: SceneEntityCfg,
         contact_sensor_cfg: SceneEntityCfg,
         force_threshold: float,
         velocity_threshold: float,
@@ -78,13 +71,9 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         assert (
             object_cfg.name == self._object_name
         ), f"This term cached geometry for object '{self._object_name}', but was called with '{object_cfg.name}'."
-        assert destination_pose_cfg.name == self._destination_pose_entity_name, (
-            f"This term cached geometry using destination pose entity '{self._destination_pose_entity_name}', "
-            f"but was called with '{destination_pose_cfg.name}'."
-        )
-        assert destination_prim_path == self._destination_prim_path, (
-            f"This term cached destination geometry at '{self._destination_prim_path}', "
-            f"but was called with '{destination_prim_path}'."
+        assert destination_cfg.name == self._destination_name, (
+            f"This term cached geometry for destination '{self._destination_name}', "
+            f"but was called with '{destination_cfg.name}'."
         )
 
         object_pose_w = self._object_pose_reader.get_pose_w()

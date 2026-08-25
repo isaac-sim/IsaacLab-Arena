@@ -99,37 +99,6 @@ def _check_aabb_relative_to_prim(live_scene_geometry) -> None:
     torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_articulation_body_pose(
-    live_scene_geometry,
-    scene_entity_cfg_type,
-) -> None:
-    """Check that an articulation pose reader follows exactly the selected body."""
-
-    class RuntimeBufferDouble:
-        def __init__(self, tensor: torch.Tensor):
-            self.torch = tensor
-
-    body_pose_w = torch.arange(3 * 2 * 7, dtype=torch.float32).reshape(3, 2, 7)
-    articulation = SimpleNamespace(
-        num_bodies=2,
-        data=SimpleNamespace(body_pose_w=RuntimeBufferDouble(body_pose_w)),
-    )
-
-    class DummyScene:
-        rigid_objects = {}
-        articulations = {"microwave": articulation}
-        extras = {}
-
-        def __getitem__(self, entity_name):
-            return self.articulations[entity_name]
-
-    scene = DummyScene()
-    env = SimpleNamespace(scene=scene, num_envs=3, device="cpu")
-    destination_pose_cfg = scene_entity_cfg_type("microwave", body_names=["turntable"], body_ids=[1])
-    pose_reader = live_scene_geometry.SceneEntityPoseReader(env, destination_pose_cfg)
-    torch.testing.assert_close(pose_reader.get_pose_w(), body_pose_w[:, 1, :])
-
-
 def _check_geometric_term(
     geometric_term_module,
     axis_aligned_bounding_box_type,
@@ -142,7 +111,6 @@ def _check_geometric_term(
         def __init__(self):
             super().__init__()
             self.rigid_objects = {}
-            self.articulations = {}
             self.extras = {}
 
     class DummyEnv:
@@ -201,13 +169,13 @@ def _check_geometric_term(
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
     object_cfg = scene_entity_cfg_type("object")
-    destination_pose_cfg = scene_entity_cfg_type("destination")
+    destination_cfg = scene_entity_cfg_type("destination")
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
     geometry_build_calls = []
 
-    def compute_aabbs(_geometry_env, pose_entity_cfg, geometry_prim_path=None):
-        entity_name = pose_entity_cfg.name
-        geometry_build_calls.append((entity_name, geometry_prim_path))
+    def compute_aabbs(_geometry_env, entity_cfg):
+        entity_name = entity_cfg.name
+        geometry_build_calls.append(entity_name)
         if entity_name == "object":
             return axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
@@ -227,8 +195,7 @@ def _check_geometric_term(
             func=geometric_term_module.GeometricObjectOnDestinationTerm,
             params={
                 "object_cfg": object_cfg,
-                "destination_pose_cfg": destination_pose_cfg,
-                "destination_prim_path": "/World/envs/env_.*/destination",
+                "destination_cfg": destination_cfg,
                 "contact_sensor_cfg": contact_sensor_cfg,
                 "force_threshold": 0.1,
                 "velocity_threshold": 0.1,
@@ -236,10 +203,7 @@ def _check_geometric_term(
             },
         )
         term = geometric_term_module.GeometricObjectOnDestinationTerm(term_cfg, env)
-        assert geometry_build_calls == [
-            ("object", None),
-            ("destination", "/World/envs/env_.*/destination"),
-        ]
+        assert geometry_build_calls == ["object", "destination"]
 
         # Each failing environment isolates one condition: geometry, force direction, or velocity.
         torch.testing.assert_close(
@@ -250,10 +214,7 @@ def _check_geometric_term(
         # Pose remains live while geometry remains cached.
         object_entity.data.root_pose_w.torch[0, 0] = 2.0
         assert not term(env, **term_cfg.params)[0]
-        assert geometry_build_calls == [
-            ("object", None),
-            ("destination", "/World/envs/env_.*/destination"),
-        ]
+        assert geometry_build_calls == ["object", "destination"]
 
         mismatched_params = dict(term_cfg.params)
         mismatched_params["object_cfg"] = scene_entity_cfg_type("another_object")
@@ -263,6 +224,15 @@ def _check_geometric_term(
             assert "cached geometry for object 'object'" in str(error)
         else:
             raise AssertionError("The term accepted an object that did not match its cached geometry.")
+
+        mismatched_params = dict(term_cfg.params)
+        mismatched_params["destination_cfg"] = scene_entity_cfg_type("another_destination")
+        try:
+            term(env, **mismatched_params)
+        except AssertionError as error:
+            assert "cached geometry for destination 'destination'" in str(error)
+        else:
+            raise AssertionError("The term accepted a destination that did not match its cached geometry.")
 
 
 def _test_geometric_object_on_destination(_simulation_app) -> bool:
@@ -276,7 +246,6 @@ def _test_geometric_object_on_destination(_simulation_app) -> bool:
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
     _check_aabb_relative_to_prim(live_scene_geometry)
-    _check_articulation_body_pose(live_scene_geometry, SceneEntityCfg)
     _check_geometric_term(geometric_term, AxisAlignedBoundingBox, SceneEntityCfg, TerminationTermCfg)
     return True
 

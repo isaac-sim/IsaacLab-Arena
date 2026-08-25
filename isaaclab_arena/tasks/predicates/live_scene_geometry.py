@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import Articulation, RigidObject
+from isaaclab.assets import RigidObject
 from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
@@ -101,8 +101,7 @@ def _compute_aabb_relative_to_prim(prim: Usd.Prim) -> AxisAlignedBoundingBox:
 
 def compute_spawned_geometry_aabbs_relative_to_pose(
     env: ManagerBasedEnv,
-    pose_entity_cfg: SceneEntityCfg,
-    geometry_prim_path: str | None = None,
+    entity_cfg: SceneEntityCfg,
 ) -> AxisAlignedBoundingBox:
     """Build one local AABB per environment from the geometry that was spawned.
 
@@ -111,28 +110,19 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
 
     Args:
         env: The runtime manager-based environment.
-        pose_entity_cfg: Scene entity and optional articulation body whose pose defines the returned coordinates.
-        geometry_prim_path: Prim path whose spawned geometry should be bounded. Defaults to the entity's
-            configured prim path. An articulation body requires its explicit prim path.
+        entity_cfg: Scene entity whose pose defines the returned coordinates.
 
     Returns:
         One AABB per environment. Its coordinates are relative to the origin and
         axes of the pose returned by :meth:`SceneEntityPoseReader.get_pose_w`.
     """
     scene = env.scene
-    entity_name = pose_entity_cfg.name
+    entity_name = entity_cfg.name
     assert (
-        entity_name in scene.rigid_objects or entity_name in scene.articulations or entity_name in scene.extras
-    ), f"Scene entity '{entity_name}' must be a rigid object, articulation, or read-only reference."
+        entity_name in scene.rigid_objects or entity_name in scene.extras
+    ), f"Scene entity '{entity_name}' must be a rigid object or read-only reference."
     is_rigid_object = entity_name in scene.rigid_objects
-    is_articulation = entity_name in scene.articulations
-    if is_articulation:
-        assert (
-            geometry_prim_path is not None
-        ), f"Articulation '{entity_name}' requires the selected body's explicit geometry prim path."
-    resolved_geometry_prim_path = (geometry_prim_path or getattr(scene.cfg, entity_name).prim_path).format(
-        ENV_REGEX_NS=scene.env_regex_ns
-    )
+    resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
     lower_by_environment = torch.empty((env.num_envs, 3), dtype=torch.float32, device=env.device)
     upper_by_environment = torch.empty_like(lower_by_environment)
@@ -144,10 +134,6 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
         resolved_geometry_prim_path,
     ):
         pose_prim = _find_rigid_body_prim(representative_prim, entity_name) if is_rigid_object else representative_prim
-        if is_articulation:
-            assert pose_prim.HasAPI(
-                UsdPhysics.RigidBodyAPI
-            ), f"Articulation '{entity_name}' geometry path '{resolved_geometry_prim_path}' must identify a rigid body."
         local_aabb = _compute_aabb_relative_to_prim(pose_prim).to(env.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=env.device)
         lower_by_environment[environment_indices] = local_aabb.min_point[0]
@@ -163,40 +149,26 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
 
 
 class SceneEntityPoseReader:
-    """Read current poses for one scene entity or selected articulation body."""
+    """Read current poses for one rigid object or read-only scene reference."""
 
     def __init__(
         self,
         env: ManagerBasedEnv,
-        pose_entity_cfg: SceneEntityCfg,
+        entity_cfg: SceneEntityCfg,
     ):
         scene = env.scene
-        entity_name = pose_entity_cfg.name
+        entity_name = entity_cfg.name
         assert (
-            entity_name in scene.rigid_objects or entity_name in scene.articulations or entity_name in scene.extras
-        ), f"Scene entity '{entity_name}' must be a rigid object, articulation, or read-only reference."
+            entity_name in scene.rigid_objects or entity_name in scene.extras
+        ), f"Scene entity '{entity_name}' must be a rigid object or read-only reference."
 
         self._entity_name = entity_name
         self._num_envs = env.num_envs
         self._rigid_object: RigidObject | None = None
-        self._articulation: Articulation | None = None
-        self._articulation_body_id: int | None = None
         self._reference_frame_view = None
 
         if entity_name in scene.rigid_objects:
             self._rigid_object = scene[entity_name]
-        elif entity_name in scene.articulations:
-            self._articulation = scene[entity_name]
-            selected_body_ids = (
-                list(range(self._articulation.num_bodies))[pose_entity_cfg.body_ids]
-                if isinstance(pose_entity_cfg.body_ids, slice)
-                else list(pose_entity_cfg.body_ids)
-            )
-            assert len(selected_body_ids) == 1, (
-                f"Articulation '{entity_name}' must select exactly one body for pose lookup; "
-                f"got body ids {selected_body_ids}."
-            )
-            self._articulation_body_id = selected_body_ids[0]
         else:
             reference_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
             self._reference_frame_view = FrameView(
@@ -226,8 +198,6 @@ class SceneEntityPoseReader:
         """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
         if self._rigid_object is not None:
             pose_w = self._rigid_object.data.root_pose_w.torch
-        elif self._articulation is not None:
-            pose_w = self._articulation.data.body_pose_w.torch[:, self._articulation_body_id, :]
         else:
             position_w_buffer, orientation_w_buffer = self._reference_frame_view.get_world_poses()
             position_w = position_w_buffer.torch

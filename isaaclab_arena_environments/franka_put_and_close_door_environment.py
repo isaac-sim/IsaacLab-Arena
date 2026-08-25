@@ -38,7 +38,6 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
 
     def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -88,13 +87,12 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
             # Set Franka arm pose for kitchen setup
             embodiment.set_initial_joint_pose([0.0, -1.309, 0.0, -2.793, 0.0, 3.037, 0.740, 0.04, 0.04])
 
-        # Keep this reference as task-level configuration because the microwave articulation owns
-        # the turntable body's runtime state and resets.
+        # The microwave articulation owns the turntable body's physics and reset state.
+        # This read-only reference exposes its pose and geometry to the task.
         destination_ref = ObjectReference(
             name="microwave_disc",
             parent_asset=container,
             prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
-            object_type=ObjectType.RIGID,
         )
 
         # Task descriptions
@@ -102,7 +100,7 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
         task_description_close = "Close the microwave door."
 
         # Create scene
-        scene = Scene(assets=[background, container, pick_object])
+        scene = Scene(assets=[background, container, pick_object, destination_ref])
 
         # Create close door task
         close_door_task = CloseDoorTask(
