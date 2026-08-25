@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_bowl_to_sink_kitchen_l_shape
+env_name: kitchenbench_replicator_l_shape_bowl_sink
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

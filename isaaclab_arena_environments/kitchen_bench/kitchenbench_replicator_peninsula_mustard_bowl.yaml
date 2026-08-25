@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_mustard_to_bowl_kitchen_g_shape
+env_name: kitchenbench_replicator_peninsula_mustard_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,7 +12,7 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_g_shape
+  registry_name: replicator_kitchen_peninsula
   params:
     collision_mode: mesh
 objects:
@@ -30,7 +30,7 @@ object_references:
   params: {}
 - id: island_top
   parent_id: kitchen
-  prim_path: CapSurface_03
+  prim_path: CapSurface_02
   object_type: base
   params: {}
 relations:

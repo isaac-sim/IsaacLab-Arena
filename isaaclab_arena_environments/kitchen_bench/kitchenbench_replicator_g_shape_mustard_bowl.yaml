@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_mustard_to_bowl_kitchen_l_shape
+env_name: kitchenbench_replicator_g_shape_mustard_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,7 +12,7 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_l_shape
+  registry_name: replicator_kitchen_g_shape
   params:
     collision_mode: mesh
 objects:
@@ -28,9 +28,9 @@ object_references:
   prim_path: KitchenRoom/Floor
   object_type: base
   params: {}
-- id: counter_top
+- id: island_top
   parent_id: kitchen
-  prim_path: CapSurface
+  prim_path: CapSurface_03
   object_type: base
   params: {}
 relations:
@@ -38,7 +38,7 @@ relations:
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: counter_top
+  subject: island_top
   params: {}
 - kind: 'on'
   subject: droid
@@ -46,22 +46,22 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: counter_top
+  reference: island_top
   params:
-    side: negative_y
+    side: positive_y
     distance_m: 0.15
     tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 1.57
+    yaw_rad: -1.57
 - kind: 'on'
   subject: mustard_bottle
-  reference: counter_top
+  reference: island_top
   params: {}
 - kind: 'on'
   subject: bowl
-  reference: counter_top
+  reference: island_top
   params: {}
 task:
   composition: atomic

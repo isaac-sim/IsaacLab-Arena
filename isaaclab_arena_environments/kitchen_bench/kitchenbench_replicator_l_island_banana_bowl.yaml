@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_banana_to_bowl_kitchen_u_shape
+env_name: kitchenbench_replicator_l_island_banana_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -12,7 +12,7 @@ embodiment:
     placement_bbox_stand_only: true
 background:
   id: kitchen
-  registry_name: replicator_kitchen_u_shape
+  registry_name: replicator_kitchen_l_island
   params:
     collision_mode: mesh
 objects:
