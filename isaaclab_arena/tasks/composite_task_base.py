@@ -262,15 +262,15 @@ class CompositeTaskBase(TaskBase):
     def reset_subtask_success_state(
         env,
         env_ids,
-        num_subtasks: int,
+        subtasks: list[TaskBase],
     ) -> None:
         "Reset subtask success vector for each environment."
         # Initialize each env's subtask success state to False
         if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
+            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
         else:
             for env_id in env_ids:
-                env._subtask_ever_succeeded[env_id] = [False for _ in range(num_subtasks)]
+                env._subtask_ever_succeeded[env_id] = [False for _ in subtasks]
 
     def get_scene_cfg(self) -> Any:
         "Make combined scene cfg from all subtasks."
@@ -292,7 +292,7 @@ class CompositeTaskBase(TaskBase):
             func=self.reset_subtask_success_state,
             mode="reset",
             params={
-                "num_subtasks": len(self.subtasks),
+                "subtasks": self.subtasks,
             },
         )
 

@@ -9,6 +9,7 @@ import torch
 from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+from isaaclab_arena.tasks.task_base import TaskBase
 
 
 class SequentialTaskBase(CompositeTaskBase):
@@ -99,15 +100,15 @@ class SequentialTaskBase(CompositeTaskBase):
     def reset_subtask_success_state(
         env,
         env_ids,
-        num_subtasks: int,
+        subtasks: list[TaskBase],
     ) -> None:
         "Reset subtask success vector and state machine for each environment."
         # Initialize each env's subtask success state to False
         if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
+            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
         else:
             for env_id in env_ids:
-                env._subtask_ever_succeeded[env_id] = [False for _ in range(num_subtasks)]
+                env._subtask_ever_succeeded[env_id] = [False for _ in subtasks]
 
         # Initialize each env's current subtask index (state machine) to 0
         if not hasattr(env, "_current_subtask_idx"):

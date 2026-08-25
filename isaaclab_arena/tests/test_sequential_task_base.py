@@ -263,18 +263,18 @@ def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
         assert env._current_subtask_idx == [1, 1]
 
         # Reset only env 0.
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[0], num_subtasks=len(subtasks))
+        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[0], subtasks=subtasks)
         assert env._subtask_ever_succeeded == [[False, False], [True, True]]
         assert env._current_subtask_idx == [0, 1]
 
         # Reset env 1 too.
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[1], num_subtasks=len(subtasks))
+        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[1], subtasks=subtasks)
         assert env._subtask_ever_succeeded == [[False, False], [False, False]]
         assert env._current_subtask_idx == [0, 0]
 
         del env._subtask_ever_succeeded
         del env._current_subtask_idx
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[], num_subtasks=len(subtasks))
+        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[], subtasks=subtasks)
         assert env._subtask_ever_succeeded == [[False, False], [False, False]]
         assert env._current_subtask_idx == [0, 0]
 
