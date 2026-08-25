@@ -37,6 +37,10 @@ uv does not provide the optional cuRobo package; use Docker with `-c` for `ik_re
 4. Show the chosen route, exact documented commands, expected downloads/build, and any required
    EULA or host-directory changes. Ask once before starting a large sync or image build.
 
+Run the documentation read and safe read-only preflight immediately; do not ask for confirmation or
+defer them as a proposed plan. Confirmation is only for the state-changing sync, build, or stop that
+follows the preflight.
+
 If a prerequisite is missing, report the failed check and the documented recovery. Do not install or
 change GPU drivers, Docker, the NVIDIA Container Toolkit, or other system packages without explicit
 approval.
@@ -92,18 +96,32 @@ Use these options only when the request needs them:
 Confirm that each explicitly requested mount path exists before launching. Mount flags apply only
 when creating a container; they do not change an already-running container. If the requested
 configuration differs, explain that recreation is required and obtain approval before stopping the
-checkout-specific Arena container. When recreating it, preserve the current image flavor, container
-suffix, and mounts the user did not ask to change.
+checkout-specific Arena container. Before asking for approval, inspect its exact name, image, and
+mounts and show the complete reconstructed launcher command. Populate this shape from the inspected
+configuration instead of relying on launcher defaults:
+
+```bash
+./docker/run_docker.sh [-c] [-s <current-suffix>] -d <new-datasets> \
+  [-m <current-models>] [-e <current-evaluation>]
+```
+
+Include `-c` for an existing cuRobo image, `-s` for an existing suffix, and each current model or
+evaluation mount. Replace only the mount the user asked to change, and stop the container only after
+the user approves that exact command.
 
 The launcher builds a missing image, starts this checkout's container, and attaches interactively.
 Keep that process alive in a terminal session. Do not force a rebuild here; use `dev-container` for
 an explicit contributor rebuild or image-debugging request.
 
-Discover the running container without hardcoding its name:
+List the containers for this checkout without hardcoding a name:
 
 ```bash
-ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
+docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}\t{{.Image}}'
 ```
+
+Select the exact name matching the chosen image flavor and suffix and assign it to
+`ARENA_CONTAINER`. Do not take an arbitrary first match because regular and cuRobo containers can
+coexist for one checkout.
 
 Verify the editable source mount as the host user:
 
