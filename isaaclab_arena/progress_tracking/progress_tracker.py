@@ -74,7 +74,7 @@ class ProgressState:
     """Per-objective state, keyed by ProgressObjective name."""
 
     overall_score: float
-    """Sum of each objective's score weighted by ProgressObjective.score."""
+    """Sum of each objective's score weighted by ProgressObjective.score, normalized to [0, 1]."""
 
     all_complete: bool
     """Whether every objective is complete for this env."""
@@ -326,19 +326,25 @@ class ProgressTracker:
         completeness = [runner.is_complete() for runner in self.runners]
         scores = [runner.overall_score_per_env() for runner in self.runners]
 
+        # Total objective weight for normalization.
+        total_objective_weight = sum(runner.progress_objective.score for runner in self.runners)
+
         output: list[ProgressState] = []
         for env_idx in range(self.num_envs):
             # Build a per-env state from each runner's state.
             progress_objective_states: dict[str, ProgressObjectiveState] = {}
-            overall_score = 0.0
+            weighted_score = 0.0
             all_complete = True
             for i, runner in enumerate(self.runners):
                 objective = runner.progress_objective
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 progress_objective_states[objective.name] = state
-                overall_score += objective.score * state.score
+                weighted_score += objective.score * state.score
                 all_complete = all_complete and state.is_complete
 
+            overall_score = (
+                max(0.0, min(1.0, weighted_score / total_objective_weight)) if total_objective_weight > 0 else 0.0
+            )
             output.append(
                 ProgressState(
                     progress_objectives=progress_objective_states,
@@ -385,7 +391,7 @@ class ProgressTrackingRecorder(RecorderTerm):
                         ),
                         ...
                     },
-                    overall_score=float,                   # weighted by ProgressObjective.score
+                    overall_score=float,                   # weighted mean of objective scores, in [0, 1]
                     all_complete=bool,
                 ),
                 ...
