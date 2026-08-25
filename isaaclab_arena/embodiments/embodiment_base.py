@@ -24,6 +24,8 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 if TYPE_CHECKING:
     import trimesh
 
+    from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariationCfg
+
 
 @dataclass(frozen=True)
 class ArticulationGeometrySpec:
@@ -231,13 +233,28 @@ class EmbodimentBase(PlaceableAsset):
         ), f"Expected camera_config to inherit from ArenaCameraCfg; got {type(self.camera_config).__name__}."
         return self.camera_config.get_cfg()
 
+    def get_camera_extrinsics_variation_cfg(self, camera_name: str) -> CameraExtrinsicsVariationCfg | None:
+        """Return the extrinsics variation cfg for ``camera_name``, or ``None`` for the variation's own default.
+
+        Override this where an embodiment's mounting geometry bounds how far a camera may be
+        decalibrated before it intersects the robot. The returned cfg becomes the variation's
+        starting point, so an Experiment or Hydra override still wins over it.
+
+        Args:
+            camera_name: Scene-entity name of the camera the variation targets.
+        """
+
     def add_camera_variations(self, camera_rig: ArenaCameraCfg) -> None:
         """Register extrinsics and intrinsics variations for every camera in ``camera_rig``."""
         from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
         from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
         for camera_name in camera_rig.camera_names():
-            self.add_variation(CameraExtrinsicsVariation(camera_name=camera_name))
+            self.add_variation(
+                CameraExtrinsicsVariation(
+                    camera_name=camera_name, cfg=self.get_camera_extrinsics_variation_cfg(camera_name)
+                )
+            )
             self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:

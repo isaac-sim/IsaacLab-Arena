@@ -25,6 +25,5 @@ runs:
       num_episodes: 10
     # The variations to enable for this run.
     variations:
+      # Decalibration bounds come from the DROID embodiment, which caps +Y at the gripper.
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.03, -0.03, -0.03]
-      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.03, 0.03, 0.03]

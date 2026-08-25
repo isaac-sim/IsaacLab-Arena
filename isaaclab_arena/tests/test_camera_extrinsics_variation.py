@@ -16,6 +16,9 @@ CAMERA_NAME = "wrist_cam"
 EVENT_NAME = f"{CAMERA_NAME}_extrinsics_variation"
 TEST_DECALIBRATION_VECTOR = [0.01, -0.02, 0.03]
 
+DROID_WRIST_CAMERA_DECALIBRATION_LOW = [-0.06, -0.06, -0.06]
+DROID_WRIST_CAMERA_DECALIBRATION_HIGH = [0.06, 0.03, 0.06]
+
 
 def get_test_environment(*, camera_extrinsics_enabled: bool):
     """Build a minimal arena env with an optional enabled camera extrinsics variation."""
@@ -124,6 +127,25 @@ def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
     return True
 
 
+def _test_droid_wrist_camera_extrinsics_bounds_clear_the_gripper(simulation_app):
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariationCfg
+
+    embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS)
+
+    # The wrist camera is mounted just above the gripper, so DROID narrows its +Y bound.
+    wrist_sampler_cfg = embodiment.get_variation("camera_extrinsics_wrist_camera").cfg.sampler_cfg
+    assert list(wrist_sampler_cfg.low) == DROID_WRIST_CAMERA_DECALIBRATION_LOW
+    assert list(wrist_sampler_cfg.high) == DROID_WRIST_CAMERA_DECALIBRATION_HIGH
+
+    # The externally mounted cameras are unobstructed and keep the variation's own default bounds.
+    default_sampler_cfg = CameraExtrinsicsVariationCfg().sampler_cfg
+    external_sampler_cfg = embodiment.get_variation("camera_extrinsics_external_camera").cfg.sampler_cfg
+    assert list(external_sampler_cfg.low) == list(default_sampler_cfg.low)
+    assert list(external_sampler_cfg.high) == list(default_sampler_cfg.high)
+    return True
+
+
 @pytest.mark.with_cameras
 def test_disabled_camera_extrinsics_variation_not_in_events_cfg():
     assert run_function_with_persistent_simulation_app(
@@ -146,6 +168,15 @@ def test_enabled_camera_extrinsics_variation_in_events_cfg():
 def test_camera_extrinsics_variation_realized_at_runtime():
     assert run_function_with_persistent_simulation_app(
         _test_camera_extrinsics_variation_realized_at_runtime,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+    )
+
+
+@pytest.mark.with_cameras
+def test_droid_wrist_camera_extrinsics_bounds_clear_the_gripper():
+    assert run_function_with_persistent_simulation_app(
+        _test_droid_wrist_camera_extrinsics_bounds_clear_the_gripper,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
     )
