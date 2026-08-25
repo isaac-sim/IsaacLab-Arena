@@ -19,7 +19,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
-from isaaclab_arena.tasks.predicates.live_scene_geometry import LiveSceneEntityGeometry
+from isaaclab_arena.tasks.predicates.live_scene_geometry import SceneEntityPoseReader, build_spawned_entity_local_aabbs
 from isaaclab_arena.tasks.predicates.spatial import (
     contact_force_is_upward_support,
     object_bounds_center_over_destination,
@@ -51,12 +51,14 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         self._object_name = object_cfg.name
         self._destination_pose_entity_name = destination_pose_cfg.name
         self._destination_prim_path = destination_prim_path
-        self._object_geometry = LiveSceneEntityGeometry(env, object_cfg)
-        self._destination_geometry = LiveSceneEntityGeometry(
+        self._object_aabbs = build_spawned_entity_local_aabbs(env, object_cfg)
+        self._destination_aabbs = build_spawned_entity_local_aabbs(
             env,
             destination_pose_cfg,
             geometry_prim_path=destination_prim_path,
         )
+        self._object_pose_reader = SceneEntityPoseReader(env, object_cfg)
+        self._destination_pose_reader = SceneEntityPoseReader(env, destination_pose_cfg)
 
     def __call__(
         self,
@@ -82,13 +84,13 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
             f"but was called with '{destination_prim_path}'."
         )
 
-        object_pose_w = self._object_geometry.get_pose_w()
-        destination_pose_w = self._destination_geometry.get_pose_w()
+        object_pose_w = self._object_pose_reader.get_pose_w()
+        destination_pose_w = self._destination_pose_reader.get_pose_w()
         object_center_over_destination = object_bounds_center_over_destination(
             object_pose_w=object_pose_w,
-            object_bounds=self._object_geometry.local_aabbs,
+            object_bounds=self._object_aabbs,
             destination_pose_w=destination_pose_w,
-            destination_bounds=self._destination_geometry.local_aabbs,
+            destination_bounds=self._destination_aabbs,
         )
 
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]

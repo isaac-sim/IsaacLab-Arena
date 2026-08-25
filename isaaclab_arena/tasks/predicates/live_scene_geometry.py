@@ -117,7 +117,7 @@ def build_spawned_entity_local_aabbs(
 
     Returns:
         One AABB per environment. Its coordinates are relative to the origin and
-        axes of the pose returned by :meth:`LiveSceneEntityGeometry.get_pose_w`.
+        axes of the pose returned by :meth:`SceneEntityPoseReader.get_pose_w`.
     """
     scene = env.scene
     entity_name = pose_entity_cfg.name
@@ -217,14 +217,13 @@ def _get_reference_pose_row_order(
     return torch.tensor(pose_row_by_environment, dtype=torch.long, device=env.device)
 
 
-class LiveSceneEntityGeometry:
-    """Cache spawned local AABBs and read current poses for one scene entity."""
+class SceneEntityPoseReader:
+    """Read current poses for one scene entity or selected articulation body."""
 
     def __init__(
         self,
         env: ManagerBasedEnv,
         pose_entity_cfg: SceneEntityCfg,
-        geometry_prim_path: str | None = None,
     ):
         scene = env.scene
         entity_name = pose_entity_cfg.name
@@ -234,12 +233,6 @@ class LiveSceneEntityGeometry:
 
         self._entity_name = entity_name
         self._num_envs = env.num_envs
-        self.local_aabbs = build_spawned_entity_local_aabbs(
-            env,
-            pose_entity_cfg,
-            geometry_prim_path,
-        )
-        """One cached local AABB for each environment."""
         self._rigid_object: RigidObject | None = None
         self._articulation: Articulation | None = None
         self._articulation_body_id: int | None = None
@@ -255,14 +248,12 @@ class LiveSceneEntityGeometry:
                 else list(pose_entity_cfg.body_ids)
             )
             assert len(selected_body_ids) == 1, (
-                f"Articulation '{entity_name}' must select exactly one body for runtime geometry; "
+                f"Articulation '{entity_name}' must select exactly one body for pose lookup; "
                 f"got body ids {selected_body_ids}."
             )
             self._articulation_body_id = selected_body_ids[0]
         else:
-            reference_prim_path = (geometry_prim_path or getattr(scene.cfg, entity_name).prim_path).format(
-                ENV_REGEX_NS=scene.env_regex_ns
-            )
+            reference_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
             self._reference_frame_view = FrameView(
                 reference_prim_path,
                 device=env.device,

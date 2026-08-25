@@ -146,10 +146,9 @@ def _check_reference_pose_row_order(live_scene_geometry) -> None:
 
 def _check_articulation_body_pose(
     live_scene_geometry,
-    axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
 ) -> None:
-    """Check that articulation geometry follows exactly the selected body pose."""
+    """Check that an articulation pose reader follows exactly the selected body."""
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -172,26 +171,8 @@ def _check_articulation_body_pose(
     scene = DummyScene()
     env = SimpleNamespace(scene=scene, num_envs=3, device="cpu")
     destination_pose_cfg = scene_entity_cfg_type("microwave", body_names=["turntable"], body_ids=[1])
-    destination_bounds = axis_aligned_bounding_box_type(
-        min_point=torch.zeros((3, 3)),
-        max_point=torch.ones((3, 3)),
-    )
-    geometry_prim_path = "/World/envs/env_.*/microwave/turntable"
-
-    with patch.object(
-        live_scene_geometry,
-        "build_spawned_entity_local_aabbs",
-        return_value=destination_bounds,
-    ) as build_bounds:
-        geometry = live_scene_geometry.LiveSceneEntityGeometry(
-            env,
-            destination_pose_cfg,
-            geometry_prim_path=geometry_prim_path,
-        )
-
-    build_bounds.assert_called_once_with(env, destination_pose_cfg, geometry_prim_path)
-    assert geometry.local_aabbs is destination_bounds
-    torch.testing.assert_close(geometry.get_pose_w(), body_pose_w[:, 1, :])
+    pose_reader = live_scene_geometry.SceneEntityPoseReader(env, destination_pose_cfg)
+    torch.testing.assert_close(pose_reader.get_pose_w(), body_pose_w[:, 1, :])
 
 
 def _check_geometric_term(
@@ -269,29 +250,23 @@ def _check_geometric_term(
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
     geometry_build_calls = []
 
-    class FakeLiveSceneEntityGeometry:
-        def __init__(self, geometry_env, pose_entity_cfg, geometry_prim_path=None):
-            entity_name = pose_entity_cfg.name
-            geometry_build_calls.append((entity_name, geometry_prim_path))
-            self._entity = geometry_env.scene[entity_name]
-            if entity_name == "object":
-                self.local_aabbs = axis_aligned_bounding_box_type(
-                    min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
-                    max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
-                )
-            else:
-                self.local_aabbs = axis_aligned_bounding_box_type(
-                    min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
-                    max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
-                )
-
-        def get_pose_w(self):
-            return self._entity.data.root_pose_w.torch
+    def build_aabbs(_geometry_env, pose_entity_cfg, geometry_prim_path=None):
+        entity_name = pose_entity_cfg.name
+        geometry_build_calls.append((entity_name, geometry_prim_path))
+        if entity_name == "object":
+            return axis_aligned_bounding_box_type(
+                min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
+                max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
+            )
+        return axis_aligned_bounding_box_type(
+            min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
+            max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
+        )
 
     with patch.object(
         geometric_term_module,
-        "LiveSceneEntityGeometry",
-        FakeLiveSceneEntityGeometry,
+        "build_spawned_entity_local_aabbs",
+        side_effect=build_aabbs,
     ):
         term_cfg = termination_term_cfg_type(
             func=geometric_term_module.GeometricObjectOnDestinationTerm,
@@ -347,7 +322,7 @@ def _test_geometric_object_on_destination(_simulation_app) -> bool:
     _check_upward_support_force(spatial)
     _check_aabb_relative_to_prim(live_scene_geometry)
     _check_reference_pose_row_order(live_scene_geometry)
-    _check_articulation_body_pose(live_scene_geometry, AxisAlignedBoundingBox, SceneEntityCfg)
+    _check_articulation_body_pose(live_scene_geometry, SceneEntityCfg)
     _check_geometric_term(geometric_term, AxisAlignedBoundingBox, SceneEntityCfg, TerminationTermCfg)
     return True
 
