@@ -162,61 +162,6 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
 
 
-def _get_reference_pose_row_order(
-    env: ManagerBasedEnv,
-    entity_name: str,
-    reference_prim_path: str,
-    reference_frame_view,
-) -> torch.Tensor:
-    """Return FrameView row indices that put reference poses in environment order.
-
-    FrameView returns poses in backend-defined row order. Predicates require row
-    ``i`` of every input to describe the same environment.
-    """
-    scene = env.scene
-    prim_paths = getattr(reference_frame_view, "prim_paths", None)
-    if prim_paths is not None:
-        environment_id_by_path = {
-            environment_prim_path: environment_id
-            for environment_id, environment_prim_path in enumerate(scene.env_prim_paths)
-        }
-        environment_path_depth = len(scene.env_prim_paths[0].split("/"))
-        environment_ids_by_pose_row = []
-        for prim_path in prim_paths:
-            environment_prim_path = "/".join(str(prim_path).split("/")[:environment_path_depth])
-            assert (
-                environment_prim_path in environment_id_by_path
-            ), f"Read-only scene reference '{entity_name}' pose path '{prim_path}' is not inside a scene environment."
-            environment_ids_by_pose_row.append(environment_id_by_path[environment_prim_path])
-    else:
-        assert scene.clone_plan is not None, f"Read-only scene reference '{entity_name}' has no clone plan."
-        clone_matches = tuple(iter_clone_plan_matches(scene.clone_plan, reference_prim_path))
-        assert clone_matches, (
-            f"Read-only scene reference '{entity_name}' path '{reference_prim_path}' does not match the "
-            "scene clone plan."
-        )
-        environment_ids_by_pose_row = [
-            environment_id
-            for _source_root, _destination_template, _representative_path, environment_ids in clone_matches
-            for environment_id in environment_ids
-        ]
-
-    assert len(environment_ids_by_pose_row) == reference_frame_view.count == env.num_envs, (
-        f"Read-only scene reference '{entity_name}' resolved to {reference_frame_view.count} poses for "
-        f"{len(environment_ids_by_pose_row)} environment rows; expected {env.num_envs}."
-    )
-    pose_row_by_environment = [-1] * env.num_envs
-    for pose_row, environment_id in enumerate(environment_ids_by_pose_row):
-        assert (
-            pose_row_by_environment[environment_id] == -1
-        ), f"Read-only scene reference '{entity_name}' has more than one pose for environment {environment_id}."
-        pose_row_by_environment[environment_id] = pose_row
-    assert all(
-        pose_row >= 0 for pose_row in pose_row_by_environment
-    ), f"Read-only scene reference '{entity_name}' does not provide exactly one pose per environment."
-    return torch.tensor(pose_row_by_environment, dtype=torch.long, device=env.device)
-
-
 class SceneEntityPoseReader:
     """Read current poses for one scene entity or selected articulation body."""
 
@@ -260,12 +205,22 @@ class SceneEntityPoseReader:
                 stage=scene.stage,
                 validate_xform_ops=False,
             )
-            self._reference_pose_row_order = _get_reference_pose_row_order(
-                env,
-                entity_name,
-                reference_prim_path,
-                self._reference_frame_view,
+            # PhysX exposes one prim path per pose row. Newton does not yet expose row identity.
+            reference_prim_paths = getattr(self._reference_frame_view, "prim_paths", None)
+            assert reference_prim_paths is not None, (
+                f"Read-only scene reference '{entity_name}' requires a FrameView backend that exposes prim paths. "
+                "This predicate does not yet support read-only reference destinations on the selected backend."
             )
+            assert len(reference_prim_paths) == env.num_envs, (
+                f"Read-only scene reference '{entity_name}' resolved to {len(reference_prim_paths)} prims; "
+                f"expected {env.num_envs}."
+            )
+            for environment_id, prim_path in enumerate(reference_prim_paths):
+                environment_prim_path = scene.env_prim_paths[environment_id]
+                assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+                    f"Read-only scene reference '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
+                    f"not environment '{environment_prim_path}'."
+                )
 
     def get_pose_w(self) -> torch.Tensor:
         """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
@@ -285,10 +240,7 @@ class SceneEntityPoseReader:
                 f"Read-only scene reference '{self._entity_name}' returned orientation shape "
                 f"{tuple(orientation_w.shape)}; expected ({self._num_envs}, 4)."
             )
-            pose_w = torch.cat((position_w, orientation_w), dim=-1).index_select(
-                0,
-                self._reference_pose_row_order,
-            )
+            pose_w = torch.cat((position_w, orientation_w), dim=-1)
 
         assert pose_w.shape == (self._num_envs, 7), (
             f"Scene entity '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "

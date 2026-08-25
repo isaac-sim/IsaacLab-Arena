@@ -99,51 +99,6 @@ def _check_aabb_relative_to_prim(live_scene_geometry) -> None:
     torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_reference_pose_row_order(live_scene_geometry) -> None:
-    """Check concrete-path and Newton clone-plan rows are reordered by exact environment id."""
-    num_envs = 12
-    environment_prim_paths = [f"/World/envs/env_{environment_id}" for environment_id in range(num_envs)]
-    scene = SimpleNamespace(
-        env_prim_paths=environment_prim_paths,
-        clone_plan=object(),
-    )
-    env = SimpleNamespace(scene=scene, num_envs=num_envs, device="cpu")
-    reference_prim_path = "/World/envs/env_.*/destination"
-
-    pose_row_environment_ids = [0, 2, 4, 6, 8, 10, 1, 3, 5, 7, 9, 11]
-    expected_pose_rows = torch.tensor(
-        [pose_row_environment_ids.index(environment_id) for environment_id in range(num_envs)]
-    )
-
-    concrete_path_view = SimpleNamespace(
-        count=num_envs,
-        prim_paths=[
-            f"{environment_prim_paths[environment_id]}/destination" for environment_id in pose_row_environment_ids
-        ],
-    )
-    concrete_path_rows = live_scene_geometry._get_reference_pose_row_order(
-        env,
-        "destination",
-        reference_prim_path,
-        concrete_path_view,
-    )
-    torch.testing.assert_close(concrete_path_rows, expected_pose_rows)
-
-    clone_matches = [
-        ("source_a", "destination_a", "representative_a", tuple(pose_row_environment_ids[:3])),
-        ("source_b", "destination_b", "representative_b", tuple(pose_row_environment_ids[3:])),
-    ]
-    newton_view_without_paths = SimpleNamespace(count=num_envs)
-    with patch.object(live_scene_geometry, "iter_clone_plan_matches", return_value=clone_matches):
-        newton_rows = live_scene_geometry._get_reference_pose_row_order(
-            env,
-            "destination",
-            reference_prim_path,
-            newton_view_without_paths,
-        )
-    torch.testing.assert_close(newton_rows, expected_pose_rows)
-
-
 def _check_articulation_body_pose(
     live_scene_geometry,
     scene_entity_cfg_type,
@@ -321,7 +276,6 @@ def _test_geometric_object_on_destination(_simulation_app) -> bool:
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
     _check_aabb_relative_to_prim(live_scene_geometry)
-    _check_reference_pose_row_order(live_scene_geometry)
     _check_articulation_body_pose(live_scene_geometry, SceneEntityCfg)
     _check_geometric_term(geometric_term, AxisAlignedBoundingBox, SceneEntityCfg, TerminationTermCfg)
     return True
