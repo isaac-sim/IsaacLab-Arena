@@ -168,12 +168,8 @@ class ReadOnlyReferencePoseReader:
             stage=scene.stage,
             validate_xform_ops=False,
         )
-        # PhysX exposes one prim path per pose row. Newton does not yet expose row identity.
-        reference_prim_paths = getattr(self._frame_view, "prim_paths", None)
-        assert reference_prim_paths is not None, (
-            f"Read-only scene reference '{entity_name}' requires a FrameView backend that exposes prim paths. "
-            "This predicate does not yet support read-only reference destinations on the selected backend."
-        )
+        # Pick-and-place reference destinations currently require the PhysX FrameView.
+        reference_prim_paths = self._frame_view.prim_paths
         assert len(reference_prim_paths) == env.num_envs, (
             f"Read-only scene reference '{entity_name}' resolved to {len(reference_prim_paths)} prims; "
             f"expected {env.num_envs}."
