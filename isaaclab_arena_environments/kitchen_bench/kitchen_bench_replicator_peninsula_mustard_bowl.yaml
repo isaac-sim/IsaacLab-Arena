@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchenbench_replicator_peninsula_mustard_bowl
+env_name: kitchen_bench_replicator_peninsula_mustard_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

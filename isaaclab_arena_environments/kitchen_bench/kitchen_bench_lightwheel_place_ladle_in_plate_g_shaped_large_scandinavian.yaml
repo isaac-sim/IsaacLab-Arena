@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: kitchenbench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian
+env_name: kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
