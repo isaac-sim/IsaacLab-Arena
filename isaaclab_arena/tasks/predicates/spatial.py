@@ -14,7 +14,8 @@ from __future__ import annotations
 import math
 import torch
 
-from isaaclab.assets import Articulation, RigidObject
+import warp as wp
+from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
@@ -162,30 +163,24 @@ def objects_in_proximity(
     Returns True when the object is within a certain proximity of the target object.
     """
 
-    root_state_entity_names = env.scene.rigid_objects.keys() | env.scene.articulations.keys()
-    assert (
-        object_cfg.name in root_state_entity_names
-    ), f"objects_in_proximity requires a rigid object or articulation root, got '{object_cfg.name}'."
-    assert (
-        target_object_cfg.name in root_state_entity_names
-    ), f"objects_in_proximity requires a rigid target or articulation root, got '{target_object_cfg.name}'."
-
     # Get object entities from the scene
-    object_entity: RigidObject | Articulation = env.scene[object_cfg.name]
-    target_object_entity: RigidObject | Articulation = env.scene[target_object_cfg.name]
+    object: RigidObject = env.scene[object_cfg.name]
+    target_object: RigidObject = env.scene[target_object_cfg.name]
 
     # Get positions relative to environment origin
-    object_pos = object_entity.data.root_pos_w.torch - env.scene.env_origins
-    target_object_pos = target_object_entity.data.root_pos_w.torch - env.scene.env_origins
+    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
+    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
 
+    # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
     y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
     z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
 
-    within_max_separation = x_separation < max_x_separation
-    within_max_separation &= y_separation < max_y_separation
-    within_max_separation &= z_separation < max_z_separation
-    return within_max_separation
+    done = x_separation < max_x_separation
+    done = torch.logical_and(done, y_separation < max_y_separation)
+    done = torch.logical_and(done, z_separation < max_z_separation)
+
+    return done
 
 
 def object_on_destination(
@@ -195,32 +190,27 @@ def object_on_destination(
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
-    """Check destination-filtered contact magnitude and object linear speed.
+    """Checks if an object is in contact with it's destination location via a contact sensor.
 
-    This stateless compatibility predicate does not check the object's position
-    or contact direction. Task success uses the manager-owned
-    ``GeometricObjectOnDestinationTerm`` from
-    ``geometric_object_on_destination_term.py`` so spawned bounds can be cached.
-
-    Returns True when filtered contact exceeds ``force_threshold`` and object
-    speed is below ``velocity_threshold``.
+    Returns True when the object is in contact with destination above a force threshold
+    and below a velocity threshold.
     """
 
     unwrapped_env = get_env(env)
-    object_entity: RigidObject = unwrapped_env.scene[object_cfg.name]
-    contact_sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
+    object: RigidObject = unwrapped_env.scene[object_cfg.name]
+    sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
     # and ``M`` is the number of filtered bodies.
     # We assume B = 1 and M = 1
-    assert contact_sensor.data.force_matrix_w.shape[2] == 1
-    assert contact_sensor.data.force_matrix_w.shape[1] == 1
+    assert sensor.data.force_matrix_w.shape[2] == 1
+    assert sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(contact_sensor.data.force_matrix_w.torch, dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = object_entity.data.root_lin_vel_w.torch
+    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
