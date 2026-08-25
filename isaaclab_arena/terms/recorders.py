@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import warp as wp
 from isaaclab.envs.mdp.recorders.recorders_cfg import (
@@ -19,6 +19,8 @@ from isaaclab.envs.mdp.recorders.recorders_cfg import (
 )
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
+
+from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
@@ -279,29 +281,49 @@ class GripperStateRecorderCfg(RecorderTermCfg):
 
 
 @configclass
-class TrajectoryRecorderTermsCfg:
-    """Recorder terms capturing per-step robot and object trajectories."""
+class TrajectoryRecorderTermsBaseCfg:
+    """Recorder terms capturing per-step robot and object trajectories.
+
+    End-effector pose terms are not fields here: :func:`make_trajectory_recorder_terms_cfg` adds one
+    per tracked frame transformer, since embodiments with multiple end-effectors (e.g. bi-manual
+    robots) need more than a single fixed field can hold.
+    """
 
     record_initial_state: InitialStateRecorderCfg = InitialStateRecorderCfg()
     record_post_step_states: PostStepStatesRecorderCfg = PostStepStatesRecorderCfg()
     record_pre_step_actions: PreStepActionsRecorderCfg = PreStepActionsRecorderCfg()
     record_post_step_processed_actions: PostStepProcessedActionsRecorderCfg = PostStepProcessedActionsRecorderCfg()
     record_episode_id: EpisodeIdentityRecorderCfg = EpisodeIdentityRecorderCfg()
-    record_end_effector_poses: EndEffectorPosesRecorderCfg = EndEffectorPosesRecorderCfg()
     record_gripper_state: GripperStateRecorderCfg = GripperStateRecorderCfg()
 
 
 def make_trajectory_recorder_terms_cfg(
-    frame_transformer_name: str = "ee_frame", asset_name: str = "robot"
-) -> TrajectoryRecorderTermsCfg:
-    """Build the per-step trajectory recorder terms for one embodiment's frame transformer and asset names.
+    frame_transformer_names: Sequence[str] = ("ee_frame",), asset_name: str = "robot"
+) -> Any:
+    """Build the per-step trajectory recorder terms for one embodiment's frame transformers and asset name.
+
+    Adds one end-effector pose recorder term per entry in ``frame_transformer_names``, so embodiments
+    with several tracked end-effectors (e.g. both arms of a bi-manual robot) get every one recorded;
+    each tracked frame still lands under its own name in the exported dataset, so the terms don't
+    collide there even though they share ``asset_name``. The embodiment is responsible for giving
+    every ``FrameTransformerCfg.FrameCfg`` across all its frame transformers a unique ``name`` (e.g.
+    ``left_end_effector`` / ``right_end_effector``), since that name, not the sensor's, is what
+    namespaces the exported dataset group.
 
     Args:
-        frame_transformer_name: Name of the scene's end-effector frame transformer sensor.
+        frame_transformer_names: Names of the scene's end-effector frame transformer sensors, one per
+            tracked end-effector.
         asset_name: Scene entity name of the articulation that owns the end-effector frames.
     """
-    return TrajectoryRecorderTermsCfg(
-        record_end_effector_poses=EndEffectorPosesRecorderCfg(
-            frame_transformer_name=frame_transformer_name, asset_name=asset_name
+    ee_pose_recorder_fields = [
+        (
+            f"record_end_effector_poses_{index}",
+            EndEffectorPosesRecorderCfg,
+            EndEffectorPosesRecorderCfg(frame_transformer_name=frame_transformer_name, asset_name=asset_name),
         )
+        for index, frame_transformer_name in enumerate(frame_transformer_names)
+    ]
+    ee_pose_recorders_cfg = make_configclass("EndEffectorPosesRecordersCfg", ee_pose_recorder_fields)()
+    return combine_configclass_instances(
+        "TrajectoryRecorderTermsCfg", TrajectoryRecorderTermsBaseCfg(), ee_pose_recorders_cfg
     )
