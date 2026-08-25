@@ -99,7 +99,7 @@ def _compute_aabb_relative_to_prim(prim: Usd.Prim) -> AxisAlignedBoundingBox:
     )
 
 
-def build_spawned_entity_local_aabbs(
+def compute_spawned_geometry_aabbs_relative_to_pose(
     env: ManagerBasedEnv,
     pose_entity_cfg: SceneEntityCfg,
     geometry_prim_path: str | None = None,

@@ -250,7 +250,7 @@ def _check_geometric_term(
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
     geometry_build_calls = []
 
-    def build_aabbs(_geometry_env, pose_entity_cfg, geometry_prim_path=None):
+    def compute_aabbs(_geometry_env, pose_entity_cfg, geometry_prim_path=None):
         entity_name = pose_entity_cfg.name
         geometry_build_calls.append((entity_name, geometry_prim_path))
         if entity_name == "object":
@@ -265,8 +265,8 @@ def _check_geometric_term(
 
     with patch.object(
         geometric_term_module,
-        "build_spawned_entity_local_aabbs",
-        side_effect=build_aabbs,
+        "compute_spawned_geometry_aabbs_relative_to_pose",
+        side_effect=compute_aabbs,
     ):
         term_cfg = termination_term_cfg_type(
             func=geometric_term_module.GeometricObjectOnDestinationTerm,

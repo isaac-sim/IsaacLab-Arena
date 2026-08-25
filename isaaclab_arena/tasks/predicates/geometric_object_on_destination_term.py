@@ -19,7 +19,10 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
-from isaaclab_arena.tasks.predicates.live_scene_geometry import SceneEntityPoseReader, build_spawned_entity_local_aabbs
+from isaaclab_arena.tasks.predicates.live_scene_geometry import (
+    SceneEntityPoseReader,
+    compute_spawned_geometry_aabbs_relative_to_pose,
+)
 from isaaclab_arena.tasks.predicates.spatial import (
     contact_force_is_upward_support,
     object_bounds_center_over_destination,
@@ -51,8 +54,8 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         self._object_name = object_cfg.name
         self._destination_pose_entity_name = destination_pose_cfg.name
         self._destination_prim_path = destination_prim_path
-        self._object_aabbs = build_spawned_entity_local_aabbs(env, object_cfg)
-        self._destination_aabbs = build_spawned_entity_local_aabbs(
+        self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
+        self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(
             env,
             destination_pose_cfg,
             geometry_prim_path=destination_prim_path,
