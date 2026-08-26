@@ -57,7 +57,7 @@ such as PIP packaging.
 
 **Limitations**
 
-- pip install support is coming soon (current installation method is Docker-based).
+- Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
 - Performance is not yet hardened for production-scale workloads in Alpha stage.
 
 
