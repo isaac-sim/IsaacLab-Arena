@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import platform
 import subprocess
 import torch
@@ -71,3 +72,25 @@ def collect_software_metadata(repository_root: Path = REPOSITORY_ROOT) -> Softwa
         pytorch_version=str(torch.__version__),
         cuda_version=torch.version.cuda,
     )
+
+
+def collect_source_revision(repository_root: Path = REPOSITORY_ROOT) -> str | None:
+    """Return a commit identifier augmented with a dirty-content hash."""
+    try:
+        repository_root = repository_root.resolve()
+        git_root = Path(_git_output(repository_root, "rev-parse", "--show-toplevel").strip()).resolve()
+        if git_root != repository_root:
+            return None
+        commit = _git_output(repository_root, "rev-parse", "HEAD").strip()
+        status = _git_output(repository_root, "status", "--porcelain")
+        if not status:
+            return commit
+        digest = hashlib.sha256()
+        digest.update(_git_output(repository_root, "diff", "--binary", "HEAD").encode())
+        untracked = _git_output(repository_root, "ls-files", "--others", "--exclude-standard").splitlines()
+        for relative_path in sorted(untracked):
+            digest.update(relative_path.encode())
+            digest.update((repository_root / relative_path).read_bytes())
+        return f"{commit}+dirty.{digest.hexdigest()[:12]}"
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None

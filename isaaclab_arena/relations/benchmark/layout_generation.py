@@ -360,7 +360,7 @@ def sample_arena_batch(
     assets = build_arena_controlled_scene(table_xy_bounds, sizes)
     placer = ObjectPlacer(
         ObjectPlacerParams(
-            solver_params=RelationSolverParams(max_iters=max_iterations, verbose=False),
+            solver_params=RelationSolverParams(max_iters=max_iterations, clearance_m=0.0, verbose=False),
             placement_seed=seed,
             max_placement_attempts=max_attempts_per_layout,
             random_yaw_init=False,

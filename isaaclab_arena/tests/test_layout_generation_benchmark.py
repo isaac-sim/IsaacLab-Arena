@@ -4,13 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import random
 from dataclasses import replace
 
 import pytest
 
+from isaaclab_arena.relations.benchmark import layout_throughput
 from isaaclab_arena.relations.benchmark.layout_generation import (
     LayoutGenerationRun,
     LayoutPose,
+    LayoutSample,
     _ks_uniform,
     build_arena_controlled_scene,
     canonical_layout_key,
@@ -30,6 +33,12 @@ from isaaclab_arena.relations.benchmark.layout_throughput import (
     run_controlled_throughput_sample,
 )
 from isaaclab_arena.relations.relations import On
+from isaaclab_arena_examples.relations import collision_representation_ablation
+from isaaclab_arena_examples.relations import collision_space_coverage_benchmark as coverage_benchmark
+from isaaclab_arena_examples.relations import direct_solver_comparison_benchmark as direct_benchmark
+from isaaclab_arena_examples.relations import fixed_iteration_batch_scaling_benchmark as batch_scaling_benchmark
+from isaaclab_arena_examples.relations import obstacle_layout_distribution_benchmark as obstacle_benchmark
+from isaaclab_arena_examples.relations import robolab_layout_generation_benchmark as robolab_benchmark
 
 BOUNDS = (-0.5, 0.5, -0.5, 0.5)
 SIZES = {"a": (0.2, 0.2), "b": (0.2, 0.2)}
@@ -184,6 +193,42 @@ def test_random_throughput_retains_bounded_failure():
     assert sample.accepted_layouts == sample.unique_layouts == 0
 
 
+def test_arena_throughput_counts_one_candidate_per_attempt(monkeypatch):
+    calls = []
+
+    def fake_sample_arena_batch(**kwargs):
+        calls.append(kwargs)
+        return tuple(
+            LayoutSample(
+                "arena",
+                kwargs["seed"] + index,
+                not (kwargs["seed"] == 10 and index == 0),
+                1,
+                1.0,
+                (LayoutPose("a", (kwargs["seed"] + index) / 100.0, 0.0),),
+            )
+            for index in range(kwargs["num_layouts"])
+        )
+
+    monkeypatch.setattr(layout_throughput, "sample_arena_batch", fake_sample_arena_batch)
+    clock = iter((0.0, 0.004)).__next__
+    sample = layout_throughput.run_controlled_throughput_sample(
+        "arena",
+        seed=10,
+        target_layouts=3,
+        table_xy_bounds=BOUNDS,
+        object_xy_sizes={"a": (0.01, 0.01)},
+        max_attempts_per_layout=4,
+        clock=clock,
+    )
+
+    assert sample.target_reached
+    assert sample.attempted_layouts == 4
+    assert sample.elapsed_ms == 4.0
+    assert [call["seed"] for call in calls] == [10, 13]
+    assert all(call["max_attempts_per_layout"] == 1 for call in calls)
+
+
 def test_throughput_json_round_trip_and_report_fields():
     run = run_controlled_throughput(
         "explicit",
@@ -196,6 +241,10 @@ def test_throughput_json_round_trip_and_report_fields():
     )
     restored = LayoutThroughputRun.from_dict(json.loads(json.dumps(run.to_dict())))
     assert restored == run
+    assert run.seeds == (5, 11)
+    legacy_payload = run.to_dict()
+    legacy_payload.pop("solver_config")
+    assert LayoutThroughputRun.from_dict(legacy_payload).solver_config == {}
     report = format_throughput_markdown([run])
     assert "Targets reached" in report
     assert "Attempted" in report
@@ -244,13 +293,258 @@ def test_throughput_compatibility_rejects_seed_mismatch():
     )
     mismatch = replace(
         baseline,
-        seeds=(8, 9),
+        seeds=tuple(seed + 3 for seed in baseline.seeds),
         samples=tuple(replace(sample, seed=sample.seed + 3) for sample in baseline.samples),
     )
     with pytest.raises(ValueError, match="mismatched seeds"):
         check_throughput_compatibility([baseline, mismatch])
 
 
+def test_throughput_compatibility_rejects_same_method_configuration_mismatch():
+    baseline = run_controlled_throughput(
+        "explicit",
+        target_layout_counts=(1,),
+        table_xy_bounds=BOUNDS,
+        object_xy_sizes=SIZES,
+    )
+    mismatch = replace(baseline, solver_config={**baseline.solver_config, "variant": "different"})
+    with pytest.raises(ValueError, match="mismatched configuration"):
+        check_throughput_compatibility([baseline, mismatch])
+
+
 def test_authored_layout_validity_depends_on_requested_density():
     assert explicit_layout(table_xy_bounds=BOUNDS, object_xy_sizes=make_object_sizes(4, 0.2)).success
     assert not explicit_layout(table_xy_bounds=BOUNDS, object_xy_sizes=make_object_sizes(4, 0.8)).success
+
+
+def test_robolab_adapter_calls_spatial_solver(monkeypatch):
+    calls = []
+
+    class FakeState:
+        def __init__(self, name, predicates):
+            self.name = name
+            self.predicates = predicates
+            self.x = self.y = self.yaw = None
+
+    class FakePredicate:
+        def __init__(self, name, yaw):
+            self.name = name
+            self.yaw = yaw
+
+    class FakeSolver:
+        def __init__(self, table_bounds, collision_margin):
+            calls.append(("init", table_bounds, collision_margin))
+
+        def solve(self, states, dimensions, max_iterations, allow_relaxation):
+            calls.append(("solve", dimensions, max_iterations, allow_relaxation))
+            for index, state in enumerate(states.values()):
+                state.x = -0.2 + index * 0.4
+                state.y = 0.0
+                state.yaw = 0.0
+            return True, "solved"
+
+    monkeypatch.setattr(
+        robolab_benchmark,
+        "_load_robolab_solver",
+        lambda _root: (FakeState, FakePredicate, FakeSolver),
+    )
+    solve_layout = robolab_benchmark._make_solve_layout(
+        robolab_root=None,
+        bounds=BOUNDS,
+        sizes=SIZES,
+        collision_margin_m=0.0,
+        max_iterations=123,
+        allow_relaxation=False,
+    )
+
+    success, poses, error, elapsed_ms = solve_layout(7)
+
+    assert success
+    assert error is None
+    assert elapsed_ms >= 0.0
+    assert len(poses) == 2
+    assert calls == [
+        ("init", BOUNDS, 0.0),
+        ("solve", {"a": (0.2, 0.2, 0.1), "b": (0.2, 0.2, 0.1)}, 123, False),
+    ]
+    assert random.Random(7).random() == pytest.approx(random.random())
+
+
+def test_robolab_throughput_retries_with_distinct_deterministic_seeds(monkeypatch):
+    observed_seeds = []
+
+    def solve_layout(seed):
+        observed_seeds.append(seed)
+        x = 0.0 if seed < 12 else 0.25
+        pose = [{"object_name": "a", "x": x, "y": 0.0, "z": 0.05, "yaw": 0.0}]
+        return True, pose, None, 1.0
+
+    clock = iter((0.0, 0.003)).__next__
+    monkeypatch.setattr(robolab_benchmark.time, "perf_counter", clock)
+    sample = robolab_benchmark._run_sample(10, 2, 3, solve_layout)
+
+    assert sample["target_reached"]
+    assert sample["attempted_layouts"] == 3
+    assert sample["accepted_layouts"] == 3
+    assert sample["unique_layouts"] == 2
+    assert sample["elapsed_ms"] == 3.0
+    assert observed_seeds == [10, 11, 12]
+
+
+def test_direct_solver_progressive_suite_starts_simple_and_adds_difficulty():
+    scenarios = direct_benchmark.progressive_scenarios()
+
+    assert scenarios[0] == direct_benchmark.Scenario("simple", "one-object", 1, 0.12, "random")
+    assert {scenario.stage for scenario in scenarios} == {
+        "simple",
+        "object-scaling",
+        "density-scaling",
+        "initialization",
+    }
+    assert any(scenario.num_objects == 10 and scenario.object_size_m == 0.24 for scenario in scenarios)
+    assert any(scenario.init_mode == "overlap" for scenario in scenarios)
+
+
+def test_direct_solver_initial_positions_are_deterministic_and_mode_specific():
+    random_scenario = direct_benchmark.Scenario("test", "random", 2, 0.12, "random")
+    clustered_scenario = direct_benchmark.Scenario("test", "clustered", 2, 0.12, "clustered")
+    overlap_scenario = direct_benchmark.Scenario("test", "overlap", 2, 0.12, "overlap")
+
+    assert direct_benchmark.initial_xy(random_scenario, 2, 7, BOUNDS) == direct_benchmark.initial_xy(
+        random_scenario, 2, 7, BOUNDS
+    )
+    clustered = direct_benchmark.initial_xy(clustered_scenario, 2, 7, BOUNDS)
+    assert all(abs(coordinate) <= 0.1 for layout in clustered for xy in layout.values() for coordinate in xy)
+    overlap = direct_benchmark.initial_xy(overlap_scenario, 2, 7, BOUNDS)
+    assert all(xy == (0.0, 0.0) for layout in overlap for xy in layout.values())
+
+
+def test_direct_solver_relational_suite_uses_supported_directional_graphs():
+    scenarios = direct_benchmark.relational_scenarios()
+
+    assert [scenario.name for scenario in scenarios] == [
+        "directional-pair",
+        "directional-chain-5",
+        "directional-star-5",
+        "directional-dual-chain-10",
+    ]
+    for scenario in scenarios:
+        object_names = {f"object-{index}" for index in range(scenario.num_objects)}
+        assert scenario.relations
+        assert all(
+            relation.child in object_names and relation.parent in object_names for relation in scenario.relations
+        )
+
+
+def test_direct_solver_shared_relation_validator_uses_edge_gap():
+    relation = direct_benchmark.RelationEdge("object-1", "object-0", "positive_x")
+    scenario = direct_benchmark.Scenario("relations", "pair", 2, 0.08, "random", (relation,))
+    valid_poses = {"object-0": (0.0, 0.0), "object-1": (0.11, 0.04)}
+    invalid_poses = {"object-0": (0.0, 0.0), "object-1": (0.08, 0.04)}
+
+    assert direct_benchmark._relations_valid(valid_poses, scenario)
+    assert not direct_benchmark._relations_valid(invalid_poses, scenario)
+
+
+def test_direct_solver_robolab_seed_is_reproducible():
+    direct_benchmark._seed_robolab(7)
+    first = random.random()
+    direct_benchmark._seed_robolab(7)
+
+    assert random.random() == first
+
+
+def test_obstacle_distribution_validator_checks_fixed_and_movable_collisions():
+    valid = {
+        "movable-small": (0.42, 0.40),
+        "movable-medium": (-0.42, 0.00),
+        "movable-large": (0.42, 0.00),
+    }
+    obstacle_collision = {**valid, "movable-small": (-0.27, 0.25)}
+    movable_collision = {**valid, "movable-medium": (0.42, 0.40)}
+
+    assert obstacle_benchmark.validate_layout(valid)
+    assert not obstacle_benchmark.validate_layout(obstacle_collision)
+    assert not obstacle_benchmark.validate_layout(movable_collision)
+
+
+def test_obstacle_feasible_mask_depends_on_object_footprint():
+    small = obstacle_benchmark._feasible_mask("movable-small", 32)
+    large = obstacle_benchmark._feasible_mask("movable-large", 32)
+
+    assert 0 < large.sum() < small.sum() < small.size
+
+
+def test_collision_space_physical_validator_distinguishes_box_and_disk_corners():
+    box = coverage_benchmark.Scenario("box", 0.16)
+    disk = coverage_benchmark.Scenario("disk", 0.16)
+    corner_clearance_position = (0.06, 0.08)
+
+    assert not coverage_benchmark._position_valid(corner_clearance_position, box)
+    assert coverage_benchmark._position_valid(corner_clearance_position, disk)
+
+
+def test_collision_space_sweep_balances_shapes_and_sizes():
+    scenarios = coverage_benchmark.scenarios()
+    expected = tuple(
+        coverage_benchmark.Scenario(shape, size)
+        for shape in coverage_benchmark.SHAPES
+        for size in coverage_benchmark.OBSTACLE_SIZES_M
+    )
+
+    assert scenarios == expected
+
+
+@pytest.mark.parametrize(
+    ("second_xy", "expected"),
+    [
+        pytest.param((0.09, 0.19), True, id="overlapping"),
+        pytest.param((0.11, 0.19), False, id="separated-x"),
+        pytest.param((0.09, 0.21), False, id="separated-y"),
+    ],
+)
+def test_representation_ablation_aabb_oracle_checks_both_axes(second_xy, expected):
+    dims = (0.1, 0.2, 0.1)
+
+    assert collision_representation_ablation._aabb_overlap((0.0, 0.0), second_xy, dims, dims, 0.0) is expected
+
+
+def test_representation_ablation_uses_identical_seeded_initialization():
+    seeded_position = collision_representation_ablation._initial_xy(123)
+
+    assert seeded_position == collision_representation_ablation._initial_xy(123)
+    assert seeded_position != collision_representation_ablation._initial_xy(124)
+
+
+def test_fixed_iteration_batch_scaling_uses_deterministic_overlapping_cluster():
+    positions = batch_scaling_benchmark._clustered_xy(5, variant=3)
+
+    assert positions == batch_scaling_benchmark._clustered_xy(5, variant=3)
+    assert positions != batch_scaling_benchmark._clustered_xy(5, variant=4)
+    assert all(abs(coordinate) <= 0.012 for xy in positions.values() for coordinate in xy)
+
+
+def test_robolab_fixed_iteration_loop_runs_every_configured_iteration():
+    class FakeSolver:
+        def __init__(self):
+            self.collision_checks = 0
+            self.bounds_checks = 0
+
+        def _check_collisions(self, states, dimensions):
+            self.collision_checks += 1
+            return []
+
+        def _check_table_bounds(self, states, dimensions):
+            self.bounds_checks += 1
+
+    solver = FakeSolver()
+    batch_scaling_benchmark._run_robolab_fixed_iterations(
+        solver,
+        states={},
+        dimensions={},
+        iterations=600,
+        seed=0,
+    )
+
+    assert solver.collision_checks == 600
+    assert solver.bounds_checks == 0

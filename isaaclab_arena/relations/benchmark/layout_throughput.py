@@ -30,7 +30,7 @@ from isaaclab_arena.relations.benchmark.layout_generation import (
     sample_arena_batch,
     sample_random_rejection,
 )
-from isaaclab_arena.relations.benchmark.provenance import collect_software_metadata
+from isaaclab_arena.relations.benchmark.provenance import collect_source_revision
 from isaaclab_arena.relations.benchmark.timing import get_peak_memory, reset_peak_memory
 
 ThroughputMethod = Literal["arena", "random_rejection", "explicit", "robolab", "arena_scene"]
@@ -107,6 +107,7 @@ class LayoutThroughputRun:
     max_iterations: int | None
     warmup: int
     samples: tuple[LayoutThroughputSample, ...]
+    solver_config: dict[str, object]
 
     def __post_init__(self) -> None:
         if not self.workload:
@@ -132,6 +133,8 @@ class LayoutThroughputRun:
 
     @classmethod
     def from_dict(cls, data: dict) -> LayoutThroughputRun:
+        if "solver_config" not in data:
+            data = {**data, "solver_config": {}}
         values = _strict_fields(cls, data, "layout throughput run")
         values["seeds"] = tuple(values["seeds"])
         values["target_layout_counts"] = tuple(values["target_layout_counts"])
@@ -241,7 +244,7 @@ def run_controlled_throughput_sample(
                 num_layouts=batch_size,
                 table_xy_bounds=table_xy_bounds,
                 object_xy_sizes=sizes,
-                max_attempts_per_layout=max_attempts_per_layout,
+                max_attempts_per_layout=1,
                 max_iterations=max_iterations,
             )
             attempted += len(samples)
@@ -287,11 +290,12 @@ def run_controlled_throughput(
         raise ValueError("repetitions must be positive and warmup non-negative")
     sizes = object_xy_sizes or make_object_sizes()
     iterations = max_iterations or 600
-    seeds = tuple(master_seed + index for index in range(repetitions))
+    seed_stride = max(target_layout_counts) * max_attempts_per_layout
+    seeds = tuple(master_seed + index * seed_stride for index in range(repetitions))
     for index in range(warmup):
         run_controlled_throughput_sample(
             method,
-            seed=master_seed - warmup + index,
+            seed=master_seed - (index + 1) * seed_stride,
             target_layouts=target_layout_counts[0],
             table_xy_bounds=table_xy_bounds,
             object_xy_sizes=sizes,
@@ -311,10 +315,18 @@ def run_controlled_throughput(
         for seed in seeds
         for target in target_layout_counts
     )
+    solver_config = {
+        "name": "RelationSolver" if method == "arena" else method,
+        "execution": "native-batch" if method == "arena" else "serial",
+        "timing_scope": "complete-exact-k-generation" if method != "explicit" else "not-applicable",
+        "clearance_m": 0.0 if method == "arena" else None,
+        "collision_model": "aabb" if method == "arena" else None,
+        "random_yaw": False,
+    }
     return LayoutThroughputRun(
         workload,
         method,
-        collect_software_metadata().git_commit,
+        collect_source_revision(),
         master_seed,
         seeds,
         repetitions,
@@ -322,9 +334,10 @@ def run_controlled_throughput(
         table_xy_bounds,
         sizes,
         max_attempts_per_layout,
-        max_iterations,
+        iterations if method == "arena" else None,
         warmup,
         samples,
+        solver_config,
     )
 
 
@@ -332,6 +345,8 @@ def check_throughput_compatibility(runs: tuple[LayoutThroughputRun, ...] | list[
     """Reject throughput runs whose workload-defining metadata differs."""
     if not runs:
         raise ValueError("at least one throughput run is required")
+    if len(runs) > 1 and any(not run.solver_config for run in runs):
+        raise ValueError("cross-method comparison requires solver_config metadata")
     baseline = runs[0]
     fields_to_match = (
         "workload",
@@ -346,6 +361,12 @@ def check_throughput_compatibility(runs: tuple[LayoutThroughputRun, ...] | list[
         mismatched = [name for name in fields_to_match if getattr(run, name) != getattr(baseline, name)]
         if mismatched:
             raise ValueError(f"incompatible throughput runs: mismatched {', '.join(mismatched)}")
+    method_configs = {}
+    for run in runs:
+        config = (run.max_iterations, run.solver_config)
+        if run.method in method_configs and method_configs[run.method] != config:
+            raise ValueError(f"incompatible throughput runs: mismatched configuration for {run.method}")
+        method_configs[run.method] = config
 
 
 def summarize_throughput_run(run: LayoutThroughputRun) -> tuple[LayoutThroughputSummary, ...]:
@@ -398,6 +419,10 @@ def format_throughput_markdown(runs: tuple[LayoutThroughputRun, ...] | list[Layo
         "# Exact-K Unique Layout Throughput",
         "",
         "Failed bounded targets are retained. Explicit poses are a one-layout capacity baseline; timing is N/A.",
+        (
+            "Cross-method timing measures complete exact-K generation, not identical solver kernels. "
+            "Each method retains its native collision model; exact settings are recorded in `solver_config`."
+        ),
         "",
         *rows,
     ])
