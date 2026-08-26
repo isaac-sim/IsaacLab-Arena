@@ -10,6 +10,7 @@ import random
 
 import pytest
 
+import isaaclab_arena.utils.timer as timer_module
 from isaaclab_arena.utils.timer import (
     Timer,
     TimerStats,
@@ -60,19 +61,27 @@ class TestTimerStats:
         assert stats.percentile(50) == 50.0
         assert stats.percentile(90) == 90.0
 
-    def test_reservoir_accuracy(self) -> None:
+    def test_reservoir_sampling_does_not_modify_global_random_state(self) -> None:
+        """Verify reservoir sampling does not affect application randomness."""
+        stats = TimerStats(reservoir_size=1)
+        global_random_state = random.getstate()
+
+        stats.update(1.0)
+        stats.update(2.0)
+
+        assert random.getstate() == global_random_state
+
+    def test_reservoir_accuracy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify reservoir sampling percentiles track the exact ones on skewed data."""
         seed = 32
-        # Seed both the module RNG used by TimerStats reservoir sampling and the local RNG
-        # used to generate this test's synthetic timing data.
-        random.seed(seed)
-        rng = random.Random(seed)
+        monkeypatch.setattr(timer_module, "_reservoir_random_generator", random.Random(seed))
+        synthetic_data_random_generator = random.Random(seed)
         num_samples = 10_000
 
-        values = [rng.gauss(20.0, 5.0) for _ in range(num_samples)]
+        values = [synthetic_data_random_generator.gauss(20.0, 5.0) for _ in range(num_samples)]
         # Sprinkle in ~1% outliers.
         for _ in range(num_samples // 100):
-            values.append(rng.uniform(80.0, 200.0))
+            values.append(synthetic_data_random_generator.uniform(80.0, 200.0))
 
         exact = TimerStats(reservoir_size=len(values))
         approx = TimerStats()

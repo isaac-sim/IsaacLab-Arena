@@ -30,6 +30,9 @@ from typing import Any
 
 DEFAULT_RESERVOIR_SIZE = 1024
 
+# Keep reservoir sampling independent from application randomness.
+_reservoir_random_generator = random.Random()
+
 # Timing statistics accumulated over the process lifetime, keyed by timer name.
 _timer_registry: dict[str, TimerStats] = {}
 
@@ -67,9 +70,9 @@ class TimerStats:
         if len(self._reservoir) < self.reservoir_size:
             self._reservoir.append(elapsed_ms)
         else:
-            j = random.randint(0, self.count - 1)
-            if j < self.reservoir_size:
-                self._reservoir[j] = elapsed_ms
+            replacement_index = _reservoir_random_generator.randint(0, self.count - 1)
+            if replacement_index < self.reservoir_size:
+                self._reservoir[replacement_index] = elapsed_ms
 
     def percentile(self, p: float) -> float | None:
         """Return the approximate p-th percentile (0-100), or None if nothing was recorded.
