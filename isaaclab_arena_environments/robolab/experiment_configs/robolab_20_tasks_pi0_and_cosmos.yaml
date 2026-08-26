@@ -15,19 +15,10 @@ shared:
     enable_cameras: true
   environment_builder:
     num_envs: 20
+    seed: 42
+    placement_seed: 42
   rollout_limit:
     num_episodes: 100
-  variations:
-    light:
-      hdr_image:
-        enabled: true
-        hdr_names: ["home_office_robolab"]
-    droid_abs_joint_pos:
-      camera_extrinsics_wrist_camera:
-        enabled: false
-        sampler_cfg:
-          low: [-0.05, -0.05, -0.05]
-          high: [0.05, 0.05, 0.05]
 
 runs:
 

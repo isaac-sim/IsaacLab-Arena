@@ -83,6 +83,20 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
+def test_graph_spec_parses_fixed_initial_pose():
+    data = _minimal_env_graph_data()
+    data["objects"][0]["initial_pose"] = {
+        "position_xyz": [0.51, -0.12, 0.82],
+        "rotation_xyzw": [0.1, 0.2, 0.3, 0.9],
+    }
+
+    pose = ArenaEnvGraphSpec.from_dict(data).objects[0].initial_pose
+
+    assert pose is not None
+    assert pose.position_xyz == (0.51, -0.12, 0.82)
+    assert pose.rotation_xyzw == (0.1, 0.2, 0.3, 0.9)
+
+
 def test_graph_spec_parses_radial_position_limits():
     """Graph specs preserve cylindrical position-limit parameters for relation construction."""
 

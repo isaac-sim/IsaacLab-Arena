@@ -18,6 +18,23 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
+class PoseSpec(BaseModel):
+    """A fixed env-local asset pose serialized in graph YAML."""
+
+    position_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
+
+    @field_validator("position_xyz", mode="before")
+    @classmethod
+    def _validate_position_xyz(cls, value: Any) -> tuple[float, ...]:
+        return _convert_to_float_tuple(value, 3, "position_xyz")
+
+    @field_validator("rotation_xyzw", mode="before")
+    @classmethod
+    def _validate_rotation_xyzw(cls, value: Any) -> tuple[float, ...]:
+        return _convert_to_float_tuple(value, 4, "rotation_xyzw")
+
+
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     """Return the asset's root USD path or URL, or ``None`` if not extractable."""
     class_usd = getattr(asset_cls, "usd_path", None)
@@ -67,6 +84,10 @@ class AssetSpec(BaseModel):
     params: dict[str, Any] = Field(
         default_factory=dict,
         description="Optional constructor kwargs forwarded to the asset class.",
+    )
+    initial_pose: PoseSpec | None = Field(
+        default=None,
+        description="Optional fixed env-local pose applied after constructing the asset.",
     )
 
     @field_validator("registry_name")

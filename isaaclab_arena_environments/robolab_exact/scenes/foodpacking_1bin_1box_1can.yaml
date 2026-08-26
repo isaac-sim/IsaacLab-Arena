@@ -1,0 +1,66 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: cheez_it_box
+  registry_name: cheez_it_ycb_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.47402386065577595
+    - -0.2726468969402758
+    - 0.10590551663040496
+    rotation_xyzw:
+    - -0.014833337955191884
+    - 0.01410124756225952
+    - 0.7083337729834354
+    - 0.7055808904394635
+- id: bin_a06
+  registry_name: bin_a06_vomp_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6623289144735961
+    - 0.3592422352055892
+    - 2.081054155436777e-06
+    rotation_xyzw:
+    - 3.1381996734613414e-05
+    - -0.0006731822794184457
+    - 0.9999997729200323
+    - -8.203577979723319e-07
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5670741154073518
+    - 0.30346382183815107
+    - 0.09940660196741592
+    rotation_xyzw:
+    - -0.039163369632750654
+    - 0.012512020377259776
+    - -0.0022289865829699
+    - 0.9991519961666997
+- id: tomato_soup_can
+  registry_name: tomato_soup_can
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.4186220152167495
+    - -0.00013799378478323025
+    - 0.05090003784945472
+    rotation_xyzw:
+    - -0.0014145720901373921
+    - -0.021423243378582167
+    - 0.0014267576249538739
+    - 0.999768477194407

@@ -1,0 +1,187 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: oak_table_robolab
+  registry_name: oak_table_robolab
+  params: {}
+objects:
+- id: computer_mouse
+  registry_name: computer_mouse_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.341580784582132
+    - -0.320449245071635
+    - 0.020606762264654216
+    rotation_xyzw:
+    - 0.7084082461234876
+    - 2.840508304064345e-05
+    - -9.970022339651098e-05
+    - 0.7058029088047604
+- id: keyboard
+  registry_name: keyboard_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.568729522182455
+    - 6.193626054812736e-05
+    - 0.013385102391078697
+    rotation_xyzw:
+    - -0.03917664027780477
+    - 0.03929620214115383
+    - 0.7114232034518513
+    - -0.7005697859200973
+- id: ceramic_mug
+  registry_name: ceramic_mug_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.5655239945081154
+    - 0.39574648320992173
+    - -0.00020476786979782948
+    rotation_xyzw:
+    - -0.0013823442643910628
+    - 0.002611930498072996
+    - 0.0001632185621759429
+    - 0.9999956201419629
+- id: glasses
+  registry_name: glasses_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.37119089895625873
+    - 0.29665537225618954
+    - 0.029277009611064754
+    rotation_xyzw:
+    - -0.015990395029168974
+    - -0.03444896954246579
+    - 0.9033043718874545
+    - 0.42731579363894895
+- id: lizard_figurine
+  registry_name: lizard_figurine_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.4765691236714869
+    - -0.33737582067769273
+    - -0.0003690607917813788
+    rotation_xyzw:
+    - 0.00032767022986186144
+    - 0.007381946141771043
+    - -0.001565642789811204
+    - 0.9999714737261435
+- id: marker
+  registry_name: marker_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.2747553211002332
+    - 0.10897948782364897
+    - 0.007260400600881751
+    rotation_xyzw:
+    - 0.004751637443221704
+    - 0.044627107629433414
+    - -0.00042795595933016017
+    - 0.9989923223228175
+- id: remote_control
+  registry_name: remote_control_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.33642762559934253
+    - -0.1966497748045325
+    - -0.013288585247030579
+    rotation_xyzw:
+    - 0.43053170373768707
+    - 0.5649770984782045
+    - -0.5587195483895062
+    - -0.42810722549298313
+- id: rubiks_cube
+  registry_name: rubiks_cube_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.2985079872478989
+    - 9.247915568983472e-05
+    - 0.03110552593975692
+    rotation_xyzw:
+    - -0.0005208491201309643
+    - 0.0009284508447446127
+    - 2.3926864568267384e-06
+    - 0.9999994333445885
+- id: smartphone
+  registry_name: smartphone_hot3d_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.8167780677400355
+    - -7.923775690020502e-06
+    - 0.005198733486941429
+    rotation_xyzw:
+    - 0.0057112628515791145
+    - -0.00040693948318631094
+    - 0.00011522235826903249
+    - 0.9999836011658918
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params:
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
+  initial_pose:
+    position_xyz:
+    - 0.8201640829512844
+    - 0.313516706604227
+    - -0.00011193960938686185
+    rotation_xyzw:
+    - -0.002255130216154799
+    - 0.00041325719674474933
+    - 0.000857098783195371
+    - 0.9999970044894502
+- id: yogurt_cup
+  registry_name: yogurt_cup_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.8163187508344191
+    - -0.3472288292917354
+    - 0.026768947940670734
+    rotation_xyzw:
+    - 5.767146393139299e-05
+    - -0.0013795091231944888
+    - 9.374995700627196e-06
+    - 0.999999046769891
+- id: oatmeal_raisin_cookies
+  registry_name: oatmeal_raisin_cookies_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.8127836188617009
+    - -0.16533091630805286
+    - 0.0831651838526538
+    rotation_xyzw:
+    - -0.0026664197290299746
+    - -0.007625386522654545
+    - 0.0001833849481981344
+    - 0.9999673544952203
+- id: granola_bar
+  registry_name: granola_bars_hope_robolab
+  params: {}
+  initial_pose:
+    position_xyz:
+    - 0.6987790505868229
+    - 0.41806624251168123
+    - 0.060659938944757796
+    rotation_xyzw:
+    - -0.0027836743083462416
+    - 0.0008486746718567782
+    - 3.9296973561629285e-06
+    - 0.9999957654376362
