@@ -126,16 +126,13 @@ Isaac Sim — useful for seeing the output shape and for validating the toolbox
 .. code-block:: bash
 
    python -m isaaclab_arena.tests.sensitivity_synthetic \
-     --kind mixed \
-     --plot-factors light_intensity object_mass camera_distance \
+     --kind continuous \
      --output eval/demo.png
 
    NO_AT_BRIDGE=1 pqiv eval/demo.png
 
-The mixed dataset contains three continuous and two categorical factors, which exercises the MNPE
-path. ``--plot-factors`` limits the displayed panels to the three continuous factors; all five
-factors remain part of the joint inference. ``--kind`` also accepts ``continuous`` to exercise the
-continuous-only NPE path.
+The continuous dataset contains three factors and exercises the NPE path. ``--kind`` also accepts
+``mixed`` to exercise the MNPE path with three continuous and two categorical factors.
 
 Reading the output
 ------------------
@@ -145,7 +142,7 @@ Reading the output
    :alt: Posterior marginals for light intensity, object mass, and camera distance conditioned on success
    :align: center
 
-   Posterior marginals from the mixed synthetic dataset, showing the three continuous factors.
+   Posterior marginals from the continuous synthetic dataset.
 
 Each blue curve is the posterior density for one factor *conditioned on success*. The dashed grey
 line is the uniform prior used to draw that factor. Where the posterior rises above the prior,
@@ -153,18 +150,16 @@ those values are more common in the success-conditioned samples than in the orig
 shaded 5–95% interval contains the central 90% of the posterior samples.
 
 Compare each curve with the prior in its own panel. Absolute density heights are not comparable
-between panels because each factor has different units and a different range. When categorical
-panels are displayed, each bar is the posterior probability of that choice; taller bars mark
-choices more strongly associated with the conditioned outcome.
+between panels because each factor has different units and a different range.
 
 The three panels recover the relationships planted in the synthetic simulator:
 
-* **Light intensity:** Density shifts toward the bright end of the range, so successful episodes
-  favor brighter lighting.
-* **Object mass:** Density is strongest at lower masses and falls toward the high end of the
+* **Light intensity:** Density shifts toward higher intensities and peaks near the bright end of
+  the range, so successful episodes favor brighter lighting.
+* **Object mass:** Density shifts toward lower masses and falls toward the high end of the
   range, so successful episodes favor lighter objects.
-* **Camera distance:** Density is highest at shorter distances and declines as the camera moves
-  farther away, so successful episodes favor a closer camera.
+* **Camera distance:** Density shifts toward shorter distances and peaks around 0.6, so successful
+  episodes favor a closer camera.
 
 These curves validate the analysis against known synthetic relationships. For evaluation data,
 read the same shapes as associations with success within the sampled sweep, not as proof that a

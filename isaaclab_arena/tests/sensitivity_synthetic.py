@@ -13,12 +13,14 @@ reflects it.
 
 Ground truth (single-sourced in the factor definitions below):
   - light_intensity is continuous; brighter raises success (LIGHT.weight > 0).
-  - grasp_offset is continuous; a *smaller* offset raises success (GRASP_OFFSET.weight < 0).
+  - object_mass is continuous; a lighter object raises success (OBJECT_MASS.weight < 0).
+  - camera_distance is continuous; a closer camera raises success (CAMERA_DISTANCE.weight < 0).
+  - object_type is categorical; OBJECT_TYPE makes cube the most successful, mug the least.
   - table_material is categorical; MATERIAL makes oak the most successful, bamboo the least.
   - success is a binary outcome drawn from Bernoulli(sigmoid(logit)).
 
 make_mixed_dataset exercises the MNPE path (continuous + categorical); make_continuous_dataset
-exercises the NPE path with two continuous factors (NPE restricts to a Gaussian on 1-D theta).
+exercises the NPE path with the three continuous factors.
 """
 
 from __future__ import annotations
@@ -80,10 +82,9 @@ class _CategoricalFactor:
         return codes.float()
 
 
-# Planted ground truth: brighter light, a smaller grasp offset, a lighter object, a closer
-# camera, and the leading category (oak / cube) all raise success.
+# Planted ground truth: brighter light, a lighter object, a closer camera, and the leading
+# category (oak / cube) all raise success.
 LIGHT = _ContinuousFactor("light_intensity", (0.0, 5000.0), weight=2.5)
-GRASP_OFFSET = _ContinuousFactor("grasp_offset", (0.0, 0.2), weight=-2.5)
 OBJECT_MASS = _ContinuousFactor("object_mass", (0.05, 2.0), weight=-1.5)
 CAMERA_DISTANCE = _ContinuousFactor("camera_distance", (0.3, 1.5), weight=-1.5)
 MATERIAL = _CategoricalFactor("table_material", {"oak": 1.5, "walnut": 0.0, "bamboo": -1.5})
@@ -112,17 +113,23 @@ def _build_dataset(
 
 
 def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
-    """Two continuous factors (light_intensity, grasp_offset) driving success.
+    """Three continuous factors (light, mass, camera distance) driving success.
 
-    Uses the NPE path. Both effects are planted — brighter light and a smaller grasp offset
-    raise success — so conditioning the posterior on success should favor high light values
-    and low offset values. Two factors keep theta 2-D, away from NPE's 1-D Gaussian fallback.
+    Uses the NPE path. Every effect is planted — brighter light, a lighter object, and a
+    closer camera raise success — so conditioning the posterior on success should recover
+    all three relationships.
     """
     torch.manual_seed(seed)
     light = LIGHT.sample(num_episodes)
-    grasp_offset = GRASP_OFFSET.sample(num_episodes)
-    success = _sample_success(LIGHT.logit(light) + GRASP_OFFSET.logit(grasp_offset))
-    return _build_dataset([(LIGHT, light), (GRASP_OFFSET, grasp_offset)], success)
+    object_mass = OBJECT_MASS.sample(num_episodes)
+    camera_distance = CAMERA_DISTANCE.sample(num_episodes)
+    success = _sample_success(
+        LIGHT.logit(light) + OBJECT_MASS.logit(object_mass) + CAMERA_DISTANCE.logit(camera_distance)
+    )
+    return _build_dataset(
+        [(LIGHT, light), (OBJECT_MASS, object_mass), (CAMERA_DISTANCE, camera_distance)],
+        success,
+    )
 
 
 def make_mixed_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
@@ -158,39 +165,6 @@ def make_mixed_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDatase
     )
 
 
-def _select_factors_for_plot(
-    dataset: SensitivityDataset,
-    posterior_samples: torch.Tensor,
-    factor_names: list[str] | None,
-) -> tuple[SensitivityDataset, torch.Tensor]:
-    """Return aligned dataset and posterior columns for the requested plot panels."""
-    if factor_names is None:
-        return dataset, posterior_samples
-
-    assert len(factor_names) == len(set(factor_names)), "--plot-factors must not contain duplicate names."
-    available_factor_names = [factor.name for factor in dataset.factors]
-    unknown_factor_names = [factor_name for factor_name in factor_names if factor_name not in available_factor_names]
-    assert not unknown_factor_names, (
-        f"Unknown --plot-factors: {', '.join(unknown_factor_names)}. "
-        f"Available factors: {', '.join(available_factor_names)}."
-    )
-
-    requested_factor_names = set(factor_names)
-    selected_factors = [factor for factor in dataset.factors if factor.name in requested_factor_names]
-    factor_columns = dataset.factor_columns
-    selected_theta = torch.cat([dataset.theta[:, factor_columns[factor.name]] for factor in selected_factors], dim=1)
-    selected_posterior_samples = torch.cat(
-        [posterior_samples[:, factor_columns[factor.name]] for factor in selected_factors], dim=1
-    )
-    selected_dataset = SensitivityDataset(
-        selected_factors,
-        selected_theta,
-        dataset.x,
-        outcome_names=dataset.outcome_names,
-    )
-    return selected_dataset, selected_posterior_samples
-
-
 def _demo():
     """Run the full pipeline on a synthetic dataset and save the marginals plot.
 
@@ -198,8 +172,7 @@ def _demo():
     data needed. Run as::
 
         python -m isaaclab_arena.tests.sensitivity_synthetic \\
-          --kind mixed \\
-          --plot-factors light_intensity object_mass camera_distance \\
+          --kind continuous \\
           --output eval/demo.png
     """
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
@@ -216,16 +189,6 @@ def _demo():
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num-episodes", type=int, default=2000)
-    parser.add_argument(
-        "--plot-factors",
-        type=str,
-        nargs="+",
-        default=None,
-        help=(
-            "Factor names to display, in dataset order. Inference still uses every factor in the selected dataset "
-            "kind. Defaults to every factor."
-        ),
-    )
     args = parser.parse_args()
 
     builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset}[args.kind]
@@ -234,8 +197,7 @@ def _demo():
     analyzer.fit()
     observation = dataset.default_observation()
     samples = analyzer.sample_posterior(observation)
-    plot_dataset, plot_samples = _select_factors_for_plot(dataset, samples, args.plot_factors)
-    plot_marginals(plot_samples, plot_dataset, observation, output_path=args.output)
+    plot_marginals(samples, dataset, observation, output_path=args.output)
     print(f"[INFO] Wrote synthetic sensitivity report → {args.output}")
 
 
