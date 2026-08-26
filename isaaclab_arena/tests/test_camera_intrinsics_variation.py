@@ -116,18 +116,25 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     ).make_registered()
     env.reset()
 
-    camera = env.unwrapped.scene[CAMERA_NAME]
-    sensor_prim = camera._sensor_prims[0]
-    # Read nominal apertures from the rig config so the test tracks its source of truth.
-    nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
-    d_fx, d_fy = TEST_DELTAS
-    expected_horizontal_aperture = nominal_spawn.horizontal_aperture / (1.0 + d_fx)
-    expected_vertical_aperture = nominal_spawn.vertical_aperture / (1.0 + d_fy)
+    camera = None
+    sensor_prim = None
+    try:
+        camera = env.unwrapped.scene[CAMERA_NAME]
+        sensor_prim = camera._sensor_prims[0]
+        # Read nominal apertures from the rig config so the test tracks its source of truth.
+        nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
+        d_fx, d_fy = TEST_DELTAS
+        expected_horizontal_aperture = nominal_spawn.horizontal_aperture / (1.0 + d_fx)
+        expected_vertical_aperture = nominal_spawn.vertical_aperture / (1.0 + d_fy)
 
-    assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
-    assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
-
-    env.close()
+        assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
+        assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
+    finally:
+        # Lab 3 cleans camera render from the sensor destructor. Drop these borrowed
+        # references before env.close() clears the SimulationContext that owns the renderer.
+        sensor_prim = None
+        camera = None
+        env.close()
     return True
 
 

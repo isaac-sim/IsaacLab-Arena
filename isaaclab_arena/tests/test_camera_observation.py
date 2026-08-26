@@ -10,7 +10,7 @@ import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-NUM_STEPS = 2
+MAX_CAMERA_WARMUP_STEPS = 10
 HEADLESS = True
 ENABLE_CAMERAS = True
 
@@ -50,19 +50,22 @@ def _test_camera_observation(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()
-    env.reset()
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
-        with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            obs, _, _, _, _ = env.step(actions)
-            # Get the camera observation
-            camera_observation = obs["camera_obs"]["robot_pov_cam_rgb"]
-            # Assert that the camera rgb observation has three channels
-            assert camera_observation.shape[3] == 3, "Camera rgb observation does not have three channels"
-            # Make sure the camera observation contains values other than 0
-            assert camera_observation.any() != 0, "Camera observation contains only 0s"
-
-    env.close()
+    try:
+        env.reset()
+        # RTX startup is asynchronous and can briefly return an empty frame while the render initializes.
+        # Require a valid image within a bounded warm-up period.
+        for _ in tqdm.tqdm(range(MAX_CAMERA_WARMUP_STEPS)):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                obs, _, _, _, _ = env.step(actions)
+                camera_observation = obs["camera_obs"]["robot_pov_cam_rgb"]
+                assert camera_observation.shape[3] == 3, "Camera rgb observation does not have three channels"
+                if camera_observation.any().item():
+                    break
+        else:
+            raise AssertionError(f"Camera observation contains only 0s after {MAX_CAMERA_WARMUP_STEPS} warm-up steps")
+    finally:
+        env.close()
 
     return True
 
