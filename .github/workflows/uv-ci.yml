@@ -62,13 +62,12 @@ jobs:
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
-      # Test matrix:
-      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
-      #     - source: uv-based installation that consumes isaaclab through source code.
+      # Test the Isaac Lab 3.0 GA source checkout only.
+      # TODO: Restore the native wheel variant once NVIDIA publishes an Isaac Lab 3.0 GA wheel.
       matrix:
         include:
-          - variant: wheel
-            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
+          # - variant: wheel
+          #   uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
           - variant: source
             uv_flags: "--group gr00t-client"
     env:

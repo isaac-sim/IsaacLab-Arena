@@ -1527,7 +1527,7 @@ wheels = [
 
 [[package]]
 name = "isaaclab"
-version = "16.1.0"
+version = "16.4.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab" }
 
 [[package]]
@@ -1644,22 +1644,26 @@ openpi = [{ name = "openpi-client", git = "https://github.com/Physical-Intellige
 
 [[package]]
 name = "isaaclab-assets"
-version = "0.6.3"
+version = "0.6.4"
 source = { editable = "submodules/IsaacLab/source/isaaclab_assets" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-contrib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "isaaclab-newton", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "isaaclab-physx", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "isaaclab", editable = "submodules/IsaacLab/source/isaaclab" },
     { name = "isaaclab-contrib", editable = "submodules/IsaacLab/source/isaaclab_contrib" },
+    { name = "isaaclab-newton", editable = "submodules/IsaacLab/source/isaaclab_newton" },
+    { name = "isaaclab-physx", editable = "submodules/IsaacLab/source/isaaclab_physx" },
 ]
 
 [[package]]
 name = "isaaclab-contrib"
-version = "1.3.1"
+version = "2.0.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_contrib" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1698,7 +1702,6 @@ dependencies = [
     { name = "isaaclab-tasks", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-tasks-experimental", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaaclab-visualizers", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "isaacsim-asset-isolated", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "lazy-loader", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "matplotlib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "meshio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1798,7 +1801,7 @@ requires-dist = [
     { name = "isaaclab", editable = "submodules/IsaacLab/source/isaaclab" },
     { name = "isaaclab-assets", editable = "submodules/IsaacLab/source/isaaclab_assets" },
     { name = "isaaclab-contrib", editable = "submodules/IsaacLab/source/isaaclab_contrib" },
-    { name = "isaaclab-dev", extras = ["sb3", "skrl", "rl-games", "rsl-rl", "viser", "rerun", "isaacsim", "ov"], marker = "extra == 'all'" },
+    { name = "isaaclab-dev", extras = ["sb3", "skrl", "rl-games", "rsl-rl", "viser", "rerun", "ov"], marker = "extra == 'all'" },
     { name = "isaaclab-experimental", editable = "submodules/IsaacLab/source/isaaclab_experimental" },
     { name = "isaaclab-mimic", marker = "extra == 'mimic'", editable = "submodules/IsaacLab/source/isaaclab_mimic" },
     { name = "isaaclab-mimic", marker = "extra == 'teleop'", editable = "submodules/IsaacLab/source/isaaclab_mimic" },
@@ -1813,7 +1816,7 @@ requires-dist = [
     { name = "isaaclab-visualizers", editable = "submodules/IsaacLab/source/isaaclab_visualizers" },
     { name = "isaacsim", extras = ["all", "extscache"], marker = "extra == 'isaacsim'", specifier = "==6.0.1.0" },
     { name = "isaacsim", extras = ["all", "extscache"], marker = "extra == 'teleop'", specifier = "==6.0.1.0" },
-    { name = "isaacsim-asset-isolated", specifier = ">=6.0,<6.1" },
+    { name = "isaacsim-asset-isolated", marker = "extra == 'importers'", specifier = ">=6.0,<6.1" },
     { name = "isaacteleop", extras = ["retargeters", "ui", "cloudxr"], marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'teleop'", specifier = "~=1.4.0" },
     { name = "junitparser", marker = "extra == 'test'" },
     { name = "lazy-loader", specifier = ">=0.4" },
@@ -1832,13 +1835,13 @@ requires-dist = [
     { name = "onnxscript", specifier = ">=0.5" },
     { name = "onnxscript", marker = "extra == 'rsl-rl'", specifier = ">=0.5" },
     { name = "open3d", marker = "(python_full_version < '3.13' and platform_machine != 'aarch64') or (python_full_version < '3.13' and sys_platform != 'linux')", specifier = ">=0.19.0" },
-    { name = "ovphysx", marker = "extra == 'ov'", specifier = "==0.5.9", index = "https://pypi.org/simple" },
-    { name = "ovphysx", marker = "extra == 'ovphysx'", specifier = "==0.5.9", index = "https://pypi.org/simple" },
-    { name = "ovrtx", marker = "extra == 'ov'", specifier = ">=0.4.0,<0.5.0" },
-    { name = "ovrtx", marker = "extra == 'ovrtx'", specifier = ">=0.4.0,<0.5.0" },
-    { name = "ovstage", marker = "extra == 'ov'", specifier = "==0.1.0.346039", index = "https://pypi.org/simple" },
-    { name = "ovstage", marker = "extra == 'ovphysx'", specifier = "==0.1.0.346039", index = "https://pypi.org/simple" },
-    { name = "ovstage", marker = "extra == 'ovrtx'", specifier = "==0.1.0.346039", index = "https://pypi.org/simple" },
+    { name = "ovphysx", marker = "extra == 'ov'", specifier = "==0.5.10", index = "https://pypi.org/simple" },
+    { name = "ovphysx", marker = "extra == 'ovphysx'", specifier = "==0.5.10", index = "https://pypi.org/simple" },
+    { name = "ovrtx", marker = "extra == 'ov'", specifier = "==0.4.1.364340", index = "https://pypi.org/simple" },
+    { name = "ovrtx", marker = "extra == 'ovrtx'", specifier = "==0.4.1.364340", index = "https://pypi.org/simple" },
+    { name = "ovstage", marker = "extra == 'ov'", specifier = "==0.1.1.355824", index = "https://pypi.org/simple" },
+    { name = "ovstage", marker = "extra == 'ovphysx'", specifier = "==0.1.1.355824", index = "https://pypi.org/simple" },
+    { name = "ovstage", marker = "extra == 'ovrtx'", specifier = "==0.1.1.355824", index = "https://pypi.org/simple" },
     { name = "packaging" },
     { name = "pandas", marker = "extra == 'rlinf'" },
     { name = "peft", marker = "extra == 'rlinf'", specifier = ">=0.17.0" },
@@ -1882,6 +1885,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=0.46.0,<0.50" },
     { name = "tensorboard" },
     { name = "timm", marker = "extra == 'rlinf'", specifier = ">=1.0.14" },
+    { name = "tinyobjloader", marker = "extra == 'importers'", specifier = "==2.0.0rc13" },
     { name = "torch", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (sys_platform != 'linux' and sys_platform != 'win32')", specifier = ">=2.11" },
     { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cu128" },
@@ -1903,11 +1907,11 @@ requires-dist = [
     { name = "viser", marker = "extra == 'viser'", specifier = ">=1.0.16" },
     { name = "warp-lang", specifier = "==1.16.0" },
 ]
-provides-extras = ["tetrahedralization", "video", "test", "sb3", "skrl", "rl-games", "rsl-rl", "viser", "rerun", "isaacsim", "ov", "ovphysx", "ovrtx", "mimic", "teleop", "rlinf", "leapp", "all"]
+provides-extras = ["tetrahedralization", "video", "importers", "test", "sb3", "skrl", "rl-games", "rsl-rl", "viser", "rerun", "isaacsim", "ov", "ovphysx", "ovrtx", "mimic", "teleop", "rlinf", "leapp", "all"]
 
 [[package]]
 name = "isaaclab-experimental"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "submodules/IsaacLab/source/isaaclab_experimental" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1918,7 +1922,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-mimic"
-version = "2.0.4"
+version = "2.0.5"
 source = { editable = "submodules/IsaacLab/source/isaaclab_mimic" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1935,7 +1939,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-newton"
-version = "5.0.0"
+version = "5.3.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_newton" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1946,7 +1950,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-ov"
-version = "2.0.1"
+version = "2.1.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_ov" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1956,12 +1960,12 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "isaaclab", editable = "submodules/IsaacLab/source/isaaclab" },
-    { name = "ovstage", specifier = "==0.1.0.346039" },
+    { name = "ovstage", specifier = "==0.1.1.355824" },
 ]
 
 [[package]]
 name = "isaaclab-physx"
-version = "5.0.0"
+version = "5.1.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_physx" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1983,7 +1987,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-rl"
-version = "0.14.1"
+version = "0.16.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_rl" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2000,7 +2004,7 @@ requires-dist = [
 
 [[package]]
 name = "isaaclab-tasks"
-version = "16.1.0"
+version = "17.0.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_tasks" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2041,7 +2045,7 @@ requires-dist = [{ name = "isaaclab", editable = "submodules/IsaacLab/source/isa
 
 [[package]]
 name = "isaaclab-visualizers"
-version = "1.5.2"
+version = "1.7.0"
 source = { editable = "submodules/IsaacLab/source/isaaclab_visualizers" }
 dependencies = [
     { name = "isaaclab", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2111,22 +2115,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/isaacsim-asset/isaacsim_asset-6.0.1.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:fc62712adb1641ce53aad11c257331f5c4fccba59255ba8d2514a745cb0efbe4" },
-]
-
-[[package]]
-name = "isaacsim-asset-isolated"
-version = "6.0.1.0"
-source = { registry = "https://pypi.nvidia.com/" }
-dependencies = [
-    { name = "isaacsim-robot-schema", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "mujoco", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "mujoco-usd-converter", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "newton-usd-schemas", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "urdf-usd-converter", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "usd-exchange", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://pypi.nvidia.com/isaacsim-asset-isolated/isaacsim_asset_isolated-6.0.1.0-py3-none-any.whl", hash = "sha256:2861f2cb9459c3f82fdf730342b372f1b3aee6eac16fd022230322652c594d56" },
 ]
 
 [[package]]
@@ -2376,17 +2364,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/isaacsim-robot-motion/isaacsim_robot_motion-6.0.1.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:2a6af11d616efbde551813d40ac22cd2ce992a862fbe8395a3f83ca5d4a937de" },
-]
-
-[[package]]
-name = "isaacsim-robot-schema"
-version = "6.0.1.0"
-source = { registry = "https://pypi.nvidia.com/" }
-dependencies = [
-    { name = "usd-exchange", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://pypi.nvidia.com/isaacsim-robot-schema/isaacsim_robot_schema-6.0.1.0-py3-none-any.whl", hash = "sha256:1a712f30202ec2286ac1dea521ec35b6d8dca1febfcf617c373b485547733884" },
 ]
 
 [[package]]
@@ -3750,30 +3727,28 @@ wheels = [
 
 [[package]]
 name = "ovphysx"
-version = "0.5.9"
+version = "0.5.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ovstage", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "packaging", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/94/283cb414049629a5a2282514f0d960e85077e3469fd57e00df5db6e9cfd2/ovphysx-0.5.9-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:0363b407833ffe911bd3f77a1496d90b4b882e6b28fc5276681e607bc247cafa", size = 168818381, upload-time = "2026-07-21T17:55:38.653Z" },
+    { url = "https://files.pythonhosted.org/packages/df/65/6026f684b457576455fe599a0a3e74716857d50f30a02ace0d503e6aa528/ovphysx-0.5.10-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:b8ffa4a26570cbf252b161e752c4ea7f0843b32ed96573aba99757ceb19efeb1", size = 168897727, upload-time = "2026-08-07T08:23:51.141Z" },
 ]
 
 [[package]]
 name = "ovrtx"
-version = "0.4.0.346409"
-source = { registry = "https://pypi.nvidia.com/" }
-wheels = [
-    { url = "https://pypi.nvidia.com/ovrtx/ovrtx-0.4.0.346409-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:8d79eaa13fbee4eae14911047974e659585ec50327103de41cd37aedec369777" },
-]
+version = "0.4.1.364340"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/3e/ecefd14d7dc8b377607aafe19e426f40b921b2be9a8f73ebc6e4d180ecd1/ovrtx-0.4.1.364340.tar.gz", hash = "sha256:1b20e48a69a091246b0537412e0434ee5d5437a8bfc3bbe02599f13ac7488927", size = 23382, upload-time = "2026-08-14T22:43:40.756Z" }
 
 [[package]]
 name = "ovstage"
-version = "0.1.0.346039"
+version = "0.1.1.355824"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/73/4dcb1de47907cedf3747db05a0a769ac40540abacc7597bca4bf00c454a3/ovstage-0.1.0.346039-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:6e96453f48f1e3177b28ac554f39728d22f3143958ad687986235cb5eb87f919", size = 64306930, upload-time = "2026-07-16T23:27:49.889Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/2e/e5d03719d9ab8e412187be84efe11bc6b912eca02bd8dfb09a1bf522bbe4/ovstage-0.1.1.355824-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:b4affd9e5b23620ec71901a164df4ae373d25de2c76b9fae4d193d97aa2df0ec", size = 64302147, upload-time = "2026-08-05T20:06:18.013Z" },
 ]
 
 [[package]]
