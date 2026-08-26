@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import argparse
 import matplotlib.pyplot as plt
-import torch
 from pathlib import Path
+from typing import Literal
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
-from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
+from isaaclab_arena.analysis.sensitivity.plotting import plot_empirical_marginals, plot_marginals
 
 
 def generate_report(
@@ -22,8 +22,11 @@ def generate_report(
     factor_names: list[str] | tuple[str, ...] | None = None,
     observation: list[float] | None = None,
     seed: int | None = 0,
+    method: Literal["fitted", "empirical"] = "fitted",
+    num_bins: int = 6,
+    num_bootstrap_samples: int = 1000,
 ) -> Path:
-    """Build a sensitivity report from an episode_results.jsonl, fit, and save a figure.
+    """Build and save a fitted or empirical sensitivity report from episode results.
 
     The factor schema is discovered from the recorder's per-episode variation draws. The output
     format follows the output_path extension (.png, .pdf, …).
@@ -35,27 +38,37 @@ def generate_report(
         factor_names: Which recorded variations to analyze. None analyzes all of them.
         observation: Outcome values to condition on, one per outcome name. None conditions on
             success (1) for every binary outcome.
-        seed: Seed for torch's global RNG so a report is reproducible. Pass None to leave the
-            RNG untouched.
+        seed: Seed for fitted inference or empirical bootstrap resampling. Pass None for
+            nondeterministic behavior.
+        method: ``fitted`` trains NPE or MNPE; ``empirical`` uses exactly matching episodes.
+        num_bins: Number of fixed bins per continuous factor in an empirical report.
+        num_bootstrap_samples: Number of paired episode resamples used for empirical intervals.
 
     Returns:
         The resolved output path.
     """
-    # Estimator training (fit) and posterior sampling both draw from torch's global RNG in
-    # sequence, so seeding once here makes the whole report reproducible.
-    if seed is not None:
-        torch.manual_seed(seed)
-
+    assert method in {"fitted", "empirical"}, f"Unknown sensitivity method {method!r}."
     dataset = dataset_from_episode_results(episode_results_path, outcome_names, factor_names)
-    analyzer = SensitivityAnalyzer(dataset)
-    analyzer.fit()
-
-    observation_tensor = (
-        dataset.default_observation() if observation is None else torch.tensor(observation, dtype=torch.float32)
-    )
-    samples = analyzer.sample_posterior(observation_tensor)
     output_path = Path(output_path)
-    plot_marginals(samples, dataset, observation_tensor, output_path=str(output_path))
+    analyzer = SensitivityAnalyzer(dataset)
+    observation_tensor = dataset.prepare_observation_tensor(observation)
+    if method == "empirical":
+        result = analyzer.analyze(
+            method="empirical",
+            observation=observation_tensor,
+            seed=seed,
+            num_bins=num_bins,
+            num_bootstrap_samples=num_bootstrap_samples,
+        )
+        print(
+            f"[INFO] Empirical sensitivity: {result.num_matching_episodes} of "
+            f"{result.num_episodes} episodes exactly match the observation."
+        )
+        plot_empirical_marginals(result, dataset, output_path=str(output_path))
+    else:
+        posterior_samples = analyzer.analyze(method="fitted", observation=observation_tensor, seed=seed)
+        plot_marginals(posterior_samples, dataset, observation_tensor, output_path=str(output_path))
+
     plt.close("all")
     print(f"[INFO] Wrote report → {output_path}")
     return output_path
@@ -64,8 +77,8 @@ def generate_report(
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Build a sensitivity report (one posterior-marginal panel per factor) from an "
-            "episode_results.jsonl. Output format follows the --output extension."
+            "Build a fitted or empirical sensitivity report from an episode_results.jsonl. "
+            "Output format follows the --output extension."
         )
     )
     parser.add_argument(
@@ -104,14 +117,29 @@ def main():
         default=None,
         help=(
             "Outcome values to condition on, one per --outcome (in order). "
-            "Outcomes are binary, so use 1 for success or 0 for failure. Defaults to 1 (success)."
+            "Defaults to 1 for each binary outcome; pass values explicitly for continuous outcomes."
         ),
+    )
+    parser.add_argument(
+        "--method",
+        choices=["fitted", "empirical"],
+        default="fitted",
+        help=(
+            "Analysis method. 'empirical' uses episodes that exactly match the observation; "
+            "'fitted' trains NPE or MNPE. Default: fitted."
+        ),
+    )
+    parser.add_argument(
+        "--bins",
+        type=int,
+        default=6,
+        help="Number of fixed bins per continuous factor for --method empirical. Default: 6.",
     )
     parser.add_argument(
         "--seed",
         type=int,
         default=0,
-        help="Seed for torch's global RNG so a report is reproducible. Default: 0.",
+        help="Seed for fitted inference or empirical bootstrap resampling. Default: 0.",
     )
     args = parser.parse_args()
 
@@ -122,6 +150,8 @@ def main():
         factor_names=args.factors,
         observation=args.observation,
         seed=args.seed,
+        method=args.method,
+        num_bins=args.bins,
     )
 
 
