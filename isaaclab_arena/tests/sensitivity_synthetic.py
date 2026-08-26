@@ -158,13 +158,49 @@ def make_mixed_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDatase
     )
 
 
+def _select_factors_for_plot(
+    dataset: SensitivityDataset,
+    posterior_samples: torch.Tensor,
+    factor_names: list[str] | None,
+) -> tuple[SensitivityDataset, torch.Tensor]:
+    """Return aligned dataset and posterior columns for the requested plot panels."""
+    if factor_names is None:
+        return dataset, posterior_samples
+
+    assert len(factor_names) == len(set(factor_names)), "--plot-factors must not contain duplicate names."
+    available_factor_names = [factor.name for factor in dataset.factors]
+    unknown_factor_names = [factor_name for factor_name in factor_names if factor_name not in available_factor_names]
+    assert not unknown_factor_names, (
+        f"Unknown --plot-factors: {', '.join(unknown_factor_names)}. "
+        f"Available factors: {', '.join(available_factor_names)}."
+    )
+
+    requested_factor_names = set(factor_names)
+    selected_factors = [factor for factor in dataset.factors if factor.name in requested_factor_names]
+    factor_columns = dataset.factor_columns
+    selected_theta = torch.cat([dataset.theta[:, factor_columns[factor.name]] for factor in selected_factors], dim=1)
+    selected_posterior_samples = torch.cat(
+        [posterior_samples[:, factor_columns[factor.name]] for factor in selected_factors], dim=1
+    )
+    selected_dataset = SensitivityDataset(
+        selected_factors,
+        selected_theta,
+        dataset.x,
+        outcome_names=dataset.outcome_names,
+    )
+    return selected_dataset, selected_posterior_samples
+
+
 def _demo():
     """Run the full pipeline on a synthetic dataset and save the marginals plot.
 
     Runs the pipeline end to end on generated data: simulate → fit → plot, with no eval
     data needed. Run as::
 
-        python -m isaaclab_arena.tests.sensitivity_synthetic --kind mixed --output eval/demo.png
+        python -m isaaclab_arena.tests.sensitivity_synthetic \\
+          --kind mixed \\
+          --plot-factors light_intensity object_mass camera_distance \\
+          --output eval/demo.png
     """
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
@@ -180,6 +216,16 @@ def _demo():
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num-episodes", type=int, default=2000)
+    parser.add_argument(
+        "--plot-factors",
+        type=str,
+        nargs="+",
+        default=None,
+        help=(
+            "Factor names to display, in dataset order. Inference still uses every factor in the selected dataset "
+            "kind. Defaults to every factor."
+        ),
+    )
     args = parser.parse_args()
 
     builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset}[args.kind]
@@ -188,7 +234,8 @@ def _demo():
     analyzer.fit()
     observation = dataset.default_observation()
     samples = analyzer.sample_posterior(observation)
-    plot_marginals(samples, dataset, observation, output_path=args.output)
+    plot_dataset, plot_samples = _select_factors_for_plot(dataset, samples, args.plot_factors)
+    plot_marginals(plot_samples, plot_dataset, observation, output_path=args.output)
     print(f"[INFO] Wrote synthetic sensitivity report → {args.output}")
 
 

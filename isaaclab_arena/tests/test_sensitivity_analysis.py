@@ -29,11 +29,49 @@ from isaaclab_arena.tests.sensitivity_synthetic import (
     MATERIAL,
     OBJECT_MASS,
     OBJECT_TYPE,
+    _select_factors_for_plot,
     make_continuous_dataset,
     make_mixed_dataset,
 )
 
 _NUM_SAMPLES = 5000
+
+
+def test_plot_factor_selection_preserves_mixed_inference_dataset():
+    """Selecting display panels keeps the full mixed dataset and aligns the selected sample columns."""
+    dataset = make_mixed_dataset(seed=0, num_episodes=8)
+
+    selected_dataset, selected_samples = _select_factors_for_plot(
+        dataset,
+        dataset.theta,
+        ["light_intensity", "object_mass", "camera_distance"],
+    )
+
+    assert [factor.name for factor in dataset.factors] == [
+        "light_intensity",
+        "object_mass",
+        "camera_distance",
+        "object_type",
+        "table_material",
+    ]
+    assert dataset.has_categorical_factors
+    assert [factor.name for factor in selected_dataset.factors] == [
+        "light_intensity",
+        "object_mass",
+        "camera_distance",
+    ]
+    assert not selected_dataset.has_categorical_factors
+    assert torch.equal(selected_samples, dataset.theta[:, :3])
+
+
+def test_plot_factor_selection_rejects_invalid_names():
+    """Display-factor selection rejects duplicate and unknown names before plotting."""
+    dataset = make_mixed_dataset(seed=0, num_episodes=8)
+
+    with pytest.raises(AssertionError, match="duplicate"):
+        _select_factors_for_plot(dataset, dataset.theta, ["light_intensity", "light_intensity"])
+    with pytest.raises(AssertionError, match="Unknown.*missing_factor"):
+        _select_factors_for_plot(dataset, dataset.theta, ["missing_factor"])
 
 
 def _factor_samples(analyzer: SensitivityAnalyzer, samples: torch.Tensor, factor_name: str) -> np.ndarray:
