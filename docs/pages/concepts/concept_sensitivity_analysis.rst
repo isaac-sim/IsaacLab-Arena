@@ -127,9 +127,9 @@ Isaac Sim — useful for seeing the output shape and for validating the toolbox
 
    python -m isaaclab_arena.tests.sensitivity_synthetic \
      --kind continuous \
-     --output eval/demo.png
+     --output eval/sensitivity_synthetic_continuous_marginals.png
 
-   NO_AT_BRIDGE=1 pqiv eval/demo.png
+   NO_AT_BRIDGE=1 pqiv eval/sensitivity_synthetic_continuous_marginals.png
 
 The continuous dataset contains three factors and exercises the NPE path. ``--kind`` also accepts
 ``mixed`` to exercise the MNPE path with three continuous and two categorical factors.

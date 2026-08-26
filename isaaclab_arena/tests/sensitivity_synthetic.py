@@ -173,7 +173,7 @@ def _demo():
 
         python -m isaaclab_arena.tests.sensitivity_synthetic \\
           --kind continuous \\
-          --output eval/demo.png
+          --output eval/sensitivity_synthetic_continuous_marginals.png
     """
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
