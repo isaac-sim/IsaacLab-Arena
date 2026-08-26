@@ -9,19 +9,16 @@ from dataclasses import dataclass
 
 @dataclass
 class Pose:
-    """Transform taking frame A to frame B.
+    """Pose mapping points from frame B into frame A.
 
-    T_A_B = (t_B_A, q_B_A)
-
-    p_B = p_A + t_B_A
-    q_B = q_A * q_B_A
+    ``T_A_B = (t_A_B, q_A_B)`` and ``p_A = R_A_B p_B + t_A_B``.
     """
 
     position_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    """Translation vector from frame A to frame B."""
+    """Translation from frame B to frame A, expressed in frame A."""
 
     rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
-    """Quaternion from frame A to frame B. Order is (x, y, z, w)."""
+    """Quaternion mapping frame B coordinates into frame A. Order is (x, y, z, w)."""
 
     def __post_init__(self):
         assert isinstance(self.position_xyz, tuple)

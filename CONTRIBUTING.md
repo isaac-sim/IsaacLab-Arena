@@ -3,6 +3,19 @@
 This document describes the rules for contributing to Isaac Lab-Arena
 
 
+### Coordinate-frame naming
+
+Use active target-source notation for Arena-owned poses and transforms:
+
+- `T_A_B` maps points from frame `B` into frame `A`.
+- For example, `T_W_O` maps points from object frame `O` into world frame `W`.
+- Transform composition follows `T_C_A = T_C_B * T_B_A`.
+- Define frame letters near their first use when their meaning is not obvious.
+- Preserve external API names such as Isaac Lab's `root_pose_w`. When using these values in Arena frame
+  composition, bind them to the corresponding explicit transform name, for example
+  `T_W_O = object.data.root_pose_w`.
+
+
 #### Signing Your Work
 
 * We require that all contributors "sign-off" on their commits.
