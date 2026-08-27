@@ -229,6 +229,33 @@ def test_outcome_disagreeing_with_progress_is_detected():
     assert not no_progress_block.outcome_disagrees_with_progress
 
 
+def test_summary_mean_progress_averages_scored_episodes_across_runs(tmp_path):
+    def record(episode: int, score: float | None) -> dict:
+        entry = {"env_id": 0, "episode_in_env": episode, "success": False}
+        return entry if score is None else {**entry, "progress": {"overall_score": score}}
+
+    _write_run(tmp_path, "banana_pi0", [record(0, 0.25), record(1, 0.75)])
+    _write_run(tmp_path, "bowl_pi0", [record(0, 0.5), record(1, None)])
+    _write_run(tmp_path, "banana_cosmos", [record(0, 1.0)])
+
+    summary = build_experiment_summary(tmp_path, "Report")
+
+    # The unscored episode is left out of both the run mean and the aggregates above it.
+    assert summary.tasks[1].job_for_policy("pi0").mean_progress == 0.5
+    assert summary.mean_progress_for_policy("pi0") == 0.5
+    assert summary.mean_progress_for_policy("cosmos") == 1.0
+    assert summary.overall_mean_progress == 0.625
+
+
+def test_summary_mean_progress_is_none_without_recorded_progress(tmp_path):
+    _write_run(tmp_path, "banana_pi0", [{"env_id": 0, "episode_in_env": 0, "success": True}])
+
+    summary = build_experiment_summary(tmp_path, "Report")
+
+    assert summary.overall_mean_progress is None
+    assert summary.mean_progress_for_policy("pi0") is None
+
+
 def test_summary_groups_sparse_runs_by_repeated_policy_tokens(tmp_path):
     _write_run(tmp_path, "banana_pi0", [{"env_id": 0, "episode_in_env": 0, "success": True}])
     _write_run(tmp_path, "banana_cosmos", [{"env_id": 0, "episode_in_env": 0, "success": False}])
