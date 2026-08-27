@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: isaaclab_arena_environments/maple_table_top/perflab_same_apple_into_bowl_maple_table.yaml
+    enable_cameras: false
+  environment_builder:
+    num_envs: 1
+    env_spacing: 2.5
+    seed: 42
+    placement_seed: 42
+    language_instruction: Pick up the fruit and place it in the bowl.
+  policy:
+    type: zero_action
+  rollout_limit:
+    # Provisional smoke length; replace with the agreed benchmark rollout length before PerfLab handoff.
+    num_steps: 10
+  num_rebuilds: 1
+
+runs:
+  same_object_control: {}

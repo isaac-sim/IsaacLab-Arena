@@ -1,0 +1,29 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# One Run per process keeps each PerfLab sweep point isolated.
+shared:
+  environment:
+    type: pick_and_place_maple_table
+    enable_cameras: false
+    embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+    hdr: home_office_robolab
+  environment_builder:
+    num_envs: 1
+    env_spacing: 2.5
+    seed: 42
+    placement_seed: 42
+    language_instruction: Pick up the Rubik's cube and place it in the bowl.
+  policy:
+    type: zero_action
+  rollout_limit:
+    # Provisional smoke length; replace with the agreed benchmark rollout length before PerfLab handoff.
+    num_steps: 10
+  num_rebuilds: 1
+
+runs:
+  camera_free_baseline: {}
