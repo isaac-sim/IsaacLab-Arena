@@ -11,9 +11,9 @@ Here, **Pi Zero means the checked-in Pi0.5 (`pi05`) experiment**. Do not substit
 `pi0` checkpoint without a separate agreed configuration.
 
 Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5 also
-needs a separately started OpenPI server process. The local helper does not automatically put that
-server on another GPU. These commands do not use OSMO, `torchrun`, distributed evaluation, video
-recording, or the legacy JSON runner.
+needs a separately started OpenPI server, which can share that GPU or use `-g` for another GPU.
+These commands do not use OSMO, `torchrun`, distributed evaluation, video recording, or the legacy
+JSON runner.
 
 ## What the three experiments show
 
@@ -37,6 +37,16 @@ is not sent to OpenPI.
 The zero-action policy keeps the robot stationary. A completed zero-action run proves that the
 performance pipeline worked; it is not expected to solve the task.
 
+## Run order
+
+1. Prepare the checkout and Arena container.
+2. Set `NUM_STEPS=300` and finish the camera-free sweep.
+3. Finish the production-camera sweep.
+4. Start the Pi0.5 server and finish the Pi0.5 sweep.
+
+Run one command at a time. Before starting the next command, confirm that the preceding simulator
+process exited and its GPU memory returned to the idle level.
+
 ## Configuration used by every measured run
 
 Keep these settings fixed:
@@ -48,13 +58,12 @@ Keep these settings fixed:
 - Placement seed: `42`.
 - Environment spacing: `2.5`.
 - Environment rebuilds: `1`.
-- Three valid repeats for every successful environment count.
-- One fresh Experiment Runner process for every environment count and repeat.
+- One fresh Experiment Runner process for every environment count.
 
-The YAML files keep `num_steps: 10` as a quick smoke default. Every measured command below
-explicitly overrides it with `NUM_STEPS=300`. This is long enough for Pi0.5 to fetch multiple action
-chunks instead of measuring only its first request. Confirm this proposed value before scheduling
-the final PerfLab job, then use the same value for all three experiments.
+The YAML files keep `num_steps: 10` as a debugging default. This runbook overrides it with
+`NUM_STEPS=300`, which lets Pi0.5 fetch multiple action chunks instead of measuring only its first
+request. Confirm this proposed value before scheduling the final PerfLab job, then use it for all
+three experiments.
 
 Before the handoff, the Arena owner must provide PerfLab with the exact Arena commit, Isaac Lab
 submodule commit, Arena image digest, OpenPI image digest, and trial timeout. Do not benchmark a
@@ -68,7 +77,7 @@ PerfLab needs:
 - Docker and the NVIDIA Container Toolkit.
 - Git access to Isaac Lab-Arena and access to its task assets.
 - One simulator GPU for the two zero-action experiments.
-- At least one GPU for a local Pi0.5 smoke check. The simulator and policy server may share it.
+- At least one GPU for Pi0.5. The simulator and policy server may share it.
 - A second GPU for Pi0.5 only when the agreed PerfLab layout isolates policy inference from the
   simulator.
 - Enough local storage for the Arena image, an approximately 19 GB OpenPI image, an approximately
@@ -157,49 +166,19 @@ Set these variables inside the Arena container before each command:
 ```bash
 NUM_STEPS=300
 NUM_ENVS=1
-REPEAT=1
-ATTEMPT=1
 ```
 
 - `NUM_STEPS` stays at `300` for every measured trial.
 - `NUM_ENVS` selects one point from the experiment's sweep.
-- `REPEAT` is `1`, `2`, or `3`.
-- `ATTEMPT` starts at `1`. Increase it only when an infrastructure problem requires the exact
-  trial to be run again.
 
-The path includes all four values, so a smoke test, measured repeat, or retry cannot overwrite an
-earlier result. The exact output directory passed to Arena must be missing or empty.
+The exact output directory passed to Arena must be missing or empty.
 
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before `/isaac-sim/python.sh` and stop it when that process exits.
 Container startup, image downloads, asset downloads, and OpenPI server startup are preparation and
 must not be included in this trial time.
 
-## 4. Run a one-environment smoke check
-
-Before collecting measurements, run each available experiment once with:
-
-```bash
-NUM_STEPS=10
-NUM_ENVS=1
-REPEAT=1
-ATTEMPT=1
-```
-
-Use the commands in the next sections without changing anything else. These smoke results only
-check setup and output creation. Do not include them in the benchmark tables.
-
-The smoke checks also warm the asset, shader, and image caches. The Pi0.5 smoke check warms the
-policy server. Treat every later measured trial as a warm-cache run, and do not clear these caches
-between repeats.
-
-After all smoke checks pass, restore:
-
-```bash
-NUM_STEPS=300
-```
-
-## 5. Experiment 1: zero action without cameras
+## 4. Experiment 1: zero action without cameras
 
 This is the simplest reference workload. It needs only the Arena container and one simulator GPU.
 No policy server is involved.
@@ -212,7 +191,7 @@ env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   --experiment_config \
     isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml \
   --experiment_output_directory \
-    "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
+    "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
   --device cuda:0 \
   --rendering_mode balanced \
@@ -229,10 +208,10 @@ For the measured sweep, use these environment counts in order:
 1, 64, 256, 1024, 2048
 ```
 
-Run `4096` only if all three `2048` repeats complete. For each count, run repeats `1`, `2`, and `3`
-before increasing `NUM_ENVS`.
+Run `4096` only if `2048` completes successfully. Run each count once before increasing
+`NUM_ENVS`.
 
-## 6. Experiment 2: zero action with production cameras
+## 5. Experiment 2: zero action with production cameras
 
 This uses the same task and zero-action policy, but enables the maintained three-camera DROID rig.
 The Experiment Runner detects the camera requirement from the YAML, so do not add an
@@ -246,7 +225,7 @@ env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   --experiment_config \
     isaaclab_arena_environments/experiment_configs/perflab/production_camera_benchmark_experiment.yaml \
   --experiment_output_directory \
-    "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
+    "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
   --device cuda:0 \
   --rendering_mode balanced \
@@ -263,30 +242,25 @@ For the measured sweep, use these environment counts in order:
 1, 16, 64, 128, 256
 ```
 
-If all three `256` repeats complete, continue by doubling to `512`, then `1024`, and so on while
-the preceding point remains stable.
+If `256` completes successfully, continue by doubling to `512`, then `1024`, and so on while the
+preceding point succeeds.
 
-## 7. Prepare the Pi0.5 policy server
+## 6. Prepare the Pi0.5 policy server
 
-Do this before the Pi0.5 smoke check or measured sweep. Use a second host terminal in the same
-clean Arena checkout.
-
-The checked-in OpenPI helper does not select a policy-server GPU. It starts Docker with `--gpus
-all`; the Arena launcher also exposes all visible GPUs, and the commands below run Arena on
-`cuda:0`. On a normal local machine, both processes may therefore use the first visible GPU. That
-is acceptable for a functional smoke check, but the resulting timing includes GPU contention.
-
-If the agreed PerfLab measurement uses separate simulator and policy GPUs, PerfLab must isolate
-them in its job or container harness. The current helper cannot enforce that layout by itself; it
-would need a GPU-selection option or an equivalent PerfLab launch command. Record whether the run
-used a shared or dedicated policy GPU, and do not compare results from the two layouts as if they
-were the same workload.
-
-Start the server:
+Before running Pi0.5, start OpenPI in a second terminal. To share one GPU with Arena:
 
 ```bash
 ./isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
 ```
+
+To keep Arena on `cuda:0` and run OpenPI on GPU 1 of the same machine:
+
+```bash
+./isaaclab_arena_openpi/docker/run_openpi_server.sh -g 1 -v pi05 -p 8000
+```
+
+The `-g` option only selects the server GPU. Networking is unchanged: the local client still uses
+`127.0.0.1:8000`. Record whether the policy GPU was shared or dedicated.
 
 On the first invocation, the wrapper may build the approximately 19 GB OpenPI image and download
 the approximately 11 GB Pi0.5 checkpoint. Complete that work before starting the measured clock.
@@ -297,11 +271,11 @@ Wait until the server prints:
 INFO:websockets.server:server listening on 0.0.0.0:8000
 ```
 
-Leave this terminal and server running throughout the complete Pi0.5 smoke check and measured
-sweep. Do not include server startup in the Arena trial time. Keep the server's checkpoint, GPU,
-endpoint, and warm state unchanged across repeats.
+Leave this terminal and server running throughout the Pi0.5 sweep. Do not include server startup
+in the Arena trial time. Keep the server's checkpoint, GPU, endpoint, and warm state unchanged
+throughout the sweep.
 
-## 8. Experiment 3: Pi0.5 with production cameras
+## 7. Experiment 3: Pi0.5 with production cameras
 
 Return to the Arena container terminal. The default setup uses the OpenPI server at
 `127.0.0.1:8000`:
@@ -319,7 +293,7 @@ env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
   --experiment_config \
     isaaclab_arena_environments/experiment_configs/perflab/pi05_benchmark_experiment.yaml \
   --experiment_output_directory \
-    "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
+    "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/steps-${NUM_STEPS}" \
   --viz none \
   --device cuda:0 \
   --rendering_mode balanced \
@@ -332,9 +306,8 @@ env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
 This renders the production camera observations, sends one request per environment to OpenPI when
 a new action chunk is needed, applies the returned actions, writes the result, and exits. The
 current client sends environment requests one at a time and reuses each Pi0.5 action chunk for 15
-simulation steps. That behavior is part of this end-to-end measurement. A ten-step smoke check
-normally makes only the first request for each environment; the 300-step run exercises repeated
-requests.
+simulation steps. That behavior is part of this end-to-end measurement, and the 300-step run
+exercises repeated requests.
 
 For the measured sweep, use these environment counts in order:
 
@@ -342,25 +315,11 @@ For the measured sweep, use these environment counts in order:
 1, 16, 64, 128, 256
 ```
 
-If all three `256` repeats complete, continue by doubling while the preceding point remains
-stable. Finish all Pi0.5 repeats before stopping the OpenPI server. Stop it with Ctrl-C in the same
-terminal that started the wrapper so the wrapper can clean up correctly.
+If `256` completes successfully, continue by doubling while the preceding point succeeds. Finish
+the Pi0.5 sweep before stopping the OpenPI server. Stop it with Ctrl-C in the same terminal that
+started the wrapper so the wrapper can clean up correctly.
 
-## 9. Run order
-
-Use this order:
-
-1. Run the three one-environment, ten-step smoke checks. Start OpenPI before the Pi0.5 smoke check.
-2. Set `NUM_STEPS=300`.
-3. Finish the camera-free sweep.
-4. Finish the production-camera sweep.
-5. Use the same verified Pi0.5 server from the smoke check and finish the Pi0.5 sweep.
-
-Run one command at a time. Do not put several sweep points into one Experiment Runner process.
-Before starting the next command, confirm that the preceding simulator process exited and its GPU
-memory returned to the idle level.
-
-## 10. Decide whether a trial passed
+## 8. Decide whether a trial passed
 
 A successful trial has all of the following:
 
@@ -385,7 +344,7 @@ The `rollout/step_total.count`, `rollout/env_step.count`, and
 `rollout/policy_get_action.count` entries in `arena_experiment_timings.json` must equal
 `NUM_STEPS`.
 
-## 11. Handle failures without losing information
+## 9. Handle failures without losing information
 
 A clear CUDA OOM, confirmed host OOM, or repeatable high-count simulator failure is a capacity
 result. An elapsed trial timeout is also a capacity result only when the simulator, policy server,
@@ -398,13 +357,13 @@ and worker infrastructure stayed healthy:
 5. Continue with the next experiment.
 
 A server outage, image or asset download failure, network outage, preemption, or machine failure
-is an infrastructure failure, not a performance result. Fix the problem, increase `ATTEMPT`, and
-rerun the same `NUM_ENVS`, `NUM_STEPS`, and `REPEAT`. Never silently reduce an environment count or
-change another setting.
+is an infrastructure failure, not a performance result. Fix the problem, choose a new
+`PERFLAB_OUTPUT_ROOT`, and rerun the same `NUM_ENVS` and `NUM_STEPS`. Never silently reduce an
+environment count or change another setting.
 
 Do not add `--continue_on_error`. A nonzero process exit is important evidence.
 
-## 12. Measurements PerfLab must return
+## 10. Measurements PerfLab must return
 
 PerfLab's outer harness is authoritative for total elapsed time. Start the clock immediately before
 the Python command and stop it after the process exits.
@@ -437,8 +396,8 @@ the Arena timers only to explain where time was spent.
 
 For every trial, return:
 
-- The fully resolved command, environment count, step count, repeat, attempt, start/end timestamps,
-  elapsed seconds, and exit code.
+- The fully resolved command, environment count, step count, start/end timestamps, elapsed seconds,
+  and exit code.
 - Full stdout and stderr.
 - Arena and Isaac Lab commits, image digests, renderer, camera contract, seeds, host inventory, GPU
   model, GPU UUID, and driver.
@@ -449,6 +408,5 @@ For every trial, return:
 - The complete Arena output directory, including partial output from a failed trial.
 - The configured trial timeout and any host or cgroup OOM evidence.
 
-For every successful point, report the median total elapsed time and median aggregate throughput
-across its three valid repeats. For each experiment, report the highest stable environment count
-and the first failed count.
+For every successful point, report total elapsed time and aggregate throughput. For each
+experiment, report the highest successful environment count and the first failed count.

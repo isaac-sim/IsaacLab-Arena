@@ -4,6 +4,7 @@
 # Usage:
 #   ./run_openpi_server.sh                              # build if missing, then run pi05
 #   ./run_openpi_server.sh -r                           # force rebuild, then run
+#   ./run_openpi_server.sh -g 1                        # run on GPU 1
 #   ./run_openpi_server.sh -p 8001                      # run on a non-default port
 #   ./run_openpi_server.sh -v pi0                       # run the pi0 variant
 #   ./run_openpi_server.sh -h                           # help
@@ -20,6 +21,7 @@ IMAGE_TAG="openpi_server"
 
 VARIANT="pi05"
 PORT="8000"
+GPU_DEVICE="all"
 FORCE_REBUILD=false
 
 print_help() {
@@ -31,15 +33,17 @@ Usage:
 
 Options:
   -r              Force rebuilding of the server image.
+  -g <device>     GPU device ID or UUID to expose. Defaults to all GPUs.
   -p <port>       Port to serve on. Defaults to 8000.
   -v <variant>    Policy variant to serve: pi05 (default) or pi0.
   -h              Show this help and exit.
 EOF
 }
 
-while getopts ":rp:v:h" opt; do
+while getopts ":rg:p:v:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
+        g) GPU_DEVICE="$OPTARG" ;;
         p) PORT="$OPTARG" ;;
         v) VARIANT="$OPTARG" ;;
         h) print_help; exit 0 ;;
@@ -89,7 +93,13 @@ echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT}, port: ${PORT})"
 mkdir -p "$OPENPI_CACHE_DIR"
 SERVER_RAN=true
 
-docker run --rm -it --gpus all --network=host \
+if [ "$GPU_DEVICE" = "all" ]; then
+    DOCKER_GPU_REQUEST="all"
+else
+    DOCKER_GPU_REQUEST="device=${GPU_DEVICE}"
+fi
+
+docker run --rm -it --gpus "$DOCKER_GPU_REQUEST" --network=host \
     -e OPENPI_DATA_HOME=/cache/openpi \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
     -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
