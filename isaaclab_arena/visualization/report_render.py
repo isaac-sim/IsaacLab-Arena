@@ -136,11 +136,14 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
             if job is None or rate is None:
                 cells.append(f'<td class="cell missing" data-sort-col="{index}" data-value="">&mdash;</td>')
                 continue
+            progress = job.mean_progress
+            tooltip = f"{job.name}: {job.num_successes}/{job.num_scored_episodes} episodes"
+            if progress is not None:
+                tooltip += f", mean progress {progress * 100:.0f}%"
             cells.append(
                 f'<td class="cell" data-rank="{_ramp_rank(rate)}" data-sort-col="{index}" data-value="{rate:.6f}">'
-                f'<a href="{_href(task_hrefs[task.name])}"'
-                f' title="{html.escape(job.name)}: {job.num_successes}/{job.num_scored_episodes} episodes">'
-                f"{_percent(rate)}</a></td>"
+                f'<a href="{_href(task_hrefs[task.name])}" title="{html.escape(tooltip)}">'
+                f'{_percent(rate)}<span class="sub">{_percent(progress)} progress</span></a></td>'
             )
         rows.append("<tr>" + "".join(cells) + "</tr>")
 
@@ -150,7 +153,8 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
         f"{header_cells}</tr></thead><tbody>\n"
         + "\n".join(rows)
         + "</tbody></table>"
-        '<p class="note">Click a task to see where its episodes failed. Click a column heading to sort.</p>'
+        '<p class="note">Each cell shows the success rate above the mean task progress.'
+        " Click a task to see where its episodes failed. Click a column heading to sort.</p>"
         "</section>"
     )
 
@@ -164,12 +168,14 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, task_hrefs: dict[str,
     rows = "\n".join(
         f'<tr><th><a href="{_href(task_hrefs[job.task])}">{html.escape(job.name or "results")}</a></th>'
         f'<td class="num">{job.num_episodes}</td>'
-        f'<td class="num">{_percent(job.success_rate)}</td></tr>'
+        f'<td class="num">{_percent(job.success_rate)}</td>'
+        f'<td class="num">{_percent(job.mean_progress)}</td></tr>'
         for job in summary.jobs
     )
     return (
         "<section><h2>Runs</h2>"
-        "<table><thead><tr><th>run</th><th>episodes</th><th>success rate</th></tr></thead>"
+        "<table><thead><tr><th>run</th><th>episodes</th><th>success rate</th>"
+        "<th>mean progress</th></tr></thead>"
         f"<tbody>\n{rows}\n</tbody></table></section>"
     )
 
@@ -181,6 +187,7 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
         _tile("Runs", str(len(summary.jobs))),
         _tile("Episodes", f"{summary.num_episodes:,}"),
         _tile("Success rate", _percent(summary.overall_success_rate)),
+        _tile("Mean progress", _percent(summary.overall_mean_progress)),
     ]
     if summary.is_grouped:
         tiles.insert(1, _tile("Policies", str(len(summary.policies))))
@@ -189,6 +196,7 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
             _tile(
                 policy,
                 _percent(summary.success_rate_for_policy(policy)),
+                f"{_percent(summary.mean_progress_for_policy(policy))} mean progress &middot; "
                 f"{summary.num_episodes_for_policy(policy):,} episodes",
             )
         )
@@ -197,7 +205,7 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
         _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, task_hrefs)
     )
     content = (
-        f'<div class="tiles">{"".join(tiles)}</div>'
+        f'<div class="tiles">{"".join(tiles)}</div>{_render_progress_coverage_note(summary)}'
         f"{_render_failed_runs_section(summary.run_executions)}"
         f"{_render_issues(summary.issues)}{body}"
     )
@@ -211,6 +219,19 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
         breadcrumb=f'<span class="current">{html.escape(summary.title)}</span>',
         summary=_experiment_summary_line(summary),
         content=content,
+    )
+
+
+def _render_progress_coverage_note(summary: ExperimentSummary) -> str:
+    """Warn when progress is averaged over fewer episodes than the success rate, so the two differ in base."""
+    scored = summary.num_progress_episodes
+    if scored == summary.num_episodes:
+        return ""
+    if scored == 0:
+        return '<p class="note">No episode recorded a task progress score, so mean progress is unavailable.</p>'
+    return (
+        f'<p class="note">Mean progress covers the {scored:,} of {summary.num_episodes:,} episode(s) that'
+        " recorded a progress score; the success rate covers them all.</p>"
     )
 
 

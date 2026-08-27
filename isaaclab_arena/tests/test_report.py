@@ -136,6 +136,53 @@ def test_build_report_writes_distinct_pages_for_slug_collisions(tmp_path):
     assert "my+run" in (pages / "job_my_run_2.html").read_text(encoding="utf-8")
 
 
+def test_overview_shows_mean_progress_beside_success_rate(tmp_path):
+    for policy, scores in (("pi0", (1.0, 0.6)), ("cosmos", (0.0, 0.2))):
+        run_dir = tmp_path / f"banana_in_bowl_{policy}"
+        run_dir.mkdir()
+        records = [
+            {"env_id": 0, "episode_in_env": index, "success": score == 1.0, "progress": {"overall_score": score}}
+            for index, score in enumerate(scores)
+        ]
+        (run_dir / "episode_results_rebuild0.jsonl").write_text(
+            "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+        )
+
+    build_report(tmp_path)
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<div class="label">Mean progress</div><div class="value">45%</div>' in index
+    assert "80% mean progress" in index and "10% mean progress" in index
+    assert '<span class="sub">80% progress</span>' in index
+    assert "Mean progress covers the" not in index
+
+
+def test_overview_flags_progress_that_covers_only_some_episodes(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    records = [
+        {"env_id": 0, "episode_in_env": 0, "success": False, "progress": {"overall_score": 0.5}},
+        {"env_id": 0, "episode_in_env": 1, "success": False},
+    ]
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+
+    build_report(tmp_path)
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "Mean progress covers the 1 of 2 episode(s) that recorded a progress score" in index
+
+
+def test_overview_says_when_no_episode_recorded_progress(tmp_path):
+    _write_run(tmp_path, "banana_in_bowl_pi0")
+
+    build_report(tmp_path)
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "No episode recorded a task progress score" in index
+
+
 def test_sparse_task_policy_matrix_stays_grouped(tmp_path):
     _write_run(tmp_path, "banana_in_bowl_pi0")
     _write_run(tmp_path, "banana_in_bowl_cosmos")
