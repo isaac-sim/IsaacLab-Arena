@@ -23,3 +23,4 @@ from isaaclab_arena.tasks import (  # noqa: F401
     sorting_task,
     turn_knob_task,
 )
+from isaaclab_arena.tasks.gear_assembly import task as gear_assembly_task  # noqa: F401
