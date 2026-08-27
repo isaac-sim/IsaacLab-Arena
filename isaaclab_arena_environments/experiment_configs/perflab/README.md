@@ -134,6 +134,10 @@ NUM_ENVS=1
 
 The exact output directory passed to Arena must be missing or empty.
 
+Each command writes its timing log to `arena_experiment_timings.json` in the directory passed to
+`--experiment_output_directory`. For example, the first run writes to
+`${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}/arena_experiment_timings.json`.
+
 PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
 trial wall-clock immediately before `/isaac-sim/python.sh` and stop it when that process exits.
 Container startup, image downloads, asset downloads, and policy-server startup are preparation and
