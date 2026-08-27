@@ -5,6 +5,8 @@
 
 """Verify the typed Arena environment-builder configuration boundary."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -69,3 +71,44 @@ def test_builder_configuration_requires_positive_num_envs():
     """Reject configurations that cannot build any environment instances."""
     with pytest.raises(AssertionError, match="num_envs must be greater than zero"):
         ArenaEnvBuilderCfg(num_envs=0)
+
+
+@pytest.mark.parametrize(
+    ("camera_height", "camera_width"),
+    [
+        (360, None),
+        (None, 640),
+    ],
+)
+def test_builder_configuration_requires_complete_camera_resolution(camera_height, camera_width):
+    """Require both camera dimensions so a partial override cannot silently change one axis."""
+    with pytest.raises(AssertionError, match="camera_height and camera_width must be set together"):
+        ArenaEnvBuilderCfg(camera_height=camera_height, camera_width=camera_width)
+
+
+@pytest.mark.parametrize(
+    ("camera_height", "camera_width", "message"),
+    [
+        (0, 640, "camera_height must be greater than zero"),
+        (360, 0, "camera_width must be greater than zero"),
+    ],
+)
+def test_builder_configuration_requires_positive_camera_resolution(camera_height, camera_width, message):
+    """Reject camera dimensions that Isaac Lab cannot render."""
+    with pytest.raises(AssertionError, match=message):
+        ArenaEnvBuilderCfg(camera_height=camera_height, camera_width=camera_width)
+
+
+def test_builder_rejects_camera_resolution_when_cameras_are_disabled():
+    """Reject a resolution override that would otherwise have no effect on the scene."""
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_environment = SimpleNamespace(
+        embodiment=SimpleNamespace(enable_cameras=False, camera_config=SimpleNamespace()),
+    )
+
+    with pytest.raises(AssertionError, match="camera dimensions require embodiment cameras to be enabled"):
+        ArenaEnvBuilder(
+            arena_environment,
+            ArenaEnvBuilderCfg(camera_height=360, camera_width=640),
+        )
