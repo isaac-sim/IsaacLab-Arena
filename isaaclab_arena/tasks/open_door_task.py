@@ -17,30 +17,19 @@ from isaaclab_arena.progress_tracking.progress_objective import ProgressObjectiv
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
-DEFAULT_OPENNESS_THRESHOLD = 0.5
-"""Fraction of the joint range the door must travel past for the task to succeed."""
-
-DEFAULT_MOVED_OPENNESS_DELTA = 0.05
-"""How far the openness must change from the reset openness to count as having moved the door."""
-
 
 @agent_ready
 @register_task
 class OpenDoorTask(RotateRevoluteJointTask):
-    """Open-door task. Success fires once the door's joint travels past ``openness_threshold``.
-
-    Progress is tracked with a single two-step objective: the door moving at all, then the door
-    reaching the success threshold. See ``get_progress_objectives``.
-    """
+    """Open-door task. Success fires once the door's joint travels past ``openness_threshold``."""
 
     def __init__(
         self,
         openable_object: Openable,
-        openness_threshold: float | None = DEFAULT_OPENNESS_THRESHOLD,
+        openness_threshold: float | None = 0.5,
         reset_openness: float | None = 0.0,
         episode_length_s: float | None = None,
         task_description: str | None = None,
-        moved_openness_delta: float = DEFAULT_MOVED_OPENNESS_DELTA,
     ):
         """Initializes the open-door task.
 
@@ -51,10 +40,10 @@ class OpenDoorTask(RotateRevoluteJointTask):
             reset_openness: The openness the door is reset to at the start of each episode.
             episode_length_s: The episode length in seconds.
             task_description: The language instruction for the task.
-            moved_openness_delta: How far the openness must change from ``reset_openness`` before the
-                door counts as having moved, for progress tracking.
         """
-        self.moved_openness_delta = moved_openness_delta
+        self.min_openness_change = 0.05
+        """How far the openness must change from ``reset_openness`` to count as having moved the door."""
+
         super().__init__(
             openable_object=openable_object,
             target_joint_percentage_threshold=openness_threshold,
@@ -97,8 +86,8 @@ class OpenDoorTask(RotateRevoluteJointTask):
                 predicate_groups=[
                     partial(
                         self.openable_object.has_moved,
-                        reference_percentage=reset_openness,
-                        min_change=self.moved_openness_delta,
+                        rest_openness=reset_openness,
+                        min_openness_change=self.min_openness_change,
                     ),
                     partial(self.openable_object.is_open, **is_open_params),
                 ],

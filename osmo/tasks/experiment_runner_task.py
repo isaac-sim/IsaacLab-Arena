@@ -24,7 +24,7 @@ from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPU
 # Repository-relative entry point executed inside the task container.
 EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
 # Default container image containing Arena and its runtime dependencies.
-DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:alex_testing"
+DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 # Location where OSMO creates the effective Experiment YAML for the runner.
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 # Result interpreted by the downstream Experiment output collector.
