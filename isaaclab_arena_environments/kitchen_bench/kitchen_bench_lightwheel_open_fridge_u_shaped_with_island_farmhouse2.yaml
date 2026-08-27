@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 env_name: kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2
 embodiment:
   id: droid

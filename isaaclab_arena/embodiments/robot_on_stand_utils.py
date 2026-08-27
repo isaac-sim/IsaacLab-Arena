@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import functools
 import os
 import tempfile
 from collections.abc import Sequence
