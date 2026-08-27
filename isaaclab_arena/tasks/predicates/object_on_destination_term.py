@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Manager-owned geometric placement term with cached spawned bounds.
+"""Manager-owned object-on-destination term with cached spawned bounds.
 
 Isaac Lab constructs the term once for a live environment, so it can reuse the
 object and destination bounds. Stateless geometric checks remain in
@@ -21,24 +21,25 @@ from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.live_scene_geometry import (
     AssetBaseCfgPoseReader,
-    compute_spawned_geometry_aabbs_relative_to_pose,
+    compute_spawned_geometry_bounds_in_entity_frame,
 )
 from isaaclab_arena.tasks.predicates.spatial import (
     contact_force_is_upward_support,
     object_bounds_center_over_destination,
+    object_is_moving_slowly,
 )
 
 
 # TODO(cvolk, 2026-08-24): [arena-world-migration] Replace term-owned geometry caching and direct live-state reads
 # with env.arena_world queries, then make this a plain predicate function.
-class GeometricObjectOnDestinationTerm(ManagerTermBase):
+class ObjectOnDestinationTerm(ManagerTermBase):
     """Check object placement using cached spawned geometry and current state.
 
-    Construction reads and caches the object and destination bounds. Each call
-    combines those bounds with current poses, filtered contact force, and object
-    velocity. The object bounds center must be over the destination footprint,
-    the contact force must point upward, and object speed must be below the
-    configured threshold.
+    Construction caches the object bounds center and destination bounds in
+    their respective entity frames. Each call combines them with current poses,
+    filtered contact force, and object velocity. The object bounds center must
+    be over the destination footprint, the contact force must point upward, and
+    object speed must be below the configured threshold.
     """
 
     def __init__(self, cfg: TerminationTermCfg, env: ManagerBasedEnv):
@@ -48,13 +49,14 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
 
         assert (
             object_cfg.name in env.scene.rigid_objects
-        ), f"GeometricObjectOnDestinationTerm requires rigid object '{object_cfg.name}'."
+        ), f"ObjectOnDestinationTerm requires rigid object '{object_cfg.name}'."
 
         self._object_name = object_cfg.name
         self._destination_name = destination_cfg.name
         self._object_rigid_object: RigidObject = env.scene[self._object_name]
-        self._object_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, object_cfg)
-        self._destination_aabbs = compute_spawned_geometry_aabbs_relative_to_pose(env, destination_cfg)
+        object_bounds_O = compute_spawned_geometry_bounds_in_entity_frame(env, object_cfg)
+        self._object_bounds_center_O = object_bounds_O.center
+        self._destination_bounds_D = compute_spawned_geometry_bounds_in_entity_frame(env, destination_cfg)
         self._destination_rigid_object: RigidObject | None = None
         self._destination_asset_base_pose_reader: AssetBaseCfgPoseReader | None = None
         if self._destination_name in env.scene.rigid_objects:
@@ -88,13 +90,13 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
             f"but was called with '{destination_cfg.name}'."
         )
 
-        object_pose_w = self._object_rigid_object.data.root_pose_w.torch
-        destination_pose_w = self._get_destination_pose_w()
+        T_W_O = self._object_rigid_object.data.root_pose_w.torch
+        T_W_D = self._get_destination_pose_in_world_frame()
         object_center_over_destination = object_bounds_center_over_destination(
-            object_pose_w=object_pose_w,
-            object_bounds=self._object_aabbs,
-            destination_pose_w=destination_pose_w,
-            destination_bounds=self._destination_aabbs,
+            T_W_O=T_W_O,
+            object_bounds_center_O=self._object_bounds_center_O,
+            T_W_D=T_W_D,
+            destination_bounds_D=self._destination_bounds_D,
         )
 
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
@@ -105,6 +107,7 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
             f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
             f"got force shape {tuple(force_matrix_w.shape)}."
         )
+        # The two zeros select the sensor's single sensed body and single filtered destination body.
         support_force_on_object_w = force_matrix_w[:, 0, 0, :]
         destination_provides_upward_support = contact_force_is_upward_support(
             contact_force_w=support_force_on_object_w,
@@ -113,13 +116,13 @@ class GeometricObjectOnDestinationTerm(ManagerTermBase):
         )
 
         object_linear_velocity_w = self._object_rigid_object.data.root_lin_vel_w.torch
-        object_is_moving_slowly = torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
-        return object_center_over_destination & destination_provides_upward_support & object_is_moving_slowly
+        object_moves_slowly = object_is_moving_slowly(object_linear_velocity_w, velocity_threshold)
+        return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
 
-    def _get_destination_pose_w(self) -> torch.Tensor:
+    def _get_destination_pose_in_world_frame(self) -> torch.Tensor:
         """Read the pose from rigid-body state or an AssetBaseCfg scene entry."""
         if self._destination_rigid_object is not None:
             return self._destination_rigid_object.data.root_pose_w.torch
 
         assert self._destination_asset_base_pose_reader is not None
-        return self._destination_asset_base_pose_reader.get_pose_w()
+        return self._destination_asset_base_pose_reader.get_pose_in_world_frame()

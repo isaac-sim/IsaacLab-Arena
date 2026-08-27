@@ -46,33 +46,38 @@ def _get_spawned_entity_groups(
     return spawned_entity_groups
 
 
-def _find_rigid_body_prim(representative_prim: Usd.Prim, entity_name: str) -> Usd.Prim:
-    """Find the rigid-body prim represented by the entity's root pose."""
-    rigid_body_prims = sim_utils.get_all_matching_child_prims(
-        representative_prim.GetPath(),
+def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, entity_name: str) -> Usd.Prim:
+    """Return the only rigid-body prim in the root prim's subtree."""
+    rigid_body_prims_in_subtree = sim_utils.get_all_matching_child_prims(
+        root_prim.GetPath(),
         predicate=lambda prim: prim.HasAPI(UsdPhysics.RigidBodyAPI),
-        stage=representative_prim.GetStage(),
+        stage=root_prim.GetStage(),
         traverse_instance_prims=False,
     )
-    assert len(rigid_body_prims) == 1, (
-        f"Rigid scene entity '{entity_name}' source '{representative_prim.GetPath()}' contains "
-        f"{len(rigid_body_prims)} rigid bodies; expected exactly one."
+    assert len(rigid_body_prims_in_subtree) == 1, (
+        f"Rigid scene entity '{entity_name}' source '{root_prim.GetPath()}' contains "
+        f"{len(rigid_body_prims_in_subtree)} rigid bodies; expected exactly one."
     )
-    return rigid_body_prims[0]
+    return rigid_body_prims_in_subtree[0]
 
 
-def _compute_aabb_relative_to_prim(prim: Usd.Prim) -> AxisAlignedBoundingBox:
-    """Compute descendant geometry bounds relative to a prim's origin and axes."""
+def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
+    """Compute descendant geometry bounds in the prim frame.
+
+    The bounds are aligned with the prim's axes and measured from its origin.
+    Initial world translation and rotation are excluded, while authored scale
+    remains in the bounds.
+    """
     assert prim.IsValid(), "Prim must be valid."
 
     time_code = Usd.TimeCode.Default()
     transform_cache = UsdGeom.XformCache(time_code)
-    prim_to_world = transform_cache.GetLocalToWorldTransform(prim).RemoveScaleShear()
-    world_to_prim = prim_to_world.GetInverse()
+    T_W_P = transform_cache.GetLocalToWorldTransform(prim).RemoveScaleShear()
+    T_P_W = T_W_P.GetInverse()
     bounding_box_cache = UsdGeom.BBoxCache(time_code, includedPurposes=[UsdGeom.Tokens.default_])
 
-    lower = np.full(3, np.inf, dtype=np.float64)
-    upper = np.full(3, -np.inf, dtype=np.float64)
+    lower_P = np.full(3, np.inf, dtype=np.float64)
+    upper_P = np.full(3, -np.inf, dtype=np.float64)
     found_geometry = False
     for geometry_prim in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
         if not geometry_prim.IsA(UsdGeom.Gprim):
@@ -81,39 +86,41 @@ def _compute_aabb_relative_to_prim(prim: Usd.Prim) -> AxisAlignedBoundingBox:
             continue
 
         geometry_bounds = bounding_box_cache.ComputeWorldBound(geometry_prim)
-        geometry_bounds.Transform(world_to_prim)
+        # Remove the prim's initial world translation and rotation while leaving spawned scale in the bounds.
+        geometry_bounds.Transform(T_P_W)
         geometry_range = geometry_bounds.ComputeAlignedRange()
         if geometry_range.IsEmpty():
             continue
 
-        lower = np.minimum(lower, np.asarray(geometry_range.GetMin(), dtype=np.float64))
-        upper = np.maximum(upper, np.asarray(geometry_range.GetMax(), dtype=np.float64))
+        lower_P = np.minimum(lower_P, np.asarray(geometry_range.GetMin(), dtype=np.float64))
+        upper_P = np.maximum(upper_P, np.asarray(geometry_range.GetMax(), dtype=np.float64))
         found_geometry = True
 
     prim_path = prim.GetPath()
     assert found_geometry, f"Prim '{prim_path}' has no default-purpose geometry."
     return AxisAlignedBoundingBox(
-        min_point=tuple(float(value) for value in lower),
-        max_point=tuple(float(value) for value in upper),
+        min_point=tuple(float(value) for value in lower_P),
+        max_point=tuple(float(value) for value in upper_P),
     )
 
 
-def compute_spawned_geometry_aabbs_relative_to_pose(
+def compute_spawned_geometry_bounds_in_entity_frame(
     env: ManagerBasedEnv,
     entity_cfg: SceneEntityCfg,
 ) -> AxisAlignedBoundingBox:
-    """Build one local AABB per environment from the geometry that was spawned.
+    """Build spawned geometry bounds in the entity frame.
 
     This reads the USD stage. Callers should cache the result and combine it
     with current poses rather than rebuilding it on each simulation step.
 
     Args:
         env: The runtime manager-based environment.
-        entity_cfg: Scene entity whose pose defines the returned coordinates.
+        entity_cfg: Scene entity whose runtime pose defines frame ``E``.
 
     Returns:
-        One AABB per environment, expressed relative to the entity pose used by
-        the predicate.
+        One batched AABB aligned with frame ``E`` and measured from its origin.
+        Initial world translation and rotation are excluded, while spawned
+        scale remains in the bounds.
     """
     scene = env.scene
     entity_name = entity_cfg.name
@@ -123,8 +130,8 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
-    lower_by_environment = torch.empty((env.num_envs, 3), dtype=torch.float32, device=env.device)
-    upper_by_environment = torch.empty_like(lower_by_environment)
+    lower_E_by_environment = torch.empty((env.num_envs, 3), dtype=torch.float32, device=env.device)
+    upper_E_by_environment = torch.empty_like(lower_E_by_environment)
     coverage_count = [0] * env.num_envs
 
     for representative_prim, environment_ids in _get_spawned_entity_groups(
@@ -132,11 +139,15 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
         entity_name,
         resolved_geometry_prim_path,
     ):
-        pose_prim = _find_rigid_body_prim(representative_prim, entity_name) if is_rigid_object else representative_prim
-        local_aabb = _compute_aabb_relative_to_prim(pose_prim).to(env.device)
+        entity_frame_prim = (
+            _find_single_rigid_body_prim_in_subtree(representative_prim, entity_name)
+            if is_rigid_object
+            else representative_prim
+        )
+        geometry_bounds_E = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(env.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=env.device)
-        lower_by_environment[environment_indices] = local_aabb.min_point[0]
-        upper_by_environment[environment_indices] = local_aabb.max_point[0]
+        lower_E_by_environment[environment_indices] = geometry_bounds_E.min_point[0]
+        upper_E_by_environment[environment_indices] = geometry_bounds_E.max_point[0]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
@@ -144,7 +155,7 @@ def compute_spawned_geometry_aabbs_relative_to_pose(
         f"Scene entity '{entity_name}' geometry must cover every environment exactly once; got coverage"
         f" {coverage_count}."
     )
-    return AxisAlignedBoundingBox(min_point=lower_by_environment, max_point=upper_by_environment)
+    return AxisAlignedBoundingBox(min_point=lower_E_by_environment, max_point=upper_E_by_environment)
 
 
 # TODO(cvolk, 2026-08-25): Remove this workaround when
@@ -186,12 +197,15 @@ class AssetBaseCfgPoseReader:
                 f"not environment '{environment_prim_path}'."
             )
 
-    def get_pose_w(self) -> torch.Tensor:
-        """Return current poses as ``(x, y, z, qx, qy, qz, qw)``."""
+    def get_pose_in_world_frame(self) -> torch.Tensor:
+        """Return ``T_W_R``, taking points from reference frame ``R`` to world frame ``W``.
+
+        Poses are encoded as ``(x, y, z, qx, qy, qz, qw)``.
+        """
         position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
-        pose_w = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
-        assert pose_w.shape == (self._num_envs, 7), (
-            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "
+        T_W_R = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
+        assert T_W_R.shape == (self._num_envs, 7), (
+            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(T_W_R.shape)}; "
             f"expected ({self._num_envs}, 7)."
         )
-        return pose_w
+        return T_W_R

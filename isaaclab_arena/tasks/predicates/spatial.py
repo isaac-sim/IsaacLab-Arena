@@ -19,7 +19,7 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
-from isaaclab.utils.math import combine_frame_transforms, subtract_frame_transforms
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
@@ -27,45 +27,46 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 def object_bounds_center_over_destination(
-    object_pose_w: torch.Tensor,
-    object_bounds: AxisAlignedBoundingBox,
-    destination_pose_w: torch.Tensor,
-    destination_bounds: AxisAlignedBoundingBox,
+    T_W_O: torch.Tensor,
+    object_bounds_center_O: torch.Tensor,
+    T_W_D: torch.Tensor,
+    destination_bounds_D: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
     """Check whether an object's bounds center is over a destination.
 
-    The check requires the object center to be inside the destination's X/Y
-    footprint and above its lower Z bound. The upper Z bound is intentionally
+    The check requires the object's bounds center to be inside the destination's
+    X/Y footprint and above its lower Z bound. The upper Z bound is intentionally
     ignored so the same check works for open containers and supporting surfaces.
     This is a center-point test, not full-object containment.
 
     Args:
-        object_pose_w: Object poses in world coordinates with shape
-            ``(num_envs, 7)`` and quaternion order ``(x, y, z, w)``.
-        object_bounds: Object bounds relative to ``object_pose_w``.
-        destination_pose_w: Destination poses in world coordinates with shape
-            ``(num_envs, 7)`` and quaternion order ``(x, y, z, w)``.
-        destination_bounds: Destination bounds relative to
-            ``destination_pose_w``.
+        T_W_O: Object poses mapping points from object frame ``O`` into world
+            frame ``W``. Shape is ``(num_envs, 7)`` with quaternion order
+            ``(x, y, z, w)``.
+        object_bounds_center_O: Center of the object's bounds expressed in
+            frame ``O``. Shape is ``(num_envs, 3)``.
+        T_W_D: Destination poses mapping points from destination frame ``D``
+            into world frame ``W``. Shape is ``(num_envs, 7)`` with quaternion
+            order ``(x, y, z, w)``.
+        destination_bounds_D: Destination bounds aligned with frame ``D`` and
+            measured from its origin.
 
     Returns:
         One Boolean result per environment.
     """
-    object_bounds_center_w, _ = combine_frame_transforms(
-        object_pose_w[:, :3],
-        object_pose_w[:, 3:],
-        object_bounds.center,
-    )
-    object_bounds_center_in_destination, _ = subtract_frame_transforms(
-        destination_pose_w[:, :3],
-        destination_pose_w[:, 3:],
-        object_bounds_center_w,
+    t_W_O, q_W_O = T_W_O[:, :3], T_W_O[:, 3:]
+    t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
+
+    object_bounds_center_W = t_W_O + quat_apply(q_W_O, object_bounds_center_O)
+    object_bounds_center_D = quat_apply_inverse(
+        q_W_D,
+        object_bounds_center_W - t_W_D,
     )
     center_inside_horizontal_bounds = (
-        (object_bounds_center_in_destination[:, :2] >= destination_bounds.min_point[:, :2])
-        & (object_bounds_center_in_destination[:, :2] <= destination_bounds.max_point[:, :2])
+        (object_bounds_center_D[:, :2] >= destination_bounds_D.min_point[:, :2])
+        & (object_bounds_center_D[:, :2] <= destination_bounds_D.max_point[:, :2])
     ).all(dim=-1)
-    center_above_destination_bottom = object_bounds_center_in_destination[:, 2] >= destination_bounds.min_point[:, 2]
+    center_above_destination_bottom = object_bounds_center_D[:, 2] >= destination_bounds_D.min_point[:, 2]
     return center_inside_horizontal_bounds & center_above_destination_bottom
 
 
@@ -102,6 +103,14 @@ def contact_force_is_upward_support(
         & (upward_force > 0.0)
         & (upward_force >= force_magnitude * minimum_upward_fraction)
     )
+
+
+def object_is_moving_slowly(
+    object_linear_velocity_w: torch.Tensor,
+    velocity_threshold: float,
+) -> torch.Tensor:
+    """Check whether object linear speed is below the threshold."""
+    return torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
 
 
 def object_is_above_height(

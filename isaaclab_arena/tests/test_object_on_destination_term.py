@@ -16,7 +16,7 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
     yaw_90_quaternion = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
 
-    object_pose_w = torch.tensor([
+    T_W_O = torch.tensor([
         [-0.2, 0.0, 0.2, *identity_quaternion],  # offset bounds center lands at destination center
         [0.81, 0.0, 0.2, *identity_quaternion],  # outside X
         [-0.2, 0.0, -0.01, *identity_quaternion],  # below destination bottom
@@ -26,7 +26,7 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
         [0.8, 0.0, 0.2, *identity_quaternion],  # exactly on X boundary
         [0.0, 0.31, 0.2, *yaw_90_quaternion],  # rotated object bounds center is outside Y
     ])
-    destination_pose_w = torch.tensor([
+    T_W_D = torch.tensor([
         [0.0, 0.0, 0.0, *identity_quaternion],
         [0.0, 0.0, 0.0, *identity_quaternion],
         [0.0, 0.0, 0.0, *identity_quaternion],
@@ -36,21 +36,18 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
         [0.0, 0.0, 0.0, *identity_quaternion],
         [0.0, 0.0, 0.0, *identity_quaternion],
     ])
-    num_cases = object_pose_w.shape[0]
-    object_bounds = axis_aligned_bounding_box_type(
-        min_point=torch.tensor([0.1, -0.1, -0.1]).expand(num_cases, 3),
-        max_point=torch.tensor([0.3, 0.1, 0.1]).expand(num_cases, 3),
-    )
-    destination_bounds = axis_aligned_bounding_box_type(
+    num_cases = T_W_O.shape[0]
+    object_bounds_center_O = torch.tensor([0.2, 0.0, 0.0]).expand(num_cases, 3)
+    destination_bounds_D = axis_aligned_bounding_box_type(
         min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(num_cases, 3),
         max_point=torch.tensor([1.0, 0.5, 0.4]).expand(num_cases, 3),
     )
 
     result = spatial.object_bounds_center_over_destination(
-        object_pose_w=object_pose_w,
-        object_bounds=object_bounds,
-        destination_pose_w=destination_pose_w,
-        destination_bounds=destination_bounds,
+        T_W_O=T_W_O,
+        object_bounds_center_O=object_bounds_center_O,
+        T_W_D=T_W_D,
+        destination_bounds_D=destination_bounds_D,
     )
     torch.testing.assert_close(result, torch.tensor([True, False, False, True, True, False, True, False]))
 
@@ -75,7 +72,7 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
-def _check_aabb_relative_to_prim(live_scene_geometry) -> None:
+def _check_geometry_bounds_in_prim_frame(live_scene_geometry) -> None:
     """Check that runtime bounds remove pose but retain spawned scale."""
     from pxr import Gf, Usd, UsdGeom
 
@@ -94,13 +91,13 @@ def _check_aabb_relative_to_prim(live_scene_geometry) -> None:
     ignored_cube.GetSizeAttr().Set(100.0)
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
-    bounds = live_scene_geometry._compute_aabb_relative_to_prim(reference.GetPrim())
+    bounds = live_scene_geometry._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
     torch.testing.assert_close(bounds.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
     torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_geometric_term(
-    geometric_term_module,
+def _check_object_on_destination_term(
+    object_on_destination_term_module,
     axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
     termination_term_cfg_type,
@@ -136,13 +133,13 @@ def _check_geometric_term(
 
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
     env = DummyEnv()
-    object_pose_w = torch.tensor([
+    T_W_O = torch.tensor([
         [0.0, 0.0, 0.2, *identity_quaternion],
         [1.1, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
     ])
-    destination_pose_w = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
+    T_W_D = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
     object_linear_velocity_w = torch.tensor([
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
@@ -156,8 +153,8 @@ def _check_geometric_term(
         [0.0, 0.0, 0.2],
     ])
 
-    object_entity = DummyRigidObject(object_pose_w, object_linear_velocity_w)
-    destination_entity = DummyRigidObject(destination_pose_w, torch.zeros((4, 3)))
+    object_entity = DummyRigidObject(T_W_O, object_linear_velocity_w)
+    destination_entity = DummyRigidObject(T_W_D, torch.zeros((4, 3)))
     env.scene["object"] = object_entity
     env.scene["destination"] = destination_entity
     env.scene["contact_sensor"] = DummyContactSensor(contact_force_w)
@@ -173,7 +170,7 @@ def _check_geometric_term(
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
     geometry_build_calls = []
 
-    def compute_aabbs(_geometry_env, entity_cfg):
+    def compute_geometry_bounds(_geometry_env, entity_cfg):
         entity_name = entity_cfg.name
         geometry_build_calls.append(entity_name)
         if entity_name == "object":
@@ -187,12 +184,12 @@ def _check_geometric_term(
         )
 
     with patch.object(
-        geometric_term_module,
-        "compute_spawned_geometry_aabbs_relative_to_pose",
-        side_effect=compute_aabbs,
+        object_on_destination_term_module,
+        "compute_spawned_geometry_bounds_in_entity_frame",
+        side_effect=compute_geometry_bounds,
     ):
         term_cfg = termination_term_cfg_type(
-            func=geometric_term_module.GeometricObjectOnDestinationTerm,
+            func=object_on_destination_term_module.ObjectOnDestinationTerm,
             params={
                 "object_cfg": object_cfg,
                 "destination_cfg": destination_cfg,
@@ -202,7 +199,7 @@ def _check_geometric_term(
                 "support_cone_half_angle_deg": 45.0,
             },
         )
-        term = geometric_term_module.GeometricObjectOnDestinationTerm(term_cfg, env)
+        term = object_on_destination_term_module.ObjectOnDestinationTerm(term_cfg, env)
         assert geometry_build_calls == ["object", "destination"]
 
         # Each failing environment isolates one condition: geometry, force direction, or velocity.
@@ -235,24 +232,29 @@ def _check_geometric_term(
             raise AssertionError("The term accepted a destination that did not match its cached geometry.")
 
 
-def _test_geometric_object_on_destination(_simulation_app) -> bool:
+def _test_object_on_destination_term(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-    import isaaclab_arena.tasks.predicates.geometric_object_on_destination_term as geometric_term
     import isaaclab_arena.tasks.predicates.live_scene_geometry as live_scene_geometry
+    import isaaclab_arena.tasks.predicates.object_on_destination_term as object_on_destination_term
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
-    _check_aabb_relative_to_prim(live_scene_geometry)
-    _check_geometric_term(geometric_term, AxisAlignedBoundingBox, SceneEntityCfg, TerminationTermCfg)
+    _check_geometry_bounds_in_prim_frame(live_scene_geometry)
+    _check_object_on_destination_term(
+        object_on_destination_term,
+        AxisAlignedBoundingBox,
+        SceneEntityCfg,
+        TerminationTermCfg,
+    )
     return True
 
 
-def test_geometric_object_on_destination():
-    assert run_function_with_persistent_simulation_app(_test_geometric_object_on_destination)
+def test_object_on_destination_term():
+    assert run_function_with_persistent_simulation_app(_test_object_on_destination_term)
 
 
 if __name__ == "__main__":
-    test_geometric_object_on_destination()
+    test_object_on_destination_term()
