@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import datetime
 import io
 import json
 import numpy as np
+import os
 import platform
 import random
 import statistics
@@ -313,6 +315,7 @@ def _run_robolab_fixed_iterations(
 def _measure_robolab(
     scenario: BackgroundScenario,
     num_objects: int,
+    batch_size: int,
     calibration_layouts: int,
     iterations: int,
     repeat: int,
@@ -323,7 +326,10 @@ def _measure_robolab(
         f"background-{index}": (BACKGROUND_SIZE_M, BACKGROUND_SIZE_M, OBJECT_HEIGHT_M)
         for index in range(scenario.obstacle_count)
     })
-    jobs = [_make_robolab_job(scenario, num_objects, variant, robolab_api) for variant in range(calibration_layouts)]
+    jobs = [
+        _make_robolab_job(scenario, num_objects, variant % calibration_layouts, robolab_api)
+        for variant in range(batch_size)
+    ]
     start = time.perf_counter()
     with contextlib.redirect_stdout(io.StringIO()):
         for variant, (solver, states, background_names) in enumerate(jobs):
@@ -333,22 +339,53 @@ def _measure_robolab(
                 dimensions,
                 background_names,
                 iterations,
-                seed=repeat * calibration_layouts + variant,
+                seed=repeat * batch_size + variant,
             )
     elapsed_ms = (time.perf_counter() - start) * 1e3
-    per_layout_ms = elapsed_ms / calibration_layouts
+    per_layout_ms = elapsed_ms / batch_size
     return {
         "algorithm": "robolab",
         "scenario": scenario.name,
         "background_objects": scenario.obstacle_count,
         "num_objects": num_objects,
+        "batch_size": batch_size,
         "calibration_layouts": calibration_layouts,
         "repeat": repeat,
         "iterations": iterations,
         "optimization_elapsed_ms": elapsed_ms,
         "per_layout_optimization_ms": per_layout_ms,
         "layouts_per_second": 1e3 / per_layout_ms,
-        "batch_scaling_model": "serial-linear-projection",
+        "batch_scaling_model": "direct-serial-measurement",
+    }
+
+
+def _cpu_model() -> str:
+    """Return the host CPU model when Linux exposes it."""
+    cpuinfo = Path("/proc/cpuinfo")
+    if cpuinfo.exists():
+        for line in cpuinfo.read_text(encoding="utf-8").splitlines():
+            if line.startswith("model name"):
+                return line.partition(":")[2].strip()
+    return platform.processor()
+
+
+def _runtime_metadata(torch) -> dict:
+    """Collect hardware and runtime identity used by both benchmark methods."""
+    cuda_available = torch.cuda.is_available()
+    cuda_device = torch.cuda.current_device() if cuda_available else None
+    return {
+        "host": platform.node(),
+        "platform": platform.platform(),
+        "processor": platform.processor(),
+        "cpu_model": _cpu_model(),
+        "cpu_count": os.cpu_count(),
+        "cpu_affinity": sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None,
+        "python_version": platform.python_version(),
+        "pytorch_version": str(torch.__version__),
+        "cuda_version": torch.version.cuda,
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "cuda_device": cuda_device,
+        "gpu_name": torch.cuda.get_device_name(cuda_device) if cuda_available else None,
     }
 
 
@@ -358,8 +395,9 @@ def generate(args: argparse.Namespace) -> int:
     benchmark_root = Path(__file__).resolve().parents[2]
     measurements = []
     stopped = {}
+    scenarios = tuple(scenario for scenario in SCENARIOS if scenario.name in args.scenario_names)
     if args.algorithm == "arena":
-        for scenario in SCENARIOS:
+        for scenario in scenarios:
             for batch_size in args.batch_sizes:
                 try:
                     _measure_arena(
@@ -390,34 +428,37 @@ def generate(args: argparse.Namespace) -> int:
                     break
     else:
         robolab_api = _load_robolab(args.robolab_root)
-        for scenario in SCENARIOS:
+        for scenario in scenarios:
             _measure_robolab(
                 scenario,
                 args.num_objects,
+                args.calibration_layouts,
                 args.calibration_layouts,
                 args.iterations,
                 repeat=-1,
                 robolab_api=robolab_api,
             )
-            measurements.extend(
-                _measure_robolab(
-                    scenario,
-                    args.num_objects,
-                    args.calibration_layouts,
-                    args.iterations,
-                    repeat,
-                    robolab_api,
+            for batch_size in args.batch_sizes:
+                measurements.extend(
+                    _measure_robolab(
+                        scenario,
+                        args.num_objects,
+                        batch_size,
+                        args.calibration_layouts,
+                        args.iterations,
+                        repeat,
+                        robolab_api,
+                    )
+                    for repeat in range(args.repetitions)
                 )
-                for repeat in range(args.repetitions)
-            )
-            print(f"RoboLab {scenario.name:18}: calibrated")
+                print(f"RoboLab {scenario.name:18} batch={batch_size:5}: complete")
     source_root = args.robolab_root if args.algorithm == "robolab" else benchmark_root
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "algorithm": args.algorithm,
         "source_revision": _source_revision(source_root),
         "benchmark_revision": collect_source_revision(benchmark_root),
-        "scenarios": [asdict(scenario) for scenario in SCENARIOS],
+        "scenarios": [asdict(scenario) for scenario in scenarios],
         "num_objects": args.num_objects,
         "batch_sizes": args.batch_sizes,
         "iterations": args.iterations,
@@ -432,14 +473,9 @@ def generate(args: argparse.Namespace) -> int:
         "variant_population": f"variants 0..{args.calibration_layouts - 1}, cycled for larger Arena batches",
         "timing_scope": "optimization-loop-only",
         "early_stopping": False,
-        "runtime": {
-            "host": platform.node(),
-            "processor": platform.processor(),
-            "python_version": platform.python_version(),
-            "pytorch_version": str(torch.__version__),
-            "cuda_version": torch.version.cuda,
-            "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
-        },
+        "method_label": "Arena" if args.algorithm == "arena" else "RoboLab-derived matched-AABB serial loop",
+        "runtime": _runtime_metadata(torch),
+        "run_timestamp_utc": datetime.datetime.now(datetime.UTC).isoformat(),
         "stopped": stopped,
         "measurements": measurements,
     }
@@ -477,13 +513,8 @@ def analyze(args: argparse.Namespace) -> int:
             raise ValueError(f"incompatible {field}")
     rows = []
     crossovers = []
-    for scenario in SCENARIOS:
-        robolab_rates = [
-            measurement["layouts_per_second"]
-            for measurement in keyed["robolab"]["measurements"]
-            if measurement["scenario"] == scenario.name
-        ]
-        robolab_rate = statistics.median(robolab_rates)
+    scenarios = tuple(BackgroundScenario(**scenario) for scenario in keyed["arena"]["scenarios"])
+    for scenario in scenarios:
         scenario_rows = []
         for batch_size in keyed["arena"]["batch_sizes"]:
             arena_measurements = [
@@ -493,9 +524,17 @@ def analyze(args: argparse.Namespace) -> int:
             ]
             if len(arena_measurements) != keyed["arena"]["repetitions"]:
                 continue
+            robolab_measurements = [
+                measurement
+                for measurement in keyed["robolab"]["measurements"]
+                if measurement["scenario"] == scenario.name and measurement["batch_size"] == batch_size
+            ]
+            if len(robolab_measurements) != keyed["robolab"]["repetitions"]:
+                continue
             arena_rates = [
                 batch_size * 1e3 / measurement["optimization_elapsed_ms"] for measurement in arena_measurements
             ]
+            robolab_rates = [measurement["layouts_per_second"] for measurement in robolab_measurements]
             speedups = [
                 arena_rate / robolab_repeat_rate
                 for arena_rate, robolab_repeat_rate in zip(arena_rates, robolab_rates, strict=True)
@@ -510,7 +549,10 @@ def analyze(args: argparse.Namespace) -> int:
                     measurement["optimization_elapsed_ms"] for measurement in arena_measurements
                 ),
                 "arena_layouts_per_second": statistics.median(arena_rates),
-                "robolab_layouts_per_second": robolab_rate,
+                "robolab_layouts_per_second": statistics.median(robolab_rates),
+                "robolab_optimization_ms": statistics.median(
+                    measurement["optimization_elapsed_ms"] for measurement in robolab_measurements
+                ),
                 "arena_speedup": statistics.median(speedups),
                 "arena_speedup_q25": float(np.percentile(speedups, 25)),
                 "arena_speedup_iqr": float(np.percentile(speedups, 75) - np.percentile(speedups, 25)),
@@ -526,15 +568,14 @@ def analyze(args: argparse.Namespace) -> int:
             "scenario": scenario.name,
             "background_objects": scenario.obstacle_count,
             "nominal_background_area_fraction": scenario.nominal_area_fraction,
-            "robolab_layouts_per_second": robolab_rate,
             "crossover_batch_size": crossover["batch_size"] if crossover else None,
             "speedup_at_crossover": crossover["arena_speedup"] if crossover else None,
             "largest_measured_batch": largest["batch_size"],
             "speedup_at_largest_batch": largest["arena_speedup"],
         })
     output = {
-        "schema_version": 1,
-        "comparison": "fixed-iteration matched-AABB background collision optimization",
+        "schema_version": 2,
+        "comparison": "fixed-iteration Arena versus RoboLab-derived matched-AABB serial loop",
         "iterations": keyed["arena"]["iterations"],
         "rows": rows,
         "crossovers": crossovers,
@@ -561,6 +602,11 @@ def _parse_args() -> argparse.Namespace:
     generate_parser.add_argument("--iterations", type=int, default=600)
     generate_parser.add_argument("--repetitions", type=int, default=3)
     generate_parser.add_argument("--calibration-layouts", type=int, default=16)
+    generate_parser.add_argument(
+        "--scenario-names",
+        type=lambda value: tuple(value.split(",")),
+        default=tuple(scenario.name for scenario in SCENARIOS),
+    )
     generate_parser.add_argument("--output", type=Path, required=True)
     analyze_parser = commands.add_parser("analyze")
     analyze_parser.add_argument("inputs", nargs=2, type=Path)
@@ -571,6 +617,11 @@ def _parse_args() -> argparse.Namespace:
             parser.error("--robolab-root is required for RoboLab")
         if min(args.num_objects, args.iterations, args.repetitions, args.calibration_layouts) <= 0:
             parser.error("generation counts must be positive")
+        unknown_scenarios = set(args.scenario_names) - {scenario.name for scenario in SCENARIOS}
+        if unknown_scenarios:
+            parser.error(f"unknown scenarios: {sorted(unknown_scenarios)}")
+        if not args.scenario_names:
+            parser.error("--scenario-names must select at least one scenario")
     return args
 
 

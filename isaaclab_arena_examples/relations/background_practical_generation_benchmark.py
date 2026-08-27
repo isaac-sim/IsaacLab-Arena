@@ -13,9 +13,9 @@ import io
 import json
 import math
 import numpy as np
-import platform
 import random
 import statistics
+import sys
 import time
 from pathlib import Path
 from typing import Literal
@@ -28,8 +28,11 @@ from isaaclab_arena_examples.relations.background_batch_scaling_benchmark import
     BackgroundScenario,
     _backgrounds,
     _load_robolab,
-    _source_revision,
 )
+from isaaclab_arena_examples.relations.background_batch_scaling_benchmark import (
+    _runtime_metadata as _scaling_runtime_metadata,
+)
+from isaaclab_arena_examples.relations.background_batch_scaling_benchmark import _source_revision
 from isaaclab_arena_examples.relations.fixed_iteration_batch_scaling_benchmark import (
     OBJECT_HEIGHT_M,
     OBJECT_SIZE_M,
@@ -169,8 +172,13 @@ def _sample_arena_batch(
     return layouts, len(solver.last_loss_history), native_successes, peak_memory_mb
 
 
-def _make_counted_robolab_api(robolab_root: Path):
-    ObjectState, BaseSolver = _load_robolab(robolab_root)
+def _make_counted_robolab_api(robolab_root: Path, mode: str):
+    if mode == "matched-aabb":
+        ObjectState, BaseSolver = _load_robolab(robolab_root)
+    else:
+        sys.path.insert(0, str(robolab_root.resolve()))
+        from robolab.scene_gen.llm_scene_gen.predicates import ObjectState
+        from robolab.scene_gen.llm_scene_gen.spatial_solver import SpatialSolver as BaseSolver
 
     class CountedSolver(BaseSolver):
         def __init__(self, *args, **kwargs):
@@ -189,6 +197,7 @@ def _sample_robolab(
     num_objects: int,
     seed: int,
     max_iterations: int,
+    allow_relaxation: bool,
     robolab_api,
 ) -> tuple[Layout, int, bool]:
     ObjectState, SpatialSolver = robolab_api
@@ -216,7 +225,7 @@ def _sample_robolab(
             dimensions,
             max_iterations=max_iterations,
             fixed_objects=background_names,
-            allow_relaxation=False,
+            allow_relaxation=allow_relaxation,
         )
     for index, center in enumerate(scenario.centers):
         state = states[f"background-{index}"]
@@ -237,6 +246,7 @@ def _generate_repetition(
     max_attempts_per_layout: int,
     max_iterations: int,
     seed: int,
+    allow_robolab_relaxation: bool,
     robolab_api=None,
 ) -> dict:
     import torch
@@ -267,6 +277,7 @@ def _generate_repetition(
                 num_objects,
                 seed + attempted,
                 max_iterations,
+                allow_robolab_relaxation,
                 robolab_api,
             )
             attempted += 1
@@ -311,22 +322,21 @@ def _generate_repetition(
 def _runtime_metadata() -> dict:
     import torch
 
-    return {
-        "host": platform.node(),
-        "processor": platform.processor(),
-        "python_version": platform.python_version(),
-        "pytorch_version": str(torch.__version__),
-        "cuda_version": torch.version.cuda,
-        "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
-    }
+    return _scaling_runtime_metadata(torch)
 
 
 def generate(args: argparse.Namespace) -> int:
     benchmark_root = Path(__file__).resolve().parents[2]
-    robolab_api = _make_counted_robolab_api(args.robolab_root) if args.algorithm == "robolab" else None
+    scenarios = tuple(scenario for scenario in SCENARIOS if scenario.name in args.scenario_names)
+    allow_robolab_relaxation = (
+        args.allow_robolab_relaxation if args.allow_robolab_relaxation is not None else args.robolab_mode == "native"
+    )
+    robolab_api = (
+        _make_counted_robolab_api(args.robolab_root, args.robolab_mode) if args.algorithm == "robolab" else None
+    )
     maximum_target = max(args.target_layout_counts)
     seed_stride = maximum_target * args.max_attempts_per_layout
-    for scenario in SCENARIOS:
+    for scenario in scenarios:
         _generate_repetition(
             args.algorithm,
             scenario,
@@ -335,10 +345,11 @@ def generate(args: argparse.Namespace) -> int:
             args.max_attempts_per_layout,
             args.max_iterations,
             args.seed - seed_stride,
+            allow_robolab_relaxation,
             robolab_api,
         )
     measurements = []
-    for scenario in SCENARIOS:
+    for scenario in scenarios:
         for target_layouts in args.target_layout_counts:
             for repeat in range(args.repetitions):
                 measurement = _generate_repetition(
@@ -349,6 +360,7 @@ def generate(args: argparse.Namespace) -> int:
                     args.max_attempts_per_layout,
                     args.max_iterations,
                     args.seed + repeat * seed_stride,
+                    allow_robolab_relaxation,
                     robolab_api,
                 )
                 measurements.append(measurement)
@@ -359,12 +371,12 @@ def generate(args: argparse.Namespace) -> int:
                 )
     source_root = args.robolab_root if args.algorithm == "robolab" else benchmark_root
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "algorithm": args.algorithm,
         "source_revision": _source_revision(source_root),
         "benchmark_revision": collect_source_revision(benchmark_root),
         "runtime": _runtime_metadata(),
-        "scenarios": [{"name": scenario.name, "obstacle_count": scenario.obstacle_count} for scenario in SCENARIOS],
+        "scenarios": [{"name": scenario.name, "obstacle_count": scenario.obstacle_count} for scenario in scenarios],
         "num_objects": args.num_objects,
         "target_layout_counts": args.target_layout_counts,
         "repetitions": args.repetitions,
@@ -376,11 +388,16 @@ def generate(args: argparse.Namespace) -> int:
         "movable_size_m": OBJECT_SIZE_M,
         "background_size_m": BACKGROUND_SIZE_M,
         "background_centers": BACKGROUND_CENTERS,
-        "collision_representation": "matched-aabb",
+        "comparison_mode": args.robolab_mode,
+        "collision_representation": "matched-aabb" if args.robolab_mode == "matched-aabb" else "method-native",
+        "arena_collision_representation": "aabb",
+        "robolab_collision_representation": (
+            "aabb-adapter" if args.robolab_mode == "matched-aabb" else "native-circumscribed-circle"
+        ),
         "constraints": "table-containment-and-pairwise-non-overlap",
         "initialization": "shared-seeded-uniform-center-positions",
         "early_stopping": True,
-        "allow_robolab_relaxation": False,
+        "allow_robolab_relaxation": allow_robolab_relaxation,
         "robolab_adaptive_iteration_budget": True,
         "timing_scope": "complete-exact-k-generation",
         "measurements": measurements,
@@ -414,7 +431,10 @@ def analyze(args: argparse.Namespace) -> int:
         "movable_size_m",
         "background_size_m",
         "background_centers",
+        "comparison_mode",
         "collision_representation",
+        "arena_collision_representation",
+        "robolab_collision_representation",
         "constraints",
         "initialization",
         "early_stopping",
@@ -426,7 +446,8 @@ def analyze(args: argparse.Namespace) -> int:
         if keyed["arena"][field] != keyed["robolab"][field]:
             raise ValueError(f"incompatible {field}")
     rows = []
-    for scenario in SCENARIOS:
+    scenarios = tuple(BackgroundScenario(**scenario) for scenario in keyed["arena"]["scenarios"])
+    for scenario in scenarios:
         for target_layouts in keyed["arena"]["target_layout_counts"]:
             method_measurements = {
                 algorithm: [
@@ -489,7 +510,7 @@ def analyze(args: argparse.Namespace) -> int:
             row["arena_speedup"] = arena_rate / robolab_rate if paired_complete and robolab_rate > 0.0 else None
             rows.append(row)
     output = {
-        "schema_version": 1,
+        "schema_version": 2,
         "comparison": "native exact-K shared-valid background-aware layout generation",
         "rows": rows,
         "inputs": [str(path) for path in args.inputs],
@@ -518,6 +539,17 @@ def _parse_args() -> argparse.Namespace:
     generate_parser.add_argument("--max-attempts-per-layout", type=int, default=4)
     generate_parser.add_argument("--max-iterations", type=int, default=600)
     generate_parser.add_argument("--seed", type=int, default=10_000)
+    generate_parser.add_argument("--robolab-mode", choices=("native", "matched-aabb"), default="native")
+    generate_parser.add_argument(
+        "--allow-robolab-relaxation",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    generate_parser.add_argument(
+        "--scenario-names",
+        type=lambda value: tuple(value.split(",")),
+        default=tuple(scenario.name for scenario in SCENARIOS),
+    )
     generate_parser.add_argument("--output", type=Path, required=True)
     analyze_parser = commands.add_parser("analyze")
     analyze_parser.add_argument("inputs", nargs=2, type=Path)
@@ -536,6 +568,11 @@ def _parse_args() -> argparse.Namespace:
             <= 0
         ):
             parser.error("generation counts must be positive")
+        unknown_scenarios = set(args.scenario_names) - {scenario.name for scenario in SCENARIOS}
+        if unknown_scenarios:
+            parser.error(f"unknown scenarios: {sorted(unknown_scenarios)}")
+        if not args.scenario_names:
+            parser.error("--scenario-names must select at least one scenario")
     return args
 
 

@@ -598,6 +598,43 @@ def test_background_robolab_loop_moves_only_movable_side_of_fixed_collision():
     assert states["background"].x == 0.0
 
 
+def test_background_robolab_throughput_is_measured_at_requested_batch(monkeypatch):
+    instances = []
+
+    class FakeState:
+        def __init__(self, name, x, y, yaw, is_placed):
+            self.name = name
+            self.x = x
+            self.y = y
+
+    class FakeSolver:
+        def __init__(self, table_bounds, collision_margin):
+            self.collision_checks = 0
+            instances.append(self)
+
+        def _check_collisions(self, states, dimensions):
+            self.collision_checks += 1
+            return []
+
+    clock = iter((1.0, 2.0))
+    monkeypatch.setattr(background_batch_scaling_benchmark.time, "perf_counter", lambda: next(clock))
+    measurement = background_batch_scaling_benchmark._measure_robolab(
+        background_batch_scaling_benchmark.SCENARIOS[0],
+        num_objects=2,
+        batch_size=4,
+        calibration_layouts=2,
+        iterations=3,
+        repeat=0,
+        robolab_api=(FakeState, FakeSolver),
+    )
+
+    assert len(instances) == 4
+    assert all(solver.collision_checks == 3 for solver in instances)
+    assert measurement["batch_size"] == 4
+    assert measurement["optimization_elapsed_ms"] == 1000.0
+    assert measurement["batch_scaling_model"] == "direct-serial-measurement"
+
+
 @pytest.mark.parametrize("move_both", [False, True])
 def test_background_aabb_resolution_honors_positive_collision_margin(move_both):
     first = SimpleNamespace(x=0.0, y=0.0)
@@ -637,6 +674,38 @@ def test_background_practical_validator_checks_fixed_obstacles_and_movables():
     assert background_practical_generation_benchmark._valid_layout(valid, 2, scenario)
     assert not background_practical_generation_benchmark._valid_layout(background_collision, 2, scenario)
     assert not background_practical_generation_benchmark._valid_layout(movable_collision, 2, scenario)
+
+
+def test_background_practical_forwards_native_robolab_relaxation():
+    solve_calls = []
+
+    class FakeState:
+        def __init__(self, name, x=None, y=None, yaw=None, is_placed=False):
+            self.name = name
+            self.x = x
+            self.y = y
+
+    class FakeSolver:
+        def __init__(self, table_bounds, collision_margin):
+            self.collision_checks = 7
+
+        def solve(self, states, dimensions, max_iterations, fixed_objects, allow_relaxation):
+            solve_calls.append((max_iterations, fixed_objects, allow_relaxation))
+            return True, "ok"
+
+    layout, checks, success = background_practical_generation_benchmark._sample_robolab(
+        background_batch_scaling_benchmark.SCENARIOS[0],
+        num_objects=2,
+        seed=5,
+        max_iterations=600,
+        allow_relaxation=True,
+        robolab_api=(FakeState, FakeSolver),
+    )
+
+    assert set(layout) == {"object-0", "object-1"}
+    assert checks == 7
+    assert success
+    assert solve_calls == [(600, [], True)]
 
 
 @pytest.mark.parametrize(
@@ -702,9 +771,7 @@ def test_background_factorial_corridor_has_no_end_bypass_and_reports_actual_widt
         background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1],
         scene_index=3,
     )
-    assert lower_exclusion_scene.center_corridor_width_m == pytest.approx(
-        scene.center_corridor_width_m
-    )
+    assert lower_exclusion_scene.center_corridor_width_m == pytest.approx(scene.center_corridor_width_m)
 
 
 def test_background_factorial_controlled_robolab_skips_adaptive_solve_policy():
