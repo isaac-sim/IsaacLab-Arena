@@ -21,6 +21,8 @@ _ROOT_WRITE_ATOL = 5e-3
 # Root-pose X delta used to verify ``write_root_pose_to_sim``
 _ROOT_WRITE_DELTA_X = 1.0
 _CUSTOM_DROID_STAND_HEIGHT_M = 2.0
+_CUSTOM_DROID_STAND_SCALE_XY = (2.0, 1.5)
+_XY_ATOL = 1e-2
 
 
 def _assert_compose_on_stand_usd(
@@ -29,6 +31,7 @@ def _assert_compose_on_stand_usd(
     *,
     stand_height_m: float,
     output_basename: str,
+    stand_scale_xy: tuple[float, float] | None = None,
     check_orient_180z: bool = False,
 ) -> str:
     from pxr import Usd, UsdGeom
@@ -39,6 +42,7 @@ def _assert_compose_on_stand_usd(
         robot_spec,
         stand_spec,
         stand_height_m=stand_height_m,
+        stand_scale_xy=stand_scale_xy,
         output_basename=output_basename,
     )
     assert Path(usd_path).is_file()
@@ -58,6 +62,16 @@ def _assert_compose_on_stand_usd(
         mesh_xf = UsdGeom.Xformable(payload).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
         assert mesh_xf[0][0] < 0.0 and mesh_xf[1][1] < 0.0, mesh_xf
     return usd_path
+
+
+def _stand_world_xy_m(stage, stand_prim_path: str) -> tuple[float, float]:
+    from pxr import Usd, UsdGeom
+
+    stand = stage.GetPrimAtPath(stand_prim_path)
+    assert stand.IsValid(), f"missing stand prim at {stand_prim_path!r}"
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    size = cache.ComputeWorldBound(stand).ComputeAlignedRange().GetSize()
+    return float(size[0]), float(size[1])
 
 
 def _stand_world_height_m(stage, stand_prim_path: str) -> float:
@@ -116,7 +130,7 @@ def _assert_root_write_moves_link0(env) -> None:
 
 
 def _test_droid_on_stand_usd_compose(simulation_app) -> bool:
-    """Droid compose: height, align, orient, distinct paths per height, embodiment wiring."""
+    """Droid compose: height, footprint XY, align, orient, distinct paths, embodiment wiring."""
     from pxr import Usd
 
     from isaaclab_arena.embodiments.droid.droid import (
@@ -149,10 +163,30 @@ def _test_droid_on_stand_usd_compose(simulation_app) -> bool:
             < _HEIGHT_ATOL
         )
 
+        scaled_usd = _assert_compose_on_stand_usd(
+            _DROID_ROBOT_PRIM,
+            _DROID_STAND_PRIM,
+            stand_height_m=_DROID_STAND_PRIM.stand_default_height,
+            stand_scale_xy=_CUSTOM_DROID_STAND_SCALE_XY,
+            output_basename="droid_franka_robotiq_on_stand",
+        )
+        assert scaled_usd != default_usd
+        default_xy = _stand_world_xy_m(Usd.Stage.Open(default_usd), _DROID_ROBOT_PRIM.stand_prim_path)
+        scaled_xy = _stand_world_xy_m(Usd.Stage.Open(scaled_usd), _DROID_ROBOT_PRIM.stand_prim_path)
+        default_sx, default_sy = _DROID_STAND_PRIM.footprint_scale_xy
+        custom_sx, custom_sy = _CUSTOM_DROID_STAND_SCALE_XY
+        assert abs(scaled_xy[0] / default_xy[0] - custom_sx / default_sx) < _XY_ATOL
+        assert abs(scaled_xy[1] / default_xy[1] - custom_sy / default_sy) < _XY_ATOL
+        scaled_height = _stand_world_height_m(Usd.Stage.Open(scaled_usd), _DROID_ROBOT_PRIM.stand_prim_path)
+        assert abs(scaled_height - _DROID_STAND_PRIM.stand_default_height) < _HEIGHT_ATOL
+
         default_emb = DroidAbsoluteJointPositionEmbodiment()
         custom_emb = DroidAbsoluteJointPositionEmbodiment(stand_height_m=_CUSTOM_DROID_STAND_HEIGHT_M)
+        scaled_emb = DroidAbsoluteJointPositionEmbodiment(stand_scale_xy=_CUSTOM_DROID_STAND_SCALE_XY)
         assert not hasattr(default_emb.scene_config, "stand")
         assert custom_emb.scene_config.robot.spawn.usd_path != default_emb.scene_config.robot.spawn.usd_path
+        assert scaled_emb.scene_config.robot.spawn.usd_path != default_emb.scene_config.robot.spawn.usd_path
+        assert scaled_emb.stand_scale_xy == _CUSTOM_DROID_STAND_SCALE_XY
         assert abs(custom_emb.scene_config.robot.init_state.pos[2]) < 1e-6
     except Exception as e:
         print(f"Error: {e}")

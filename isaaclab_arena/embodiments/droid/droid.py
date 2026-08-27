@@ -37,7 +37,12 @@ from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOn
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
-from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.embodiments.robot_on_stand_utils import (
+    RobotPrimSpec,
+    StandPrimSpec,
+    compose_on_stand_usd,
+    normalize_stand_scale_xy,
+)
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
@@ -86,6 +91,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     ``initial_pose`` / ``set_initial_pose`` set the base of the robot in world frame.
     ``stand_height_m`` sets the height of the stand mesh under the robot base link,
     which changes how far the stand extends below the root link.
+    ``stand_scale_xy`` scales the stand footprint in the robot-base X/Y plane.
     When manually placing the robot on floor, ``set_initial_pose`` z value and
     ``stand_height_m`` should be adjusted together to keep the bottom of stand fixed.
     ``placement_bbox_stand_only`` uses the stand footprint for ``On`` / ``NextTo`` placement
@@ -103,6 +109,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_scale_xy: tuple[float, float] | list[float] = _DROID_STAND_PRIM.footprint_scale_xy,
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
@@ -114,12 +121,14 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             collision_mode=collision_mode,
         )
         self.stand_height_m = stand_height_m
+        self.stand_scale_xy = normalize_stand_scale_xy(stand_scale_xy)
         self.placement_bbox_stand_only = placement_bbox_stand_only
         self.scene_config = DroidSceneCfg()
         self.scene_config.robot.spawn.usd_path = compose_on_stand_usd(
             _DROID_ROBOT_PRIM,
             _DROID_STAND_PRIM,
             stand_height_m=stand_height_m,
+            stand_scale_xy=self.stand_scale_xy,
             output_basename="droid_franka_robotiq_on_stand",
         )
         self.action_config = None
@@ -181,6 +190,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_scale_xy: tuple[float, float] | list[float] = _DROID_STAND_PRIM.footprint_scale_xy,
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
@@ -191,6 +201,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
             stand_height_m=stand_height_m,
+            stand_scale_xy=stand_scale_xy,
             placement_bbox_stand_only=placement_bbox_stand_only,
             collision_mode=collision_mode,
         )
@@ -212,6 +223,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_scale_xy: tuple[float, float] | list[float] = _DROID_STAND_PRIM.footprint_scale_xy,
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
@@ -222,6 +234,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
             stand_height_m=stand_height_m,
+            stand_scale_xy=stand_scale_xy,
             placement_bbox_stand_only=placement_bbox_stand_only,
             collision_mode=collision_mode,
         )
@@ -244,6 +257,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_scale_xy: tuple[float, float] | list[float] = _DROID_STAND_PRIM.footprint_scale_xy,
         placement_bbox_stand_only: bool = False,
         collision_mode: CollisionMode | str | None = None,
     ):
@@ -254,6 +268,7 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
             stand_height_m=stand_height_m,
+            stand_scale_xy=stand_scale_xy,
             placement_bbox_stand_only=placement_bbox_stand_only,
             collision_mode=collision_mode,
         )
