@@ -105,9 +105,7 @@ def _draw_lines(debug_draw, edges, color, width: float) -> None:
 
 
 def _posed_link_edges(embodiment, position: np.ndarray, yaw_rad: float):
-    """Return oriented-box edges for each posed DROID collision component."""
-    import trimesh
-
+    """Return the original edges of each posed DROID collision box."""
     mesh = embodiment.get_collision_mesh()
     assert mesh is not None
     components = list(mesh.split(only_watertight=False))
@@ -120,37 +118,12 @@ def _posed_link_edges(embodiment, position: np.ndarray, yaw_rad: float):
 
     edges = []
     for component in components:
-        oriented_box = component.bounding_box_oriented
-        half_extents = np.asarray(oriented_box.extents, dtype=np.float64) / 2.0
-        vertices = np.array(
-            [
-                [-half_extents[0], -half_extents[1], -half_extents[2]],
-                [half_extents[0], -half_extents[1], -half_extents[2]],
-                [half_extents[0], half_extents[1], -half_extents[2]],
-                [-half_extents[0], half_extents[1], -half_extents[2]],
-                [-half_extents[0], -half_extents[1], half_extents[2]],
-                [half_extents[0], -half_extents[1], half_extents[2]],
-                [half_extents[0], half_extents[1], half_extents[2]],
-                [-half_extents[0], half_extents[1], half_extents[2]],
-            ]
-        )
-        vertices = trimesh.transform_points(vertices, oriented_box.primitive.transform)
+        vertices = np.asarray(component.vertices, dtype=np.float64).copy()
         vertices[:, :2] = vertices[:, :2] @ rotation.T
         vertices += position
-        for start_index, end_index in (
-            (0, 1),
-            (1, 2),
-            (2, 3),
-            (3, 0),
-            (4, 5),
-            (5, 6),
-            (6, 7),
-            (7, 4),
-            (0, 4),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-        ):
+        box_edges = component.face_adjacency_edges[component.face_adjacency_angles > 1e-6]
+        assert len(box_edges) == 12, f"Expected 12 box edges, found {len(box_edges)}"
+        for start_index, end_index in box_edges:
             edges.append((tuple(vertices[start_index]), tuple(vertices[end_index])))
     return edges
 
@@ -180,6 +153,13 @@ def main() -> None:
             env.reset()
             embodiment = builder.arena_env.embodiment
             assert embodiment is not None
+            robot = env.unwrapped.scene["robot"]
+            configured_joint_pos = robot.data.default_joint_pos.torch.clone()
+            configured_joint_vel = robot.data.default_joint_vel.torch.clone()
+            robot.write_joint_state_to_sim(configured_joint_pos, configured_joint_vel)
+            robot.set_joint_position_target(configured_joint_pos)
+            robot.write_data_to_sim()
+            env.unwrapped.sim.forward()
             placement_pose = embodiment.get_initial_pose()
             assert isinstance(placement_pose, Pose), "The single-environment visualizer requires one fixed DROID pose"
             env_origin = env.unwrapped.scene.env_origins[0].detach().cpu().numpy()
@@ -260,6 +240,9 @@ def main() -> None:
             while simulation_context.is_running():
                 if args_cli.view_steps and step >= args_cli.view_steps:
                     break
+                robot.write_joint_state_to_sim(configured_joint_pos, configured_joint_vel)
+                robot.set_joint_position_target(configured_joint_pos)
+                robot.write_data_to_sim()
                 env.unwrapped.sim.step(render=True)
                 time.sleep(1.0 / 60.0)
                 step += 1
