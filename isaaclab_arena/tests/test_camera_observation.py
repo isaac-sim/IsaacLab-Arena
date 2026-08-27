@@ -49,7 +49,9 @@ def _test_camera_observation(simulation_app) -> bool:
 
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
-    env = builder.make_registered()
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env_cfg.num_rerenders_on_reset = 3
+    env = builder.make_registered(env_cfg, env_kwargs)
     env.reset()
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
