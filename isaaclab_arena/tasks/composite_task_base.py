@@ -174,24 +174,25 @@ class CompositeTaskBase(TaskBase):
     @staticmethod
     def _evaluate_subtask_successes(
         env,
-        resolved_subtask_success_cfgs: list[TerminationTermCfg],
+        subtask_success_cfgs: list[TerminationTermCfg],
         subtask_indices,
     ) -> list[list[bool]]:
         """Evaluate the success function of selected subtasks across all envs.
 
         Args:
             env: The environment instance.
-            resolved_subtask_success_cfgs: Manager-resolved success configuration for every subtask.
+            subtask_success_cfgs: Success configurations whose class-based functions have been
+                constructed by the manager.
             subtask_indices: Iterable of subtask indices to evaluate. Indices not in this
                 iterable are left as False in the returned matrix.
 
         Returns:
-            A (num_envs x len(resolved_subtask_success_cfgs)) list of bools, where entry
+            A (num_envs x len(subtask_success_cfgs)) list of bools, where entry
             [env_idx][subtask_idx] is True if that subtask's success function returned True this step.
         """
-        subtask_currently_succeeding = [[False for _ in resolved_subtask_success_cfgs] for _ in range(env.num_envs)]
+        subtask_currently_succeeding = [[False for _ in subtask_success_cfgs] for _ in range(env.num_envs)]
         for subtask_idx in subtask_indices:
-            subtask_success_cfg = resolved_subtask_success_cfgs[subtask_idx]
+            subtask_success_cfg = subtask_success_cfgs[subtask_idx]
             results = subtask_success_cfg.func(env, **subtask_success_cfg.params)
             for env_idx in range(env.num_envs):
                 if results[env_idx]:
@@ -201,14 +202,14 @@ class CompositeTaskBase(TaskBase):
     @staticmethod
     def composite_task_success_func(
         env,
-        resolved_subtask_success_cfgs: list[TerminationTermCfg],
+        subtask_success_cfgs: list[TerminationTermCfg],
         desired_subtask_success_state: list[bool | None] | None,
     ) -> torch.Tensor:
         """Composite task composite success function.
 
         Args:
             env: The environment instance.
-            resolved_subtask_success_cfgs: Success configurations whose class-based functions have been
+            subtask_success_cfgs: Success configurations whose class-based functions have been
                 constructed by the manager.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
@@ -216,7 +217,7 @@ class CompositeTaskBase(TaskBase):
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
-        num_subtasks = len(resolved_subtask_success_cfgs)
+        num_subtasks = len(subtask_success_cfgs)
 
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):
@@ -224,7 +225,7 @@ class CompositeTaskBase(TaskBase):
 
         # Evaluate every subtask's success function (composite tasks have no ordering constraint).
         subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, resolved_subtask_success_cfgs, range(num_subtasks)
+            env, subtask_success_cfgs, range(num_subtasks)
         )
         for env_idx in range(env.num_envs):
             for subtask_idx in range(num_subtasks):
@@ -327,9 +328,9 @@ class CompositeTaskBase(TaskBase):
         success = TerminationTermCfg(
             func=self.composite_task_success_func,
             params={
-                # Isaac Lab recursively processes manager configs stored in term parameters. By the time
-                # composite_task_success_func runs, class-based child functions have been constructed.
-                "resolved_subtask_success_cfgs": subtask_success_cfgs,
+                # Child success configs must be direct term parameters so Isaac Lab can construct
+                # class-backed child terms; ManagerBase does not traverse TaskBase objects.
+                "subtask_success_cfgs": subtask_success_cfgs,
                 "desired_subtask_success_state": self.desired_subtask_success_state,
             },
         )

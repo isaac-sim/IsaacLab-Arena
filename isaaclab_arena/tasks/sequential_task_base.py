@@ -27,14 +27,14 @@ class SequentialTaskBase(CompositeTaskBase):
     @staticmethod
     def composite_task_success_func(
         env,
-        resolved_subtask_success_cfgs: list[TerminationTermCfg],
+        subtask_success_cfgs: list[TerminationTermCfg],
         desired_subtask_success_state: list[bool | None] | None,
     ) -> torch.Tensor:
         """Sequential task composite success function.
 
         Args:
             env: The environment instance.
-            resolved_subtask_success_cfgs: Success configurations whose class-based functions have been
+            subtask_success_cfgs: Success configurations whose class-based functions have been
                 constructed by the manager.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
@@ -42,7 +42,7 @@ class SequentialTaskBase(CompositeTaskBase):
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
-        num_subtasks = len(resolved_subtask_success_cfgs)
+        num_subtasks = len(subtask_success_cfgs)
 
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):
@@ -58,7 +58,7 @@ class SequentialTaskBase(CompositeTaskBase):
             subtasks_to_evaluate = sorted(set(env._current_subtask_idx))
 
         subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, resolved_subtask_success_cfgs, subtasks_to_evaluate
+            env, subtask_success_cfgs, subtasks_to_evaluate
         )
 
         # Advance the state machine per env using the precomputed active-subtask result.

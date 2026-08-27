@@ -207,34 +207,34 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
-        resolved_subtask_success_cfgs = _get_success_cfgs(subtasks)
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Latch all three subtasks True simultaneously (composite doesn't require order).
         subtasks[0].set_success([True])
         subtasks[1].set_success([True])
         subtasks[2].set_success([True])
-        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care) -> still success.
         subtasks[0].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [True]
 
         # Subtask 2 currently False breaks the [None, True, True] pattern -> failure.
         subtasks[2].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [False]
 
         # [None, False, None]: subtask 1 must be currently False AND latched True at
         # some point. Drive subtask 1 False; it was latched True earlier -> success.
         subtasks[1].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, False, None])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, False, None])
         assert result.tolist() == [True]
 
         # All-None desired state matches trivially.
-        result = CompositeTaskBase.composite_task_success_func(env, resolved_subtask_success_cfgs, [None, None, None])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, None, None])
         assert result.tolist() == [True]
 
     except Exception as e:
@@ -288,7 +288,7 @@ def _test_manager_constructs_nested_subtask_success_terms(simulation_app) -> boo
 
             termination_manager = TerminationManager(task.get_termination_cfg(), env)
             composite_success_cfg = termination_manager.get_term_cfg("success")
-            resolved_subtask_success_cfg = composite_success_cfg.params["resolved_subtask_success_cfgs"][0]
+            resolved_subtask_success_cfg = composite_success_cfg.params["subtask_success_cfgs"][0]
 
             assert isinstance(resolved_subtask_success_cfg.func, _ConstantSuccessTerm)
             assert child_success_cfg.func is _ConstantSuccessTerm
