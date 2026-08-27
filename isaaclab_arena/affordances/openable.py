@@ -60,6 +60,26 @@ class Openable(AffordanceBase):
         openness = self.get_openness(env, asset_cfg)
         return openness <= used_threshold
 
+    def has_moved(
+        self,
+        env: ManagerBasedEnv,
+        asset_cfg: SceneEntityCfg | None = None,
+        reference_percentage: float = 0.0,
+        min_change: float = 0.05,
+    ) -> torch.Tensor:
+        """Returns a boolean tensor of whether the object's joint has moved away from a reference openness.
+
+        Movement in either direction counts: the check is abs(openness - reference_percentage) > min_change.
+
+        Args:
+            env: The environment to read the joint state from.
+            asset_cfg: The scene entity to read. Defaults to this object.
+            reference_percentage: The openness the movement is measured against, typically the reset openness.
+            min_change: How far the openness must change from reference_percentage to count as moved.
+        """
+        openness = self.get_openness(env, asset_cfg)
+        return (openness - reference_percentage).abs() > min_change
+
     def rotate_revolute_joint(
         self,
         env: ManagerBasedEnv,
