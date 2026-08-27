@@ -1,290 +1,454 @@
-# PerfLab benchmark handoff
+# PerfLab first-pass Arena benchmarks
 
-These definitions benchmark one Arena Run in one fresh Experiment Runner process. They do not use
-OSMO, `torchrun`, or the legacy JSON/chunk runner. Each trial uses one simulator GPU. Remote-policy
-trials normally also use one separate policy-server GPU.
+This README tells a PerfLab operator how to set up and run the first three non-OSMO Arena
+benchmarks:
 
-## Decisions required before handoff
+1. `zero_action` without cameras.
+2. `zero_action` with the maintained production DROID cameras.
+3. Pi0.5 with the maintained production DROID cameras and a separate OpenPI server.
 
-Do not send the benchmark to PerfLab until both items below are resolved and committed:
+Here, **Pi Zero means the checked-in Pi0.5 (`pi05`) experiment**. Do not substitute the older
+`pi0` checkpoint without a separate agreed configuration.
 
-1. Replace the provisional `shared.rollout_limit.num_steps: 10` in every Experiment with the agreed
-   fixed performance-rollout length. Ten steps is only a local smoke-test value. Use `num_steps`, not
-   `num_episodes`, so task success and episode duration do not change the amount of measured work.
-2. Select, implement, and verify the exact reduced camera resolution. The reduced-camera control
-   must state its final width and height while keeping the three DROID cameras, their poses, the
-   production aspect ratio, and the rest of the production-camera setup unchanged. Until the YAML
-   is finalized, both dimensions must be supplied together as
-   `shared.environment_builder.camera_height=<height>` and
-   `shared.environment_builder.camera_width=<width>` overrides. A run without both overrides is not
-   a reduced-resolution result.
+Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5 also
+needs a separately started OpenPI server process. The local helper does not automatically put that
+server on another GPU. These commands do not use OSMO, `torchrun`, distributed evaluation, video
+recording, or the legacy JSON runner.
 
-Also pin the Arena commit, Isaac Lab submodule revision, simulator and policy-server image digests,
-model checkpoints, task assets, renderer, seeds, and policy endpoints. PerfLab should run a clean
-checkout at the pinned commit rather than a moving branch.
+## What the three experiments show
 
-## Workloads and sweeps
+All three use the same Maple-table task: pick up a Rubik's cube and place it in a bowl.
 
-Run every point three times. A point is stable only when all three trials pass. Report the highest
-stable count, the best median throughput among stable points, and the first unstable or failed
-count. After a genuine capacity failure, do not run larger points unless boundary finding is
-requested.
+| Experiment | What runs | What it tells us |
+|---|---|---|
+| Camera-free baseline | `zero_action`; cameras off | Scene construction, physics stepping, throughput, and the maximum environment count without camera or policy cost. |
+| Production-camera baseline | `zero_action`; the maintained three-camera DROID rig is on | The additional cost of producing the normal camera observations. This README does not change or state a camera resolution. |
+| Pi0.5 | Pi0.5 remote policy; the maintained three-camera DROID rig is on | End-to-end production evaluation cost, including camera rendering and calls to the OpenPI server. |
 
-| Experiment / Run | What it tests | Controlled difference | `num_envs` sweep |
-|---|---|---|---|
-| Camera-free baseline<br>`camera_free_benchmark_experiment.yaml`<br>`camera_free_baseline` | Core scene construction and physics-step scaling for the Maple-table Rubik's-cube-to-bowl task with a stationary zero-action policy. | Cameras and remote inference are disabled. This is the reference point for simulator capacity. | 1, 64, 256, 1024, 2048; then 4096 if stable |
-| Production-camera baseline<br>`production_camera_benchmark_experiment.yaml`<br>`production_camera_baseline` | The same stationary task with all three production DROID cameras enabled. | Adds the maintained camera rig; task, assets, placement, policy, and camera settings otherwise stay fixed. | 1, 16, 64, 128, 256; then continue doubling if stable |
-| Reduced-camera control<br>`reduced_camera_benchmark_experiment.yaml`<br>`reduced_camera_control` | Whether reducing rendered pixels changes camera-enabled capacity. | Only the common resolution of the same three cameras changes; final dimensions are still TBD. | Same camera-enabled sweep |
-| Pi0.5<br>`pi05_benchmark_experiment.yaml`<br>`pi05_evaluation` | Full camera-enabled Pi0.5 evaluation, including the remote-policy client path. | Replaces zero action with the fixed Pi0.5 policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
-| Cosmos<br>`cosmos_benchmark_experiment.yaml`<br>`cosmos_evaluation` | Full camera-enabled Cosmos evaluation, including the remote-policy client path. | Replaces zero action with the fixed Cosmos policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
-| GR00T<br>`gr00t_benchmark_experiment.yaml`<br>`gr00t_evaluation` | Full camera-enabled GR00T evaluation, including the remote-policy client path. | Replaces zero action with the fixed GR00T policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
-| Homogeneous-object baseline<br>`same_object_benchmark_experiment.yaml`<br>`same_object_control` | Every parallel environment runs the same apple-into-bowl task with the same apple asset. | Establishes the same-object baseline; cameras and remote inference are disabled. | Same camera-free sweep |
-| Heterogeneous-object comparison<br>`mixed_object_benchmark_experiment.yaml`<br>`mixed_object_workload` | Parallel environments run the same fruit-into-bowl task using ten different fruit assets assigned round-robin. | Only the object-set member list differs from the homogeneous baseline. | Same camera-free sweep |
+The first two experiments use the same `droid_rel_joint_pos` embodiment, so comparing them isolates
+the cost of enabling the production camera rig. Pi0.5 requires the `droid_abs_joint_pos`
+embodiment. Therefore, compare Pi0.5 with the production-camera baseline only as a complete
+production-path comparison, not as a measurement of policy inference alone.
 
-Use one fresh Experiment Runner process for each `(Experiment, num_envs, repeat)` tuple. Do not put
-several sweep points in one Experiment process.
+All three DROID cameras are rendered in the Pi0.5 experiment. The policy request uses the main
+external-camera image and the wrist-camera image; the second external-camera image is rendered but
+is not sent to OpenPI.
 
-## Experiment Runner command
+The zero-action policy keeps the robot stationary. A completed zero-action run proves that the
+performance pipeline worked; it is not expected to solve the task.
 
-Run from the repository root inside the Arena container. Substitute an Experiment filename, a
-trial-specific output path visible inside the container, and one value from the table:
+## Configuration used by every measured run
+
+Keep these settings fixed:
+
+- `num_steps`: **300**, the proposed measurement length for this first PerfLab pass.
+- Renderer: `balanced`.
+- Visualization and video: off.
+- Environment seed: `42`.
+- Placement seed: `42`.
+- Environment spacing: `2.5`.
+- Environment rebuilds: `1`.
+- Three valid repeats for every successful environment count.
+- One fresh Experiment Runner process for every environment count and repeat.
+
+The YAML files keep `num_steps: 10` as a quick smoke default. Every measured command below
+explicitly overrides it with `NUM_STEPS=300`. This is long enough for Pi0.5 to fetch multiple action
+chunks instead of measuring only its first request. Confirm this proposed value before scheduling
+the final PerfLab job, then use the same value for all three experiments.
+
+Before the handoff, the Arena owner must provide PerfLab with the exact Arena commit, Isaac Lab
+submodule commit, Arena image digest, OpenPI image digest, and trial timeout. Do not benchmark a
+moving branch.
+
+## Machine and access requirements
+
+PerfLab needs:
+
+- A Linux host supported by Isaac Sim 6.0.
+- Docker and the NVIDIA Container Toolkit.
+- Git access to Isaac Lab-Arena and access to its task assets.
+- One simulator GPU for the two zero-action experiments.
+- At least one GPU for a local Pi0.5 smoke check. The simulator and policy server may share it.
+- A second GPU for Pi0.5 only when the agreed PerfLab layout isolates policy inference from the
+  simulator.
+- Enough local storage for the Arena image, an approximately 19 GB OpenPI image, an approximately
+  11 GB Pi0.5 checkpoint, logs, and result directories.
+- Persistent storage mounted into the Arena container at `/eval`.
+- A harness that records total wall time, process exit code, stdout, stderr, host memory, and GPU
+  utilization and memory.
+
+The simulator and OpenPI server must be able to reach each other over TCP. The checked-in Pi0.5
+configuration uses `127.0.0.1:8000`, so that default requires the server and simulator to share a
+host-network namespace. If they run on different hosts, use the host and port overrides shown
+below.
+
+## 1. Prepare a clean Arena checkout
+
+Run these commands on the host. PerfLab must replace `<PINNED_ARENA_COMMIT>` with the commit given
+by the Arena owner.
 
 ```bash
-/isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/<experiment.yaml> \
-  --experiment_output_directory <arena-output-directory> \
+git clone https://github.com/isaac-sim/IsaacLab-Arena.git
+cd IsaacLab-Arena
+
+ARENA_COMMIT="<PINNED_ARENA_COMMIT>"
+git fetch origin
+git checkout "${ARENA_COMMIT}"
+git submodule update --init --recursive
+```
+
+Check that the checkout is clean and record both revision commands in the PerfLab result:
+
+```bash
+git status --short
+git rev-parse HEAD
+git submodule status --recursive
+```
+
+`git status --short` should print nothing. A line from `git submodule status` must not begin with
+`-`, `+`, or `U`.
+
+## 2. Start the Arena container
+
+Choose an absolute host directory that PerfLab will retain after the job. Start the container from
+the repository root and mount that directory at `/eval`:
+
+```bash
+PERFLAB_OUTPUT_HOST=/absolute/path/to/perflab-output
+mkdir -p "${PERFLAB_OUTPUT_HOST}"
+
+./docker/run_docker.sh -e "${PERFLAB_OUTPUT_HOST}"
+```
+
+The first invocation may build or download the Arena image. Do that before timing any trial. The
+launcher enters the Arena container interactively; leave that terminal open.
+
+The checked-in launcher performs X11 setup even though these commands do not open a simulator
+window. On a headless worker, use PerfLab's normal X11/container setup. If the launcher stops at
+`xhost`, treat that as a setup problem rather than a benchmark result.
+
+Inside the Arena container, verify that the source checkout is mounted and the simulator GPU is
+visible:
+
+```bash
+cd /workspaces/isaaclab_arena
+
+/isaac-sim/python.sh -c "import isaaclab_arena; print(isaaclab_arena.__file__)"
+nvidia-smi
+test -d /eval && test -w /eval
+```
+
+The import path must be below `/workspaces/isaaclab_arena`, and the final command must exit with
+status zero. The `-e` mount is applied only when the launcher creates the container; attaching to
+an older container does not change its mounts.
+
+Create only the common output root. Do not create a trial's exact output directory before its
+command runs:
+
+```bash
+PERFLAB_OUTPUT_ROOT=/eval/perflab-three-workloads
+mkdir -p "${PERFLAB_OUTPUT_ROOT}"
+```
+
+## 3. Understand the trial variables
+
+Set these variables inside the Arena container before each command:
+
+```bash
+NUM_STEPS=300
+NUM_ENVS=1
+REPEAT=1
+ATTEMPT=1
+```
+
+- `NUM_STEPS` stays at `300` for every measured trial.
+- `NUM_ENVS` selects one point from the experiment's sweep.
+- `REPEAT` is `1`, `2`, or `3`.
+- `ATTEMPT` starts at `1`. Increase it only when an infrastructure problem requires the exact
+  trial to be run again.
+
+The path includes all four values, so a smoke test, measured repeat, or retry cannot overwrite an
+earlier result. The exact output directory passed to Arena must be missing or empty.
+
+PerfLab's harness should capture stdout and stderr outside the Arena output directory. Start the
+trial wall-clock immediately before `/isaac-sim/python.sh` and stop it when that process exits.
+Container startup, image downloads, asset downloads, and OpenPI server startup are preparation and
+must not be included in this trial time.
+
+## 4. Run a one-environment smoke check
+
+Before collecting measurements, run each available experiment once with:
+
+```bash
+NUM_STEPS=10
+NUM_ENVS=1
+REPEAT=1
+ATTEMPT=1
+```
+
+Use the commands in the next sections without changing anything else. These smoke results only
+check setup and output creation. Do not include them in the benchmark tables.
+
+The smoke checks also warm the asset, shader, and image caches. The Pi0.5 smoke check warms the
+policy server. Treat every later measured trial as a warm-cache run, and do not clear these caches
+between repeats.
+
+After all smoke checks pass, restore:
+
+```bash
+NUM_STEPS=300
+```
+
+## 5. Experiment 1: zero action without cameras
+
+This is the simplest reference workload. It needs only the Arena container and one simulator GPU.
+No policy server is involved.
+
+Run this command inside the Arena container:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config \
+    isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml \
+  --experiment_output_directory \
+    "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
   --viz none \
   --device cuda:0 \
   --rendering_mode balanced \
-  shared.environment_builder.num_envs=<num-envs>
-```
-
-The command intentionally uses the rollout length pinned in the YAML. A shorter
-`shared.rollout_limit.num_steps=<smoke-steps>` override is allowed only for local debugging and must
-not appear in measured trials. Do not add video flags or `--continue_on_error`.
-
-`<arena-output-directory>` must be missing or empty. Give every repeat a unique directory. Capture
-the runner log beside that directory rather than creating a log inside it before startup.
-
-### Concrete workload commands
-
-PerfLab should run the following commands from the repository root inside the Arena container.
-Before each command, set `NUM_ENVS` to one point from that workload's sweep and `REPEAT` to `1`, `2`,
-or `3`. `PERFLAB_OUTPUT_ROOT` must point to persistent storage. The Experiment Runner creates the
-final trial directory, so that directory must not already contain output from another attempt.
-
-```bash
-PERFLAB_OUTPUT_ROOT=/path/to/perflab-output
-NUM_ENVS=1
-REPEAT=1
-```
-
-Camera-free baseline:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Production-camera baseline:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/production_camera_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Reduced-resolution camera control. Do not schedule this command until both dimensions are fixed:
-
-```bash
-: "${REDUCED_CAMERA_HEIGHT:?set REDUCED_CAMERA_HEIGHT to the selected integer}"
-: "${REDUCED_CAMERA_WIDTH:?set REDUCED_CAMERA_WIDTH to the selected integer}"
-
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/reduced_camera_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/reduced-camera/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
   "shared.environment_builder.num_envs=${NUM_ENVS}" \
-  "shared.environment_builder.camera_height=${REDUCED_CAMERA_HEIGHT}" \
-  "shared.environment_builder.camera_width=${REDUCED_CAMERA_WIDTH}"
+  "shared.rollout_limit.num_steps=${NUM_STEPS}"
 ```
 
-Pi0.5 evaluation. The default endpoint is `127.0.0.1:8000`; append shared policy host and port
-overrides if PerfLab uses another endpoint:
+In plain English, this starts a fresh Isaac Sim process, creates `NUM_ENVS` copies of the task with
+no cameras, takes `NUM_STEPS` stationary actions, writes one result directory, and exits.
 
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/pi05_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Cosmos evaluation. The default endpoint is `127.0.0.1:8000`; append shared policy host and port
-overrides if PerfLab uses another endpoint:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/cosmos_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/cosmos/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-GR00T evaluation. The default endpoint is `127.0.0.1:5555`; append shared policy host and port
-overrides if PerfLab uses another endpoint:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/gr00t_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/gr00t/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Homogeneous-object baseline:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/same_object_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/homogeneous-object/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Heterogeneous-object comparison:
-
-```bash
-env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/mixed_object_benchmark_experiment.yaml \
-  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/heterogeneous-object/envs-${NUM_ENVS}/repeat-${REPEAT}" \
-  --viz none --device cuda:0 --rendering_mode balanced \
-  "shared.environment_builder.num_envs=${NUM_ENVS}"
-```
-
-Use `1 64 256 1024 2048` for the camera-free and object workloads, followed by `4096` only if all
-three `2048` trials are stable. Use `1 16 64 128 256` for the camera and policy workloads, then
-continue doubling only while all three trials at the preceding point are stable.
-
-For local Docker execution, discover the container that mounts the current checkout instead of
-using a fixed container name:
-
-```bash
-ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
-HOST_USER=$(id -un)
-
-docker exec "$ARENA_CONTAINER" su "$HOST_USER" -c \
-  "cd /workspaces/isaaclab_arena && \
-   env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
-   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-   --experiment_config isaaclab_arena_environments/experiment_configs/perflab/<experiment.yaml> \
-   --experiment_output_directory <arena-output-directory> \
-   --viz none \
-   --device cuda:0 \
-   --rendering_mode balanced \
-   shared.environment_builder.num_envs=<num-envs>"
-```
-
-## Pass and artifact contract
-
-A completed trial must have all of the following:
-
-- Process exit code zero.
-- `arena_experiment_result.json` and `index.html` in the Experiment output directory.
-- `arena_experiment_metadata.json`, with the expected command, revision, resolved Run settings, and
-  final `completed` status.
-- Exactly the expected Run in `arena_experiment_result.json`, with `status` equal to `completed`.
-- `<run-name>/episode_results_rebuild0.jsonl`. A fixed-step trial can validly leave this file empty
-  when no episode finishes.
-- `arena_experiment_timings.json` when the process reaches graceful finalization.
-- A runner log without CUDA OOM, fatal renderer, policy-connection, or GPU-reset errors.
-
-The timing record's `rollout/step_total.count` and `rollout/env_step.count` must equal the pinned
-`num_steps`. Diagnostic transitions per second can be calculated as:
+For the measured sweep, use these environment counts in order:
 
 ```text
-num_envs * count / (total_ms / 1000)
+1, 64, 256, 1024, 2048
 ```
 
-Use `rollout/step_total` for the full policy-plus-environment loop and `rollout/env_step` for the
-environment step alone. These are diagnostic timings: CUDA synchronization is off by default,
-there is no warm-up split, and nested timing totals must not be added together. The outer PerfLab
-harness remains authoritative for total wall time and resource peaks.
+Run `4096` only if all three `2048` repeats complete. For each count, run repeats `1`, `2`, and `3`
+before increasing `NUM_ENVS`.
 
-An OOM, timeout, SIGKILL, or startup failure may prevent the result, report, or timing file from
-being written. Preserve whatever partial output exists.
+## 6. Experiment 2: zero action with production cameras
 
-## PerfLab logging responsibilities
+This uses the same task and zero-action policy, but enables the maintained three-camera DROID rig.
+The Experiment Runner detects the camera requirement from the YAML, so do not add an
+`--enable_cameras` flag. Do not add video flags or camera-resolution overrides.
 
-For every trial, the external harness must retain:
+Run this command inside the Arena container:
 
-- The resolved command, trial identifier, repeat number, exit code, start/end timestamps, and full
-  stdout/stderr log.
-- Arena and submodule commits, image digests, checkpoints, camera contract, renderer, seeds, and
-  host/GPU inventory.
-- One-second simulator-GPU samples including UUID, utilization, VRAM, power, clocks, temperature,
-  and Xid/ECC events, plus simulator host RAM and process RSS.
-- Separately tagged policy-server GPU and host samples, server logs, readiness time, and checkpoint
-  identity for remote-policy trials.
-- Timeout configuration and host/cgroup OOM evidence.
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config \
+    isaaclab_arena_environments/experiment_configs/perflab/production_camera_benchmark_experiment.yaml \
+  --experiment_output_directory \
+    "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
+  --viz none \
+  --device cuda:0 \
+  --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}" \
+  "shared.rollout_limit.num_steps=${NUM_STEPS}"
+```
 
-OOM and timeout are valid capacity results. A server outage, image-pull failure, preemption, or other
-infrastructure failure is an invalid trial: fix the external condition and rerun the identical
-point. Never silently reduce `num_envs` or change another pinned setting. Before the next trial,
-confirm the prior simulator process exited and GPU memory returned to its idle baseline.
+This repeats the same task and stationary actions, but renders the maintained production camera
+rig. The difference from Experiment 1 shows the camera cost.
 
-## Policy-server requirements
+For the measured sweep, use these environment counts in order:
 
-Start and verify the required server before a measured Experiment begins. Keep its checkpoint,
-endpoint, GPU allocation, and warm/cold state fixed across repeats. Pi0.5, Cosmos, and GR00T results
-are production-path results, not direct model-speed comparisons.
+```text
+1, 16, 64, 128, 256
+```
 
-Start Pi0.5 from the Arena repository root in a separate retained terminal:
+If all three `256` repeats complete, continue by doubling to `512`, then `1024`, and so on while
+the preceding point remains stable.
+
+## 7. Prepare the Pi0.5 policy server
+
+Do this before the Pi0.5 smoke check or measured sweep. Use a second host terminal in the same
+clean Arena checkout.
+
+The checked-in OpenPI helper does not select a policy-server GPU. It starts Docker with `--gpus
+all`; the Arena launcher also exposes all visible GPUs, and the commands below run Arena on
+`cuda:0`. On a normal local machine, both processes may therefore use the first visible GPU. That
+is acceptable for a functional smoke check, but the resulting timing includes GPU contention.
+
+If the agreed PerfLab measurement uses separate simulator and policy GPUs, PerfLab must isolate
+them in its job or container harness. The current helper cannot enforce that layout by itself; it
+would need a GPU-selection option or an equivalent PerfLab launch command. Record whether the run
+used a shared or dedicated policy GPU, and do not compare results from the two layouts as if they
+were the same workload.
+
+Start the server:
 
 ```bash
 ./isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
 ```
 
-Require `INFO:websockets.server:server listening on 0.0.0.0:8000` before starting the Experiment.
-Start Cosmos in its own retained terminal after stopping Pi0.5, because both default to port 8000:
+On the first invocation, the wrapper may build the approximately 19 GB OpenPI image and download
+the approximately 11 GB Pi0.5 checkpoint. Complete that work before starting the measured clock.
 
-```bash
-./isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
+Wait until the server prints:
+
+```text
+INFO:websockets.server:server listening on 0.0.0.0:8000
 ```
 
-The Cosmos handoff still needs a documented protocol-level readiness check; a listening port alone
-is not enough. Start GR00T from the maintained checkout in a separate retained terminal:
+Leave this terminal and server running throughout the complete Pi0.5 smoke check and measured
+sweep. Do not include server startup in the Arena trial time. Keep the server's checkpoint, GPU,
+endpoint, and warm state unchanged across repeats.
+
+## 8. Experiment 3: Pi0.5 with production cameras
+
+Return to the Arena container terminal. The default setup uses the OpenPI server at
+`127.0.0.1:8000`:
 
 ```bash
-cd submodules/Isaac-GR00T
-uv run python gr00t/eval/run_gr00t_server.py \
-  --model-path nvidia/GR00T-N1.6-DROID \
-  --embodiment-tag OXE_DROID \
-  --device cuda --host 127.0.0.1 --port 5555
+POLICY_HOST=127.0.0.1
+POLICY_PORT=8000
 ```
 
-Verify the GR00T endpoint from that environment, substituting the absolute Arena checkout path:
+Run this command inside the Arena container:
 
 ```bash
-uv run python /absolute/path/to/IsaacLab-Arena/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
-  --host 127.0.0.1 --port 5555 \
-  --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config \
+    isaaclab_arena_environments/experiment_configs/perflab/pi05_benchmark_experiment.yaml \
+  --experiment_output_directory \
+    "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/steps-${NUM_STEPS}/repeat-${REPEAT}/attempt-${ATTEMPT}" \
+  --viz none \
+  --device cuda:0 \
+  --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}" \
+  "shared.rollout_limit.num_steps=${NUM_STEPS}" \
+  "shared.policy.remote_host=${POLICY_HOST}" \
+  "shared.policy.remote_port=${POLICY_PORT}"
 ```
 
-The simulator and policy server should use separately monitored GPUs. Sharing one GPU is acceptable
-for a local functional smoke test but is not comparable to the PerfLab result. OpenPI and GR00T have
-maintained protocol-level readiness workflows. An endpoint configured as `127.0.0.1` requires
-compatible host networking or co-location.
+This renders the production camera observations, sends one request per environment to OpenPI when
+a new action chunk is needed, applies the returned actions, writes the result, and exits. The
+current client sends environment requests one at a time and reuses each Pi0.5 action chunk for 15
+simulation steps. That behavior is part of this end-to-end measurement. A ten-step smoke check
+normally makes only the first request for each environment; the 300-step run exercises repeated
+requests.
+
+For the measured sweep, use these environment counts in order:
+
+```text
+1, 16, 64, 128, 256
+```
+
+If all three `256` repeats complete, continue by doubling while the preceding point remains
+stable. Finish all Pi0.5 repeats before stopping the OpenPI server. Stop it with Ctrl-C in the same
+terminal that started the wrapper so the wrapper can clean up correctly.
+
+## 9. Run order
+
+Use this order:
+
+1. Run the three one-environment, ten-step smoke checks. Start OpenPI before the Pi0.5 smoke check.
+2. Set `NUM_STEPS=300`.
+3. Finish the camera-free sweep.
+4. Finish the production-camera sweep.
+5. Use the same verified Pi0.5 server from the smoke check and finish the Pi0.5 sweep.
+
+Run one command at a time. Do not put several sweep points into one Experiment Runner process.
+Before starting the next command, confirm that the preceding simulator process exited and its GPU
+memory returned to the idle level.
+
+## 10. Decide whether a trial passed
+
+A successful trial has all of the following:
+
+- Process exit code `0`.
+- `arena_experiment_metadata.json` with top-level status `completed`.
+- `arena_experiment_result.json` with the expected Run status `completed`.
+- `arena_experiment_timings.json`.
+- `index.html`.
+- `<run-name>/episode_results_rebuild0.jsonl`. It may be empty when no episode finishes during the
+  fixed number of steps.
+- No CUDA OOM, host OOM, GPU reset, fatal renderer error, or policy-connection error in the log.
+
+Expected Run names are:
+
+| Experiment | Run name |
+|---|---|
+| Camera-free baseline | `camera_free_baseline` |
+| Production-camera baseline | `production_camera_baseline` |
+| Pi0.5 | `pi05_evaluation` |
+
+The `rollout/step_total.count`, `rollout/env_step.count`, and
+`rollout/policy_get_action.count` entries in `arena_experiment_timings.json` must equal
+`NUM_STEPS`.
+
+## 11. Handle failures without losing information
+
+A clear CUDA OOM, confirmed host OOM, or repeatable high-count simulator failure is a capacity
+result. An elapsed trial timeout is also a capacity result only when the simulator, policy server,
+and worker infrastructure stayed healthy:
+
+1. Keep the full log and every partial output file.
+2. Record the failed environment count and exact error.
+3. Do not run a larger environment count for that experiment.
+4. Wait for the process to exit and GPU memory to return to idle.
+5. Continue with the next experiment.
+
+A server outage, image or asset download failure, network outage, preemption, or machine failure
+is an infrastructure failure, not a performance result. Fix the problem, increase `ATTEMPT`, and
+rerun the same `NUM_ENVS`, `NUM_STEPS`, and `REPEAT`. Never silently reduce an environment count or
+change another setting.
+
+Do not add `--continue_on_error`. A nonzero process exit is important evidence.
+
+## 12. Measurements PerfLab must return
+
+PerfLab's outer harness is authoritative for total elapsed time. Start the clock immediately before
+the Python command and stop it after the process exits.
+
+For these single-simulator-GPU trials:
+
+```text
+total environment steps = NUM_ENVS * NUM_STEPS
+
+aggregate env-steps/second =
+    NUM_ENVS * NUM_STEPS / total elapsed seconds
+```
+
+A Pi0.5 policy-server GPU, when one is allocated, is not a second simulator GPU and is not included
+in the numerator. The same formula applies when the server shares the simulator GPU.
+
+Arena records component timings in `arena_experiment_timings.json`, including:
+
+- `run/build_environment`
+- `rollout/initial_reset`
+- `rollout/policy_get_action`
+- `rollout/env_step`
+- `rollout/step_total`
+- `rollout/compute_metrics`
+- `run/close_resources`
+
+These timers are nested, CUDA-unsynchronized diagnostics and do not separate warm-up work. Do not
+add their totals together. Use external total elapsed time for the primary throughput number and
+the Arena timers only to explain where time was spent.
+
+For every trial, return:
+
+- The fully resolved command, environment count, step count, repeat, attempt, start/end timestamps,
+  elapsed seconds, and exit code.
+- Full stdout and stderr.
+- Arena and Isaac Lab commits, image digests, renderer, camera contract, seeds, host inventory, GPU
+  model, GPU UUID, and driver.
+- One-second samples of simulator GPU utilization, VRAM, power, clocks, temperature, Xid, and ECC
+  events, plus simulator process RSS and host RAM.
+- For Pi0.5, policy-server process memory, server logs, readiness time, endpoint, checkpoint
+  identity, and GPU samples tagged as shared or dedicated.
+- The complete Arena output directory, including partial output from a failed trial.
+- The configured trial timeout and any host or cgroup OOM evidence.
+
+For every successful point, report the median total elapsed time and median aggregate throughput
+across its three valid repeats. For each experiment, report the highest stable environment count
+and the first failed count.
