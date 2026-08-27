@@ -252,14 +252,14 @@ class EmbodimentBase(PlaceableAsset):
 
         Args:
             record_trajectories: Whether to also include the per-step trajectory recorder terms,
-                built with this embodiment's own frame transformer and scene key.
+                built with this embodiment's own frame transformers and scene key.
         """
         if not record_trajectories:
             return None
         from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
 
         return make_trajectory_recorder_terms_cfg(
-            frame_transformer_name=self.get_ee_frame_transformer_name(), asset_name=self.get_scene_key()
+            frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
         )
 
     def get_termination_cfg(self) -> Any:
@@ -269,9 +269,13 @@ class EmbodimentBase(PlaceableAsset):
         """Return the embodiment's Isaac Lab scene key."""
         return "robot"
 
-    def get_ee_frame_transformer_name(self) -> str:
-        """Name of the scene's end-effector frame transformer sensor; override if it is not "ee_frame"."""
-        return "ee_frame"
+    def get_ee_frame_transformer_names(self) -> list[str]:
+        """Names of the scene's end-effector frame transformer sensors.
+
+        Override for embodiments with more than one tracked end-effector (e.g. bi-manual robots),
+        or whose single frame transformer is not named "ee_frame".
+        """
+        return ["ee_frame"]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
