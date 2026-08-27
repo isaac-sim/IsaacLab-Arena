@@ -5,7 +5,11 @@
 
 shared:
   environment:
-    type: isaaclab_arena_environments/maple_table_top/perflab_same_apple_into_bowl_maple_table.yaml
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    object_set:
+    - apple_01_objaverse_robolab
+    destination_location: bowl_ycb_robolab
     enable_cameras: false
   environment_builder:
     num_envs: 1

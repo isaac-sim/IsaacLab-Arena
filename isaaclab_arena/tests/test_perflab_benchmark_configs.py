@@ -5,8 +5,7 @@
 
 """Verify the checked-in PerfLab workload contract."""
 
-import yaml
-from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,7 +15,6 @@ from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_def
 from isaaclab_arena.tests.utils.constants import TestConstants
 
 _PERFLAB_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "perflab"
-_MAPLE_TABLE_DIRECTORY = Path(TestConstants.arena_environments_dir) / "maple_table_top"
 
 _RUN_NAME_BY_CONFIG_NAME = {
     "camera_free_benchmark_experiment.yaml": "camera_free_baseline",
@@ -35,11 +33,6 @@ def _load_single_run(config_name: str) -> dict:
     expected_run_name = _RUN_NAME_BY_CONFIG_NAME[config_name]
     assert list(run_definitions) == [expected_run_name]
     return run_definitions[expected_run_name]
-
-
-def _load_graph(graph_name: str) -> dict:
-    with (_MAPLE_TABLE_DIRECTORY / graph_name).open(encoding="utf-8") as graph_file:
-        return yaml.safe_load(graph_file)
 
 
 def test_perflab_experiments_are_isolated_fixed_step_runs():
@@ -109,40 +102,38 @@ def test_zero_action_workloads_use_stationary_relative_joint_actions():
         "camera_free_benchmark_experiment.yaml",
         "production_camera_benchmark_experiment.yaml",
         "reduced_camera_benchmark_experiment.yaml",
+        "same_object_benchmark_experiment.yaml",
+        "mixed_object_benchmark_experiment.yaml",
     ]
     for config_name in registered_zero_action_configs:
         run_definition = _load_single_run(config_name)
         assert run_definition["environment"]["embodiment"] == "droid_rel_joint_pos"
         assert run_definition["policy"]["type"] == "zero_action"
 
-    for graph_name in [
-        "perflab_same_apple_into_bowl_maple_table.yaml",
-        "perflab_ten_fruit_into_bowl_maple_table.yaml",
-    ]:
-        assert _load_graph(graph_name)["embodiment"]["registry_name"] == "droid_rel_joint_pos"
 
-
-def test_same_and_mixed_object_graphs_differ_only_by_object_set_members():
+def test_same_and_mixed_object_workloads_differ_only_by_object_set_members():
     """Isolate the scene-build cost of one asset type versus ten asset types."""
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    same_object_experiment = load_arena_experiment_from_config_file(
+        _PERFLAB_CONFIG_DIRECTORY / "same_object_benchmark_experiment.yaml",
+        device="cuda:0",
+    )
+    mixed_object_experiment = load_arena_experiment_from_config_file(
+        _PERFLAB_CONFIG_DIRECTORY / "mixed_object_benchmark_experiment.yaml",
+        device="cuda:0",
+    )
+    same_object_run = same_object_experiment.runs["same_object_control"]
+    mixed_object_run = mixed_object_experiment.runs["mixed_object_workload"]
 
-    for graph_name in [
-        "perflab_same_apple_into_bowl_maple_table.yaml",
-        "perflab_ten_fruit_into_bowl_maple_table.yaml",
-    ]:
-        ArenaEnvGraphSpec.from_yaml(_MAPLE_TABLE_DIRECTORY / graph_name)
+    same_object_set = same_object_run.environment.object_set
+    mixed_object_set = mixed_object_run.environment.object_set
+    assert same_object_set == ["apple_01_objaverse_robolab"]
+    assert mixed_object_set is not None
+    assert len(mixed_object_set) == 10
 
-    same_object_graph = _load_graph("perflab_same_apple_into_bowl_maple_table.yaml")
-    mixed_object_graph = _load_graph("perflab_ten_fruit_into_bowl_maple_table.yaml")
-
-    same_object_set = same_object_graph["object_sets"][0]
-    mixed_object_set = mixed_object_graph["object_sets"][0]
-    assert same_object_set["members"] == ["apple_01_objaverse_robolab"]
-    assert len(mixed_object_set["members"]) == 10
-    assert same_object_set["random_choice"] is False
-    assert mixed_object_set["random_choice"] is False
-
-    normalized_same_object_graph = deepcopy(same_object_graph)
-    normalized_same_object_graph["env_name"] = mixed_object_graph["env_name"]
-    normalized_same_object_graph["object_sets"][0]["members"] = mixed_object_set["members"]
-    assert normalized_same_object_graph == mixed_object_graph
+    normalized_environment = replace(same_object_run.environment, object_set=mixed_object_set)
+    normalized_same_object_run = replace(
+        same_object_run,
+        name=mixed_object_run.name,
+        environment=normalized_environment,
+    )
+    assert normalized_same_object_run == mixed_object_run
