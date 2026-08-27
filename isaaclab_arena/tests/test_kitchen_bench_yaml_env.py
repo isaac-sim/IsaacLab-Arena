@@ -33,6 +33,7 @@ def _test_kitchen_bench_yaml_env_bringup(simulation_app, *, yaml_path: Path) -> 
         env.reset()
 
         assert env.unwrapped.cfg is not None
+        assert spec.env_name == yaml_path.stem
         assert arena_env.name == spec.env_name
         assert "robot" in env.unwrapped.scene.keys(), f"robot missing from scene for {yaml_path.name}"
     except Exception as exc:

@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import os
 import tempfile
 from dataclasses import dataclass
@@ -105,8 +107,9 @@ def _compose_on_stand_usd_cached(
 ) -> str:
     cache_root = get_arena_asset_cache_dir().parent / "usd" / _ROBOT_ON_STAND_USD_CACHE_DIR
     cache_root.mkdir(parents=True, exist_ok=True)
-    footprint_x_m, footprint_y_m = stand_footprint_xy_m
-    out_path = cache_root / f"{output_basename}_{stand_height_m}_{footprint_x_m}x{footprint_y_m}.usd"
+    cache_args = (robot, stand, stand_height_m, stand_footprint_xy_m)
+    cache_digest = hashlib.sha256(repr(cache_args).encode()).hexdigest()
+    out_path = cache_root / f"{output_basename}_{cache_digest}.usd"
 
     with tempfile.NamedTemporaryFile(suffix=".usd", dir=cache_root, delete=False) as tmp_file:
         tmp_path = Path(tmp_file.name)
