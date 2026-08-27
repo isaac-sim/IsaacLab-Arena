@@ -54,20 +54,15 @@ and use the Docker setup. Pi0.5 and Cosmos also require the policy servers descr
 
 ## 1. Prepare a clean Arena checkout
 
-Run these commands on the host. PerfLab must replace `<PINNED_ARENA_COMMIT>` with the commit given
-by the Arena owner.
+Clone the PerfLab benchmark branch on the host:
 
 ```bash
-git clone https://github.com/isaac-sim/IsaacLab-Arena.git
+git clone --branch cvolk/feature/perflab-benchmarks --recurse-submodules \
+  https://github.com/isaac-sim/IsaacLab-Arena.git
 cd IsaacLab-Arena
-
-ARENA_COMMIT="<PINNED_ARENA_COMMIT>"
-git fetch origin
-git checkout "${ARENA_COMMIT}"
-git submodule update --init --recursive
 ```
 
-Check that the checkout is clean and record both revision commands in the PerfLab result:
+Check that the checkout is clean and record the Arena and submodule revisions:
 
 ```bash
 git status --short
