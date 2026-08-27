@@ -9,13 +9,9 @@ This README tells a PerfLab operator how to set up and run six non-OSMO Arena be
 5. Ten fruit assets distributed across environments.
 6. Cosmos with the maintained production DROID cameras and a separate Cosmos server.
 
-Here, **Pi Zero means the checked-in Pi0.5 (`pi05`) experiment**. Do not substitute the older
-`pi0` checkpoint without a separate agreed configuration.
-
 Each command starts one fresh Arena Experiment Runner process on one simulator GPU. Pi0.5 and
 Cosmos also need separately started policy servers. A policy server can share the simulator GPU or
-use `-g` for another GPU. These commands do not use OSMO, `torchrun`, distributed evaluation,
-video recording, or the legacy JSON runner.
+use `-g` for another GPU.
 
 ## What the experiments show
 
@@ -51,60 +47,10 @@ is at least 10.
 The zero-action policy keeps the robot stationary. A completed zero-action run proves that the
 performance pipeline worked; it is not expected to solve the task.
 
-## Run order
+## Installation
 
-1. Prepare the checkout and Arena container.
-2. Set `NUM_STEPS=300` and finish the camera-free sweep.
-3. Finish the homogeneous-object sweep, followed by the heterogeneous-object sweep.
-4. Finish the production-camera sweep.
-5. Start the Pi0.5 server and finish the Pi0.5 sweep.
-6. Stop Pi0.5, start the Cosmos server, and finish the Cosmos sweep.
-
-Run one command at a time. Before starting the next command, confirm that the preceding simulator
-process exited and its GPU memory returned to the idle level.
-
-## Configuration used by every measured run
-
-Keep these settings fixed:
-
-- `num_steps`: **300**, the proposed measurement length for this first PerfLab pass.
-- Renderer: `balanced`.
-- Visualization and video: off.
-- Environment seed: `42`.
-- Placement seed: `42`.
-- Environment spacing: `2.5`.
-- Environment rebuilds: `1`.
-- One fresh Experiment Runner process for every environment count.
-
-The YAML files keep `num_steps: 10` as a debugging default. This runbook overrides it with
-`NUM_STEPS=300`, which lets Pi0.5 fetch multiple action chunks instead of measuring only its first
-request. Confirm this proposed value before scheduling the final PerfLab job, then use it for all
-six experiments.
-
-Before the handoff, the Arena owner must provide PerfLab with the exact Arena commit, Isaac Lab
-submodule commit, Arena image digest, policy-server image digests, and trial timeout. Do not
-benchmark a moving branch.
-
-## Machine and access requirements
-
-PerfLab needs:
-
-- A Linux host supported by Isaac Sim 6.0.
-- Docker and the NVIDIA Container Toolkit.
-- Git access to Isaac Lab-Arena and access to its task assets.
-- One simulator GPU for the zero-action experiments.
-- At least one GPU for Pi0.5 and Cosmos. The simulator and policy server may share it.
-- A second GPU when the agreed PerfLab layout isolates policy inference from the simulator.
-- Enough local storage for the Arena image, an approximately 19 GB OpenPI image, an approximately
-  11 GB Pi0.5 checkpoint, logs, and result directories.
-- Access to the Cosmos checkpoint and an `HF_TOKEN` if PerfLab must build the Cosmos server image.
-- Persistent storage mounted into the Arena container at `/eval`.
-- A harness that records total wall time, process exit code, stdout, stderr, host memory, and GPU
-  utilization and memory.
-
-The simulator and policy server must be able to reach each other over TCP. Pi0.5 and Cosmos both
-default to `127.0.0.1:8000`, so run them one at a time. If a server runs on another host, use the
-host and port overrides shown below.
+Follow the [Isaac Lab-Arena installation guide](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html)
+and use the Docker setup. Pi0.5 and Cosmos also require the policy servers described below.
 
 ## 1. Prepare a clean Arena checkout
 
@@ -448,70 +394,3 @@ Expected Run names are:
 The `rollout/step_total.count`, `rollout/env_step.count`, and
 `rollout/policy_get_action.count` entries in `arena_experiment_timings.json` must equal
 `NUM_STEPS`.
-
-## 13. Handle failures without losing information
-
-A clear CUDA OOM, confirmed host OOM, or repeatable high-count simulator failure is a capacity
-result. An elapsed trial timeout is also a capacity result only when the simulator, policy server,
-and worker infrastructure stayed healthy:
-
-1. Keep the full log and every partial output file.
-2. Record the failed environment count and exact error.
-3. Do not run a larger environment count for that experiment.
-4. Wait for the process to exit and GPU memory to return to idle.
-5. Continue with the next experiment.
-
-A server outage, image or asset download failure, network outage, preemption, or machine failure
-is an infrastructure failure, not a performance result. Fix the problem, choose a new
-`PERFLAB_OUTPUT_ROOT`, and rerun the same `NUM_ENVS` and `NUM_STEPS`. Never silently reduce an
-environment count or change another setting.
-
-Do not add `--continue_on_error`. A nonzero process exit is important evidence.
-
-## 14. Measurements PerfLab must return
-
-PerfLab's outer harness is authoritative for total elapsed time. Start the clock immediately before
-the Python command and stop it after the process exits.
-
-For these single-simulator-GPU trials:
-
-```text
-total environment steps = NUM_ENVS * NUM_STEPS
-
-aggregate env-steps/second =
-    NUM_ENVS * NUM_STEPS / total elapsed seconds
-```
-
-A Pi0.5 or Cosmos policy-server GPU is not a second simulator GPU and is not included in the
-numerator. The same formula applies when the server shares the simulator GPU.
-
-Arena records component timings in `arena_experiment_timings.json`, including:
-
-- `run/build_environment`
-- `rollout/initial_reset`
-- `rollout/policy_get_action`
-- `rollout/env_step`
-- `rollout/step_total`
-- `rollout/compute_metrics`
-- `run/close_resources`
-
-These timers are nested, CUDA-unsynchronized diagnostics and do not separate warm-up work. Do not
-add their totals together. Use external total elapsed time for the primary throughput number and
-the Arena timers only to explain where time was spent.
-
-For every trial, return:
-
-- The fully resolved command, environment count, step count, start/end timestamps, elapsed seconds,
-  and exit code.
-- Full stdout and stderr.
-- Arena and Isaac Lab commits, image digests, renderer, camera contract, seeds, host inventory, GPU
-  model, GPU UUID, and driver.
-- One-second samples of simulator GPU utilization, VRAM, power, clocks, temperature, Xid, and ECC
-  events, plus simulator process RSS and host RAM.
-- For Pi0.5 and Cosmos, policy-server process memory, server logs, readiness time, endpoint,
-  checkpoint identity, and GPU samples tagged as shared or dedicated.
-- The complete Arena output directory, including partial output from a failed trial.
-- The configured trial timeout and any host or cgroup OOM evidence.
-
-For every successful point, report total elapsed time and aggregate throughput. For each
-experiment, report the highest successful environment count and the first failed count.
