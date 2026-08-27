@@ -10,8 +10,10 @@ import tqdm
 import traceback
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 NUM_STEPS = 50
@@ -40,7 +42,7 @@ def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Po
     return ObjectReferenceTestKitchenBackground()
 
 
-def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: Pose, bbox: AxisAlignedBoundingBox):
+def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: Pose, bbox: OrientedBoundingBox):
     """Construct an ObjectReference around cached geometry without opening a USD."""
     from isaaclab_arena.assets.object_reference import ObjectReference
 
@@ -52,18 +54,207 @@ def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: 
 
 
 def test_object_reference_world_bbox_applies_parent_yaw():
-    """Parent yaw, not the prim's relative yaw, rotates the already-local referenced bbox."""
+    """The composed reference pose rotates the local bounding box."""
     yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
     obj_ref = _object_reference_with_cached_bbox(
         parent_pose=Pose(position_xyz=(10.0, 0.0, 0.0), rotation_xyzw=yaw_90),
         relative_pose=Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=yaw_90),
-        bbox=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.1, 0.05)),
+        bbox=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.1, 0.05)),
     )
 
     world_bbox = obj_ref.get_world_bounding_box()
+    min_point, max_point = world_bbox.get_axis_aligned_bounds()
 
-    assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
-    assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+    assert torch.allclose(min_point, torch.tensor([[7.8, 0.9, 0.0]]), atol=1e-6)
+    assert torch.allclose(max_point, torch.tensor([[8.0, 1.0, 0.05]]), atol=1e-6)
+
+
+@pytest.mark.parametrize("scale", [(1.0, 0.0, 1.0), (1.0, -1.0, 1.0)])
+def test_object_reference_rejects_non_positive_parent_scale(scale):
+    """Object references require positive parent scale components."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    parent = SimpleNamespace(scale=scale)
+    with pytest.raises(AssertionError, match="parent scale must be positive"):
+        ObjectReference(parent_asset=parent, name="reference")
+
+
+def _test_object_reference_nonuniform_parent_scale_with_rotation(simulation_app) -> bool:
+    """Reference-local geometry applies R^-1 S R before its rigid world pose."""
+    import math
+    from contextlib import nullcontext
+    from unittest.mock import patch
+
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    raw_vertices = np.array([
+        [-1.0, -2.0, -0.5],
+        [3.0, -2.0, -0.5],
+        [3.0, 4.0, -0.5],
+        [-1.0, 4.0, -0.5],
+        [-1.0, -2.0, 1.5],
+        [3.0, -2.0, 1.5],
+        [3.0, 4.0, 1.5],
+        [-1.0, 4.0, 1.5],
+    ])
+    stage = Usd.Stage.CreateInMemory()
+    root = UsdGeom.Xform.Define(stage, "/Root")
+    stage.SetDefaultPrim(root.GetPrim())
+    reference = UsdGeom.Mesh.Define(stage, "/Root/Reference")
+    reference.GetPointsAttr().Set([Gf.Vec3f(*vertex) for vertex in raw_vertices])
+    reference.GetFaceVertexCountsAttr().Set([4, 4, 4, 4, 4, 4])
+    reference.GetFaceVertexIndicesAttr().Set([
+        0,
+        1,
+        2,
+        3,
+        4,
+        7,
+        6,
+        5,
+        0,
+        4,
+        5,
+        1,
+        1,
+        5,
+        6,
+        2,
+        2,
+        6,
+        7,
+        3,
+        4,
+        0,
+        3,
+        7,
+    ])
+    UsdGeom.Xformable(reference).AddRotateZOp().Set(90.0)
+
+    scale = np.array([2.0, 5.0, 3.0])
+    rotation = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    raw_translation = np.array([1.0, 2.0, 3.0])
+    scaled_translation = scale * raw_translation
+    expected_local = ((raw_vertices @ rotation.T) * scale) @ rotation
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "reference"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/reference.usd", name="parent", initial_pose=None)
+    obj_ref.prim_path = "{ENV_REGEX_NS}/parent/Reference"
+    obj_ref._parent_scale = tuple(scale)
+    obj_ref.initial_pose_relative_to_parent = Pose(
+        position_xyz=tuple(scaled_translation),
+        rotation_xyzw=(0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)),
+    )
+    obj_ref._bounding_box = None
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    with (
+        patch("isaaclab_arena.assets.object_reference.open_stage", return_value=nullcontext(stage)),
+        patch.object(
+            ObjectReference,
+            "isaaclab_prim_path_to_original_prim_path",
+            staticmethod(lambda prim_path, parent, opened_stage: "/Root/Reference"),
+        ),
+    ):
+        local_box = obj_ref.get_bounding_box()
+        mesh = obj_ref.get_collision_mesh()
+
+    np.testing.assert_allclose(local_box.center.numpy(), [[5.0, 2.0, 1.5]], atol=1e-6)
+    np.testing.assert_allclose(local_box.half_extents.numpy(), [[10.0, 6.0, 3.0]], atol=1e-6)
+    assert mesh is not None
+    np.testing.assert_allclose(mesh.vertices, expected_local, atol=1e-6)
+
+    expected_world = raw_vertices @ rotation.T * scale + scaled_translation
+    mesh_world = mesh.vertices @ rotation.T + scaled_translation
+    np.testing.assert_allclose(mesh_world, expected_world, atol=1e-6)
+
+    world_box = obj_ref.get_world_bounding_box()
+    np.testing.assert_allclose(world_box.center.numpy(), [[0.0, 15.0, 10.5]], atol=1e-6)
+    np.testing.assert_allclose(
+        world_box.get_axis_aligned_bounds()[0].numpy(),
+        [[-6.0, 5.0, 7.5]],
+        atol=1e-6,
+    )
+    np.testing.assert_allclose(
+        world_box.get_axis_aligned_bounds()[1].numpy(),
+        [[6.0, 25.0, 13.5]],
+        atol=1e-6,
+    )
+    return True
+
+
+def test_object_reference_nonuniform_parent_scale_with_rotation():
+    assert run_function_with_persistent_simulation_app(
+        _test_object_reference_nonuniform_parent_scale_with_rotation,
+        headless=HEADLESS,
+    )
+
+
+def _test_rotated_reference_local_bbox_is_not_double_rotated(simulation_app) -> bool:
+    """A rotated reference keeps axis-aligned geometry in its own frame."""
+    import math
+
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = UsdGeom.Xform.Define(stage, "/Root")
+    stage.SetDefaultPrim(root.GetPrim())
+    reference = UsdGeom.Mesh.Define(stage, "/Root/Reference")
+    reference.GetPointsAttr().Set([
+        Gf.Vec3f(x, y, z)
+        for x, y, z in (
+            (-2.0, -1.0, -0.5),
+            (2.0, -1.0, -0.5),
+            (2.0, 1.0, -0.5),
+            (-2.0, 1.0, -0.5),
+            (-2.0, -1.0, 0.5),
+            (2.0, -1.0, 0.5),
+            (2.0, 1.0, 0.5),
+            (-2.0, 1.0, 0.5),
+        )
+    ])
+    UsdGeom.Xformable(reference).AddRotateZOp().Set(45.0)
+
+    local_bbox = compute_local_bounding_box_from_prim(stage, "/Root/Reference")
+    torch.testing.assert_close(local_bbox.half_extents, torch.tensor([[2.0, 1.0, 0.5]]))
+
+    half_angle = math.pi / 8.0
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(initial_pose=None)
+    obj_ref.initial_pose_relative_to_parent = Pose(
+        position_xyz=(0.0, 0.0, 0.0),
+        rotation_xyzw=(0.0, 0.0, math.sin(half_angle), math.cos(half_angle)),
+    )
+    obj_ref._bounding_box = local_bbox
+
+    minimum, maximum = obj_ref.get_world_bounding_box().get_axis_aligned_bounds()
+    xy_half_extent = 3.0 / math.sqrt(2.0)
+    torch.testing.assert_close(
+        minimum,
+        torch.tensor([[-xy_half_extent, -xy_half_extent, -0.5]]),
+        atol=1e-6,
+        rtol=0,
+    )
+    torch.testing.assert_close(
+        maximum,
+        torch.tensor([[xy_half_extent, xy_half_extent, 0.5]]),
+        atol=1e-6,
+        rtol=0,
+    )
+    return True
+
+
+def test_rotated_reference_local_bbox_is_not_double_rotated():
+    assert run_function_with_persistent_simulation_app(
+        _test_rotated_reference_local_bbox_is_not_double_rotated, headless=HEADLESS
+    )
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
@@ -119,7 +310,8 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
-    obj_ref._parent_scale = (2.0, 1.0, 1.0)
+    obj_ref._parent_scale = (2.0, 2.0, 2.0)
+    obj_ref.initial_pose_relative_to_parent = Pose.identity()
     obj_ref._collision_mesh = None
     obj_ref._collision_mesh_loaded = False
 
@@ -154,7 +346,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     assert obj_ref.get_collision_mesh() is expected_mesh
     assert calls == {
         "opened": "/tmp/kitchen.usd",
-        "extract": ("/World/counter", (2.0, 1.0, 1.0)),
+        "extract": ("/World/counter", (1.0, 1.0, 1.0)),
     }
 
 
@@ -290,13 +482,14 @@ def test_object_reference_world_bbox_without_parent_pose_uses_reference_pose():
     obj_ref = _object_reference_with_cached_bbox(
         parent_pose=None,
         relative_pose=Pose(position_xyz=(1.0, 2.0, 3.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
-        bbox=AxisAlignedBoundingBox(min_point=(-0.1, -0.2, 0.0), max_point=(0.1, 0.2, 0.3)),
+        bbox=OrientedBoundingBox.from_min_max(min_point=(-0.1, -0.2, 0.0), max_point=(0.1, 0.2, 0.3)),
     )
 
     world_bbox = obj_ref.get_world_bounding_box()
+    min_point, max_point = world_bbox.get_axis_aligned_bounds()
 
-    assert torch.allclose(world_bbox.min_point, torch.tensor([[0.9, 1.8, 3.0]]), atol=1e-6)
-    assert torch.allclose(world_bbox.max_point, torch.tensor([[1.1, 2.2, 3.3]]), atol=1e-6)
+    assert torch.allclose(min_point, torch.tensor([[0.9, 1.8, 3.0]]), atol=1e-6)
+    assert torch.allclose(max_point, torch.tensor([[1.1, 2.2, 3.3]]), atol=1e-6)
 
 
 def get_test_scene():

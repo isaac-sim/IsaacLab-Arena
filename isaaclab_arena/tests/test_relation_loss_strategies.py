@@ -14,7 +14,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, NotNextTo, On, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -23,7 +23,7 @@ def _create_table():
 
     return DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (1.0, 1.0, 0.1)),
     )
 
 
@@ -32,7 +32,7 @@ def _create_box():
 
     return DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (0.2, 0.2, 0.2)),
     )
 
 
@@ -170,7 +170,7 @@ def test_on_loss_strategy_oversized_child_keeps_plateau_without_margin():
     table = _create_table()  # X extent [0, 1]
     wide_box = DummyObject(
         name="wide_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.4, 0.2, 0.15)),
+        bounding_box=OrientedBoundingBox.from_min_max((0.0, 0.0, 0.0), (1.4, 0.2, 0.15)),
     )
     strategy = OnLossStrategy(slope=10.0)
     relation = On(table, clearance_m=0.01, edge_margin_m=0.0)
@@ -310,9 +310,9 @@ def test_on_loss_strategy_multi_env_shape_and_values():
     strategy = OnLossStrategy(slope=10.0)
 
     child_pos = torch.tensor([[0.4, 0.4, 0.11], [0.4, 0.4, 0.5]])
-    parent_world_bbox = AxisAlignedBoundingBox(
-        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
-        max_point=torch.tensor([[1.0, 1.0, 0.1], [1.0, 1.0, 0.1]]),
+    parent_world_bbox = OrientedBoundingBox.from_min_max(
+        torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        torch.tensor([[1.0, 1.0, 0.1], [1.0, 1.0, 0.1]]),
     )
 
     loss = strategy.compute_loss(relation, child_pos, box.bounding_box, parent_world_bbox)

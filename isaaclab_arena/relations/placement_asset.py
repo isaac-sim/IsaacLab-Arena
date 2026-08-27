@@ -13,15 +13,13 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
-from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 if TYPE_CHECKING:
     import trimesh
 
     from isaaclab.managers import EventTermCfg
-
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlaceableAsset(Asset, ABC):
@@ -135,11 +133,11 @@ class PlaceableAsset(Asset, ABC):
         return self._pose_event_cfg is not None
 
     @abstractmethod
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return root-relative axis-aligned bounds."""
+    def get_bounding_box(self) -> OrientedBoundingBox:
+        """Return root-relative oriented bounds."""
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
+    def get_world_bounding_box(self) -> OrientedBoundingBox:
+        """Return bounds transformed by a fixed root pose.
 
         Unset, ranged, and per-environment poses leave the root-relative bounds unchanged.
         """
@@ -147,11 +145,10 @@ class PlaceableAsset(Asset, ABC):
         initial_pose = self.get_initial_pose()
         if not isinstance(initial_pose, Pose):
             return bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
-        return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
+        return bounding_box.transformed(initial_pose.position_xyz, initial_pose.rotation_xyzw)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return this asset's collision mesh, or ``None`` to fall back to the axis-aligned bounds.
+        """Return this asset's collision mesh, or ``None`` to fall back to its bounds.
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """

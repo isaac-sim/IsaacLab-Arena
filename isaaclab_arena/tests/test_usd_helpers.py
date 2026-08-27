@@ -55,7 +55,7 @@ def _bbox_size(path: pathlib.Path, scale: tuple[float, float, float]) -> tuple[f
     from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
     bbox = compute_local_bounding_box_from_usd(path.as_posix(), scale=scale)
-    size = bbox.size[0]
+    size = 2.0 * bbox.half_extents[0]
     return (float(size[0]), float(size[1]), float(size[2]))
 
 
@@ -69,7 +69,7 @@ def _test_compute_local_bounding_box_from_usd(simulation_app, asset_dir: pathlib
     size = _bbox_size(unit_cube, scale=(2.0, 2.0, 2.0))
     assert all(abs(dim - 2.0) < EPS for dim in size), size
 
-    # Default-prim root scale is unbaked before spawn scale is applied.
+    # ComputeUntransformedBound excludes the authored default-prim transform before spawn scale is applied.
     size = _bbox_size(scaled_root_cube, scale=(1.0, 1.0, 1.0))
     assert all(abs(dim - 1.0) < EPS for dim in size), size
 
@@ -101,8 +101,9 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
     bbox = compute_local_bounding_box_from_usd(child_usd.as_posix(), scale=spawn_scale, prim_path="/Root/Child")
     half = 0.5 * spawn_scale[0]
     tx, ty, tz = (c * spawn_scale[0] for c in translate)
-    min_pt = bbox.min_point[0].tolist()
-    max_pt = bbox.max_point[0].tolist()
+    minimum, maximum = bbox.get_axis_aligned_bounds()
+    min_pt = minimum[0].tolist()
+    max_pt = maximum[0].tolist()
     expected_min = [tx - half, ty - half, tz - half]
     expected_max = [tx + half, ty + half, tz + half]
     assert all(abs(a - b) < EPS for a, b in zip(min_pt, expected_min)), (min_pt, expected_min)
@@ -110,8 +111,9 @@ def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_di
 
     # Full default-prim bounds must be at least as large as the child-only bounds.
     full = compute_local_bounding_box_from_usd(child_usd.as_posix(), scale=spawn_scale)
-    assert (full.min_point <= bbox.min_point).all()
-    assert (full.max_point >= bbox.max_point).all()
+    full_minimum, full_maximum = full.get_axis_aligned_bounds()
+    assert (full_minimum <= minimum).all()
+    assert (full_maximum >= maximum).all()
     return True
 
 

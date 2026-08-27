@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -17,6 +18,7 @@ from isaaclab_arena.relations.placement_validators import build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
+    AtPosition,
     FaceTo,
     On,
     RandomAroundSolution,
@@ -24,10 +26,10 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
     get_relation,
 )
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.random import get_random_rotation
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_toward_positions
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -48,8 +50,8 @@ class PlacementCandidate:
     validation_results: PlacementValidationResults
     """Per-check validation results for this candidate's layout."""
 
-    orientations: dict[PlaceableAsset, float] = field(default_factory=dict)
-    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
+    rotations: dict[PlaceableAsset, tuple[float, float, float, float]] = field(default_factory=dict)
+    """Placement-computed xyzw rotations for movable objects."""
 
     @property
     def is_valid(self) -> bool:
@@ -130,8 +132,8 @@ class ObjectPlacer:
 
         if self.params.apply_positions_to_objects:
             positions_per_env = [r.positions for r in results_per_env]
-            orientations_per_env = [r.orientations for r in results_per_env]
-            self._apply_poses(positions_per_env, anchor_objects_set, orientations_per_env)
+            rotations_per_env = [r.rotations for r in results_per_env]
+            self._apply_poses(positions_per_env, anchor_objects_set, rotations_per_env)
 
         return results_per_env
 
@@ -200,10 +202,6 @@ class ObjectPlacer:
             generator = torch.Generator()
         return set(anchor_objects), generator
 
-    # ------------------------------------------------------------------
-    # Placement strategies
-    # ------------------------------------------------------------------
-
     def _place_ranked(
         self,
         objects: list[PlaceableAsset],
@@ -225,41 +223,32 @@ class ObjectPlacer:
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
-        unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
+        candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
         initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]] = []
-        orientations_per_candidate: list[dict[PlaceableAsset, float]] = []
+        rotations_per_candidate: list[dict[PlaceableAsset, tuple[float, float, float, float]]] = []
         for candidate_idx in range(num_candidates):
             cur_env = candidate_idx // candidates_per_env
             if generator is not None:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
+            rotations = self._generate_initial_rotations(objects, anchor_objects_set, generator)
+            rotations_per_candidate.append(rotations)
             initial_positions.append(
-                self._generate_initial_positions(objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
+                self._generate_initial_positions(
+                    objects, anchor_objects_set, per_env_bboxes[cur_env], generator, rotations=rotations
+                )
             )
-            orientations_per_candidate.append(
-                self._generate_initial_orientations(objects, anchor_objects_set, generator)
-            )
-
-        # Bake each candidate's yaw into a conservative enclosing bbox for overlap checks.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
 
         all_positions = self._solver.solve(
             objects,
             initial_positions,
             env_bboxes=candidate_bboxes,
-            env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
-            orientations=orientations_per_candidate,
+            rotations=rotations_per_candidate,
             collision_objects=collision_objects,
         )
-        self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
+        self._apply_face_to_rotations(all_positions, rotations_per_candidate)
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         bboxes_per_candidate = [
@@ -267,19 +256,19 @@ class ObjectPlacer:
             for candidate_idx in range(num_candidates)
         ]
         all_validations = self._validate_candidates(
-            all_positions, orientations_per_candidate, bboxes_per_candidate, collision_objects
+            all_positions, rotations_per_candidate, bboxes_per_candidate, collision_objects
         )
 
-        candidates: list[PlacementCandidate] = []
-        for candidate_idx in range(num_candidates):
-            candidates.append(
-                PlacementCandidate(
-                    all_losses[candidate_idx],
-                    all_positions[candidate_idx],
-                    all_validations[candidate_idx],
-                    orientations_per_candidate[candidate_idx],
-                )
+        candidates = [
+            PlacementCandidate(loss, position, validation, rotation)
+            for loss, position, validation, rotation in zip(
+                all_losses,
+                all_positions,
+                all_validations,
+                rotations_per_candidate,
+                strict=True,
             )
+        ]
 
         ranked_candidate_slices = self._rank_candidates(candidates, num_envs, candidates_per_env)
         ranked_results = [
@@ -289,7 +278,7 @@ class ObjectPlacer:
                     positions=candidate.positions,
                     final_loss=candidate.loss,
                     attempts=attempts_per_result,
-                    orientations=candidate.orientations,
+                    rotations=candidate.rotations,
                 )
                 for candidate in candidate_slice
             ]
@@ -336,17 +325,18 @@ class ObjectPlacer:
         self,
         objects: list[PlaceableAsset],
         anchor_objects: set[PlaceableAsset],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
         generator: torch.Generator | None = None,
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] | None = None,
     ) -> dict[PlaceableAsset, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their initial_pose. Objects with an On relation are initialized within
-        the parent's footprint at the correct Z height. All other objects start at the first
-        anchor's center; the solver handles their placement from there.
+        the parent's footprint at the correct Z height. Other objects start at the first
+        anchor's center. AtPosition coordinates override the corresponding initialized axes.
 
         Args:
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object bounding boxes for the current environment, each with N=1.
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
 
@@ -357,6 +347,14 @@ class ObjectPlacer:
         anchor_bbox = self._get_world_bbox_for_init(first_anchor, env_bboxes)
 
         cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
+        candidate_bboxes = {
+            obj: (
+                bbox.rotated_by_quat(rotations[obj])
+                if rotations is not None and obj in rotations and obj not in anchor_objects
+                else bbox
+            )
+            for obj, bbox in env_bboxes.items()
+        }
 
         positions: dict[PlaceableAsset, tuple[float, float, float]] = {}
         for obj in objects:
@@ -367,66 +365,66 @@ class ObjectPlacer:
                     f" {type(initial_pose).__name__}."
                 )
                 positions[obj] = initial_pose.position_xyz
-            elif any(isinstance(r, On) for r in obj.get_relations()):
-                positions[obj] = self._compute_on_guided_position(
-                    obj, anchor_objects, anchor_bbox, env_bboxes, generator
+                continue
+
+            if get_relation(obj, On) is not None:
+                position = self._compute_on_guided_position(
+                    obj, anchor_objects, anchor_bbox, candidate_bboxes, generator
                 )
             else:
-                positions[obj] = (cx, cy, cz)
+                position = (cx, cy, cz)
+
+            at_position = get_relation(obj, AtPosition)
+            if at_position is not None:
+                position = (
+                    at_position.x if at_position.x is not None else position[0],
+                    at_position.y if at_position.y is not None else position[1],
+                    at_position.z if at_position.z is not None else position[2],
+                )
+            positions[obj] = position
         return positions
 
     @staticmethod
     def _get_world_bbox_for_init(
         obj: PlaceableAsset,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-    ) -> AxisAlignedBoundingBox:
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+    ) -> OrientedBoundingBox:
         initial_pose = obj.get_initial_pose()
         assert isinstance(
             initial_pose, Pose
         ), f"Object '{obj.name}' must have a fixed Pose to use its env bbox, got {type(initial_pose).__name__}."
-        return env_bboxes[obj].translated(initial_pose.position_xyz)
+        return env_bboxes[obj].transformed(initial_pose.position_xyz, initial_pose.rotation_xyzw)
 
-    def _generate_initial_orientations(
+    def _generate_initial_rotations(
         self,
         objects: list[PlaceableAsset],
         anchor_objects: set[PlaceableAsset],
         generator: torch.Generator | None = None,
-    ) -> dict[PlaceableAsset, float]:
-        """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
-
-        Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects are
-        omitted so their requested rotation is applied verbatim; their footprint is enclosed by
-        _rotate_candidate_bboxes so overlap validation stays sound.
-        """
-        orientations: dict[PlaceableAsset, float] = {}
+    ) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
+        """Return fixed candidate xyzw rotations for non-FaceTo movable objects."""
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]] = {}
         for obj in objects:
             marker = get_relation(obj, RotateAroundSolution)
-            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
-            marker_yaw = marker.yaw_rad if marker is not None else 0.0
             if obj in anchor_objects:
-                assert marker is None or (marker_yaw == 0.0 and not has_roll_pitch), (
+                assert marker is None, (
                     f"Anchor '{obj.name}' has a RotateAroundSolution. "
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif get_relation(obj, FaceTo) is None and not has_roll_pitch:
+            elif get_relation(obj, FaceTo) is None:
+                base = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
                 sampled_yaw = get_random_rotation(generator) if self.params.random_yaw_init else 0.0
-                total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
-                if total_yaw != 0.0:
-                    orientations[obj] = total_yaw
-        return orientations
+                rotations[obj] = rotate_quat_by_yaw(base, sampled_yaw)
+        return rotations
 
     @staticmethod
-    def _apply_face_to_orientations(
+    def _apply_face_to_rotations(
         positions_per_candidate: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations_per_candidate: list[dict[PlaceableAsset, float]],
+        rotations_per_candidate: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
     ) -> None:
-        """Write defined FaceTo yaws into each candidate's orientation dictionary in place.
-
-        Undefined directions leave the subject absent from the dictionary.
-        """
+        """Store final FaceTo rotations for validation and pose application."""
         assert positions_per_candidate, "positions_per_candidate must not be empty"
-        assert len(positions_per_candidate) == len(orientations_per_candidate)
+        assert len(positions_per_candidate) == len(rotations_per_candidate)
         objects = positions_per_candidate[0]
         for obj in objects:
             relation = get_relation(obj, FaceTo)
@@ -437,57 +435,29 @@ class ObjectPlacer:
             yaws, is_defined = yaw_toward_positions(subject_positions, target_positions)
             for candidate_idx, (yaw, direction_is_defined) in enumerate(zip(yaws, is_defined, strict=True)):
                 if direction_is_defined:
-                    orientations_per_candidate[candidate_idx][obj] = yaw.item()
-
-    @staticmethod
-    def _rotate_candidate_bboxes(
-        objects: list[PlaceableAsset],
-        candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        orientations_per_candidate: list[dict[PlaceableAsset, float]],
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Replace each candidate's bbox with the AABB enclosing its fully-oriented object.
-
-        Composes each object's static RotateAroundSolution marker rotation (roll/pitch/yaw) with the
-        per-candidate yaw (sampled + FaceTo, carried as absolute world yaw in orientations_per_candidate)
-        and refits the box to that combined quaternion -- the same composition _apply_poses uses for the
-        final pose, so overlap boxes match the placed object regardless of rotation axis. Objects with
-        no rotation are returned unchanged, keeping the no-rotation path exact.
-        """
-        num_candidates = len(orientations_per_candidate)
-        rotated: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
-        for obj in objects:
-            bbox = candidate_bboxes[obj]
-            marker = get_relation(obj, RotateAroundSolution)
-            marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
-            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
-            # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
-            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
-            extra_yaws = [
-                orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)
-            ]
-            if not has_roll_pitch and all(yaw == 0.0 for yaw in extra_yaws):
-                rotated[obj] = bbox
-            else:
-                quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
-                quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
-                rotated[obj] = bbox.rotated_by_quat(quat_tensor)
-        return rotated
+                    half_yaw = yaw.item() * 0.5
+                    rotations_per_candidate[candidate_idx][obj] = (
+                        0.0,
+                        0.0,
+                        math.sin(half_yaw),
+                        math.cos(half_yaw),
+                    )
 
     @staticmethod
     def _get_bounding_boxes_for_candidate_index(
-        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        bboxes: dict[PlaceableAsset, OrientedBoundingBox],
         candidate_idx: int,
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Slice one candidate's bboxes (each (1, 3)) out of the stacked (num_candidates, 3) boxes."""
+    ) -> dict[PlaceableAsset, OrientedBoundingBox]:
+        """Return one candidate's bounding boxes, each with N=1."""
         return {obj: bbox[candidate_idx] for obj, bbox in bboxes.items()}
 
     def _get_on_parent_world_bbox(
         self,
         parent: PlaceableAsset,
         anchor_objects: set[PlaceableAsset],
-        anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-    ) -> AxisAlignedBoundingBox:
+        anchor_bbox: OrientedBoundingBox,
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
+    ) -> OrientedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
 
         If the parent is an anchor, return its world bbox directly.
@@ -508,8 +478,8 @@ class ObjectPlacer:
         self,
         obj: PlaceableAsset,
         anchor_objects: set[PlaceableAsset],
-        anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        anchor_bbox: OrientedBoundingBox,
+        env_bboxes: dict[PlaceableAsset, OrientedBoundingBox],
         generator: torch.Generator | None = None,
     ) -> tuple[float, float, float]:
         """Compute an initial position for an object with an On relation.
@@ -518,31 +488,38 @@ class ObjectPlacer:
         so the solver starts from a valid region.
 
         Args:
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object bounding boxes for the current environment, each with N=1.
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
         """
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
         child_bbox = env_bboxes[obj]
+        axes = torch.eye(3, dtype=child_bbox.center.dtype, device=child_bbox.center.device)
+        parent_x_min, parent_x_max = parent_bbox.get_bounds_along_axis(axes[0])
+        parent_y_min, parent_y_max = parent_bbox.get_bounds_along_axis(axes[1])
+        _, parent_z_max = parent_bbox.get_bounds_along_axis(axes[2])
+        child_x_min, child_x_max = child_bbox.get_bounds_along_axis(axes[0])
+        child_y_min, child_y_max = child_bbox.get_bounds_along_axis(axes[1])
+        child_z_min, _ = child_bbox.get_bounds_along_axis(axes[2])
 
         x = self._sample_axis_position(
-            parent_bbox.min_point[0, 0],
-            parent_bbox.max_point[0, 0],
-            child_bbox.min_point[0, 0],
-            child_bbox.max_point[0, 0],
+            parent_x_min[0],
+            parent_x_max[0],
+            child_x_min[0],
+            child_x_max[0],
             generator,
         )
         y = self._sample_axis_position(
-            parent_bbox.min_point[0, 1],
-            parent_bbox.max_point[0, 1],
-            child_bbox.min_point[0, 1],
-            child_bbox.max_point[0, 1],
+            parent_y_min[0],
+            parent_y_max[0],
+            child_y_min[0],
+            child_y_max[0],
             generator,
         )
 
         # Convert from child-origin Z to child-bottom Z so the bottom face lands on the parent top.
-        z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
+        z = float(parent_z_max[0] + on_relation.clearance_m - child_z_min[0])
 
         return (x, y, z)
 
@@ -579,8 +556,8 @@ class ObjectPlacer:
     def _validate_candidates(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
     ) -> list[PlacementValidationResults]:
         """Run every enabled validator over all candidates and collect per-candidate results.
@@ -590,8 +567,8 @@ class ObjectPlacer:
 
         Args:
             positions: Solved (x, y, z) per object, one dict per candidate.
-            orientations: Absolute world Z-yaw per object, one dict per candidate (may be empty).
-            bboxes: Per-object bboxes for each candidate's env, each (1, 3).
+            rotations: Candidate xyzw rotation per movable object.
+            bboxes: Per-object bounding boxes for each candidate's environment, each with N=1.
             collision_objects: Fixed background obstacles shared across candidates.
         """
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
@@ -602,11 +579,11 @@ class ObjectPlacer:
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         if self._visualizer is not None:
-            self._visualizer.start_new_batch(positions, orientations, bboxes)
+            self._visualizer.start_new_batch(positions, rotations, bboxes)
 
         self._run_inexpensive_checks(
             positions,
-            orientations,
+            rotations,
             bboxes,
             collision_objects,
             layout_pass_verdicts_by_check,
@@ -614,7 +591,7 @@ class ObjectPlacer:
         )
         self._run_expensive_checks(
             positions,
-            orientations,
+            rotations,
             bboxes,
             collision_objects,
             required,
@@ -646,8 +623,8 @@ class ObjectPlacer:
     def _run_inexpensive_checks(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
@@ -657,15 +634,15 @@ class ObjectPlacer:
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
                 layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
-                    positions, orientations, bboxes, collision_objects
+                    positions, rotations, bboxes, collision_objects
                 )
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
         collision_objects: list[CollisionObject],
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
@@ -685,7 +662,7 @@ class ObjectPlacer:
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
                     [positions[i] for i in passed_layout_indices],
-                    [orientations[i] for i in passed_layout_indices],
+                    [rotations[i] for i in passed_layout_indices],
                     [bboxes[i] for i in passed_layout_indices],
                     collision_objects,
                 )
@@ -715,29 +692,18 @@ class ObjectPlacer:
         self,
         positions_per_env: list[dict[PlaceableAsset, tuple[float, float, float]]],
         anchor_objects: set[PlaceableAsset],
-        orientations_per_env: list[dict[PlaceableAsset, float]],
+        rotations_per_env: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
     ) -> None:
-        """Apply solved positions and orientations to non-anchor objects.
-
-        orientations_per_env carries absolute world yaw; marker yaw is subtracted before composition.
-        """
+        """Apply solved positions and xyzw rotations to non-anchor objects."""
         num_envs = len(positions_per_env)
         objects = list(positions_per_env[0])
         for obj in objects:
             if obj in anchor_objects:
                 continue
 
-            rotate_marker = get_relation(obj, RotateAroundSolution)
-            marker_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
-            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
-
-            def _yaw_delta(env_idx: int) -> float:
-                """Return the yaw to compose with the RotateAroundSolution marker rotation."""
-                return orientations_per_env[env_idx].get(obj, marker_yaw) - marker_yaw
-
             if num_envs == 1:
                 pos = positions_per_env[0][obj]
-                rotation_xyzw = rotate_quat_by_yaw(marker_rotation, _yaw_delta(0))
+                rotation_xyzw = rotations_per_env[0].get(obj, (0.0, 0.0, 0.0, 1.0))
                 random_marker = get_relation(obj, RandomAroundSolution)
                 if random_marker is not None:
                     obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
@@ -747,7 +713,7 @@ class ObjectPlacer:
                 poses = [
                     Pose(
                         position_xyz=positions_per_env[env_idx][obj],
-                        rotation_xyzw=rotate_quat_by_yaw(marker_rotation, _yaw_delta(env_idx)),
+                        rotation_xyzw=rotations_per_env[env_idx].get(obj, (0.0, 0.0, 0.0, 1.0)),
                     )
                     for env_idx in range(num_envs)
                 ]

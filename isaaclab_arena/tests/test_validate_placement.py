@@ -14,28 +14,28 @@ from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validators import NextToValidator, NotNextToValidator, OnRelationValidator
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 
 def _make_box(name: str, size: float = 0.2) -> DummyObject:
     half = size / 2
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(-half, -half, -half), max_point=(half, half, half)),
+        bounding_box=OrientedBoundingBox.from_min_max((-half, -half, -half), (half, half, half)),
     )
 
 
 def _make_long_box(name: str, half_x: float = 0.3, half_y: float = 0.05, half_z: float = 0.05) -> DummyObject:
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(-half_x, -half_y, -half_z), max_point=(half_x, half_y, half_z)),
+        bounding_box=OrientedBoundingBox.from_min_max((-half_x, -half_y, -half_z), (half_x, half_y, half_z)),
     )
 
 
 def _make_desk() -> DummyObject:
     return DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.5, -0.5, 0.0), max_point=(0.5, 0.5, 0.05)),
+        bounding_box=OrientedBoundingBox.from_min_max((-0.5, -0.5, 0.0), (0.5, 0.5, 0.05)),
     )
 
 
@@ -43,14 +43,18 @@ def _env_bboxes(positions: dict[DummyObject, tuple[float, float, float]]):
     return {obj: obj.get_bounding_box() for obj in positions}
 
 
-def _validate_one(placer: ObjectPlacer, positions, env_bboxes, orientations=None):
+def _validate_one(placer: ObjectPlacer, positions, env_bboxes, rotations=None):
     """Run every enabled validator over a single candidate and return its aggregated results."""
-    return placer._validate_candidates([positions], [orientations or {}], [env_bboxes], [])[0]
+    return placer._validate_candidates([positions], [rotations or {}], [env_bboxes], [])[0]
 
 
-def _stack_rows(bbox: AxisAlignedBoundingBox, n: int) -> AxisAlignedBoundingBox:
+def _stack_rows(bbox: OrientedBoundingBox, n: int) -> OrientedBoundingBox:
     """Repeat a single-env bbox into n stacked rows (one per candidate)."""
-    return AxisAlignedBoundingBox(min_point=bbox.min_point.repeat(n, 1), max_point=bbox.max_point.repeat(n, 1))
+    return OrientedBoundingBox(
+        bbox.center.repeat(n, 1),
+        bbox.half_extents.repeat(n, 1),
+        bbox.rotation_xyzw.repeat(n, 1),
+    )
 
 
 def test_no_overlap_returns_true():
@@ -117,8 +121,8 @@ def test_rotation_aware_overlap_uses_yaw():
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
     axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
     assert _validate_one(placer, positions, axis_aligned).do_all_required_validation_checks_pass() is True
-    rotated = {a: a.get_bounding_box().rotated_around_z(math.pi / 2), b: b.get_bounding_box()}
-    assert _validate_one(placer, positions, rotated).do_all_required_validation_checks_pass() is False
+    rotations = {a: (0.0, 0.0, 2**-0.5, 2**-0.5)}
+    assert _validate_one(placer, positions, axis_aligned, rotations).do_all_required_validation_checks_pass() is False
 
 
 def test_candidate_bbox_aligns_with_candidate_yaw():
@@ -130,12 +134,14 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
     # Two candidates share positions but assign distinct yaws to `a`.
     candidate_bboxes = {a: _stack_rows(a.get_bounding_box(), 2), b: _stack_rows(b.get_bounding_box(), 2)}
-    rotated = ObjectPlacer._rotate_candidate_bboxes([a, b], candidate_bboxes, [{a: 0.0}, {a: math.pi / 2}])
-
     # Mirrors _place_ranked: each candidate validates against its own bbox row.
+    rotations = [{a: (0.0, 0.0, 0.0, 1.0)}, {a: (0.0, 0.0, 2**-0.5, 2**-0.5)}]
     validations = [
         _validate_one(
-            placer, positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx)
+            placer,
+            positions,
+            ObjectPlacer._get_bounding_boxes_for_candidate_index(candidate_bboxes, idx),
+            rotations[idx],
         ).do_all_required_validation_checks_pass()
         for idx in range(2)
     ]
@@ -143,30 +149,29 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
     assert validations == [True, False]
 
 
-def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
-    """Rotated bbox equals the original bbox rotated by the combined marker+sampled yaw."""
-    box = _make_long_box("box")
-    marker_yaw, sampled_yaw = math.pi / 6, math.pi / 3
-    total_yaw = marker_yaw + sampled_yaw
-    box.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
+def test_candidate_rotation_composes_world_yaw_over_pitched_marker(monkeypatch):
+    """A forced sampled world yaw rotates independently expected pitched corners."""
+    box = _make_long_box("box", half_x=0.3, half_y=0.1, half_z=0.05)
+    box.add_relation(RotateAroundSolution(pitch_rad=math.pi / 2))
+    monkeypatch.setattr("isaaclab_arena.relations.object_placer.get_random_rotation", lambda generator: math.pi / 2)
 
-    rotated = ObjectPlacer._rotate_candidate_bboxes([box], {box: box.get_bounding_box()}, [{box: total_yaw}])
+    rotation = ObjectPlacer(ObjectPlacerParams(random_yaw_init=True))._generate_initial_rotations([box], set())[box]
+    actual = box.get_bounding_box().rotated_by_quat(rotation).get_corners()[0]
 
-    expected = box.get_bounding_box().rotated_around_z(total_yaw)
-    torch.testing.assert_close(rotated[box].min_point, expected.min_point, atol=1e-6, rtol=0)
-    torch.testing.assert_close(rotated[box].max_point, expected.max_point, atol=1e-6, rtol=0)
-    # Passing only sampled_yaw (without marker) would enclose an undersized, misaligned footprint.
-    sampled_only = box.get_bounding_box().rotated_around_z(sampled_yaw)
-    assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
+    local = box.get_bounding_box().get_corners()[0]
+    # Rz(90) @ Ry(90): (x, y, z) -> (-y, z, -x).
+    expected = torch.stack((-local[:, 1], local[:, 2], -local[:, 0]), dim=1)
+    torch.testing.assert_close(actual, expected, atol=1e-6, rtol=0)
 
 
 def test_enclosing_after_rotation_pitch_swaps_extents():
     """A 90° pitch rotates the tall Z extent into X, so the enclosing AABB swaps X and Z half-sizes."""
-    box = AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.3), max_point=(0.05, 0.05, 0.3))
+    box = OrientedBoundingBox.from_min_max((-0.05, -0.05, -0.3), (0.05, 0.05, 0.3))
     quat = RotateAroundSolution(pitch_rad=math.pi / 2).get_rotation_xyzw()
-    rotated = box.enclosing_after_rotation(quat)
-    torch.testing.assert_close(rotated.max_point, torch.tensor([[0.3, 0.05, 0.05]]), atol=1e-6, rtol=0)
-    torch.testing.assert_close(rotated.min_point, torch.tensor([[-0.3, -0.05, -0.05]]), atol=1e-6, rtol=0)
+    rotated = box.rotated_by_quat(quat)
+    minimum, maximum = rotated.get_axis_aligned_bounds()
+    torch.testing.assert_close(maximum, torch.tensor([[0.3, 0.05, 0.05]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(minimum, torch.tensor([[-0.3, -0.05, -0.05]]), atol=1e-6, rtol=0)
 
 
 def test_rotate_candidate_bboxes_encloses_pitched_object():
@@ -182,8 +187,8 @@ def test_rotate_candidate_bboxes_encloses_pitched_object():
     assert _validate_one(placer, positions, axis_aligned).do_all_required_validation_checks_pass() is True
 
     # Composing the applied pitch grows a's X extent to 0.3, so it now overlaps b and is rejected.
-    rotated = ObjectPlacer._rotate_candidate_bboxes([a, b], axis_aligned, [{}])
-    assert _validate_one(placer, positions, rotated).do_all_required_validation_checks_pass() is False
+    rotations = {a: RotateAroundSolution(pitch_rad=math.pi / 2).get_rotation_xyzw()}
+    assert _validate_one(placer, positions, axis_aligned, rotations).do_all_required_validation_checks_pass() is False
 
 
 def test_on_relation_containment_uses_rotated_bbox():
@@ -197,8 +202,8 @@ def test_on_relation_containment_uses_rotated_bbox():
 
     axis_aligned = {desk: desk.get_bounding_box(), child: child.get_bounding_box()}
     assert OnRelationValidator(placer.params)._validate(positions, axis_aligned) is True
-    rotated = {desk: desk.get_bounding_box(), child: child.get_bounding_box().rotated_around_z(math.pi / 2)}
-    assert OnRelationValidator(placer.params)._validate(positions, rotated) is False
+    rotations = {child: (0.0, 0.0, 2**-0.5, 2**-0.5)}
+    assert OnRelationValidator(placer.params)._validate(positions, axis_aligned, rotations) is False
 
 
 def test_on_relation_check_no_relation_returns_true():
