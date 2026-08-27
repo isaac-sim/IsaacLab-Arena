@@ -38,8 +38,8 @@ requested.
 | Pi0.5<br>`pi05_benchmark_experiment.yaml`<br>`pi05_evaluation` | Full camera-enabled Pi0.5 evaluation, including the remote-policy client path. | Replaces zero action with the fixed Pi0.5 policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
 | Cosmos<br>`cosmos_benchmark_experiment.yaml`<br>`cosmos_evaluation` | Full camera-enabled Cosmos evaluation, including the remote-policy client path. | Replaces zero action with the fixed Cosmos policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
 | GR00T<br>`gr00t_benchmark_experiment.yaml`<br>`gr00t_evaluation` | Full camera-enabled GR00T evaluation, including the remote-policy client path. | Replaces zero action with the fixed GR00T policy and server contract; production camera settings stay fixed. | Same camera-enabled sweep |
-| Same-object control<br>`same_object_benchmark_experiment.yaml`<br>`same_object_control` | Construction and stepping when every parallel environment uses the same apple asset. | Uses a deterministic one-member object set; cameras and remote inference are disabled. | Same camera-free sweep |
-| Mixed-object workload<br>`mixed_object_benchmark_experiment.yaml`<br>`mixed_object_workload` | Construction and stepping when parallel environments use ten different fruit assets. | Only the deterministic object-set member list differs from the same-object control; assets are assigned round-robin. | Same camera-free sweep |
+| Homogeneous-object baseline<br>`same_object_benchmark_experiment.yaml`<br>`same_object_control` | Every parallel environment runs the same apple-into-bowl task with the same apple asset. | Establishes the same-object baseline; cameras and remote inference are disabled. | Same camera-free sweep |
+| Heterogeneous-object comparison<br>`mixed_object_benchmark_experiment.yaml`<br>`mixed_object_workload` | Parallel environments run the same fruit-into-bowl task using ten different fruit assets assigned round-robin. | Only the object-set member list differs from the homogeneous baseline. | Same camera-free sweep |
 
 Use one fresh Experiment Runner process for each `(Experiment, num_envs, repeat)` tuple. Do not put
 several sweep points in one Experiment process.
@@ -65,6 +65,119 @@ not appear in measured trials. Do not add video flags or `--continue_on_error`.
 
 `<arena-output-directory>` must be missing or empty. Give every repeat a unique directory. Capture
 the runner log beside that directory rather than creating a log inside it before startup.
+
+### Concrete workload commands
+
+PerfLab should run the following commands from the repository root inside the Arena container.
+Before each command, set `NUM_ENVS` to one point from that workload's sweep and `REPEAT` to `1`, `2`,
+or `3`. `PERFLAB_OUTPUT_ROOT` must point to persistent storage. The Experiment Runner creates the
+final trial directory, so that directory must not already contain output from another attempt.
+
+```bash
+PERFLAB_OUTPUT_ROOT=/path/to/perflab-output
+NUM_ENVS=1
+REPEAT=1
+```
+
+Camera-free baseline:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/camera-free/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Production-camera baseline:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/production_camera_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/production-camera/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Reduced-resolution camera control. Do not schedule this command until both dimensions are fixed:
+
+```bash
+: "${REDUCED_CAMERA_HEIGHT:?set REDUCED_CAMERA_HEIGHT to the selected integer}"
+: "${REDUCED_CAMERA_WIDTH:?set REDUCED_CAMERA_WIDTH to the selected integer}"
+
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/reduced_camera_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/reduced-camera/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}" \
+  "shared.environment_builder.camera_height=${REDUCED_CAMERA_HEIGHT}" \
+  "shared.environment_builder.camera_width=${REDUCED_CAMERA_WIDTH}"
+```
+
+Pi0.5 evaluation. The default endpoint is `127.0.0.1:8000`; append shared policy host and port
+overrides if PerfLab uses another endpoint:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/pi05_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/pi05/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Cosmos evaluation. The default endpoint is `127.0.0.1:8000`; append shared policy host and port
+overrides if PerfLab uses another endpoint:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/cosmos_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/cosmos/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+GR00T evaluation. The default endpoint is `127.0.0.1:5555`; append shared policy host and port
+overrides if PerfLab uses another endpoint:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/gr00t_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/gr00t/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Homogeneous-object baseline:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/same_object_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/homogeneous-object/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Heterogeneous-object comparison:
+
+```bash
+env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/experiment_configs/perflab/mixed_object_benchmark_experiment.yaml \
+  --experiment_output_directory "${PERFLAB_OUTPUT_ROOT}/heterogeneous-object/envs-${NUM_ENVS}/repeat-${REPEAT}" \
+  --viz none --device cuda:0 --rendering_mode balanced \
+  "shared.environment_builder.num_envs=${NUM_ENVS}"
+```
+
+Use `1 64 256 1024 2048` for the camera-free and object workloads, followed by `4096` only if all
+three `2048` trials are stable. Use `1 16 64 128 256` for the camera and policy workloads, then
+continue doubling only while all three trials at the preceding point are stable.
 
 For local Docker execution, discover the container that mounts the current checkout instead of
 using a fixed container name:
@@ -139,8 +252,39 @@ Start and verify the required server before a measured Experiment begins. Keep i
 endpoint, GPU allocation, and warm/cold state fixed across repeats. Pi0.5, Cosmos, and GR00T results
 are production-path results, not direct model-speed comparisons.
 
+Start Pi0.5 from the Arena repository root in a separate retained terminal:
+
+```bash
+./isaaclab_arena_openpi/docker/run_openpi_server.sh -v pi05 -p 8000
+```
+
+Require `INFO:websockets.server:server listening on 0.0.0.0:8000` before starting the Experiment.
+Start Cosmos in its own retained terminal after stopping Pi0.5, because both default to port 8000:
+
+```bash
+./isaaclab_arena_cosmos/docker/run_cosmos_server.sh -p 8000
+```
+
+The Cosmos handoff still needs a documented protocol-level readiness check; a listening port alone
+is not enough. Start GR00T from the maintained checkout in a separate retained terminal:
+
+```bash
+cd submodules/Isaac-GR00T
+uv run python gr00t/eval/run_gr00t_server.py \
+  --model-path nvidia/GR00T-N1.6-DROID \
+  --embodiment-tag OXE_DROID \
+  --device cuda --host 127.0.0.1 --port 5555
+```
+
+Verify the GR00T endpoint from that environment, substituting the absolute Arena checkout path:
+
+```bash
+uv run python /absolute/path/to/IsaacLab-Arena/isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+  --host 127.0.0.1 --port 5555 \
+  --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
+```
+
 The simulator and policy server should use separately monitored GPUs. Sharing one GPU is acceptable
 for a local functional smoke test but is not comparable to the PerfLab result. OpenPI and GR00T have
-maintained local serving workflows; the handoff must separately provide Cosmos startup and readiness
-instructions. An endpoint configured as `127.0.0.1` also requires compatible host networking or
-co-location.
+maintained protocol-level readiness workflows. An endpoint configured as `127.0.0.1` requires
+compatible host networking or co-location.
