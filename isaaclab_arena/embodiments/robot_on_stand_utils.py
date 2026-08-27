@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import os
 import tempfile
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 _ROBOT_ON_STAND_USD_CACHE_DIR = "robot_on_stand"
 
 _HEIGHT_ATOL = 1e-3
+_FOOTPRINT_ATOL = 1e-3
 _ALIGN_ATOL = 5e-2
 
 
@@ -52,16 +54,8 @@ class StandPrimSpec:
     ref_prim_path: str
     payload_child_name: str
     footprint_translate_xyz: tuple[float, float, float]
-    footprint_scale_xy: tuple[float, float]
+    stand_default_footprint_xy_m: tuple[float, float]
     stand_default_height: float
-
-
-def normalize_stand_scale_xy(stand_scale_xy: Sequence[float]) -> tuple[float, float]:
-    """Return a positive ``(x, y)`` stand footprint scale."""
-    assert len(stand_scale_xy) == 2, f"stand_scale_xy must have 2 values, got {stand_scale_xy!r}"
-    sx, sy = float(stand_scale_xy[0]), float(stand_scale_xy[1])
-    assert sx > 0.0 and sy > 0.0, f"stand_scale_xy must be positive, got {(sx, sy)}"
-    return (sx, sy)
 
 
 def compose_on_stand_usd(
@@ -70,7 +64,7 @@ def compose_on_stand_usd(
     *,
     stand_height_m: float,
     output_basename: str,
-    stand_scale_xy: Sequence[float] | None = None,
+    stand_footprint_xy_m: tuple[float, float] | None = None,
 ) -> str:
     """Build a robot+stand USD with stand under the robot base link.
 
@@ -82,27 +76,40 @@ def compose_on_stand_usd(
         stand: Stand reference and footprint parameters.
         stand_height_m: Target absolute stand height after align.
         output_basename: Stable basename for the composed USD (embodiment-specific).
-        stand_scale_xy: Footprint ``(x, y)`` scale. ``None`` uses ``stand.footprint_scale_xy``.
+        stand_footprint_xy_m: Target footprint ``(x, y)`` dimensions in meters. ``None`` uses the default.
 
     Returns:
         Local path to the composed on-stand USD.
     """
     assert stand_height_m > 0.0, f"stand_height_m must be positive, got {stand_height_m}"
-    scale_xy = normalize_stand_scale_xy(stand_scale_xy if stand_scale_xy is not None else stand.footprint_scale_xy)
-    return _compose_on_stand_usd_cached(robot, stand, stand_height_m, output_basename, scale_xy)
+    if stand_footprint_xy_m is None:
+        stand_footprint_xy_m = stand.stand_default_footprint_xy_m
+    assert len(stand_footprint_xy_m) == 2, f"stand_footprint_xy_m must have 2 values, got {stand_footprint_xy_m!r}"
+    assert all(
+        value > 0.0 for value in stand_footprint_xy_m
+    ), f"stand_footprint_xy_m must be positive, got {stand_footprint_xy_m}"
+    return _compose_on_stand_usd_cached(
+        robot,
+        stand,
+        stand_height_m,
+        output_basename,
+        stand_footprint_xy_m,
+    )
 
 
+@functools.cache
 def _compose_on_stand_usd_cached(
     robot: RobotPrimSpec,
     stand: StandPrimSpec,
     stand_height_m: float,
     output_basename: str,
-    stand_scale_xy: tuple[float, float],
+    stand_footprint_xy_m: tuple[float, float],
 ) -> str:
     cache_root = get_arena_asset_cache_dir().parent / "usd" / _ROBOT_ON_STAND_USD_CACHE_DIR
     cache_root.mkdir(parents=True, exist_ok=True)
-    sx, sy = stand_scale_xy
-    out_path = cache_root / f"{output_basename}_{stand_height_m:.3f}_{sx:.3f}x{sy:.3f}.usd"
+    cache_args = (robot, stand, stand_height_m, stand_footprint_xy_m)
+    cache_digest = hashlib.sha256(repr(cache_args).encode()).hexdigest()
+    out_path = cache_root / f"{output_basename}_{cache_digest}.usd"
 
     with tempfile.NamedTemporaryFile(suffix=".usd", dir=cache_root, delete=False) as tmp_file:
         tmp_path = Path(tmp_file.name)
@@ -114,7 +121,7 @@ def _compose_on_stand_usd_cached(
         root.GetReferences().AddReference(robot_resolved, robot.root_prim_path)
         stage.SetDefaultPrim(root)
 
-        _mount_stand_normalized(stage, robot, stand, stand_height_m, stand_scale_xy)
+        _add_stand(stage, robot, stand, stand_height_m, stand_footprint_xy_m)
         assert stage.GetRootLayer().Save(), f"failed to save composed on-stand USD to {tmp_path}"
         os.replace(tmp_path, out_path)
     except Exception:
@@ -124,20 +131,20 @@ def _compose_on_stand_usd_cached(
     return str(out_path)
 
 
-def _mount_stand_normalized(
+def _add_stand(
     stage: Usd.Stage,
     robot: RobotPrimSpec,
     stand: StandPrimSpec,
     stand_height_m: float,
-    stand_scale_xy: tuple[float, float],
+    stand_footprint_xy_m: tuple[float, float],
 ) -> None:
-    """Parent a stand payload under the robot base link, scale, and align to the robot base.
+    """Add a stand under the robot base link with the requested size and alignment.
 
     Composed USD hierarchy::
 
         /panda/panda_link0/stand_instanceable     # outer mount
           translate: (footprint_xy, align_z)
-          scale:    (stand_scale_xy, stand_height_m / native_height)
+          scale:    (stand_footprint_xy_m / native_footprint_xy_m, stand_height_m / native_height)
           /<payload_child_name>/                   # inner payload
             reference: stand USD @ ref_prim_path
 
@@ -146,7 +153,7 @@ def _mount_stand_normalized(
         robot: Robot prim layout under the composed default prim.
         stand: Stand reference and footprint parameters.
         stand_height_m: Target stand height after align.
-        stand_scale_xy: Footprint ``(x, y)`` scale applied on the outer mount.
+        stand_footprint_xy_m: Target footprint ``(x, y)`` dimensions in meters.
     """
     # Robot-only stage: bottom of the base link is the align target (before stand exists).
     robot_base = stage.GetPrimAtPath(robot.robot_base_prim_path)
@@ -158,15 +165,15 @@ def _mount_stand_normalized(
 
     stand_resolved = retrieve_file_path(stand.stand_usd_path)
     tx, ty, tz = stand.footprint_translate_xyz
-    sx, sy = stand_scale_xy
+    footprint_x_m, footprint_y_m = stand_footprint_xy_m
     stand_prim_path = robot.stand_prim_path
 
-    # Outer mount under link0; Z scale stays at 1 until native height is measured.
+    # Outer mount under link0 stays at unit scale until the source stand dimensions are measured.
     stand_xf = UsdGeom.Xform.Define(stage, stand_prim_path)
     translate_op = stand_xf.AddTranslateOp()
     translate_op.Set(Gf.Vec3d(tx, ty, tz))
     scale_op = stand_xf.AddScaleOp()
-    scale_op.Set(Gf.Vec3d(sx, sy, 1.0))
+    scale_op.Set(Gf.Vec3d(1.0, 1.0, 1.0))
 
     payload_prim = stage.DefinePrim(f"{stand_prim_path}/{stand.payload_child_name}")
     payload_prim.GetReferences().AddReference(stand_resolved, stand.ref_prim_path)
@@ -174,12 +181,14 @@ def _mount_stand_normalized(
     stand_prim = stand_xf.GetPrim()
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
 
-    # Native height at footprint XY scale; then scale Z to the requested stand height.
+    # Scale the source stand to the requested physical dimensions.
     stand_range = bbox_cache.ComputeWorldBound(stand_prim).ComputeAlignedRange()
     assert not stand_range.IsEmpty(), f"empty stand bounds at {stand_prim.GetPath()}"
-    native_height = float(stand_range.GetSize()[2])
+    native_size = stand_range.GetSize()
+    native_x_m, native_y_m, native_height = (float(value) for value in native_size)
+    assert native_x_m > 0.0 and native_y_m > 0.0, f"non-positive stand footprint at {stand_prim.GetPath()}"
     assert native_height > 0.0, f"non-positive stand height at {stand_prim.GetPath()}"
-    scale_op.Set(Gf.Vec3d(sx, sy, stand_height_m / native_height))
+    scale_op.Set(Gf.Vec3d(footprint_x_m / native_x_m, footprint_y_m / native_y_m, stand_height_m / native_height))
 
     # Raise/lower outer translate so stand top meets robot_min_z.
     translate_op.Set(Gf.Vec3d(tx, ty, robot_min_z))
@@ -187,7 +196,10 @@ def _mount_stand_normalized(
     # Verify stand/robot alignment and stand height on a fresh BBoxCache.
     verify_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     stand_range = verify_cache.ComputeWorldBound(stand_prim).ComputeAlignedRange()
-    stand_height = float(stand_range.GetSize()[2])
+    stand_size = stand_range.GetSize()
+    stand_x_m, stand_y_m, stand_height = (float(value) for value in stand_size)
     stand_max_z = float(stand_range.GetMax()[2])
+    assert abs(stand_x_m - footprint_x_m) < _FOOTPRINT_ATOL, stand_x_m
+    assert abs(stand_y_m - footprint_y_m) < _FOOTPRINT_ATOL, stand_y_m
     assert abs(stand_height - stand_height_m) < _HEIGHT_ATOL, stand_height
     assert abs(stand_max_z - robot_min_z) < _ALIGN_ATOL, (stand_max_z, robot_min_z)

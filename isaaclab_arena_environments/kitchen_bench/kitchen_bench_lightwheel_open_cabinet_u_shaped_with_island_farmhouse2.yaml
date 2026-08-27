@@ -9,7 +9,7 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 1.3
-    stand_scale_xy: [0.6, 1.2]
+    stand_footprint_xy_m: [0.54, 0.91032]
     placement_bbox_stand_only: true
     collision_mode: mesh
 background:
@@ -75,5 +75,7 @@ task:
   - kind: OpenDoorTask
     params:
       openable_object: cabinet
+      # NOTE: Pi currently has 0% success despite moving the joint about 0.25;
+      # keep this threshold as the intended hard-benchmark target.
       openness_threshold: 0.2
       reset_openness: 0.0

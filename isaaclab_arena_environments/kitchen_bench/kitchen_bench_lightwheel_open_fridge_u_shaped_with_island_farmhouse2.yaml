@@ -9,7 +9,7 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 0.8
-    stand_scale_xy: [0.3, 1.2]
+    stand_footprint_xy_m: [0.27, 0.91032]
     placement_bbox_stand_only: true
     collision_mode: mesh
 background:
@@ -48,10 +48,9 @@ relations:
   params:
     side: negative_x
     distance_m: 0.5
-    # cross_position_ratio: 0.5
 task:
   composition: atomic
-  description: Open the fridge door to an openness threshold of 0.2.
+  description: Open the fridge door.
   subtasks:
   - kind: OpenDoorTask
     params:
