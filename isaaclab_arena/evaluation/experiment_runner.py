@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -95,6 +96,30 @@ def _write_arena_experiment_result(
     return ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
 
 
+def _write_arena_experiment_timings(
+    experiment_output_directory: Path,
+    original_error: BaseException | None = None,
+) -> Path | None:
+    """Print and write timings without replacing an error already raised by the Experiment."""
+    from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
+    from isaaclab_arena.utils.timer import print_timer_stats, write_timer_stats_json
+
+    try:
+        print_timer_stats()
+        timings_path = write_timer_stats_json(
+            experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+            app_name="experiment_runner",
+        )
+        print(f"Wrote Arena Experiment timings to: {timings_path}")
+        return timings_path
+    except Exception as timing_error:
+        if original_error is None:
+            raise
+        with suppress(Exception):
+            print(f"[WARN] Could not write Arena Experiment timings: {timing_error}")
+        return None
+
+
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
@@ -145,48 +170,86 @@ def main():
         experiment_output_directory = Path(timestamped_run_dir(args_cli.output_base_dir))
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
-    with SimulationAppContext(args_cli):
-        from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-        from isaaclab_arena.evaluation.run_execution import execute_experiment
-        from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-        from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+    from isaaclab_arena.evaluation.arena_experiment_metadata import ArenaExperimentMetadataRecorder
 
-        experiment_cfg = load_arena_experiment_from_config_file(
-            experiment_config_path,
-            device=args_cli.device,
-            overrides=experiment_overrides,
-        )
-        for run_name in experiment_cfg.runs:
-            ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
-        _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
-        metrics_logger = MetricsLogger()
+    metadata_recorder = ArenaExperimentMetadataRecorder.start(
+        experiment_output_directory,
+        experiment_config_path,
+        experiment_overrides,
+        args_cli,
+    )
+    try:
+        with SimulationAppContext(args_cli):
+            from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+            from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+            from isaaclab_arena.evaluation.run_execution import execute_experiment
+            from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+            from isaaclab_arena.utils.timer import Timer, reset_timer_stats
+            from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
-        print(build_runs_info_table(experiment_cfg.runs.values(), []))
+            reset_timer_stats()
+            try:
+                experiment_error = None
+                try:
+                    with Timer("experiment/load_config"):
+                        experiment_cfg = load_arena_experiment_from_config_file(
+                            experiment_config_path,
+                            device=args_cli.device,
+                            overrides=experiment_overrides,
+                        )
+                    metadata_recorder.record_resolved_experiment(experiment_cfg)
+                    for run_name in experiment_cfg.runs:
+                        ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
+                    _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
+                    metrics_logger = MetricsLogger()
 
-        if args_cli.record_viewport_video:
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
+                    print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
-        run_results = execute_experiment(
-            experiment_cfg,
-            output_dir=experiment_output_directory,
-            record_viewport_video=args_cli.record_viewport_video,
-            record_camera_video=args_cli.record_camera_video,
-            continue_on_error=args_cli.continue_on_error,
-        )
-        for run_result in run_results:
-            if run_result.metrics is not None:
-                metrics_logger.append_job_metrics(run_result.run_name, run_result.metrics)
+                    if args_cli.record_viewport_video:
+                        print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_directory}")
 
-        print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
-        metrics_logger.print_metrics()
+                    with Timer("experiment/execute_runs"):
+                        run_results = execute_experiment(
+                            experiment_cfg,
+                            output_dir=experiment_output_directory,
+                            record_viewport_video=args_cli.record_viewport_video,
+                            record_camera_video=args_cli.record_camera_video,
+                            continue_on_error=args_cli.continue_on_error,
+                        )
+                    for run_result in run_results:
+                        if run_result.metrics is not None:
+                            metrics_logger.append_job_metrics(run_result.run_name, run_result.metrics)
 
-        _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+                    print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
+                    metrics_logger.print_metrics()
 
-        # Write HTML report.
-        report_path = build_report(experiment_output_directory)
-        if args_cli.serve_evaluation_report:
-            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+                    _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+
+                    # Write HTML report.
+                    with Timer("experiment/build_report"):
+                        report_path = build_report(experiment_output_directory)
+                except BaseException as error:
+                    experiment_error = error
+                    raise
+                finally:
+                    # SimulationAppContext may terminate the process from __exit__, so timings must be
+                    # persisted before leaving this block. The finally path also preserves partial timings.
+                    _write_arena_experiment_timings(experiment_output_directory, original_error=experiment_error)
+
+                if args_cli.serve_evaluation_report:
+                    serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+            except BaseException as error:
+                # SimulationAppContext uses an immediate process exit for failures, so persist the
+                # error before propagating it to the context manager.
+                metadata_recorder.finish("failed", error)
+                raise
+            else:
+                # Persist before SimulationAppContext.__exit__, which may terminate the process on success.
+                metadata_recorder.finish("completed")
+    except BaseException as error:
+        # Covers failures while starting SimulationApp, before its context body is entered.
+        metadata_recorder.finish("failed", error)
+        raise
 
 
 if __name__ == "__main__":
