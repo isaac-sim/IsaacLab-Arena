@@ -683,25 +683,43 @@ every recorded variation is analyzed.</p>
 <p>A synthetic simulator with a <em>known</em> ground truth lets you run the whole pipeline without
 Isaac Sim — useful for seeing the output shape and for validating the toolbox
 (the recovered posterior should reflect the planted relationship):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># mixed: three continuous + two categorical factors (MNPE)</span>
-python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.tests.sensitivity_synthetic<span class="w"> </span>--kind<span class="w"> </span>mixed<span class="w"> </span>--output<span class="w"> </span>eval/demo.png
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.tests.sensitivity_synthetic<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--kind<span class="w"> </span>continuous<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output<span class="w"> </span>eval/sensitivity_synthetic_continuous_marginals.png
+
+<span class="nv">NO_AT_BRIDGE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pqiv<span class="w"> </span>eval/sensitivity_synthetic_continuous_marginals.png
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">--kind</span></code> also accepts <code class="docutils literal notranslate"><span class="pre">continuous</span></code> (continuous-only factors, which exercises the NPE path).</p>
+<p>The continuous dataset contains three factors and exercises the NPE path. <code class="docutils literal notranslate"><span class="pre">--kind</span></code> also accepts
+<code class="docutils literal notranslate"><span class="pre">mixed</span></code> to exercise the MNPE path with three continuous and two categorical factors.</p>
 </section>
 <section id="reading-the-output">
 <h2>Reading the output<a class="headerlink" href="#reading-the-output" title="Link to this heading">#</a></h2>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>Add a sample report figure here and walk through reading it.</p>
-</div>
-<p>Each panel is the posterior over one factor <em>conditioned on success</em>. Intuitively it answers
-“given the policy succeeded, which values of this factor were responsible?” More precisely,
-among the successful episodes it shows the probability density that the factor took each
-value. For a continuous factor, mass concentrated at one end of its range means success
-favoured that end — e.g. a curve rising toward bright light means successful episodes were
-almost all bright ones, i.e. the policy needs bright light to succeed.
-For a categorical factor, the tallest bar is the value most associated with success.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/sensitivity_synthetic_continuous_marginals.png"><img alt="Posterior marginals for light intensity, object mass, and camera distance conditioned on success" src="../../_images/sensitivity_synthetic_continuous_marginals.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Posterior marginals from the continuous synthetic dataset.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Each blue curve is the posterior density for one factor <em>conditioned on success</em>. The dashed grey
+line is the uniform prior used to draw that factor. Where the posterior rises above the prior,
+those values are more common in the success-conditioned samples than in the original sweep. The
+shaded 5–95% interval contains the central 90% of the posterior samples.</p>
+<p>Compare each curve with the prior in its own panel. Absolute density heights are not comparable
+between panels because each factor has different units and a different range.</p>
+<p>The three panels recover the relationships planted in the synthetic simulator:</p>
+<ul class="simple">
+<li><p><strong>Light intensity:</strong> Density shifts toward higher intensities and peaks near the bright end of
+the range, so successful episodes favor brighter lighting.</p></li>
+<li><p><strong>Object mass:</strong> Density shifts toward lower masses and falls toward the high end of the
+range, so successful episodes favor lighter objects.</p></li>
+<li><p><strong>Camera distance:</strong> Density shifts toward shorter distances and peaks around 0.6, so successful
+episodes favor a closer camera.</p></li>
+</ul>
+<p>These curves validate the analysis against known synthetic relationships. For evaluation data,
+read the same shapes as associations with success within the sampled sweep, not as proof that a
+factor caused the outcome.</p>
 </section>
 <section id="current-scope">
 <h2>Current scope<a class="headerlink" href="#current-scope" title="Link to this heading">#</a></h2>
@@ -719,10 +737,7 @@ sampling frequency. The analyzer warns when a categorical is sampled unevenly, b
 fix is to balance the draws in the sweep.</p></li>
 <li><p>The estimators run on CPU and do not require Isaac Sim, so a report can be generated
 anywhere the evaluation JSONL is available.</p></li>
-<li><p>The analysis assumes the <code class="docutils literal notranslate"><span class="pre">episode_results.jsonl</span></code> is a single coherent slice — one
-policy, task, and embodiment. <strong>TODO:</strong> add a filter (in the spirit of robolab’s
-<code class="docutils literal notranslate"><span class="pre">--filter-policy</span></code> / <code class="docutils literal notranslate"><span class="pre">--filter-task</span></code>) to select that slice from a larger JSONL,
-rather than relying on the caller to pre-filter it.</p></li>
+<li><p>Every row in <code class="docutils literal notranslate"><span class="pre">episode_results.jsonl</span></code> must come from the same policy, task, and embodiment.</p></li>
 </ul>
 </section>
 </section>

@@ -725,26 +725,8 @@ that Isaac Lab can run.</p></li>
 <a class="reference internal" href="../concepts/environment/env_builder.html"><span class="doc">Environment Builder</span></a>.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Full source: <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table_environment.py</span></code></span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).</span>
-<span class="c1"># All rights reserved.</span>
-<span class="c1">#</span>
-<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_environment</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_environment_factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvironmentCfg</span><span class="p">,</span> <span class="n">ArenaEnvironmentFactory</span>
-
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
-
-
-<span class="nd">@dataclass</span>
+<span class="sd-summary-text">Environment definition: <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table_environment.py</span></code></span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTableEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Configure the Maple-table pick-and-place environment."""</span>
 
@@ -848,17 +830,11 @@ that Isaac Lab can run.</p></li>
             <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">_set_viewer_cfg</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
-
-    <span class="c1"># TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners</span>
-    <span class="c1"># receive typed configuration instead of the environment subparser namespace.</span>
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_add_legacy_cli_only_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># Consumed by Lab teleop_se3_agent.py / record_demos.py via --arena_teleop_device, not by build(cfg).</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--teleop_device"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-</details></section>
+</details><p>See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/pick_and_place_maple_table_environment.py">complete source</a>.</p>
+</section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
 <p>Continue to <a class="reference internal" href="arena_experiment.html"><span class="doc">First Arena Experiment</span></a> to execute several named Runs from one YAML file.</p>

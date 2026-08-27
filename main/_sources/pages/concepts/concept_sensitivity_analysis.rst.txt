@@ -125,25 +125,45 @@ Isaac Sim — useful for seeing the output shape and for validating the toolbox
 
 .. code-block:: bash
 
-   # mixed: three continuous + two categorical factors (MNPE)
-   python -m isaaclab_arena.tests.sensitivity_synthetic --kind mixed --output eval/demo.png
+   python -m isaaclab_arena.tests.sensitivity_synthetic \
+     --kind continuous \
+     --output eval/sensitivity_synthetic_continuous_marginals.png
 
-``--kind`` also accepts ``continuous`` (continuous-only factors, which exercises the NPE path).
+   NO_AT_BRIDGE=1 pqiv eval/sensitivity_synthetic_continuous_marginals.png
+
+The continuous dataset contains three factors and exercises the NPE path. ``--kind`` also accepts
+``mixed`` to exercise the MNPE path with three continuous and two categorical factors.
 
 Reading the output
 ------------------
 
-.. todo::
+.. figure:: ../../images/sensitivity_synthetic_continuous_marginals.png
+   :width: 100%
+   :alt: Posterior marginals for light intensity, object mass, and camera distance conditioned on success
+   :align: center
 
-   Add a sample report figure here and walk through reading it.
+   Posterior marginals from the continuous synthetic dataset.
 
-Each panel is the posterior over one factor *conditioned on success*. Intuitively it answers
-"given the policy succeeded, which values of this factor were responsible?" More precisely,
-among the successful episodes it shows the probability density that the factor took each
-value. For a continuous factor, mass concentrated at one end of its range means success
-favoured that end — e.g. a curve rising toward bright light means successful episodes were
-almost all bright ones, i.e. the policy needs bright light to succeed.
-For a categorical factor, the tallest bar is the value most associated with success.
+Each blue curve is the posterior density for one factor *conditioned on success*. The dashed grey
+line is the uniform prior used to draw that factor. Where the posterior rises above the prior,
+those values are more common in the success-conditioned samples than in the original sweep. The
+shaded 5–95% interval contains the central 90% of the posterior samples.
+
+Compare each curve with the prior in its own panel. Absolute density heights are not comparable
+between panels because each factor has different units and a different range.
+
+The three panels recover the relationships planted in the synthetic simulator:
+
+* **Light intensity:** Density shifts toward higher intensities and peaks near the bright end of
+  the range, so successful episodes favor brighter lighting.
+* **Object mass:** Density shifts toward lower masses and falls toward the high end of the
+  range, so successful episodes favor lighter objects.
+* **Camera distance:** Density shifts toward shorter distances and peaks around 0.6, so successful
+  episodes favor a closer camera.
+
+These curves validate the analysis against known synthetic relationships. For evaluation data,
+read the same shapes as associations with success within the sampled sweep, not as proof that a
+factor caused the outcome.
 
 Current scope
 -------------
@@ -161,7 +181,4 @@ Current scope
   fix is to balance the draws in the sweep.
 - The estimators run on CPU and do not require Isaac Sim, so a report can be generated
   anywhere the evaluation JSONL is available.
-- The analysis assumes the ``episode_results.jsonl`` is a single coherent slice — one
-  policy, task, and embodiment. **TODO:** add a filter (in the spirit of robolab's
-  ``--filter-policy`` / ``--filter-task``) to select that slice from a larger JSONL,
-  rather than relying on the caller to pre-filter it.
+- Every row in ``episode_results.jsonl`` must come from the same policy, task, and embodiment.
