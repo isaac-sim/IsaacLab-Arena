@@ -9,6 +9,7 @@
 # Usage:
 #   ./run_cosmos_server.sh                  # build if missing, then serve the DROID policy
 #   ./run_cosmos_server.sh -r               # force rebuild, then run
+#   ./run_cosmos_server.sh -g 1             # run on GPU 1
 #   ./run_cosmos_server.sh -p 9000          # serve on a different port
 #   ./run_cosmos_server.sh -h               # help
 #
@@ -26,6 +27,7 @@ IMAGE_TAG="cosmos_server"
 # Path the checkpoint is baked to inside the image (see build_server_image.sh CHECKPOINT_LOCAL_PATH).
 CHECKPOINT="/workspace/baked_checkpoint"
 PORT="8000"
+GPU_DEVICE="all"
 FORCE_REBUILD=false
 
 print_help() {
@@ -37,6 +39,7 @@ Usage:
 
 Options:
   -r              Force rebuilding of the server image.
+  -g <device>     GPU device ID or UUID to expose. Defaults to all GPUs.
   -p <port>       Port to serve on (default: ${PORT}).
   -h              Show this help and exit.
 
@@ -45,9 +48,10 @@ see build_server_image.sh).
 EOF
 }
 
-while getopts ":rp:h" opt; do
+while getopts ":rg:p:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
+        g) GPU_DEVICE="$OPTARG" ;;
         p) PORT="$OPTARG" ;;
         h) print_help; exit 0 ;;
         \?) echo "unknown option: -$OPTARG" >&2; print_help; exit 1 ;;
@@ -64,7 +68,13 @@ fi
 
 echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (checkpoint: ${CHECKPOINT}, port: ${PORT})"
 
-docker run --rm -it --gpus all --network=host \
+if [ "$GPU_DEVICE" = "all" ]; then
+    DOCKER_GPU_REQUEST="all"
+else
+    DOCKER_GPU_REQUEST="device=${GPU_DEVICE}"
+fi
+
+docker run --rm -it --gpus "$DOCKER_GPU_REQUEST" --network=host \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     python -m cosmos_framework.scripts.action_policy_server_robolab \
         --checkpoint_path "${CHECKPOINT}" \
