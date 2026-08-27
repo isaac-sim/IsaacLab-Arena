@@ -28,8 +28,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DEFAULT_RESERVOIR_SIZE = 1024
-
 # Keep reservoir sampling independent from application randomness.
 _reservoir_random_generator = random.Random()
 
@@ -44,7 +42,7 @@ class TimerStats:
     Maintains a reservoir sample for approximate percentile estimation.
     """
 
-    reservoir_size: int = DEFAULT_RESERVOIR_SIZE
+    percentile_approximation_reservoir_size: int = 1024
     count: int = 0
     total_ms: float = 0.0
     min_ms: float = field(default=float("inf"))
@@ -67,11 +65,11 @@ class TimerStats:
 
         # Reservoir sampling (Algorithm R). Maintain a small representative sample and compute
         # percentiles on it as a proxy, avoiding unbounded memory growth.
-        if len(self._reservoir) < self.reservoir_size:
+        if len(self._reservoir) < self.percentile_approximation_reservoir_size:
             self._reservoir.append(elapsed_ms)
         else:
             replacement_index = _reservoir_random_generator.randint(0, self.count - 1)
-            if replacement_index < self.reservoir_size:
+            if replacement_index < self.percentile_approximation_reservoir_size:
                 self._reservoir[replacement_index] = elapsed_ms
 
     def percentile(self, p: float) -> float | None:
@@ -90,23 +88,20 @@ class TimerStats:
         return sorted_buf[idx]
 
 
-def _update_stats(name: str, elapsed_ms: float, reservoir_size: int) -> None:
+def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
     if name in _timer_registry:
         _timer_registry[name].update(elapsed_ms)
     else:
-        stats = TimerStats(reservoir_size=reservoir_size)
-        stats.update(elapsed_ms)
-        _timer_registry[name] = stats
+        timer_stats = TimerStats()
+        timer_stats.update(elapsed_ms)
+        _timer_registry[name] = timer_stats
 
 
 class Timer:
-    """Context manager that records the wall-clock duration of a code block under a name.
+    """Context manager that records wall-clock durations under a name.
 
-    Repeated use of the same name accumulates into one set of statistics. Each block also
-    pushes an NVTX range for Nsight Systems visibility. Call Timer.set_sync_cuda(True) to
-    insert torch.cuda.synchronize() on enter and exit for all Timer instances, which is
-    needed to attribute GPU work to the block that launched it.
+    Measurements accumulate in a process-wide registry until reset_timer_stats() is called.
     """
 
     _sync_cuda: bool = False
@@ -116,15 +111,13 @@ class Timer:
         """Enable or disable CUDA synchronization for all Timer instances."""
         cls._sync_cuda = enabled
 
-    def __init__(self, name: str, reservoir_size: int = DEFAULT_RESERVOIR_SIZE) -> None:
+    def __init__(self, name: str) -> None:
         """Create a new timer with the given name.
 
         Args:
             name: Registry key that this block's measurements accumulate under.
-            reservoir_size: Number of samples retained for percentile estimation.
         """
         self.name = name
-        self._reservoir_size = reservoir_size
         self._start_time: float = 0.0
 
     def __enter__(self) -> Timer:
@@ -145,7 +138,7 @@ class Timer:
             torch.cuda.synchronize()
         torch.cuda.nvtx.range_pop()
         elapsed_ms = (time.perf_counter() - self._start_time) * 1e3
-        _update_stats(self.name, elapsed_ms, self._reservoir_size)
+        _update_stats(self.name, elapsed_ms)
 
 
 def get_timer_stats() -> dict[str, TimerStats]:

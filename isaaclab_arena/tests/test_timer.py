@@ -63,7 +63,7 @@ class TestTimerStats:
 
     def test_reservoir_sampling_does_not_modify_global_random_state(self) -> None:
         """Verify reservoir sampling does not affect application randomness."""
-        stats = TimerStats(reservoir_size=1)
+        stats = TimerStats(percentile_approximation_reservoir_size=1)
         global_random_state = random.getstate()
 
         stats.update(1.0)
@@ -83,7 +83,7 @@ class TestTimerStats:
         for _ in range(num_samples // 100):
             values.append(synthetic_data_random_generator.uniform(80.0, 200.0))
 
-        exact = TimerStats(reservoir_size=len(values))
+        exact = TimerStats(percentile_approximation_reservoir_size=len(values))
         approx = TimerStats()
         for value in values:
             exact.update(value)
