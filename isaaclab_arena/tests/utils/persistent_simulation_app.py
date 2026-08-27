@@ -113,6 +113,7 @@ def run_function_with_persistent_simulation_app(
         Whether the function returned a truthy value.
     """
     # Get a persistent simulation app
+    simulation_app = None
     try:
         simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
         test_result = bool(function(simulation_app, **kwargs))
@@ -126,3 +127,7 @@ def run_function_with_persistent_simulation_app(
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+        # Process the new-stage event before the next test constructs renderer resources. RTX
+        # render-product destruction and USD/Fabric synchronization complete on Kit's update loop.
+        if simulation_app is not None:
+            simulation_app.update()
