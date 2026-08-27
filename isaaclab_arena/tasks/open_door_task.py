@@ -41,9 +41,8 @@ class OpenDoorTask(RotateRevoluteJointTask):
             episode_length_s: The episode length in seconds.
             task_description: The language instruction for the task.
         """
+        # How far the openness must change from reset_openness to count as having moved the door.
         self.min_openness_change = 0.05
-        """How far the openness must change from ``reset_openness`` to count as having moved the door."""
-
         super().__init__(
             openable_object=openable_object,
             target_joint_percentage_threshold=openness_threshold,
@@ -71,11 +70,7 @@ class OpenDoorTask(RotateRevoluteJointTask):
         return self.termination_cfg
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
-        """Returns a single objective whose chain is: the door moved at all, then the door is open.
-
-        The chain is sequential, so a partially opened door scores 0.5 and a door past the success
-        threshold scores 1.0 and completes the objective.
-        """
+        """Returns a single objective whose chain is: the door moved at all, then the door is open."""
         is_open_params = {}
         if self.target_joint_percentage_threshold is not None:
             is_open_params["threshold"] = self.target_joint_percentage_threshold
