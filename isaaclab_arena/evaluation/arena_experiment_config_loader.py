@@ -11,15 +11,13 @@ import json
 from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
-from isaaclab_arena.policy.policy_base import PolicyCfg
-from isaaclab_arena_environments.cli import ensure_environments_registered
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -32,6 +30,13 @@ def validate_experiment_config_path(experiment_config: str | Path) -> Path:
         ".yml",
     }, f"Experiment config must use .json, .yaml, or .yml, got '{experiment_config_path}'"
     return experiment_config_path
+
+
+def run_cfgs_from_legacy_eval_config(config: dict[str, Any], device: str) -> list[ArenaRunCfg]:
+    """Convert a legacy Experiment without importing its runtime dependencies eagerly."""
+    from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
+
+    return run_cfgs_from_legacy_eval_config(config, device)
 
 
 def load_arena_experiment_from_config_file(
@@ -50,6 +55,9 @@ def load_arena_experiment_from_config_file(
     Returns:
         The loaded, typed Experiment configuration with the process device applied.
     """
+    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+    from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
+
     path = validate_experiment_config_path(experiment_config_path)
 
     if path.suffix.lower() == ".json":
@@ -69,7 +77,7 @@ def load_arena_experiment_from_config_file(
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
     # evaluation setting shared by AppLauncher and Run execution. Then remove device
     # from ArenaEnvBuilderCfg and delete this per-Run copy.
-    runs_with_process_device: dict[str, ArenaRunCfg] = {}
+    runs_with_process_device = {}
     for run_name, run_config in experiment_cfg.runs.items():
         environment_builder_with_process_device = replace(run_config.environment_builder, device=device)
         run_config_with_process_device = replace(
@@ -82,9 +90,12 @@ def load_arena_experiment_from_config_file(
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     """Return registered environment selector names and their config types."""
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
     ensure_environments_registered()
     registry = EnvironmentRegistry()
-    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]] = {}
+    environment_cfg_types = {}
     for name in registry.get_all_keys():
         environment_factory_type = registry.get_component_by_name(name)
         environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
@@ -93,6 +104,8 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
     """Return the config type for a registered policy name or dotted class path."""
+    from isaaclab_arena.assets.registries import PolicyRegistry
+
     registry = PolicyRegistry()
     if registry.is_registered(policy_name_or_class_path):
         policy_type = registry.get_policy(policy_name_or_class_path)
