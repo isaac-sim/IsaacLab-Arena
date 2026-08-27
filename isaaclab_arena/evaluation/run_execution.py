@@ -24,6 +24,7 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
@@ -105,23 +106,27 @@ def build_and_run(
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
             rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
-            env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
+            with Timer("run/build_environment"):
+                env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(rebuild_cfg)
+            with Timer("run/build_policy"):
+                policy = _build_policy_from_cfg(rebuild_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
                 cfg,
                 policy,
                 num_episodes,
             )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
+            with Timer("run/rollout_policy"):
+                metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
         finally:
-            close_run_resources(policy, env)
+            with Timer("run/close_resources"):
+                close_run_resources(policy, env)
 
     return ArenaRunResult(
         run_name=cfg.name,
