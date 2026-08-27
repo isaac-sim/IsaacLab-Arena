@@ -6,6 +6,7 @@
 import json
 import random
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -33,7 +34,12 @@ from isaaclab_arena.relations.benchmark.layout_throughput import (
     run_controlled_throughput_sample,
 )
 from isaaclab_arena.relations.relations import On
-from isaaclab_arena_examples.relations import collision_representation_ablation
+from isaaclab_arena_examples.relations import (
+    background_batch_scaling_benchmark,
+    background_factorial_benchmark,
+    background_practical_generation_benchmark,
+    collision_representation_ablation,
+)
 from isaaclab_arena_examples.relations import collision_space_coverage_benchmark as coverage_benchmark
 from isaaclab_arena_examples.relations import direct_solver_comparison_benchmark as direct_benchmark
 from isaaclab_arena_examples.relations import fixed_iteration_batch_scaling_benchmark as batch_scaling_benchmark
@@ -548,3 +554,229 @@ def test_robolab_fixed_iteration_loop_runs_every_configured_iteration():
 
     assert solver.collision_checks == 600
     assert solver.bounds_checks == 0
+
+
+def test_background_scaling_scenarios_progressively_add_fixed_objects():
+    scenarios = background_batch_scaling_benchmark.SCENARIOS
+
+    assert [scenario.obstacle_count for scenario in scenarios] == [0, 1, 5, 9]
+    assert all(
+        left.nominal_area_fraction < right.nominal_area_fraction for left, right in zip(scenarios, scenarios[1:])
+    )
+
+
+def test_background_robolab_loop_moves_only_movable_side_of_fixed_collision():
+    class FakeSolver:
+        def __init__(self):
+            self.calls = 0
+
+        def _check_collisions(self, states, dimensions):
+            self.calls += 1
+            return [("movable", "background")] if self.calls == 1 else []
+
+        def _move_away_from_fixed(self, movable, fixed, movable_dims, fixed_dims):
+            movable.x += 1.0
+
+        def _resolve_collision(self, first, second, first_dims, second_dims):
+            raise AssertionError("fixed collision must not use dynamic resolution")
+
+    states = {
+        "movable": SimpleNamespace(x=0.0, y=0.0),
+        "background": SimpleNamespace(x=0.0, y=0.0),
+    }
+    dimensions = {"movable": (0.1, 0.1, 0.1), "background": (0.1, 0.1, 0.1)}
+    background_batch_scaling_benchmark._run_robolab_fixed_iterations(
+        FakeSolver(),
+        states,
+        dimensions,
+        {"background"},
+        iterations=3,
+        seed=0,
+    )
+
+    assert states["movable"].x == 1.0
+    assert states["background"].x == 0.0
+
+
+@pytest.mark.parametrize("move_both", [False, True])
+def test_background_aabb_resolution_honors_positive_collision_margin(move_both):
+    first = SimpleNamespace(x=0.0, y=0.0)
+    second = SimpleNamespace(x=0.11, y=0.0)
+    dims = (0.1, 0.1, 0.1)
+
+    background_batch_scaling_benchmark._aabb_axis_displacement(
+        first,
+        second,
+        dims,
+        dims,
+        collision_margin=0.01,
+        move_both=move_both,
+    )
+
+    assert abs(first.x - second.x) >= 0.12
+
+
+def test_background_practical_initialization_is_deterministic_and_in_bounds():
+    first = background_practical_generation_benchmark._initial_layout(17, 5)
+    second = background_practical_generation_benchmark._initial_layout(17, 5)
+
+    assert first == second
+    assert first != background_practical_generation_benchmark._initial_layout(18, 5)
+    assert all(-0.46 <= x <= 0.46 and -0.46 <= y <= 0.46 for x, y in first.values())
+
+
+def test_background_practical_validator_checks_fixed_obstacles_and_movables():
+    scenario = background_batch_scaling_benchmark.SCENARIOS[1]
+    valid = {
+        "object-0": (-0.25, -0.25),
+        "object-1": (0.25, 0.25),
+    }
+    background_collision = {**valid, "object-0": (0.0, 0.0)}
+    movable_collision = {**valid, "object-1": (-0.25, -0.25)}
+
+    assert background_practical_generation_benchmark._valid_layout(valid, 2, scenario)
+    assert not background_practical_generation_benchmark._valid_layout(background_collision, 2, scenario)
+    assert not background_practical_generation_benchmark._valid_layout(movable_collision, 2, scenario)
+
+
+@pytest.mark.parametrize(
+    ("target_fraction", "obstacle_count", "measured_fraction"),
+    [
+        (0.0, 0, 0.0),
+        (
+            background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1],
+            4,
+            background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1],
+        ),
+        (
+            background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[2],
+            8,
+            background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[2],
+        ),
+    ],
+)
+def test_background_factorial_scene_controls_excluded_center_space(target_fraction, obstacle_count, measured_fraction):
+    scene = background_factorial_benchmark.make_scene(
+        "corridor",
+        target_fraction,
+        scene_index=2,
+    )
+
+    assert scene.obstacle_count == obstacle_count
+    assert scene.measured_excluded_fraction == pytest.approx(measured_fraction)
+
+
+def test_background_factorial_scattered_scenes_are_deterministic_and_distinct():
+    excluded_fraction = background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[2]
+    first = background_factorial_benchmark.make_scene("scattered", excluded_fraction, scene_index=0)
+    repeated = background_factorial_benchmark.make_scene("scattered", excluded_fraction, scene_index=0)
+    second = background_factorial_benchmark.make_scene("scattered", excluded_fraction, scene_index=1)
+
+    assert first == repeated
+    assert first.centers != second.centers
+    assert first.measured_excluded_fraction == pytest.approx(second.measured_excluded_fraction)
+
+
+def test_background_factorial_corridor_has_no_end_bypass_and_reports_actual_width():
+    scene = background_factorial_benchmark.make_scene(
+        "corridor",
+        background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[2],
+        scene_index=3,
+    )
+    columns = {}
+    for obstacle in scene.obstacles:
+        columns.setdefault(obstacle.x, []).append(obstacle)
+
+    assert len(columns) == 2
+    for obstacles in columns.values():
+        intervals = sorted((obstacle.y - obstacle.depth / 2, obstacle.y + obstacle.depth / 2) for obstacle in obstacles)
+        assert intervals[0][0] == pytest.approx(-0.5)
+        assert intervals[-1][1] == pytest.approx(0.5)
+        assert all(first[1] == pytest.approx(second[0]) for first, second in zip(intervals, intervals[1:]))
+    left_x, right_x = sorted(columns)
+    obstacle_width = columns[left_x][0].width
+    measured_corridor = right_x - left_x - obstacle_width - 0.08
+    assert scene.center_corridor_width_m == pytest.approx(measured_corridor)
+    lower_exclusion_scene = background_factorial_benchmark.make_scene(
+        "corridor",
+        background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1],
+        scene_index=3,
+    )
+    assert lower_exclusion_scene.center_corridor_width_m == pytest.approx(
+        scene.center_corridor_width_m
+    )
+
+
+def test_background_factorial_controlled_robolab_skips_adaptive_solve_policy():
+    calls = {}
+
+    class FakeState:
+        def __init__(self, name, x, y, yaw, is_placed):
+            self.name = name
+            self.x = x
+            self.y = y
+
+    class FakeSolver:
+        def __init__(self, table_bounds, collision_margin):
+            self.collision_checks = 3
+
+        def solve(self, *args, **kwargs):
+            raise AssertionError("controlled benchmark must not call adaptive solve")
+
+        def _optimize_placement(self, states, dimensions, max_iterations, fixed_objects):
+            calls["max_iterations"] = max_iterations
+            calls["fixed_objects"] = fixed_objects
+            return True
+
+    scene = background_factorial_benchmark.make_scene(
+        "corridor",
+        background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1],
+        scene_index=0,
+    )
+    layout, collision_checks, native_success = background_factorial_benchmark._sample_robolab_controlled(
+        scene,
+        num_objects=2,
+        seed=11,
+        max_iterations=600,
+        robolab_api=(FakeState, FakeSolver),
+    )
+
+    assert set(layout) == {"object-0", "object-1"}
+    assert collision_checks == 3
+    assert native_success
+    assert calls == {
+        "max_iterations": 600,
+        "fixed_objects": [f"background-{index}" for index in range(4)],
+    }
+
+
+def test_background_factorial_scene_bootstrap_is_deterministic():
+    values = {0: [1.0, 1.2, 1.1], 1: [2.0, 2.2, 2.1], 2: [3.0, 3.2, 3.1]}
+
+    first = background_factorial_benchmark._bootstrap_scene_median(values, seed=7, bootstrap_samples=100)
+    second = background_factorial_benchmark._bootstrap_scene_median(values, seed=7, bootstrap_samples=100)
+
+    assert first == second
+    assert first[1] <= first[0] <= first[2]
+
+
+def test_background_factorial_incomplete_pair_is_censored_from_speedup():
+    arena = {
+        "scene_index": 0,
+        "repeat": 0,
+        "target_reached": True,
+        "unique_valid_layouts_per_second": 20.0,
+    }
+    robolab = {
+        "scene_index": 0,
+        "repeat": 0,
+        "target_reached": False,
+        "unique_valid_layouts_per_second": 10.0,
+    }
+
+    complete, speedups = background_factorial_benchmark._paired_speedups_by_scene(
+        {"arena": [arena], "robolab": [robolab]}
+    )
+
+    assert not complete
+    assert speedups == {}
