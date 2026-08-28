@@ -55,10 +55,6 @@ Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
 the actual objects can safely occupy. Collision mode changes overlap checking;
 it does not change the meaning of relations such as ``On`` or ``NextTo``.
 
-.. todo::
-
-   Document overlap-checking implementation details and debugging guidance.
-
 Set the solver-wide default when defining an environment in Python:
 
 .. code-block:: python
@@ -120,6 +116,53 @@ for clearance, mesh fidelity, and solver tuning fields, and
 `ObjectPlacerParams <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena/relations/object_placer_params.py>`_
 for placement-level controls.
 
+How Overlap Checking Works
+--------------------------
+
+Overlap checking has two stages:
+
+1. During optimization, the solver adds a differentiable no-overlap loss.
+   ``BBOX`` expands the obstacle boxes by ``clearance_m`` and penalizes their
+   intersection volume. For mesh-covered pairs, ``MESH`` represents movable
+   geometry with up to ``num_spheres`` bounding spheres and queries their
+   distance from the target collision mesh. Increasing ``num_spheres`` may
+   improve sphere coverage, at the cost of slower solving and validation.
+2. After optimization, the ``no_overlap`` validator applies a discrete
+   pass/fail check to each candidate. A low solver loss does not guarantee that
+   this check passes. Placement uses the validator results to rank and select
+   candidates according to the configured checks and fallback policy. See
+   :doc:`./validation` and :doc:`./pooled_placement`.
+
+``MESH`` enables sphere-to-mesh checks where Arena can obtain the target
+collision mesh. Pairs not covered by a mesh check use bounding-box-based
+checks.
+
+The solver and validator check the following pairs:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Pair
+     - Checked
+     - Notes
+   * - Movable / movable
+     - Yes
+     - Except when one is directly ``On`` the other
+   * - Movable / anchor
+     - Yes
+     - Except for the child-parent pair of an ``On`` relation
+   * - Movable / passive obstacle
+     - Yes
+     -
+   * - Fixed / fixed
+     - No
+     - Includes anchor-anchor, anchor-passive, and passive-passive pairs
+
+The ``On`` exemption allows support contact; the ``On`` constraint is checked
+separately. Two objects placed on the same support are still checked against
+each other.
+
 Background and Passive Obstacles
 --------------------------------
 
@@ -164,6 +207,45 @@ Run the example from the repository root:
 
 ``--viz kit`` opens the viewer, and ``--view_steps 0`` keeps it open until you
 close the application.
+
+Debugging Placement Collisions
+------------------------------
+
+Use the placement seed, verbose output, and Rerun view together to reproduce a
+failure, identify the failing check or object pair, and inspect the candidate
+layout:
+
+.. code-block:: python
+
+   placer_params = ObjectPlacerParams(
+       placement_seed=7,
+       verbose=True,
+       allow_best_loss_fallbacks=False,
+       debug_visualize=True,
+       solver_params=RelationSolverParams(
+           verbose=True,
+       ),
+   )
+
+The settings expose complementary information:
+
+* ``placement_seed`` reproduces candidate generation.
+* ``ObjectPlacerParams.verbose`` reports validation failures and the first
+  detected overlap pair when available.
+* ``RelationSolverParams.verbose`` reports optimization progress and final
+  loss.
+* ``debug_visualize=True`` opens the Rerun view with candidate geometry. For
+  headless runs, leave it ``False`` and set ``debug_visualize_output_path`` to
+  record an ``.rrd`` file.
+* ``allow_best_loss_fallbacks=False`` keeps pooled placement from hiding a
+  failed validation behind a fallback layout.
+
+Start with the ``no_overlap`` verdict and any reported object pair, then inspect
+that candidate in Rerun. A ``[NoCollision]`` message means collision-mesh
+geometry was unavailable and Arena used a bounding-box-based fallback where
+possible. A ``[MeshSDF]`` warning means the mesh could not be queried reliably.
+If ``BBOX`` rejects geometry that is visibly collision-free, retry the relevant
+asset with ``MESH``.
 
 Next Steps
 ----------

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_banana_to_bowl_kitchen_l_shape
+env_name: kitchen_bench_replicator_l_shape_banana_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

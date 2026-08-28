@@ -373,7 +373,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         openable_threshold=0.5,
     )
 
-    scene = Scene(assets=[background, cracker_box, microwave])
+    scene = Scene(assets=[background, cracker_box, destination_location, microwave])
 
     # Build the environment
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

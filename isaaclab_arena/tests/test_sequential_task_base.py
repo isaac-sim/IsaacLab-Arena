@@ -33,24 +33,26 @@ class _MockSubtask:
     """Minimal stand-in for a TaskBase with a controllable success function."""
 
     def __init__(self, num_envs: int):
-        self.func = _MockSuccessFunc(num_envs)
+        from isaaclab.managers import TerminationTermCfg
 
-        class _SuccessCfg:
-            pass
+        self.func = _MockSuccessFunc(num_envs)
 
         class _TerminationCfg:
             pass
 
         self._termination_cfg = _TerminationCfg()
-        self._termination_cfg.success = _SuccessCfg()
-        self._termination_cfg.success.func = self.func
-        self._termination_cfg.success.params = {}
+        self._termination_cfg.success = TerminationTermCfg(func=self.func, params={})
 
     def get_termination_cfg(self):
         return self._termination_cfg
 
     def set_success(self, values: list[bool]):
         self.func.set(values)
+
+
+def _get_success_cfgs(subtasks: list[_MockSubtask]):
+    """Return the already-callable success configs used by the direct unit tests."""
+    return [subtask.get_termination_cfg().success for subtask in subtasks]
 
 
 class _MockEnv:
@@ -70,6 +72,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Subtask 0 fails, subtasks 1 and 2 "succeed" out of order. Sequential gating
         # must ignore subtasks 1/2 because the state machine is still at index 0.
@@ -77,7 +80,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
         subtasks[1].set_success([True])
         subtasks[2].set_success([True])
 
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [0]
@@ -86,7 +89,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
         # Subtask 0 succeeds, index advances to 1, state[0] becomes True.
         subtasks[0].set_success([True])
         subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [1]
@@ -94,7 +97,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
         # Subtask 1 succeeds, index advances to 2, state[1] becomes True.
         subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [2]
@@ -103,7 +106,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
         # Subtask 2 succeeds, state[2] becomes True, overall success is True. Index does
         # not advance past the last subtask (it caps at len-1).
         subtasks[2].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
 
         assert result.tolist() == [True]
         assert env._current_subtask_idx == [2]
@@ -126,12 +129,13 @@ def _test_sequential_success_latches(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(2)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Drive both subtasks to success in order.
         subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
         subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
         assert result.tolist() == [True]
         assert env._subtask_ever_succeeded == [[True, True]]
 
@@ -139,7 +143,7 @@ def _test_sequential_success_latches(simulation_app) -> bool:
         # overall success stays True.
         subtasks[0].set_success([False])
         subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
         assert env._subtask_ever_succeeded == [[True, True]]
         assert result.tolist() == [True]
 
@@ -161,21 +165,22 @@ def _test_sequential_desired_subtask_success_state(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(2)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Set both subtasks to True.
         subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, [True, True])
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
         subtasks[1].set_success([True])
 
         # Current pattern matches desired -> success.
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [True, True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
         assert result.tolist() == [True]
 
         # Success state still True, but the current pattern no longer matches the desired
         # pattern -> overall success is False even though success state is True.
         subtasks[0].set_success([False])
         subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [True, True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
         assert env._subtask_ever_succeeded == [[True, True]]
         assert result.tolist() == [False]
 
@@ -196,35 +201,36 @@ def _test_sequential_desired_subtask_success_state_with_none(simulation_app) -> 
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Latch subtasks 0, 1, 2 to True in order so all three are "ever succeeded".
         subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         subtasks[1].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         subtasks[2].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care), 1 and 2 currently True -> success.
         subtasks[0].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [True]
 
         # Subtask 1 currently False breaks the [None, True, True] pattern -> failure.
         subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [False]
 
         # [None, False, None]: subtask 1 must be currently False AND latched True at some
         # point. Subtask 1 is latched True and currently False -> success regardless of
         # subtasks 0 and 2.
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, False, None])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, False, None])
         assert result.tolist() == [True]
 
         # All-None desired state matches trivially.
-        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, None, None])
+        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, None, None])
         assert result.tolist() == [True]
 
     except Exception as e:
@@ -244,13 +250,14 @@ def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=2)
         subtasks = [_MockSubtask(num_envs=2) for _ in range(2)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Set env 0 to "subtask 0 True + index at 1", env 1 fully complete.
         subtasks[0].set_success([True, True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
         subtasks[0].set_success([False, True])
         subtasks[1].set_success([False, True])
-        SequentialTaskBase.composite_task_success_func(env, subtasks, None)
+        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
 
         assert env._subtask_ever_succeeded == [[True, False], [True, True]]
         assert env._current_subtask_idx == [1, 1]

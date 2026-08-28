@@ -60,7 +60,7 @@ _FRANKA_STAND_PRIM = StandPrimSpec(
     ref_prim_path="/Stand",
     payload_child_name="Stand",
     footprint_translate_xyz=(-0.05, 0.0, 0.0),
-    footprint_scale_xy=(1.2, 1.2),
+    stand_default_footprint_xy_m=(0.3888, 0.3888),
     stand_default_height=0.8755,
 )
 _FRANKA_JOINT_NAMES = (

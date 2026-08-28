@@ -109,6 +109,13 @@ We post-train the GR00T N1.6 policy on the task.
 The GR00T N1.6 policy has 3 billion parameters so post-training is an expensive operation.
 We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality.
 
+.. note::
+
+   Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
+   `official GR00T documentation <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102>`_
+   specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems. Please refer to the
+   documentation for the latest requirements.
+
 Training takes approximately 4-8 hours on 8x L40s GPUs.
 
 Compute Requirements:

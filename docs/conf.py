@@ -164,8 +164,7 @@ for ignore in temporary_linkcheck_ignore:
 
 isaaclab_arena_docs_config = {
     "released": released,
-    "internal_git_url": "git@github.com:isaac-sim/IsaacLab-Arena.git",
-    "external_git_url": "UNDECIDED",
+    "git_url": "git@github.com:isaac-sim/IsaacLab-Arena.git",
     "internal_code_link_base_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "external_code_link_base_url": "UNDECIDED",
 }

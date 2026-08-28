@@ -74,6 +74,75 @@ field. Arena uses this name in command-line overrides, output directories, and r
 Runs keep their YAML order and execute locally in that order.
 
 
+.. _sequential-batch-experiment-runner:
+
+One definition, two execution paths
+-----------------------------------
+
+.. grid:: 1 1 2 2
+   :gutter: 3
+
+   .. grid-item-card:: Local — Experiment Runner
+      :class-card: sd-shadow-sm
+
+      Loads the YAML once and executes its Runs in order in one process and one
+      SimulationApp. Every Run builds a fresh environment. The runner stops at the first failure
+      unless ``--continue_on_error`` is set.
+
+   .. grid-item-card:: Managed — OSMO
+      :class-card: sd-shadow-sm
+
+      Turns every Run into an independently scheduled group. Runs can execute at the same time
+      when resources are available. OSMO then collects their outputs into one combined result.
+
+The CLI override root depends on the execution path:
+
+.. tab-set::
+
+   .. tab-item:: Run locally
+
+      The Experiment Runner receives the Experiment Definition directly.
+
+      * Use ``shared.<path>=<value>`` to change a shared value.
+      * Use ``runs.<name>.<path>=<value>`` to change one Run.
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/experiment_runner.py \
+           --experiment_config path/to/experiment.yaml \
+           shared.rollout_limit.num_steps=100
+
+   .. tab-item:: Preview an OSMO workflow
+
+      OSMO nests the Experiment below ``experiment_cfg``, so Experiment overrides need that prefix.
+
+      * Use ``experiment_cfg.shared.<path>=<value>`` to change a shared value.
+      * Use ``experiment_cfg.runs.<name>.<path>=<value>`` to change one Run.
+
+      .. code-block:: bash
+
+         python -m osmo.submit_arena_experiment \
+           --experiment_cfg path/to/experiment.yaml \
+           --dry_run \
+           experiment_cfg.shared.rollout_limit.num_steps=100
+
+      If Hydra suggests ``+shared.<path>=<value>``, do not add ``+``. Use
+      ``experiment_cfg.shared.<path>=<value>`` instead.
+
+Both commands override the same ``shared.rollout_limit.num_steps`` field declared in the
+Experiment Definition. A value written inside an individual Run still takes priority over the
+shared override.
+
+For remote policies, configure the policy client inside its Run like any other policy. Start the
+policy server separately for local execution. OSMO can co-schedule a server for supported policy
+types.
+
+Follow :doc:`First Arena Experiment <../quickstart/arena_experiment>` for a complete local
+example.
+For OSMO setup and submission options, see :doc:`Multi-node Evaluation
+<../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
+
+
 Reuse values with ``shared``
 ----------------------------
 
@@ -100,56 +169,8 @@ Values are applied in this order, from lowest to highest priority:
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
    * An override can change a field on a Run declared in the YAML, but it cannot add another Run.
-   * A ``shared.*`` override must point to a field already present below ``shared``. The Hydra
-     operators ``+``, ``++``, and ``~`` are not supported for shared values.
-
-
-.. _sequential-batch-experiment-runner:
-
-One definition, two execution paths
------------------------------------
-
-.. grid:: 1 1 2 2
-   :gutter: 3
-
-   .. grid-item-card:: Local — Experiment Runner
-      :class-card: sd-shadow-sm
-
-      Loads the YAML once and executes its Runs in order in one process and one
-      SimulationApp. Every Run builds a fresh environment. The runner stops at the first failure
-      unless ``--continue_on_error`` is set.
-
-   .. grid-item-card:: Managed — OSMO
-      :class-card: sd-shadow-sm
-
-      Turns every Run into an independently scheduled group. Runs can execute at the same time
-      when resources are available. OSMO then collects their outputs into one combined result.
-
-.. tab-set::
-
-   .. tab-item:: Run locally
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/experiment_runner.py \
-           --experiment_config path/to/experiment.yaml
-
-   .. tab-item:: Preview an OSMO workflow
-
-      .. code-block:: bash
-
-         python -m osmo.submit_arena_experiment \
-           --experiment_cfg path/to/experiment.yaml \
-           --dry_run
-
-For remote policies, configure the policy client inside its Run like any other policy. Start the
-policy server separately for local execution. OSMO can co-schedule a server for supported policy
-types.
-
-Follow :doc:`First Arena Experiment <../quickstart/arena_experiment>` for a complete local
-example.
-For OSMO setup and submission options, see :doc:`Multi-node Evaluation
-<../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
+   * A shared override must point to a field already present below ``shared`` in the Experiment
+     YAML. The Hydra operators ``+``, ``++``, and ``~`` are not supported for shared values.
 
 
 Choosing a runner

@@ -49,7 +49,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
         parent_asset=background,
     )
 
-    scene = Scene(assets=[background, cracker_box])
+    scene = Scene(assets=[background, cracker_box, destination_location])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="robot_initial_position",
         embodiment=embodiment,

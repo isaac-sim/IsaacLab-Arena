@@ -107,10 +107,11 @@ terminal session handle when this workflow started the server. If `run-experimen
 server, return control to it while the retained session remains active so it can execute the
 Experiment and verify artifacts. Do not invoke the Experiment Runner here.
 
-When the user approves a different port, provide the corresponding per-Run Hydra override, for
-example:
+When the selected variant or port differs from the Experiment configuration, provide every
+corresponding per-Run Hydra override so the client and server remain compatible, for example:
 
 ```text
+runs.<run-name>.policy.policy_variant=pi0
 runs.<run-name>.policy.remote_port=8001
 ```
 

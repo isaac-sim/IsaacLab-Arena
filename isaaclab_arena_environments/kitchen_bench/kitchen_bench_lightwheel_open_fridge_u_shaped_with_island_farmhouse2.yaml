@@ -3,16 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_open_kitchen_fridge
+env_name: kitchen_bench_lightwheel_open_fridge_u_shaped_with_island_farmhouse2
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
     stand_height_m: 0.8
+    stand_footprint_xy_m: [0.27, 0.91032]
+    placement_bbox_stand_only: true
+    collision_mode: mesh
 background:
   id: kitchen
-  registry_name: lightwheel_kitchen_one_wall_coastal
-  params: {}
+  registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
@@ -22,7 +27,7 @@ object_references:
   params: {}
 - id: fridge
   parent_id: kitchen
-  prim_path: fridge_main_group
+  prim_path: fridge_right_group
   object_type: articulation
   params:
     openable_joint_name: fridge_door_joint
@@ -41,18 +46,13 @@ relations:
   subject: droid
   reference: fridge
   params:
-    side: negative_y
-    distance_m: 0.1
-- kind: rotate_around_solution
-  subject: droid
-  params:
-    yaw_rad: 1.57
+    side: negative_x
+    distance_m: 0.5
 task:
   composition: atomic
-  description: open the fridge door
+  description: Open the fridge door.
   subtasks:
   - kind: OpenDoorTask
     params:
       openable_object: fridge
       openness_threshold: 0.2
-      reset_openness: 0.0

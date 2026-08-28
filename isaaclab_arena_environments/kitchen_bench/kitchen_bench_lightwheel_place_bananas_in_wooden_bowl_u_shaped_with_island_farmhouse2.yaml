@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_place_bananas_in_wooden_bowl
+env_name: kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
