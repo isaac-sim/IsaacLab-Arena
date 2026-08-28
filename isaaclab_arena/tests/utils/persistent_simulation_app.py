@@ -15,7 +15,11 @@ from isaacsim import SimulationApp
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.tests.conftest import PYTEST_SESSION
 from isaaclab_arena.tests.utils import subprocess as subprocess_utils
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
+    collect_garbage_and_clear_cuda_cache,
+    get_app_launcher,
+    teardown_simulation_app,
+)
 
 # NOTE(alexmillane): Isaac Sim makes testing complicated. During shutdown Isaac Sim will
 # terminate the surrounding pytest process with exit code 0, regardless
@@ -124,5 +128,7 @@ def run_function_with_persistent_simulation_app(
         traceback.print_exc()
         return False
     finally:
-        # **Always** clean up the SimulationContext/timeline between tests
+        # Release cyclic scene and sensor state while the current SimulationContext
+        # and stage are still valid, then reset them for the next test.
+        collect_garbage_and_clear_cuda_cache()
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
