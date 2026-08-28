@@ -46,6 +46,8 @@ from isaaclab_arena.utils.pose import Pose
 if TYPE_CHECKING:
     import trimesh
 
+    from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariationCfg
+
 _DROID_ROBOT_PRIM = RobotPrimSpec(
     robot_usd_path=f"{ARENA_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
     root_prim_path="/panda",
@@ -75,6 +77,13 @@ _DROID_JOINT_NAMES = (
     "left_inner_finger_knuckle_joint",
     "left_inner_finger_joint",
 )
+_DROID_WRIST_CAMERA_NAME = "wrist_camera"
+# Decalibration bounds for the wrist camera, in its ROS optical frame (+X right, +Y down,
+# +Z forward). +Y is capped well below the other five bounds because the camera sits just above the
+# Robotiq gripper: past roughly 0.03 m the camera sinks into the gripper body and its view of the
+# scene is occluded.
+_DROID_WRIST_CAMERA_DECALIBRATION_LOW = (-0.06, -0.06, -0.06)
+_DROID_WRIST_CAMERA_DECALIBRATION_HIGH = (0.06, 0.03, 0.06)
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -139,6 +148,20 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
+
+    def get_camera_extrinsics_variation_cfg(self, camera_name: str) -> CameraExtrinsicsVariationCfg | None:
+        """Return the wrist camera's mount-constrained decalibration bounds, or ``None`` for the rest."""
+        from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariationCfg
+        from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
+
+        if camera_name != _DROID_WRIST_CAMERA_NAME:
+            return None
+        return CameraExtrinsicsVariationCfg(
+            sampler_cfg=UniformSamplerCfg(
+                low=list(_DROID_WRIST_CAMERA_DECALIBRATION_LOW),
+                high=list(_DROID_WRIST_CAMERA_DECALIBRATION_HIGH),
+            )
+        )
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.

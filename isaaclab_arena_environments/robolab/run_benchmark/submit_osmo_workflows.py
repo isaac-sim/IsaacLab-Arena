@@ -25,9 +25,8 @@ POOL = "isaac-dev-l40s-04"
 PLATFORM = "ovx-l40s"
 VARIATIONS = (
     "light.hdr_image.enabled=true "
+    # Decalibration bounds come from the DROID embodiment, which caps +Y at the gripper.
     "droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true "
-    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.05,0.05,0.05] "
-    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.05,-0.05,-0.05] "
     "light.hdr_image.hdr_names=[home_office_robolab]"
 )
 

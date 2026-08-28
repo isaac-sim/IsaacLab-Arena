@@ -23,10 +23,8 @@ shared:
         hdr_names: ["home_office_robolab"]
     droid_abs_joint_pos:
       camera_extrinsics_wrist_camera:
+        # Decalibration bounds come from the DROID embodiment, which caps +Y at the gripper.
         enabled: false
-        sampler_cfg:
-          low: [-0.05, -0.05, -0.05]
-          high: [0.05, 0.05, 0.05]
 
 runs:
 

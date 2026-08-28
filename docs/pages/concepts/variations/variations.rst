@@ -64,8 +64,8 @@ defaults:
      camera_extrinsics_wrist_camera (CameraExtrinsicsVariation, run-time)
        Enable: droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true  (default: False)
        Fields:
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high = [0.005,0.005,0.005]
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low = [-0.005,-0.005,-0.005]
+         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high = [0.06,0.03,0.06]
+         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low = [-0.06,-0.06,-0.06]
 
    Asset: light
      hdr_image (HDRImageVariation, build-time)
@@ -114,8 +114,12 @@ The same run with tunable variation control parameters spelled out:
      "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
 
 The ``hdr_names`` list restricts HDR sampling to the three named maps instead of the full
-registered set.  The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera
+registered set.  The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors set the camera
 extrinsics jitter range to ±10 mm per axis.
+
+Defaults can differ per embodiment.  DROID narrows the wrist camera's ``sampler_cfg.high`` +Y
+bound to 0.03 m, because the camera is mounted just above the gripper and sinks into it beyond
+that; an override like the one above still takes precedence.
 
 To see the available variations and control parameters for a specific environment,
 see :ref:`discovering-available-variations`.
