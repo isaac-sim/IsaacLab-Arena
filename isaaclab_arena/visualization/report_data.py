@@ -67,17 +67,10 @@ class EpisodeSummary:
         return success if isinstance(success, bool) else None
 
     @property
-    def max_score(self) -> float | None:
-        objectives = _progress_objectives(self.record)
-        total = sum(_as_float(objective.get("total_groups")) or 0.0 for objective in objectives.values())
-        return total if total > 0 else None
-
-    @property
     def progress_fraction(self) -> float | None:
-        score, max_score = _as_float(_progress(self.record).get("overall_score")), self.max_score
-        if score is None or max_score is None:
-            return None
-        return max(0.0, min(1.0, score / max_score))
+        # overall_score is recorded already normalized to [0, 1] by the progress tracker.
+        score = _as_float(_progress(self.record).get("overall_score"))
+        return None if score is None else max(0.0, min(1.0, score))
 
     @property
     def all_objectives_complete(self) -> bool | None:
@@ -187,9 +180,13 @@ class JobSummary:
         return None if scored == 0 else self.num_successes / scored
 
     @property
+    def progress_fractions(self) -> list[float]:
+        """Per-episode progress fractions, skipping episodes recorded without a progress score."""
+        return [episode.progress_fraction for episode in self.episodes if episode.progress_fraction is not None]
+
+    @property
     def mean_progress(self) -> float | None:
-        fractions = [episode.progress_fraction for episode in self.episodes if episode.progress_fraction is not None]
-        return None if not fractions else sum(fractions) / len(fractions)
+        return _mean(self.progress_fractions)
 
     @property
     def num_videos(self) -> int:
@@ -319,6 +316,9 @@ class ExperimentSummary:
         scored = sum(job.num_scored_episodes for job in jobs)
         return None if scored == 0 else sum(job.num_successes for job in jobs) / scored
 
+    def mean_progress_for_policy(self, policy: str) -> float | None:
+        return _mean([fraction for job in self.jobs if job.policy == policy for fraction in job.progress_fractions])
+
     def num_episodes_for_policy(self, policy: str) -> int:
         return sum(job.num_episodes for job in self.jobs if job.policy == policy)
 
@@ -326,6 +326,14 @@ class ExperimentSummary:
     def overall_success_rate(self) -> float | None:
         scored = sum(job.num_scored_episodes for job in self.jobs)
         return None if scored == 0 else sum(job.num_successes for job in self.jobs) / scored
+
+    @property
+    def overall_mean_progress(self) -> float | None:
+        return _mean([fraction for job in self.jobs for fraction in job.progress_fractions])
+
+    @property
+    def num_progress_episodes(self) -> int:
+        return sum(len(job.progress_fractions) for job in self.jobs)
 
 
 @dataclass
@@ -475,6 +483,11 @@ def _events_by_objective_and_index(record: dict[str, Any]) -> dict[str, dict[int
         if objective_name is not None and index is not None:
             result.setdefault(objective_name, {})[index] = event
     return result
+
+
+def _mean(values: list[float]) -> float | None:
+    """Return the mean of ``values``, or None when there is nothing to average."""
+    return None if not values else sum(values) / len(values)
 
 
 def _as_int(value: object) -> int | None:

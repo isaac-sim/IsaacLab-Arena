@@ -28,7 +28,7 @@ Complete the shared :ref:`agentic-env-gen-prerequisites` before running this com
       --enable_cameras \
       --num_envs 1 \
       --num_episodes 2 \
-      --env_spec isaaclab_arena_environments/kitchen_bench/droid_open_fridge_lightwheel_kitchen.yaml
+      --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
 
 .. figure:: ../../../../images/agentic_environment_generation/droid_kitchen_open_door_pi.gif
    :width: 100%

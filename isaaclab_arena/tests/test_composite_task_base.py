@@ -166,24 +166,26 @@ class _MockSubtask:
     """Minimal stand-in for a TaskBase with a controllable success function."""
 
     def __init__(self, num_envs: int):
-        self.func = _MockSuccessFunc(num_envs)
+        from isaaclab.managers import TerminationTermCfg
 
-        class _SuccessCfg:
-            pass
+        self.func = _MockSuccessFunc(num_envs)
 
         class _TerminationCfg:
             pass
 
         self._termination_cfg = _TerminationCfg()
-        self._termination_cfg.success = _SuccessCfg()
-        self._termination_cfg.success.func = self.func
-        self._termination_cfg.success.params = {}
+        self._termination_cfg.success = TerminationTermCfg(func=self.func, params={})
 
     def get_termination_cfg(self):
         return self._termination_cfg
 
     def set_success(self, values: list[bool]):
         self.func.set(values)
+
+
+def _get_success_cfgs(subtasks: list[_MockSubtask]):
+    """Return the already-callable success configs used by the direct unit tests."""
+    return [subtask.get_termination_cfg().success for subtask in subtasks]
 
 
 class _MockEnv:
@@ -205,34 +207,93 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
     try:
         env = _MockEnv(num_envs=1)
         subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
+        subtask_success_cfgs = _get_success_cfgs(subtasks)
 
         # Latch all three subtasks True simultaneously (composite doesn't require order).
         subtasks[0].set_success([True])
         subtasks[1].set_success([True])
         subtasks[2].set_success([True])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care) -> still success.
         subtasks[0].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [True]
 
         # Subtask 2 currently False breaks the [None, True, True] pattern -> failure.
         subtasks[2].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
         assert result.tolist() == [False]
 
         # [None, False, None]: subtask 1 must be currently False AND latched True at
         # some point. Drive subtask 1 False; it was latched True earlier -> success.
         subtasks[1].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, False, None])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, False, None])
         assert result.tolist() == [True]
 
         # All-None desired state matches trivially.
-        result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, None, None])
+        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, None, None])
         assert result.tolist() == [True]
+
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+
+    return True
+
+
+def _test_manager_constructs_nested_subtask_success_terms(simulation_app) -> bool:
+    """Composite and sequential tasks evaluate child terms constructed by the manager."""
+
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab.managers import ManagerTermBase, TerminationManager, TerminationTermCfg
+
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase, TerminationsCfg
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+
+    class _PlayingSimulation:
+        def is_playing(self) -> bool:
+            return True
+
+    class _ConstantSuccessTerm(ManagerTermBase):
+        def __call__(self, env, success_value: bool) -> torch.Tensor:
+            return torch.full((env.num_envs,), success_value, dtype=torch.bool, device=env.device)
+
+    class _Subtask:
+        def __init__(self, success_cfg: TerminationTermCfg):
+            self._termination_cfg = TerminationsCfg(success=success_cfg)
+
+        def get_termination_cfg(self):
+            return self._termination_cfg
+
+    try:
+        for composite_task_type in (CompositeTaskBase, SequentialTaskBase):
+            child_success_cfg = TerminationTermCfg(
+                func=_ConstantSuccessTerm,
+                params={"success_value": True},
+            )
+            task = composite_task_type([_Subtask(child_success_cfg)], episode_length_s=1.0)
+            env = SimpleNamespace(
+                num_envs=1,
+                device="cpu",
+                extras={},
+                scene={},
+                sim=_PlayingSimulation(),
+            )
+
+            termination_manager = TerminationManager(task.get_termination_cfg(), env)
+            composite_success_cfg = termination_manager.get_term_cfg("success")
+            resolved_subtask_success_cfg = composite_success_cfg.params["subtask_success_cfgs"][0]
+
+            assert isinstance(resolved_subtask_success_cfg.func, _ConstantSuccessTerm)
+            assert child_success_cfg.func is _ConstantSuccessTerm
+            assert termination_manager.compute().tolist() == [True]
+            assert env._subtask_ever_succeeded == [[True]]
 
     except Exception as e:
         print(f"Error: {e}")
@@ -248,6 +309,14 @@ def test_composite_desired_subtask_success_state_with_none():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_composite_desired_subtask_success_state_with_none.__name__} failed"
+
+
+def test_manager_constructs_nested_subtask_success_terms():
+    result = run_function_with_persistent_simulation_app(
+        _test_manager_constructs_nested_subtask_success_terms,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_manager_constructs_nested_subtask_success_terms.__name__} failed"
 
 
 def test_add_suffix_configclass_transform():
@@ -270,3 +339,4 @@ if __name__ == "__main__":
     test_add_suffix_configclass_transform()
     test_remove_configclass_transform()
     test_composite_desired_subtask_success_state_with_none()
+    test_manager_constructs_nested_subtask_success_terms()

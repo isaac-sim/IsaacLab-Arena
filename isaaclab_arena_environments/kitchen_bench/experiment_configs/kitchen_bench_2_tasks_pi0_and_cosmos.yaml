@@ -6,9 +6,9 @@
 # Runs two kitchen_bench tasks with both the OpenPI (pi0) and Cosmos policies (4 runs).
 runs:
 
-  droid_pick_and_place_lightwheel_kitchen_pi0:
-    environment: &droid_pick_and_place_lightwheel_kitchen_env
-      type: isaaclab_arena_environments/kitchen_bench/droid_pick_and_place_lightwheel_kitchen.yaml
+  kitchen_bench_lightwheel_pick_and_place_pi0:
+    environment: &kitchen_bench_lightwheel_pick_and_place_env
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
       enable_cameras: true
     policy: &openpi_policy
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
@@ -22,8 +22,8 @@ runs:
     rollout_limit:
       num_episodes: 100
 
-  droid_pick_and_place_lightwheel_kitchen_cosmos:
-    environment: *droid_pick_and_place_lightwheel_kitchen_env
+  kitchen_bench_lightwheel_pick_and_place_cosmos:
+    environment: *kitchen_bench_lightwheel_pick_and_place_env
     policy: &cosmos_policy
       type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
       cosmos_embodiment_adapter: droid
@@ -35,17 +35,17 @@ runs:
     rollout_limit:
       num_episodes: 100
 
-  replicator_kitchen_l_shape_banana_bowl_pi0:
-    environment: &replicator_kitchen_l_shape_banana_bowl_env
-      type: isaaclab_arena_environments/kitchen_bench/replicator_kitchen_l_shape_banana_bowl.yaml
+  kitchen_bench_replicator_l_shape_banana_bowl_pi0:
+    environment: &kitchen_bench_replicator_l_shape_banana_bowl_env
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_banana_bowl.yaml
       enable_cameras: true
     policy: *openpi_policy
     environment_builder: *pi0_builder
     rollout_limit:
       num_episodes: 100
 
-  replicator_kitchen_l_shape_banana_bowl_cosmos:
-    environment: *replicator_kitchen_l_shape_banana_bowl_env
+  kitchen_bench_replicator_l_shape_banana_bowl_cosmos:
+    environment: *kitchen_bench_replicator_l_shape_banana_bowl_env
     policy: *cosmos_policy
     environment_builder: *cosmos_builder
     rollout_limit:

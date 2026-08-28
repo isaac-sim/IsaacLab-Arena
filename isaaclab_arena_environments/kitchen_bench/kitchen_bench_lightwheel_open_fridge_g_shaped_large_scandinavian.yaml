@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: droid_pick_mustard_to_bowl
+env_name: kitchen_bench_lightwheel_open_fridge_g_shaped_large_scandinavian
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,34 +13,29 @@ embodiment:
     collision_mode: mesh
 background:
   id: kitchen
-  registry_name: lightwheel_kitchen_one_wall_coastal
+  registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
   params:
     collision_mode: mesh
     repair_collision_mesh_non_watertight: false
-objects:
-- id: mustard_bottle
-  registry_name: mustard_bottle_hope_robolab
-  params: {}
-- id: bowl
-  registry_name: bowl_ycb_robolab
-  params: {}
+objects: []
 object_references:
-- id: right_counter_top
-  parent_id: kitchen
-  prim_path: counter_main_main_group/top_geometry_right
-  object_type: base
-  params: {}
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
   params: {}
+- id: fridge
+  parent_id: kitchen
+  prim_path: fridge_right_group
+  object_type: articulation
+  params:
+    openable_joint_name: fridge_door_joint
 relations:
 - kind: is_anchor
   subject: floor
   params: {}
 - kind: is_anchor
-  subject: right_counter_top
+  subject: fridge
   params: {}
 - kind: 'on'
   subject: droid
@@ -48,28 +43,20 @@ relations:
   params: {}
 - kind: next_to
   subject: droid
-  reference: right_counter_top
+  reference: fridge
   params:
-    side: negative_y
-    distance_m: 0.3
+    side: negative_x
+    distance_m: 0.6
 - kind: rotate_around_solution
   subject: droid
   params:
-    yaw_rad: 1.57
-- kind: 'on'
-  subject: mustard_bottle
-  reference: right_counter_top
-  params: {}
-- kind: 'on'
-  subject: bowl
-  reference: right_counter_top
-  params: {}
+    yaw_rad: 0.0
 task:
   composition: atomic
-  description: pick up the mustard bottle and place it in the bowl
+  description: Open the fridge left door.
   subtasks:
-  - kind: PickAndPlaceTask
+  - kind: OpenDoorTask
     params:
-      pick_up_object: mustard_bottle
-      destination_location: bowl
-      background_scene: kitchen
+      openable_object: fridge
+      openness_threshold: 0.4
+      reset_openness: 0.0

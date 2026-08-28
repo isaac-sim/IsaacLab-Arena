@@ -18,7 +18,7 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-    env_spec = "isaaclab_arena_environments/kitchen_bench/replicator_kitchen_peninsula_mustard_bowl.yaml"
+    env_spec = "isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml"
     args = get_isaaclab_arena_environments_cli_parser().parse_args(
         ["--env_spec", env_spec, "--headless", "--num_envs", "1", "--enable_cameras"]
     )

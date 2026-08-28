@@ -27,12 +27,6 @@ submodule pinned at commit ``e29d8fc``. Populate it if needed:
 
 Then start the server from the repository root in a separate shell:
 
-.. todo::
-
-   The ``submodules/Isaac-GR00T`` submodule will be removed after the policy
-   config refactor. After that, users will set up a separate GR00T repository
-   checkout and launch the server from there.
-
 .. code-block:: bash
 
    cd submodules/Isaac-GR00T

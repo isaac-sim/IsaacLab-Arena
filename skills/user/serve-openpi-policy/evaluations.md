@@ -36,18 +36,22 @@ Known failure modes:
 
 ## Scenario 3: Select Pi0 On A Non-Default Port
 
-Query: "Serve pi0 on port 8001 and use it for the `openpi_rollout` Run."
+Query: "Serve pi0 on port 8001 and use it for the `droid_pnp_openpi` Run in
+`isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml`."
 
 Expected behavior:
 
 - Validates the pi0 variant and port, checks the port for conflicts, and starts or reuses the exact
   matching server.
-- Returns `runs.openpi_rollout.policy.remote_port=8001` to `run-experiment` without editing YAML.
+- Detects that the Run selects pi05 and returns both
+  `runs.droid_pnp_openpi.policy.policy_variant=pi0` and
+  `runs.droid_pnp_openpi.policy.remote_port=8001` to `run-experiment` without editing YAML.
 - Keeps server lifecycle separate from Experiment execution and artifact verification.
 
 Known failure modes:
 
-- Serves the default pi05 variant, applies a shared or OSMO override, or edits the Experiment.
+- Serves the default pi05 variant, returns only the port override and leaves the client configured
+  for pi05, applies a shared or OSMO override, or edits the Experiment.
 
 ## Scenario 4: Preserve An Occupied Port
 

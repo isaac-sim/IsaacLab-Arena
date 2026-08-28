@@ -198,7 +198,7 @@ def _run_pick_and_place_object_set_test(
     )
     if initial_pose is not None:
         obj_set.set_initial_pose(initial_pose)
-    scene_assets = [background, obj_set]
+    scene_assets = [background, obj_set, destination_location]
     task = PickAndPlaceTask(
         pick_up_object=obj_set,
         destination_location=destination_location,
@@ -282,7 +282,7 @@ def _test_single_object_in_one_object_set(simulation_app):
     )
     obj_set = RigidObjectSet(name="single_object_set", objects=[cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH)
     obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-    scene = Scene(assets=[background, obj_set])
+    scene = Scene(assets=[background, obj_set, destination_location])
     task = PickAndPlaceTask(
         pick_up_object=obj_set, destination_location=destination_location, background_scene=background
     )
@@ -349,7 +349,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     obj_set = RigidObjectSet(
         name="multi_object_sets", objects=[cracker_box, sugar_box], prim_path=OBJECT_SET_2_PRIM_PATH
     )
-    scene = Scene(assets=[background, obj_set])
+    scene = Scene(assets=[background, obj_set, destination_location])
     task = PickAndPlaceTask(
         pick_up_object=obj_set, destination_location=destination_location, background_scene=background
     )
