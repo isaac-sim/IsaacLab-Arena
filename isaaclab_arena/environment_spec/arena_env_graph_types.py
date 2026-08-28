@@ -155,7 +155,7 @@ class ObjectReferenceSpec(BaseModel):
     object_type: ObjectType = Field(
         description=(
             "Physics type for the referenced prim. Use the first matching value:\n"
-            "- articulation: openable prim (door, drawer) used as openable_object in a open/close door task\n"
+            "- articulation: prim with an openable, pressable, or turnable joint used in an affordance task\n"
             "- rigid: manipulable prim used as pick_up_object in a pick-and-place task\n"
             "- base: default for everything else not mentioned above\n"
         ),
