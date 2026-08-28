@@ -30,6 +30,9 @@ dependencies = [
     # MoviePy 1.x relies on decorator 4.x call semantics to propagate clip FPS.
     "moviepy>=1.0.3,<2.0.0.dev0",
     "decorator>=4.0.2,<5",
+    # HDF5 -> LeRobot video conversion uses imageio its FFmpeg backend.
+    "imageio",
+    "imageio-ffmpeg",
     # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
     # Pinned to 2.2.3 to match the version used in GR00T.
     "pandas==2.2.3",

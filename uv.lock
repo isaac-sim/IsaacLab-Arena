@@ -1536,6 +1536,8 @@ version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "decorator", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "imageio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "imageio-ffmpeg", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "isaacteleop", extra = ["cloudxr", "retargeters", "ui"], marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "lightwheel-sdk", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "matplotlib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1595,6 +1597,8 @@ openpi = [
 requires-dist = [
     { name = "debugpy", marker = "extra == 'dev'" },
     { name = "decorator", specifier = ">=4.0.2,<5" },
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
     { name = "isaacteleop", extras = ["retargeters", "ui", "cloudxr"], specifier = "==1.4.126rc1", index = "https://pypi.org/simple" },
     { name = "jupyter", marker = "extra == 'dev'" },
     { name = "lightwheel-sdk" },
