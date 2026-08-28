@@ -128,7 +128,6 @@ def run_function_with_persistent_simulation_app(
         traceback.print_exc()
         return False
     finally:
-        # Release cyclic scene and sensor state while the current SimulationContext
-        # and stage are still valid, then reset them for the next test.
-        collect_garbage_and_clear_cuda_cache()
+        if os.environ.get("ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC") != "1":
+            collect_garbage_and_clear_cuda_cache()
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)

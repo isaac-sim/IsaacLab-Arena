@@ -155,7 +155,31 @@ jobs:
           git config --global --add safe.directory '*'
           uv sync ${{ matrix.uv_flags }} --extra dev
 
+      # Temporary source-only diagnostic: establish whether enabling persistent
+      # PhysX UI state poisons the next filtered-contact environment.
+      - name: Run filtered-contact control
+        if: matrix.variant == 'source'
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --maxfail=1 --durations=0 \
+            isaaclab_arena/tests/test_episode_recorder.py::test_core_terms
+
+      - name: Run PhysX UI pollution probe
+        if: matrix.variant == 'source'
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 \
+            isaaclab_arena/tests/test_environment_runner.py::test_mouse_interaction_uses_d6_grab_for_current_stage \
+            isaaclab_arena/tests/test_episode_recorder.py::test_core_terms
+
       - name: Run in-process Newton tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -163,6 +187,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -170,6 +195,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -177,6 +203,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -185,6 +212,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run GR00T remote policy client tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
