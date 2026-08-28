@@ -62,15 +62,25 @@ jobs:
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
-      # Test matrix:
-      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
-      #     - source: uv-based installation that consumes isaaclab through source code.
+      # Temporary diagnostic matrix: run the minimal contact-state reproducer
+      # across the Isaac Lab commits introduced by the submodule update.
       matrix:
         include:
-          - variant: wheel
-            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
-          - variant: source
+          - variant: source-baseline
             uv_flags: "--group gr00t-client"
+            isaaclab_sha: af1bab4dc173ba69b08fab779c14ead61d13fd33
+          - variant: source-pre-frame-view
+            uv_flags: "--group gr00t-client"
+            isaaclab_sha: b0fd052e46e790c594f111c158cb6a3bf21a3858
+          - variant: source-frame-view
+            uv_flags: "--group gr00t-client"
+            isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
+          - variant: source-fabric-selection
+            uv_flags: "--group gr00t-client"
+            isaaclab_sha: 63e4005d20d73e2994fb5d9ed71597654d682e31
+          - variant: source-ovphysx-binding
+            uv_flags: "--group gr00t-client"
+            isaaclab_sha: 89adc465dbb482a82a298633bb1f4bc06a1089c3
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -118,6 +128,13 @@ jobs:
           git lfs install --local
           git lfs pull
 
+      - name: Select Isaac Lab diagnostic revision
+        run: |
+          git -C submodules/IsaacLab fetch --depth=1 \
+            https://github.com/isaac-sim/IsaacLab.git "${{ matrix.isaaclab_sha }}"
+          git -C submodules/IsaacLab checkout --detach FETCH_HEAD
+          git -C submodules/IsaacLab rev-parse HEAD
+
       - name: Install graphics loader and build tools
         run: |
           apt-get update
@@ -158,7 +175,6 @@ jobs:
       # Temporary source-only diagnostic: establish whether enabling persistent
       # PhysX UI state poisons the next filtered-contact environment.
       - name: Run filtered-contact control
-        if: matrix.variant == 'source'
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
@@ -168,7 +184,6 @@ jobs:
             isaaclab_arena/tests/test_episode_recorder.py::test_core_terms
 
       - name: Run PhysX UI pollution probe
-        if: matrix.variant == 'source'
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
