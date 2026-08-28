@@ -8,12 +8,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+from isaaclab_arena.assets.object_reference import (
+    ObjectReference,
+    OpenableObjectReference,
+    PressableObjectReference,
+    TurnableObjectReference,
+)
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
-from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.pose import Pose
@@ -128,6 +133,51 @@ def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
     return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
 
 
+def _instantiate_object_reference(
+    ref: ObjectReferenceSpec,
+    parent_asset: Asset,
+    background_registry_name: str,
+) -> ObjectReference:
+    """Instantiate a plain or affordance-specific object reference."""
+    assert ref.prim_path is not None, "Object reference must have a prim path"
+    ref_params = dict(ref.params)
+    openable_joint_name = ref_params.pop("openable_joint_name", None)
+    pressable_joint_name = ref_params.pop("pressable_joint_name", None)
+    turnable_joint_name = ref_params.pop("turnable_joint_name", None)
+    affordance_count = sum(
+        joint_name is not None for joint_name in (openable_joint_name, pressable_joint_name, turnable_joint_name)
+    )
+    assert affordance_count <= 1, f"Object reference '{ref.id}' cannot expose multiple affordances"
+
+    common_kwargs = {
+        "name": ref.id,
+        "prim_path": _prim_path_for_relative(background_registry_name, ref.prim_path),
+        "parent_asset": parent_asset,
+        "object_type": ref.object_type,
+        **ref_params,
+    }
+    if openable_joint_name is not None:
+        # Affordance references always set object_type=ARTICULATION; omit the YAML value.
+        assert (
+            ref.object_type == ObjectType.ARTICULATION
+        ), f"Openable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
+        common_kwargs.pop("object_type")
+        return OpenableObjectReference(openable_joint_name=openable_joint_name, **common_kwargs)
+    if pressable_joint_name is not None:
+        assert (
+            ref.object_type == ObjectType.ARTICULATION
+        ), f"Pressable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
+        common_kwargs.pop("object_type")
+        return PressableObjectReference(pressable_joint_name=pressable_joint_name, **common_kwargs)
+    if turnable_joint_name is not None:
+        assert (
+            ref.object_type == ObjectType.ARTICULATION
+        ), f"Turnable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
+        common_kwargs.pop("object_type")
+        return TurnableObjectReference(turnable_joint_name=turnable_joint_name, **common_kwargs)
+    return ObjectReference(**common_kwargs)
+
+
 def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
 ) -> dict[str, type[Asset]]:
@@ -159,29 +209,11 @@ def instantiate_assets_from_spec(
         )
 
     for ref in graph_spec.object_references or []:
-        assert ref.prim_path is not None, "Object reference must have a prim path"
-        ref_params = dict(ref.params)
-        openable_joint_name = ref_params.pop("openable_joint_name", None)
-        prim_path = _prim_path_for_relative(graph_spec.background.registry_name, ref.prim_path)
-        common_kwargs = {
-            "name": ref.id,
-            "prim_path": prim_path,
-            "parent_asset": assets_by_node_id[ref.parent_id],
-            "object_type": ref.object_type,
-            **ref_params,
-        }
-        if openable_joint_name is not None:
-            # OpenableObjectReference always sets object_type=ARTICULATION; omit the YAML value.
-            assert (
-                ref.object_type == ObjectType.ARTICULATION
-            ), f"Openable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
-            openable_kwargs = {k: v for k, v in common_kwargs.items() if k != "object_type"}
-            assets_by_node_id[ref.id] = OpenableObjectReference(
-                openable_joint_name=openable_joint_name,
-                **openable_kwargs,
-            )
-        else:
-            assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)
+        assets_by_node_id[ref.id] = _instantiate_object_reference(
+            ref,
+            parent_asset=assets_by_node_id[ref.parent_id],
+            background_registry_name=graph_spec.background.registry_name,
+        )
 
     return assets_by_node_id
 
