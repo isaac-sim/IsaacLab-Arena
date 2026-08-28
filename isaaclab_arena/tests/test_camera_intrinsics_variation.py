@@ -5,7 +5,9 @@
 
 import pytest
 
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 ENABLE_CAMERAS = True
@@ -116,26 +118,31 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     ).make_registered()
     env.reset()
 
-    camera = None
-    sensor_prim = None
-    try:
-        camera = env.unwrapped.scene[CAMERA_NAME]
-        sensor_prim = camera._sensor_prims[0]
-        # Read nominal apertures from the rig config so the test tracks its source of truth.
-        nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
-        d_fx, d_fy = TEST_DELTAS
-        expected_horizontal_aperture = nominal_spawn.horizontal_aperture / (1.0 + d_fx)
-        expected_vertical_aperture = nominal_spawn.vertical_aperture / (1.0 + d_fy)
+    camera = env.unwrapped.scene[CAMERA_NAME]
+    sensor_prim = camera._sensor_prims[0]
+    # Read nominal apertures from the rig config so the test tracks its source of truth.
+    nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
+    d_fx, d_fy = TEST_DELTAS
+    expected_horizontal_aperture = nominal_spawn.horizontal_aperture / (1.0 + d_fx)
+    expected_vertical_aperture = nominal_spawn.vertical_aperture / (1.0 + d_fy)
 
-        assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
-        assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
-    finally:
-        # Lab 3 cleans camera render from the sensor destructor. Drop these borrowed
-        # references before env.close() clears the SimulationContext that owns the renderer.
-        sensor_prim = None
-        camera = None
-        env.close()
+    assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(expected_horizontal_aperture)
+    assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(expected_vertical_aperture)
+
+    env.close()
     return True
+
+
+def _run_camera_intrinsics_variation_realized_at_runtime():
+    """Run the runtime intrinsics check in a disposable Kit process."""
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.headless = HEADLESS
+    args_cli.enable_cameras = ENABLE_CAMERAS
+    with SimulationAppContext(args_cli) as simulation_app_context:
+        assert _test_camera_intrinsics_variation_realized_at_runtime(simulation_app_context.app_launcher.app)
 
 
 @pytest.mark.with_cameras
@@ -175,9 +182,12 @@ def test_enabled_camera_intrinsics_variation_forces_untiled_camera():
 
 
 @pytest.mark.with_cameras
+@pytest.mark.with_subprocess
 def test_camera_intrinsics_variation_realized_at_runtime():
-    assert run_function_with_persistent_simulation_app(
-        _test_camera_intrinsics_variation_realized_at_runtime,
-        headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
-    )
+    # Lab 3.0 does not fully release the untiled RTX/Replicator resources used by this test
+    # when its USD stage is replaced. Keep that state out of the remaining camera tests.
+    run_subprocess([TestConstants.python_path, __file__])
+
+
+if __name__ == "__main__":
+    _run_camera_intrinsics_variation_realized_at_runtime()

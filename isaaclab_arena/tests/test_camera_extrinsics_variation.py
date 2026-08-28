@@ -86,48 +86,41 @@ def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
     env = ArenaEnvBuilder(
         get_test_environment(camera_extrinsics_enabled=True), arena_env_builder_cfg_from_argparse(args_cli)
     ).make_registered()
-    camera = None
-    view = None
-    try:
-        env.reset()
+    env.reset()
 
-        camera = env.unwrapped.scene[CAMERA_NAME]
-        view = camera._view
-        assert view is not None, "Camera XformPrimView was not initialized."
+    camera = env.unwrapped.scene[CAMERA_NAME]
+    view = camera._view
+    assert view is not None, "Camera XformPrimView was not initialized."
 
-        # Get the nominal camera position.
-        t_parent_C_in_parent = torch.tensor(camera.cfg.offset.pos, device=env.unwrapped.device)
+    # Get the nominal camera position.
+    t_parent_C_in_parent = torch.tensor(camera.cfg.offset.pos, device=env.unwrapped.device)
 
-        # Get the realized camera position, which is affected by the camera extrinsics variation.
-        t_parent_Cnew_in_parent, q_parent_Cnew_xyzw = view.get_local_poses()
-        t_parent_Cnew_in_parent = t_parent_Cnew_in_parent.torch
-        q_parent_Cnew_xyzw = q_parent_Cnew_xyzw.torch
+    # Get the realized camera position, which is affected by the camera extrinsics variation.
+    t_parent_Cnew_in_parent, q_parent_Cnew_xyzw = view.get_local_poses()
+    t_parent_Cnew_in_parent = t_parent_Cnew_in_parent.torch
+    q_parent_Cnew_xyzw = q_parent_Cnew_xyzw.torch
 
-        # Difference between the nominal and realized camera positions.
-        delta_parent_as_opengl = t_parent_Cnew_in_parent[0] - t_parent_C_in_parent
+    # Difference between the nominal and realized camera positions.
+    delta_parent_as_opengl = t_parent_Cnew_in_parent[0] - t_parent_C_in_parent
 
-        # Convert the delta to the camera's frame.
-        delta_C_as_opengl = quat_apply(q_parent_Cnew_xyzw[0], delta_parent_as_opengl)
+    # Convert the delta to the camera's frame.
+    delta_C_as_opengl = quat_apply(q_parent_Cnew_xyzw[0], delta_parent_as_opengl)
 
-        # Convert the delta to the ROS frame.
-        q_opengl_to_ros_xyzw = torch.tensor((-1.0, 0.0, 0.0, 0.0), device=env.unwrapped.device)
-        measured_decalibration = quat_apply(q_opengl_to_ros_xyzw, delta_C_as_opengl)
+    # Convert the delta to the ROS frame.
+    q_opengl_to_ros_xyzw = torch.tensor((-1.0, 0.0, 0.0, 0.0), device=env.unwrapped.device)
+    measured_decalibration = quat_apply(q_opengl_to_ros_xyzw, delta_C_as_opengl)
 
-        # Check we get out what we put in.
-        expected_decalibration = torch.tensor(
-            TEST_DECALIBRATION_VECTOR,
-            device=measured_decalibration.device,
-            dtype=measured_decalibration.dtype,
-        )
-        print(f"Expected decalibration: {expected_decalibration}")
-        print(f"Measured decalibration: {measured_decalibration}")
-        torch.testing.assert_close(measured_decalibration, expected_decalibration, atol=1e-5, rtol=1e-5)
-    finally:
-        # Lab 3 cleans camera render resources from the sensor destructor. Drop these borrowed
-        # references before env.close() clears the SimulationContext that owns the renderer.
-        view = None
-        camera = None
-        env.close()
+    # Check we get out what we put in.
+    expected_decalibration = torch.tensor(
+        TEST_DECALIBRATION_VECTOR,
+        device=measured_decalibration.device,
+        dtype=measured_decalibration.dtype,
+    )
+    print(f"Expected decalibration: {expected_decalibration}")
+    print(f"Measured decalibration: {measured_decalibration}")
+    torch.testing.assert_close(measured_decalibration, expected_decalibration, atol=1e-5, rtol=1e-5)
+
+    env.close()
     return True
 
 
