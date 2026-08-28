@@ -58,4 +58,3 @@ task:
   - kind: PressButtonTask
     params:
       pressable_object: toaster
-      reset_pressedness: 1.0

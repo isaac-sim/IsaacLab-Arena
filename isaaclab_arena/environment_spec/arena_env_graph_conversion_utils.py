@@ -28,6 +28,11 @@ _DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
 _DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"
 _DEFAULT_DIRECTIONAL_LIGHT_ASSET_NAME = "directional_light"
 _DEFAULT_DIRECTIONAL_LIGHT_NODE_ID = "auto_directional_light"
+_AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ObjectReference]] = {
+    "openable_joint_name": OpenableObjectReference,
+    "pressable_joint_name": PressableObjectReference,
+    "turnable_joint_name": TurnableObjectReference,
+}
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -140,42 +145,24 @@ def _instantiate_object_reference(
 ) -> ObjectReference:
     """Instantiate a plain or affordance-specific object reference."""
     assert ref.prim_path is not None, "Object reference must have a prim path"
-    ref_params = dict(ref.params)
-    openable_joint_name = ref_params.pop("openable_joint_name", None)
-    pressable_joint_name = ref_params.pop("pressable_joint_name", None)
-    turnable_joint_name = ref_params.pop("turnable_joint_name", None)
-    affordance_count = sum(
-        joint_name is not None for joint_name in (openable_joint_name, pressable_joint_name, turnable_joint_name)
-    )
-    assert affordance_count <= 1, f"Object reference '{ref.id}' cannot expose multiple affordances"
+    joint_param_names = [name for name in _AFFORDANCE_REFERENCE_CLASSES if name in ref.params]
+    assert len(joint_param_names) <= 1, f"Object reference '{ref.id}' cannot expose multiple affordances"
 
     common_kwargs = {
         "name": ref.id,
         "prim_path": _prim_path_for_relative(background_registry_name, ref.prim_path),
         "parent_asset": parent_asset,
-        "object_type": ref.object_type,
-        **ref_params,
+        **ref.params,
     }
-    if openable_joint_name is not None:
-        # Affordance references always set object_type=ARTICULATION; omit the YAML value.
-        assert (
-            ref.object_type == ObjectType.ARTICULATION
-        ), f"Openable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
-        common_kwargs.pop("object_type")
-        return OpenableObjectReference(openable_joint_name=openable_joint_name, **common_kwargs)
-    if pressable_joint_name is not None:
-        assert (
-            ref.object_type == ObjectType.ARTICULATION
-        ), f"Pressable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
-        common_kwargs.pop("object_type")
-        return PressableObjectReference(pressable_joint_name=pressable_joint_name, **common_kwargs)
-    if turnable_joint_name is not None:
-        assert (
-            ref.object_type == ObjectType.ARTICULATION
-        ), f"Turnable reference '{ref.id}' must use object_type=articulation, got {ref.object_type}"
-        common_kwargs.pop("object_type")
-        return TurnableObjectReference(turnable_joint_name=turnable_joint_name, **common_kwargs)
-    return ObjectReference(**common_kwargs)
+    if not joint_param_names:
+        return ObjectReference(object_type=ref.object_type, **common_kwargs)
+
+    # Affordance references always set object_type=ARTICULATION; omit the YAML value.
+    assert ref.object_type == ObjectType.ARTICULATION, (
+        f"Object reference '{ref.id}' sets {joint_param_names[0]}, so it must use"
+        f" object_type=articulation, got {ref.object_type}"
+    )
+    return _AFFORDANCE_REFERENCE_CLASSES[joint_param_names[0]](**common_kwargs)
 
 
 def instantiate_assets_from_spec(

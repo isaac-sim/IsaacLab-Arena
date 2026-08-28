@@ -14,7 +14,9 @@ embodiment:
 background:
   id: kitchen
   registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
-  params: {}
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
@@ -51,7 +53,7 @@ relations:
     yaw_rad: 0.0
 task:
   composition: atomic
-  description: Open the oven door below the microwave to 0.4 openness.
+  description: Open the oven door below the microwave.
   subtasks:
   - kind: OpenDoorTask
     params:

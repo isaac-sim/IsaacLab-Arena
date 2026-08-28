@@ -53,9 +53,8 @@ relations:
     yaw_rad: 1.57
 task:
   composition: atomic
-  description: Press and hold the right button on the toaster.
+  description: Press and hold the right cancel button on the toaster.
   subtasks:
   - kind: PressButtonTask
     params:
       pressable_object: toaster
-      reset_pressedness: 1.0
