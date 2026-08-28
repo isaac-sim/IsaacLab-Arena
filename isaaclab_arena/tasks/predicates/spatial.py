@@ -3,8 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Stateless spatial predicates and geometric checks.
+
+Functions in this module do not retain data between calls. Predicates that need
+manager-owned setup or cached data live in a dedicated ``*_term.py`` module.
+"""
+
 from __future__ import annotations
 
+import math
 import torch
 
 import warp as wp
@@ -12,9 +19,98 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+
+def object_bounds_center_over_destination(
+    T_W_O: torch.Tensor,
+    object_bounds_center_O: torch.Tensor,
+    T_W_D: torch.Tensor,
+    destination_bounds_D: AxisAlignedBoundingBox,
+) -> torch.Tensor:
+    """Check whether an object's bounds center is over a destination.
+
+    The check requires the object's bounds center to be inside the destination's
+    X/Y footprint and above its lower Z bound. The upper Z bound is intentionally
+    ignored so the same check works for open containers and supporting surfaces.
+    This is a center-point test, not full-object containment.
+
+    Args:
+        T_W_O: Object poses mapping points from object frame ``O`` into world
+            frame ``W``. Shape is ``(num_envs, 7)`` with quaternion order
+            ``(x, y, z, w)``.
+        object_bounds_center_O: Center of the object's bounds expressed in
+            frame ``O``. Shape is ``(num_envs, 3)``.
+        T_W_D: Destination poses mapping points from destination frame ``D``
+            into world frame ``W``. Shape is ``(num_envs, 7)`` with quaternion
+            order ``(x, y, z, w)``.
+        destination_bounds_D: Destination bounds aligned with frame ``D`` and
+            measured from its origin.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    t_W_O, q_W_O = T_W_O[:, :3], T_W_O[:, 3:]
+    t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
+
+    object_bounds_center_W = t_W_O + quat_apply(q_W_O, object_bounds_center_O)
+    object_bounds_center_D = quat_apply_inverse(
+        q_W_D,
+        object_bounds_center_W - t_W_D,
+    )
+    center_inside_horizontal_bounds = (
+        (object_bounds_center_D[:, :2] >= destination_bounds_D.min_point[:, :2])
+        & (object_bounds_center_D[:, :2] <= destination_bounds_D.max_point[:, :2])
+    ).all(dim=-1)
+    center_above_destination_bottom = object_bounds_center_D[:, 2] >= destination_bounds_D.min_point[:, 2]
+    return center_inside_horizontal_bounds & center_above_destination_bottom
+
+
+def contact_force_is_upward_support(
+    contact_force_w: torch.Tensor,
+    force_threshold: float,
+    support_cone_half_angle_deg: float,
+) -> torch.Tensor:
+    """Check whether contact forces point upward strongly enough.
+
+    Args:
+        contact_force_w: World-frame force vectors with shape
+            ``(num_envs, 3)`` in newtons.
+        force_threshold: Minimum force magnitude in newtons.
+        support_cone_half_angle_deg: Maximum angle in degrees between the force
+            vector and world ``+Z``. Zero accepts only a straight-up force.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    assert (
+        contact_force_w.ndim == 2 and contact_force_w.shape[1] == 3
+    ), f"contact_force_w must have shape (num_envs, 3), got {tuple(contact_force_w.shape)}."
+    assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}."
+    assert (
+        0.0 <= support_cone_half_angle_deg < 90.0
+    ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}."
+
+    force_magnitude = torch.linalg.vector_norm(contact_force_w, dim=-1)
+    upward_force = contact_force_w[:, 2]
+    minimum_upward_fraction = math.cos(math.radians(support_cone_half_angle_deg))
+    return (
+        (force_magnitude >= force_threshold)
+        & (upward_force > 0.0)
+        & (upward_force >= force_magnitude * minimum_upward_fraction)
+    )
+
+
+def object_is_moving_slowly(
+    object_linear_velocity_w: torch.Tensor,
+    velocity_threshold: float,
+) -> torch.Tensor:
+    """Check whether object linear speed is below the threshold."""
+    return torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
 
 
 def object_is_above_height(

@@ -92,6 +92,8 @@ def test_task_catalogue_excludes_structural_graph_fields():
     assert "PickAndPlaceTask" in entries
     pick_params = entries["PickAndPlaceTask"].required_params + entries["PickAndPlaceTask"].optional_params
     assert "task_description" not in pick_params
+    assert "max_separation" not in pick_params
+    assert "support_cone_half_angle_deg" in pick_params
 
 
 def test_relation_catalogue_collects_required_optional_and_enum_params():

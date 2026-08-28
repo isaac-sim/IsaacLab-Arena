@@ -18,7 +18,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import (
     NoCollisionMeshError,
-    compute_local_bounding_box_from_prim,
+    compute_world_aligned_bounding_box_relative_to_prim_origin,
     extract_trimesh_from_prim,
     open_stage,
 )
@@ -81,10 +81,10 @@ class ObjectReference(ObjectBase):
         self.relations.append(relation)
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box of the referenced prim (relative to prim transform).
+        """Get world-axis-aligned bounds measured from the referenced prim's origin.
 
-        The bounding box is relative to the prim's transform origin, consistent with
-        how Object.get_bounding_box() returns bbox relative to USD origin.
+        The coordinates use the parent asset's USD axes, with the origin shifted to
+        the referenced prim's world position.
 
         The bounding box is computed lazily and cached for subsequent calls.
         """
@@ -93,7 +93,7 @@ class ObjectReference(ObjectBase):
                 prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
                     self.prim_path, self.parent_asset, parent_stage
                 )
-                raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
+                raw_bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(parent_stage, prim_path_in_usd)
                 # Apply parent's scale (no centering - solver is origin-agnostic)
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
         return self._bounding_box
