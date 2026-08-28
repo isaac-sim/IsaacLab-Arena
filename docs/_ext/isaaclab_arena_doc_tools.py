@@ -71,15 +71,7 @@ def uv_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
            source .venv/bin/activate
            export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y"""
 
-    def uv_wheel_replacer(_: Any) -> str:
-        return """.. code-block:: bash
-
-           uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
-           source .venv/bin/activate
-           export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y"""
-
     source[0] = re.sub(r":uv_run_source:", uv_source_replacer, source[0])
-    source[0] = re.sub(r":uv_run_wheel:", uv_wheel_replacer, source[0])
 
 
 def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
