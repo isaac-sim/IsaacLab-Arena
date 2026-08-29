@@ -25,6 +25,25 @@ HEADLESS = True
 JOB_NAME = "unit_test"
 LANGUAGE_INSTRUCTION = "put the box in the drawer"
 
+
+def _install_fabric_initialization_diagnostic() -> None:
+    """Apply the requested temporary Fabric initialization experiment."""
+    mode = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_FABRIC_INIT")
+    if mode in (None, "baseline"):
+        return
+    assert mode == "update-hierarchy", f"Unknown Fabric initialization diagnostic mode: {mode}"
+
+    from isaaclab_physx.sim.views.fabric_frame_view import FabricFrameView
+
+    original_initialize_fabric = FabricFrameView._initialize_fabric
+
+    def diagnostic_initialize_fabric(self):
+        original_initialize_fabric(self)
+        self._fabric_hierarchy.update_world_xforms()
+
+    FabricFrameView._initialize_fabric = diagnostic_initialize_fabric
+
+
 # Fields stamped by the manager (metadata) plus those from the default core term.
 CORE_KEYS = {
     "job_name",
@@ -183,6 +202,10 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                 if step < 5 or (step + 1) % 20 == 0:
                     cracker_box = env.unwrapped.scene["cracker_box"]
                     success = env.unwrapped.termination_manager.get_term("success")
+                    success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+                    destination_reader = success_term._destination_asset_base_pose_reader
+                    destination_pose = destination_reader.get_pose_in_world_frame()
+                    usd_position, usd_orientation = destination_reader._frame_view._usd_view.get_world_poses()
                     print(
                         "[contact-state] "
                         f"step={step + 1} "
@@ -191,6 +214,9 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                         f"success={success.tolist()} "
                         f"position={cracker_box.data.root_pos_w.torch.tolist()} "
                         f"velocity={cracker_box.data.root_lin_vel_w.torch.tolist()}",
+                        f"destination_fabric={destination_pose.tolist()} "
+                        f"destination_usd_position={usd_position.torch.tolist()} "
+                        f"destination_usd_orientation={usd_orientation.torch.tolist()}",
                         flush=True,
                     )
 
@@ -202,6 +228,7 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
 
 
 def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
+    _install_fabric_initialization_diagnostic()
     env, output_path = create_recorder_env(output_dir)
     try:
         records = _roll_out_and_read_episode_record(env, output_path)

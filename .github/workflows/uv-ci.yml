@@ -62,18 +62,18 @@ jobs:
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
-      # Temporary diagnostic matrix: isolate whether the first bad FrameView
-      # revision requires Fabric to poison filtered-contact state.
+      # Temporary diagnostic matrix: isolate the first bad FrameView revision's
+      # Fabric initialization and USD seeding behavior.
       matrix:
         include:
-          - variant: source-frame-view-fabric
+          - variant: source-frame-view-baseline
             uv_flags: "--group gr00t-client"
             isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
-            disable_fabric: "0"
-          - variant: source-frame-view-no-fabric
+            fabric_init_mode: baseline
+          - variant: source-frame-view-update-hierarchy
             uv_flags: "--group gr00t-client"
             isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
-            disable_fabric: "1"
+            fabric_init_mode: update-hierarchy
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -171,7 +171,7 @@ jobs:
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC: ${{ matrix.disable_fabric }}
+          ISAACLAB_ARENA_DIAGNOSTIC_FABRIC_INIT: ${{ matrix.fabric_init_mode }}
           ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
@@ -182,7 +182,7 @@ jobs:
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC: ${{ matrix.disable_fabric }}
+          ISAACLAB_ARENA_DIAGNOSTIC_FABRIC_INIT: ${{ matrix.fabric_init_mode }}
           ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
