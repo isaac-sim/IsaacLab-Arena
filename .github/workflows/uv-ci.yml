@@ -70,10 +70,10 @@ jobs:
             uv_flags: "--group gr00t-client"
             isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
             fabric_init_mode: baseline
-          - variant: source-frame-view-pause-tracking
+          - variant: source-frame-view-ancestor-chain
             uv_flags: "--group gr00t-client"
             isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
-            fabric_init_mode: pause-tracking
+            fabric_init_mode: ancestor-chain
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -128,11 +128,11 @@ jobs:
           git -C submodules/IsaacLab checkout --detach FETCH_HEAD
           git -C submodules/IsaacLab rev-parse HEAD
 
-      # The first bad FrameView revision seeds Fabric while hierarchy listeners
-      # are active. Test whether those queued writes overwrite the seeded world
-      # matrices on the next hierarchy update.
-      - name: Pause Fabric tracking during initialization
-        if: matrix.fabric_init_mode == 'pause-tracking'
+      # The first bad FrameView revision creates hierarchy attributes only on
+      # each selected prim and its direct parent. Test whether hierarchy updates
+      # require the complete ancestor chain to preserve world transforms.
+      - name: Populate Fabric attributes on ancestor chain
+        if: matrix.fabric_init_mode == 'ancestor-chain'
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -142,33 +142,38 @@ jobs:
               "sim/views/fabric_frame_view.py"
           )
           source = path.read_text()
-          hierarchy_setup = """\
-                  self._fabric_hierarchy = usdrt.hierarchy.IFabricHierarchy().get_fabric_hierarchy(
-                      fabric_id, self._stage.GetStageIdAsStageId()
-                  )
+          direct_parent_loop = """\
+                  for child_path in self.prim_paths:
+                      for path in (child_path, child_path.rsplit("/", 1)[0]):
+                          if path in seen_paths:
+                              continue
+                          seen_paths.add(path)
+                          rt_prim = self._stage.GetPrimAtPath(path)
+                          if not rt_prim.IsValid():
+                              continue
+                          rt_xformable = Rt.Xformable(rt_prim)
+                          rt_xformable.CreateFabricHierarchyWorldMatrixAttr()
+                          rt_xformable.CreateFabricHierarchyLocalMatrixAttr()
+                          rt_xformable.SetLocalXformFromUsd()
+                          rt_xformable.SetWorldXformFromUsd()
           """
-          paused_hierarchy_setup = hierarchy_setup + """\
-                  was_tracking_local = self._fabric_hierarchy.tracking_local_xform_changes
-                  was_tracking_world = self._fabric_hierarchy.tracking_world_xform_changes
-                  if was_tracking_local:
-                      self._fabric_hierarchy.track_local_xform_changes(False)
-                  if was_tracking_world:
-                      self._fabric_hierarchy.track_world_xform_changes(False)
+          ancestor_loop = """\
+                  for child_path in self.prim_paths:
+                      path = child_path
+                      while path:
+                          if path not in seen_paths:
+                              seen_paths.add(path)
+                              rt_prim = self._stage.GetPrimAtPath(path)
+                              if rt_prim.IsValid():
+                                  rt_xformable = Rt.Xformable(rt_prim)
+                                  rt_xformable.CreateFabricHierarchyWorldMatrixAttr()
+                                  rt_xformable.CreateFabricHierarchyLocalMatrixAttr()
+                                  rt_xformable.SetLocalXformFromUsd()
+                                  rt_xformable.SetWorldXformFromUsd()
+                          path = path.rsplit("/", 1)[0]
           """
-          seed_end = """\
-                  finally:
-                      self._is_rw = False
-          """
-          restored_seed_end = seed_end + """\
-                  if was_tracking_world:
-                      self._fabric_hierarchy.track_world_xform_changes(True)
-                  if was_tracking_local:
-                      self._fabric_hierarchy.track_local_xform_changes(True)
-          """
-          assert source.count(hierarchy_setup) == 1
-          assert source.count(seed_end) == 1
-          source = source.replace(hierarchy_setup, paused_hierarchy_setup)
-          source = source.replace(seed_end, restored_seed_end)
+          assert source.count(direct_parent_loop) == 1
+          source = source.replace(direct_parent_loop, ancestor_loop)
           path.write_text(source)
           PY
 

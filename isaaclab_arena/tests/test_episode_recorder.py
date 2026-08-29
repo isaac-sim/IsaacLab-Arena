@@ -186,8 +186,17 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                     success = env.unwrapped.termination_manager.get_term("success")
                     success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
                     destination_reader = success_term._destination_asset_base_pose_reader
+                    frame_view = destination_reader._frame_view
                     destination_pose = destination_reader.get_pose_in_world_frame()
-                    usd_position, usd_orientation = destination_reader._frame_view._usd_view.get_world_poses()
+                    fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
+                    usd_position, usd_orientation = frame_view._usd_view.get_world_poses()
+                    usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
+                    if step == 0:
+                        parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
+                        print(
+                            f"[frame-view-layout] children={frame_view.prim_paths} parents={parent_paths}",
+                            flush=True,
+                        )
                     print(
                         "[contact-state] "
                         f"step={step + 1} "
@@ -198,7 +207,11 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                         f"velocity={cracker_box.data.root_lin_vel_w.torch.tolist()}",
                         f"destination_fabric={destination_pose.tolist()} "
                         f"destination_usd_position={usd_position.torch.tolist()} "
-                        f"destination_usd_orientation={usd_orientation.torch.tolist()}",
+                        f"destination_usd_orientation={usd_orientation.torch.tolist()} "
+                        f"destination_fabric_local_position={fabric_local_position.torch.tolist()} "
+                        f"destination_fabric_local_orientation={fabric_local_orientation.torch.tolist()} "
+                        f"destination_usd_local_position={usd_local_position.torch.tolist()} "
+                        f"destination_usd_local_orientation={usd_local_orientation.torch.tolist()}",
                         flush=True,
                     )
 
