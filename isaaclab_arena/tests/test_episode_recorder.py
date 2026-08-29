@@ -11,6 +11,7 @@ import tqdm
 from dataclasses import field
 from pathlib import Path
 
+import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
@@ -201,18 +202,27 @@ def create_recorder_env(
 
 
 def _log_frame_view_hierarchy_boundary(env, boundary: str) -> None:
-    """Log child and parent transforms without changing Fabric hierarchy state."""
+    """Log child and parent transforms after FrameView initialization."""
+    import omni.kit.app
+
     success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
     frame_view = success_term._destination_asset_base_pose_reader._frame_view
+    assert frame_view._fabric_initialized, "Initialize FrameView before taking an observation-only snapshot."
+    hierarchy = frame_view._fabric_hierarchy
+    tracking_local_before_reads = hierarchy.tracking_local_xform_changes
+    tracking_world_before_reads = hierarchy.tracking_world_xform_changes
     fabric_world_position, fabric_world_orientation = frame_view.get_world_poses()
     fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
     usd_world_position, usd_world_orientation = frame_view._usd_view.get_world_poses()
     usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
     fabric_parent_position, usd_parent_position, active_stage_id = _get_parent_transform_diagnostics(frame_view)
-    hierarchy = frame_view._fabric_hierarchy
+    tracking_local_after_reads = hierarchy.tracking_local_xform_changes
+    tracking_world_after_reads = hierarchy.tracking_world_xform_changes
     parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
+    physx_ui_enabled = omni.kit.app.get_app().get_extension_manager().is_extension_enabled("omni.physx.ui")
     print(
         f"[hierarchy-boundary] boundary={boundary} "
+        f"physx_ui_enabled={physx_ui_enabled} "
         f"children={frame_view.prim_paths} "
         f"parents={parent_paths} "
         f"child_fabric_world_position={fabric_world_position.torch.tolist()} "
@@ -225,29 +235,64 @@ def _log_frame_view_hierarchy_boundary(env, boundary: str) -> None:
         f"child_usd_local_orientation={usd_local_orientation.torch.tolist()} "
         f"parent_fabric_world_position={fabric_parent_position} "
         f"parent_usd_world_position={usd_parent_position} "
-        f"tracking_local={hierarchy.tracking_local_xform_changes} "
-        f"tracking_world={hierarchy.tracking_world_xform_changes} "
+        f"tracking_local_before_reads={tracking_local_before_reads} "
+        f"tracking_local_after_reads={tracking_local_after_reads} "
+        f"tracking_world_before_reads={tracking_world_before_reads} "
+        f"tracking_world_after_reads={tracking_world_after_reads} "
         f"fabric_id={frame_view._fabric_id} "
-        f"active_stage_id={active_stage_id}",
+        f"active_stage_id={active_stage_id} "
+        f"usdrt_stage_id={frame_view._stage.GetStageIdAsStageId()}",
         flush=True,
     )
 
 
 def _test_frame_view_reconciliation_boundary(simulation_app, output_dir):  # noqa: ARG001
     env, _ = create_recorder_env(output_dir)
+    originals = []
+    step_number = 0
+
+    def observe_after(obj, method_name: str, boundary: str) -> None:
+        original = getattr(obj, method_name)
+        originals.append((obj, method_name, original))
+
+        def observed(*args, **kwargs):
+            result = original(*args, **kwargs)
+            _log_frame_view_hierarchy_boundary(env, f"step-{step_number}-{boundary}")
+            return result
+
+        setattr(obj, method_name, observed)
+
     try:
-        _log_frame_view_hierarchy_boundary(env, "initial")
-        env.unwrapped.sim.step(render=False)
-        _log_frame_view_hierarchy_boundary(env, "after-physics")
-        env.unwrapped.sim.render()
-        _log_frame_view_hierarchy_boundary(env, "after-render")
+        success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+        frame_view = success_term._destination_asset_base_pose_reader._frame_view
+        # The pinned FrameView lazily initializes on its first getter and seeds
+        # child and parent Fabric matrices from USD. Keep that write in setup so
+        # every logged boundary below is observation-only.
+        frame_view.get_world_poses()
+        _log_frame_view_hierarchy_boundary(env, "initial-after-frame-view-initialization")
+        observe_after(env.unwrapped.action_manager, "apply_action", "after-apply-action")
+        observe_after(env.unwrapped.scene, "write_data_to_sim", "after-scene-write")
+        observe_after(env.unwrapped.sim, "step", "after-physics")
+        observe_after(env.unwrapped.sim, "render", "after-render")
+        observe_after(env.unwrapped.scene, "update", "after-scene-update")
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        for step in range(1, 3):
+            step_number = step
+            env.step(actions)
+            _log_frame_view_hierarchy_boundary(env, f"step-{step}-after-env-step")
     finally:
+        for obj, method_name, original in reversed(originals):
+            setattr(obj, method_name, original)
         env.close()
     return True
 
 
 def test_frame_view_reconciliation_boundary(tmp_path):
-    """Locate whether physics or rendering reconciles Fabric world transforms."""
+    """Locate which environment-step phase reconciles Fabric world transforms."""
+    from isaaclab.utils.warp import fabric as fabric_utils
+
+    if not hasattr(fabric_utils, "decompose_indexed_fabric_transforms"):
+        pytest.skip("The installed Isaac Lab predates indexed Fabric transform diagnostics")
     assert run_function_with_persistent_simulation_app(
         _test_frame_view_reconciliation_boundary,
         headless=HEADLESS,
