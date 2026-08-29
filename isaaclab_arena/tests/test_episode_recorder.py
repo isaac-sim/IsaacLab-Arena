@@ -26,6 +26,38 @@ JOB_NAME = "unit_test"
 LANGUAGE_INSTRUCTION = "put the box in the drawer"
 
 
+def _get_parent_transform_diagnostics(frame_view) -> tuple[list[list[float]], list[list[float]], int]:
+    """Read parent world positions from Fabric and USD without creating another FrameView."""
+    import warp as wp
+    from isaaclab.sim.utils import get_current_stage_id
+    from isaaclab.utils.warp import fabric as fabric_utils
+    from pxr import Usd, UsdGeom
+
+    parent_positions = wp.zeros((frame_view.count, 3), dtype=wp.float32, device=frame_view.device)
+    parent_orientations = wp.zeros((frame_view.count, 4), dtype=wp.float32, device=frame_view.device)
+    wp.launch(
+        kernel=fabric_utils.decompose_indexed_fabric_transforms,
+        dim=frame_view.count,
+        inputs=[
+            frame_view._get_parent_world_ifa(),
+            parent_positions,
+            parent_orientations,
+            frame_view._fabric_empty_2d_array_sentinel,
+            frame_view._view_indices,
+        ],
+        device=frame_view.device,
+    )
+    wp.synchronize()
+
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    usd_parent_positions = []
+    for prim in frame_view._usd_view.prims:
+        translation = xform_cache.GetLocalToWorldTransform(prim.GetParent()).ExtractTranslation()
+        usd_parent_positions.append([float(translation[0]), float(translation[1]), float(translation[2])])
+
+    return wp.to_torch(parent_positions).tolist(), usd_parent_positions, get_current_stage_id()
+
+
 # Fields stamped by the manager (metadata) plus those from the default core term.
 CORE_KEYS = {
     "job_name",
@@ -191,10 +223,18 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                     fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
                     usd_position, usd_orientation = frame_view._usd_view.get_world_poses()
                     usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
+                    fabric_parent_position, usd_parent_position, active_stage_id = _get_parent_transform_diagnostics(
+                        frame_view
+                    )
+                    hierarchy = frame_view._fabric_hierarchy
                     if step == 0:
                         parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
                         print(
-                            f"[frame-view-layout] children={frame_view.prim_paths} parents={parent_paths}",
+                            f"[frame-view-layout] children={frame_view.prim_paths} "
+                            f"parents={parent_paths} "
+                            f"fabric_id={frame_view._fabric_id} "
+                            f"active_stage_id={active_stage_id} "
+                            f"usdrt_stage_id={frame_view._stage.GetStageIdAsStageId()}",
                             flush=True,
                         )
                     print(
@@ -211,7 +251,12 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                         f"destination_fabric_local_position={fabric_local_position.torch.tolist()} "
                         f"destination_fabric_local_orientation={fabric_local_orientation.torch.tolist()} "
                         f"destination_usd_local_position={usd_local_position.torch.tolist()} "
-                        f"destination_usd_local_orientation={usd_local_orientation.torch.tolist()}",
+                        f"destination_usd_local_orientation={usd_local_orientation.torch.tolist()} "
+                        f"parent_fabric_world_position={fabric_parent_position} "
+                        f"parent_usd_world_position={usd_parent_position} "
+                        f"tracking_local={hierarchy.tracking_local_xform_changes} "
+                        f"tracking_world={hierarchy.tracking_world_xform_changes} "
+                        f"active_stage_id={active_stage_id}",
                         flush=True,
                     )
                     if os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_ASSERT_FABRIC_STABLE") == "1":
