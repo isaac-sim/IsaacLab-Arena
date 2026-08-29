@@ -17,15 +17,10 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
-   * - uv (Isaac Lab from source)
+   * - uv
      - ✓
      - ✓
      - ✓
-     - ✓
-   * - uv (Isaac Lab from wheel)
-     - ✓
-     - ✗
-     - ✗
      - ✓
 
 Supported Systems
@@ -41,63 +36,27 @@ Native uv developer setup
 -------------------------
 
 Isaac Lab Arena can be installed natively with `uv <https://docs.astral.sh/uv/>`_;
-the committed lockfile pins the complete environment. Two flavors are
-available, differing only in where Isaac Lab comes from:
-
-- **Source flavor (recommended):** Isaac Lab is installed editable from the
-  ``submodules/IsaacLab`` checkout.
-- **Wheel flavor:** Isaac Lab is installed from the published wheel, which
-  does not include Isaac Lab's RL/IL scripts.
-
-Both flavors follow the same workflow — clone, sync, activate, run; only the
-``uv sync`` line differs.
+the committed lockfile pins the complete environment. Isaac Lab is installed
+editable from the ``submodules/IsaacLab`` checkout.
 
 Clone the repository:
 
 :isaaclab_arena_git_clone_code_block:
 
-Sync the environment and activate it, picking the flavor that matches your
-workflow:
+Sync the environment and activate it:
 
-.. tab-set::
+.. code-block:: bash
 
-   .. tab-item:: Source (recommended)
-      :selected:
-
-      .. code-block:: bash
-
-          uv sync --extra dev
-          source .venv/bin/activate
-
-   .. tab-item:: Wheel
-
-      .. code-block:: bash
-
-          uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
-          source .venv/bin/activate
-
-      .. note::
-         The wheel flavor does not support the
-         :doc:`imitation learning </pages/example_workflows/imitation_learning/index>`
-         and
-         :doc:`reinforcement learning </pages/example_workflows/reinforcement_learning_workflows/index>`
-         workflows: the published Isaac Lab wheel does not include the scripts
-         they rely on. Use the source flavor for those workflows.
+    uv sync --extra dev
+    source .venv/bin/activate
 
 ``uv sync`` creates a Python virtual environment in ``.venv/`` (pinned by
-``.python-version``), installs Isaac Lab Arena and Isaac Lab (editable from
-``submodules/IsaacLab`` in the source flavor, or from the published wheel),
-and pulls the matching Isaac Sim, PyTorch, and Newton wheels at the versions
-pinned by the committed lockfile. The ``dev`` extra installs the Streamlit and
-SimReady search dependencies used by the
+``.python-version``), installs Isaac Lab Arena and Isaac Lab editable from
+``submodules/IsaacLab``, and pulls the matching Isaac Sim, PyTorch, and Newton
+wheels at the versions pinned by the committed lockfile. The ``dev`` extra
+installs the Streamlit and SimReady search dependencies used by the
 :doc:`agentic environment generation workflow
 </pages/concepts/agentic_environment_generation/index>`.
-
-.. note::
-   The two flavors are mutually exclusive within the single ``.venv``: syncing
-   one replaces the other. In the wheel flavor, run ``python``/``pytest`` in
-   the activated environment rather than through ``uv run`` — a bare
-   ``uv run`` re-syncs the environment back to the source flavor.
 
 .. note::
    Native ``uv`` installs do not include the optional ``isaaclab_arena_curobo``
@@ -128,19 +87,13 @@ a few more steps so there is time to see it):
     python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 
-With the **source installation**, optionally verify the installation by running the test
-phases:
+Optionally verify the installation by running the test phases:
 
 .. code-block:: bash
 
     pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests/
     pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
     pytest -sv -m with_subprocess isaaclab_arena/tests/
-
-The full test suite is not supported by the wheel flavor because it includes
-tests for Isaac Lab's imitation-learning and reinforcement-learning
-interoperability. Use the zero-action rollout above to verify a wheel-based
-installation.
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
 see :doc:`arena_env`.
