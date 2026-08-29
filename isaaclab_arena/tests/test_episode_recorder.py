@@ -214,6 +214,15 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
                         f"destination_usd_local_orientation={usd_local_orientation.torch.tolist()}",
                         flush=True,
                     )
+                    if os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_ASSERT_FABRIC_STABLE") == "1":
+                        fabric_world_position = destination_pose[:, :3]
+                        usd_world_position = usd_position.torch
+                        assert torch.allclose(fabric_world_position, usd_world_position, atol=1e-5, rtol=1e-5), (
+                            f"Fabric world pose diverged from USD at step {step + 1}: "
+                            f"fabric_world={fabric_world_position.tolist()}, "
+                            f"fabric_local={fabric_local_position.torch.tolist()}, "
+                            f"usd_world={usd_world_position.tolist()}"
+                        )
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:
