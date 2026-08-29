@@ -166,24 +166,20 @@ jobs:
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_ASSERT_FABRIC_STABLE: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
           pytest -sv --maxfail=1 --durations=0 \
-            isaaclab_arena/tests/test_episode_recorder.py::test_core_terms
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
 
       - name: Observe polluted FrameView hierarchy
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_ASSERT_FABRIC_STABLE: "1"
-          ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
           pytest -sv --maxfail=1 --durations=0 \
             isaaclab_arena/tests/test_environment_runner.py::test_mouse_interaction_uses_d6_grab_for_current_stage \
-            isaaclab_arena/tests/test_episode_recorder.py::test_core_terms
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
 
       - name: Run in-process Newton tests
         if: matrix.variant == 'wheel'

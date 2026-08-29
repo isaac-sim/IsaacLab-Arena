@@ -200,6 +200,61 @@ def create_recorder_env(
     return env, output_path
 
 
+def _log_frame_view_hierarchy_boundary(env, boundary: str) -> None:
+    """Log child and parent transforms without changing Fabric hierarchy state."""
+    success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+    frame_view = success_term._destination_asset_base_pose_reader._frame_view
+    fabric_world_position, fabric_world_orientation = frame_view.get_world_poses()
+    fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
+    usd_world_position, usd_world_orientation = frame_view._usd_view.get_world_poses()
+    usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
+    fabric_parent_position, usd_parent_position, active_stage_id = _get_parent_transform_diagnostics(frame_view)
+    hierarchy = frame_view._fabric_hierarchy
+    parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
+    print(
+        f"[hierarchy-boundary] boundary={boundary} "
+        f"children={frame_view.prim_paths} "
+        f"parents={parent_paths} "
+        f"child_fabric_world_position={fabric_world_position.torch.tolist()} "
+        f"child_fabric_world_orientation={fabric_world_orientation.torch.tolist()} "
+        f"child_fabric_local_position={fabric_local_position.torch.tolist()} "
+        f"child_fabric_local_orientation={fabric_local_orientation.torch.tolist()} "
+        f"child_usd_world_position={usd_world_position.torch.tolist()} "
+        f"child_usd_world_orientation={usd_world_orientation.torch.tolist()} "
+        f"child_usd_local_position={usd_local_position.torch.tolist()} "
+        f"child_usd_local_orientation={usd_local_orientation.torch.tolist()} "
+        f"parent_fabric_world_position={fabric_parent_position} "
+        f"parent_usd_world_position={usd_parent_position} "
+        f"tracking_local={hierarchy.tracking_local_xform_changes} "
+        f"tracking_world={hierarchy.tracking_world_xform_changes} "
+        f"fabric_id={frame_view._fabric_id} "
+        f"active_stage_id={active_stage_id}",
+        flush=True,
+    )
+
+
+def _test_frame_view_reconciliation_boundary(simulation_app, output_dir):  # noqa: ARG001
+    env, _ = create_recorder_env(output_dir)
+    try:
+        _log_frame_view_hierarchy_boundary(env, "initial")
+        env.unwrapped.sim.step(render=False)
+        _log_frame_view_hierarchy_boundary(env, "after-physics")
+        env.unwrapped.sim.render()
+        _log_frame_view_hierarchy_boundary(env, "after-render")
+    finally:
+        env.close()
+    return True
+
+
+def test_frame_view_reconciliation_boundary(tmp_path):
+    """Locate whether physics or rendering reconciles Fabric world transforms."""
+    assert run_function_with_persistent_simulation_app(
+        _test_frame_view_reconciliation_boundary,
+        headless=HEADLESS,
+        output_dir=tmp_path,
+    )
+
+
 def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
     """Step the env for ``NUM_STEPS`` (records stream to disk as episodes finish), then parse them."""
     log_state = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE") == "1"
