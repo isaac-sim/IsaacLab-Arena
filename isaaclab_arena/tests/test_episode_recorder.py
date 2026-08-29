@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 import tempfile
 import torch
 import tqdm
@@ -136,6 +137,7 @@ def create_recorder_env(
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
+    args_cli.disable_fabric = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC") == "1"
     # The builder applies the language-instruction override onto the env cfg's task_description, which the
     # core recorder then records.
     args_cli.language_instruction = LANGUAGE_INSTRUCTION
@@ -167,10 +169,30 @@ def create_recorder_env(
 
 def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
     """Step the env for ``NUM_STEPS`` (records stream to disk as episodes finish), then parse them."""
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
+    log_state = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE") == "1"
+    max_force_by_env = torch.zeros(NUM_ENVS, device=env.unwrapped.device)
+    for step in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
+            if log_state:
+                sensor = env.unwrapped.scene.sensors["contact_sensor_cracker_box"]
+                force_matrix = sensor.data.force_matrix_w.torch
+                force_by_env = torch.linalg.vector_norm(force_matrix, dim=-1).flatten(start_dim=1).amax(dim=1)
+                max_force_by_env = torch.maximum(max_force_by_env, force_by_env)
+                if step < 5 or (step + 1) % 20 == 0:
+                    cracker_box = env.unwrapped.scene["cracker_box"]
+                    success = env.unwrapped.termination_manager.get_term("success")
+                    print(
+                        "[contact-state] "
+                        f"step={step + 1} "
+                        f"force={force_by_env.tolist()} "
+                        f"max_force={max_force_by_env.tolist()} "
+                        f"success={success.tolist()} "
+                        f"position={cracker_box.data.root_pos_w.torch.tolist()} "
+                        f"velocity={cracker_box.data.root_lin_vel_w.torch.tolist()}",
+                        flush=True,
+                    )
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:

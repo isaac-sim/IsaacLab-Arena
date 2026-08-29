@@ -62,25 +62,18 @@ jobs:
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
-      # Temporary diagnostic matrix: run the minimal contact-state reproducer
-      # across the Isaac Lab commits introduced by the submodule update.
+      # Temporary diagnostic matrix: isolate whether the first bad FrameView
+      # revision requires Fabric to poison filtered-contact state.
       matrix:
         include:
-          - variant: source-baseline
-            uv_flags: "--group gr00t-client"
-            isaaclab_sha: af1bab4dc173ba69b08fab779c14ead61d13fd33
-          - variant: source-pre-frame-view
-            uv_flags: "--group gr00t-client"
-            isaaclab_sha: b0fd052e46e790c594f111c158cb6a3bf21a3858
-          - variant: source-frame-view
+          - variant: source-frame-view-fabric
             uv_flags: "--group gr00t-client"
             isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
-          - variant: source-fabric-selection
+            disable_fabric: "0"
+          - variant: source-frame-view-no-fabric
             uv_flags: "--group gr00t-client"
-            isaaclab_sha: 63e4005d20d73e2994fb5d9ed71597654d682e31
-          - variant: source-ovphysx-binding
-            uv_flags: "--group gr00t-client"
-            isaaclab_sha: 89adc465dbb482a82a298633bb1f4bc06a1089c3
+            isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
+            disable_fabric: "1"
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -178,6 +171,8 @@ jobs:
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+          ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC: ${{ matrix.disable_fabric }}
+          ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
           pytest -sv --maxfail=1 --durations=0 \
@@ -187,6 +182,8 @@ jobs:
         shell: bash
         env:
           ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+          ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC: ${{ matrix.disable_fabric }}
+          ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE: "1"
         run: |
           source .venv/bin/activate
           pytest -sv --durations=0 \
