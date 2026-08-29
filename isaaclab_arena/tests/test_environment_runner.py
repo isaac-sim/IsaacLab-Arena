@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import torch
 from types import SimpleNamespace
 
@@ -150,6 +151,52 @@ def test_mouse_interaction_uses_d6_grab_for_current_stage():
         _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
     )
     assert result
+
+
+def _require_frame_view_diagnostics() -> None:
+    if os.environ.get("ISAACLAB_ARENA_RUN_FRAME_VIEW_DIAGNOSTICS") != "1":
+        pytest.skip("FrameView pollution diagnostics are disabled")
+
+
+def _test_enable_physx_ui_extension_only(simulation_app) -> bool:  # noqa: ARG001
+    import omni.kit.app
+
+    extension_manager = omni.kit.app.get_app().get_extension_manager()
+    extension_manager.set_extension_enabled_immediate("omni.physx.ui", True)
+    assert extension_manager.is_extension_enabled("omni.physx.ui")
+    return True
+
+
+def test_enable_physx_ui_extension_only():
+    """Enable the PhysX UI extension without changing mouse settings."""
+    _require_frame_view_diagnostics()
+    assert run_function_with_persistent_simulation_app(_test_enable_physx_ui_extension_only, headless=True)
+
+
+def _test_enable_mouse_settings_only(simulation_app) -> bool:  # noqa: ARG001
+    import carb
+    import omni.kit.app
+    import omni.physx.bindings._physx as physx_bindings
+
+    extension_manager = omni.kit.app.get_app().get_extension_manager()
+    assert not extension_manager.is_extension_enabled("omni.physx.ui")
+    settings = carb.settings.get_settings()
+    setting_values = {
+        physx_bindings.SETTING_MOUSE_INTERACTION_ENABLED: True,
+        physx_bindings.SETTING_MOUSE_GRAB: True,
+        physx_bindings.SETTING_MOUSE_GRAB_WITH_FORCE: False,
+        physx_bindings.SETTING_MOUSE_GRAB_IGNORE_INVISBLE: False,
+    }
+    for setting_path, setting_value in setting_values.items():
+        settings.set_bool(setting_path, setting_value)
+    assert not extension_manager.is_extension_enabled("omni.physx.ui")
+    return True
+
+
+def test_enable_mouse_settings_only():
+    """Change global mouse settings without enabling the PhysX UI extension."""
+    _require_frame_view_diagnostics()
+    assert run_function_with_persistent_simulation_app(_test_enable_mouse_settings_only, headless=True)
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
