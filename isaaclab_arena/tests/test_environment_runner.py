@@ -174,24 +174,6 @@ def test_enable_physx_ui_extension_only():
     assert run_function_with_persistent_simulation_app(_test_enable_physx_ui_extension_only, headless=True)
 
 
-def _test_enable_then_disable_physx_ui_extension(simulation_app) -> bool:  # noqa: ARG001
-    import omni.kit.app
-
-    extension_manager = omni.kit.app.get_app().get_extension_manager()
-    assert not extension_manager.is_extension_enabled("omni.physx.ui")
-    extension_manager.set_extension_enabled_immediate("omni.physx.ui", True)
-    assert extension_manager.is_extension_enabled("omni.physx.ui")
-    extension_manager.set_extension_enabled_immediate("omni.physx.ui", False)
-    assert not extension_manager.is_extension_enabled("omni.physx.ui")
-    return True
-
-
-def test_enable_then_disable_physx_ui_extension():
-    """Enable and disable the PhysX UI extension before the next stage."""
-    _require_frame_view_diagnostics()
-    assert run_function_with_persistent_simulation_app(_test_enable_then_disable_physx_ui_extension, headless=True)
-
-
 def _test_enable_mouse_settings_only(simulation_app) -> bool:  # noqa: ARG001
     import carb
     import omni.kit.app

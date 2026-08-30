@@ -182,17 +182,6 @@ jobs:
             isaaclab_arena/tests/test_environment_runner.py::test_enable_physx_ui_extension_only \
             isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
 
-      - name: Observe PhysX UI activation residue
-        shell: bash
-        env:
-          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
-          ISAACLAB_ARENA_RUN_FRAME_VIEW_DIAGNOSTICS: "1"
-        run: |
-          source .venv/bin/activate
-          pytest -sv --maxfail=1 --durations=0 \
-            isaaclab_arena/tests/test_environment_runner.py::test_enable_then_disable_physx_ui_extension \
-            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
-
       - name: Observe mouse-settings-only pollution
         shell: bash
         env:
