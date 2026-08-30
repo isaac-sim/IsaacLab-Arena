@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 import tempfile
 import torch
 import tqdm
 from dataclasses import field
 from pathlib import Path
 
+import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
@@ -23,6 +25,39 @@ HEADLESS = True
 
 JOB_NAME = "unit_test"
 LANGUAGE_INSTRUCTION = "put the box in the drawer"
+
+
+def _get_parent_transform_diagnostics(frame_view) -> tuple[list[list[float]], list[list[float]], int]:
+    """Read parent world positions from Fabric and USD without creating another FrameView."""
+    import warp as wp
+    from isaaclab.sim.utils import get_current_stage_id
+    from isaaclab.utils.warp import fabric as fabric_utils
+    from pxr import Usd, UsdGeom
+
+    parent_positions = wp.zeros((frame_view.count, 3), dtype=wp.float32, device=frame_view.device)
+    parent_orientations = wp.zeros((frame_view.count, 4), dtype=wp.float32, device=frame_view.device)
+    wp.launch(
+        kernel=fabric_utils.decompose_indexed_fabric_transforms,
+        dim=frame_view.count,
+        inputs=[
+            frame_view._get_parent_world_ifa(),
+            parent_positions,
+            parent_orientations,
+            frame_view._fabric_empty_2d_array_sentinel,
+            frame_view._view_indices,
+        ],
+        device=frame_view.device,
+    )
+    wp.synchronize()
+
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    usd_parent_positions = []
+    for prim in frame_view._usd_view.prims:
+        translation = xform_cache.GetLocalToWorldTransform(prim.GetParent()).ExtractTranslation()
+        usd_parent_positions.append([float(translation[0]), float(translation[1]), float(translation[2])])
+
+    return wp.to_torch(parent_positions).tolist(), usd_parent_positions, get_current_stage_id()
+
 
 # Fields stamped by the manager (metadata) plus those from the default core term.
 CORE_KEYS = {
@@ -136,6 +171,7 @@ def create_recorder_env(
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
+    args_cli.disable_fabric = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_DISABLE_FABRIC") == "1"
     # The builder applies the language-instruction override onto the env cfg's task_description, which the
     # core recorder then records.
     args_cli.language_instruction = LANGUAGE_INSTRUCTION
@@ -165,12 +201,173 @@ def create_recorder_env(
     return env, output_path
 
 
+def _log_frame_view_hierarchy_boundary(env, boundary: str) -> None:
+    """Log child and parent transforms after FrameView initialization."""
+    import omni.kit.app
+
+    success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+    frame_view = success_term._destination_asset_base_pose_reader._frame_view
+    assert frame_view._fabric_initialized, "Initialize FrameView before taking an observation-only snapshot."
+    hierarchy = frame_view._fabric_hierarchy
+    tracking_local_before_reads = hierarchy.tracking_local_xform_changes
+    tracking_world_before_reads = hierarchy.tracking_world_xform_changes
+    fabric_world_position, fabric_world_orientation = frame_view.get_world_poses()
+    fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
+    usd_world_position, usd_world_orientation = frame_view._usd_view.get_world_poses()
+    usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
+    fabric_parent_position, usd_parent_position, active_stage_id = _get_parent_transform_diagnostics(frame_view)
+    tracking_local_after_reads = hierarchy.tracking_local_xform_changes
+    tracking_world_after_reads = hierarchy.tracking_world_xform_changes
+    parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
+    physx_ui_enabled = omni.kit.app.get_app().get_extension_manager().is_extension_enabled("omni.physx.ui")
+    print(
+        f"[hierarchy-boundary] boundary={boundary} "
+        f"physx_ui_enabled={physx_ui_enabled} "
+        f"children={frame_view.prim_paths} "
+        f"parents={parent_paths} "
+        f"child_fabric_world_position={fabric_world_position.torch.tolist()} "
+        f"child_fabric_world_orientation={fabric_world_orientation.torch.tolist()} "
+        f"child_fabric_local_position={fabric_local_position.torch.tolist()} "
+        f"child_fabric_local_orientation={fabric_local_orientation.torch.tolist()} "
+        f"child_usd_world_position={usd_world_position.torch.tolist()} "
+        f"child_usd_world_orientation={usd_world_orientation.torch.tolist()} "
+        f"child_usd_local_position={usd_local_position.torch.tolist()} "
+        f"child_usd_local_orientation={usd_local_orientation.torch.tolist()} "
+        f"parent_fabric_world_position={fabric_parent_position} "
+        f"parent_usd_world_position={usd_parent_position} "
+        f"tracking_local_before_reads={tracking_local_before_reads} "
+        f"tracking_local_after_reads={tracking_local_after_reads} "
+        f"tracking_world_before_reads={tracking_world_before_reads} "
+        f"tracking_world_after_reads={tracking_world_after_reads} "
+        f"fabric_id={frame_view._fabric_id} "
+        f"active_stage_id={active_stage_id} "
+        f"usdrt_stage_id={frame_view._stage.GetStageIdAsStageId()}",
+        flush=True,
+    )
+
+
+def _test_frame_view_reconciliation_boundary(simulation_app, output_dir):  # noqa: ARG001
+    env, _ = create_recorder_env(output_dir)
+    originals = []
+    step_number = 0
+
+    def observe_after(obj, method_name: str, boundary: str) -> None:
+        original = getattr(obj, method_name)
+        originals.append((obj, method_name, original))
+
+        def observed(*args, **kwargs):
+            result = original(*args, **kwargs)
+            _log_frame_view_hierarchy_boundary(env, f"step-{step_number}-{boundary}")
+            return result
+
+        setattr(obj, method_name, observed)
+
+    try:
+        success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+        frame_view = success_term._destination_asset_base_pose_reader._frame_view
+        # The pinned FrameView lazily initializes on its first getter and seeds
+        # child and parent Fabric matrices from USD. Keep that write in setup so
+        # every logged boundary below is observation-only.
+        frame_view.get_world_poses()
+        _log_frame_view_hierarchy_boundary(env, "initial-after-frame-view-initialization")
+        observe_after(env.unwrapped.action_manager, "apply_action", "after-apply-action")
+        observe_after(env.unwrapped.scene, "write_data_to_sim", "after-scene-write")
+        observe_after(env.unwrapped.sim, "step", "after-physics")
+        observe_after(env.unwrapped.sim, "render", "after-render")
+        observe_after(env.unwrapped.scene, "update", "after-scene-update")
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        for step in range(1, 3):
+            step_number = step
+            env.step(actions)
+            _log_frame_view_hierarchy_boundary(env, f"step-{step}-after-env-step")
+    finally:
+        for obj, method_name, original in reversed(originals):
+            setattr(obj, method_name, original)
+        env.close()
+    return True
+
+
+def test_frame_view_reconciliation_boundary(tmp_path):
+    """Locate which environment-step phase reconciles Fabric world transforms."""
+    from isaaclab.utils.warp import fabric as fabric_utils
+
+    if not hasattr(fabric_utils, "decompose_indexed_fabric_transforms"):
+        pytest.skip("The installed Isaac Lab predates indexed Fabric transform diagnostics")
+    assert run_function_with_persistent_simulation_app(
+        _test_frame_view_reconciliation_boundary,
+        headless=HEADLESS,
+        output_dir=tmp_path,
+    )
+
+
 def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
     """Step the env for ``NUM_STEPS`` (records stream to disk as episodes finish), then parse them."""
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
+    log_state = os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_LOG_STATE") == "1"
+    max_force_by_env = torch.zeros(NUM_ENVS, device=env.unwrapped.device)
+    for step in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
+            if log_state:
+                sensor = env.unwrapped.scene.sensors["contact_sensor_cracker_box"]
+                force_matrix = sensor.data.force_matrix_w.torch
+                force_by_env = torch.linalg.vector_norm(force_matrix, dim=-1).flatten(start_dim=1).amax(dim=1)
+                max_force_by_env = torch.maximum(max_force_by_env, force_by_env)
+                if step < 5 or (step + 1) % 20 == 0:
+                    cracker_box = env.unwrapped.scene["cracker_box"]
+                    success = env.unwrapped.termination_manager.get_term("success")
+                    success_term = env.unwrapped.termination_manager.get_term_cfg("success").func
+                    destination_reader = success_term._destination_asset_base_pose_reader
+                    frame_view = destination_reader._frame_view
+                    destination_pose = destination_reader.get_pose_in_world_frame()
+                    fabric_local_position, fabric_local_orientation = frame_view.get_local_poses()
+                    usd_position, usd_orientation = frame_view._usd_view.get_world_poses()
+                    usd_local_position, usd_local_orientation = frame_view._usd_view.get_local_poses()
+                    fabric_parent_position, usd_parent_position, active_stage_id = _get_parent_transform_diagnostics(
+                        frame_view
+                    )
+                    hierarchy = frame_view._fabric_hierarchy
+                    if step == 0:
+                        parent_paths = [path.rsplit("/", 1)[0] for path in frame_view.prim_paths]
+                        print(
+                            f"[frame-view-layout] children={frame_view.prim_paths} "
+                            f"parents={parent_paths} "
+                            f"fabric_id={frame_view._fabric_id} "
+                            f"active_stage_id={active_stage_id} "
+                            f"usdrt_stage_id={frame_view._stage.GetStageIdAsStageId()}",
+                            flush=True,
+                        )
+                    print(
+                        "[contact-state] "
+                        f"step={step + 1} "
+                        f"force={force_by_env.tolist()} "
+                        f"max_force={max_force_by_env.tolist()} "
+                        f"success={success.tolist()} "
+                        f"position={cracker_box.data.root_pos_w.torch.tolist()} "
+                        f"velocity={cracker_box.data.root_lin_vel_w.torch.tolist()}",
+                        f"destination_fabric={destination_pose.tolist()} "
+                        f"destination_usd_position={usd_position.torch.tolist()} "
+                        f"destination_usd_orientation={usd_orientation.torch.tolist()} "
+                        f"destination_fabric_local_position={fabric_local_position.torch.tolist()} "
+                        f"destination_fabric_local_orientation={fabric_local_orientation.torch.tolist()} "
+                        f"destination_usd_local_position={usd_local_position.torch.tolist()} "
+                        f"destination_usd_local_orientation={usd_local_orientation.torch.tolist()} "
+                        f"parent_fabric_world_position={fabric_parent_position} "
+                        f"parent_usd_world_position={usd_parent_position} "
+                        f"tracking_local={hierarchy.tracking_local_xform_changes} "
+                        f"tracking_world={hierarchy.tracking_world_xform_changes} "
+                        f"active_stage_id={active_stage_id}",
+                        flush=True,
+                    )
+                    if os.environ.get("ISAACLAB_ARENA_DIAGNOSTIC_ASSERT_FABRIC_STABLE") == "1":
+                        fabric_world_position = destination_pose[:, :3]
+                        usd_world_position = usd_position.torch
+                        assert torch.allclose(fabric_world_position, usd_world_position, atol=1e-5, rtol=1e-5), (
+                            f"Fabric world pose diverged from USD at step {step + 1}: "
+                            f"fabric_world={fabric_world_position.tolist()}, "
+                            f"fabric_local={fabric_local_position.torch.tolist()}, "
+                            f"usd_world={usd_world_position.tolist()}"
+                        )
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:

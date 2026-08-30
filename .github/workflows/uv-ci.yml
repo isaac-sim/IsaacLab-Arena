@@ -62,15 +62,13 @@ jobs:
     strategy:
       # Keep running the other variant when one fails.
       fail-fast: false
-      # Test matrix:
-      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
-      #     - source: uv-based installation that consumes isaaclab through source code.
+      # Temporary diagnostic matrix: isolate the first bad FrameView revision's
+      # Fabric initialization and USD seeding behavior.
       matrix:
         include:
-          - variant: wheel
-            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
-          - variant: source
+          - variant: source-frame-view-observe-hierarchy
             uv_flags: "--group gr00t-client"
+            isaaclab_sha: 4f5feefc847821a81af8658e2132561b8d8bea40
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -118,6 +116,13 @@ jobs:
           git lfs install --local
           git lfs pull
 
+      - name: Select Isaac Lab diagnostic revision
+        run: |
+          git -C submodules/IsaacLab fetch --depth=1 \
+            https://github.com/isaac-sim/IsaacLab.git "${{ matrix.isaaclab_sha }}"
+          git -C submodules/IsaacLab checkout --detach FETCH_HEAD
+          git -C submodules/IsaacLab rev-parse HEAD
+
       - name: Install graphics loader and build tools
         run: |
           apt-get update
@@ -155,7 +160,51 @@ jobs:
           git config --global --add safe.directory '*'
           uv sync ${{ matrix.uv_flags }} --extra dev
 
+      # Compare a clean control with the known PhysX UI reproducer while only
+      # observing Fabric/USD hierarchy state.
+      - name: Observe clean FrameView hierarchy
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --maxfail=1 --durations=0 \
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
+
+      - name: Observe PhysX UI extension-only pollution
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+          ISAACLAB_ARENA_RUN_FRAME_VIEW_DIAGNOSTICS: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --maxfail=1 --durations=0 \
+            isaaclab_arena/tests/test_environment_runner.py::test_enable_physx_ui_extension_only \
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
+
+      - name: Observe mouse-settings-only pollution
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+          ISAACLAB_ARENA_RUN_FRAME_VIEW_DIAGNOSTICS: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --maxfail=1 --durations=0 \
+            isaaclab_arena/tests/test_environment_runner.py::test_enable_mouse_settings_only \
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
+
+      - name: Observe full mouse-interaction pollution
+        shell: bash
+        env:
+          ISAACLAB_ARENA_SKIP_PERSISTENT_TEST_GC: "1"
+        run: |
+          source .venv/bin/activate
+          pytest -sv --maxfail=1 --durations=0 \
+            isaaclab_arena/tests/test_environment_runner.py::test_mouse_interaction_uses_d6_grab_for_current_stage \
+            isaaclab_arena/tests/test_episode_recorder.py::test_frame_view_reconciliation_boundary
+
       - name: Run in-process Newton tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -163,6 +212,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -170,6 +220,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -177,6 +228,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
@@ -185,6 +237,7 @@ jobs:
             isaaclab_arena/tests/
 
       - name: Run GR00T remote policy client tests
+        if: matrix.variant == 'wheel'
         shell: bash
         run: |
           source .venv/bin/activate
