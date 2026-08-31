@@ -71,6 +71,12 @@ class ObjectOnDestinationTerm(ManagerTermBase):
             )
             assert False, unsupported_destination_message
 
+    def close(self) -> None:
+        """Close resources owned by this termination term."""
+        if self._destination_asset_base_pose_reader is not None:
+            self._destination_asset_base_pose_reader.close()
+            self._destination_asset_base_pose_reader = None
+
     def __call__(
         self,
         env: ManagerBasedEnv,

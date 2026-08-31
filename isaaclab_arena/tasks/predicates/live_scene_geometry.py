@@ -177,6 +177,7 @@ class AssetBaseCfgPoseReader:
 
         self._entity_name = entity_name
         self._num_envs = env.num_envs
+        self._is_closed = False
         entity_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
             entity_prim_path,
@@ -196,6 +197,12 @@ class AssetBaseCfgPoseReader:
                 f"AssetBaseCfg scene entry '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
+
+    def close(self) -> None:
+        """Close the term-owned frame view."""
+        if not self._is_closed:
+            self._frame_view.close()
+            self._is_closed = True
 
     def get_pose_in_world_frame(self) -> torch.Tensor:
         """Return ``T_W_R``, taking points from reference frame ``R`` to world frame ``W``.

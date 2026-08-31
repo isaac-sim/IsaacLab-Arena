@@ -232,12 +232,70 @@ def _check_object_on_destination_term(
             raise AssertionError("The term accepted a destination that did not match its cached geometry.")
 
 
+def _check_owned_resource_cleanup(
+    live_scene_geometry,
+    object_on_destination_term_module,
+    arena_env_type,
+    manager_based_rl_env_type,
+) -> None:
+    """Check that term-owned views close once and before the termination manager is deleted."""
+
+    class DummyClosable:
+        def __init__(self):
+            self.close_calls = 0
+
+        def close(self):
+            self.close_calls += 1
+
+    frame_view = DummyClosable()
+    pose_reader = object.__new__(live_scene_geometry.AssetBaseCfgPoseReader)
+    pose_reader._frame_view = frame_view
+    pose_reader._is_closed = False
+    pose_reader.close()
+    pose_reader.close()
+    assert frame_view.close_calls == 1
+
+    term_reader = DummyClosable()
+    term = object.__new__(object_on_destination_term_module.ObjectOnDestinationTerm)
+    term._destination_asset_base_pose_reader = term_reader
+    term.close()
+    term.close()
+    assert term_reader.close_calls == 1
+
+    closable_term = DummyClosable()
+
+    class DummyTerminationManager:
+        active_terms = ["success", "time_out"]
+
+        def get_term_cfg(self, term_name):
+            if term_name == "success":
+                return SimpleNamespace(func=closable_term)
+            return SimpleNamespace(func=lambda: None)
+
+    env = object.__new__(arena_env_type)
+    env._is_closed = False
+    env.termination_manager = DummyTerminationManager()
+
+    def close_parent(parent_env):
+        assert closable_term.close_calls == 1
+        parent_env._is_closed = True
+
+    with patch.object(manager_based_rl_env_type, "close", autospec=True, side_effect=close_parent) as parent_close:
+        env.close()
+        env.close()
+
+    assert closable_term.close_calls == 1
+    assert parent_close.call_count == 2
+
+
 def _test_object_on_destination_term(_simulation_app) -> bool:
+    from isaaclab.envs import ManagerBasedRLEnv
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
     import isaaclab_arena.tasks.predicates.live_scene_geometry as live_scene_geometry
     import isaaclab_arena.tasks.predicates.object_on_destination_term as object_on_destination_term
     import isaaclab_arena.tasks.predicates.spatial as spatial
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
@@ -248,6 +306,12 @@ def _test_object_on_destination_term(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
         SceneEntityCfg,
         TerminationTermCfg,
+    )
+    _check_owned_resource_cleanup(
+        live_scene_geometry,
+        object_on_destination_term,
+        IsaacLabArenaManagerBasedRLEnv,
+        ManagerBasedRLEnv,
     )
     return True
 
