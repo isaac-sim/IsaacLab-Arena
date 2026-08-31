@@ -105,7 +105,12 @@ def build_and_run(
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
             rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
-            env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
+            env = _build_environment_from_cfg(
+                rebuild_cfg,
+                rebuild_video_cfg.render_mode,
+                output_dir=output_dir,
+                rebuild_index=rebuild_index,
+            )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -140,13 +145,27 @@ def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
     render_mode: str | None,
+    output_dir: str | Path = "",
+    rebuild_index: int = 0,
 ) -> gym.Env:
-    """Compile and instantiate a run's environment."""
-    arena_builder = build_arena_builder_from_run_cfg(cfg)
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+    """Compile and instantiate a run's environment.
+
+    Args:
+        cfg: The run whose environment is being built.
+        render_mode: Render mode required by the enabled video recorders.
+        output_dir: Directory the run's recorded dataset is exported to.
+        rebuild_index: Index of the rebuild this environment serves.
+    """
+    # Stamp runtime-derived recorder output options onto a copy of the run's builder cfg so composition in
+    # ArenaEnvBuilder.compose_manager_cfg sees them without mutating the caller's run config.
+    run_cfg = deepcopy(cfg)
+    trajectory_recording_enabled = run_cfg.environment_builder.record_trajectories
+    run_cfg.environment_builder.recorder_dataset_export_dir_path = (
+        str(output_dir) if trajectory_recording_enabled else None
+    )
+    run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
+    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    return arena_builder.make_registered(render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:

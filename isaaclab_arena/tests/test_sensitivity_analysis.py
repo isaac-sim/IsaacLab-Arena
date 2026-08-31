@@ -9,7 +9,7 @@ Each test fits a SensitivityAnalyzer on a dataset whose factor→outcome relatio
 planted by the synthetic module (brighter / lighter / closer / cube / oak raise success),
 then asserts the posterior conditioned on success recovers them. The data is built in
 memory, so these run on CPU without Isaac Sim. They cover both estimator paths: MNPE for a
-mixed schema, NPE for a continuous-only one (2-D theta).
+mixed schema, NPE for a continuous-only one (3-D theta).
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.tests.sensitivity_synthetic import (
     CAMERA_DISTANCE,
-    GRASP_OFFSET,
     LIGHT,
     MATERIAL,
     OBJECT_MASS,
@@ -74,8 +73,8 @@ def test_mnpe_recovers_all_planted_effects():
     assert _most_likely_choice(analyzer, samples, "table_material", MATERIAL.choices) == "oak"
 
 
-def test_npe_recovers_two_continuous_effects():
-    """Two continuous factors (NPE): recover that bright light and a small grasp offset drive success."""
+def test_npe_recovers_three_continuous_effects():
+    """Three continuous factors (NPE): recover the planted light, mass, and camera effects."""
     dataset = make_continuous_dataset(seed=0)
     analyzer = SensitivityAnalyzer(dataset)
     assert analyzer._select_inference_class().__name__.startswith("NPE"), "continuous-only schema should select NPE"
@@ -84,10 +83,10 @@ def test_npe_recovers_two_continuous_effects():
     analyzer.fit()
     samples = analyzer.sample_posterior(num_samples=_NUM_SAMPLES)  # conditions on success=1 by default
 
-    # Brighter light raises success → light posterior skews high.
+    # Brighter light, a lighter object, and a closer camera raise success.
     assert _factor_samples(analyzer, samples, "light_intensity").mean() > _midpoint(LIGHT)
-    # A smaller grasp offset raises success → offset posterior skews low.
-    assert _factor_samples(analyzer, samples, "grasp_offset").mean() < _midpoint(GRASP_OFFSET)
+    assert _factor_samples(analyzer, samples, "object_mass").mean() < _midpoint(OBJECT_MASS)
+    assert _factor_samples(analyzer, samples, "camera_distance").mean() < _midpoint(CAMERA_DISTANCE)
 
 
 def _write_jsonl(path, rows: list[dict]) -> None:

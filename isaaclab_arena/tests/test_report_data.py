@@ -59,17 +59,22 @@ def _write_run(experiment_dir, run_name: str, records: list[dict], cameras: tupl
     return run_dir
 
 
-def test_progress_fraction_normalizes_by_the_achievable_score():
-    episode = _episode({"progress": _progress({"a": 1, "b": 1, "c": 1}, [], score=1.5)})
+def test_progress_fraction_uses_recorded_overall_score():
+    # overall_score is recorded already normalized to [0, 1], so it is used directly.
+    episode = _episode({"progress": {"overall_score": 0.5}})
 
-    assert episode.max_score == 3.0
     assert episode.progress_fraction == 0.5
 
 
-def test_progress_fraction_is_none_without_recorded_objectives():
+def test_progress_fraction_clamps_out_of_range_overall_score():
+    episode = _episode({"progress": {"overall_score": 1.5}})
+
+    assert episode.progress_fraction == 1.0
+
+
+def test_progress_fraction_is_none_without_recorded_progress():
     episode = _episode({"success": True})
 
-    assert episode.max_score is None
     assert episode.progress_fraction is None
 
 

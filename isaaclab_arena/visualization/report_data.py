@@ -67,17 +67,10 @@ class EpisodeSummary:
         return success if isinstance(success, bool) else None
 
     @property
-    def max_score(self) -> float | None:
-        objectives = _progress_objectives(self.record)
-        total = sum(_as_float(objective.get("total_groups")) or 0.0 for objective in objectives.values())
-        return total if total > 0 else None
-
-    @property
     def progress_fraction(self) -> float | None:
-        score, max_score = _as_float(_progress(self.record).get("overall_score")), self.max_score
-        if score is None or max_score is None:
-            return None
-        return max(0.0, min(1.0, score / max_score))
+        # overall_score is recorded already normalized to [0, 1] by the progress tracker.
+        score = _as_float(_progress(self.record).get("overall_score"))
+        return None if score is None else max(0.0, min(1.0, score))
 
     @property
     def all_objectives_complete(self) -> bool | None:
