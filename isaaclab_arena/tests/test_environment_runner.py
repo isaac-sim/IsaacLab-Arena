@@ -6,12 +6,15 @@
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import torch
 from types import SimpleNamespace
 
 import pytest
 
 from isaaclab_arena.scripts import environment_runner
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -145,11 +148,16 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
     return True
 
 
+@pytest.mark.with_subprocess
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    result = run_function_with_persistent_simulation_app(
-        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
+    result = subprocess.run(
+        [TestConstants.python_path, __file__],
+        capture_output=True,
+        text=True,
+        timeout=int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900")),
+        start_new_session=True,
     )
-    assert result
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
@@ -243,3 +251,10 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1
+
+
+if __name__ == "__main__":
+    result = run_function_with_persistent_simulation_app(
+        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
+    )
+    raise SystemExit(0 if result else 1)
