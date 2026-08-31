@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: bottles_crate_robolab_exact
+  registry_name: bottles_crate_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: bbq_sauce_bottle
+  parent_id: bottles_crate_robolab_exact
+  prim_path: bbq_sauce_bottle
+  object_type: rigid
+  params: {}
+- id: purple_crate
+  parent_id: bottles_crate_robolab_exact
+  prim_path: purple_crate
+  object_type: rigid
+  params: {}
+- id: ceramic_mug
+  parent_id: bottles_crate_robolab_exact
+  prim_path: ceramic_mug
+  object_type: rigid
+  params: {}
+- id: salad_dressing_bottle
+  parent_id: bottles_crate_robolab_exact
+  prim_path: salad_dressing_bottle
+  object_type: rigid
+  params: {}
+relations: []

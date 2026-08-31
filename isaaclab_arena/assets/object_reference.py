@@ -7,7 +7,8 @@ import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
+from isaaclab.sim import UsdFileCfg
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.object import Object
@@ -31,6 +32,8 @@ class ObjectReference(ObjectBase):
     def __init__(self, parent_asset: Object, **kwargs):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
+        if self.object_type == ObjectType.RIGID:
+            self._enable_parent_contact_reporting()
         self._parent_scale = parent_asset.scale
         # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
         (
@@ -43,6 +46,14 @@ class ObjectReference(ObjectBase):
         self._collision_mesh: trimesh.Trimesh | None = None
         # None is a valid cached result for meshless prims; this flag distinguishes that from not-yet-loaded.
         self._collision_mesh_loaded = False
+
+    def _enable_parent_contact_reporting(self) -> None:
+        """Request contact-report APIs while spawning the referenced parent USD."""
+        spawn_cfg = self.parent_asset.object_cfg.spawn
+        assert isinstance(
+            spawn_cfg, UsdFileCfg
+        ), f"Rigid ObjectReference '{self.name}' requires a USD-backed parent, got {type(spawn_cfg).__name__}"
+        spawn_cfg.activate_contact_sensors = True
 
     def _build_reset_event(self):
         """Build a complete reset event for a referenced rigid body or articulation."""
@@ -138,16 +149,33 @@ class ObjectReference(ObjectBase):
             return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        # NOTE(alexmillane): Right now this requires that the object
-        # has the contact sensor enabled prior to using this reference.
-        # At the moment, for the tests, I enabled the relevant APIs in the GUI.
-        # TODO(alexmillane, 2025.09.08): Make the code automatically enable the
-        # contact reporter API.
-        # NOTE(alexmillane, 2025.11.27): I've added a function for adding
-        # the contact reporter API to a prim in a USD, perhaps that can be repurposed
-        # and used here.
-        # Just call out to the parent class method.
-        return super().get_contact_sensor_cfg(contact_against_object)
+        """Return a contact sensor rooted at the referenced subtree's rigid body."""
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        filter_prim_paths = []
+        if isinstance(contact_against_object, ObjectReference):
+            filter_prim_paths.append(contact_against_object._get_contact_sensor_prim_path())
+        elif contact_against_object is not None:
+            filter_prim_paths.append(contact_against_object.get_prim_path())
+        return ContactSensorCfg(
+            prim_path=self._get_contact_sensor_prim_path(),
+            filter_prim_paths_expr=filter_prim_paths,
+        )
+
+    def _get_contact_sensor_prim_path(self) -> str:
+        """Return the runtime path of the shallowest rigid body in this reference."""
+        with open_stage(self.parent_asset.usd_path) as parent_stage:
+            reference_root = parent_stage.GetPrimAtPath(self.prim_path_in_parent_usd)
+            rigid_paths = [
+                str(prim.GetPath()) for prim in Usd.PrimRange(reference_root) if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+            ]
+        assert rigid_paths, f"No rigid body found below referenced prim '{self.prim_path_in_parent_usd}'"
+        min_depth = min(path.count("/") for path in rigid_paths)
+        shallowest = [path for path in rigid_paths if path.count("/") == min_depth]
+        assert (
+            len(shallowest) == 1
+        ), f"Expected one shallowest rigid body below '{self.prim_path_in_parent_usd}', got {shallowest}"
+        relative_path = shallowest[0].removeprefix(self.prim_path_in_parent_usd)
+        return self.prim_path + relative_path
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

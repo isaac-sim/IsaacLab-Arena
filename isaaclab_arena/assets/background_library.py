@@ -14,6 +14,7 @@ from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.robolab_scene_factory import register_robolab_exact_scenes
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -216,6 +217,7 @@ class LightwheelKitchenBackground(LibraryBackground):
 # `globals()` makes it possible to expose the generated classes as module-level classes
 # so they can be imported like other background classes.
 register_lightwheel_kitchens(LightwheelKitchenBackground, globals())
+register_robolab_exact_scenes(LibraryBackground, globals())
 
 
 @register_asset
