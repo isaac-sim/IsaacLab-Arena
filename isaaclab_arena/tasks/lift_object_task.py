@@ -14,7 +14,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
-from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
+from isaaclab_tasks.core.lift import lift_env_cfg as lift
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
@@ -364,11 +364,11 @@ class LiftObjectRewardCfg:
 
 
 @configclass
-class DexsuiteLiftTerminationsCfg(dexsuite.TerminationsCfg):
+class DexsuiteLiftTerminationsCfg(lift.TerminationsCfg):
     """Dexsuite base terminations + position-based ``success``.
 
     Inherits ``time_out``, ``object_out_of_bound``, and ``abnormal_robot`` from
-    :class:`isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg.TerminationsCfg`.
+    :class:`isaaclab_tasks.core.lift.lift_env_cfg.TerminationsCfg`.
     """
 
     success: TerminationTermCfg = TerminationTermCfg(
@@ -397,7 +397,7 @@ class DexsuiteLiftTask(LiftObjectTask):
         )
         self.task_description = "Dexsuite lift (Arena, Newton-ready scene)."
 
-        self.commands_cfg = dexsuite.CommandsCfg()
+        self.commands_cfg = lift.CommandsCfg()
         self.commands_cfg.object_pose.position_only = True
         self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
         self.termination_cfg = DexsuiteLiftTerminationsCfg()

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import torch
 import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING
@@ -69,6 +68,8 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
 ) -> MetricsDataCollection | None:
+    import torch
+
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
