@@ -78,21 +78,11 @@ class ObjectOnDestinationTerm(ManagerTermBase):
             self._destination_asset_base_pose_reader = None
 
     def __del__(self):
-        """Release the frame view when the termination manager drops this term.
-
-        A FrameView holds per-view Fabric index attributes on its prims, and those linger
-        until something releases them. Isaac Lab's ManagerTermBase has no teardown hook, so
-        the release is driven from here, mirroring how RecorderManager drives
-        RecorderTerm.close from its own destructor. Isaac Lab's env close deletes the
-        managers explicitly, which drops the last reference to their terms and runs this.
-        """
+        """Release the frame view when the termination manager drops this term."""
         # TODO(amillane, 2026-08-31): Move this upstream post v0.3.0 -- ManagerTermBase should
         # grow a teardown hook that each manager calls for its own terms, so resource-owning
         # terms no longer need their own destructor.
-        # hasattr: __init__ can raise before the reader is assigned, and an AttributeError
-        # raised here would only print over the traceback that actually matters.
-        if hasattr(self, "_destination_asset_base_pose_reader"):
-            self.close()
+        self.close()
 
     def __call__(
         self,
