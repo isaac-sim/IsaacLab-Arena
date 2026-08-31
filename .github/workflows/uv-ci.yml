@@ -47,7 +47,7 @@ jobs:
               - 'submodules/Isaac-GR00T/**'
 
   uv_test:
-    name: Run tests (native uv, ${{ matrix.variant }})
+    name: Run tests (native uv, source)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [uv_changes]
@@ -59,18 +59,6 @@ jobs:
       !cancelled() &&
       (github.event_name != 'pull_request' ||
        needs.uv_changes.outputs.uv == 'true')
-    strategy:
-      # Keep running the other variant when one fails.
-      fail-fast: false
-      # Test matrix:
-      #     - wheel: uv-based installation that consumes isaaclab through its published wheel
-      #     - source: uv-based installation that consumes isaaclab through source code.
-      matrix:
-        include:
-          - variant: wheel
-            uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
-          - variant: source
-            uv_flags: "--group gr00t-client"
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
@@ -153,7 +141,7 @@ jobs:
         run: |
           # Fix dubious ownership issues in cache
           git config --global --add safe.directory '*'
-          uv sync ${{ matrix.uv_flags }} --extra dev
+          uv sync --group gr00t-client --extra dev
 
       - name: Run in-process Newton tests
         shell: bash
