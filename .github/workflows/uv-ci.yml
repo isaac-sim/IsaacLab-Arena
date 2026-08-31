@@ -137,9 +137,6 @@ jobs:
           /tmp/arena-package-venv/bin/python -m pytest -v "${REPO_DIR}/isaaclab_arena/tests/test_packaging.py"
 
       # In-source full environment: sync the locked deps and run the sim suite.
-      # Source-only for now: the `isaaclab-from-wheel` group in pyproject.toml is
-      # still lock-checked and pin-tested, but nothing installs it until an Isaac
-      # Lab 3.0 GA wheel is published — restore a wheel variant here when it is.
       - name: Sync the locked environment
         run: |
           # Fix dubious ownership issues in cache
