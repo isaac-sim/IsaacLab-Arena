@@ -1,0 +1,368 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "i2rt_yam"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "i2rt_yam" (
+    prepend apiSchemas = ["GeomModelAPI", "MjcSceneAPI"]
+    assetInfo = {
+        string name = "i2rt_yam"
+    }
+    kind = "component"
+    prepend payload = @i2rt_yam/Payload/Contents.usda@
+)
+{
+    float3[] extentsHint = [(-0.27549183, -0.1, -0.01), (0.25714266, 0.1, 0.2564998), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (-0.278, -0.05797501, -0.017), (0.2568, 0.05802499, 0.269)]
+    uniform token mjc:option:integrator = "implicitfast"
+
+    over "Geometry"
+    {
+        over "arm" (
+            prepend apiSchemas = ["PhysxArticulationAPI", "PhysxRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.026)
+            float3 physics:diagonalInertia = (0.00013879125, 0.00013879125, 0.00010282879)
+            float physics:mass = 0.21895644
+            quatf physics:principalAxes = (1, 0, 0, 0)
+            custom bool physxArticulation:enabledSelfCollisions = 0
+            custom int physxArticulation:solverPositionIterationCount = 32
+            custom int physxArticulation:solverVelocityIterationCount = 1
+            custom float physxRigidBody:angularDamping = 0.05
+            custom float physxRigidBody:linearDamping = 0
+            custom int physxRigidBody:solverPositionIterationCount = 16
+            custom int physxRigidBody:solverVelocityIterationCount = 1
+
+            over "link_1" (
+                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+            )
+            {
+                point3f physics:centerOfMass = (-0.00192861, -0.00795735, 0.0208176)
+                float3 physics:diagonalInertia = (0.000180751, 0.000145532, 0.0000589179)
+                float physics:mass = 0.12415
+                quatf physics:principalAxes = (0.29785106, 0.6426341, 0.36004505, 0.6071851)
+                custom float physxRigidBody:angularDamping = 0.05
+                custom float physxRigidBody:linearDamping = 0
+                custom int physxRigidBody:solverPositionIterationCount = 16
+                custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                over "joint1" (
+                    prepend apiSchemas = ["PhysxJointAPI"]
+                )
+                {
+                    custom double newton:angular:limitDamping = 1.7453292519943295
+                    custom double newton:angular:limitStiffness = 43.63323129985824
+                    custom float physxJoint:armature = 0.032
+                }
+
+                over "link_2" (
+                    prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                )
+                {
+                    point3f physics:centerOfMass = (0.132008, 0.00000210599, 0.000293073)
+                    float3 physics:diagonalInertia = (0.0121902, 0.0121318, 0.000683304)
+                    float physics:mass = 1.24434
+                    quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+                    custom float physxRigidBody:angularDamping = 0.05
+                    custom float physxRigidBody:linearDamping = 0
+                    custom int physxRigidBody:solverPositionIterationCount = 16
+                    custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                    over "joint2" (
+                        prepend apiSchemas = ["PhysxJointAPI"]
+                    )
+                    {
+                        custom double newton:angular:limitDamping = 1.7453292519943295
+                        custom double newton:angular:limitStiffness = 43.63323129985824
+                        custom float physxJoint:armature = 0.032
+                    }
+
+                    over "link_3" (
+                        prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        point3f physics:centerOfMass = (-0.121816, -0.054846, -0.000111108)
+                        float3 physics:diagonalInertia = (0.00699732, 0.00696112, 0.000788244)
+                        float physics:mass = 0.853698
+                        quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+                        custom float physxRigidBody:angularDamping = 0.05
+                        custom float physxRigidBody:linearDamping = 0
+                        custom int physxRigidBody:solverPositionIterationCount = 16
+                        custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                        over "joint3" (
+                            prepend apiSchemas = ["PhysxJointAPI"]
+                        )
+                        {
+                            custom double newton:angular:limitDamping = 1.7453292519943295
+                            custom double newton:angular:limitStiffness = 43.63323129985824
+                            custom float physxJoint:armature = 0.032
+                        }
+
+                        over "link_4" (
+                            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                        )
+                        {
+                            point3f physics:centerOfMass = (-0.0769778, -0.0527104, 0.000154878)
+                            float3 physics:diagonalInertia = (0.000791532, 0.000744733, 0.000282116)
+                            float physics:mass = 0.463511
+                            quatf physics:principalAxes = (0.6666101, 0.6666101, -0.23586208, -0.23586208)
+                            custom float physxRigidBody:angularDamping = 0.05
+                            custom float physxRigidBody:linearDamping = 0
+                            custom int physxRigidBody:solverPositionIterationCount = 16
+                            custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                            over "joint4" (
+                                prepend apiSchemas = ["PhysxJointAPI"]
+                            )
+                            {
+                                custom double newton:angular:limitDamping = 1.7453292519943295
+                                custom double newton:angular:limitStiffness = 43.63323129985824
+                                custom float physxJoint:armature = 0.0018
+                            }
+
+                            over "link_5" (
+                                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                            )
+                            {
+                                point3f physics:centerOfMass = (0.0000364861, 0.00025665, 0.0353526)
+                                float3 physics:diagonalInertia = (0.000197802, 0.0001775, 0.000147402)
+                                float physics:mass = 0.350962
+                                quatf physics:principalAxes = (1, 0, 0, 0)
+                                custom float physxRigidBody:angularDamping = 0.05
+                                custom float physxRigidBody:linearDamping = 0
+                                custom int physxRigidBody:solverPositionIterationCount = 16
+                                custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                over "joint5" (
+                                    prepend apiSchemas = ["PhysxJointAPI"]
+                                )
+                                {
+                                    custom double newton:angular:limitDamping = 1.7453292519943295
+                                    custom double newton:angular:limitStiffness = 43.63323129985824
+                                    custom float physxJoint:armature = 0.0018
+                                }
+
+                                over "link_6" (
+                                    prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                )
+                                {
+                                    point3f physics:centerOfMass = (-0.000217767, 0.0000737059, 0.0270545)
+                                    float3 physics:diagonalInertia = (0.000265958, 0.000242686, 0.000227409)
+                                    float physics:mass = 0.367476
+                                    quatf physics:principalAxes = (0.70710677, 0.70710677, 0, 0)
+                                    custom float physxRigidBody:angularDamping = 0.05
+                                    custom float physxRigidBody:linearDamping = 0
+                                    custom int physxRigidBody:solverPositionIterationCount = 16
+                                    custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                    over "joint6" (
+                                        prepend apiSchemas = ["PhysxJointAPI"]
+                                    )
+                                    {
+                                        custom double newton:angular:limitDamping = 1.7453292519943295
+                                        custom double newton:angular:limitStiffness = 43.63323129985824
+                                        custom float physxJoint:armature = 0.0018
+                                    }
+
+                                    over "link_left_finger" (
+                                        prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                    )
+                                    {
+                                        point3f physics:centerOfMass = (-0.0192995, -0.0365902, 0.039774)
+                                        float3 physics:diagonalInertia = (0.000159084, 0.000154909, 0.0000463655)
+                                        float physics:mass = 0.118
+                                        quatf physics:principalAxes = (0.7575171, 0.5690228, -0.31997016, 0)
+                                        custom float physxRigidBody:angularDamping = 0.05
+                                        custom float physxRigidBody:linearDamping = 0
+                                        custom int physxRigidBody:solverPositionIterationCount = 16
+                                        custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                        over "left_finger" (
+                                            prepend apiSchemas = ["PhysxJointAPI"]
+                                        )
+                                        {
+                                            custom double newton:linear:limitDamping = 100
+                                            custom double newton:linear:limitStiffness = 2500
+                                            custom float physxJoint:armature = 0.1
+                                        }
+
+                                        over "lf_rot" (
+                                            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            point3f physics:centerOfMass = (-0.008421052, -0.015789473, 0.020421052)
+                                            float3 physics:diagonalInertia = (0.000023910377, 0.000020730204, 0.000005660176)
+                                            float physics:mass = 0.039793506
+                                            quatf physics:principalAxes = (0.46778637, 0.52697545, 0.6586981, 0.2637985)
+                                            custom float physxRigidBody:angularDamping = 0.05
+                                            custom float physxRigidBody:linearDamping = 0
+                                            custom int physxRigidBody:solverPositionIterationCount = 16
+                                            custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                            over "lf_down" (
+                                                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                            )
+                                            {
+                                                point3f physics:centerOfMass = (0.0048656752, -0.012786258, 0.029346032)
+                                                float3 physics:diagonalInertia = (0.000015767067, 0.000013071055, 0.000003943675)
+                                                float physics:mass = 0.020775741
+                                                quatf physics:principalAxes = (0.6275994, -0.022664897, 0.1777366, 0.75763774)
+                                                custom float physxRigidBody:angularDamping = 0.05
+                                                custom float physxRigidBody:linearDamping = 0
+                                                custom int physxRigidBody:solverPositionIterationCount = 16
+                                                custom int physxRigidBody:solverVelocityIterationCount = 1
+                                            }
+                                        }
+                                    }
+
+                                    over "link_right_finger" (
+                                        prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                    )
+                                    {
+                                        point3f physics:centerOfMass = (-0.0192995, 0.0365902, -0.039774)
+                                        float3 physics:diagonalInertia = (0.000159084, 0.000154909, 0.0000463655)
+                                        float physics:mass = 0.118
+                                        quatf physics:principalAxes = (-0.7575171, 0.5690228, -0.31997016, 0)
+                                        custom float physxRigidBody:angularDamping = 0.05
+                                        custom float physxRigidBody:linearDamping = 0
+                                        custom int physxRigidBody:solverPositionIterationCount = 16
+                                        custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                        over "right_finger" (
+                                            prepend apiSchemas = ["PhysxJointAPI"]
+                                        )
+                                        {
+                                            custom double newton:linear:limitDamping = 100
+                                            custom double newton:linear:limitStiffness = 2500
+                                            custom float physxJoint:armature = 0.1
+                                        }
+
+                                        over "rf_rot" (
+                                            prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                        )
+                                        {
+                                            point3f physics:centerOfMass = (0.008421052, -0.015789473, 0.020421052)
+                                            float3 physics:diagonalInertia = (0.000023910377, 0.000020730204, 0.0000056601766)
+                                            float physics:mass = 0.039793506
+                                            quatf physics:principalAxes = (0.658698, 0.26379853, 0.46778637, 0.52697545)
+                                            custom float physxRigidBody:angularDamping = 0.05
+                                            custom float physxRigidBody:linearDamping = 0
+                                            custom int physxRigidBody:solverPositionIterationCount = 16
+                                            custom int physxRigidBody:solverVelocityIterationCount = 1
+
+                                            over "rf_down" (
+                                                prepend apiSchemas = ["PhysxRigidBodyAPI", "PhysicsMassAPI"]
+                                            )
+                                            {
+                                                point3f physics:centerOfMass = (-0.0048656752, -0.012786258, 0.029346032)
+                                                float3 physics:diagonalInertia = (0.000015767067, 0.000013071055, 0.000003943675)
+                                                float physics:mass = 0.020775741
+                                                quatf physics:principalAxes = (0.75763774, -0.1777366, 0.022664897, 0.6275994)
+                                                custom float physxRigidBody:angularDamping = 0.05
+                                                custom float physxRigidBody:linearDamping = 0
+                                                custom int physxRigidBody:solverPositionIterationCount = 16
+                                                custom int physxRigidBody:solverVelocityIterationCount = 1
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        over "joint1"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.05433
+            uniform double mjc:ctrlRange:min = -2.61799
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint2"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.66519
+            uniform double mjc:ctrlRange:min = 0
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint3"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 3.66519
+            uniform double mjc:ctrlRange:min = 0
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint4"
+        {
+            uniform double[] mjc:biasPrm = [0, -20, -0.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 1.5708
+            uniform double mjc:ctrlRange:min = -1.5708
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [20, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint5"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 1.5708
+            uniform double mjc:ctrlRange:min = -1.5708
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "joint6"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 2.0944
+            uniform double mjc:ctrlRange:min = -2.0944
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+
+        over "left_finger"
+        {
+            uniform double[] mjc:biasPrm = [0, -100, -10, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 0.041
+            uniform double mjc:ctrlRange:min = 0
+            uniform double[] mjc:gainPrm = [100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:gainType = "fixed"
+        }
+    }
+}

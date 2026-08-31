@@ -1,0 +1,26 @@
+#usda 1.0
+(
+    doc = """Shared Isaac Sim 6.0 Stainless Metal Table A03 closure.
+
+    Task-specific backgrounds reference this prim and author only their placement.
+    The imported table is kept static under the owning Arena background.
+    """
+    defaultPrim = "Asset"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Asset" (
+    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/SimReady/Industrial/Warehouse/Equipment/Stainless_Metal_Table_A03/sm_table_metal_stainless_a03_01.usd@
+)
+{
+    over "Geometry"
+    {
+        over "sm_table_metal_stainless_a03_obj_00" (
+            delete apiSchemas = ["PhysicsRigidBodyAPI"]
+        )
+        {
+        }
+    }
+}

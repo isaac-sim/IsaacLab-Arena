@@ -1,0 +1,174 @@
+#usda 1.0
+(
+    defaultPrim = "i2rt_yam"
+    subLayers = [
+        @./i2rt_yam_default.usda@
+    ]
+)
+
+over "i2rt_yam"
+{
+    over "Physics"
+    {
+        # Arena's ImplicitActuatorCfg owns command generation for this task.
+        # Disable the converted MuJoCo actuators in this task-specific layer so
+        # the standard USD spawner does not import a second set of controllers.
+        over "joint1" (active = false) {}
+        over "joint2" (active = false) {}
+        over "joint3" (active = false) {}
+        over "joint4" (active = false) {}
+        over "joint5" (active = false) {}
+        over "joint6" (active = false) {}
+        over "left_finger" (active = false) {}
+
+        over "PhysicsMaterial"
+        {
+            float newton:contactDamping = 1e-5
+            float newton:contactStiffness = 40000
+            float physics:dynamicFriction = 5
+            float physics:staticFriction = 5
+        }
+
+        def Material "CableRoutingFingerMaterial" (
+            prepend apiSchemas = ["PhysicsMaterialAPI", "NewtonMaterialAPI"]
+        )
+        {
+            float newton:contactDamping = 1e-5
+            float newton:contactStiffness = 40000
+            float physics:dynamicFriction = 60
+            float physics:staticFriction = 60
+        }
+    }
+
+    over "Geometry"
+    {
+        over "arm"
+        {
+            over "link_1"
+            {
+                over "link_2"
+                {
+                    over "link_3"
+                    {
+                        over "link_4"
+                        {
+                            over "link_5"
+                            {
+                                over "link_6"
+                                {
+                                    over "link_left_finger" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/CableRoutingFingerMaterial> (
+                                            bindMaterialAs = "strongerThanDescendants"
+                                        )
+
+                                        over "lf_rot"
+                                        {
+                                            over "lf_down"
+                                            {
+                                                over "Sphere" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_1" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_2" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_3" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_4" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_5" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Capsule"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Capsule_1"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Capsule_2"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Box"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Box_1"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    over "link_right_finger" (
+                                        prepend apiSchemas = ["MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/CableRoutingFingerMaterial> (
+                                            bindMaterialAs = "strongerThanDescendants"
+                                        )
+
+                                        over "rf_rot"
+                                        {
+                                            over "rf_down"
+                                            {
+                                                over "Sphere" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_1" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_2" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_3" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_4" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Sphere_5" {
+                                                    double radius = 0.0009
+                                                }
+                                                over "Capsule"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Capsule_1"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Capsule_2"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Box"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                                over "Box_1"
+                                                {
+                                                    bool physics:collisionEnabled = false
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,19 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "i2rt_yam"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    subLayers = [
+        @./Physics.usda@,
+        @./Materials.usda@,
+        @./Geometry.usda@
+    ]
+    upAxis = "Z"
+)
+
+def Xform "i2rt_yam"
+{
+}
