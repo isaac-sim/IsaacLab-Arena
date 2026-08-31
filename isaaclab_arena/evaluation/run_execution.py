@@ -58,19 +58,20 @@ def execute_experiment(
     # rebuild bug is solved in Lab.
     # Under GPU+Fabric every in-process build after the first has rendering artifacts due to incorrect
     # poses for some geometry (for example, the robot's gripper has been seen to appear at the origin)
-    # As a workaround, we therefore disable Fabric whenever this process will build the env more
-    # than once (multiple runs and/or num_rebuilds > 1).
+    # As a workaround, we therefore disable Fabric and force the CPU device (the bug is GPU+Fabric only)
+    # whenever this process will build the env more than once (multiple runs and/or num_rebuilds > 1).
     builds_in_process = sum(run_cfg.num_rebuilds for run_cfg in experiment_cfg.runs.values())
     if builds_in_process > 1:
         print(
-            "Disabling Fabric for all builds: this process will build the environment "
-            f"{builds_in_process} time(s) across {len(experiment_cfg.runs)} run(s), and the "
+            "Disabling Fabric and forcing the CPU device for all builds: this process will build the "
+            f"environment {builds_in_process} time(s) across {len(experiment_cfg.runs)} run(s), and the "
             "GPU+Fabric post-rebuild rendering bug corrupts every build after the first "
-            "(slower than running with Fabric).",
+            "(slower than running on GPU with Fabric).",
             flush=True,
         )
         for run_cfg in experiment_cfg.runs.values():
             run_cfg.environment_builder.disable_fabric = True
+            run_cfg.environment_builder.device = "cpu"
 
     results = []
     for run_cfg in experiment_cfg.runs.values():
