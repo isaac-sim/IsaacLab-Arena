@@ -5,6 +5,7 @@
 
 import copy
 import dataclasses
+import inspect
 import numpy as np
 import torch
 import warnings
@@ -14,7 +15,7 @@ from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, ManagerTermBase, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
@@ -181,8 +182,7 @@ class CompositeTaskBase(TaskBase):
 
         Args:
             env: The environment instance.
-            subtask_success_cfgs: Success configurations whose class-based functions have been
-                constructed by the manager.
+            subtask_success_cfgs: Success configurations to evaluate.
             subtask_indices: Iterable of subtask indices to evaluate. Indices not in this
                 iterable are left as False in the returned matrix.
 
@@ -193,6 +193,12 @@ class CompositeTaskBase(TaskBase):
         subtask_currently_succeeding = [[False for _ in subtask_success_cfgs] for _ in range(env.num_envs)]
         for subtask_idx in subtask_indices:
             subtask_success_cfg = subtask_success_cfgs[subtask_idx]
+            if inspect.isclass(subtask_success_cfg.func):
+                assert issubclass(subtask_success_cfg.func, ManagerTermBase), (
+                    "Class-backed subtask success functions must inherit from ManagerTermBase; "
+                    f"received {subtask_success_cfg.func}."
+                )
+                subtask_success_cfg.func = subtask_success_cfg.func(cfg=subtask_success_cfg, env=env)
             results = subtask_success_cfg.func(env, **subtask_success_cfg.params)
             for env_idx in range(env.num_envs):
                 if results[env_idx]:
@@ -209,8 +215,7 @@ class CompositeTaskBase(TaskBase):
 
         Args:
             env: The environment instance.
-            subtask_success_cfgs: Success configurations whose class-based functions have been
-                constructed by the manager.
+            subtask_success_cfgs: Success configurations to evaluate.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
 
