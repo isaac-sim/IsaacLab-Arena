@@ -3,11 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression coverage for camera rendering across an experiment-runner stage rebuild.
-
-Flip ``SAVE_IMAGES`` to also write the compared renders to disk as PNGs, which is the quickest
-way to see how a rebuilt stage differs.
-"""
+"""Regression coverage for camera rendering across an experiment-runner stage rebuild."""
 
 import os
 import torch
@@ -56,7 +52,10 @@ def _build_droid_env():
         embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS),
         scene=scene,
     )
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
+    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove --disable_fabric once the
+    # render after rebuild bug is solved in Lab. Until then rebuilds render correctly only with Fabric
+    # off (see execute_experiment), so this test builds the same way.
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras", "--disable_fabric"])
     # Both builds share the builder's default seed, so reset-time joint randomization draws the same
     # offsets and the two builds are expected to render the same scene.
     builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
