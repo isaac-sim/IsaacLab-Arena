@@ -303,6 +303,42 @@ def _test_manager_constructs_nested_subtask_success_terms(simulation_app) -> boo
     return True
 
 
+def _test_direct_evaluation_constructs_nested_subtask_success_terms(simulation_app) -> bool:
+    """Test class-backed child terms when the composite success term is called directly."""
+
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+
+    class _ConstantSuccessTerm(ManagerTermBase):
+        def __call__(self, env, success_value: bool) -> torch.Tensor:
+            return torch.full((env.num_envs,), success_value, dtype=torch.bool, device=env.device)
+
+    try:
+        for composite_task_type in (CompositeTaskBase, SequentialTaskBase):
+            child_success_cfg = TerminationTermCfg(
+                func=_ConstantSuccessTerm,
+                params={"success_value": True},
+            )
+            env = SimpleNamespace(num_envs=1, device="cpu", extras={})
+
+            result = composite_task_type.composite_task_success_func(env, [child_success_cfg], None)
+
+            assert result.tolist() == [True]
+            assert isinstance(child_success_cfg.func, _ConstantSuccessTerm)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+
+    return True
+
+
 def test_composite_desired_subtask_success_state_with_none():
     result = run_function_with_persistent_simulation_app(
         _test_composite_desired_subtask_success_state_with_none,
@@ -317,6 +353,14 @@ def test_manager_constructs_nested_subtask_success_terms():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_manager_constructs_nested_subtask_success_terms.__name__} failed"
+
+
+def test_direct_evaluation_constructs_nested_subtask_success_terms():
+    result = run_function_with_persistent_simulation_app(
+        _test_direct_evaluation_constructs_nested_subtask_success_terms,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_direct_evaluation_constructs_nested_subtask_success_terms.__name__} failed"
 
 
 def test_add_suffix_configclass_transform():
@@ -340,3 +384,4 @@ if __name__ == "__main__":
     test_remove_configclass_transform()
     test_composite_desired_subtask_success_state_with_none()
     test_manager_constructs_nested_subtask_success_terms()
+    test_direct_evaluation_constructs_nested_subtask_success_terms()
