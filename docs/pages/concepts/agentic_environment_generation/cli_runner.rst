@@ -56,8 +56,11 @@ The ``--mode`` option selects which parts of the
        zero-action policy in one process. This is the default.
      - **Prompt** through **evaluation**, without a manual-edit pause.
 
-Use ``resolve`` followed by ``build`` when the generated YAML needs manual
-review:
+.. warning::
+
+   ``full`` does not pause for review between generation and evaluation.
+   Generated specs should be reviewed before evaluation. For reviewable
+   workflows, use ``resolve``, review or edit the YAML, and then use ``build``:
 
 .. code-block:: bash
 
