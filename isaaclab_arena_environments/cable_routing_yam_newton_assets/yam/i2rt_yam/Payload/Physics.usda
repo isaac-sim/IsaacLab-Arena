@@ -1,0 +1,797 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "MuJoCo USD Converter v0.2.0"
+    }
+    defaultPrim = "i2rt_yam"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "i2rt_yam"
+{
+    def Scope "Physics"
+    {
+        def Material "PhysicsMaterial" (
+            prepend apiSchemas = ["PhysicsMaterialAPI", "NewtonMaterialAPI", "MjcMaterialAPI"]
+        )
+        {
+            float newton:rollingFriction = 0.0001
+            float newton:torsionalFriction = 0.005
+            float physics:dynamicFriction = 1
+        }
+
+        def MjcActuator "joint1"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/joint1>
+        }
+
+        def MjcActuator "joint2"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/joint2>
+        }
+
+        def MjcActuator "joint3"
+        {
+            uniform double[] mjc:biasPrm = [0, -40, -2.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 28
+            uniform double mjc:forceRange:min = -28
+            uniform double[] mjc:gainPrm = [40, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/joint3>
+        }
+
+        def MjcActuator "joint4"
+        {
+            uniform double[] mjc:biasPrm = [0, -20, -0.5, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [20, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/joint4>
+        }
+
+        def MjcActuator "joint5"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/joint5>
+        }
+
+        def MjcActuator "joint6"
+        {
+            uniform double[] mjc:biasPrm = [0, -10, -1, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:forceRange:max = 10
+            uniform double mjc:forceRange:min = -10
+            uniform double[] mjc:gainPrm = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            uniform double mjc:inheritRange = 1
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/joint6>
+        }
+
+        def MjcActuator "left_finger"
+        {
+            uniform double[] mjc:biasPrm = [0, -100, -10, 0, 0, 0, 0, 0, 0, 0]
+            uniform token mjc:biasType = "affine"
+            uniform double mjc:ctrlRange:max = 0.041
+            uniform double[] mjc:gainPrm = [100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger/left_finger>
+        }
+    }
+
+    def "Geometry"
+    {
+        def "arm" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "NewtonArticulationRootAPI"]
+        )
+        {
+            over "Capsule" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+            )
+            {
+                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                uniform int mjc:group = 3
+                float newton:contactGap = 0
+                float physics:density = 1000
+            }
+
+            def PhysicsFixedJoint "PhysicsFixedJoint"
+            {
+                rel physics:body0 = </i2rt_yam>
+                rel physics:body1 = </i2rt_yam/Geometry/arm>
+                point3f physics:localPos0 = (0, 0, 0)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def "link_1" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+            )
+            {
+                point3f physics:centerOfMass = (-0.00192861, -0.00795735, 0.0208176)
+                float3 physics:diagonalInertia = (0.000180751, 0.000145532, 0.0000589179)
+                float physics:mass = 0.12415
+                quatf physics:principalAxes = (0.29785106, 0.6426341, 0.36004505, 0.6071851)
+
+                def PhysicsRevoluteJoint "joint1" (
+                    prepend apiSchemas = ["MjcJointAPI"]
+                )
+                {
+                    uniform double mjc:armature = 0.032
+                    uniform double mjc:frictionloss = 0.1
+                    uniform token physics:axis = "Z"
+                    rel physics:body0 = </i2rt_yam/Geometry/arm>
+                    rel physics:body1 = </i2rt_yam/Geometry/arm/link_1>
+                    point3f physics:localPos0 = (0, 0, 0.0631)
+                    point3f physics:localPos1 = (0, 0, 0)
+                    quatf physics:localRot0 = (0.70710677, 0, 0, 0.70710677)
+                    quatf physics:localRot1 = (1, 0, 0, 0)
+                    float physics:lowerLimit = -149.99977
+                    float physics:upperLimit = 175.00021
+                }
+
+                def "link_2" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                )
+                {
+                    custom float mjc:body:gravcomp = 1
+                    point3f physics:centerOfMass = (0.132008, 0.00000210599, 0.000293073)
+                    float3 physics:diagonalInertia = (0.0121902, 0.0121318, 0.000683304)
+                    float physics:mass = 1.24434
+                    quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+
+                    over "Capsule" (
+                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                        uniform int mjc:group = 3
+                        float newton:contactGap = 0
+                        float physics:density = 1000
+                    }
+
+                    over "Capsule_1" (
+                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                        uniform int mjc:group = 3
+                        float newton:contactGap = 0
+                        float physics:density = 1000
+                    }
+
+                    over "Capsule_2" (
+                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                        uniform int mjc:group = 3
+                        float newton:contactGap = 0
+                        float physics:density = 1000
+                    }
+
+                    def PhysicsRevoluteJoint "joint2" (
+                        prepend apiSchemas = ["MjcJointAPI"]
+                    )
+                    {
+                        uniform double mjc:armature = 0.032
+                        uniform double mjc:frictionloss = 0.1
+                        uniform token physics:axis = "Z"
+                        rel physics:body0 = </i2rt_yam/Geometry/arm/link_1>
+                        rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2>
+                        point3f physics:localPos0 = (0.000025, -0.02, 0.0409)
+                        point3f physics:localPos1 = (0, 0, 0)
+                        quatf physics:localRot0 = (0.5, 0.5, 0.5, 0.5)
+                        quatf physics:localRot1 = (1, 0, 0, 0)
+                        float physics:lowerLimit = 0
+                        float physics:upperLimit = 209.99992
+                    }
+
+                    def "link_3" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                    )
+                    {
+                        custom float mjc:body:gravcomp = 1
+                        point3f physics:centerOfMass = (-0.121816, -0.054846, -0.000111108)
+                        float3 physics:diagonalInertia = (0.00699732, 0.00696112, 0.000788244)
+                        float physics:mass = 0.853698
+                        quatf physics:principalAxes = (0.5, 0.5, 0.5, 0.5)
+
+                        over "Capsule" (
+                            prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                            uniform int mjc:group = 3
+                            float newton:contactGap = 0
+                            float physics:density = 1000
+                        }
+
+                        over "Capsule_1" (
+                            prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                        )
+                        {
+                            rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                            uniform int mjc:group = 3
+                            float newton:contactGap = 0
+                            float physics:density = 1000
+                        }
+
+                        def PhysicsRevoluteJoint "joint3" (
+                            prepend apiSchemas = ["MjcJointAPI"]
+                        )
+                        {
+                            uniform double mjc:armature = 0.032
+                            uniform double mjc:frictionloss = 0.1
+                            uniform token physics:axis = "Z"
+                            rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2>
+                            rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3>
+                            point3f physics:localPos0 = (0.264, -1.3877788e-17, -6.7762636e-21)
+                            point3f physics:localPos1 = (0, 0, 0)
+                            quatf physics:localRot0 = (3.5426835e-17, -1, 1.3603464e-16, -8.850444e-17)
+                            quatf physics:localRot1 = (1, 0, 0, 0)
+                            float physics:lowerLimit = 0
+                            float physics:upperLimit = 209.99992
+                        }
+
+                        def "link_4" (
+                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                        )
+                        {
+                            custom float mjc:body:gravcomp = 1
+                            point3f physics:centerOfMass = (-0.0769778, -0.0527104, 0.000154878)
+                            float3 physics:diagonalInertia = (0.000791532, 0.000744733, 0.000282116)
+                            float physics:mass = 0.463511
+                            quatf physics:principalAxes = (0.6666101, 0.6666101, -0.23586206, -0.23586206)
+
+                            over "Capsule" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                            )
+                            {
+                                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                uniform int mjc:group = 3
+                                float newton:contactGap = 0
+                                float physics:density = 1000
+                            }
+
+                            def PhysicsRevoluteJoint "joint4" (
+                                prepend apiSchemas = ["MjcJointAPI"]
+                            )
+                            {
+                                uniform double mjc:armature = 0.0018
+                                uniform double mjc:frictionloss = 0.1
+                                uniform token physics:axis = "Z"
+                                rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3>
+                                rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4>
+                                point3f physics:localPos0 = (-0.245, -0.06, 3.3881318e-21)
+                                point3f physics:localPos1 = (0, 0, 0)
+                                quatf physics:localRot0 = (1, 0, 0, 0)
+                                quatf physics:localRot1 = (1, 0, 0, 0)
+                                float physics:lowerLimit = -90.00021
+                                float physics:upperLimit = 90.00021
+                            }
+
+                            def "link_5" (
+                                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                            )
+                            {
+                                custom float mjc:body:gravcomp = 1
+                                point3f physics:centerOfMass = (0.0000364861, 0.00025665, 0.0353526)
+                                float3 physics:diagonalInertia = (0.000197802, 0.0001775, 0.000147402)
+                                float physics:mass = 0.350962
+                                quatf physics:principalAxes = (1, 0, 0, 0)
+
+                                over "Capsule" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                )
+                                {
+                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                    uniform int mjc:group = 3
+                                    float newton:contactGap = 0
+                                    float physics:density = 1000
+                                }
+
+                                def PhysicsRevoluteJoint "joint5" (
+                                    prepend apiSchemas = ["MjcJointAPI"]
+                                )
+                                {
+                                    uniform double mjc:armature = 0.0018
+                                    uniform double mjc:frictionloss = 0.1
+                                    uniform token physics:axis = "Z"
+                                    rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4>
+                                    rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5>
+                                    point3f physics:localPos0 = (-0.074, -0.0395, 0.000025)
+                                    point3f physics:localPos1 = (0, 0, 0)
+                                    quatf physics:localRot0 = (-0.5, 0.5, -0.5, -0.5)
+                                    quatf physics:localRot1 = (1, 0, 0, 0)
+                                    float physics:lowerLimit = -90.00021
+                                    float physics:upperLimit = 90.00021
+                                }
+
+                                def "link_6" (
+                                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                )
+                                {
+                                    custom float mjc:body:gravcomp = 1
+                                    point3f physics:centerOfMass = (-0.000217767, 0.0000737059, 0.0270545)
+                                    float3 physics:diagonalInertia = (0.000265958, 0.000242686, 0.000227409)
+                                    float physics:mass = 0.367476
+                                    quatf physics:principalAxes = (0.70710677, 0.70710677, 0, 0)
+
+                                    over "Capsule" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                        uniform int mjc:group = 3
+                                        float newton:contactGap = 0
+                                        float physics:density = 1000
+                                    }
+
+                                    over "Capsule_1" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                        uniform int mjc:group = 3
+                                        float newton:contactGap = 0
+                                        float physics:density = 1000
+                                    }
+
+                                    over "Capsule_2" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                    )
+                                    {
+                                        rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                        uniform int mjc:group = 3
+                                        float newton:contactGap = 0
+                                        float physics:density = 1000
+                                    }
+
+                                    over "tcp_site" (
+                                        prepend apiSchemas = ["MjcSiteAPI"]
+                                    )
+                                    {
+                                        uniform int mjc:group = 4
+                                    }
+
+                                    over "grasp_site" (
+                                        prepend apiSchemas = ["MjcSiteAPI"]
+                                    )
+                                    {
+                                        uniform int mjc:group = 4
+                                    }
+
+                                    def PhysicsRevoluteJoint "joint6" (
+                                        prepend apiSchemas = ["MjcJointAPI"]
+                                    )
+                                    {
+                                        uniform double mjc:armature = 0.0018
+                                        uniform double mjc:frictionloss = 0.1
+                                        uniform token physics:axis = "Z"
+                                        rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5>
+                                        rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6>
+                                        point3f physics:localPos0 = (2.5078406e-25, 0.0353, 0.0395)
+                                        point3f physics:localPos1 = (0, 0, 0)
+                                        quatf physics:localRot0 = (0.70710677, -0.70710677, 1.110223e-16, -2.0326426e-16)
+                                        quatf physics:localRot1 = (1, 0, 0, 0)
+                                        float physics:lowerLimit = -120.00028
+                                        float physics:upperLimit = 120.00028
+                                    }
+
+                                    def "link_left_finger" (
+                                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                    )
+                                    {
+                                        custom float mjc:body:gravcomp = 1
+                                        point3f physics:centerOfMass = (-0.0192995, -0.0365902, 0.039774)
+                                        float3 physics:diagonalInertia = (0.000159084, 0.000154909, 0.0000463655)
+                                        float physics:mass = 0.118
+                                        quatf physics:principalAxes = (0.7575171, 0.5690228, -0.31997016, 0)
+
+                                        def PhysicsPrismaticJoint "left_finger" (
+                                            prepend apiSchemas = ["MjcJointAPI", "NewtonMimicAPI", "MjcEqualityJointAPI"]
+                                        )
+                                        {
+                                            uniform double mjc:armature = 0.1
+                                            uniform double mjc:coef1 = -1
+                                            uniform double mjc:frictionloss = 0.1
+                                            rel mjc:target = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger/right_finger>
+                                            float newton:mimicCoef1 = -1
+                                            rel newton:mimicJoint = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger/right_finger>
+                                            uniform token physics:axis = "Z"
+                                            rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6>
+                                            rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger>
+                                            point3f physics:localPos0 = (-0.037, 0.0392, 0.0605)
+                                            point3f physics:localPos1 = (0, 0, 0)
+                                            quatf physics:localRot0 = (0.70710677, 8.1507095e-17, 0.70710677, 0)
+                                            quatf physics:localRot1 = (1, 0, 0, 0)
+                                            float physics:lowerLimit = -0.00205
+                                            float physics:upperLimit = 0.037524
+                                        }
+
+                                        def "lf_rot" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+                                        )
+                                        {
+                                            custom float mjc:body:gravcomp = 1
+
+                                            over "Capsule" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                            )
+                                            {
+                                                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                uniform int mjc:group = 3
+                                                float newton:contactGap = 0
+                                                float physics:density = 1000
+                                            }
+
+                                            over "Capsule_1" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                            )
+                                            {
+                                                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                uniform int mjc:group = 3
+                                                float newton:contactGap = 0
+                                                float physics:density = 1000
+                                            }
+
+                                            def PhysicsFixedJoint "PhysicsFixedJoint"
+                                            {
+                                                rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger>
+                                                rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger/lf_rot>
+                                                point3f physics:localPos0 = (2.7755576e-17, -0.0392, 0.037)
+                                                point3f physics:localPos1 = (0, 0, 0)
+                                                quatf physics:localRot0 = (0.5, -0.5, -0.5, 0.5)
+                                                quatf physics:localRot1 = (1, 0, 0, 0)
+                                            }
+
+                                            def "lf_down" (
+                                                prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+                                            )
+                                            {
+                                                custom float mjc:body:gravcomp = 1
+
+                                                over "Capsule" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Capsule_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Capsule_2" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Box" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Box_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_2" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_3" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_4" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_5" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                def PhysicsFixedJoint "PhysicsFixedJoint"
+                                                {
+                                                    rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger/lf_rot>
+                                                    rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_left_finger/lf_rot/lf_down>
+                                                    point3f physics:localPos0 = (-0.044, -8.271806e-25, 0)
+                                                    point3f physics:localPos1 = (0, 0, 0)
+                                                    quatf physics:localRot0 = (1, 0, 0, 0)
+                                                    quatf physics:localRot1 = (1, 0, 0, 0)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    def "link_right_finger" (
+                                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+                                    )
+                                    {
+                                        custom float mjc:body:gravcomp = 1
+                                        point3f physics:centerOfMass = (-0.0192995, 0.0365902, -0.039774)
+                                        float3 physics:diagonalInertia = (0.000159084, 0.000154909, 0.0000463655)
+                                        float physics:mass = 0.118
+                                        quatf physics:principalAxes = (-0.7575171, 0.5690228, -0.31997016, 0)
+
+                                        def PhysicsPrismaticJoint "right_finger" (
+                                            prepend apiSchemas = ["MjcJointAPI"]
+                                        )
+                                        {
+                                            uniform double mjc:armature = 0.1
+                                            uniform double mjc:frictionloss = 0.1
+                                            uniform token physics:axis = "Z"
+                                            rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6>
+                                            rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger>
+                                            point3f physics:localPos0 = (0.037, -0.0392, 0.0605)
+                                            point3f physics:localPos1 = (0, 0, 0)
+                                            quatf physics:localRot0 = (0.70710677, 8.1507095e-17, 0.70710677, 0)
+                                            quatf physics:localRot1 = (1, 0, 0, 0)
+                                            float physics:lowerLimit = -0.037524
+                                            float physics:upperLimit = 0.00205
+                                        }
+
+                                        def "rf_rot" (
+                                            prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+                                        )
+                                        {
+                                            custom float mjc:body:gravcomp = 1
+
+                                            over "Capsule" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                            )
+                                            {
+                                                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                uniform int mjc:group = 3
+                                                float newton:contactGap = 0
+                                                float physics:density = 1000
+                                            }
+
+                                            over "Capsule_1" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                            )
+                                            {
+                                                rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                uniform int mjc:group = 3
+                                                float newton:contactGap = 0
+                                                float physics:density = 1000
+                                            }
+
+                                            def PhysicsFixedJoint "PhysicsFixedJoint"
+                                            {
+                                                rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger>
+                                                rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger/rf_rot>
+                                                point3f physics:localPos0 = (0, 0.0392, -0.037)
+                                                point3f physics:localPos1 = (0, 0, 0)
+                                                quatf physics:localRot0 = (0.5, 0.5, -0.5, -0.5)
+                                                quatf physics:localRot1 = (1, 0, 0, 0)
+                                            }
+
+                                            def "rf_down" (
+                                                prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+                                            )
+                                            {
+                                                custom float mjc:body:gravcomp = 1
+
+                                                over "Capsule" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Capsule_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Capsule_2" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Box" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Box_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_1" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_2" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_3" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_4" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                over "Sphere_5" (
+                                                    prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "MjcCollisionAPI", "PhysicsMassAPI", "MaterialBindingAPI"]
+                                                )
+                                                {
+                                                    rel material:binding:physics = </i2rt_yam/Physics/PhysicsMaterial>
+                                                    uniform int mjc:group = 3
+                                                    float newton:contactGap = 0
+                                                    float physics:density = 1000
+                                                }
+
+                                                def PhysicsFixedJoint "PhysicsFixedJoint"
+                                                {
+                                                    rel physics:body0 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger/rf_rot>
+                                                    rel physics:body1 = </i2rt_yam/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6/link_right_finger/rf_rot/rf_down>
+                                                    point3f physics:localPos0 = (0.044, 2.4815418e-24, 0)
+                                                    point3f physics:localPos1 = (0, 0, 0)
+                                                    quatf physics:localRot0 = (1, 0, 0, 0)
+                                                    quatf physics:localRot1 = (1, 0, 0, 0)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
