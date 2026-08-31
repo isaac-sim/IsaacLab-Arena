@@ -66,8 +66,6 @@ jobs:
       # TODO: Restore the native wheel variant once NVIDIA publishes an Isaac Lab 3.0 GA wheel.
       matrix:
         include:
-          # - variant: wheel
-          #   uv_flags: "--no-default-groups --group isaaclab-from-wheel --group gr00t-client"
           - variant: source
             uv_flags: "--group gr00t-client"
     env:
