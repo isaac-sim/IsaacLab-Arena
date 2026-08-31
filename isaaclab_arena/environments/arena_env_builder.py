@@ -43,8 +43,8 @@ from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
+from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
-from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.resolve_clone_plan_source_patch import patch_resolve_clone_plan_source
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -317,11 +317,16 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
-            embodiment.get_recorder_term_cfg(),
+            embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
             progress_tracking_recorder_cfg,
             bases=(RecorderManagerBaseCfg,),
         )
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
+        # Eval runs overwrite the timestamped default so rebuilds do not clobber each other.
+        if self.cfg.recorder_dataset_filename is not None:
+            recorder_manager_cfg.dataset_filename = self.cfg.recorder_dataset_filename
+        if self.cfg.recorder_dataset_export_dir_path is not None:
+            recorder_manager_cfg.dataset_export_dir_path = self.cfg.recorder_dataset_export_dir_path
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",

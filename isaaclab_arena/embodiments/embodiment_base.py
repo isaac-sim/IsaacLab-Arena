@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
-from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -248,8 +247,20 @@ class EmbodimentBase(PlaceableAsset):
         robot.init_state.rot = pose.rotation_xyzw
         return scene_config
 
-    def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
-        return None
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        """Return this embodiment's recorder terms, or None if it defines none.
+
+        Args:
+            record_trajectories: Whether to also include the per-step trajectory recorder terms,
+                built with this embodiment's own frame transformers and scene key.
+        """
+        if not record_trajectories:
+            return None
+        from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
+
+        return make_trajectory_recorder_terms_cfg(
+            frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
+        )
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
@@ -257,6 +268,14 @@ class EmbodimentBase(PlaceableAsset):
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
         return "robot"
+
+    def get_ee_frame_transformer_names(self) -> list[str]:
+        """Names of the scene's end-effector frame transformer sensors.
+
+        Override for embodiments with more than one tracked end-effector (e.g. bi-manual robots),
+        or whose single frame transformer is not named "ee_frame".
+        """
+        return ["ee_frame"]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
