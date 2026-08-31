@@ -6,6 +6,11 @@ the generation interface, resolving a prompt, building an existing graph spec,
 or running the complete pipeline. Run it inside the Isaac Lab-Arena development
 container:
 
+.. note::
+
+   Modes ``schema``, ``catalog``, ``prim_tree``, and ``build`` do not call a
+   remote model and do not require an inference API key.
+
 .. code-block:: bash
 
    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
