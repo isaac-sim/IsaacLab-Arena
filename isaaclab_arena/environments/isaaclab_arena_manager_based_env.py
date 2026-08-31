@@ -66,16 +66,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Return the language instruction that is passed to the policy."""
         return self.cfg.task_description
 
-    def close(self) -> None:
-        """Close manager-term resources before Isaac Lab deletes their managers."""
-        if not self._is_closed:
-            for term_name in self.termination_manager.active_terms:
-                term = self.termination_manager.get_term_cfg(term_name).func
-                close = getattr(term, "close", None)
-                if callable(close):
-                    close()
-        super().close()
-
     def get_episode_index(self, env_id: int) -> int:
         """Return the index of the current episode in ``env_id``."""
         return self._episode_counts.get(env_id, 0)
