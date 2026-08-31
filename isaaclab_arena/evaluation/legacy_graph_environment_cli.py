@@ -49,8 +49,13 @@ def build_arena_builder_from_legacy_graph(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     assert cfg.env_spec_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
-    arena_env_args = legacy_environment_args_to_cli_args({"environment": cfg.env_spec_path, **cfg.per_run_overrides})
+    per_run_overrides = dict(cfg.per_run_overrides)
+    episode_length_s = per_run_overrides.pop("episode_length_s", None)
+    arena_env_args = legacy_environment_args_to_cli_args({"environment": cfg.env_spec_path, **per_run_overrides})
     parser = get_isaaclab_arena_environments_cli_parser()
     args_cli = parser.parse_args(arena_env_args)
     arena_env = arena_env_from_graph_spec(args_cli.env_spec, args_cli)
+    if episode_length_s is not None:
+        assert float(episode_length_s) > 0.0, "episode_length_s must be greater than zero"
+        arena_env.task.episode_length_s = float(episode_length_s)
     return ArenaEnvBuilder(arena_env, environment_builder, hydra_overrides=hydra_overrides)

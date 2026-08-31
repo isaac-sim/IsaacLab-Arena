@@ -1,0 +1,76 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: bin_condiments_robolab_exact
+  registry_name: bin_condiments_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: coffee_pot
+  parent_id: bin_condiments_robolab_exact
+  prim_path: coffee_pot
+  object_type: rigid
+  params: {}
+- id: grey_bin
+  parent_id: bin_condiments_robolab_exact
+  prim_path: grey_bin
+  object_type: rigid
+  params: {}
+- id: mug
+  parent_id: bin_condiments_robolab_exact
+  prim_path: mug
+  object_type: rigid
+  params: {}
+- id: mustard
+  parent_id: bin_condiments_robolab_exact
+  prim_path: mustard
+  object_type: rigid
+  params: {}
+- id: bowl
+  parent_id: bin_condiments_robolab_exact
+  prim_path: bowl
+  object_type: rigid
+  params: {}
+- id: ranch_dressing
+  parent_id: bin_condiments_robolab_exact
+  prim_path: ranch_dressing
+  object_type: rigid
+  params: {}
+- id: bbq_sauce_bottle_1
+  parent_id: bin_condiments_robolab_exact
+  prim_path: bbq_sauce_bottle
+  object_type: rigid
+  params: {}
+- id: bbq_sauce_bottle_2
+  parent_id: bin_condiments_robolab_exact
+  prim_path: bbq_sauce_bottle_01
+  object_type: rigid
+  params: {}
+- id: oatmeal_raisin_cookies
+  parent_id: bin_condiments_robolab_exact
+  prim_path: oatmeal_raisin_cookies
+  object_type: rigid
+  params: {}
+- id: canned_tuna
+  parent_id: bin_condiments_robolab_exact
+  prim_path: canned_tuna
+  object_type: rigid
+  params: {}
+- id: soft_scrub
+  parent_id: bin_condiments_robolab_exact
+  prim_path: soft_scrub
+  object_type: rigid
+  params: {}
+- id: wood_block
+  parent_id: bin_condiments_robolab_exact
+  prim_path: wood_block
+  object_type: rigid
+  params: {}
+relations: []
