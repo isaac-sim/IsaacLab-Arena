@@ -14,7 +14,11 @@ license = { text = "Apache-2.0" }
 dependencies = [
     "typing_extensions",
     "onnxruntime",
-    "vuer[all]",
+    "vuer",
+    # Arena imports isaacteleop directly; pin the validated prerelease so the
+    # Docker and native uv environments do not float independently.
+    "isaacteleop[retargeters,ui,cloudxr]==1.4.126rc1",
+    "websockets==16.1.1",
     "lightwheel-sdk",
     "pytest",
     "pydantic>=2.0",
@@ -24,7 +28,11 @@ dependencies = [
     "scipy",
     "matplotlib",
     # MoviePy 1.x relies on decorator 4.x call semantics to propagate clip FPS.
+    "moviepy>=1.0.3,<2.0.0.dev0",
     "decorator>=4.0.2,<5",
+    # HDF5 -> LeRobot video conversion uses imageio its FFmpeg backend.
+    "imageio",
+    "imageio-ffmpeg",
     # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
     # Pinned to 2.2.3 to match the version used in GR00T.
     "pandas==2.2.3",
@@ -43,70 +51,39 @@ dev = [
     "simready-search>=2026.4.2",
 ]
 
-# PEP 735 dependency groups for the native uv install: the sim stack the
-# Docker build does not want. pip (used by the Docker build) ignores PEP 735
-# groups -- so Docker keeps getting Isaac Lab and Isaac Sim from its base
-# image and submodule, undisturbed by these pins.
-#
-# isaaclab-from-wheel: Isaac Lab from its published wheel. Select it with:
-#   uv sync --no-default-groups --group isaaclab-from-wheel
+# PEP 735 dependency groups for the native uv install. pip (used by the Docker
+# build) ignores these groups, so Docker continues to get Isaac Lab from its
+# copied submodule and Isaac Sim from its base image.
 [dependency-groups]
-isaaclab-from-wheel = [
-    "isaaclab[isaacsim,all]==3.0.0b2",
-    "rsl-rl-lib==5.0.1",
-    # QP solver for the Pink IK stack (whole-body control). The isaaclab wheel
-    # does not pull it; the Docker build installs it explicitly. Pinned to the
-    # version isaaclab validates against (see pin-pink note in [tool.uv]).
-    "daqp==0.8.5",
-    # Pin the torch stack as direct deps so [tool.uv.sources] routes them to the
-    # right CUDA index (cu128 on x86_64 / cu130 on aarch64). As transitive-only
-    # deps the source mapping does not apply and torch resolves to PyPI's default
-    # build. Versions are forced by isaacsim-core==6.0.0.1 (via the beta-2 wheel),
-    # which hard-pins torchvision==0.26.0 -- uv's resolver enforces this, so a
-    # mismatch fails `uv lock` outright.
-    "torch==2.11.0",
-    "torchvision==0.26.0",
-    "torchaudio==2.11.0",
-    # Each install flavor is self-sufficient: the remote OpenPI client comes
-    # along without a separate --group openpi flag.
-    { include-group = "openpi" },
-]
-# isaaclab-from-source: Isaac Lab installed editable from the
-# submodules/IsaacLab source checkout instead of the published wheel. The
-# published isaaclab wheel omits the RL / imitation-learning scripts.
-# Installed by a bare `uv sync` (the default flavor, see default-groups
-# below).
-# The package set mirrors upstream's isaaclab-dev project
-# (submodules/IsaacLab/pyproject.toml) plus isaaclab-mimic, isaaclab-teleop,
-# and the visualizers extras, to match what the published wheel's `all` extra
-# ships. One deliberate deviation from the source `all` extra: no visualizers
-# `viser` extra, for parity with the wheel env, which does not ship viser.
-# TODO(alexmillane, 2026.07.22): Remove these two flavors of installation once
-# Isaac Lab's artifact distributes their scripts.
+# Isaac Lab's root isaaclab-dev project is installed editable from the submodule
+# checkout. Its extras provide Isaac Sim, OV backends, Mimic, Teleop, RSL-RL,
+# and the Rerun visualizer. This group is selected by a bare `uv sync` through
+# default-groups below.
 isaaclab-from-source = [
-    "isaaclab[isaacsim]",
+    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl,rerun]",
+    # Keep the workspace members explicit as well. uv requires a package to be
+    # named directly in this group before a group-gated path source can satisfy
+    # the dependency declared by isaaclab-dev.
+    "isaaclab",
     "isaaclab-assets",
     "isaaclab-contrib",
     "isaaclab-experimental",
     "isaaclab-mimic",
-    "isaaclab-newton[all]",
+    "isaaclab-newton",
     "isaaclab-ov",
-    "isaaclab-ovphysx",
-    "isaaclab-physx[newton]",
+    "isaaclab-physx",
     "isaaclab-ppisp",
-    "isaaclab-rl[rsl-rl]",
+    "isaaclab-rl",
     "isaaclab-tasks",
     "isaaclab-tasks-experimental",
     "isaaclab-teleop",
-    "isaaclab-visualizers[newton,rerun]",
-    # Direct torch deps so [tool.uv.sources] routes them to the cu128 index
-    # (as in the `isaaclab-from-wheel` group above). Pinned to the versions
-    # the source resolution forces via isaaclab's isaacsim extra.
+    "isaaclab-visualizers",
+    # Direct torch deps so [tool.uv.sources] routes them to the cu128 index.
+    # These versions match the Isaac Lab source checkout.
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
-    # Each install flavor is self-sufficient: the remote OpenPI client comes
-    # along without a separate --group openpi flag.
+    # Keep an explicitly selected source group self-sufficient as well.
     { include-group = "openpi" },
 ]
 openpi = [
@@ -122,18 +99,9 @@ environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 # Install the source-based sim stack (Isaac Lab editable from the submodule)
 # and the remote OpenPI client on a bare `uv sync`.
 default-groups = ["isaaclab-from-source", "openpi"]
-# The two sim-stack flavors resolve isaaclab (and possibly torch/isaacsim) to
-# different versions and sources; uv forks the resolution per flavor and
-# refuses to activate both groups at once.
-conflicts = [
-    [
-        { group = "isaaclab-from-wheel" },
-        { group = "isaaclab-from-source" },
-    ],
-]
-# Isaac Lab is explicitly pinned to a beta, while Isaac Sim requires a
-# transitive tinyobjloader release candidate. The exact constraint below makes
-# that RC explicit without allowing unrelated packages to float to prereleases.
+# Teleoperation requires a specific release candidate. Its exact requirement
+# above opts that package into prerelease selection without allowing unrelated
+# packages to float to prereleases.
 prerelease = "if-necessary-or-explicit"
 # Prefer the first index containing a compatible package. The explicit PyPI
 # route below handles the one known NVIDIA/PyPI name collision without merging
@@ -142,24 +110,31 @@ index-strategy = "first-index"
 # Pin numpy to the exact version Isaac Sim requires: isaacsim-kernel needs
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
-# Pin coverage and packaging to the versions isaacsim hard-pins: the isaaclab
-# source checkout pins coverage==7.6.1 and packaging<24, which are
-# unresolvable against isaacsim in the isaaclab-from-source flavor; the wheel
-# flavor already locks 7.4.4 / 26.0 (the published isaaclab wheels do not
-# carry these pins).
+# Pin coverage and packaging to versions compatible with the Isaac Sim wheel
+# stack. These overrides resolve stricter transitive constraints that do not
+# reflect the versions used successfully in the Docker runtime.
 # Pin websockets to the version the Docker environment validates:
 # isaacsim-kernel's ==12.0 pin is over-strict (the Docker build runs Isaac
 # Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
-# and isaacteleop[cloudxr] -- needed for teleop sessions in the
-# isaaclab-from-source flavor -- requires websockets>=14.
+# and isaacteleop[cloudxr] -- needed for teleop sessions -- requires
+# websockets>=14.
 # Pin the AWS/HTTP stack to the versions Isaac Sim requires: simready-search
 # asks for boto3==1.42.58, requests>=2.32.5 and s3transfer 0.16.x, all of which
 # are over-strict. The Docker image runs its S3 asset searches against the
 # boto3 1.40.61 / requests 2.32.3 / s3transfer 0.14.0 that isaacsim-kernel
 # pins. Without these overrides simready-search cannot resolve alongside either
-# sim-stack flavor at all, leaving the asset search with no installable runtime.
+# environment at all, leaving the asset search with no installable runtime.
 override-dependencies = [
     "numpy==2.3.1",
+    "mujoco~=3.11.0",
+    "mujoco-warp~=3.11.0",
+    "newton[sim] @ git+https://github.com/newton-physics/newton.git@release-1.5",
+    "newton-usd-schemas>=0.4.1",
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "torchaudio==2.11.0",
+    "typing-extensions>=4.15.0",
+    "warp-lang==1.16.0",
     "coverage==7.4.4",
     "packaging==26.0",
     "websockets==16.1.1",
@@ -168,12 +143,8 @@ override-dependencies = [
     "requests==2.32.3",
     "s3transfer==0.14.0",
 ]
-# Isaac Lab 3.0 Beta 2 does not correctly pin its dependencies: the published
-# wheel declares these transitive deps too broadly, so we constrain them to
-# working versions here.
-# TODO(alexmillane, 2026-07-16): Remove these pins after we upgrade to Isaac Lab
-# 3.0 GA, which will correctly pin its dependencies. See:
-# https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
+# Keep broad transitive requirements on versions validated with Isaac Sim 6.0
+# and the current Isaac Lab source checkout.
 constraint-dependencies = [
     "pin-pink==3.3.0",
     "pyglet<3",
@@ -198,26 +169,22 @@ url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.uv.sources]
-# torch / torchvision / torchaudio are pulled transitively by the isaaclab
-# wheel; steer them to the CUDA 12.8 index (Linux x86_64 is the only supported
-# platform, see `environments` above).
+# torch / torchvision / torchaudio are pulled transitively by Isaac Lab; steer
+# them to the CUDA 12.8 index (Linux x86_64 is the only supported platform,
+# see `environments` above).
 # mujoco-usd-converter: the NVIDIA index carries only incompatible 0.1.0
 # prereleases, so route it to PyPI.
-# isaacteleop (pulled by isaaclab-teleop in the isaaclab-from-source flavor): the
-# NVIDIA index carries only an incompatible 1.4 prerelease, so route it to
-# PyPI, which has the required stable 1.3.x (the same version the Docker
-# build installs).
+# Route Arena's validated isaacteleop wheel to PyPI rather than selecting a
+# same-named package from the NVIDIA index.
 mujoco-usd-converter = { index = "pypi" }
 isaacteleop = { index = "pypi" }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
 gr00t = { path = "submodules/Isaac-GR00T", editable = true, group = "gr00t-client" }
-# In the isaaclab-from-source flavor the Isaac Lab packages come editable from the
-# submodule checkout (one entry per source/isaaclab* package, mirroring
-# submodules/IsaacLab/pyproject.toml). When the group is inactive these
-# entries do not apply and isaaclab falls back to the wheel on the NVIDIA
-# index (the `isaaclab-from-wheel` group's pin).
+# The upstream development project and its Isaac Lab packages come editable
+# from the submodule checkout whenever the source group is active.
+isaaclab-dev = [{ path = "submodules/IsaacLab", editable = true, group = "isaaclab-from-source" }]
 isaaclab = [{ path = "submodules/IsaacLab/source/isaaclab", editable = true, group = "isaaclab-from-source" }]
 isaaclab-assets = [{ path = "submodules/IsaacLab/source/isaaclab_assets", editable = true, group = "isaaclab-from-source" }]
 isaaclab-contrib = [{ path = "submodules/IsaacLab/source/isaaclab_contrib", editable = true, group = "isaaclab-from-source" }]
@@ -225,7 +192,6 @@ isaaclab-experimental = [{ path = "submodules/IsaacLab/source/isaaclab_experimen
 isaaclab-mimic = [{ path = "submodules/IsaacLab/source/isaaclab_mimic", editable = true, group = "isaaclab-from-source" }]
 isaaclab-newton = [{ path = "submodules/IsaacLab/source/isaaclab_newton", editable = true, group = "isaaclab-from-source" }]
 isaaclab-ov = [{ path = "submodules/IsaacLab/source/isaaclab_ov", editable = true, group = "isaaclab-from-source" }]
-isaaclab-ovphysx = [{ path = "submodules/IsaacLab/source/isaaclab_ovphysx", editable = true, group = "isaaclab-from-source" }]
 isaaclab-physx = [{ path = "submodules/IsaacLab/source/isaaclab_physx", editable = true, group = "isaaclab-from-source" }]
 isaaclab-ppisp = [{ path = "submodules/IsaacLab/source/isaaclab_ppisp", editable = true, group = "isaaclab-from-source" }]
 isaaclab-rl = [{ path = "submodules/IsaacLab/source/isaaclab_rl", editable = true, group = "isaaclab-from-source" }]

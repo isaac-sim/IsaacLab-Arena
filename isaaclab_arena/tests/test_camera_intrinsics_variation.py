@@ -5,7 +5,9 @@
 
 import pytest
 
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 ENABLE_CAMERAS = True
@@ -131,6 +133,18 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     return True
 
 
+def _run_camera_intrinsics_variation_realized_at_runtime():
+    """Run the runtime intrinsics check in a disposable Kit process."""
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.headless = HEADLESS
+    args_cli.enable_cameras = ENABLE_CAMERAS
+    with SimulationAppContext(args_cli) as simulation_app_context:
+        assert _test_camera_intrinsics_variation_realized_at_runtime(simulation_app_context.app_launcher.app)
+
+
 @pytest.mark.with_cameras
 def test_disabled_camera_intrinsics_variation_not_in_events_cfg():
     assert run_function_with_persistent_simulation_app(
@@ -168,9 +182,12 @@ def test_enabled_camera_intrinsics_variation_forces_untiled_camera():
 
 
 @pytest.mark.with_cameras
+@pytest.mark.with_subprocess
 def test_camera_intrinsics_variation_realized_at_runtime():
-    assert run_function_with_persistent_simulation_app(
-        _test_camera_intrinsics_variation_realized_at_runtime,
-        headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
-    )
+    # Lab 3.0 does not fully release the untiled RTX/Replicator resources used by this test
+    # when its USD stage is replaced. Keep that state out of the remaining camera tests.
+    run_subprocess([TestConstants.python_path, __file__])
+
+
+if __name__ == "__main__":
+    _run_camera_intrinsics_variation_realized_at_runtime()
