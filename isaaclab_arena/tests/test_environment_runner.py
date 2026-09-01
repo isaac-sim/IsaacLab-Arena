@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import os
-import subprocess
 import torch
 from types import SimpleNamespace
 
@@ -16,6 +14,7 @@ import pytest
 from isaaclab_arena.scripts import environment_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 def _interactive_runner_args(**overrides) -> argparse.Namespace:
@@ -150,14 +149,7 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
 
 @pytest.mark.with_subprocess
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    result = subprocess.run(
-        [TestConstants.python_path, __file__],
-        capture_output=True,
-        text=True,
-        timeout=int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900")),
-        start_new_session=True,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
+    run_subprocess([TestConstants.python_path, __file__])
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
