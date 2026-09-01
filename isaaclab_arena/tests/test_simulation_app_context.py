@@ -41,13 +41,19 @@ def test_run_function_with_persistent_simulation_app_with_arg():
     assert test_passed, "Tested function returned False"
 
 
-@pytest.mark.parametrize(("tests_failed", "expected_exit_code"), [(False, 0), (True, 1)])
-def test_persistent_simulation_app_force_exit_without_pytest_session(monkeypatch, tests_failed, expected_exit_code):
-    """A direct test subprocess must not enter Kit's native shutdown path."""
+@pytest.mark.parametrize(
+    ("pytest_failed", "fallback_failed", "expected_exit_code"),
+    [(None, False, 0), (None, True, 1), (False, True, 0), (True, False, 1)],
+)
+def test_persistent_simulation_app_force_exit_preserves_test_result(
+    monkeypatch, pytest_failed, fallback_failed, expected_exit_code
+):
+    """Force-exit mode must preserve pytest or direct-execution results."""
     app = SimpleNamespace(close=lambda: pytest.fail("Force-exit mode must not call app.close()"))
     monkeypatch.setattr(persistent_simulation_app, "_PERSISTENT_SIM_APP_LAUNCHER", SimpleNamespace(app=app))
-    monkeypatch.setattr(persistent_simulation_app, "PYTEST_SESSION", None)
-    monkeypatch.setattr(subprocess_utils, "_AT_LEAST_ONE_TEST_FAILED", tests_failed)
+    pytest_session = None if pytest_failed is None else SimpleNamespace(tests_failed=pytest_failed)
+    monkeypatch.setattr(persistent_simulation_app, "PYTEST_SESSION", pytest_session)
+    monkeypatch.setattr(subprocess_utils, "_AT_LEAST_ONE_TEST_FAILED", fallback_failed)
     monkeypatch.setenv("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE", "1")
 
     def raise_system_exit(exit_code):
