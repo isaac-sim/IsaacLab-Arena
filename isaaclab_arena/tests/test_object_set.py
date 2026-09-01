@@ -489,9 +489,8 @@ def _test_object_set_with_robot_mounted_cameras(simulation_app) -> bool:
     An object set spawns one USD variant per env, which puts the scene on Isaac Lab's
     heterogeneous clone-plan path: every cfg gets its own destination template instead of a
     single env-root one. DROID's cameras live under the robot, so their templates nest
-    inside the robot's, and resolving them used to raise. See the resolve_clone_plan_source
-    patch. Needs more than one env; a single env takes the homogeneous fast path and never
-    builds the nested templates.
+    inside the robot's, and resolving them used to raise. Needs more than one env; a single
+    env takes the homogeneous fast path and never builds the nested templates.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
