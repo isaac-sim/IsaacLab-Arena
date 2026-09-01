@@ -9,4 +9,5 @@ from .franka.franka import *
 from .g1.g1 import *
 from .galbot.galbot import *
 from .gr1t2.gr1t2 import *
+from .industrial_fr3.industrial_fr3 import *
 from .kuka_allegro.kuka_allegro import *

@@ -234,6 +234,12 @@ namespaces = false
 # because the environment spec directories are not packages of their own.
 [tool.setuptools.package-data]
 "*" = ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.jsonl", "**/*.html"]
+"isaaclab_arena" = [
+    "assets/industrial_tool_sort/**/*.usd",
+    "assets/industrial_tool_sort/**/*.usda",
+    "assets/industrial_tool_sort/**/*.usdc",
+    "assets/industrial_tool_sort/**/*.png",
+]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["tests/test_data/**", "test_data/**"]

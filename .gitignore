@@ -82,6 +82,9 @@ TAGS
 # Datasets
 *datasets/
 
+# Local industrial tool-sort assets
+/isaaclab_arena/assets/industrial_tool_sort/
+
 # Training logs and outputs
 *wandb/
 

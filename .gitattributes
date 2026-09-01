@@ -6,3 +6,4 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 docs/images/ filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
+isaaclab_arena/assets/industrial_tool_sort/industrial__fr3_robotiq_2f85/franka_fr3_v1/Payload/GeometryLibrary.usdc filter=lfs diff=lfs merge=lfs -text

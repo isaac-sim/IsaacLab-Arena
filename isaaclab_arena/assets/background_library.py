@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -15,6 +16,8 @@ from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+_INDUSTRIAL_TOOL_SORT_ASSET_ROOT = Path(__file__).resolve().parent / "industrial_tool_sort"
 
 
 class LibraryBackground(Background):
@@ -239,6 +242,18 @@ class TableOakRobolab(LibraryBackground):
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
     object_min_z = -0.05
+
+
+@register_asset
+class IndustrialFr3WorkcellTable(LibraryBackground):
+    """Industrial FR3 workcell table used by the tool-sorting benchmark."""
+
+    name = "industrial__fr3_workcell_table"
+    tags = ["background", "industrial", "tool_sort"]
+    usd_path = str(
+        _INDUSTRIAL_TOOL_SORT_ASSET_ROOT / "industrial__fr3_workcell_table" / "industrial__fr3_workcell_table.usda"
+    )
+    object_min_z = 0.0
 
 
 # -----------------------------------------------------------------------------
