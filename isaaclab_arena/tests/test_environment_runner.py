@@ -6,16 +6,17 @@
 from __future__ import annotations
 
 import argparse
-import os
-import subprocess
-import torch
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
-from isaaclab_arena.scripts import environment_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
+
+if TYPE_CHECKING:
+    import torch
 
 
 def _interactive_runner_args(**overrides) -> argparse.Namespace:
@@ -53,6 +54,8 @@ class _FakeEnvironment:
         return {}, {}
 
     def step(self, actions: torch.Tensor):
+        import torch
+
         self.step_actions.append(actions.clone())
         terminated = torch.tensor([True])
         truncated = torch.tensor([False])
@@ -63,6 +66,8 @@ class _FakeEnvironment:
 
 
 def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
+    from isaaclab_arena.scripts import environment_runner
+
     environment_runner._assert_interactive_runner_args(_interactive_runner_args())
 
 
@@ -80,11 +85,17 @@ def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
     ],
 )
 def test_assert_interactive_runner_args_rejects_unsupported_configuration(argument_overrides, expected_message):
+    from isaaclab_arena.scripts import environment_runner
+
     with pytest.raises(AssertionError, match=expected_message):
         environment_runner._assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
 
 
 def test_run_environment_resets_and_steps_once_before_the_application_stops(monkeypatch):
+    import torch
+
+    from isaaclab_arena.scripts import environment_runner
+
     class OneIterationSimulationApp:
         def __init__(self) -> None:
             self.running_checks = 0
@@ -129,6 +140,8 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
     import omni.physx.bindings._physx as physx_bindings
     import omni.usd
 
+    from isaaclab_arena.scripts import environment_runner
+
     environment_runner._enable_mouse_interaction()
 
     extension_manager = omni.kit.app.get_app().get_extension_manager()
@@ -150,17 +163,12 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
 
 @pytest.mark.with_subprocess
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    result = subprocess.run(
-        [TestConstants.python_path, __file__],
-        capture_output=True,
-        text=True,
-        timeout=int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900")),
-        start_new_session=True,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
+    run_subprocess([TestConstants.python_path, __file__])
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
     args_cli = _interactive_runner_args(
         visualizer=None,
         visualizer_explicit=False,

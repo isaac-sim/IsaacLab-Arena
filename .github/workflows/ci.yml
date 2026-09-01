@@ -109,6 +109,7 @@ jobs:
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
 
     container:
+      # TODO(peterd, 2026-08-31): Restore :latest after upgrade PR merged to main.
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:peterd-lab3-ga-ae8a9aa3db
       credentials:
         username: $oauthtoken
@@ -184,6 +185,7 @@ jobs:
     needs: [pre_commit]
 
     container:
+      # TODO(peterd, 2026-08-31): Restore :latest after the official Lab 3.0 GA CI image is published.
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:peterd-lab3-ga-ae8a9aa3db
       credentials:
         username: $oauthtoken
@@ -223,6 +225,7 @@ jobs:
       GR00T_REMOTE_E2E_TIMEOUT: "900"
 
     container:
+      # TODO(peterd, 2026-08-31): Restore :latest after the official Lab 3.0 GA CI image is published.
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:peterd-lab3-ga-ae8a9aa3db
       credentials:
         username: $oauthtoken
@@ -285,6 +288,7 @@ jobs:
 
     container:
       # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
+      # TODO(peterd, 2026-08-31): Restore :curobo after the official Lab 3.0 GA CI image is published.
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:peterd-lab3-ga-curobo-ae8a9aa3db
       credentials:
         username: $oauthtoken
