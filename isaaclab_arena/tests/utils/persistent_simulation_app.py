@@ -94,12 +94,20 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
 
 
 @contextmanager
-def _fabric_disabled_for_env_builds() -> Iterator[None]:
+def _fabric_disabled_for_env_builds(disable_fabric: bool) -> Iterator[None]:
     """Force Fabric off for every environment built inside the ``with`` block.
 
     Patches the builder's single ``parse_env_cfg`` call rather than the builder config, so it holds
     for every env a test builds without each test opting in.
+
+    Args:
+        disable_fabric: Whether to force Fabric off. Pass False for a test that must build with
+            Fabric on, which is otherwise impossible on the shared app.
     """
+    if not disable_fabric:
+        yield
+        return
+
     # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove once the render-after-rebuild
     # bug is fixed in Lab. The persistent app rebuilds the stage once per test, and under GPU+Fabric
     # every build after the first renders some geometry at the wrong pose (the DROID gripper has been
@@ -120,6 +128,7 @@ def run_function_with_persistent_simulation_app(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
+    disable_fabric: bool = True,
     **kwargs,
 ) -> bool:
     """Run a function with the persistent SimulationApp in the current pytest process.
@@ -132,6 +141,7 @@ def run_function_with_persistent_simulation_app(
             and returns whether the test passed.
         headless: Whether to create the SimulationApp without a GUI.
         enable_cameras: Whether to enable camera rendering.
+        disable_fabric: Whether to force every environment built by the function to disable Fabric.
         **kwargs: Additional keyword arguments forwarded to the function.
 
     Returns:
@@ -140,7 +150,7 @@ def run_function_with_persistent_simulation_app(
     # Get a persistent simulation app
     try:
         simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
-        with _fabric_disabled_for_env_builds():
+        with _fabric_disabled_for_env_builds(disable_fabric):
             test_result = bool(function(simulation_app, **kwargs))
         if not test_result:
             subprocess_utils._AT_LEAST_ONE_TEST_FAILED = True

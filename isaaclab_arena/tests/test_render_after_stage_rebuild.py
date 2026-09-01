@@ -14,12 +14,11 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 HEADLESS = True
 ENABLE_CAMERAS = True
-# Steps taken after reset before images are captured, so the arm reaches its commanded pose and the
-# RTX renderer finishes accumulating. Comparing settled frames keeps run-to-run sampling noise low.
+# Steps taken after reset before images are captured.
 NUM_STEPS = 30
-# Mean per-channel 0-255 difference tolerated per camera. Settled renders agree to well under 1.0;
+# Mean per-channel 0-255 difference tolerated per camera. Settled renders agree to well under this;
 # geometry missing from a render moves this into the hundreds.
-MAX_MEAN_ABSOLUTE_DIFFERENCE = 5.0
+MAX_MEAN_ABSOLUTE_DIFFERENCE = 1.0
 # Per-channel difference above which a pixel counts as changed, and the fraction of such pixels
 # tolerated. Catches a single missing part that is too small to move the mean much.
 PIXEL_DIFFERENCE_TOLERANCE = 8
@@ -31,8 +30,12 @@ SAVE_IMAGES = False
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 
-def _build_droid_env():
-    """Build a single-env, camera-enabled DROID environment on a lit packing table."""
+def _build_droid_env(disable_fabric: bool):
+    """Build a single-env, camera-enabled DROID environment on a lit packing table.
+
+    Args:
+        disable_fabric: Whether to build the environment with Fabric disabled.
+    """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
@@ -52,10 +55,10 @@ def _build_droid_env():
         embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS),
         scene=scene,
     )
-    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove --disable_fabric once the
-    # render after rebuild bug is solved in Lab. Until then rebuilds render correctly only with Fabric
-    # off (see execute_experiment), so this test builds the same way.
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras", "--disable_fabric"])
+    cli_args = ["--num_envs", "1", "--enable_cameras"]
+    if disable_fabric:
+        cli_args.append("--disable_fabric")
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(cli_args)
     # Both builds share the builder's default seed, so reset-time joint randomization draws the same
     # offsets and the two builds are expected to render the same scene.
     builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
@@ -98,17 +101,17 @@ def _save_comparison_images(
             print(f"Wrote {output_path}", flush=True)
 
 
-def _test_render_after_stage_rebuild(simulation_app) -> bool:
+def _test_render_after_stage_rebuild(simulation_app, disable_fabric: bool) -> bool:
     from isaaclab_arena.evaluation.resource_cleanup import close_environment
 
-    env = _build_droid_env()
+    env = _build_droid_env(disable_fabric)
     try:
         images_before_rebuild = _render_camera_images(env)
     finally:
         # The same teardown the experiment runner performs between rebuilds.
         close_environment(env)
 
-    env = _build_droid_env()
+    env = _build_droid_env(disable_fabric)
     try:
         images_after_rebuild = _render_camera_images(env)
     finally:
@@ -146,9 +149,26 @@ def _test_render_after_stage_rebuild(simulation_app) -> bool:
 
 
 @pytest.mark.with_cameras
-def test_render_after_stage_rebuild():
+def test_render_after_stage_rebuild_without_fabric():
+    """Rebuilds render correctly with Fabric off, which is the path the experiment runner takes."""
     assert run_function_with_persistent_simulation_app(
         _test_render_after_stage_rebuild,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
+        disable_fabric=True,
+    )
+
+
+# TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Un-skip once the render after rebuild
+# bug is solved in Lab. Under GPU+Fabric every build after the first renders some geometry at the wrong
+# pose (the DROID gripper has been seen at the origin), which is what this test would catch.
+@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
+@pytest.mark.with_cameras
+def test_render_after_stage_rebuild_with_fabric():
+    """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
+    assert run_function_with_persistent_simulation_app(
+        _test_render_after_stage_rebuild,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+        disable_fabric=False,
     )
