@@ -35,6 +35,33 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
+def disable_fabric_for_runs(experiment_cfg: ArenaExperimentCfg) -> None:
+    """Disable Fabric and force the CPU device on every run that will be built more than once.
+
+    Args:
+        experiment_cfg: Experiment whose run configurations are mutated in place.
+    """
+    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove this once the render after
+    # rebuild bug is solved in Lab.
+    # Under GPU+Fabric every in-process build after the first has rendering artifacts due to incorrect
+    # poses for some geometry (for example, the robot's gripper has been seen to appear at the origin).
+    # As a workaround, we therefore disable Fabric and force the CPU device (the bug is GPU+Fabric only)
+    # whenever this process will build the env more than once (multiple runs and/or num_rebuilds > 1).
+    builds_in_process = sum(run_cfg.num_rebuilds for run_cfg in experiment_cfg.runs.values())
+    if builds_in_process <= 1:
+        return
+    print(
+        "Disabling Fabric and forcing the CPU device for all builds: this process will build the "
+        f"environment {builds_in_process} time(s) across {len(experiment_cfg.runs)} run(s), and the "
+        "GPU+Fabric post-rebuild rendering bug corrupts every build after the first "
+        "(slower than running on GPU with Fabric).",
+        flush=True,
+    )
+    for run_cfg in experiment_cfg.runs.values():
+        run_cfg.environment_builder.disable_fabric = True
+        run_cfg.environment_builder.device = "cpu"
+
+
 def execute_experiment(
     experiment_cfg: ArenaExperimentCfg,
     output_dir: Path,
@@ -54,6 +81,8 @@ def execute_experiment(
     Returns:
         One result per attempted run, in execution order.
     """
+    disable_fabric_for_runs(experiment_cfg)
+
     results = []
     for run_cfg in experiment_cfg.runs.values():
         print(f"Running run '{run_cfg.name}'", flush=True)
