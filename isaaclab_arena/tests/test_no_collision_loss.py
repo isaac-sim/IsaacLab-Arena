@@ -469,7 +469,7 @@ def _assert_vectorized_matches_reference(
     if expect_positive:
         assert (loss_new > 0).any(), "scene should produce a positive loss to exercise the overlap branch"
     if expected_pair_count is not None:
-        pair_count = solver._last_no_overlap_pair_count  # pyright: ignore[reportPrivateUsage]
+        pair_count = solver.last_no_overlap_pair_count
         assert pair_count == expected_pair_count, f"expected {expected_pair_count} pairs, got {pair_count}"
 
 
@@ -549,7 +549,7 @@ def test_vectorized_no_overlap_empty_pairs_returns_zero():
     state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
     loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
 
-    assert solver._last_no_overlap_pair_count == 0  # pyright: ignore[reportPrivateUsage]
+    assert solver.last_no_overlap_pair_count == 0
     assert loss.shape == (1,)
     assert torch.allclose(loss, torch.zeros_like(loss))
 
