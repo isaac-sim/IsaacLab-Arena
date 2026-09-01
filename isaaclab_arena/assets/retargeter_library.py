@@ -123,6 +123,17 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
 
 
 @register_retargeter
+class IndustrialFr3RobotiqKeyboardRetargeter(RetargetterBase):
+    """Route keyboard SE(3) commands directly to the industrial FR3 IK action."""
+
+    device = "keyboard"
+    embodiment = "industrial_fr3_robotiq_2f85_differential_ik"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None
+
+
+@register_retargeter
 class AgibotKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "agibot"

@@ -6,6 +6,7 @@
 
 import copy
 from abc import ABC
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -32,6 +33,8 @@ from isaaclab_arena.assets.object_utils import (
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+_INDUSTRIAL_TOOL_SORT_ASSET_ROOT = Path(__file__).resolve().parent / "industrial_tool_sort"
 
 
 class LibraryObject(Object):
@@ -1893,6 +1896,117 @@ class GreyBinRobolab(LibraryObject):
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
     # USD has 0.07 scale which is ignored by spawner. Setting it back again.
     scale = (0.007, 0.007, 0.007)
+
+
+# ---------------------------------------------------------------------------
+# Industrial tool-sort assets
+# ---------------------------------------------------------------------------
+
+
+class IndustrialToolSortObject(LibraryObject):
+    """Base for rigid tools imported from the industrial benchmark."""
+
+    tags = ["object", "graspable", "industrial", "tool_sort"]
+
+    def get_world_bounding_box(self):
+        initial_pose = self.get_initial_pose()
+        if self.is_anchor and isinstance(initial_pose, Pose):
+            return (
+                self.get_bounding_box()
+                .enclosing_after_rotation(initial_pose.rotation_xyzw)
+                .translated(initial_pose.position_xyz)
+            )
+        return super().get_world_bounding_box()
+
+
+@register_asset
+class IndustrialToolSortHammer(IndustrialToolSortObject):
+    """Hammer manipuland from the industrial tool-sorting benchmark."""
+
+    name = "vabar_tool_sort__hammer"
+    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+
+
+@register_asset
+class IndustrialToolSortDrill(IndustrialToolSortObject):
+    """Drill manipuland from the industrial tool-sorting benchmark."""
+
+    name = "vabar_tool_sort__drill"
+    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+
+
+@register_asset
+class IndustrialToolSortRoundNut(IndustrialToolSortObject):
+    """Round-nut manipuland from the industrial tool-sorting benchmark."""
+
+    name = "vabar_tool_sort__round_nut"
+    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+
+
+@register_asset
+class IndustrialToolSortClamp(IndustrialToolSortObject):
+    """Clamp manipuland from the industrial tool-sorting benchmark."""
+
+    name = "vabar_tool_sort__clamp"
+    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+
+
+@register_asset
+class IndustrialToolSortBin(Object):
+    """Source or compartmented destination bin for industrial tool sorting."""
+
+    name = "industrial__tool_sort_bin"
+    tags = ["object", "container", "industrial", "tool_sort"]
+
+    def __init__(
+        self,
+        instance_name: str = "tool_sort_bin",
+        side: str = "destination",
+        appearance: str = "default",
+        initial_pose: Pose | None = None,
+        **kwargs,
+    ):
+        assert side in {"source", "destination"}, f"Invalid tool-sort bin side: {side!r}"
+        assert appearance == "default", "Only the vendored default bin appearance is available."
+        leaf = "bin1.usda" if side == "source" else "bin2_default.usda"
+        super().__init__(
+            name=instance_name,
+            tags=self.tags,
+            usd_path=str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / self.name / leaf),
+            object_type=ObjectType.RIGID,
+            initial_pose=initial_pose,
+            collision_mode="mesh",
+            spawn_cfg_addon={
+                "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+            },
+            **kwargs,
+        )
+
+
+@register_asset
+class IndustrialHdrShadowReceiver(Object):
+    """Visual shadow receiver used by the industrial workcell."""
+
+    name = "industrial__hdr_shadow_receiver"
+    tags = ["floor", "visual", "industrial", "tool_sort"]
+
+    def __init__(
+        self,
+        instance_name: str = "hdr_shadow_receiver",
+        ground_z: float = 0.0,
+        initial_pose: Pose | None = None,
+        **kwargs,
+    ):
+        if initial_pose is None:
+            initial_pose = Pose(position_xyz=(0.0, 0.0, ground_z + 0.0005))
+        super().__init__(
+            name=instance_name,
+            tags=self.tags,
+            usd_path=str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / self.name / "industrial__hdr_shadow_receiver.usda"),
+            object_type=ObjectType.BASE,
+            initial_pose=initial_pose,
+            **kwargs,
+        )
 
 
 # ---------------------------------------------------------------------------
