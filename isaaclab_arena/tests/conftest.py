@@ -13,8 +13,6 @@
 
 from __future__ import annotations
 
-import os
-
 # Expose agentic LLM test fixtures (``stub_openai``, etc.) to the suite.
 pytest_plugins = ["isaaclab_arena.tests.utils.agentic_environment_generation"]
 
@@ -27,13 +25,6 @@ def pytest_sessionstart(session):
     global PYTEST_SESSION
     PYTEST_SESSION = session
     session.tests_failed = False
-
-    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove once the render-after-rebuild
-    # bug is fixed in Lab. The shared persistent SimulationApp rebuilds the stage many times across the
-    # suite, and under GPU+Fabric every build after the first has rendering artifacts, so force Fabric
-    # off for every env build in the test process (read in arena_env_builder). setdefault lets a
-    # developer opt back in with ISAACLAB_ARENA_DISABLE_FABRIC=0.
-    os.environ.setdefault("ISAACLAB_ARENA_DISABLE_FABRIC", "1")
 
 
 def pytest_runtest_logreport(report):
