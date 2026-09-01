@@ -13,7 +13,7 @@ from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.sim.views import UsdFrameView
+from isaaclab.sim.views import FrameView
 from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
 # Re-export ObjectType from the lightweight module so existing
@@ -52,8 +52,20 @@ class ObjectBase(PlaceableAsset, ABC):
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
-        self._base_frame_view = None
+        self._base_frame_view: FrameView | None = None
         self._base_frame_view_stage = None
+
+    def _close_base_frame_view(self) -> None:
+        """Release the cached frame view. Safe to call more than once."""
+        frame_view = getattr(self, "_base_frame_view", None)
+        if frame_view is not None:
+            frame_view.close()
+            self._base_frame_view = None
+            self._base_frame_view_stage = None
+
+    def __del__(self):
+        """Release the cached frame view when this object is dropped."""
+        self._close_base_frame_view()
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -168,8 +180,25 @@ class ObjectBase(PlaceableAsset, ABC):
             scene = env.unwrapped.scene
             stage = scene.stage
             if self._base_frame_view is None or self._base_frame_view_stage is not stage:
+                self._close_base_frame_view()
                 asset_cfg = scene[self.name]
-                self._base_frame_view = UsdFrameView(asset_cfg.prim_path, device=env.unwrapped.device, stage=stage)
+                frame_view = FrameView(asset_cfg.prim_path, device=env.unwrapped.device, stage=stage)
+                try:
+                    prim_paths = frame_view.prim_paths
+                    assert len(prim_paths) == env.unwrapped.num_envs, (
+                        f"AssetBaseCfg scene entry '{self.name}' resolved to {len(prim_paths)} prims; "
+                        f"expected {env.unwrapped.num_envs}."
+                    )
+                    for environment_id, prim_path in enumerate(prim_paths):
+                        environment_prim_path = scene.env_prim_paths[environment_id]
+                        assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+                            f"AssetBaseCfg scene entry '{self.name}' pose row {environment_id} belongs to"
+                            f" '{prim_path}', not environment '{environment_prim_path}'."
+                        )
+                except Exception:
+                    frame_view.close()
+                    raise
+                self._base_frame_view = frame_view
                 self._base_frame_view_stage = stage
             position_w, orientation_w = self._base_frame_view.get_world_poses()
             object_pose = torch.cat((position_w.torch, orientation_w.torch), dim=-1)
