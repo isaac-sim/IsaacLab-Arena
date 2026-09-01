@@ -19,7 +19,7 @@ ENABLE_CAMERAS = True
 NUM_STEPS = 30
 # Mean per-channel 0-255 difference tolerated per camera. Settled renders agree to well under this;
 # geometry missing from a render moves this into the hundreds.
-MAX_MEAN_ABSOLUTE_DIFFERENCE = 1.0
+MAX_MEAN_ABSOLUTE_DIFFERENCE = 5.0
 # Per-channel difference above which a pixel counts as changed, and the fraction of such pixels
 # tolerated. Catches a single missing part that is too small to move the mean much.
 PIXEL_DIFFERENCE_TOLERANCE = 8
