@@ -35,7 +35,8 @@ def _build_droid_env(disable_fabric: bool):
     """Build a single-env, camera-enabled DROID environment on a lit packing table.
 
     Args:
-        disable_fabric: Whether to build the environment with Fabric disabled.
+        disable_fabric: Whether to build the environment on CPU with Fabric disabled, matching the
+            experiment-runner workaround.
     """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -58,7 +59,7 @@ def _build_droid_env(disable_fabric: bool):
     )
     cli_args = ["--num_envs", "1", "--enable_cameras"]
     if disable_fabric:
-        cli_args.append("--disable_fabric")
+        cli_args.extend(["--disable_fabric", "--device", "cpu"])
     args_cli = get_isaaclab_arena_cli_parser().parse_args(cli_args)
     # Both builds share the builder's default seed, so reset-time joint randomization draws the same
     # offsets and the two builds are expected to render the same scene.
