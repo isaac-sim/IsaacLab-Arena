@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+import os
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -488,11 +489,16 @@ class ArenaEnvBuilder:
             kwargs=kwargs,
             disable_env_checker=True,
         )
+        # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove the env-var override once
+        # the render-after-rebuild bug is fixed in Lab. The test suite sets ISAACLAB_ARENA_DISABLE_FABRIC
+        # (see tests/conftest.py) so every build on the shared persistent app -- which rebuilds the stage
+        # many times -- runs with Fabric off.
+        disable_fabric = self.cfg.disable_fabric or os.environ.get("ISAACLAB_ARENA_DISABLE_FABRIC") == "1"
         cfg = parse_env_cfg(
             name,
             device=self.cfg.device,
             num_envs=self.cfg.num_envs,
-            use_fabric=not self.cfg.disable_fabric,
+            use_fabric=not disable_fabric,
         )
         # During Lab's env build, ObjectSets give every env cfg its own clone-plan destination
         # It is an issue for cameras nested under the robot that multiple destination are returned for the same source.

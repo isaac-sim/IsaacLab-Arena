@@ -19,6 +19,7 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_runner_arguments,
     build_policy_from_cli,
 )
+from isaaclab_arena.evaluation.resource_cleanup import close_environment
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -168,6 +169,14 @@ def main():
 
         # Get the policy-type flag before proceeding to other arguments
         add_policy_runner_arguments(args_parser)
+        # Debugging aid: rebuild the stage N times before the real rollout to reproduce artifacts
+        # that only appear after a rebuild (e.g. the GPU+Fabric gripper-at-origin bug). 0 = off.
+        args_parser.add_argument(
+            "--num_prewarm_rebuilds",
+            type=int,
+            default=0,
+            help="Number of throwaway build+teardown cycles to run before the real rollout.",
+        )
         args_cli, _ = args_parser.parse_known_args()
 
         # --list_variations only inspects the environment, so short-circuit reading other args.
@@ -209,6 +218,15 @@ def main():
             record_camera_video=args_cli.record_camera_video,
             video_base_dir=output_dir,
         )
+        # Run throwaway build+teardown cycles first, using the same path the Experiment Runner
+        # uses between rebuilds, so the real rollout below runs on a rebuilt stage.
+        for prewarm_index in range(args_cli.num_prewarm_rebuilds):
+            print(
+                f"[Rank {local_rank}/{world_size}] Prewarm rebuild {prewarm_index + 1}/{args_cli.num_prewarm_rebuilds}"
+            )
+            prewarm_env = arena_builder.make_registered(render_mode=video_cfg.render_mode)
+            close_environment(prewarm_env)
+
         env = arena_builder.make_registered(render_mode=video_cfg.render_mode)
 
         # Write per-episode results to disk.
