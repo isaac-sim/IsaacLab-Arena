@@ -3,7 +3,7 @@ Python Environment Catalog
 
 Python registered environments are small compositions of the building blocks
 introduced in :doc:`../concepts/environment/index` — **Scene**,
-**Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
+**Embodiment**, and **Task** — composed by an ``ArenaEnvironmentFactory``
 subclass and registered with the global ``EnvironmentRegistry``. The
 registered ``Task ID`` is passed as the positional ``example_environment``
 argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
@@ -497,6 +497,53 @@ position. Featured in the
      - *(none environment-specific; uses common ``ArenaEnvBuilder`` flags)*
 
 
+Deformable Object Manipulation
+------------------------------
+
+yam_cable_routing
+^^^^^^^^^^^^^^^^^
+
+**Task ID:** ``yam_cable_routing``
+
+**Class:** ``YamCableRoutingEnvironment`` (``isaaclab_arena_environments/yam_cable_routing_environment.py``)
+
+**Task Description:** Use two fixed-base YAM manipulators to route a cable
+counterclockwise around the first peg and then clockwise around the second.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Tags**
+     - Deformable manipulation, bimanual manipulation, cable routing
+   * - **Skills**
+     - Bimanual grasp, transport, directed cable winding
+   * - **Embodiment**
+     - ``yam_bimanual`` (fixed; 12 arm joints plus two normalized gripper commands)
+   * - **Scene**
+     - YAM workcell table, ManipulationNet board and two round pegs, procedural 1 m cable
+   * - **Task Class**
+     - ``CableRoutingTask`` (ordered geometric winding success and success-rate metric)
+   * - **Observations**
+     - 46-value proprioceptive policy vector; optional RGB and depth from two wrist cameras and one overhead camera
+   * - **Physics Backend**
+     - Custom Newton ``CouplerProxy``: MJWarp rigid bodies plus VBD cable. Do not pass ``--presets``.
+   * - **Interop**
+     - Zero-action policy evaluation and camera recording; no Mimic, teleoperation, or RL reward configuration
+   * - **CLI Args**
+     - ``--episode_length_s`` plus common options such as ``--enable_cameras``
+
+Run a zero-action visual smoke test with:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit --device cuda:0 --policy_type zero_action --num_steps 10000 \
+     yam_cable_routing
+
+
 Sandbox
 -------
 
@@ -609,4 +656,4 @@ See Also
 
 - :doc:`../concepts/environment/index` — the Scene / Embodiment / Task building blocks used by every environment listed here.
 - :doc:`../quickstart/arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
-- :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
+- :doc:`../arena_in_your_repo/index` — how to register your own environment factory alongside the built-in ones.

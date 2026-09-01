@@ -1,13 +1,13 @@
 # I2RT YAM asset snapshot
 
 This directory contains the self-contained `i2rt_yam_default` USD package used
-by the cable-routing environment. The eight source USD files were copied on
-2026-08-05 from NVIDIA's Robot Menagerie repository:
+by the Arena YAM embodiment. The eight source USD files were copied on
+2026-08-05 from NVIDIA's Robot Menagerie conversion of the public Google
+DeepMind MuJoCo Menagerie YAM asset:
 
-- repository: `https://gitlab-master.nvidia.com/isaac-applications-deployment/robot_menagerie`
-- `main` commit: `68ef1e0cc3e863a861b873893f038496e0dfe16b`
-- last commit touching `i2rt/yam`: `29806b31e41509731ffe6466547cba5cb09f6e63`
-- source directory: `i2rt/yam/generated/i2rt_yam_default/usd`
+- conversion repository commit: `68ef1e0cc3e863a861b873893f038496e0dfe16b`
+- last conversion commit touching `i2rt/yam`: `29806b31e41509731ffe6466547cba5cb09f6e63`
+- conversion source directory: `i2rt/yam/generated/i2rt_yam_default/usd`
 - entry layer: `i2rt_yam_default.usda`
 
 The Menagerie manifest pins the original Google DeepMind MuJoCo Menagerie
@@ -34,6 +34,5 @@ The manifest digest is produced from the pristine eight-file source package
 find i2rt_yam i2rt_yam_default.usda -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
 ```
 
-Set `ISAACLAB_CABLE_ROUTING_YAM_USD_PATH` to an alternate local YAM USD for an
-intentional asset experiment. The bundled snapshot remains the default for
-credential-free local and OSMO execution.
+The bundled snapshot is the deterministic default for credential-free local,
+wheel, and OSMO execution.

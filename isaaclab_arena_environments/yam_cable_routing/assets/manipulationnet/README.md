@@ -26,22 +26,21 @@ Pinned source hashes:
 | `board_segment_bottom_right.stl` | `6de8c5362d04f6a99a15b00f7655c5d706112103e9a5c8546f0e5306253be62c` |
 | `round_peg.stl` | `29d8169aaf13374e7f3ebcbba5f85ef95592408498315686483a9c62b87230e7` |
 
-Current derived artifact hashes (bitwise reproducible with the checked-out toolchain):
+Current derived artifact hashes:
 
 | Derived file | SHA-256 |
 |---|---|
 | `board.usdc` | `4c8056e1826857dbfd04eee69d407b12ce2fccaf3acb703d138f04c09b2472ca` |
 | `round_peg.usdc` | `aa25d088c1e4e339664e22f58f4998cef306c96bb7413786db802ac07ab79d7c` |
 
-## Rebuilding
+## Derivation
 
-Clone or check out the pinned upstream revision, then run:
-
-```bash
-uv run python scripts/tools/generate_manipulationnet_cable_assets.py \
-  /path/to/mnet_client/assets/cable_management/cad_files
-```
-
-The generator validates every input hash, recenters the arbitrary CAD pivots, assembles the documented `400 x 300 mm` active board in the environment's `(X=300 mm, Y=400 mm)` frame, and writes both assets atomically. The lower panels retain their official `30 mm` front branding strips, so the render envelope extends to `X=-0.18 m`; that strip is intentionally outside the active-workspace collision cube.
+The source meshes were validated against the hashes above, recentered from
+their arbitrary CAD pivots, and assembled into the documented `400 x 300 mm`
+active board in the environment's `(X=300 mm, Y=400 mm)` frame. The lower
+panels retain their official `30 mm` front branding strips, so the render
+envelope extends to `X=-0.18 m`; that strip is intentionally outside the
+active-workspace collision cube. The generated USDs and their hashes are the
+release artifacts; regeneration tooling is not distributed with Arena.
 
 The alignment clips are not included because their exact installed poses are not specified by the machine-readable CAD or benchmark coordinate definition. They are cosmetic for the fixed simulation board and do not change its active collision surface.

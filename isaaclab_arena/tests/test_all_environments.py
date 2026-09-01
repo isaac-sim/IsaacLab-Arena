@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Smoke-test every registered environment via experiment_runner.
+"""Smoke-test registered environments that use the generic runtime backend.
 
-Auto-discovers environments from the EnvironmentRegistry and runs each one for
-a few steps with the zero_action policy in a single experiment_runner subprocess.
-The test passes if no environment errors out during startup or stepping.
+Auto-discovers environments from the EnvironmentRegistry and runs each generic
+environment for a few steps with the zero_action policy in one subprocess.
+Custom-backend environments are covered by dedicated tests in their required
+physics phase.
 """
 
 import argparse
@@ -37,12 +38,21 @@ ENV_ARG_OVERRIDES: dict[str, dict] = {
     "put_item_in_fridge_and_close_door": {"embodiment": "gr1_joint"},
 }
 
+# These environments require a custom physics configuration and have dedicated
+# runtime coverage in the matching backend phase. Running them in this mixed
+# subprocess would retain their backend allocations before later jobs start.
+DEDICATED_RUNTIME_ENVIRONMENTS = {
+    "yam_cable_routing": "test_yam_cable_routing.py (with_newton)",
+}
+
 
 def _build_jobs_for_all_envs() -> list[dict]:
     ensure_environments_registered()
     env_names = sorted(EnvironmentRegistry().get_all_keys())
     jobs = []
     for env_name in env_names:
+        if env_name in DEDICATED_RUNTIME_ENVIRONMENTS:
+            continue
         arena_env_args = {"environment": env_name}
         arena_env_args.update(ENV_ARG_OVERRIDES.get(env_name, {}))
         jobs.append({
@@ -57,7 +67,7 @@ def _build_jobs_for_all_envs() -> list[dict]:
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_all_environments(tmp_path):
-    """Boot every registered environment for a few steps with the zero_action policy."""
+    """Boot every generic-backend environment with the zero_action policy."""
     jobs = _build_jobs_for_all_envs()
     assert len(jobs) > 0, "Expected at least one environment to be registered"
 
