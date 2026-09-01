@@ -53,11 +53,7 @@ relations:
     yaw_rad: 0.0
 task:
   composition: atomic
-<<<<<<< HEAD
   description: Open the fridge left door.
-=======
-  description: Open the fridge door to 0.4 openness.
->>>>>>> 48b9388e4 (wip)
   subtasks:
   - kind: OpenDoorTask
     params:
