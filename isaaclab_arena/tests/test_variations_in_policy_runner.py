@@ -5,11 +5,13 @@
 
 """Subprocess tests for Hydra variation overrides on policy_runner."""
 
+import os
+import subprocess
+
 import pytest
 
 from isaaclab_arena.tests.test_policy_runner import NUM_STEPS, run_policy_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 @pytest.mark.with_subprocess
@@ -49,6 +51,8 @@ def test_zero_action_policy_graph_spec_with_variation():
 
 @pytest.mark.with_subprocess
 def test_unknown_hydra_variation_override_fails_with_message():
+    from isaaclab_arena.tests.utils.constants import TestConstants
+
     args = [
         TestConstants.python_path,
         f"{TestConstants.evaluation_dir}/policy_runner.py",
@@ -62,8 +66,16 @@ def test_unknown_hydra_variation_override_fails_with_message():
         "droid_abs_joint_pos",
         "light.nonexistent_variation.enabled=true",
     ]
-    result = run_subprocess(args, capture_output=True, check=False)
-    assert result is not None
+    env = os.environ.copy()
+    env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
+    result = subprocess.run(
+        args,
+        env=env,
+        timeout=int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900")),
+        capture_output=True,
+        text=True,
+        start_new_session=True,
+    )
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
     assert "Unknown Hydra variation override" in output

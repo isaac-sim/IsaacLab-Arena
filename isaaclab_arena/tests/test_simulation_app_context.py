@@ -3,6 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from types import SimpleNamespace
+
+import pytest
+
+from isaaclab_arena.tests.utils import persistent_simulation_app
+from isaaclab_arena.tests.utils import subprocess as subprocess_utils
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 TEST_ARG = 123
@@ -33,3 +39,23 @@ def test_run_function_with_persistent_simulation_app_with_arg():
         test_arg=TEST_ARG,
     )
     assert test_passed, "Tested function returned False"
+
+
+@pytest.mark.parametrize(("tests_failed", "expected_exit_code"), [(False, 0), (True, 1)])
+def test_persistent_simulation_app_force_exit_without_pytest_session(monkeypatch, tests_failed, expected_exit_code):
+    """A direct test subprocess must not enter Kit's native shutdown path."""
+    app = SimpleNamespace(close=lambda: pytest.fail("Force-exit mode must not call app.close()"))
+    monkeypatch.setattr(persistent_simulation_app, "_PERSISTENT_SIM_APP_LAUNCHER", SimpleNamespace(app=app))
+    monkeypatch.setattr(persistent_simulation_app, "PYTEST_SESSION", None)
+    monkeypatch.setattr(subprocess_utils, "_AT_LEAST_ONE_TEST_FAILED", tests_failed)
+    monkeypatch.setenv("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE", "1")
+
+    def raise_system_exit(exit_code):
+        raise SystemExit(exit_code)
+
+    monkeypatch.setattr(persistent_simulation_app.os, "_exit", raise_system_exit)
+
+    with pytest.raises(SystemExit) as exc_info:
+        persistent_simulation_app._close_persistent()
+
+    assert exc_info.value.code == expected_exit_code

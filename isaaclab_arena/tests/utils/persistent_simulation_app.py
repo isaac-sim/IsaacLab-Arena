@@ -49,8 +49,14 @@ class _IsolatedArgv:
 def _close_persistent():
     global _PERSISTENT_SIM_APP_LAUNCHER
     if _PERSISTENT_SIM_APP_LAUNCHER is not None:
-        tests_failed = PYTEST_SESSION.tests_failed or subprocess_utils._AT_LEAST_ONE_TEST_FAILED
+        pytest_failed = PYTEST_SESSION is not None and PYTEST_SESSION.tests_failed
+        tests_failed = pytest_failed or subprocess_utils._AT_LEAST_ONE_TEST_FAILED
         print(f"Closing persistent simulation app. Tests failed: {tests_failed}")
+        if os.environ.get("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE") == "1":
+            # Avoid Kit's unreliable native shutdown path and preserve the test result.
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(1 if tests_failed else 0)
         if tests_failed:
             # If any test failed, exit the process with exit code 1
             # to prevent Isaac Sim from terminating the pytest process with exit code 0.
@@ -120,9 +126,14 @@ def run_function_with_persistent_simulation_app(
             subprocess_utils._AT_LEAST_ONE_TEST_FAILED = True
         return test_result
     except Exception as e:
+        subprocess_utils._AT_LEAST_ONE_TEST_FAILED = True
         print(f"Exception occurred while running the function (persistent mode): {e}")
         traceback.print_exc()
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
-        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+        try:
+            teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+        except Exception:
+            subprocess_utils._AT_LEAST_ONE_TEST_FAILED = True
+            raise
