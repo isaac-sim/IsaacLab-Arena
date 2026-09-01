@@ -87,6 +87,8 @@ TAGS
 
 # Ignore plots
 isaaclab_arena/tests/**.png
+# Images written by tests when their SAVE_IMAGES debugging flag is turned on
+isaaclab_arena/tests/output/
 
 # Ignore core dumps produced by debugpy
 core
