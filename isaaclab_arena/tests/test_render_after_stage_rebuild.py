@@ -7,6 +7,7 @@
 
 import os
 import torch
+from functools import partial
 
 import pytest
 
@@ -152,10 +153,10 @@ def _test_render_after_stage_rebuild(simulation_app, disable_fabric: bool) -> bo
 def test_render_after_stage_rebuild_without_fabric():
     """Rebuilds render correctly with Fabric off, which is the path the experiment runner takes."""
     assert run_function_with_persistent_simulation_app(
-        _test_render_after_stage_rebuild,
+        partial(_test_render_after_stage_rebuild, disable_fabric=True),
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
-        disable_fabric=True,
+        force_disable_fabric=True,
     )
 
 
@@ -167,8 +168,9 @@ def test_render_after_stage_rebuild_without_fabric():
 def test_render_after_stage_rebuild_with_fabric():
     """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
     assert run_function_with_persistent_simulation_app(
-        _test_render_after_stage_rebuild,
+        partial(_test_render_after_stage_rebuild, disable_fabric=False),
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
-        disable_fabric=False,
+        # Opt out of the suite-wide override, which would otherwise build this variant Fabric-off too.
+        force_disable_fabric=False,
     )
