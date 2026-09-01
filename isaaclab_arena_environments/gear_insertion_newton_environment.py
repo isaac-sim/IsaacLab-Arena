@@ -202,7 +202,7 @@ def _get_gear_gripper_action_type():
         from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
 
         class GearInsertionBinaryJointPositionAction(BinaryJointPositionZeroToOneAction):
-            """Hold the selected gear at zero action and slew safely toward close."""
+            """Use standard teleop gripper commands while holding neutral actions."""
 
             def __init__(self, cfg, env):
                 super().__init__(cfg, env)
@@ -214,19 +214,33 @@ def _get_gear_gripper_action_type():
 
             def process_actions(self, actions: torch.Tensor) -> None:
                 previous_commands = self._processed_actions.clone()
-                super().process_actions(actions)
-                close_mask = actions if actions.dtype == torch.bool else actions > 0.5
-                desired_commands = torch.where(
-                    close_mask,
-                    self._gear_close_command,
-                    self._gear_open_command,
-                )
+                self._raw_actions[:] = actions
+                if actions.dtype == torch.bool:
+                    desired_commands = torch.where(
+                        actions,
+                        self._gear_close_command,
+                        self._gear_open_command,
+                    )
+                else:
+                    close_mask = actions < -0.5
+                    open_mask = actions > 0.5
+                    desired_commands = torch.where(
+                        close_mask,
+                        self._gear_close_command,
+                        torch.where(open_mask, self._gear_open_command, previous_commands),
+                    )
                 command_delta = torch.clamp(
                     desired_commands - previous_commands,
                     min=-self._max_command_step,
                     max=self._max_command_step,
                 )
                 self._processed_actions = previous_commands + command_delta
+                if self.cfg.clip is not None:
+                    self._processed_actions = torch.clamp(
+                        self._processed_actions,
+                        min=self._clip[:, :, 0],
+                        max=self._clip[:, :, 1],
+                    )
 
             def reset(self, env_ids=None) -> None:
                 import warp as wp
@@ -279,6 +293,9 @@ def _make_env_cfg_callback(cfg: GearInsertionNewtonEnvironmentCfg):
     def configure_gear_insertion_newton(
         env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
     ) -> IsaacLabArenaManagerBasedRLEnvCfg:
+        from isaaclab.devices.device_base import DevicesCfg
+        from isaaclab.devices.spacemouse import Se3SpaceMouseCfg
+
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
         env_cfg.viewer.eye = (1.6, 1.2, 1.0)
@@ -301,6 +318,15 @@ def _make_env_cfg_callback(cfg: GearInsertionNewtonEnvironmentCfg):
         env_cfg.actions.gripper_action.joint_names = list(DROID_GRIPPER_JOINT_NAMES)
         env_cfg.actions.gripper_action.open_command_expr = DROID_GRIPPER_OPEN_COMMAND
         env_cfg.actions.gripper_action.close_command_expr = DROID_GRIPPER_CLOSE_COMMAND
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={
+                "spacemouse": Se3SpaceMouseCfg(
+                    pos_sensitivity=0.05,
+                    rot_sensitivity=0.05,
+                    sim_device=env_cfg.sim.device,
+                )
+            }
+        )
         env_cfg.gear_type = cfg.gear_type
         return env_cfg
 
