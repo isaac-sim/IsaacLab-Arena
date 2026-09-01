@@ -1,0 +1,143 @@
+/* Force white background for gallery table cells */
+table.gallery td {
+    background-color: inherit !important;
+    border: none !important;  /* optional: removes table cell borders */
+}
+
+/* Make images look clean inside the gallery */
+table.gallery img {
+    background-color: inherit !important;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+/* Remove border and box-shadow from gallery table */
+table.gallery,
+table.gallery td,
+table.gallery th {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Photo gallery: lay images out side by side with an adjustable gap.
+   Tweak --gallery-gap to widen or tighten the spacing between images. */
+.image-gallery {
+    --gallery-gap: 1.5rem;
+    --gallery-width: 45%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--gallery-gap);
+    margin: 1rem 0;
+}
+
+/* Set each image's width; with a shared aspect ratio their heights match too.
+   Keep the total (2 x --gallery-width + gap) under 100% to stay side by side. */
+.image-gallery img,
+.image-gallery .sphinx-contrib-video-container {
+    width: var(--gallery-width);
+    height: auto;
+    border-radius: 4px;
+}
+
+/* sphinxcontrib-video wraps each video in its own container div, which becomes the
+   flex item. The video fills that container rather than being sized directly. */
+.image-gallery .sphinx-contrib-video-container video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+}
+
+/* Three-up variant, for galleries with more images than fit two per row. */
+.image-gallery.gallery-3col {
+    --gallery-gap: 1rem;
+    --gallery-width: 31%;
+}
+
+/* Center the landing page. Scoped with :has() to the article that holds the
+   "Welcome" hero section, so every other docs page is left untouched. The
+   toctree keeps its lists left-aligned, where centered bullets would look off. */
+.bd-article:has(> section#welcome-to-isaac-lab-arena) {
+    text-align: center;
+}
+
+.bd-article:has(> section#welcome-to-isaac-lab-arena) .toctree-wrapper {
+    text-align: left;
+}
+
+/* Lighten the description line(s) under each bold label. Targets every line
+   after the first in a line block, using the theme's muted colour so it also
+   adapts to dark mode. */
+.bd-article:has(> section#welcome-to-isaac-lab-arena) .line-block .line:not(:first-child) {
+    color: var(--pst-color-text-muted);
+}
+
+/* Teaser code snippet on the landing page (index.rst ``compact-code``).
+   Force a dark Monokai-like card even when the site theme is light. */
+.compact-code {
+    text-align: left;
+}
+
+.compact-code .highlight {
+    background: #272822 !important;
+    border-radius: 0.5rem;
+    color: #f8f8f2;
+}
+
+.compact-code .highlight pre {
+    background: transparent !important;
+    color: #f8f8f2;
+}
+
+/* Pygments token colors for that teaser only. The snippet is just
+   ``name.method(Class(arg))``, so only .n / .o / .p appear. Pygments
+   tags both On and add_relation as plain Name; the rules below treat
+   Class(...) as pink and .method(...) as green. */
+.compact-code .highlight .n,
+.compact-code .highlight .p {
+    color: #f8f8f2 !important;
+}
+
+.compact-code .highlight .o,
+.compact-code .highlight .n:has(+ .p + .n + .p) {
+    color: #f92672 !important;
+}
+
+.compact-code .highlight .o + .n:has(+ .p + .n + .p) {
+    color: #a6e22e !important;
+}
+
+/* Nudge the version switcher alignment in the navbar. */
+.navbar-header-items__start .version-switcher__container {
+    display: flex;
+    align-items: center;
+}
+
+/* Header labels above the manual/agentic workflow comparison. */
+.nv-green-grid-header {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    background-color: #76b900;
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+}
+
+.nv-green-grid-header p {
+    margin: 0;
+}
+
+/* Wrap the long spec names, so the catalog's ``:widths:`` hold and the GIFs get
+   their share. The anchor needs the rule too: the theme's ``a`` sets
+   ``break-word``, which beats inheritance and does not shrink min-content. */
+.kitchen-bench-catalog td:first-child,
+.kitchen-bench-catalog td:first-child a {
+    overflow-wrap: anywhere;
+}

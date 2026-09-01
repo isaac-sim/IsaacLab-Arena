@@ -1,0 +1,1025 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Environment Definition &#8212; isaaclab_arena</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=ea57d090" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/environment/environment_definition';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Environment Builder" href="env_builder.html" />
+    <link rel="prev" title="Environment" href="index.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a></div>
+    
+      <div class="navbar-item"><div class="version-switcher__container dropdown">
+  <button type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-label="Version switcher list">
+    0.3.0
+    <span class="caret"></span>
+  </button>
+  <div class="version-switcher__menu dropdown-menu list-group-flush py-0" role="listbox">
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../../main/pages/concepts/environment/environment_definition.html" role="option">main</a>
+    <a class="list-group-item list-group-item-action py-1 active"
+       href="environment_definition.html" role="option" aria-current="true">0.3.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.3.0-prerelease/index.html" role="option">0.3.0-prerelease</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.2.1/index.html" role="option">0.2.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.2.0/index.html" role="option">0.2.0</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.1.1/index.html" role="option">0.1.1</a>
+    <a class="list-group-item list-group-item-action py-1"
+       href="../../../../0.1.0/index.html" role="option">0.1.0</a>
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../index.html">Home</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Isaac Lab Arena Overview</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../motivation/motivation.html">Isaac Lab Arena Overview</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/arena_experiment.html">First Arena Experiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/environment_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/openpi.html">OpenPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/running_a_real_policy/gr00t.html">GR00T</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/kitchen_bench_catalog.html">Kitchen Benchmark Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/python_environment_catalog.html">Python Environment Catalog</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/analysis/index.html">Evaluation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/analysis/variations.html">Run an Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/sensitivity_analysis/sensitivity_analysis.html">Sensitivity Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../example_workflows/multi_node_evaluation/multi_node_evaluation.html">Multi-Node Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/index.html">Pick and Place atomic task with homogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_homogenous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/index.html">Pick and Place atomic task with heterogeneous objects</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_heterogeneous_object/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/index.html">Pick and Place composite task with SimReady assets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/tabletop_pnp_composite_task/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/index.html">Pick and Place on a Kitchen Countertop</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_pick_and_place/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/index.html">Open a Kitchen Fridge Door</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_1_launch_runner.html">Run Agentic Environment Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_2_edit_environment_graph_spec.html">Edit the Environment Graph Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/agentic_env_gen/kitchen_open_door/step_3_use_environment.html">Use the Generated Environment</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Environment Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_environment_generation/system_overview.html">System Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_environment_generation/model_selection.html">Inference Model and Spec Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_environment_generation/gui_runner.html">GUI Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../agentic_environment_generation/cli_runner.html">CLI Runner</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_rigid_object_set.html">Rigid Object Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/pooled_placement.html">Pooled Placement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../object_placement/homogeneous_and_heterogeneous_placement.html">Homogeneous and Heterogeneous Object Placement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../policy/index.html">Policy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_arena_experiments.html">Arena Experiments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_sensitivity_analysis.html">Sensitivity Analysis</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Development Team Internal</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../development_team_internal/index.html">Development Team Internal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../development_team_internal/dreamzero.html">DreamZero</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Environment</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Environment Definition</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="environment-definition">
+<h1>Environment Definition<a class="headerlink" href="#environment-definition" title="Link to this heading">#</a></h1>
+<p>An Arena environment is three parts — scene, embodiment, and task (see the
+<a class="reference internal" href="index.html"><span class="doc">section overview</span></a>). This page covers the two ways to define that
+composition, and where they diverge.</p>
+<p>Both produce the same object: an <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.
+<a class="reference internal" href="env_builder.html"><span class="doc">Environment Builder</span></a> turns that into a runnable Isaac Lab environment:</p>
+<figure class="align-default">
+<img alt="Python factory and Graph YAML both produce an IsaacLabArenaEnvironment, which ArenaEnvBuilder compiles into a ManagerBasedRLEnv." src="../../../_images/env_spec_py_yaml.png" />
+</figure>
+<ul class="simple">
+<li><p><strong>Python</strong> — a registered <code class="docutils literal notranslate"><span class="pre">ArenaEnvironmentCfg</span></code>. <code class="docutils literal notranslate"><span class="pre">build()</span></code> constructs
+the scene, embodiment, and task in code.</p></li>
+<li><p><strong>YAML</strong> — an <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code>: a declarative environment graph. Nodes are
+assets; edges are spatial relations and task parameters.
+<code class="docutils literal notranslate"><span class="pre">from_yaml()</span></code> validates on load; <code class="docutils literal notranslate"><span class="pre">to_arena_env()</span></code> returns the same
+<code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.</p></li>
+</ul>
+<section id="the-same-environment-side-by-side">
+<h2>The same environment, side by side<a class="headerlink" href="#the-same-environment-side-by-side" title="Link to this heading">#</a></h2>
+<p>Same pick-and-place setup in both columns: a DROID arm picks a Rubik’s cube off a
+table and places it in a bowl. Full examples, same order, matching <code class="docutils literal notranslate"><span class="pre">#</span></code> markers —
+read across to see the correspondence.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>YAML</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Environment name</span>
+<span class="nt">env_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
+
+<span class="c1"># Embodiment</span>
+<span class="nt">embodiment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_abs_joint_pos</span>
+<span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_abs_joint_pos</span>
+
+<span class="c1"># Scene (lighting injected automatically)</span>
+<span class="nt">background</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
+<span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table_robolab</span>
+<span class="nt">objects</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cube</span>
+<span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rubiks_cube_hot3d_robolab</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl</span>
+<span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl_ycb_robolab</span>
+
+<span class="c1"># Sub-asset prims</span>
+<span class="nt">object_references</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
+<span class="w">  </span><span class="nt">parent_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
+<span class="w">  </span><span class="nt">prim_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
+<span class="w">  </span><span class="nt">object_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rigid</span>
+
+<span class="c1"># Layout</span>
+<span class="nt">relations</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">is_anchor</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cube</span>
+<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="s">'on'</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl</span>
+<span class="w">  </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table</span>
+
+<span class="c1"># Task</span>
+<span class="nt">task</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">composition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">atomic</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pick up the Rubik's cube and place it in the bowl.</span>
+<span class="w">  </span><span class="nt">subtasks</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PickAndPlaceTask</span>
+<span class="w">    </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pick_up_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cube</span>
+<span class="w">      </span><span class="nt">destination_location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bowl</span>
+<span class="w">      </span><span class="nt">background_scene</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maple_table</span>
+<span class="w">      </span><span class="nt">episode_length_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20.0</span>
+</pre></div>
+</div>
+</td>
+<td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_environment</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceMapleTable</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">):</span>
+    <span class="c1"># Identity</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"pick_and_place_maple_table"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+        <span class="n">get</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span>
+
+        <span class="c1"># Embodiment</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"droid_abs_joint_pos"</span><span class="p">)(</span>
+            <span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Scene (light must be added explicitly)</span>
+        <span class="n">maple_table</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"maple_table_robolab"</span><span class="p">)()</span>
+        <span class="n">cube</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"rubiks_cube_hot3d_robolab"</span><span class="p">)()</span>
+        <span class="n">bowl</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"bowl_ycb_robolab"</span><span class="p">)()</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
+
+        <span class="c1"># Sub-asset prims</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"table"</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="s2">"</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">"</span>
+                      <span class="s2">"/maple_table_robolab/table"</span><span class="p">,</span>
+            <span class="n">parent_asset</span><span class="o">=</span><span class="n">maple_table</span><span class="p">,</span>
+            <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Layout</span>
+        <span class="n">table</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+        <span class="n">table</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="o">.</span><span class="n">identity</span><span class="p">())</span>
+        <span class="n">cube</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+        <span class="n">bowl</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+
+        <span class="c1"># Task</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
+            <span class="n">pick_up_object</span><span class="o">=</span><span class="n">cube</span><span class="p">,</span>
+            <span class="n">destination_location</span><span class="o">=</span><span class="n">bowl</span><span class="p">,</span>
+            <span class="n">background_scene</span><span class="o">=</span><span class="n">maple_table</span><span class="p">,</span>
+            <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+            <span class="n">scene</span><span class="o">=</span><span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">maple_table</span><span class="p">,</span> <span class="n">light</span><span class="p">,</span> <span class="n">cube</span><span class="p">,</span> <span class="n">bowl</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span>
+            <span class="p">]),</span>
+            <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="where-the-two-formats-differ">
+<h2>Where the two formats differ<a class="headerlink" href="#where-the-two-formats-differ" title="Link to this heading">#</a></h2>
+<p>Three buckets:</p>
+<ul class="simple">
+<li><p>Only Python</p></li>
+<li><p>Only YAML</p></li>
+<li><p>Same key, different behavior</p></li>
+</ul>
+<section id="only-in-python">
+<h3>Only in Python<a class="headerlink" href="#only-in-python" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> takes ten constructor arguments.
+<code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec()</span></code> fills five: <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">scene</span></code>,
+<code class="docutils literal notranslate"><span class="pre">embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">task</span></code>, and a partial <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>. Everything else has no
+YAML key.</p>
+<p><strong>Teleoperation device.</strong> YAML never sets <code class="docutils literal notranslate"><span class="pre">env_cfg.teleop_devices</span></code>. Python can
+pass a device that drives the embodiment:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>RL interoperability.</strong> Gym kwargs for RL frameworks are Python-only. You cannot
+define an RL-training environment in YAML:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">"rsl_rl_cfg_entry_point"</span><span class="p">,</span>
+    <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="s2">"my_module:RLPolicyCfg"</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Patching the compiled config.</strong> <code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code> runs after Arena builds the
+<code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code>. Use it for viewport, decimation, physics, or anything
+else on that config:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">set_viewport</span><span class="p">(</span><span class="n">env_cfg</span><span class="p">):</span>
+    <span class="n">env_cfg</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">eye</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">env_cfg</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">lookat</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+
+<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">set_viewport</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Extra episode recorder terms.</strong> Per-episode signals beyond the built-ins:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span><span class="s2">"cube_pose"</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">record_cube_pose</span><span class="p">)},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Most placement tuning.</strong> YAML <code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> can set only four
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> fields: <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>, <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>,
+<code class="docutils literal notranslate"><span class="pre">debug_visualize</span></code>, and <code class="docutils literal notranslate"><span class="pre">debug_visualize_output_path</span></code>. Seeds, random yaw, pool
+size, resolve-on-reset, and IK reachability need Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">placer_params</span> <span class="o">=</span> <span class="n">ObjectPlacerParams</span><span class="p">(</span>
+    <span class="n">placement_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>          <span class="c1"># reproducible layouts</span>
+    <span class="n">random_yaw_init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>       <span class="c1"># random yaw per object</span>
+    <span class="n">resolve_on_reset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># solve once, reuse across resets</span>
+    <span class="n">min_unique_layouts_per_env</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">reachability_config</span><span class="o">=</span><span class="n">ReachabilityConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">placer_params</span><span class="o">=</span><span class="n">placer_params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Extra variations.</strong> Both formats get the defaults an asset attaches in its
+constructor (a light brings intensity, color, and HDR). Anything the asset class
+does not declare needs Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">add_variation</span><span class="p">(</span><span class="n">MyCustomVariation</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Calling methods on assets.</strong> YAML <code class="docutils literal notranslate"><span class="pre">params</span></code> go to constructors only. Method
+calls on a live instance have no YAML form:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">directional_light</span><span class="o">.</span><span class="n">set_dome_light</span><span class="p">(</span><span class="n">dome_light</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="only-in-yaml">
+<h3>Only in YAML<a class="headerlink" href="#only-in-yaml" title="Link to this heading">#</a></h3>
+<p><strong>Load-time validation.</strong> The spec is Pydantic. Registry names, node ids,
+relation arity, task params, and check subsets fail when the file loads — before
+Isaac Sim starts. Python has no equivalent; the same mistakes show up later as an
+<code class="docutils literal notranslate"><span class="pre">AttributeError</span></code> or a broken scene:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>AssertionError: Unknown asset registry_name 'rubiks_cube_hot3d'
+AssertionError: Relation kind 'is_anchor' must not define relation.reference
+AssertionError: composition 'atomic' requires exactly one atomic task
+</pre></div>
+</div>
+<p><strong>Automatic default lighting.</strong> No <code class="docutils literal notranslate"><span class="pre">light</span></code>-tagged asset and no light in the
+background USD? The loader adds a dome light and a directional light (off until a
+lighting-direction variation turns it on). In Python, no light means no light.</p>
+<p><strong>Scene reuse across task files.</strong> <code class="docutils literal notranslate"><span class="pre">external_yaml</span></code> merges one scene into many
+task files. Pattern used in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/</span></code>:
+<code class="docutils literal notranslate"><span class="pre">scenes/*.yaml</span></code> for layout, <code class="docutils literal notranslate"><span class="pre">tasks/*.yaml</span></code> for the task block only:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">external_yaml</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../scenes/bagel_plate_banana_bowl.yaml</span>
+<span class="nt">env_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">banana_on_plate</span>
+<span class="nt">task</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">composition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">atomic</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+<p><strong>Declared CLI overrides.</strong> <code class="docutils literal notranslate"><span class="pre">cli_override_specs</span></code> turns a node into a CLI flag
+with no code change. Below, <code class="docutils literal notranslate"><span class="pre">--object</span></code> replaces that node’s <code class="docutils literal notranslate"><span class="pre">registry_name</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">cli_override_specs</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">arg</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+<span class="w">  </span><span class="nt">target_node_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rubiks_cube_hot3d_robolab</span>
+</pre></div>
+</div>
+<p><strong>Machine authoring.</strong> Graph YAML is the output of
+<a class="reference internal" href="../../example_workflows/agentic_env_gen/index.html"><span class="doc">Agentic Environment Generation</span></a>: natural language in,
+validated <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> out. Pydantic checks registry names, node ids,
+relation arity, and task params before the simulator sees anything.</p>
+</section>
+<section id="same-key-different-behavior">
+<h3>Same key, different behavior<a class="headerlink" href="#same-key-different-behavior" title="Link to this heading">#</a></h3>
+<p>Skip these when porting and you will not get the same environment.</p>
+<p><strong>Duplicate instances need unique names.</strong> YAML sets <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> to the node
+id. Asset classes default it to the registry name, so two Python instances of the
+same asset share one name unless you set <code class="docutils literal notranslate"><span class="pre">instance_name</span></code>. Prim paths, event
+terms, and observation keys all key off that name:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two objects, one name. Pass instance_name yourself.</span>
+<span class="n">banana_a</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"banana_ycb_robolab"</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">"banana_a"</span><span class="p">)</span>
+<span class="n">banana_b</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"banana_ycb_robolab"</span><span class="p">)(</span><span class="n">instance_name</span><span class="o">=</span><span class="s2">"banana_b"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>An anchor without a pose.</strong> YAML gives an <code class="docutils literal notranslate"><span class="pre">is_anchor</span></code> subject with no pose
+<code class="docutils literal notranslate"><span class="pre">Pose.identity()</span></code> — the layout origin for the relation solver. Python leaves
+the anchor with no pose until you set one:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+<span class="n">table</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="o">.</span><span class="n">identity</span><span class="p">())</span>
+</pre></div>
+</div>
+<p><strong>Relative prim paths.</strong> An object-reference <code class="docutils literal notranslate"><span class="pre">prim_path</span></code> that does not start
+with <code class="docutils literal notranslate"><span class="pre">{ENV_REGEX_NS}/</span></code> expands to
+<code class="docutils literal notranslate"><span class="pre">{ENV_REGEX_NS}/&lt;background</span> <span class="pre">registry_name&gt;/&lt;prim_path&gt;</span></code>. Always the background
+registry name — even if <code class="docutils literal notranslate"><span class="pre">parent_id</span></code> points elsewhere. Python takes the path
+verbatim; it must be the full runtime path.</p>
+<p><strong>Cameras.</strong> YAML forwards <code class="docutils literal notranslate"><span class="pre">enable_cameras</span></code> into the embodiment <code class="docutils literal notranslate"><span class="pre">params</span></code>. A
+Python factory that ignores <code class="docutils literal notranslate"><span class="pre">cfg.enable_cameras</span></code> builds a camera-less env even
+when the flag is set. Policies that expect images will not be amused:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"droid_abs_joint_pos"</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Openable references.</strong> YAML picks the class from the fields: <code class="docutils literal notranslate"><span class="pre">openable_joint_name</span></code>
+in <code class="docutils literal notranslate"><span class="pre">params</span></code> → <code class="docutils literal notranslate"><span class="pre">OpenableObjectReference</span></code> (and <code class="docutils literal notranslate"><span class="pre">object_type:</span> <span class="pre">articulation</span></code>);
+otherwise → <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>. Python: you pick. Use the plain class for a door
+and you get a door with nothing to open.</p>
+<p><strong>Object set members.</strong> YAML constructs set members with no constructor args, so
+they cannot carry a <code class="docutils literal notranslate"><span class="pre">usd_path</span></code>. SimReady assets fail at load time and cannot be
+set members. Python <code class="docutils literal notranslate"><span class="pre">RigidObjectSet</span></code> takes live instances — SimReady is fine:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RigidObjectSet</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bottles"</span><span class="p">,</span> <span class="n">objects</span><span class="o">=</span><span class="p">[</span><span class="n">simready_bottle</span><span class="p">,</span> <span class="n">ycb_bottle</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="how-to-spawn-an-environment">
+<h2>How to spawn an environment<a class="headerlink" href="#how-to-spawn-an-environment" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>YAML</p></th>
+<th class="head"><p>Python</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env_spec<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+</pre></div>
+</div>
+</td>
+<td><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_rel_joint_pos<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--pick_up_object<span class="w"> </span>banana_ycb_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--destination_location<span class="w"> </span>bowl_ycb_robolab
+</pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Or load a graph YAML directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spec</span> <span class="o">=</span> <span class="n">ArenaEnvGraphSpec</span><span class="o">.</span><span class="n">from_yaml</span><span class="p">(</span><span class="s2">"path/to/env_graph.yaml"</span><span class="p">)</span>
+<span class="n">environment</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">to_arena_env</span><span class="p">()</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="choosing-between-them">
+<h2>Choosing between them<a class="headerlink" href="#choosing-between-them" title="Link to this heading">#</a></h2>
+<p>Many assets and relations? Start with YAML as it is validated, and machine-generatable so you
+can focus on the scene layout and task definition. Reach for Python when the YAML cannot
+express what you need: RL registration, teleop, <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code> patches,
+placement parameters, and so on.</p>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="env_builder.html"><span class="doc">Environment Builder</span></a> shows how either definition becomes a runnable Isaac Lab
+environment.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Environment</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="env_builder.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Environment Builder</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-same-environment-side-by-side">The same environment, side by side</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-the-two-formats-differ">Where the two formats differ</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#only-in-python">Only in Python</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#only-in-yaml">Only in YAML</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#same-key-different-behavior">Same key, different behavior</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-spawn-an-environment">How to spawn an environment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-between-them">Choosing between them</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
