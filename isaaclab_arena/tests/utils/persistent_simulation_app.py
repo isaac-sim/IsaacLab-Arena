@@ -7,7 +7,9 @@ import atexit
 import os
 import sys
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from unittest.mock import patch
 
 from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
@@ -98,10 +100,42 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
     return _PERSISTENT_SIM_APP_LAUNCHER.app
 
 
+@contextmanager
+def _fabric_disabled_for_env_builds(force_disable_fabric: bool) -> Iterator[None]:
+    """Force Fabric off for every environment built inside the ``with`` block.
+
+    Patches the builder's single ``parse_env_cfg`` call rather than the builder config, so it holds
+    for every env a test builds without each test opting in.
+
+    Args:
+        force_disable_fabric: Whether to force Fabric off. Pass False for a test that must build
+            with Fabric on, which is otherwise impossible on the shared app.
+    """
+    if not force_disable_fabric:
+        yield
+        return
+
+    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove once the render-after-rebuild
+    # bug is fixed in Lab. The persistent app rebuilds the stage once per test, and under GPU+Fabric
+    # every build after the first renders some geometry at the wrong pose (the DROID gripper has been
+    # seen at the origin), which would surface as unrelated tests failing on their rendered output.
+    # Imported here because Lab modules are only importable once the SimulationApp is running.
+    from isaaclab_arena.environments import arena_env_builder
+
+    unpatched_parse_env_cfg = arena_env_builder.parse_env_cfg
+
+    def parse_env_cfg_without_fabric(*args, **kwargs):
+        return unpatched_parse_env_cfg(*args, **{**kwargs, "use_fabric": False})
+
+    with patch.object(arena_env_builder, "parse_env_cfg", parse_env_cfg_without_fabric):
+        yield
+
+
 def run_function_with_persistent_simulation_app(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
+    force_disable_fabric: bool = True,
     **kwargs,
 ) -> bool:
     """Run a function with the persistent SimulationApp in the current pytest process.
@@ -114,6 +148,8 @@ def run_function_with_persistent_simulation_app(
             and returns whether the test passed.
         headless: Whether to create the SimulationApp without a GUI.
         enable_cameras: Whether to enable camera rendering.
+        force_disable_fabric: Whether to force every environment built by the function to disable
+            Fabric, regardless of the builder config it was given.
         **kwargs: Additional keyword arguments forwarded to the function.
 
     Returns:
@@ -122,7 +158,8 @@ def run_function_with_persistent_simulation_app(
     # Get a persistent simulation app
     try:
         simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
-        test_result = bool(function(simulation_app, **kwargs))
+        with _fabric_disabled_for_env_builds(force_disable_fabric):
+            test_result = bool(function(simulation_app, **kwargs))
         if not test_result:
             subprocess_utils._AT_LEAST_ONE_TEST_FAILED = True
         return test_result
