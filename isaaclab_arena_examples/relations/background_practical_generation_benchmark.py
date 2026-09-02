@@ -17,6 +17,7 @@ import random
 import statistics
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -137,7 +138,7 @@ def _summarize_diversity(layouts: list[Layout], num_objects: int) -> dict[str, f
 def _sample_arena_batch(
     scenario: BackgroundScenario,
     num_objects: int,
-    seeds: range,
+    seeds: Sequence[int],
     max_iterations: int,
 ) -> tuple[list[Layout], int, int, float | None]:
     import torch

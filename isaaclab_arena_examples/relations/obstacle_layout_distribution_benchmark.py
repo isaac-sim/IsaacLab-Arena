@@ -28,11 +28,43 @@ Size = tuple[float, float]
 Layout = dict[str, tuple[float, float]]
 
 TABLE_BOUNDS: TableBounds = (-0.5, 0.5, -0.5, 0.5)
-MOVABLE_SIZES: dict[str, Size] = {
-    "movable-small": (0.06, 0.06),
-    "movable-medium": (0.09, 0.09),
-    "movable-large": (0.12, 0.12),
+_SHAPE_SUITE_SPECS: dict[str, dict[str, tuple[Size, float]]] = {
+    "square-size": {
+        "movable-small": ((0.06, 0.06), 0.0),
+        "movable-medium": ((0.09, 0.09), 0.0),
+        "movable-large": ((0.12, 0.12), 0.0),
+    },
+    "heterogeneous-fixed-yaw": {
+        "movable-square": ((0.08, 0.08), 0.0),
+        "movable-thin": ((0.04, 0.16), 0.0),
+        "movable-wide": ((0.16, 0.06), 30.0),
+        "movable-large": ((0.12, 0.18), 60.0),
+    },
 }
+SHAPE_SUITES = tuple(_SHAPE_SUITE_SPECS)
+MOVABLE_RAW_SIZES = {name: size for name, (size, _) in _SHAPE_SUITE_SPECS["square-size"].items()}
+MOVABLE_YAWS_DEG = {name: yaw_deg for name, (_, yaw_deg) in _SHAPE_SUITE_SPECS["square-size"].items()}
+MOVABLE_SIZES = MOVABLE_RAW_SIZES.copy()
+
+
+def _projected_aabb(size: Size, yaw_deg: float) -> Size:
+    """Return the XY AABB extent of a rectangle at a fixed yaw."""
+    width, depth = size
+    yaw = math.radians(yaw_deg)
+    return (
+        abs(width * math.cos(yaw)) + abs(depth * math.sin(yaw)),
+        abs(width * math.sin(yaw)) + abs(depth * math.cos(yaw)),
+    )
+
+
+def _configure_shape_suite(shape_suite: str) -> None:
+    """Configure the module-level workload selected by the CLI."""
+    global MOVABLE_RAW_SIZES, MOVABLE_SIZES, MOVABLE_YAWS_DEG
+    assert shape_suite in _SHAPE_SUITE_SPECS, f"unknown shape suite: {shape_suite}"
+    suite = _SHAPE_SUITE_SPECS[shape_suite]
+    MOVABLE_RAW_SIZES = {name: size for name, (size, _) in suite.items()}
+    MOVABLE_YAWS_DEG = {name: yaw_deg for name, (_, yaw_deg) in suite.items()}
+    MOVABLE_SIZES = {name: _projected_aabb(size, MOVABLE_YAWS_DEG[name]) for name, size in MOVABLE_RAW_SIZES.items()}
 
 
 @dataclass(frozen=True)
@@ -131,10 +163,11 @@ def _fits_around_obstacles(
 def validate_layout(
     layout: Layout,
     table_bounds: TableBounds = TABLE_BOUNDS,
-    movable_sizes: dict[str, Size] = MOVABLE_SIZES,
+    movable_sizes: dict[str, Size] | None = None,
     obstacles: tuple[FixedObstacle, ...] = OBSTACLES,
 ) -> bool:
     """Check exact yaw-zero containment and non-overlap."""
+    movable_sizes = MOVABLE_SIZES if movable_sizes is None else movable_sizes
     if set(layout) != set(movable_sizes):
         return False
     for name, xy in layout.items():
@@ -235,7 +268,11 @@ def _sample_arena(seed: int, count: int, max_iterations: int) -> list[Layout]:
     ]
 
 
-def _load_robolab(robolab_root: Path):
+def _load_robolab(robolab_root: Path, mode: str):
+    if mode == "matched-aabb":
+        from isaaclab_arena_examples.relations.collision_representation_ablation import _load_robolab
+
+        return _load_robolab(robolab_root, "aabb")
     sys.path.insert(0, str(robolab_root.resolve()))
     from robolab.scene_gen.llm_scene_gen.predicates import ObjectState, PlaceOnBasePredicate
     from robolab.scene_gen.llm_scene_gen.spatial_solver import SpatialSolver
@@ -263,6 +300,7 @@ def _sample_robolab(seed: int, robolab_api, max_iterations: int) -> Layout | Non
     dimensions = {obstacle.name: (obstacle.width, obstacle.depth, 0.1) for obstacle in OBSTACLES}
     dimensions.update({name: (*size, 0.1) for name, size in MOVABLE_SIZES.items()})
     solver = SpatialSolver(table_bounds=TABLE_BOUNDS, collision_margin=0.0)
+    setattr(solver, "_ablation_fixed_objects", {obstacle.name for obstacle in OBSTACLES})
     success, _ = solver.solve(
         states,
         dimensions,
@@ -322,7 +360,8 @@ def _generate_repetition(
 
 def generate(args: argparse.Namespace) -> int:
     """Generate exact-K externally valid layouts."""
-    robolab_api = _load_robolab(args.robolab_root) if args.method == "robolab" else None
+    _configure_shape_suite(args.shape_suite)
+    robolab_api = _load_robolab(args.robolab_root, args.robolab_mode) if args.method == "robolab" else None
     seed_stride = args.target_layouts * args.max_attempts_per_layout
     for warmup_index in range(args.warmup):
         _generate_repetition(
@@ -348,14 +387,17 @@ def generate(args: argparse.Namespace) -> int:
     benchmark_root = Path(__file__).resolve().parents[2]
     source_root = args.robolab_root if args.method == "robolab" else benchmark_root
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": "fixed-obstacle-tabletop",
+        "shape_suite": args.shape_suite,
         "method": args.method,
         "source_revision": _source_revision(source_root),
         "benchmark_revision": _source_revision(benchmark_root),
         "table_bounds": TABLE_BOUNDS,
         "obstacles": [asdict(obstacle) for obstacle in OBSTACLES],
+        "movable_raw_sizes": MOVABLE_RAW_SIZES,
         "movable_sizes": MOVABLE_SIZES,
+        "movable_yaws_deg": MOVABLE_YAWS_DEG,
         "target_layouts": args.target_layouts,
         "repetitions": args.repetitions,
         "warmup": args.warmup,
@@ -369,9 +411,10 @@ def generate(args: argparse.Namespace) -> int:
         "numpy_version": np.__version__,
         "collision_model": {
             "arena": "aabb",
-            "robolab": "max-xy-radius-circle",
+            "robolab": "aabb" if args.robolab_mode == "matched-aabb" else "max-xy-radius-circle",
             "random_rejection": "exact-aabb",
         }[args.method],
+        "robolab_mode": args.robolab_mode if args.method == "robolab" else None,
         "samples": samples,
     }
     args.output.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
@@ -422,13 +465,33 @@ def _rectangle_has_unblocked_area(
     return False
 
 
+def _cell_has_feasible_boundary_point(
+    bounds: tuple[float, float, float, float],
+    blocked: list[tuple[float, float, float, float]],
+    size: Size,
+    table_bounds: TableBounds,
+    obstacles: tuple[FixedObstacle, ...],
+) -> bool:
+    """Return whether a cell contains an exact zero-clearance feasible point."""
+    xmin, xmax, ymin, ymax = bounds
+    if xmin > xmax or ymin > ymax:
+        return False
+    candidate_x = {xmin, xmax}
+    candidate_y = {ymin, ymax}
+    for block_xmin, block_xmax, block_ymin, block_ymax in blocked:
+        candidate_x.update(value for value in (block_xmin, block_xmax) if xmin <= value <= xmax)
+        candidate_y.update(value for value in (block_ymin, block_ymax) if ymin <= value <= ymax)
+    return any(_fits_around_obstacles((x, y), size, table_bounds, obstacles) for x in candidate_x for y in candidate_y)
+
+
 def _feasible_mask(
     object_name: str,
     grid_size: int,
     table_bounds: TableBounds = TABLE_BOUNDS,
-    movable_sizes: dict[str, Size] = MOVABLE_SIZES,
+    movable_sizes: dict[str, Size] | None = None,
     obstacles: tuple[FixedObstacle, ...] = OBSTACLES,
 ) -> np.ndarray:
+    movable_sizes = MOVABLE_SIZES if movable_sizes is None else movable_sizes
     xmin, xmax, ymin, ymax = table_bounds
     width, depth = movable_sizes[object_name]
     allowed = (xmin + width / 2, xmax - width / 2, ymin + depth / 2, ymax - depth / 2)
@@ -452,7 +515,9 @@ def _feasible_mask(
                 max(allowed[2], ymin + y_index * y_step),
                 min(allowed[3], ymin + (y_index + 1) * y_step),
             )
-            mask[y_index, x_index] = _rectangle_has_unblocked_area(cell, blocked)
+            mask[y_index, x_index] = _rectangle_has_unblocked_area(cell, blocked) or _cell_has_feasible_boundary_point(
+                cell, blocked, (width, depth), table_bounds, obstacles
+            )
     return mask
 
 
@@ -517,7 +582,10 @@ def _check_compatible(runs: dict[Method, dict]) -> None:
             "workload",
             "table_bounds",
             "obstacles",
+            "shape_suite",
+            "movable_raw_sizes",
             "movable_sizes",
+            "movable_yaws_deg",
             "target_layouts",
             "repetitions",
             "seeds",
@@ -530,6 +598,18 @@ def _check_compatible(runs: dict[Method, dict]) -> None:
                 raise ValueError(f"{method} has incompatible {field}")
         if not run.get("benchmark_revision"):
             raise ValueError(f"{method} is missing benchmark_revision provenance")
+        if not run.get("source_revision"):
+            raise ValueError(f"{method} is missing source_revision provenance")
+    if reference["shape_suite"] == "heterogeneous-fixed-yaw":
+        if runs["robolab"].get("robolab_mode") != "matched-aabb":
+            raise ValueError("heterogeneous comparison requires matched-AABB RoboLab")
+        collision_models = {method: run.get("collision_model") for method, run in runs.items()}
+        if collision_models != {
+            "arena": "aabb",
+            "robolab": "aabb",
+            "random_rejection": "exact-aabb",
+        }:
+            raise ValueError(f"heterogeneous comparison has incompatible collision models: {collision_models}")
 
 
 def _write_heatmap_plot(heatmaps: dict[str, list], output: Path) -> None:
@@ -563,6 +643,15 @@ def _write_heatmap_plot(heatmaps: dict[str, list], output: Path) -> None:
 def analyze(args: argparse.Namespace) -> int:
     """Analyze equal-count per-object marginal free-space coverage."""
     loaded = [json.loads(path.read_text(encoding="utf-8")) for path in args.inputs]
+    shape_suites = {run.get("shape_suite") for run in loaded}
+    if len(shape_suites) != 1:
+        raise ValueError(f"inputs have inconsistent shape suites: {shape_suites}")
+    shape_suite = shape_suites.pop()
+    if shape_suite not in SHAPE_SUITES:
+        raise ValueError(f"inputs have unknown shape suite: {shape_suite}")
+    if args.shape_suite is not None and args.shape_suite != shape_suite:
+        raise ValueError(f"--shape-suite {args.shape_suite} does not match input suite {shape_suite}")
+    _configure_shape_suite(shape_suite)
     runs = {run["method"]: run for run in loaded}
     if set(runs) != {"arena", "robolab", "random_rejection"}:
         raise ValueError("analysis requires arena, robolab, and random_rejection inputs")
@@ -646,6 +735,8 @@ def _parse_args() -> argparse.Namespace:
     generate_parser = commands.add_parser("generate")
     generate_parser.add_argument("--method", choices=("arena", "robolab", "random_rejection"), required=True)
     generate_parser.add_argument("--robolab-root", type=Path)
+    generate_parser.add_argument("--robolab-mode", choices=("native", "matched-aabb"), default="native")
+    generate_parser.add_argument("--shape-suite", choices=SHAPE_SUITES, default="square-size")
     generate_parser.add_argument("--target-layouts", type=int, default=1000)
     generate_parser.add_argument("--repetitions", type=int, default=5)
     generate_parser.add_argument("--warmup", type=int, default=1)
@@ -655,6 +746,7 @@ def _parse_args() -> argparse.Namespace:
     generate_parser.add_argument("--output", type=Path, required=True)
     analyze_parser = commands.add_parser("analyze")
     analyze_parser.add_argument("inputs", nargs=3, type=Path)
+    analyze_parser.add_argument("--shape-suite", choices=SHAPE_SUITES)
     analyze_parser.add_argument("--grid-size", type=int, default=32)
     analyze_parser.add_argument("--output", type=Path, required=True)
     analyze_parser.add_argument("--plot", type=Path)
@@ -662,6 +754,12 @@ def _parse_args() -> argparse.Namespace:
     if args.command == "generate":
         if args.method == "robolab" and args.robolab_root is None:
             parser.error("--robolab-root is required for RoboLab")
+        if (
+            args.method == "robolab"
+            and args.shape_suite == "heterogeneous-fixed-yaw"
+            and args.robolab_mode != "matched-aabb"
+        ):
+            parser.error("heterogeneous-fixed-yaw requires --robolab-mode matched-aabb")
         if (
             args.target_layouts <= 0
             or args.repetitions <= 0

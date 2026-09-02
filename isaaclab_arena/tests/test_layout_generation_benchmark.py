@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import numpy as np
 import random
 from dataclasses import replace
 from types import SimpleNamespace
@@ -44,7 +45,10 @@ from isaaclab_arena_examples.relations import collision_space_coverage_benchmark
 from isaaclab_arena_examples.relations import direct_solver_comparison_benchmark as direct_benchmark
 from isaaclab_arena_examples.relations import fixed_iteration_batch_scaling_benchmark as batch_scaling_benchmark
 from isaaclab_arena_examples.relations import obstacle_layout_distribution_benchmark as obstacle_benchmark
+from isaaclab_arena_examples.relations import real_asset_collision_region_benchmark as real_region_benchmark
+from isaaclab_arena_examples.relations import real_asset_obstacle_ratio_coverage_benchmark as obstacle_ratio_benchmark
 from isaaclab_arena_examples.relations import robolab_layout_generation_benchmark as robolab_benchmark
+from isaaclab_arena_examples.relations import solver_feasibility_frontier_benchmark as frontier_benchmark
 
 BOUNDS = (-0.5, 0.5, -0.5, 0.5)
 SIZES = {"a": (0.2, 0.2), "b": (0.2, 0.2)}
@@ -481,6 +485,61 @@ def test_obstacle_feasible_mask_depends_on_object_footprint():
     assert 0 < large.sum() < small.sum() < small.size
 
 
+def test_obstacle_feasible_mask_includes_exact_zero_clearance_boundary():
+    mask = obstacle_benchmark._feasible_mask(
+        "table-width-object",
+        2,
+        movable_sizes={"table-width-object": (1.0, 0.2)},
+        obstacles=(),
+    )
+
+    assert mask.all()
+
+
+def test_obstacle_heterogeneous_suite_uses_fixed_yaw_projected_aabbs():
+    try:
+        obstacle_benchmark._configure_shape_suite("heterogeneous-fixed-yaw")
+
+        raw_size = obstacle_benchmark.MOVABLE_RAW_SIZES["movable-wide"]
+        projected_size = obstacle_benchmark.MOVABLE_SIZES["movable-wide"]
+        assert obstacle_benchmark.MOVABLE_YAWS_DEG["movable-wide"] == 30.0
+        assert projected_size == pytest.approx(obstacle_benchmark._projected_aabb(raw_size, 30.0))
+        assert all(projected > raw for projected, raw in zip(projected_size, raw_size, strict=True))
+    finally:
+        obstacle_benchmark._configure_shape_suite("square-size")
+
+
+def test_obstacle_heterogeneous_analysis_rejects_native_robolab_collision_model():
+    common = {
+        "workload": "fixed-obstacle-tabletop",
+        "table_bounds": [-0.5, 0.5, -0.5, 0.5],
+        "obstacles": [],
+        "shape_suite": "heterogeneous-fixed-yaw",
+        "movable_raw_sizes": {"object": [0.04, 0.16]},
+        "movable_sizes": {"object": [0.04, 0.16]},
+        "movable_yaws_deg": {"object": 0.0},
+        "target_layouts": 8,
+        "repetitions": 1,
+        "seeds": [0],
+        "max_attempts_per_layout": 10,
+        "max_iterations": 600,
+        "timing_scope": "complete-exact-k-generation",
+        "benchmark_revision": "benchmark",
+        "source_revision": "source",
+    }
+    runs = {
+        method: {**common, "collision_model": collision_model, "robolab_mode": robolab_mode}
+        for method, collision_model, robolab_mode in (
+            ("arena", "aabb", None),
+            ("robolab", "max-xy-radius-circle", "native"),
+            ("random_rejection", "exact-aabb", None),
+        )
+    }
+
+    with pytest.raises(ValueError, match="matched-AABB RoboLab"):
+        obstacle_benchmark._check_compatible(runs)
+
+
 def test_collision_space_physical_validator_distinguishes_box_and_disk_corners():
     box = coverage_benchmark.Scenario("box", 0.16)
     disk = coverage_benchmark.Scenario("disk", 0.16)
@@ -488,6 +547,245 @@ def test_collision_space_physical_validator_distinguishes_box_and_disk_corners()
 
     assert not coverage_benchmark._position_valid(corner_clearance_position, box)
     assert coverage_benchmark._position_valid(corner_clearance_position, disk)
+
+
+@pytest.mark.parametrize(
+    ("representation", "expected_shape"),
+    [
+        pytest.param("max-xy-radius-circle", (17, 17), id="robolab-max-radius"),
+        pytest.param("aabb", (15, 15), id="projected-aabb"),
+    ],
+)
+def test_real_asset_region_primitives_preserve_robolab_max_radius(representation, expected_shape):
+    footprint = real_region_benchmark._primitive_footprint(
+        representation,
+        width=0.16,
+        depth=0.04,
+        yaw_deg=45.0,
+        pitch_m=0.01,
+    )
+
+    assert footprint.shape == expected_shape
+
+
+def test_real_asset_region_identity_has_perfect_mesh_agreement():
+    region = np.asarray([[True, False], [True, True]])
+    measurement = real_region_benchmark._measurement("asset", 0.0, "mesh", region, region)
+
+    assert measurement.mesh_feasible_recall == 1.0
+    assert measurement.representation_feasible_precision == 1.0
+    assert measurement.mesh_region_iou == 1.0
+    assert measurement.mesh_feasible_missed_fraction == 0.0
+    assert measurement.representation_feasible_invalid_fraction == 0.0
+
+
+def test_real_asset_region_half_cell_voxels_do_not_collapse():
+    offsets = np.asarray([[-0.015, 0.0], [-0.005, 0.0], [0.005, 0.0], [0.015, 0.0]])
+
+    footprint = real_region_benchmark._offset_footprint(offsets, pitch_m=0.01)
+
+    assert np.count_nonzero(footprint) == 4
+
+
+def test_real_asset_obstacle_ratio_stamp_rejects_out_of_table_footprint_without_mutation():
+    mask = np.zeros(obstacle_ratio_benchmark._grid_shape(0.01), dtype=bool)
+    footprint = np.ones((5, 5), dtype=bool)
+
+    assert obstacle_ratio_benchmark._stamp(mask, footprint, (0.0, 0.0), 0.01)
+    assert np.count_nonzero(mask) == 25
+    stamped = mask.copy()
+    assert not obstacle_ratio_benchmark._stamp(mask, footprint, (0.4, 0.75), 0.01)
+    assert np.array_equal(mask, stamped)
+
+
+def test_real_asset_obstacle_ratio_clips_obstacle_representation_to_table():
+    mask = np.zeros(obstacle_ratio_benchmark._grid_shape(0.01), dtype=bool)
+    footprint = np.ones((5, 5), dtype=bool)
+
+    obstacle_ratio_benchmark._stamp_clipped(mask, footprint, (0.4, 0.75), 0.01)
+
+    assert np.count_nonzero(mask) == 4
+
+
+def test_real_asset_obstacle_ratio_set_reports_exact_deterministic_mesh_occupancy():
+    footprint = np.ones((31, 31), dtype=bool)
+    arguments = {
+        "target_ratio": 0.15,
+        "set_index": 0,
+        "pitch_m": 0.01,
+        "mesh_footprints": {("obstacle", 0.0): footprint},
+        "obstacle_assets": ("obstacle",),
+        "obstacle_yaws_deg": (0.0,),
+    }
+    instances, ratio = obstacle_ratio_benchmark._build_obstacle_set(**arguments)
+
+    assert (instances, ratio) == obstacle_ratio_benchmark._build_obstacle_set(**arguments)
+    assert len(instances) == 2
+    assert ratio == pytest.approx(
+        len(instances) * footprint.sum() / np.prod(obstacle_ratio_benchmark._grid_shape(0.01))
+    )
+
+
+def test_real_asset_obstacle_shape_classification_uses_fixed_mesh_criteria():
+    compact = np.ones((7, 7), dtype=bool)
+    elongated = np.ones((3, 11), dtype=bool)
+    irregular = np.zeros((7, 7), dtype=bool)
+    irregular[3, :] = True
+    irregular[:, 3] = True
+
+    assert obstacle_ratio_benchmark._shape_descriptor("compact", compact).shape_group == "compact"
+    assert obstacle_ratio_benchmark._shape_descriptor("elongated", elongated).shape_group == "elongated"
+    descriptor = obstacle_ratio_benchmark._shape_descriptor("irregular", irregular)
+    assert descriptor.shape_group == "irregular"
+    assert descriptor.aabb_fill_ratio <= obstacle_ratio_benchmark.IRREGULAR_FILL_RATIO
+
+
+def test_real_asset_obstacle_pairing_metadata_shares_scene_and_seed_stream():
+    instances = [obstacle_ratio_benchmark.ObstacleInstance("asset", 0.1, -0.2, 45.0)]
+
+    first = obstacle_ratio_benchmark._scene_pairing_metadata("irregular", 0.1, 2, instances, 123)
+    second = obstacle_ratio_benchmark._scene_pairing_metadata("irregular", 0.1, 2, instances, 123)
+
+    assert first == second
+    assert first["proposal_seed_base"] == 123
+    assert first["paired_methods"] == list(obstacle_ratio_benchmark.METHODS)
+    assert first["same_initial_xy_seed_stream"]
+
+
+def test_real_asset_obstacle_coverage_uses_mesh_feasible_probes():
+    feasible = np.asarray([[True, False, True], [True, True, False]], dtype=bool)
+    xmin, _xmax, ymin, _ymax = obstacle_ratio_benchmark.TABLE_BOUNDS
+    samples = [
+        (xmin + (column + 0.5) * 0.01, ymin + (row + 0.5) * 0.01)
+        for row, column in zip(*np.nonzero(feasible), strict=True)
+    ]
+
+    assert obstacle_ratio_benchmark._coverage_fraction([], feasible, 0.01, 0.02) == 0.0
+    assert obstacle_ratio_benchmark._coverage_fraction(samples, feasible, 0.01, 0.001) == 1.0
+
+
+def test_real_asset_obstacle_nearest_distance_is_zero_when_every_probe_is_sampled():
+    feasible = np.asarray([[True, False, True], [True, True, False]], dtype=bool)
+    xmin, _xmax, ymin, _ymax = obstacle_ratio_benchmark.TABLE_BOUNDS
+    samples = [
+        (xmin + (column + 0.5) * 0.01, ymin + (row + 0.5) * 0.01)
+        for row, column in zip(*np.nonzero(feasible), strict=True)
+    ]
+
+    assert obstacle_ratio_benchmark._nearest_distance_statistics(samples, feasible, 0.01) == (0.0, 0.0)
+
+
+def test_real_asset_obstacle_exact_k_accounts_for_terminal_batch_overshoot(monkeypatch):
+    outputs = [(0.0, 0.0), (0.1, 0.0), (0.2, 0.0)]
+
+    def fake_sample_arena(method, instances, placeable_mesh, rotated_meshes, initial_xy, max_iterations, batch_size):
+        return outputs, [True] * len(outputs)
+
+    monkeypatch.setattr(obstacle_ratio_benchmark, "_sample_arena", fake_sample_arena)
+    result = obstacle_ratio_benchmark._sample_method(
+        method="arena_aabb",
+        instances=[],
+        placeable_asset="movable",
+        placeable_mesh=object(),
+        canonical_meshes={},
+        rotated_meshes={},
+        feasible_mask=np.ones(obstacle_ratio_benchmark._grid_shape(0.01), dtype=bool),
+        proposal_seed=7,
+        target_samples=2,
+        max_attempts_per_sample=2,
+        max_iterations=10,
+        batch_size=3,
+        pitch_m=0.01,
+        robolab_api=None,
+    )
+
+    assert result["proposal_count"] == 2
+    assert result["computed_proposal_count"] == 3
+    assert result["terminal_batch_overshoot"] == 1
+    assert result["native_success_count"] == 2
+    assert result["shared_mesh_valid_count"] == 2
+    assert result["unique_shared_valid_count"] == 2
+    assert result["samples_xy"] == outputs[:2]
+
+
+def test_real_asset_obstacle_output_labels_name_methods_not_representations():
+    assert obstacle_ratio_benchmark.METHOD_LABELS == {
+        "arena_mesh": "Arena mesh",
+        "arena_aabb": "Arena AABB",
+        "robolab_circle": "RoboLab max-XY-radius circle",
+    }
+    assert set(obstacle_ratio_benchmark.METHOD_LABELS) == set(obstacle_ratio_benchmark.METHODS)
+    assert "mesh" not in obstacle_ratio_benchmark.METHODS
+    assert "aabb" not in obstacle_ratio_benchmark.METHODS
+
+
+def test_real_asset_obstacle_robolab_uses_canonical_yaw_invariant_dimensions():
+    observed = {}
+
+    class FakeState:
+        def __init__(self, name, x, y, yaw, is_placed):
+            self.name = name
+            self.x = x
+            self.y = y
+
+    class FakeSolver:
+        def __init__(self, table_bounds, collision_margin):
+            observed["table_bounds"] = table_bounds
+            observed["collision_margin"] = collision_margin
+
+        def solve(self, *args, **kwargs):
+            raise AssertionError("benchmark must bypass adaptive solve")
+
+        def _optimize_placement(self, states, dimensions, max_iterations, fixed_objects):
+            observed["dimensions"] = dimensions
+            observed["max_iterations"] = max_iterations
+            observed["fixed_objects"] = fixed_objects
+            return True
+
+    canonical_meshes = {
+        "obstacle": SimpleNamespace(bounds=np.asarray([[0.0, 0.0, 0.0], [0.16, 0.04, 0.10]])),
+        "movable": SimpleNamespace(bounds=np.asarray([[0.0, 0.0, 0.0], [0.12, 0.03, 0.08]])),
+    }
+    obstacle_ratio_benchmark._sample_robolab(
+        [obstacle_ratio_benchmark.ObstacleInstance("obstacle", 0.1, -0.2, 45.0)],
+        "movable",
+        canonical_meshes,
+        [(0.0, 0.0)],
+        proposal_seed=7,
+        max_iterations=10,
+        robolab_api=(FakeState, FakeSolver),
+    )
+
+    assert observed == {
+        "table_bounds": obstacle_ratio_benchmark.TABLE_BOUNDS,
+        "collision_margin": 0.0,
+        "dimensions": {"obstacle-0": (0.16, 0.04, 0.1), "movable": (0.12, 0.03, 0.08)},
+        "max_iterations": 10,
+        "fixed_objects": ["obstacle-0"],
+    }
+
+
+def test_real_asset_obstacle_robolab_fixed_separation_has_no_extra_clearance():
+    solver = SimpleNamespace(
+        collision_margin=0.0,
+        min_x=-0.45,
+        max_x=0.45,
+        min_y=-0.35,
+        max_y=0.35,
+    )
+    fixed = SimpleNamespace(x=0.0, y=0.0)
+    movable = SimpleNamespace(x=0.01, y=0.0)
+
+    obstacle_ratio_benchmark._move_circle_away_from_fixed(
+        solver,
+        movable,
+        fixed,
+        movable_dims=(0.12, 0.03, 0.08),
+        fixed_dims=(0.16, 0.04, 0.10),
+    )
+
+    assert movable.x == pytest.approx(0.14)
+    assert movable.y == pytest.approx(0.0)
 
 
 def test_collision_space_sweep_balances_shapes_and_sizes():
@@ -706,6 +1004,26 @@ def test_background_practical_forwards_native_robolab_relaxation():
     assert checks == 7
     assert success
     assert solve_calls == [(600, [], True)]
+
+
+def test_solver_frontier_violation_reports_required_collision_translation():
+    scene = background_factorial_benchmark.make_scene("scattered", 0.0, scene_index=0)
+    valid = {"object-0": (-0.2, 0.0), "object-1": (0.2, 0.0)}
+    overlapping = {"object-0": (-0.2, 0.0), "object-1": (-0.15, 0.0)}
+
+    assert frontier_benchmark._max_pairwise_penetration(valid, 2, scene) == 0.0
+    assert frontier_benchmark._max_pairwise_penetration(overlapping, 2, scene) == pytest.approx(0.03)
+
+
+def test_solver_frontier_deduplicates_empty_background_topologies():
+    scenes = frontier_benchmark._deduplicated_scenes(
+        (0.0, background_factorial_benchmark.DEFAULT_EXCLUDED_FRACTIONS[1]),
+        ("scattered", "corridor"),
+        scene_instances=2,
+    )
+
+    assert len(scenes) == 5
+    assert sum(scene.obstacle_count == 0 for scene in scenes) == 1
 
 
 @pytest.mark.parametrize(
