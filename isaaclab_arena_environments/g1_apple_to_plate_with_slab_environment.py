@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
@@ -22,7 +23,15 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-TABLE_TOP_Z = 0.745  # m
+# Shifts the worksurface and the objects on it. The table is a static AssetBase with no
+# physics handle, so its pose cannot be written per-episode: read once at import, fixed
+# for the process.
+TABLE_HEIGHT_OFFSET_M = float(os.environ.get("TABLE_HEIGHT_OFFSET_M", "0") or 0)
+assert (
+    abs(TABLE_HEIGHT_OFFSET_M) <= 0.05
+), f"TABLE_HEIGHT_OFFSET_M must be within +/-0.05 m, got {TABLE_HEIGHT_OFFSET_M}."
+
+TABLE_TOP_Z = 0.745 + TABLE_HEIGHT_OFFSET_M  # m
 TABLE_TOP_THICKNESS = 0.04  # m
 TABLE_TOP_SIZE = (0.8, 1.5, TABLE_TOP_THICKNESS)
 TABLE_TOP_CENTER = (0.74, 0.0, TABLE_TOP_Z - TABLE_TOP_THICKNESS / 2.0)
@@ -39,20 +48,37 @@ _MIRROR = bool(os.environ.get("MIRROR_RIGHT"))
 PICK_UP_OBJECT_SPAWN_XY = (0.5967, -0.1472 if _MIRROR else 0.1472)
 DESTINATION_SPAWN_XY = (0.60, 0.05 if _MIRROR else -0.05)
 
-# Per-episode spawn randomization — three levels selectable via env var:
+# Per-episode spawn randomization — two levels selectable via env var:
 #
-#   Level    | Env var    | Apple XY | Plate XY | Base XY | Base yaw | Arm joints
-#   ---------|------------|----------|----------|---------|----------|-----------
-#   FULLRAND | (default)  | ±7.5 cm  | ±5 cm    | ±1.5 cm | ±1.5°   | ±2.25°
-#   MEDRAND  | MEDRAND=1  | ±2 cm    | ±2 cm    | ±1 cm   | ±0.75°  | ±1.0°
-#   ZERODR   | ZERODR=1   | 0        | 0        | 0       | 0°      | 0°
+#   Level    | Env var    | Apple XY | Plate XY | Base XY | Base yaw | Arm joints | Hand joints
+#   ---------|------------|----------|----------|---------|----------|------------|------------
+#   FULLRAND | (default)  | ±10 cm   | ±5 cm    | ±1.5 cm | ±8°     | ±7.0°      | ±3.0°
+#   ZERODR   | ZERODR=1   | 0        | 0        | 0       | 0°      | 0°         | 0°
+#
+# Table height is a separate axis (TABLE_HEIGHT_OFFSET_M above): per process, not per episode.
 _TRUTHY_ENV_VALUES = ("1", "true", "yes", "on")
 _FULLRAND = os.environ.get("FULLRAND", "").strip().lower() in _TRUTHY_ENV_VALUES
-_MEDRAND = os.environ.get("MEDRAND", "").strip().lower() in _TRUTHY_ENV_VALUES
 _ZERODR = os.environ.get("ZERODR", "").strip().lower() in _TRUTHY_ENV_VALUES
+# VISUAL_DR=0 keeps FULLRAND's geometry but drops every appearance term (camera jitter,
+# table texture, table colour), for like-for-like comparison against pre-visual-DR runs.
+_VISUAL_DR = os.environ.get("VISUAL_DR", "1").strip().lower() in _TRUTHY_ENV_VALUES
+
+# Per-joint half-range (deg) for the initial hand pose; unset uses the DR level's value.
+# The hand needs its own term because `randomize_arm_joints` does not select it.
+# reset_joints_by_offset clamps to joint limits, and the Dex3 index/middle joints have
+# one-sided ranges about their default, so the realised spread there is asymmetric.
+_hand_dr_env = os.environ.get("HAND_JOINT_DR_DEG", "").strip()
+_HAND_JOINT_DR_DEG = float(_hand_dr_env) if _hand_dr_env else None
+
+# Per-joint half-range (deg) for the initial arm pose, both arms; unset uses the DR
+# level's value. Clamped to joint limits like the hand, so the realised spread is a
+# lower bound on the request.
+_arm_dr_env = os.environ.get("ARM_JOINT_DR_DEG", "").strip()
+_ARM_JOINT_DR_DEG = float(_arm_dr_env) if _arm_dr_env else None
+
 assert (
-    _FULLRAND + _MEDRAND + _ZERODR <= 1
-), f"At most one DR level may be set, got FULLRAND={_FULLRAND} MEDRAND={_MEDRAND} ZERODR={_ZERODR}."
+    _FULLRAND + _ZERODR <= 1
+), f"At most one DR level may be set, got FULLRAND={_FULLRAND} ZERODR={_ZERODR}."
 
 # APPLE_RANGE_OVERRIDE_M: optional float (m) overrides the apple XY half-range.
 _apple_range_override = os.environ.get("APPLE_RANGE_OVERRIDE_M")
@@ -60,11 +86,10 @@ _apple_range_override_f = float(_apple_range_override) if _apple_range_override 
 
 APPLE_SPAWN_XY_RANGE_M = (
     0.0 if _ZERODR
-    else (_apple_range_override_f if _apple_range_override_f is not None
-          else (0.02 if _MEDRAND else 0.075))
+    else (_apple_range_override_f if _apple_range_override_f is not None else 0.10)
 )
-PLATE_SPAWN_XY_RANGE_M = 0.0 if _ZERODR else (0.02 if _MEDRAND else 0.05)
-BASE_SPAWN_XY_RANGE_M = 0.0 if _ZERODR else (0.01 if _MEDRAND else 0.015)
+PLATE_SPAWN_XY_RANGE_M = 0.0 if _ZERODR else 0.05
+BASE_SPAWN_XY_RANGE_M = 0.0 if _ZERODR else 0.015
 APPLE_RADIUS_M = 0.0375  # 7.5 cm diameter / 2
 PLATE_RADIUS_M = 0.0951
 BOUNDARY_GAP_M = 0.01
@@ -333,8 +358,44 @@ else:
 _CALIB_PLATE_ALBEDO_LINEAR = (0.41, 0.41, 0.355)
 
 # Charcoal table top; default procedural cuboid renders near-white.
-_TABLE_ALBEDO_LINEAR = (0.06, 0.06, 0.06)
+_TABLE_ALBEDO_LINEAR = (0.06, 0.06, 0.06)  # sRGB ~0.272; nominal, used when DR is off
 _TABLE_ROUGHNESS = 0.92
+
+# Visual DR (FULLRAND only). Table albedo ramps over sRGB [0, _TABLE_SRGB_MAX].
+_TABLE_SRGB_MAX = 0.45  # -> linear 0.171, vs nominal 0.060
+# Head-cam jitter models mounting/calibration error; set both to 0 to pin the nominal pose.
+_HEADCAM_POS_JITTER_M = float(os.environ.get("HEADCAM_POS_JITTER_M", "0.0075") or 0.0075)
+_HEADCAM_ROT_JITTER_RAD = float(os.environ.get("HEADCAM_ROT_JITTER_RAD", "0.034907") or 0.034907)
+
+# Ships with this file; anchored to __file__ rather than cwd, and absolute because MDL needs it.
+_TABLE_TEXTURE_PATH = os.environ.get(
+    "TABLE_TEXTURE_PATH",
+    str((Path(__file__).parent / "assets" / "table_albedo_full.png").resolve()),
+)
+_TABLE_NOMINAL_SRGB = 0.272  # mean sRGB of that albedo; tint 1.0 reproduces it
+_TABLE_TINT_LEVELS = 24  # pre-baked because MDL params cannot be changed after first render
+_TABLE_TINT_MATERIALS: dict[str, list[str]] = {}
+
+# Restrict the colour sweep, either as explicit sRGB values
+# (TABLE_SRGB_LEVELS=0.10,0.20,0.35) or by narrowing the ramp endpoints
+# (TABLE_SRGB_MIN/MAX). _srgb_to_linear collapses everything at or below 0.04045 to
+# exactly 0 (a pure black, texture-free table); a MIN above that skips those levels.
+_TABLE_SRGB_MIN = float(os.environ.get("TABLE_SRGB_MIN", "0") or 0)
+_TABLE_SRGB_LEVELS_ENV = os.environ.get("TABLE_SRGB_LEVELS", "").strip()
+
+
+def _table_srgb_levels() -> list[float]:
+    """The sRGB values the table is allowed to take, one material per entry."""
+    if _TABLE_SRGB_LEVELS_ENV:
+        levels = [float(v) for v in _TABLE_SRGB_LEVELS_ENV.split(",") if v.strip()]
+        if not levels:
+            raise ValueError(f"TABLE_SRGB_LEVELS parsed empty: {_TABLE_SRGB_LEVELS_ENV!r}")
+        return levels
+    lo, hi = _TABLE_SRGB_MIN, _TABLE_SRGB_MAX
+    if hi < lo:
+        raise ValueError(f"TABLE_SRGB_MAX ({hi}) is below TABLE_SRGB_MIN ({lo})")
+    n = max(_TABLE_TINT_LEVELS - 1, 1)
+    return [lo + (hi - lo) * i / n for i in range(_TABLE_TINT_LEVELS)]
 
 
 def _apply_realsense_calibration(env, env_ids) -> None:
@@ -354,6 +415,159 @@ def _apply_realsense_calibration(env, env_ids) -> None:
         prim.CreateAttribute("verticalAperture", Sdf.ValueTypeNames.Float).Set(_REALSENSE_VERTICAL_APERTURE)
         prim.CreateAttribute("horizontalApertureOffset", Sdf.ValueTypeNames.Float).Set(_REALSENSE_APERTURE_OFFSET_H)
         prim.CreateAttribute("verticalApertureOffset", Sdf.ValueTypeNames.Float).Set(_REALSENSE_APERTURE_OFFSET_V)
+
+
+def _quat_mul_xyzw(a, b):
+    """Hamilton product for xyzw quaternions.
+
+    Isaac Lab's ``view.get_local_poses()`` returns xyzw despite documenting wxyz,
+    so the math is done here rather than via isaaclab.utils.math (which is wxyz).
+    """
+    import torch
+
+    ax, ay, az, aw = a.unbind(-1)
+    bx, by, bz, bw = b.unbind(-1)
+    return torch.stack(
+        [
+            aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw,
+            aw * bw - ax * bx - ay * by - az * bz,
+        ],
+        dim=-1,
+    )
+
+
+def _jitter_head_cam_extrinsics(env, env_ids, asset_cfg, pos_range_m, rot_range_rad) -> None:
+    """Reset: perturb the head camera's local pose to model mounting/calibration error.
+
+    Translation is applied in the camera's own frame; rotation is a uniform angle about a
+    uniformly-random axis, composed on the right so it is a rotation of the camera about
+    itself. The nominal pose is snapshotted once so perturbations never accumulate.
+    """
+    import torch
+
+    cam = env.scene[asset_cfg.name]
+    view = cam._view
+    if view is None:
+        return
+
+    if not hasattr(env, "_headcam_nominal"):
+        t0, q0 = view.get_local_poses()  # q is xyzw despite the docstring
+        env._headcam_nominal = (t0.detach().clone(), q0.detach().clone())
+    t_nom, q_nom = env._headcam_nominal
+
+    n = len(env_ids)
+    dev, dt = t_nom.device, t_nom.dtype
+
+    dt_local = (torch.rand((n, 3), device=dev, dtype=dt) * 2.0 - 1.0) * pos_range_m
+    t_new = t_nom[env_ids] + dt_local
+
+    axis = torch.randn((n, 3), device=dev, dtype=dt)
+    axis = axis / axis.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+    ang = (torch.rand((n, 1), device=dev, dtype=dt) * 2.0 - 1.0) * rot_range_rad
+    half = ang * 0.5
+    q_delta = torch.cat([axis * torch.sin(half), torch.cos(half)], dim=-1)  # xyzw
+    q_new = _quat_mul_xyzw(q_nom[env_ids], q_delta)
+    q_new = q_new / q_new.norm(dim=-1, keepdim=True)
+
+    view.set_local_poses(translations=t_new, orientations=q_new, indices=env_ids.tolist())
+
+
+def _srgb_to_linear(s: float) -> float:
+    return 0.0 if s <= 0.04045 else ((s + 0.055) / 1.055) ** 2.4
+
+
+def _setup_table_texture(env, env_ids) -> None:
+    """Startup: lay a photo-textured skin over the table, one material per tint level.
+
+    * A CuboidCfg spawns an implicit UsdGeom.Cube, which carries no primvars:st for a
+      UV-mapped texture to sample against. Hence the thin quad with explicit 0..1 UVs,
+      sitting 1 mm proud of the top face to avoid z-fighting.
+    * diffuse_texture is a `uniform texture_2d` MDL parameter -- a compile-time constant.
+      A plain USD Set() is silently ignored; it must go through Replicator, which
+      recompiles the material.
+    * MDL parameter writes after the first render never reach RTX, so the per-reset DR
+      re-binds one of the materials baked here rather than tinting a shared one.
+
+    UVs put u along the table's 1.5 m axis and v along its 0.8 m axis, matching the
+    1500x800 albedo.
+    """
+    del env_ids
+    import omni.kit.app
+    import omni.replicator.core as rep
+    from pxr import Gf, Sdf, UsdGeom
+
+    stage = env.scene.stage
+    hx, hy = TABLE_TOP_SIZE[0] / 2.0, TABLE_TOP_SIZE[1] / 2.0
+    skin_z = TABLE_TOP_THICKNESS / 2.0 + 0.001
+
+    for env_prim_path in env.scene.env_prim_paths:
+        if not stage.GetPrimAtPath(f"{env_prim_path}/table"):
+            continue
+        skin_path = f"{env_prim_path}/table/TopSkin"
+        mesh = UsdGeom.Mesh.Define(stage, skin_path)
+        mesh.CreatePointsAttr([Gf.Vec3f(-hx, -hy, 0.0), Gf.Vec3f(hx, -hy, 0.0),
+                               Gf.Vec3f(hx, hy, 0.0), Gf.Vec3f(-hx, hy, 0.0)])
+        mesh.CreateFaceVertexCountsAttr([4])
+        mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+        mesh.CreateSubdivisionSchemeAttr("none")  # USD defaults to Catmull-Clark
+        UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying
+        ).Set([Gf.Vec2f(0, 0), Gf.Vec2f(0, 1), Gf.Vec2f(1, 1), Gf.Vec2f(1, 0)])
+        UsdGeom.Xformable(mesh).AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, skin_z))
+
+        prims = rep.functional.get.prims(path_pattern=skin_path, stage=stage)
+        for p in prims:
+            if p.IsInstanceable():
+                p.SetInstanceable(False)
+        nominal_lin = max(_srgb_to_linear(_TABLE_NOMINAL_SRGB), 1e-6)
+        # uniform in sRGB: uniform in linear would cluster the draws at near-black
+        levels = _table_srgb_levels()
+        print(f"[table_dr] {len(levels)} colour levels, sRGB "
+              f"{min(levels):.3f}..{max(levels):.3f} (nominal {_TABLE_NOMINAL_SRGB})",
+              flush=True)
+        for s in levels:
+            t = _srgb_to_linear(s) / nominal_lin
+            mats = rep.functional.create_batch.material(
+                mdl="OmniPBR.mdl", bind_prims=prims, count=1, project_uvw=False)
+            rep.functional.modify.attribute(mats, "diffuse_texture", [_TABLE_TEXTURE_PATH])
+            rep.functional.modify.attribute(mats, "diffuse_tint", [Gf.Vec3f(t, t, t)])
+            rep.functional.modify.attribute(
+                mats, "reflection_roughness_constant", [_TABLE_ROUGHNESS])
+            _TABLE_TINT_MATERIALS.setdefault(env_prim_path, []).append(str(mats[0].GetPath()))
+
+    # texture loading is async on the Kit update loop, not env.step(); without this the
+    # materials render untextured until something else pumps it
+    app = omni.kit.app.get_app()
+    for _ in range(120):
+        app.update()
+
+
+def _randomize_table_darkness(env, env_ids) -> None:
+    """Reset: bind one of the pre-baked tint levels, from lighter than nominal to black.
+
+    Binds rather than re-tints because MDL parameter writes after the first render do
+    not reach RTX -- see _setup_table_texture.
+    """
+    del env_ids
+    import torch
+
+    from pxr import UsdShade
+
+    stage = env.scene.stage
+    for env_prim_path in env.scene.env_prim_paths:
+        paths = _TABLE_TINT_MATERIALS.get(env_prim_path)
+        root = stage.GetPrimAtPath(f"{env_prim_path}/table")
+        if not paths or not root:
+            continue
+        idx = int(torch.randint(0, len(paths), (1,)))
+        material = UsdShade.Material.Get(stage, paths[idx])
+        if not material:
+            continue
+        UsdShade.MaterialBindingAPI.Apply(root).Bind(
+            material, bindingStrength=UsdShade.Tokens.strongerThanDescendants
+        )
 
 
 def _recolor_plate_to_real(env, env_ids) -> None:
@@ -595,11 +809,7 @@ class G1AppleToPlateWithSlabEnvironment(ArenaEnvironmentFactory[G1AppleToPlateWi
                         "yaw": (
                             (0.0, 0.0)
                             if _ZERODR
-                            else (
-                                (-math.radians(0.75), math.radians(0.75))
-                                if _MEDRAND
-                                else (-math.radians(1.5), math.radians(1.5))
-                            )
+                            else (-math.radians(8.0), math.radians(8.0))
                         ),
                     },
                     "velocity_range": {},
@@ -611,13 +821,11 @@ class G1AppleToPlateWithSlabEnvironment(ArenaEnvironmentFactory[G1AppleToPlateWi
                 mode="reset",
                 params={
                     "position_range": (
-                        (0.0, 0.0)
+                        (-math.radians(_ARM_JOINT_DR_DEG), math.radians(_ARM_JOINT_DR_DEG))
+                        if _ARM_JOINT_DR_DEG is not None
+                        else (0.0, 0.0)
                         if _ZERODR
-                        else (
-                            (-math.radians(1.0), math.radians(1.0))
-                            if _MEDRAND
-                            else (-math.radians(2.25), math.radians(2.25))
-                        )
+                        else (-math.radians(7.0), math.radians(7.0))
                     ),
                     "velocity_range": (0.0, 0.0),
                     "asset_cfg": SceneEntityCfg(
@@ -630,10 +838,34 @@ class G1AppleToPlateWithSlabEnvironment(ArenaEnvironmentFactory[G1AppleToPlateWi
                     ),
                 },
             )
-            # NO_RANDOMIZE=1: diagnostic; drops both reset events.
+            # Separate term from randomize_arm_joints: the hand is not matched by that
+            # term's joint selector.
+            _hand_dr_deg = (
+                _HAND_JOINT_DR_DEG
+                if _HAND_JOINT_DR_DEG is not None
+                else 0.0
+                if _ZERODR
+                else 3.0
+            )
+            if _hand_dr_deg > 0.0:
+                _hand_rad = math.radians(_hand_dr_deg)
+                env_cfg.events.randomize_hand_joints = EventTermCfg(
+                    func=base_mdp.reset_joints_by_offset,
+                    mode="reset",
+                    params={
+                        "position_range": (-_hand_rad, _hand_rad),
+                        "velocity_range": (0.0, 0.0),
+                        "asset_cfg": SceneEntityCfg(
+                            "robot", joint_names=[".*_hand_.*_joint"]
+                        ),
+                    },
+                )
+            # NO_RANDOMIZE=1: diagnostic; drops every joint/base reset randomization.
             if os.environ.get("NO_RANDOMIZE") == "1":
                 env_cfg.events.randomize_robot_base = None
                 env_cfg.events.randomize_arm_joints = None
+                if getattr(env_cfg.events, "randomize_hand_joints", None) is not None:
+                    env_cfg.events.randomize_hand_joints = None
 
             if not _ZERODR:
                 env_cfg.events.place_apple_clear = EventTermCfg(
@@ -664,6 +896,30 @@ class G1AppleToPlateWithSlabEnvironment(ArenaEnvironmentFactory[G1AppleToPlateWi
                 func=_apply_realsense_calibration,
                 mode="startup",
             )
+
+            # Visual DR: FULLRAND only, so ZERODR eval stays on the calibrated
+            # camera and nominal table (otherwise the baseline comparison shifts too).
+            if not _ZERODR and _VISUAL_DR:
+                env_cfg.events.jitter_head_cam = EventTermCfg(
+                    func=_jitter_head_cam_extrinsics,
+                    mode="reset",
+                    params={
+                        "asset_cfg": SceneEntityCfg("robot_head_cam"),
+                        "pos_range_m": _HEADCAM_POS_JITTER_M,
+                        "rot_range_rad": _HEADCAM_ROT_JITTER_RAD,
+                    },
+                )
+                env_cfg.events.setup_table_texture = EventTermCfg(
+                    func=_setup_table_texture,
+                    mode="startup",
+                )
+                env_cfg.events.randomize_table_darkness = EventTermCfg(
+                    func=_randomize_table_darkness,
+                    mode="reset",
+                )
+                # block until textures are resident, else early episodes render untextured
+                env_cfg.wait_for_textures = True
+
             # One RTX refresh so policy sees reset-frame, not prior episode.
             env_cfg.num_rerenders_on_reset = 1
             return env_cfg
@@ -687,7 +943,7 @@ class G1AppleToPlateWithSlabEnvironment(ArenaEnvironmentFactory[G1AppleToPlateWi
                 self.datagen_config.generation_joint_pos = False
                 self.datagen_config.generation_transform_first_robot_pose = False
                 self.datagen_config.generation_interpolate_from_last_target_pose = True
-                self.datagen_config.max_num_failures = 600
+                self.datagen_config.max_num_failures = 1200
                 self.datagen_config.seed = int(os.environ.get("MIMIC_SEED", "1"))
                 self.datagen_config.use_navigation_controller = False
 
