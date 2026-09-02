@@ -31,12 +31,12 @@ def _check_geometry_bounds_in_prim_frame(entity_access_module) -> None:
     ignored_cube.GetSizeAttr().Set(100.0)
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
-    bounds = entity_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
-    torch.testing.assert_close(bounds.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
-    torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
+    geometry_bounds_P = entity_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
+    torch.testing.assert_close(geometry_bounds_P.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
+    torch.testing.assert_close(geometry_bounds_P.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_rigid_object_reads_and_local_aabb_cache(
+def _check_rigid_object_reads_and_entity_frame_aabb_cache(
     arena_world_module,
     entity_access_module,
     axis_aligned_bounding_box_type,
@@ -48,9 +48,9 @@ def _check_rigid_object_reads_and_local_aabb_cache(
             self.torch = tensor
 
     class RigidObjectDouble:
-        def __init__(self, pose_w: torch.Tensor, linear_velocity_w: torch.Tensor):
+        def __init__(self, T_W_E: torch.Tensor, linear_velocity_w: torch.Tensor):
             self.data = SimpleNamespace(
-                root_pose_w=RuntimeBufferDouble(pose_w),
+                root_pose_w=RuntimeBufferDouble(T_W_E),
                 root_lin_vel_w=RuntimeBufferDouble(linear_velocity_w),
             )
 
@@ -60,7 +60,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
             self.device = "cpu"
             self.rigid_objects = {
                 "object": RigidObjectDouble(
-                    pose_w=torch.tensor([
+                    T_W_E=torch.tensor([
                         [0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                     ]),
@@ -70,7 +70,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                     ]),
                 ),
                 "destination": RigidObjectDouble(
-                    pose_w=torch.tensor([
+                    T_W_E=torch.tensor([
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     ]),
@@ -95,17 +95,17 @@ def _check_rigid_object_reads_and_local_aabb_cache(
             max_point=torch.tensor([1.0, 0.5, 0.4]).expand(2, 3),
         )
 
-    initial_pose_w = scene.rigid_objects["object"].data.root_pose_w.torch.clone()
+    T_W_O_initial = scene.rigid_objects["object"].data.root_pose_w.torch.clone()
     initial_linear_velocity_w = scene.rigid_objects["object"].data.root_lin_vel_w.torch.clone()
-    torch.testing.assert_close(arena_world.get_pose_w("object"), initial_pose_w)
+    torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
     torch.testing.assert_close(arena_world.get_linear_velocity_w("object"), initial_linear_velocity_w)
 
-    moved_pose_w = initial_pose_w.clone()
-    moved_pose_w[:, 0] += 0.25
+    T_W_O_moved = T_W_O_initial.clone()
+    T_W_O_moved[:, 0] += 0.25
     changed_linear_velocity_w = initial_linear_velocity_w + 0.5
-    scene.rigid_objects["object"].data.root_pose_w.torch = moved_pose_w
+    scene.rigid_objects["object"].data.root_pose_w.torch = T_W_O_moved
     scene.rigid_objects["object"].data.root_lin_vel_w.torch = changed_linear_velocity_w
-    torch.testing.assert_close(arena_world.get_pose_w("object"), moved_pose_w)
+    torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
     torch.testing.assert_close(arena_world.get_linear_velocity_w("object"), changed_linear_velocity_w)
 
     with patch.object(
@@ -113,12 +113,12 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         "compute_spawned_geometry_bounds_in_entity_frame",
         side_effect=compute_geometry_bounds,
     ):
-        object_bounds = arena_world.get_local_aabb("object")
-        destination_bounds = arena_world.get_local_aabb("destination")
-        assert arena_world.get_local_aabb("object") is object_bounds
-        assert arena_world.get_local_aabb("destination") is destination_bounds
+        object_bounds_O = arena_world.get_aabb_in_entity_frame("object")
+        destination_bounds_D = arena_world.get_aabb_in_entity_frame("destination")
+        assert arena_world.get_aabb_in_entity_frame("object") is object_bounds_O
+        assert arena_world.get_aabb_in_entity_frame("destination") is destination_bounds_D
 
-    assert object_bounds is not destination_bounds
+    assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
 
 
@@ -126,7 +126,7 @@ def _check_arena_world_reuses_asset_base_cfg_pose_reader(
     arena_world_module,
     entity_access_module,
 ) -> None:
-    """Check that ArenaWorld caches the reader while returning its latest pose."""
+    """Check that ArenaWorld caches the reader while returning its latest ``T_W_E``."""
 
     class SceneDouble:
         def __init__(self):
@@ -136,31 +136,31 @@ def _check_arena_world_reuses_asset_base_cfg_pose_reader(
     class PoseReaderDouble:
         def __init__(self):
             self.read_count = 0
-            self.pose_values = [
+            self.T_W_E_values = [
                 torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
                 torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
             ]
 
         def get_pose_w(self):
-            pose_w = self.pose_values[self.read_count]
+            T_W_E = self.T_W_E_values[self.read_count]
             self.read_count += 1
-            return pose_w
+            return T_W_E
 
     scene = SceneDouble()
     pose_reader = PoseReaderDouble()
     with patch.object(entity_access_module, "AssetBaseCfgPoseReader", return_value=pose_reader) as make_pose_reader:
         arena_world = arena_world_module.ArenaWorld(scene)
-        first_pose_w = arena_world.get_pose_w("reference")
-        second_pose_w = arena_world.get_pose_w("reference")
+        T_W_E_first = arena_world.get_pose_w("reference")
+        T_W_E_second = arena_world.get_pose_w("reference")
 
     make_pose_reader.assert_called_once_with(scene, "reference")
     assert pose_reader.read_count == 2
-    torch.testing.assert_close(first_pose_w, pose_reader.pose_values[0])
-    torch.testing.assert_close(second_pose_w, pose_reader.pose_values[1])
+    torch.testing.assert_close(T_W_E_first, pose_reader.T_W_E_values[0])
+    torch.testing.assert_close(T_W_E_second, pose_reader.T_W_E_values[1])
 
 
 def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
-    """Check FrameView construction and live pose reads in environment row order."""
+    """Check FrameView construction and current ``T_W_E`` reads in environment row order."""
 
     class FrameViewDouble:
         def __init__(self):
@@ -169,20 +169,20 @@ def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_acces
                 "/World/envs/env_1/reference",
             ]
             self.read_count = 0
-            self.position_values = [
+            self.t_W_E_values = [
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
                 torch.tensor([[0.0, 0.0, 0.5], [1.0, 0.0, 0.5]]),
             ]
-            self.orientation_values = [
+            self.q_W_E_values = [
                 torch.tensor([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]),
                 torch.tensor([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]]),
             ]
 
         def get_world_poses(self):
-            position_w = self.position_values[self.read_count]
-            orientation_w = self.orientation_values[self.read_count]
+            t_W_E = self.t_W_E_values[self.read_count]
+            q_W_E = self.q_W_E_values[self.read_count]
             self.read_count += 1
-            return SimpleNamespace(torch=position_w), SimpleNamespace(torch=orientation_w)
+            return SimpleNamespace(torch=t_W_E), SimpleNamespace(torch=q_W_E)
 
     scene = SimpleNamespace(
         num_envs=2,
@@ -196,8 +196,8 @@ def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_acces
     frame_view = FrameViewDouble()
     with patch.object(entity_access_module, "FrameView", return_value=frame_view) as make_frame_view:
         pose_reader = entity_access_module.AssetBaseCfgPoseReader(scene, "reference")
-        first_pose_w = pose_reader.get_pose_w()
-        second_pose_w = pose_reader.get_pose_w()
+        T_W_E_first = pose_reader.get_pose_w()
+        T_W_E_second = pose_reader.get_pose_w()
 
     make_frame_view.assert_called_once_with(
         "/World/envs/env_.*/reference",
@@ -207,12 +207,12 @@ def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_acces
     )
     assert frame_view.read_count == 2
     torch.testing.assert_close(
-        first_pose_w,
-        torch.cat((frame_view.position_values[0], frame_view.orientation_values[0]), dim=-1),
+        T_W_E_first,
+        torch.cat((frame_view.t_W_E_values[0], frame_view.q_W_E_values[0]), dim=-1),
     )
     torch.testing.assert_close(
-        second_pose_w,
-        torch.cat((frame_view.position_values[1], frame_view.orientation_values[1]), dim=-1),
+        T_W_E_second,
+        torch.cat((frame_view.t_W_E_values[1], frame_view.q_W_E_values[1]), dim=-1),
     )
 
 
@@ -222,7 +222,7 @@ def _test_arena_world_entity_access(_simulation_app) -> bool:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_geometry_bounds_in_prim_frame(entity_access)
-    _check_rigid_object_reads_and_local_aabb_cache(
+    _check_rigid_object_reads_and_entity_frame_aabb_cache(
         arena_world,
         entity_access,
         AxisAlignedBoundingBox,
