@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.0.1
+ARG BASE_IMAGE=nvcr.io/0947644777160149/internal/isaac-sim:latest-release-6-1
 
 FROM ${BASE_IMAGE}
 

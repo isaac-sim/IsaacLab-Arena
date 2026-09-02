@@ -164,7 +164,7 @@ def test_render_after_stage_rebuild_without_fabric():
 # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Un-skip once the render after rebuild
 # bug is solved in Lab. Under GPU+Fabric every build after the first renders some geometry at the wrong
 # pose (the DROID gripper has been seen at the origin), which is what this test would catch.
-@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
+# @pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
 @pytest.mark.with_cameras
 def test_render_after_stage_rebuild_with_fabric():
     """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
