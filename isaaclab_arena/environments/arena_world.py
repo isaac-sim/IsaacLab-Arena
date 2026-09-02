@@ -25,7 +25,7 @@ class ArenaWorld:
     def __init__(self, scene: InteractiveScene):
         self._scene: InteractiveScene | None = scene
         self._aabbs_in_entity_frame: dict[str, AxisAlignedBoundingBox] = {}
-        self._asset_base_cfg_pose_readers: dict[str, entity_access.AssetBaseCfgPoseReader] = {}
+        self._scene_extra_pose_readers: dict[str, entity_access.SceneExtraPoseReader] = {}
 
     def get_pose_w(self, entity_name: str) -> torch.Tensor:
         """Return ``T_W_E``, mapping the named entity frame ``E`` into world frame ``W``.
@@ -33,21 +33,24 @@ class ArenaWorld:
         Poses have shape ``(num_envs, 7)`` and quaternion order ``(x, y, z, w)``.
         """
         scene = self._get_scene()
-        if entity_name in scene.rigid_objects:
-            T_W_E = scene.rigid_objects[entity_name].data.root_pose_w.torch
-            assert T_W_E.shape == (
-                scene.num_envs,
-                7,
-            ), f"Rigid object '{entity_name}' returned pose shape {tuple(T_W_E.shape)}; expected ({scene.num_envs}, 7)."
-            return T_W_E
-
-        assert entity_name in scene.extras, (
+        is_rigid_object = entity_name in scene.rigid_objects
+        is_scene_extra = entity_name in scene.extras
+        assert is_rigid_object or is_scene_extra, (
             "ArenaWorld pose queries support only entities registered in InteractiveScene.rigid_objects or "
             f"InteractiveScene.extras; '{entity_name}' is registered in neither."
         )
-        if entity_name not in self._asset_base_cfg_pose_readers:
-            self._asset_base_cfg_pose_readers[entity_name] = entity_access.AssetBaseCfgPoseReader(scene, entity_name)
-        return self._asset_base_cfg_pose_readers[entity_name].get_pose_w()
+
+        if is_rigid_object:
+            T_W_E = scene.rigid_objects[entity_name].data.root_pose_w.torch
+        else:
+            pose_reader = self._get_scene_extra_pose_reader(scene, entity_name)
+            T_W_E = pose_reader.get_pose_w()
+
+        assert T_W_E.shape == (
+            scene.num_envs,
+            7,
+        ), f"Scene entity '{entity_name}' returned pose shape {tuple(T_W_E.shape)}; expected ({scene.num_envs}, 7)."
+        return T_W_E
 
     def get_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
         """Return a rigid object's current world-frame linear velocity."""
@@ -71,8 +74,18 @@ class ArenaWorld:
     def close(self) -> None:
         """Release cached geometry, pose readers, and the live scene reference."""
         self._aabbs_in_entity_frame.clear()
-        self._asset_base_cfg_pose_readers.clear()
+        self._scene_extra_pose_readers.clear()
         self._scene = None
+
+    def _get_scene_extra_pose_reader(
+        self,
+        scene: InteractiveScene,
+        entity_name: str,
+    ) -> entity_access.SceneExtraPoseReader:
+        """Return the cached live-pose reader for a scene extra."""
+        if entity_name not in self._scene_extra_pose_readers:
+            self._scene_extra_pose_readers[entity_name] = entity_access.SceneExtraPoseReader(scene, entity_name)
+        return self._scene_extra_pose_readers[entity_name]
 
     def _get_scene(self) -> InteractiveScene:
         """Return the live scene while this world is open."""
