@@ -454,7 +454,7 @@ class DomeLight(LightBase):
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
-        hdr: "HDRImage | None" = None,  # noqa: F821
+        hdr: "HDRImage | str | None" = None,  # noqa: F821
     ):
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
@@ -464,6 +464,10 @@ class DomeLight(LightBase):
         super().__init__(
             instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
         )
+        if isinstance(hdr, str):
+            from isaaclab_arena.assets.registries import HDRImageRegistry
+
+            hdr = HDRImageRegistry().get_hdr_by_name(hdr)()
         if hdr is not None:
             self.add_hdr(hdr)
         self.add_variation(HDRImageVariation(self))

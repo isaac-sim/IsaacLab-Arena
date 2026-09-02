@@ -35,16 +35,23 @@ class LibraryBackground(Background):
     asset_cfg_addon: dict[str, Any] = {}
     reset_nested_physics: bool = False
 
-    def __init__(self, reset_nested_physics: bool | None = None, **kwargs):
+    def __init__(
+        self,
+        reset_nested_physics: bool | None = None,
+        initial_pose: Pose | None = None,
+        **kwargs,
+    ):
         # Check lazy USD paths are set by here
         assert self.usd_path is not None
         if reset_nested_physics is None:
             reset_nested_physics = self.reset_nested_physics
+        if initial_pose is None:
+            initial_pose = self.initial_pose
         super().__init__(
             name=self.name,
             tags=self.tags,
             usd_path=self.usd_path,
-            initial_pose=self.initial_pose,
+            initial_pose=initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,
             asset_cfg_addon=self.asset_cfg_addon,

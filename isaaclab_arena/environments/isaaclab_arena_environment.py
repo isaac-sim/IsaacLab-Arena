@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
@@ -33,6 +33,7 @@ class IsaacLabArenaEnvironment:
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
+        env_cfg_override: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -54,6 +55,7 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
+            env_cfg_override: Optional nested Hydra override for the generated Isaac Lab environment config.
         """
         self.name = name
         self.scene = scene
@@ -67,3 +69,4 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
+        self.env_cfg_override = env_cfg_override

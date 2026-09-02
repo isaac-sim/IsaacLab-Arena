@@ -11,8 +11,7 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab.utils.configclass import configclass
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonShapeCfg
+from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonShapeCfg
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
@@ -22,34 +21,18 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
-@configclass
-class _IndustrialToolSortSolverCfg(MJWarpSolverCfg):
-    """MJWarp solver settings required by the industrial assets."""
-
-    enable_multiccd: bool = True
-
-
-@configclass
-class _IndustrialToolSortShapeCfg(NewtonShapeCfg):
-    """Newton contact gains required by the industrial assets."""
-
-    ke: float = 60000.0
-    kd: float = 500.0
-
-
 def configure_industrial_tool_sort_physics(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Apply the benchmark's 50 Hz, ten-substep Newton configuration."""
-    from isaaclab_newton.physics import NewtonCfg
-
     env_cfg.sim.dt = 1.0 / 50.0
     env_cfg.sim.render_interval = 1
     env_cfg.sim.gravity = (0.0, 0.0, -9.81)
     env_cfg.sim.use_newton_actuators = True
     env_cfg.decimation = 1
     env_cfg.sim.physics = NewtonCfg(
-        solver_cfg=_IndustrialToolSortSolverCfg(
+        solver_cfg=MJWarpSolverCfg(
+            enable_multiccd=True,
             solver="newton",
             integrator="euler",
             nconmax=5000,
@@ -60,7 +43,7 @@ def configure_industrial_tool_sort_physics(
             cone="elliptic",
             use_mujoco_contacts=True,
         ),
-        default_shape_cfg=_IndustrialToolSortShapeCfg(gap=0.002),
+        default_shape_cfg=NewtonShapeCfg(ke=60000.0, kd=500.0, gap=0.002),
         num_substeps=10,
         use_cuda_graph=True,
         debug_mode=False,
@@ -122,8 +105,6 @@ class IndustrialToolSortEnvironment(ArenaEnvironmentFactory[IndustrialToolSortEn
             side="destination",
             initial_pose=Pose(position_xyz=(0.1, 0.28, 0.8)),
         )
-        self._anchor_bin(source_bin, table, x=0.1, y=-0.25)
-        self._anchor_bin(destination_bin, table, x=0.1, y=0.28)
 
         tool_specs = (
             (

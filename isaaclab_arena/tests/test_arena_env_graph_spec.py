@@ -83,6 +83,29 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
+def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
+    data = _minimal_env_graph_data()
+    data["embodiment"].setdefault("params", {})["initial_pose"] = {
+        "position_xyz": [1.0, 2.0, 3.0],
+        "rotation_xyzw": [0.0, 0.0, 1.0, 0.0],
+    }
+    data["env_cfg_override"] = {
+        "sim": {
+            "physics": {
+                "_target_": "isaaclab_newton.physics.NewtonCfg",
+                "num_substeps": 4,
+            }
+        }
+    }
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    dumped = spec.to_dict()
+    restored = ArenaEnvGraphSpec.from_dict(dumped)
+
+    assert restored.embodiment.params["initial_pose"] == data["embodiment"]["params"]["initial_pose"]
+    assert restored.env_cfg_override == data["env_cfg_override"]
+
+
 def test_graph_spec_parses_radial_position_limits():
     """Graph specs preserve cylindrical position-limit parameters for relation construction."""
 

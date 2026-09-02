@@ -54,6 +54,10 @@ class ArenaEnvGraphSpec(BaseModel):
         default=None,
         description="Per-env placement validators; none runs all build-time checks.",
     )
+    env_cfg_override: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional validated Hydra override for the generated Isaac Lab environment configuration.",
+    )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
