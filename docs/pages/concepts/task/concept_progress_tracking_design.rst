@@ -30,8 +30,8 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
 * ``object_is_above_height`` — an object is above a fixed height or its recorded resting height.
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
-* ``object_on_destination`` and ``objects_on_destinations`` — contact and velocity checks for
-  placement goals.
+* ``object_on_destination`` and ``objects_on_destinations`` — destination-footprint, upward-support,
+  and velocity checks for placement goals.
 
 .. note::
 
@@ -102,7 +102,11 @@ a single three-predicate chain: settle, lift, then place.
                    partial(
                        object_on_destination,
                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                       destination_cfg=SceneEntityCfg(self.destination_location.name),
                        contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
+                       force_threshold=self.force_threshold,
+                       velocity_threshold=self.velocity_threshold,
+                       support_cone_half_angle_deg=self.support_cone_half_angle_deg,
                    ),
                ],
            )

@@ -45,12 +45,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         try:
             super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
         except Exception:
-            self._close_arena_world()
+            self._close_arena_world_if_initialized()
             raise
 
     @property
     def arena_world(self) -> ArenaWorld:
-        """The live Arena scene query facade."""
+        """The environment's live Arena scene queries and cached geometry."""
         assert (
             self._arena_world is not None
         ), "ArenaWorld is unavailable before managers are loaded or after the environment is closed."
@@ -79,16 +79,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             self.metrics_manager = MetricsManager(self.cfg.metrics, self)
             self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
         except Exception:
-            self._close_arena_world()
+            self._close_arena_world_if_initialized()
             raise
 
     def close(self) -> None:
         """Release Arena runtime state before closing the Isaac Lab environment."""
-        self._close_arena_world()
+        self._close_arena_world_if_initialized()
         super().close()
 
-    def _close_arena_world(self) -> None:
-        """Release ArenaWorld when it was created during environment initialization."""
+    def _close_arena_world_if_initialized(self) -> None:
+        """Close and discard ArenaWorld if it has been initialized."""
         arena_world = getattr(self, "_arena_world", None)
         if arena_world is not None:
             arena_world.close()

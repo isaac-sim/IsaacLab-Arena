@@ -106,8 +106,10 @@ def _compute_spawned_geometry_bounds_in_entity_frame(
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
-    lower_E_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
-    upper_E_by_environment = torch.empty_like(lower_E_by_environment)
+    minimum_points_in_entity_frame_by_environment = torch.empty(
+        (scene.num_envs, 3), dtype=torch.float32, device=scene.device
+    )
+    maximum_points_in_entity_frame_by_environment = torch.empty_like(minimum_points_in_entity_frame_by_environment)
     coverage_count = [0] * scene.num_envs
 
     for representative_prim, environment_ids in _get_spawned_entity_groups(
@@ -120,10 +122,14 @@ def _compute_spawned_geometry_bounds_in_entity_frame(
             if is_rigid_object
             else representative_prim
         )
-        geometry_bounds_E = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
+        geometry_bounds_in_entity_frame = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
-        lower_E_by_environment[environment_indices] = geometry_bounds_E.min_point[0]
-        upper_E_by_environment[environment_indices] = geometry_bounds_E.max_point[0]
+        minimum_points_in_entity_frame_by_environment[environment_indices] = geometry_bounds_in_entity_frame.min_point[
+            0
+        ]
+        maximum_points_in_entity_frame_by_environment[environment_indices] = geometry_bounds_in_entity_frame.max_point[
+            0
+        ]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
@@ -131,10 +137,13 @@ def _compute_spawned_geometry_bounds_in_entity_frame(
         f"Scene entity '{entity_name}' geometry must cover every environment exactly once; got coverage"
         f" {coverage_count}."
     )
-    return AxisAlignedBoundingBox(min_point=lower_E_by_environment, max_point=upper_E_by_environment)
+    return AxisAlignedBoundingBox(
+        min_point=minimum_points_in_entity_frame_by_environment,
+        max_point=maximum_points_in_entity_frame_by_environment,
+    )
 
 
-class _SceneExtraPoseReader:
+class _AssetBaseCfgPoseReader:
     """Read current poses for one named AssetBaseCfg scene entry."""
 
     def __init__(self, scene: InteractiveScene, entity_name: str):
@@ -179,7 +188,7 @@ class ArenaWorld:
     def __init__(self, scene: InteractiveScene):
         self._scene: InteractiveScene | None = scene
         self._local_aabbs: dict[str, AxisAlignedBoundingBox] = {}
-        self._scene_extra_pose_readers: dict[str, _SceneExtraPoseReader] = {}
+        self._asset_base_cfg_pose_readers: dict[str, _AssetBaseCfgPoseReader] = {}
 
     def get_pose_w(self, entity_name: str) -> torch.Tensor:
         """Return an entity's current world pose for every environment."""
@@ -195,9 +204,9 @@ class ArenaWorld:
         assert (
             entity_name in scene.extras
         ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
-        if entity_name not in self._scene_extra_pose_readers:
-            self._scene_extra_pose_readers[entity_name] = _SceneExtraPoseReader(scene, entity_name)
-        return self._scene_extra_pose_readers[entity_name].get_pose_w()
+        if entity_name not in self._asset_base_cfg_pose_readers:
+            self._asset_base_cfg_pose_readers[entity_name] = _AssetBaseCfgPoseReader(scene, entity_name)
+        return self._asset_base_cfg_pose_readers[entity_name].get_pose_w()
 
     def get_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
         """Return a rigid object's current world-frame linear velocity."""
@@ -221,7 +230,7 @@ class ArenaWorld:
     def close(self) -> None:
         """Release cached geometry, pose readers, and the live scene reference."""
         self._local_aabbs.clear()
-        self._scene_extra_pose_readers.clear()
+        self._asset_base_cfg_pose_readers.clear()
         self._scene = None
 
     def _get_scene(self) -> InteractiveScene:
