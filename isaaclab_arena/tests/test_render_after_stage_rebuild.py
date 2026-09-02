@@ -30,7 +30,7 @@ MAX_CHANGED_PIXEL_FRACTION = 0.10
 # Minimum per-image standard deviation, so a pair of blank renders cannot pass the comparison vacuously.
 MIN_IMAGE_STD = 1.0
 # Set True to dump the compared renders as PNGs into IMAGE_OUTPUT_DIR, which is created on demand.
-SAVE_IMAGES = True
+SAVE_IMAGES = False
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 
@@ -173,7 +173,7 @@ def test_render_after_stage_rebuild_without_fabric():
 # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Un-skip once the render after rebuild
 # bug is solved in Lab. Under GPU+Fabric every build after the first renders some geometry at the wrong
 # pose (the DROID gripper has been seen at the origin), which is what this test would catch.
-# @pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
+@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
 @pytest.mark.with_cameras
 def test_render_after_stage_rebuild_with_fabric():
     """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
