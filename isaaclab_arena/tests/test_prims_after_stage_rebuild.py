@@ -11,6 +11,9 @@ holds an identity ``omni:fabric:worldMatrix``. The render delegate reads that at
 left at identity is drawn at the world origin -- which is the mechanism behind the geometry that the
 render test sees at the wrong pose. Failing here names the offending prim paths directly, so it is
 the cheaper of the two to diagnose.
+
+Regression test for the Isaac Lab render-after-rebuild bug:
+https://github.com/isaac-sim/IsaacLab/issues/7472
 """
 
 import torch

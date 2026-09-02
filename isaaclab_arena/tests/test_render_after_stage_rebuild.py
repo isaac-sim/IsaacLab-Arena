@@ -3,7 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Regression coverage for camera rendering across an experiment-runner stage rebuild."""
+"""Regression coverage for camera rendering across an experiment-runner stage rebuild.
+
+Regression test for the Isaac Lab render-after-rebuild bug:
+https://github.com/isaac-sim/IsaacLab/issues/7472
+"""
 
 import os
 import torch
