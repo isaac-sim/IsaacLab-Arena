@@ -16,10 +16,10 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ArenaWorld:
-    """Provide name-based live scene queries and cache derived geometry.
+    """Provide name-based runtime access to rigid objects and scene extras.
 
-    Pose and geometry queries support entities registered in ``InteractiveScene.rigid_objects`` or
-    ``InteractiveScene.extras``. Root linear velocity queries support rigid objects only.
+    Poses are read live for both entity types. Rigid-object root linear velocities are also read live,
+    while spawned geometry is cached for the environment lifetime.
     """
 
     def __init__(self, scene: InteractiveScene):
