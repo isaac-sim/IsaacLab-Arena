@@ -10,6 +10,10 @@ HEADLESS = True
 
 def _test_object_initial_pose_update(simulation_app):
 
+    from isaaclab.sim.spawners.meshes.meshes_cfg import MeshCuboidCfg
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
@@ -26,6 +30,16 @@ def _test_object_initial_pose_update(simulation_app):
     # Now lets check that the initial pose has been updated and that the debug visualization is still disabled.
     assert rigid_object.get_initial_pose() == new_initial_pose
     assert rigid_object.object_cfg.debug_vis is False
+
+    source = Object(name="source", object_type=ObjectType.RIGID, spawner_cfg=MeshCuboidCfg(size=(0.1, 0.1, 0.1)))
+    destination = Object(
+        name="destination",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=MeshCuboidCfg(size=(0.1, 0.1, 0.1)),
+    )
+    contact_sensor_cfg = source.get_contact_sensor_cfg(contact_against_object=destination)
+    assert contact_sensor_cfg.prim_path == source.prim_path
+    assert contact_sensor_cfg.filter_prim_paths_expr == [destination.prim_path]
 
     return True
 
