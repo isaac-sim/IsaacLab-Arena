@@ -89,9 +89,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     def _close_arena_world_if_initialized(self) -> None:
         """Close and discard ArenaWorld if it has been initialized."""
-        arena_world = getattr(self, "_arena_world", None)
-        if arena_world is not None:
-            arena_world.close()
+        if self._arena_world is not None:
+            self._arena_world.close()
             self._arena_world = None
 
     def get_language_instruction(self) -> str | None:

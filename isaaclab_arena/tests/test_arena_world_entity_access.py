@@ -159,6 +159,24 @@ def _check_arena_world_reuses_asset_base_cfg_pose_reader(
     torch.testing.assert_close(T_W_E_second, pose_reader.T_W_E_values[1])
 
 
+def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> None:
+    """Check that a pose query reports ArenaWorld's supported scene categories."""
+
+    scene = SimpleNamespace(rigid_objects={}, extras={})
+    arena_world = arena_world_module.ArenaWorld(scene)
+
+    try:
+        arena_world.get_pose_w("robot")
+    except AssertionError as error:
+        assert (
+            str(error)
+            == "ArenaWorld pose queries support only entities registered in InteractiveScene.rigid_objects or "
+            "InteractiveScene.extras; 'robot' is registered in neither."
+        )
+    else:
+        raise AssertionError("ArenaWorld accepted an unsupported pose entity.")
+
+
 def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
     """Check FrameView construction and current ``T_W_E`` reads in environment row order."""
 
@@ -228,6 +246,7 @@ def _test_arena_world_entity_access(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
     )
     _check_arena_world_reuses_asset_base_cfg_pose_reader(arena_world, entity_access)
+    _check_arena_world_rejects_unsupported_pose_entity(arena_world)
     _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_access)
     return True
 

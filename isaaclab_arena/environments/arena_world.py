@@ -16,7 +16,11 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ArenaWorld:
-    """Provide name-based live scene queries and cache derived geometry."""
+    """Provide name-based live scene queries and cache derived geometry.
+
+    Pose and geometry queries support entities registered in ``InteractiveScene.rigid_objects`` or
+    ``InteractiveScene.extras``. Linear velocity queries support rigid objects only.
+    """
 
     def __init__(self, scene: InteractiveScene):
         self._scene: InteractiveScene | None = scene
@@ -37,9 +41,10 @@ class ArenaWorld:
             ), f"Rigid object '{entity_name}' returned pose shape {tuple(T_W_E.shape)}; expected ({scene.num_envs}, 7)."
             return T_W_E
 
-        assert (
-            entity_name in scene.extras
-        ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
+        assert entity_name in scene.extras, (
+            "ArenaWorld pose queries support only entities registered in InteractiveScene.rigid_objects or "
+            f"InteractiveScene.extras; '{entity_name}' is registered in neither."
+        )
         if entity_name not in self._asset_base_cfg_pose_readers:
             self._asset_base_cfg_pose_readers[entity_name] = entity_access.AssetBaseCfgPoseReader(scene, entity_name)
         return self._asset_base_cfg_pose_readers[entity_name].get_pose_w()
