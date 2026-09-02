@@ -109,9 +109,10 @@ def compute_spawned_geometry_bounds_in_entity_frame(
         One batched AABB aligned with frame ``E`` and measured from its origin.
         The bounds do not change when the entity's live pose changes.
     """
-    assert (
-        entity_name in scene.rigid_objects or entity_name in scene.extras
-    ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
+    assert entity_name in scene.rigid_objects or entity_name in scene.extras, (
+        "ArenaWorld geometry queries support only entities registered in InteractiveScene.rigid_objects or "
+        f"InteractiveScene.extras; '{entity_name}' is registered in neither."
+    )
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
