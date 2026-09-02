@@ -1,0 +1,50 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: droid_place_varied_fruit_on_plate
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: plate
+  registry_name: plate_large_vomp_robolab
+  params: {}
+object_sets:
+- id: fruit
+  members:
+  - apple_01_objaverse_robolab
+  - avocado01_fruits_veggies_robolab
+  - lemon_01_fruits_veggies_robolab
+  - orange_01_fruits_veggies_robolab
+  - pomegranate01_fruits_veggies_robolab
+  random_choice: false
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: fruit
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: maple_table
+  params: {}
+task:
+  composition: atomic
+  description: Pick up the fruit and place it on the plate.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: fruit
+      destination_location: plate
+      background_scene: maple_table
+      destination_object: plate
