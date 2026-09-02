@@ -40,6 +40,8 @@ class ArenaWorld:
             f"InteractiveScene.extras; '{entity_name}' is registered in neither."
         )
 
+        # Rigid objects expose live root state directly. Scene extras are plain cloned prims,
+        # so their live post-clone poses require a FrameView-backed reader.
         if is_rigid_object:
             T_W_E = scene.rigid_objects[entity_name].data.root_pose_w.torch
         else:
