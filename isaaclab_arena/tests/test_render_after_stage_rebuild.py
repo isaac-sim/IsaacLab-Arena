@@ -18,7 +18,6 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
-ENABLE_CAMERAS = True
 # Steps taken after reset before images are captured.
 NUM_STEPS = 30
 # Mean per-channel 0-255 difference tolerated per camera. Settled renders agree to well under this;
@@ -57,7 +56,7 @@ def _build_droid_env(disable_fabric: bool):
     )
     arena_env = IsaacLabArenaEnvironment(
         name="test_render_after_stage_rebuild",
-        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS),
+        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
         scene=scene,
     )
     cli_args = ["--num_envs", "1", "--enable_cameras"]
@@ -166,7 +165,7 @@ def test_render_after_stage_rebuild_without_fabric():
     assert run_function_with_persistent_simulation_app(
         partial(_test_render_after_stage_rebuild, disable_fabric=True),
         headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
+        enable_cameras=True,
         force_disable_fabric=True,
     )
 
@@ -181,7 +180,7 @@ def test_render_after_stage_rebuild_with_fabric():
     assert run_function_with_persistent_simulation_app(
         partial(_test_render_after_stage_rebuild, disable_fabric=False),
         headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
+        enable_cameras=True,
         # Opt out of the suite-wide override, which would otherwise build this variant Fabric-off too.
         force_disable_fabric=False,
     )

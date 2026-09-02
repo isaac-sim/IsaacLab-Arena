@@ -16,6 +16,7 @@ Regression test for the Isaac Lab render-after-rebuild bug:
 https://github.com/isaac-sim/IsaacLab/issues/7472
 """
 
+import numpy as np
 import torch
 from functools import partial
 
@@ -24,10 +25,6 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
-# Cameras must be enabled: that selects the rendering Kit experience, which is what turns the Fabric
-# Scene Delegate on. The plain headless experience sets ``app.useFabricSceneDelegate = false`` and
-# would not exercise the render path this bug lives on.
-ENABLE_CAMERAS = True
 # Stage builds performed in one process: the first build plus the rebuilds that follow it.
 NUM_BUILDS = 2
 # Steps taken after reset before transforms are compared.
@@ -35,20 +32,16 @@ NUM_STEPS = 5
 # Absolute tolerance on a matrix entry, both for calling a prim origin-placed and for calling its
 # Fabric matrix an identity.
 TRANSFORM_TOLERANCE = 1e-4
-IDENTITY_MATRIX = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0)
 # Minimum number of prims the comparison must actually reach, so a build that exposes no Fabric world
 # matrices at all cannot pass the check vacuously.
 MIN_PRIMS_COMPARED = 1
-# How many stale prim paths to name in a failure message.
-NUM_STALE_PRIMS_REPORTED = 8
 
 
 def _build_droid_env(disable_fabric: bool):
     """Build a single-env, camera-enabled DROID environment on a lit packing table.
 
     Args:
-        disable_fabric: Whether to build the environment on CPU with Fabric disabled, matching the
-            experiment-runner workaround.
+        disable_fabric: Whether to build on CPU with Fabric disabled.
     """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -66,7 +59,8 @@ def _build_droid_env(disable_fabric: bool):
     )
     arena_env = IsaacLabArenaEnvironment(
         name="test_prims_after_stage_rebuild",
-        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS),
+        # Enabling cameras turns on the Fabric Scene Delegate, the render path this bug lives on.
+        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
         scene=scene,
     )
     cli_args = ["--num_envs", "1", "--enable_cameras"]
@@ -139,14 +133,9 @@ def _prims_left_at_identity_in_fabric() -> tuple[list[str], int]:
         if max(abs(entry) for entry in usd_value[12:15]) <= TRANSFORM_TOLERANCE:
             continue
         num_prims_compared += 1
-        if max(abs(a - b) for a, b in zip(fabric_value, IDENTITY_MATRIX)) <= TRANSFORM_TOLERANCE:
+        if np.allclose(fabric_value, np.identity(4).flatten(), atol=TRANSFORM_TOLERANCE):
             stale_prim_paths.append(str(prim.GetPath()))
     return stale_prim_paths, num_prims_compared
-
-
-def _describe_build(build_index: int) -> str:
-    """Return a human-readable label for a build index."""
-    return "the first build" if build_index == 0 else f"rebuild {build_index}"
 
 
 def _test_prims_after_stage_rebuild(simulation_app, disable_fabric: bool) -> bool:
@@ -154,7 +143,7 @@ def _test_prims_after_stage_rebuild(simulation_app, disable_fabric: bool) -> boo
 
     stale_prim_paths_per_build: list[list[str]] = []
     num_prims_compared_per_build: list[int] = []
-    for _ in range(NUM_BUILDS):
+    for build_index in range(NUM_BUILDS):
         env = _build_droid_env(disable_fabric)
         try:
             _reset_and_step(env)
@@ -165,7 +154,7 @@ def _test_prims_after_stage_rebuild(simulation_app, disable_fabric: bool) -> boo
         stale_prim_paths_per_build.append(stale_prim_paths)
         num_prims_compared_per_build.append(num_prims_compared)
         print(
-            f"[{_describe_build(len(stale_prim_paths_per_build) - 1)}] "
+            f"[build {build_index}] "
             f"{len(stale_prim_paths)} of {num_prims_compared} off-origin prim(s) left at identity in Fabric.",
             flush=True,
         )
@@ -175,17 +164,13 @@ def _test_prims_after_stage_rebuild(simulation_app, disable_fabric: bool) -> boo
     # Fabric-off build has world matrices to compare too.
     for build_index, num_prims_compared in enumerate(num_prims_compared_per_build):
         assert num_prims_compared >= MIN_PRIMS_COMPARED, (
-            f"{_describe_build(build_index).capitalize()} exposed no off-origin prim with a Fabric world "
-            "matrix, so the comparison would pass vacuously. The Fabric Scene Delegate is likely not running."
+            f"Build {build_index} exposed no off-origin prim with a Fabric world matrix, so the comparison "
+            "would pass vacuously. The Fabric Scene Delegate is likely not running."
         )
     for build_index, stale_prim_paths in enumerate(stale_prim_paths_per_build):
-        reported_paths = ", ".join(stale_prim_paths[:NUM_STALE_PRIMS_REPORTED])
-        remaining_count = len(stale_prim_paths) - NUM_STALE_PRIMS_REPORTED
         assert not stale_prim_paths, (
-            f"{_describe_build(build_index).capitalize()} left {len(stale_prim_paths)} of "
-            f"{num_prims_compared_per_build[build_index]} off-origin prim(s) at an identity Fabric world "
-            f"matrix, so the render delegate draws them at the world origin: {reported_paths}"
-            + (f", and {remaining_count} more." if remaining_count > 0 else ".")
+            f"Build {build_index} left {len(stale_prim_paths)} of {num_prims_compared_per_build[build_index]} "
+            f"off-origin prim(s) at identity in Fabric, drawn at the origin: {', '.join(stale_prim_paths)}"
         )
     return True
 
@@ -196,7 +181,7 @@ def test_prims_after_stage_rebuild_without_fabric():
     assert run_function_with_persistent_simulation_app(
         partial(_test_prims_after_stage_rebuild, disable_fabric=True),
         headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
+        enable_cameras=True,
         force_disable_fabric=True,
     )
 
@@ -211,7 +196,7 @@ def test_prims_after_stage_rebuild_with_fabric():
     assert run_function_with_persistent_simulation_app(
         partial(_test_prims_after_stage_rebuild, disable_fabric=False),
         headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
+        enable_cameras=True,
         # Opt out of the suite-wide override, which would otherwise build this variant Fabric-off too.
         force_disable_fabric=False,
     )
